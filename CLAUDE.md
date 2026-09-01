@@ -94,14 +94,16 @@ lib/
   data/repositories/          routine / medication / dose_event
   data/services/              reminder_plan (pure: IDs, window, payload)
                               reminder_scheduler (engine → sink), reminder_sink
-  app/                        AppScope (services) + AppRoot (onboarding | today,
-                              opens ReminderScreen on notification tap)
+                              notification_actions (lock-screen «أخدته»/«فكّرني بعدين»)
+  app/                        AppScope (services), AppRoot (onboarding | today,
+                              opens ReminderScreen on tap), bootstrap.dart
+                              (buildServices + background action entry point)
   features/onboarding/        5 routine questions
   features/medication/        add medication (anchor chips + offset stepper)
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         135 passing
+test/                         144 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -176,6 +178,27 @@ Every app launch calls `rescheduleAll()`, which re-extends the window from the
 new "now". The cap applies on Android too: one behaviour on both platforms
 beats "works on my Android".
 
+**The window must renew without the app ever being opened.** The patient
+has no reason to open it — the app exists to remind *him*. At 48 pending and
+12 doses a day that is four days of coverage; on day five reminders would
+silently stop for exactly the person who needs them most. So every
+confirmation re-extends the window (`ReminderScheduler.afterConfirmation`:
+cancel the slot first — rule 5 — then `rescheduleAll()`), and the
+notification itself carries «أخدته» / «فكّرني بعدين» buttons. Those actions
+show no UI: the OS wakes the app in a background isolate and
+`onBackgroundNotificationAction` (`lib/app/bootstrap.dart`,
+`@pragma('vm:entry-point')`) opens the database, records the dose and
+re-emits the window. `NotificationActionHandler` is the testable core;
+`test/data/notification_actions_test.dart` drives a week of lock-screen
+confirmations with no widget pumped and asserts coverage keeps moving.
+
+**A dose confirmed early must not be re-scheduled.** 2:00 PM taken at 1:50 is
+still "in the future" by the clock. `planWindow` takes the set of done
+`(scheduleId, routineDay)` keys (`doneKey`, read from `dose_events`) and drops
+them; a grouped reminder keeps its remaining doses. The handler also
+materialises the day's events before marking, because «يومك» — which
+normally does that — may not have run that day.
+
 **Rescheduling only ever cancels inside its own band.** `ReminderScheduler`
 diffs the planned IDs against `pending()` and cancels the stale ones filtered
 through `isDoseId`. `cancelReminderAt(at)` is the one exception by design: it
@@ -220,6 +243,9 @@ elsewhere on this machine — always use the one on PATH after `.zshrc` setup.
 
 ## Current state
 
+**Phase 1 is complete and verified on a physical iPhone** — reminders fire
+with the app fully closed, offline, and across a reboot.
+
 **Done (Phase 1)**
 - Scheduling engine + tests (offsets, after-midnight bedtime, Ramadan,
   grouping, `once` repeat, open-ended duration, next-reminder, fixed times)
@@ -234,10 +260,15 @@ elsewhere on this machine — always use the one on PATH after `.zshrc` setup.
 - Notification tap → `ReminderScreen` (also on cold launch, waits for the
   routine to load). Payload = routine day + schedule IDs, never a time.
 - Snooze («فكّرني بعد ربع ساعة») in its own ID band
+- Notification action buttons («أخدته» / «فكّرني بعدين») handled in a
+  background isolate; every confirmation re-extends the window; early
+  confirmations are excluded from re-scheduling
 
 **Next**
-1. Verify on a real device with the app fully closed (`/device` checklist) —
-   nothing above has been exercised on hardware yet
+1. Re-run the `/device` checklist for the action buttons specifically: tap
+   «أخدته» on the lock screen with the app terminated, then check
+   `pending()` grew (Android background isolate + iOS category actions were
+   not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
 3. Phase 4 groundwork: escalation band, caregiver contact, the call

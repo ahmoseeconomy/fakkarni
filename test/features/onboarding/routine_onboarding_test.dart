@@ -56,6 +56,7 @@ void main() {
       scheduler: ReminderScheduler(
         routines: routines,
         medications: medications,
+        events: DoseEventRepository(db),
         patientId: patientId,
         sink: SilentSink(),
       ),

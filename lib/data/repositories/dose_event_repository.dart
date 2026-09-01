@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../db/app_database.dart';
 import '../dose_state.dart';
+import '../services/reminder_plan.dart' show doneKey;
 
 /// سطر جاهز للعرض في شاشة «يومك».
 class DoseEventView {
@@ -103,6 +104,24 @@ class DoseEventRepository {
           }(),
       ];
     });
+  }
+
+  /// مفاتيح الجرعات اللي اتقفلت (اتاخدت أو اتخطّت) من يوم [from] وامبارحه.
+  ///
+  /// الجدولة بتستخدمها عشان ما تعيدش تذكير على جرعة اتأكدت بدري. الجدول
+  /// صغير (بيت واحد)، فبنقرا الأحداث المقفولة ونصفّي في دارت.
+  Future<Set<String>> doneKeys({required DateTime from}) async {
+    final since = DateTime(from.year, from.month, from.day - 1);
+    final rows = await (_db.select(_db.doseEvents)
+          ..where(
+            (t) => t.state.isInValues([DoseState.taken, DoseState.skipped]),
+          ))
+        .get();
+    return {
+      for (final row in rows)
+        if (!row.routineDay.isBefore(since))
+          doneKey(row.doseScheduleId.toString(), row.routineDay),
+    };
   }
 
   Future<void> markTaken(int doseScheduleId, DateTime routineDay) =>

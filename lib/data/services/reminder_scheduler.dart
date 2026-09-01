@@ -1,4 +1,5 @@
 import '../../domain/scheduling/day_routine.dart';
+import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
 import '../repositories/routine_repository.dart';
 import 'reminder_plan.dart';
@@ -12,6 +13,7 @@ class ReminderScheduler {
   const ReminderScheduler({
     required this.routines,
     required this.medications,
+    required this.events,
     required this.patientId,
     this.patientIndex = 0,
     this.sink = const NotificationReminderSink(),
@@ -19,6 +21,9 @@ class ReminderScheduler {
 
   final RoutineRepository routines;
   final MedicationRepository medications;
+
+  /// عشان نعرف إيه اللي اتأكد خلاص وما نعيدش جدولته.
+  final DoseEventRepository events;
   final ReminderSink sink;
   final int patientId;
 
@@ -41,6 +46,9 @@ class ReminderScheduler {
       schedules: schedules,
       from: from,
       patientIndex: patientIndex,
+      // جرعة اتأكدت بدري لسه «قدام» بالساعة — من غير السطر ده كانت
+      // هتتجدول تاني وترن على حاجة اتعملت.
+      done: await events.doneKeys(from: from),
     );
 
     final plan = reconcile(planned, await sink.pendingIds());
@@ -65,6 +73,19 @@ class ReminderScheduler {
   Future<void> cancelReminderAt(DateTime at) async {
     await sink.cancel(notificationIdFor(at, patientIndex: patientIndex));
     await sink.cancel(snoozeIdFor(at, patientIndex: patientIndex));
+  }
+
+  /// المريض أكّد (خدها أو مش هياخدها): نسكّت الخانة **الأول**، وبعدين نمدّ
+  /// النافذة.
+  ///
+  /// الترتيب ده هو القاعدة الخامسة: التأكيد بيلغي التذكير في نفس اللحظة.
+  /// وإعادة الجدولة بعده هي اللي بتخلي التغطية تتجدد كل مرة يأكّد — من
+  /// الإشعار نفسه على شاشة القفل، من غير ما يفتح التطبيق أبداً. مريض على
+  /// ١٢ جرعة في اليوم عنده ٤ أيام في السقف؛ من غير ده كانت التذكيرات
+  /// بتقف في صمت يوم ٥ بالظبط للي محتاجها أكتر من أي حد.
+  Future<void> afterConfirmation(DateTime at, {DateTime? now}) async {
+    await cancelReminderAt(at);
+    await rescheduleAll(now: now);
   }
 
   /// «فكّرني بعد ربع ساعة» — تذكير واحد بعد [delay] بنفس المحتوى.

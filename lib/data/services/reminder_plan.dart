@@ -107,6 +107,13 @@ DateTime currentRoutineDay(DayRoutine routine, DateTime now) {
       : DateTime(now.year, now.month, now.day);
 }
 
+/// مفتاح «الجرعة دي في اليوم ده» — نفس مفتاح جدول الأحداث.
+///
+/// بيه بنعرف إيه اللي اتأكد خلاص عشان ما نعيدش جدولته: واحد خد جرعة ٢:٠٠ م
+/// الساعة ١:٥٠ لسه «قدام» بالساعة، بس خلاص بالنسبة له.
+String doneKey(String scheduleId, DateTime routineDay) =>
+    '$scheduleId|${routineDay.year}-${routineDay.month}-${routineDay.day}';
+
 /// تذكير جاهز للجدولة على الجهاز.
 class PlannedNotification {
   const PlannedNotification({
@@ -146,6 +153,10 @@ List<PlannedNotification> planWindow({
   int days = reminderWindowDays,
   int maxPending = maxPendingReminders,
   int patientIndex = 0,
+
+  /// الجرعات اللي اتأكدت خلاص (مفاتيح [doneKey]) — ما بتتجدولش تاني حتى
+  /// لو ساعتها لسه ما جاتش.
+  Set<String> done = const {},
 }) {
   // أرقام المريض بتلف كل [_dayCycle] يوم. نافذة أطول من كده معناها إن أول
   // يوم وآخر يوم ياخدوا نفس الرقم، والتذكير يمسح التاني في صمت.
@@ -160,8 +171,18 @@ List<PlannedNotification> planWindow({
     // والمُنشئ بيحسب بالساعة اللي المستخدم شايفها.
     final day = DateTime(from.year, from.month, from.day + offset);
 
-    for (final reminder in engine.remindersForDay(schedules, day)) {
-      if (!reminder.at.isAfter(from)) continue;
+    for (final full in engine.remindersForDay(schedules, day)) {
+      if (!full.at.isAfter(from)) continue;
+
+      // اللي اتأكد بدري بيتشال من التذكير؛ لو التذكير فضي خالص بيسقط.
+      final kept = [
+        for (final dose in full.doses)
+          if (!done.contains(doneKey(dose.id, day))) dose,
+      ];
+      if (kept.isEmpty) continue;
+      final reminder = kept.length == full.doses.length
+          ? full
+          : Reminder(at: full.at, doses: kept);
 
       final id = notificationIdFor(reminder.at, patientIndex: patientIndex);
       if (!seen.add(id)) continue;

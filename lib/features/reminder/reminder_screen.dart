@@ -89,14 +89,14 @@ class _ReminderScreenState extends State<ReminderScreen> {
           await services.events.markTaken(dose.doseScheduleId, widget.routineDay);
         }
         // فوراً وقبل أي حاجة تانية: التأكيد بيلغي التذكير في نفس اللحظة.
-        await services.scheduler.cancelReminderAt(doses.first.scheduledAt);
+        await services.scheduler.afterConfirmation(doses.first.scheduledAt);
       });
 
   Future<void> _skipped(List<DoseEventView> doses) => _act((services) async {
         for (final dose in doses) {
           await services.events.markSkipped(dose.doseScheduleId, widget.routineDay);
         }
-        await services.scheduler.cancelReminderAt(doses.first.scheduledAt);
+        await services.scheduler.afterConfirmation(doses.first.scheduledAt);
       });
 
   Future<void> _snooze(List<DoseEventView> doses) => _act((services) async {

@@ -6,6 +6,27 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+/// أزرار الإشعار — نفس المعرّفات على أندرويد وiOS.
+///
+/// المريض بيأكّد من شاشة القفل من غير ما يفتح التطبيق: النظام بيصحّي
+/// التطبيق في الخلفية، وإحنا بنسجّل الجرعة **ونمدّ نافذة التذكيرات** في
+/// نفس الصحوة. من غير كده التغطية كانت بتتجدد بس لما يفتح التطبيق — وهو
+/// معندوش سبب يفتحه؛ التطبيق موجود عشان يفكّره هو.
+abstract final class NotificationActions {
+  static const taken = 'taken';
+  static const snooze = 'snooze';
+
+  static const takenLabel = 'أخدته';
+  static const snoozeLabel = 'فكّرني بعدين';
+
+  static bool isAction(String? id) => id == taken || id == snooze;
+}
+
+/// بيتنده في الخلفية لما المستخدم يدوس زرار على الإشعار.
+typedef BackgroundActionHandler = Future<void> Function(
+  NotificationResponse response,
+);
+
 /// خدمة التذكيرات المحلية.
 ///
 /// كل التذكيرات بتتجدول **على الجهاز نفسه** — مش على سيرفر. يعني بتشتغل
@@ -22,6 +43,12 @@ class NotificationService {
   /// بيروح في اللا مكان والدوسة على الإشعار بتفتح التطبيق على أول شاشة بس.
   static final ValueNotifier<String?> lastPayload = ValueNotifier<String?>(null);
 
+  /// زرار على الإشعار والتطبيق مفتوح — بيتعالج هنا بخدمات التطبيق نفسها.
+  ///
+  /// شبكة أمان: الأزرار متعلّمة إنها ما بتفتحش واجهة، فالنظام بيبعتها
+  /// للخلفية حتى والتطبيق مفتوح. لو وصلت هنا برضه، بنعالجها بدل ما نضيّعها.
+  static void Function(String actionId, String? payload)? onAction;
+
   /// قناة الجرعات — أولوية عالية عشان تظهر فوق الشاشة وتصوّت.
   static const _doseChannel = AndroidNotificationChannel(
     'fakkarni_doses',
@@ -30,23 +57,45 @@ class NotificationService {
     importance: Importance.max,
   );
 
-  static Future<void> init() async {
+  /// فئة إشعار الجرعة على iOS — هي اللي بتحدد الأزرار.
+  ///
+  /// من غير `foreground` عن قصد: الزرار بيصحّي التطبيق في الخلفية بس، والمريض
+  /// بيفضل على شاشة القفل.
+  static final _doseCategory = DarwinNotificationCategory(
+    'fakkarni_dose',
+    actions: [
+      DarwinNotificationAction.plain(
+        NotificationActions.taken,
+        NotificationActions.takenLabel,
+      ),
+      DarwinNotificationAction.plain(
+        NotificationActions.snooze,
+        NotificationActions.snoozeLabel,
+      ),
+    ],
+  );
+
+  /// [onBackgroundAction] لازم يكون دالة عليا معلّمة `@pragma('vm:entry-point')`
+  /// — بتتنفذ في isolate منفصل والتطبيق ممكن يكون مقفول خالص.
+  static Future<void> init({BackgroundActionHandler? onBackgroundAction}) async {
     if (_initialised) return;
 
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation(await _deviceTimezone()));
 
     await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      settings: InitializationSettings(
+        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(
           // بنطلب الأذونات بأنفسنا في وقت مناسب، مش عند أول فتح
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
+          notificationCategories: [_doseCategory],
         ),
       ),
       onDidReceiveNotificationResponse: _onTap,
+      onDidReceiveBackgroundNotificationResponse: onBackgroundAction,
     );
 
     await _plugin
@@ -65,6 +114,11 @@ class NotificationService {
   }
 
   static void _onTap(NotificationResponse response) {
+    final action = response.actionId;
+    if (NotificationActions.isAction(action) && onAction != null) {
+      onAction!(action!, response.payload);
+      return;
+    }
     lastPayload.value = response.payload;
   }
 
@@ -141,9 +195,22 @@ class NotificationService {
           category: AndroidNotificationCategory.reminder,
           // ملاحظة: مش بنستخدم fullScreenIntent — جوجل بلاي بتقصره على
           // تطبيقات المكالمات والمنبّهات، واستخدامه بيعرّض المراجعة للرفض.
+          actions: const [
+            // showsUserInterface: false → بتتعالج في الخلفية من غير ما
+            // التطبيق يتفتح. الإشعار بيختفي بعد «أخدته» بس.
+            AndroidNotificationAction(
+              NotificationActions.taken,
+              NotificationActions.takenLabel,
+            ),
+            AndroidNotificationAction(
+              NotificationActions.snooze,
+              NotificationActions.snoozeLabel,
+            ),
+          ],
         ),
-        iOS: const DarwinNotificationDetails(
+        iOS: DarwinNotificationDetails(
           interruptionLevel: InterruptionLevel.timeSensitive,
+          categoryIdentifier: _doseCategory.identifier,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

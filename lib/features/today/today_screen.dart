@@ -87,8 +87,8 @@ class _TodayScreenState extends State<TodayScreen> {
     for (final dose in group) {
       await services.events.markTaken(dose.doseScheduleId, _routineDay);
     }
-    // التذكير ده خلاص — نلغيه عشان الموبايل ما يرنّش على حاجة اتعملت.
-    await services.scheduler.cancelReminderAt(group.first.scheduledAt);
+    // التذكير ده خلاص — نلغيه، ونمدّ النافذة بالخانة اللي فضيت.
+    await services.scheduler.afterConfirmation(group.first.scheduledAt);
   }
 
   Future<void> _markSkipped(List<DoseEventView> group) async {
@@ -96,7 +96,7 @@ class _TodayScreenState extends State<TodayScreen> {
     for (final dose in group) {
       await services.events.markSkipped(dose.doseScheduleId, _routineDay);
     }
-    await services.scheduler.cancelReminderAt(group.first.scheduledAt);
+    await services.scheduler.afterConfirmation(group.first.scheduledAt);
   }
 
   String? _ruleLabelFor(int doseScheduleId) {

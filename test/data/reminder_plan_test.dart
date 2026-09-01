@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
+import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
@@ -12,6 +13,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
 final normalDay = DayRoutine(
@@ -514,6 +516,56 @@ void main() {
     });
   });
 
+  group('اللي اتأكد بدري ما بيتجدولش تاني', () {
+    final concor = dose('Concor', DayAnchor.breakfast, offset: -30); // ٧:٠٠
+
+    test('جرعة اتاخدت الساعة ٦:٥٠ ما بترنّش ٧:٠٠', () {
+      final withoutDone = planWindow(
+        routine: normalDay,
+        schedules: [concor],
+        from: DateTime(2026, 8, 31, 6, 50),
+      );
+      expect(withoutDone.first.at, DateTime(2026, 8, 31, 7));
+
+      final planned = planWindow(
+        routine: normalDay,
+        schedules: [concor],
+        from: DateTime(2026, 8, 31, 6, 50),
+        done: {doneKey('Concor', aug31)},
+      );
+      expect(planned.first.at, DateTime(2026, 9, 1, 7));
+      // النهاردة اتأكد؛ الـ٦ أيام الباقية من النافذة زي ما هي
+      expect(planned.length, 6);
+    });
+
+    test('في تذكير مجمّع، اللي اتأكد بيتشال والباقي بيفضل', () {
+      final vitamin = dose('Vitamin', DayAnchor.breakfast, offset: -30);
+      final planned = planWindow(
+        routine: normalDay,
+        schedules: [concor, vitamin],
+        from: DateTime(2026, 8, 31, 6, 50),
+        done: {doneKey('Concor', aug31)},
+      );
+
+      expect(planned.first.at, DateTime(2026, 8, 31, 7));
+      expect(planned.first.doses.map((d) => d.id), ['Vitamin']);
+      expect(planned.first.body, 'Vitamin');
+      // تاني يوم الاتنين راجعين
+      expect(planned[1].doses.length, 2);
+    });
+
+    test('يوم تاني بنفس الجدول مش «اتأكد» — المفتاح باليوم', () {
+      final planned = planWindow(
+        routine: normalDay,
+        schedules: [concor],
+        from: DateTime(2026, 8, 31, 6, 50),
+        done: {doneKey('Concor', DateTime(2026, 9, 1))},
+      );
+      expect(planned.first.at, DateTime(2026, 8, 31, 7));
+      expect(planned[1].at, DateTime(2026, 9, 2, 7));
+    });
+  });
+
   group('المطابقة مع الجهاز', () {
     test('اللي مش مطلوب بيتلغي، والباقي بيتجدول', () {
       final planned = planWindow(
@@ -558,6 +610,7 @@ void main() {
       scheduler = ReminderScheduler(
         routines: routines,
         medications: meds,
+        events: DoseEventRepository(db),
         patientId: patientId,
         sink: sink,
       );
@@ -756,6 +809,40 @@ void main() {
       expect(sink.cancelled, isNotEmpty, reason: 'اللي فات اتلغى');
     });
 
+    test('تأكيد بدري عند السقف: الخانة ما بترجعش، والتغطية بتتمدّ واحدة قدام',
+        () async {
+      await addSixThriceDaily();
+      final events = DoseEventRepository(db);
+      await scheduler.rescheduleAll(now: aug31at6);
+
+      final firstId = notificationIdFor(DateTime(2026, 8, 31, 7));
+      expect(sink.scheduled.containsKey(firstId), isTrue);
+      final endBefore = sink.scheduled.values
+          .map((p) => p.at)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+
+      // خد جرعة ٧:٠٠ الساعة ٦:٥٠ — لسه «قدام» بالساعة
+      final schedules = await meds.activeSchedules(patientId);
+      final reminders = ScheduleEngine(normalDay).remindersForDay(schedules, aug31);
+      await events.materializeDay(aug31, reminders);
+      for (final d in reminders.first.doses) {
+        await events.markTaken(int.parse(d.id), aug31);
+      }
+      await scheduler.afterConfirmation(
+        DateTime(2026, 8, 31, 7),
+        now: DateTime(2026, 8, 31, 6, 50),
+      );
+
+      expect(sink.cancelled, contains(firstId));
+      expect(sink.scheduled.containsKey(firstId), isFalse,
+          reason: 'اتأكدت بدري — ما بترجعش');
+      expect(sink.scheduled.length, maxPendingReminders, reason: 'الخانة اتملت');
+      final endAfter = sink.scheduled.values
+          .map((p) => p.at)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+      expect(endAfter.isAfter(endBefore), isTrue, reason: 'التغطية اتمدّت');
+    });
+
     test('من غير روتين محفوظ بيستخدم الافتراضي بدل ما يسيبه من غير تذكير',
         () async {
       final fresh = AppDatabase(NativeDatabase.memory());
@@ -772,6 +859,7 @@ void main() {
 
       await ReminderScheduler(
         routines: freshRoutines,
+        events: DoseEventRepository(db),
         medications: freshMeds,
         patientId: freshPatient,
         sink: freshSink,

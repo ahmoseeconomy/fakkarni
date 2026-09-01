@@ -2,31 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_scope.dart';
+import 'app/bootstrap.dart';
 import 'app/root.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
 import 'data/db/connection.dart';
-import 'data/repositories/dose_event_repository.dart';
-import 'data/repositories/medication_repository.dart';
-import 'data/repositories/routine_repository.dart';
-import 'data/services/reminder_scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final db = AppDatabase(openConnection());
-  final routines = RoutineRepository(db);
-  final patientId = await routines.ensurePatient();
-  final patientIndex = await routines.patientIndex(patientId);
+  final services = await buildServices(db);
 
-  final medications = MedicationRepository(db);
-  final scheduler = ReminderScheduler(
-    routines: routines,
-    medications: medications,
-    patientId: patientId,
-    patientIndex: patientIndex,
-  );
+  // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
+  final actions = actionHandlerFor(services);
+  NotificationService.onAction =
+      (action, payload) => actions.handle(action, payload);
 
   // التذكيرات مهمة، بس مش مهمة لدرجة إن التطبيق ما يفتحش من غيرها.
   //
@@ -34,28 +26,18 @@ Future<void> main() async {
   // ولو ده حصل قبل runApp، المريض هيلاقي شاشة سودا بدل تطبيقه. الشاشات
   // نفسها بتطلب الإذن وبتعيد الجدولة بعد الأسئلة.
   try {
-    await NotificationService.init();
+    await NotificationService.init(
+      onBackgroundAction: onBackgroundNotificationAction,
+    );
 
     // كل فتحة للتطبيق بتعيد بناء النافذة: الجهاز ممكن يكون اتقفل يومين، أو
     // المستخدم عدّى نص الليل. الأرقام مشتقة من الوقت فالإعادة مش بتكرّر حاجة.
-    await scheduler.rescheduleAll();
+    await services.scheduler.rescheduleAll();
   } catch (error, stack) {
     debugPrint('التذكيرات مقدرتش تتجدول عند الفتح: $error\n$stack');
   }
 
-  runApp(
-    FakkarniApp(
-      services: AppServices(
-        db: db,
-        routines: routines,
-        medications: medications,
-        events: DoseEventRepository(db),
-        scheduler: scheduler,
-        patientId: patientId,
-        tapPayload: NotificationService.lastPayload,
-      ),
-    ),
-  );
+  runApp(FakkarniApp(services: services));
 }
 
 class FakkarniApp extends StatelessWidget {
