@@ -3,12 +3,17 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../data/care/care_circle_service.dart';
+import '../../data/care/caregiver_remote.dart';
+import '../care/caregiver_screen.dart';
 
 /// شاشة الابن: يكتب الكود اللي والده قاله في التليفون.
 class RedeemCodeScreen extends StatefulWidget {
-  const RedeemCodeScreen({required this.care, super.key});
+  const RedeemCodeScreen({required this.care, this.caregiver, super.key});
 
   final CareCircleService care;
+
+  /// بعد الربط الناجح: «افتح المتابعة» بيوصّل للنافذة على طول.
+  final CaregiverRemote? caregiver;
 
   @override
   State<RedeemCodeScreen> createState() => _RedeemCodeScreenState();
@@ -82,12 +87,41 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     style: TextStyle(fontSize: F.minBodySize, color: F.muted, height: 1.6),
                   ),
                   const SizedBox(height: F.gap),
-                  SizedBox(
-                    height: F.primaryButtonHeight,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('تمام'),
+                  if (widget.caregiver != null) ...[
+                    SizedBox(
+                      height: F.primaryButtonHeight,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pushReplacement(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                CaregiverScreen(remote: widget.caregiver!),
+                          ),
+                        ),
+                        child: const Text('افتح المتابعة'),
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                  ],
+                  SizedBox(
+                    height: widget.caregiver != null
+                        ? F.minTapTarget
+                        : F.primaryButtonHeight,
+                    child: widget.caregiver != null
+                        ? TextButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            child: const Text(
+                              'تمام',
+                              style: TextStyle(
+                                fontSize: F.minBodySize,
+                                fontWeight: FontWeight.w600,
+                                color: F.green,
+                              ),
+                            ),
+                          )
+                        : FilledButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            child: const Text('تمام'),
+                          ),
                   ),
                 ]
               : [

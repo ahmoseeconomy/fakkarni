@@ -298,8 +298,10 @@ class _TodayScreenState extends State<TodayScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) =>
-                            SignInScreen(auth: AppScope.of(context).auth),
+                        builder: (_) => SignInScreen(
+                          auth: AppScope.of(context).auth,
+                          caregiver: AppScope.of(context).caregiver,
+                        ),
                       ),
                     ),
                     child: const Text(

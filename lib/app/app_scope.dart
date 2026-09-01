@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../ai/prescription_reader.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
+import '../data/care/caregiver_remote.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/dose_event_repository.dart';
@@ -26,6 +27,7 @@ class AppServices {
     this.prescriptionReader,
     this.auth,
     this.care,
+    this.caregiver,
     this.sync,
   });
 
@@ -52,6 +54,9 @@ class AppServices {
 
   /// دائرة الرعاية — نفس شرط الهوية، ونفس الغياب الهادي.
   final CareCircleService? care;
+
+  /// نافذة الابن — قراءة مباشرة من السحابة، مفيش نسخة محلية.
+  final CaregiverRemote? caregiver;
 
   /// المزامنة — اتجاه واحد، صامتة، والمستخدم مش المفروض يعرف إنها موجودة.
   final SyncService? sync;

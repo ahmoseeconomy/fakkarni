@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../care/care_circle_service.dart';
+import '../care/caregiver_remote.dart';
 import '../care/supabase_care_circle_service.dart';
+import '../care/supabase_caregiver_remote.dart';
 import '../sync/supabase_sync_remote.dart';
 import '../sync/sync_service.dart';
 import 'anonymous_auth_service.dart';
@@ -51,6 +53,7 @@ class SupabaseAuthConfig {
 typedef CloudServices = ({
   AuthService auth,
   CareCircleService care,
+  CaregiverRemote caregiver,
   SyncRemote syncRemote,
 });
 
@@ -76,6 +79,7 @@ Future<CloudServices?> initSupabaseAuth() async {
     return (
       auth: AnonymousAuthService(supabase.client),
       care: SupabaseCareCircleService(supabase.client),
+      caregiver: SupabaseCaregiverRemote(supabase.client),
       syncRemote: SupabaseSyncRemote(supabase.client),
     );
   } catch (error, stack) {

@@ -33,6 +33,7 @@ Future<void> main() async {
     db,
     auth: cloud?.auth,
     care: cloud?.care,
+    caregiver: cloud?.caregiver,
     sync: sync,
   );
 

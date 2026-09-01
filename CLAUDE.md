@@ -127,13 +127,15 @@ lib/
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
+  features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
+                              read-only window, straight from Supabase
   data/auth/                  AuthService interface + GoogleAuthService +
                               supabase_init (the only supabase/google imports)
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         245 passing
+test/                         252 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -367,6 +369,22 @@ Never a timer, never an error surfaced to the user. Wire times are UTC ISO.
 the chain** — an intermediate normalization builds tomorrow's shape from
 yesterday's columns and breaks old upgrade paths (bitten twice now).
 
+**The son's side never resolves anchors** (round 3.5). Resolving needs
+the father's routine plus the engine — a second scheduler that can silently
+disagree with the real one. The father's device is the only scheduler; the
+caregiver view (`lib/features/care/`, data via `CaregiverRemote` in
+`lib/data/care/`) renders only what his device wrote onto `dose_events`
+(`scheduled_at` instants), or shows nothing. Enforced by
+`test/features/care/no_scheduling_imports_test.dart`. The screen reports,
+it does not judge: a past-due unconfirmed dose is «لسه ما اتأكدتش» in gold —
+never «فاتت», never red ("missed" is Phase 4's grace-window decision). The
+footer is «آخر تحديث من موبايل والدك» from the max server `updated_at` —
+deliberately not "last seen"; data changing proves nothing about the phone
+being alive. The linked patient is identified via the caregiver's own
+`care_relationships` rows, never by filtering `owner_id` client-side —
+RLS is the only scoping. Refresh: open, foreground, pull. No realtime, no
+timers; offline keeps the last snapshot visible under the agreed sentence.
+
 **The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
 hand in the SQL editor, order: 0001 → 0002 → tests). The publishable key
 ships in the binary, so every table has RLS enabled as its first statement
@@ -514,6 +532,14 @@ with the app fully closed, offline, and across a reboot.
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
   SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
+
+**Round 3.5 — the son's read-only view (built)**
+- `CaregiverRemote` + Supabase impl (linked patient via own
+  care_relationships, meds, 7 days of dose_events, max server updated_at);
+  `CaregiverScreen` (mockup 04 + week strip from 12): 7-day confirmed
+  counts, today's list with states verbatim, gold «لسه ما اتأكدتش»,
+  «آخر تحديث من موبايل والدك». Entry: «متابعة {الاسم}» on the link screen
+  + «افتح المتابعة» after redeem.
 
 **Round 3.4 — one-way sync, father's device → cloud (built)**
 - drift v6: `updated_at_ms`/`synced_at_ms` on every SyncIdentity table,

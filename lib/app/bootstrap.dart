@@ -9,6 +9,7 @@ import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
+import '../data/care/caregiver_remote.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
@@ -27,6 +28,7 @@ Future<AppServices> buildServices(
   AppDatabase db, {
   AuthService? auth,
   CareCircleService? care,
+  CaregiverRemote? caregiver,
   SyncService? sync,
 }) async {
   final routines = RoutineRepository(db);
@@ -52,6 +54,7 @@ Future<AppServices> buildServices(
     prescriptionReader: _readerFromEnvironment(),
     auth: auth,
     care: care,
+    caregiver: caregiver,
     sync: sync,
   );
 }

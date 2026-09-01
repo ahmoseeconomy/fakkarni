@@ -6,6 +6,8 @@ import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/auth/auth_service.dart';
 import '../../data/auth/supabase_init.dart';
+import '../../data/care/caregiver_remote.dart';
+import '../care/caregiver_screen.dart';
 import 'link_code_screen.dart';
 import 'redeem_code_screen.dart';
 
@@ -14,10 +16,13 @@ import 'redeem_code_screen.dart';
 /// «مش دلوقتي» بترجّع المستخدم لتطبيق كامل شغّال — الحساب للربط، مش شرط
 /// لأي حاجة تانية.
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({required this.auth, super.key});
+  const SignInScreen({required this.auth, this.caregiver, super.key});
 
   /// null = إعداد Supabase مش موجود، والشاشة بتقول ده بوضوح.
   final AuthService? auth;
+
+  /// لو فيه علاقة accepted، بيظهر «متابعة {الاسم}».
+  final CaregiverRemote? caregiver;
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
@@ -26,6 +31,7 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   StreamSubscription<FakkarniUser?>? _sub;
   FakkarniUser? _user;
+  CaregiverPatient? _followed;
   bool _busy = false;
   String? _error;
 
@@ -35,7 +41,17 @@ class _SignInScreenState extends State<SignInScreen> {
     _user = widget.auth?.currentUser;
     _sub = widget.auth?.authState.listen((user) {
       if (mounted) setState(() => _user = user);
+      if (user != null) _checkFollowed();
     });
+    if (_user != null) _checkFollowed();
+  }
+
+  /// فيه حد بنتابعه؟ فشل الشبكة هنا صامت — الزرار بس هو اللي مش بيظهر.
+  Future<void> _checkFollowed() async {
+    try {
+      final patient = await widget.caregiver?.linkedPatient();
+      if (mounted) setState(() => _followed = patient);
+    } catch (_) {}
   }
 
   @override
@@ -138,6 +154,27 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
               const SizedBox(height: 10),
+              if (_followed != null) ...[
+                SizedBox(
+                  height: F.primaryButtonHeight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CaregiverScreen(remote: widget.caregiver!),
+                      ),
+                    ),
+                    child: Text(
+                      'متابعة ${_followed!.name}',
+                      style: const TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               SizedBox(
                 height: F.primaryButtonHeight,
                 child: OutlinedButton(
@@ -146,11 +183,16 @@ class _SignInScreenState extends State<SignInScreen> {
                       : () {
                           final care = AppScope.of(context).care;
                           if (care == null) return;
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => RedeemCodeScreen(care: care),
-                            ),
-                          );
+                          Navigator.of(context)
+                              .push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => RedeemCodeScreen(
+                                    care: care,
+                                    caregiver: widget.caregiver,
+                                  ),
+                                ),
+                              )
+                              .then((_) => _checkFollowed());
                         },
                   child: const Text(
                     'عندي كود من والدي',
