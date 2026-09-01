@@ -159,8 +159,8 @@ void main() {
     await tester.tap(find.text('أخدته').first);
     await settle(tester);
 
-    // لسه موجودة — بعلامة صح وبهدوء
-    expect(find.textContaining('Antodine'), findsOneWidget);
+    // لسه موجودة على الشريط — بعلامة صح وبهدوء (والاسم كمان في «أدويتك»)
+    expect(find.textContaining('Antodine'), findsWidgets);
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.textContaining('أخدته ', skipOffstage: false), findsWidgets);
     expect(find.text('الجاية'), findsNothing);

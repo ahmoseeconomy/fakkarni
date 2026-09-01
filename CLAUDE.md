@@ -120,14 +120,15 @@ lib/
                               opens ReminderScreen on tap), bootstrap.dart
                               (buildServices + background action entry point)
   features/onboarding/        5 routine questions
-  features/medication/        add medication (anchor chips + offset stepper)
+  features/medication/        add medication (anchor chips + offset stepper);
+                              EditMedicationScreen — set the amount, stop (two-step)
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         200 passing
+test/                         209 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -336,7 +337,11 @@ with the app fully closed, offline, and across a reboot.
 - Editor accepts prefilled values and now has an optional amount field;
   the offset stepper follows the chip (30 before meals, 15 before sleep).
 - Unknown amount is non-blocking: saved as `amountUnknown`, surfaced on
-  «يومك» as «اسأل الصيدلي عن جرعة …» (no edit screen for it yet — see Next).
+  «يومك» as «اسأل الصيدلي عن جرعة …», which opens `EditMedicationScreen`.
+- «يومك» lists «أدويتك» (mockup 09 rows: name, amount · rule); each row
+  opens `EditMedicationScreen`: set the amount (the only place that clears
+  `amountUnknown`, by a value a human typed) or stop the medication —
+  two-step confirm, ink not red, `stopMedication` + `rescheduleAll`.
 - Model pinned to `gemini-3.6-flash` with a one-shot, loudly-logged fallback
   to `gemini-flash-latest` on `404 NOT_FOUND`.
 - Not yet done on hardware: a real handwritten prescription through the
@@ -345,10 +350,7 @@ with the app fully closed, offline, and across a reboot.
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune
    `maxWidth`/`imageQuality` and the prompt from what actually fails
-2. Edit a medication (set the amount the pharmacist gave, stop it) — the
-   «اسأل الصيدلي» line has nowhere to go yet, and `stopMedication` still has
-   no screen
-3. Re-run the `/device` checklist for the action buttons specifically: tap
+2. Re-run the `/device` checklist for the action buttons specifically: tap
    «أخدته» on the lock screen with the app terminated, then check
    `pending()` grew (Android background isolate + iOS category actions were
    not part of the first device pass)

@@ -5,6 +5,13 @@ import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../mappers.dart';
 
+/// دوا وجداوله مع بعض.
+class MedicationSummary {
+  MedicationSummary(this.medication, this.schedules);
+  final MedicationRow medication;
+  final List<DoseSchedule> schedules;
+}
+
 /// الأدوية وجرعاتها.
 class MedicationRepository {
   MedicationRepository(this._db);
@@ -138,6 +145,57 @@ class MedicationRepository {
           );
     }
     return id;
+  }
+
+  /// دوا واحد بجداوله — لشاشة التعديل.
+  Stream<MedicationRow?> watchMedication(int medicationId) =>
+      (_db.select(_db.medications)..where((t) => t.id.equals(medicationId)))
+          .watchSingleOrNull();
+
+  Future<List<DoseSchedule>> schedulesFor(int medicationId) async => _map(
+        await (_activeQueryAll()..where(_db.doseSchedules.medicationId.equals(medicationId))).get(),
+      );
+
+  JoinedSelectStatement<HasResultSet, dynamic> _activeQueryAll() =>
+      _db.select(_db.doseSchedules).join([
+        innerJoin(
+          _db.medications,
+          _db.medications.id.equalsExp(_db.doseSchedules.medicationId),
+        ),
+        leftOuterJoin(
+          _db.fixedTimings,
+          _db.fixedTimings.doseScheduleId.equalsExp(_db.doseSchedules.id),
+        ),
+      ]);
+
+  /// الأدوية الشغّالة، كل واحد بجداوله — لقايمة «أدويتك».
+  Stream<List<MedicationSummary>> watchActiveSummaries(int patientId) =>
+      _activeQuery(patientId).watch().map((rows) {
+        final byMed = <int, MedicationSummary>{};
+        for (final row in rows) {
+          final med = row.readTable(_db.medications);
+          final schedule = doseScheduleFromRow(
+            row.readTable(_db.doseSchedules),
+            med,
+            fixed: row.readTableOrNull(_db.fixedTimings),
+          );
+          byMed.putIfAbsent(med.id, () => MedicationSummary(med, [])).schedules.add(schedule);
+        }
+        return byMed.values.toList();
+      });
+
+  /// الجرعة زي ما الصيدلي قالها. نص فاضي = لسه مش معروفة.
+  ///
+  /// دي الحتة الوحيدة اللي بتقفل `amountUnknown` — بإيد إنسان، بقيمة كتبها.
+  Future<void> updateAmount(int medicationId, String? amountLabel) {
+    final text = amountLabel?.trim();
+    final unknown = text == null || text.isEmpty;
+    return (_db.update(_db.medications)..where((t) => t.id.equals(medicationId))).write(
+      MedicationsCompanion(
+        amountLabel: Value(unknown ? null : text),
+        amountUnknown: Value(unknown),
+      ),
+    );
   }
 
   /// بيوقف دوا — **بإيد إنسان وبس**.

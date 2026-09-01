@@ -10,7 +10,9 @@ import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../../data/repositories/medication_repository.dart';
 import '../medication/add_medication_screen.dart';
+import '../medication/edit_medication_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../scan/scan_prescription_screen.dart';
 import 'widgets/day_rail.dart';
@@ -42,6 +44,9 @@ class _TodayScreenState extends State<TodayScreen> {
   /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
   Stream<List<MedicationRow>>? _amountUnknown;
 
+  /// قايمة «أدويتك» — كل دوا بجداوله، والدوسة عليه بتفتح التعديل.
+  Stream<List<MedicationSummary>>? _summaries;
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -53,6 +58,7 @@ class _TodayScreenState extends State<TodayScreen> {
     final services = AppScope.of(context);
     _events = services.events.watchDay(_routineDay);
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
+    _summaries = services.medications.watchActiveSummaries(services.patientId);
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
     // فوراً، والإيقاف بيختفي، من غير ما حد يعمل refresh.
@@ -104,6 +110,12 @@ class _TodayScreenState extends State<TodayScreen> {
     }
     await services.scheduler.afterConfirmation(group.first.scheduledAt);
   }
+
+  void _openEdit(int medicationId) => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => EditMedicationScreen(medicationId: medicationId),
+        ),
+      );
 
   String? _ruleLabelFor(int doseScheduleId) {
     for (final schedule in _schedules) {
@@ -195,9 +207,20 @@ class _TodayScreenState extends State<TodayScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(top: F.gap),
                       child: _FollowUpPanel(
-                        lines: [for (final m in meds) 'اسأل الصيدلي عن جرعة ${m.name}'],
+                        items: [
+                          for (final m in meds)
+                            (label: 'اسأل الصيدلي عن جرعة ${m.name}', onTap: () => _openEdit(m.id)),
+                        ],
                       ),
                     );
+                  },
+                ),
+                StreamBuilder<List<MedicationSummary>>(
+                  stream: _summaries,
+                  builder: (context, snapshot) {
+                    final items = snapshot.data ?? const <MedicationSummary>[];
+                    if (items.isEmpty) return const SizedBox.shrink();
+                    return _MedicationList(items: items, onTap: (m) => _openEdit(m.medication.id));
                   },
                 ),
                 const SizedBox(height: F.gap),
@@ -280,13 +303,12 @@ class _TodayScreenState extends State<TodayScreen> {
 ///
 /// مجهول اتسجّل ونقدر نتابعه كويس؛ اللي مش كويس هو مجهول اتنسي في صمت.
 class _FollowUpPanel extends StatelessWidget {
-  const _FollowUpPanel({required this.lines});
+  const _FollowUpPanel({required this.items});
 
-  final List<String> lines;
+  final List<({String label, VoidCallback onTap})> items;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
           color: F.ivory,
           borderRadius: BorderRadius.circular(F.radius),
@@ -294,13 +316,106 @@ class _FollowUpPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final line in lines)
-              Text(
-                line,
-                style: const TextStyle(
-                  fontSize: F.minTextSize,
-                  color: F.muted,
-                  height: 1.6,
+            for (final item in items)
+              // الدوسة بتفتح التعديل — السؤال ليه مكان يتجاوب فيه.
+              InkWell(
+                onTap: item.onTap,
+                borderRadius: BorderRadius.circular(F.radius),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                  padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: 10),
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                        ),
+                      ),
+                      const Text(
+                        'اكتبها',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+}
+
+/// «أدويتك» — صف لكل دوا (المخطط 09): الاسم، والجرعة · القاعدة. الدوسة بتعدّل.
+class _MedicationList extends StatelessWidget {
+  const _MedicationList({required this.items, required this.onTap});
+
+  final List<MedicationSummary> items;
+  final void Function(MedicationSummary) onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: F.gap),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'أدويتك',
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              ),
+            ),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(F.radius),
+                    side: const BorderSide(color: F.line),
+                  ),
+                  child: InkWell(
+                    onTap: () => onTap(item),
+                    borderRadius: BorderRadius.circular(F.radius),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.medication.name,
+                                  style: const TextStyle(
+                                    fontSize: F.minBodySize,
+                                    fontWeight: FontWeight.w700,
+                                    color: F.ink,
+                                    fontFamily: F.monoFamily,
+                                    fontFamilyFallback: F.monoFallback,
+                                  ),
+                                ),
+                                Text(
+                                  [
+                                    item.medication.amountLabel ?? 'الجرعة مش معروفة',
+                                    item.schedules.map((s) => s.ruleLabel).join(' + '),
+                                  ].join(' · '),
+                                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'عدّل',
+                            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
