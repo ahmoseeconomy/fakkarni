@@ -45,6 +45,11 @@ class RoutineRepository {
             );
       });
 
+  /// صف المريض كامل — شاشة الربط محتاجة uuid والاسم.
+  Future<PatientRow?> getPatient(int patientId) =>
+      (_db.select(_db.patients)..where((t) => t.id.equals(patientId)))
+          .getSingleOrNull();
+
   /// بيرجّع المريض الوحيد، وبينشئه لو التطبيق لسه جديد.
   Future<int> ensurePatient({String name = 'أنا'}) async {
     final existing =

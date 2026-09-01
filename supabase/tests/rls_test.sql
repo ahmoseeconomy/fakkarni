@@ -190,6 +190,90 @@ begin
   if (select count(*) from public.dose_events) <> 0 then raise exception 'FAIL: revoked يقرأ الأحداث'; end if;
 end $$;
 
+-- ================================================== 3.3: بوابة كود الدعوة
+-- (ب) الآن في حالة revoked من القسم السابق — الكود الجديد يجب أن يعيده
+
+create temp table t_invite (code text);
+
+-- «أ» ينشئ كوداً كعميل
+call pg_temp.act_as('aaaaaaaa-0000-0000-0000-000000000001');
+insert into t_invite
+select public.create_invite('11111111-1111-1111-1111-111111111111');
+
+do $$
+begin
+  if (select length(code) from t_invite) <> 6 then
+    raise exception 'FAIL: الكود ليس ٦ أرقام';
+  end if;
+end $$;
+
+-- «أ» لا يستبدل كوده هو — لا تكون مقدّم رعاية لنفسك
+do $$
+begin
+  perform public.redeem_invite((select code from t_invite));
+  raise exception 'FAIL: أ استبدل كود نفسه';
+exception when others then
+  if sqlerrm not like '%own_code%' then
+    raise exception 'FAIL: توقعنا own_code، جاء: %', sqlerrm;
+  end if;
+end $$;
+
+-- «ب» يستبدله → العلاقة accepted ويقرأ بيانات «أ» من جديد
+call pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+do $$
+declare v_patient uuid;
+begin
+  v_patient := public.redeem_invite((select code from t_invite));
+  if v_patient <> '11111111-1111-1111-1111-111111111111' then
+    raise exception 'FAIL: redeem أعاد مريضاً غريباً';
+  end if;
+  if (select count(*) from public.patients)    <> 1 then raise exception 'FAIL: المستبدل لا يقرأ المريض'; end if;
+  if (select count(*) from public.medications) <> 1 then raise exception 'FAIL: المستبدل لا يقرأ الأدوية'; end if;
+end $$;
+
+-- الاستبدال الثاني لنفس الكود يفشل — الكود محروق
+do $$
+begin
+  perform public.redeem_invite((select code from t_invite));
+  raise exception 'FAIL: كود محروق اتقبل تاني';
+exception when others then
+  if sqlerrm not like '%invalid_code%' and sqlerrm not like '%already_linked%' then
+    raise exception 'FAIL: توقعنا invalid_code، جاء: %', sqlerrm;
+  end if;
+end $$;
+
+-- «ب» ما زال ممنوعاً من الإدخال المباشر في care_relationships
+do $$
+begin
+  insert into public.care_relationships (patient_uuid, caregiver_id, status)
+  values ('11111111-1111-1111-1111-111111111111',
+          'bbbbbbbb-0000-0000-0000-000000000002', 'accepted');
+  raise exception 'FAIL: إدخال مباشر في care_relationships نجح';
+exception when insufficient_privilege then null;
+end $$;
+
+-- كود منتهي الصلاحية يفشل بـinvalid_code
+call pg_temp.act_as('aaaaaaaa-0000-0000-0000-000000000001');
+delete from t_invite;
+insert into t_invite
+select public.create_invite('11111111-1111-1111-1111-111111111111');
+
+reset role;
+update public.invite_codes
+   set expires_at = now() - interval '1 minute'
+ where code = (select code from t_invite);
+
+call pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
+do $$
+begin
+  perform public.redeem_invite((select code from t_invite));
+  raise exception 'FAIL: كود منتهي اتقبل';
+exception when others then
+  if sqlerrm not like '%invalid_code%' and sqlerrm not like '%already_linked%' then
+    raise exception 'FAIL: توقعنا invalid_code للكود المنتهي، جاء: %', sqlerrm;
+  end if;
+end $$;
+
 reset role;
 select 'ALL RLS TESTS PASSED';
 

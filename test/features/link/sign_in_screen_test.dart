@@ -95,15 +95,16 @@ void main() {
     }
   });
 
-  screenTest('نجاح → رسالة الربط وزرار خروج', (tester) async {
-    // المجهول ملوش إيميل — الرسالة بتاعته مختلفة
+  screenTest('نجاح → طريقا الأب والابن وزرار خروج', (tester) async {
     auth.signedInUser = const FakkarniUser(id: 'anon-1', isAnonymous: true);
     await pumpSignIn(tester, service: auth);
 
     await tester.tap(find.text('اربط ابني'));
     await settle(tester);
 
-    expect(find.textContaining('اتربط الجهاز ده'), findsOneWidget);
+    // الدورين من البيانات: نفس الشاشة بتعرض الطريقين بعد الدخول
+    expect(find.widgetWithText(FilledButton, 'اعرض كود الربط'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'عندي كود من والدي'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'اربط ابني'), findsNothing);
 
     await tester.tap(find.text('تسجيل الخروج'));

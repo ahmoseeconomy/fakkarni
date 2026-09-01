@@ -133,7 +133,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         227 passing
+test/                         236 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -332,6 +332,23 @@ appears at startup, that is a bug by definition —
 - Out of scope so far: tables, RLS, sync, invite codes, care
   relationships, anonymous auth.
 
+**The one gate through the wall is `redeem_invite`** (round 3.3).
+`care_relationships` and `invite_codes` have NO insert/update policies —
+that absence is the security model: any INSERT policy would let a key
+holder who learned one patient_uuid grant himself an 'accepted' link.
+Creation and redemption happen only inside two SECURITY DEFINER functions
+(`create_invite` / `redeem_invite`, `search_path=''`, authenticated-only) —
+the redeemer under RLS can neither read the code row, insert the link, nor
+burn the code, and the function does all three atomically. Error tokens
+(`invalid_code` / `own_code` / `already_linked`) are mapped to Arabic in
+`lib/data/care/` — server text never renders. Roles emerge from data: a
+redeemer is a caregiver for that patient, a device with a local patient row
+is a patient; there is no role column. The only sync write so far is the
+patient row upsert (uuid, owner_id, name) right before showing a code.
+Known accepted risk: a 6-digit code space is brute-forceable in principle;
+mitigations today are the 15-minute expiry and one live code per patient —
+rate limiting is future work.
+
 **The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
 hand in the SQL editor, order: 0001 → 0002 → tests). The publishable key
 ships in the binary, so every table has RLS enabled as its first statement
@@ -472,6 +489,14 @@ with the app fully closed, offline, and across a reboot.
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
   SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
+
+**Round 3.3 — invite code + care circle (built)**
+- SQL: `invite_codes` + `create_invite`/`redeem_invite` (the one gate);
+  rls_test.sql extended and still the authority. Dart: `CareCircleService`
+  (interface + Supabase impl in lib/data/care/), father's huge 3-3 western
+  code screen, son's 6-digit redeem screen, patient-row upsert — the only
+  sync write. Device check: father shows code, son (simulator) redeems,
+  one accepted care_relationships row, code marked used.
 
 **Phase 3.1 — identity plumbing (built)**
 - `AuthService` + `AnonymousAuthService` (live) + `GoogleAuthService`

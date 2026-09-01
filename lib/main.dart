@@ -16,8 +16,9 @@ Future<void> main() async {
   final db = AppDatabase(openConnection());
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
   // إعداد ناقص، جلسة بايظة) بترجع null والتطبيق يفتح كامل زي ما هو.
-  final auth = await initSupabaseAuth();
-  final services = await buildServices(db, auth: auth);
+  final cloud = await initSupabaseAuth();
+  final services =
+      await buildServices(db, auth: cloud?.auth, care: cloud?.care);
 
   // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
   final actions = actionHandlerFor(services);

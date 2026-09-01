@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/auth/auth_service.dart';
 import '../../data/auth/supabase_init.dart';
+import 'link_code_screen.dart';
+import 'redeem_code_screen.dart';
 
 /// شاشة الدخول — بتتفتح من «اربط ابني» وبس، عمرها ما بتقف في وش حد.
 ///
@@ -63,6 +66,27 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  /// طريق الأب: صف المريض المحلي (uuid + اسم) → شاشة الكود.
+  Future<void> _showCode() async {
+    final services = AppScope.of(context);
+    final care = services.care;
+    if (care == null) return;
+    final navigator = Navigator.of(context);
+
+    final patient = await services.routines.getPatient(services.patientId);
+    if (patient == null || !mounted) return;
+
+    await navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => LinkCodeScreen(
+          care: care,
+          patientUuid: patient.uuid,
+          patientName: patient.name,
+        ),
+      ),
+    );
+  }
+
   Future<void> _signOut() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -103,10 +127,35 @@ class _SignInScreenState extends State<SignInScreen> {
             if (widget.auth == null)
               const _Panel(text: SupabaseAuthConfig.missingConfigMessage)
             else if (_user != null) ...[
-              _Panel(
-                text: _user!.email == null
-                    ? 'اتربط الجهاز ده. باقي الربط بييجي من موبايل ابنك.'
-                    : 'الحساب متوصّل: ${_user!.email}',
+              // الدورين من البيانات مش من الحساب: الأب بيطلع كوداً،
+              // والابن بيكتب كوداً — نفس الحساب، نفس الشاشة.
+              SizedBox(
+                height: F.primaryButtonHeight,
+                child: FilledButton(
+                  onPressed: _busy ? null : _showCode,
+                  child: const Text('اعرض كود الربط'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: F.primaryButtonHeight,
+                child: OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          final care = AppScope.of(context).care;
+                          if (care == null) return;
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => RedeemCodeScreen(care: care),
+                            ),
+                          );
+                        },
+                  child: const Text(
+                    'عندي كود من والدي',
+                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
               const SizedBox(height: F.gap),
               SizedBox(

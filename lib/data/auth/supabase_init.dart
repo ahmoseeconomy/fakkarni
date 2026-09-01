@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../care/care_circle_service.dart';
+import '../care/supabase_care_circle_service.dart';
 import 'anonymous_auth_service.dart';
 import 'auth_service.dart';
 
@@ -43,12 +45,15 @@ class SupabaseAuthConfig {
   }
 }
 
-/// بيجهّز Supabase ويرجّع خدمة الهوية — أو null لو الإعداد ناقص.
+/// خدمات السحابة مع بعض — الهوية ودائرة الرعاية فوق نفس العميل.
+typedef CloudServices = ({AuthService auth, CareCircleService care});
+
+/// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
 ///
 /// **عمره ما بيرمي وعمره ما بيعطّل الفتح**: التهيئة محلية (بتقرا الجلسة
 /// المحفوظة)، وتجديد التوكن بيحصل في الخلفية لوحده. لو حاجة فشلت —
 /// أوفلاين أو غيره — بنسجّل ونرجّع null، والتطبيق يكمّل زي ما هو.
-Future<AuthService?> initSupabaseAuth() async {
+Future<CloudServices?> initSupabaseAuth() async {
   final config = SupabaseAuthConfig.tryFromEnvironment();
   if (config == null) {
     debugPrint(SupabaseAuthConfig.missingConfigMessage);
@@ -62,7 +67,10 @@ Future<AuthService?> initSupabaseAuth() async {
     );
     // مجهول مؤقتاً — GoogleAuthService جاهز كشقيق ويتركّب هنا لما يرجع
     // للخطة (config.googleServerClientId مستني له).
-    return AnonymousAuthService(supabase.client);
+    return (
+      auth: AnonymousAuthService(supabase.client),
+      care: SupabaseCareCircleService(supabase.client),
+    );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا
     // عشان الهوية الاختيارية اتعبت.

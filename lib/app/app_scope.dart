@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../ai/prescription_reader.dart';
 import '../data/auth/auth_service.dart';
+import '../data/care/care_circle_service.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
@@ -23,6 +24,7 @@ class AppServices {
     this.tapPayload,
     this.prescriptionReader,
     this.auth,
+    this.care,
   });
 
   final AppDatabase db;
@@ -45,6 +47,9 @@ class AppServices {
   /// الهوية الاختيارية — null لو إعداد Supabase مش موجود، والتطبيق كامل
   /// من غيرها. بابها الوحيد «اربط ابني».
   final AuthService? auth;
+
+  /// دائرة الرعاية — نفس شرط الهوية، ونفس الغياب الهادي.
+  final CareCircleService? care;
 }
 
 class AppScope extends InheritedWidget {

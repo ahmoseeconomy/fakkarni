@@ -8,6 +8,7 @@ import '../ai/gemini_config.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
+import '../data/care/care_circle_service.dart';
 import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
 import '../data/repositories/dose_event_repository.dart';
@@ -21,7 +22,11 @@ import 'app_scope.dart';
 ///
 /// نفس الدالة بتتستخدم من `main` ومن صحوة الخلفية — عشان الاتنين يشوفوا
 /// نفس المريض ونفس خانة الإشعارات، ومفيش نسختين من المنطق تتفرّقا.
-Future<AppServices> buildServices(AppDatabase db, {AuthService? auth}) async {
+Future<AppServices> buildServices(
+  AppDatabase db, {
+  AuthService? auth,
+  CareCircleService? care,
+}) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
   final patientIndex = await routines.patientIndex(patientId);
@@ -44,6 +49,7 @@ Future<AppServices> buildServices(AppDatabase db, {AuthService? auth}) async {
     tapPayload: NotificationService.lastPayload,
     prescriptionReader: _readerFromEnvironment(),
     auth: auth,
+    care: care,
   );
 }
 
