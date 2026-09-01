@@ -13,6 +13,7 @@ import '../../domain/scheduling/schedule_engine.dart';
 import '../../data/repositories/medication_repository.dart';
 import '../medication/add_medication_screen.dart';
 import '../medication/edit_medication_screen.dart';
+import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../scan/scan_prescription_screen.dart';
 import 'widgets/day_rail.dart';
@@ -289,6 +290,26 @@ class _TodayScreenState extends State<TodayScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                // باب الهوية الوحيد في التطبيق كله — الحساب للربط، مش شرط.
+                SizedBox(
+                  height: F.primaryButtonHeight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            SignInScreen(auth: AppScope.of(context).auth),
+                      ),
+                    ),
+                    child: const Text(
+                      'اربط ابني',
+                      style: TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             );

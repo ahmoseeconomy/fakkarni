@@ -1,8 +1,9 @@
 # Fakkarni (فكرني) — Project Guide
 
 Arabic-first (RTL) medication reminder app for elderly patients in Egypt.
-Its differentiator: when a **critical** dose is missed, the app escalates and
-finally **places a real phone call** to the caregiver (the patient's adult child).
+Its differentiator: when a **critical** dose is missed, the app runs an
+**escalation ladder** that ends at the caregiver (the patient's adult child) —
+the patient is never left alone with a notification he already missed.
 
 Two users, different needs:
 - **The patient** — ~72 years old, reading glasses, uses the app under pressure.
@@ -53,8 +54,8 @@ These are product decisions, already settled. Do not "improve" them without aski
    not by editing five fields by hand.
 
 5. **A confirmation cancels escalation immediately, at any stage** — including
-   while the phone is already ringing. A few seconds of lag here means a
-   needless call, which is worse than a late one.
+   after the caregiver has already been alerted. A few seconds of lag here
+   means needlessly worrying the son, which is worse than a late alert.
 
 6. **No medical advice, ever.** Default offsets (30 min before food, 15 min
    before bed — one function, `defaultOffsetBefore(anchor)` in `domain/`,
@@ -124,11 +125,14 @@ lib/
                               EditMedicationScreen — set the amount, stop (two-step)
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
+  features/link/              SignInScreen — the one door to identity («اربط ابني»)
+  data/auth/                  AuthService interface + GoogleAuthService +
+                              supabase_init (the only supabase/google imports)
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         209 passing
+test/                         224 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -265,9 +269,96 @@ diffs the planned IDs against `pending()` and cancels the stale ones filtered
 through `isDoseId`. `cancelReminderAt(at)` is the one exception by design: it
 cancels the dose ID *and* the snooze ID of that single slot, because a
 confirmation must silence everything that slot could still ring. A missed
-critical dose calls for a phone call, and `cancelAll()` would silently take
+critical dose escalates to the caregiver, and `cancelAll()` would silently take
 that escalation down while merely rebuilding a routine — so it is never used. Any new feature that schedules notifications
 must claim a band and filter cancellations by it the same way.
+
+---
+
+## Phase 3 — identity (optional, NEVER a gate)
+
+The app is complete with no account: onboarding → scan → reminders all work
+offline forever. Identity exists only because escalation needs the son's
+phone. Its single door is «اربط ابني» on «يومك». If a sign-in screen ever
+appears at startup, that is a bug by definition —
+`test/app/root_test.dart` has a loudly-named guard test for it.
+
+- `lib/data/auth/` is the ONLY place allowed to import `supabase_flutter`
+  or `google_sign_in`. Everything else sees the `AuthService` interface
+  (`authState`, `currentUser`, `signInToLink`, `signOut`) and
+  `FakkarniUser` (with `isAnonymous` from the JWT `is_anonymous` claim —
+  unused yet, upgrade rounds will need it). The live implementation is
+  `AnonymousAuthService` (see «دين تقني»); `GoogleAuthService` is already
+  written as a dormant sibling, and **Apple arrives the same way** — a new
+  file on the same interface, never a refactor. Email OTP was removed from
+  the product entirely; do not rebuild it.
+- `signInToLink()` (currently `signInAnonymously`) is called from exactly
+  one line: the SignInScreen button handler. Never from `main()`, startup,
+  a splash, or an eager provider — a fresh install reaches «يومك» with NO
+  Supabase session. The guard test in `root_test.dart` runs with auth
+  *configured* and asserts zero sign-in calls and no session at launch, so
+  it cannot become trivially true.
+- Config via `--dart-define` only, like `GEMINI_API_KEY`: `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY`, `GOOGLE_SERVER_CLIENT_ID` (the Web client ID —
+  Supabase's audience), `GOOGLE_IOS_CLIENT_ID`. Missing → app runs fully,
+  the sign-in screen names what's missing. `initSupabaseAuth()` never
+  throws and never blocks startup; failures log and return null.
+- Errors reach the screen only as the four agreed Arabic states; user
+  cancellation is silent; an expired refresh token lands on signed-out
+  silently. Raw SDK strings never render.
+- `google_sign_in` is v7: `initialize()` once then `authenticate()`, which
+  throws `GoogleSignInException` with a code (`canceled` → silent). The API
+  was read from the installed source — keep doing that here.
+- Sign-out is local-scope on purpose (must work offline); server-side
+  revocation comes with the sessions round.
+- Out of scope so far: tables, RLS, sync, invite codes, care
+  relationships, anonymous auth.
+
+---
+
+## دين تقني
+
+Debts we took on knowingly. Each one blocks something specific — check this
+list before any store submission.
+
+### Decision: phone calls are cancelled (not deferred)
+
+Automated voice calls to the caregiver are **out of the product**. Decided
+deliberately, not forgotten — do not reintroduce them, and do not propose
+them in a plan without the owner asking first.
+
+Why: a paid telephony provider working in Egypt, per-call cost, Arabic TTS,
+DTMF confirmation and call-state webhooks were the single largest source of
+risk and delay in the plan, for a feature that could not ship free.
+
+What replaces it: escalation ends at a **push notification to the caregiver**.
+
+What this costs us, stated honestly so nobody is surprised later: push is the
+same channel the patient already missed, so the ladder is weaker than a call.
+That makes the mechanics of the caregiver alert load-bearing — see the
+escalation rules below. It is not "just another notification"; it is the last
+rung, and it must behave like one.
+
+Consequences to handle:
+- The executive plan given to management describes a **paid subscription for
+  the calls feature**. That subscription now has no feature behind it. The
+  plan document needs updating before it is shown again.
+- `escalations.channel` stays in the schema with value `push`. It is a
+  generic audit column, not a placeholder for calls.
+- iOS **Critical Alerts** entitlement (bypasses silent mode and Focus) is now
+  the only remaining way to make the caregiver alert harder to miss. It needs
+  Apple's approval and the paid developer account. Request it before launch.
+
+1. **Anonymous sign-in is a development stand-in ONLY.** An anonymous user
+   is bound to one device and is lost when app data is cleared. It must be
+   upgraded via `linkIdentity` to Google before any store submission.
+   **Shipping with anonymous auth is forbidden.**
+2. **Sign in with Apple is mandatory before any iOS App Store submission**
+   once Google is offered (Guideline 4.8). Blocked until the paid Apple
+   Developer account exists. It lands as a sibling `AuthService` file.
+3. **Huawei / no-GMS devices cannot use Google Sign-In** — a real segment
+   in Egypt. May require adding an email provider later; `AuthService`
+   must stay open to it (which is why the interface is provider-neutral).
 
 ---
 
@@ -347,6 +438,12 @@ with the app fully closed, offline, and across a reboot.
 - Not yet done on hardware: a real handwritten prescription through the
   live API — that is where the image-size numbers and the prompt get tuned.
 
+**Phase 3.1 — identity plumbing (built)**
+- `AuthService` + `AnonymousAuthService` (live) + `GoogleAuthService`
+  (dormant sibling); `SignInScreen` behind «اربط ابني»; guard tests prove
+  auth is not a gate. Real-device check: tap «اربط ابني» with
+  SUPABASE_URL/SUPABASE_ANON_KEY set → user appears in Supabase Auth.
+
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune
    `maxWidth`/`imageQuality` and the prompt from what actually fails
@@ -356,7 +453,7 @@ with the app fully closed, offline, and across a reboot.
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Phase 4 groundwork: escalation band, caregiver contact, the call
+3. Phase 4 groundwork: escalation band, caregiver contact, the ladder
 
 ---
 

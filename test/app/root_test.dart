@@ -11,9 +11,11 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
+import 'package:fakkarni/data/auth/auth_service.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
+import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
@@ -104,6 +106,56 @@ void main() {
   String payloadFor(List<String> ids) =>
       encodePayloadFor(DateTime(2026, 8, 31), ids);
 
+  // ⚠️ حارس «الهوية مش بوابة». لو الاختبار ده وقع فحد حط دخول في وش
+  // المستخدم عند الفتح — وده ممنوع بنص CLAUDE.md: التطبيق كامل من غير
+  // حساب، وباب الدخول الوحيد «اربط ابني». صحّح التصميم، متصحّحش الاختبار.
+  screenTest('حارس: الفتح من غير أي جلسة بيدخل على التطبيق نفسه، مش على شاشة دخول',
+      (tester) async {
+    // الهوية **متظبطة وموجودة** — وبرضه ولا جلسة ولا نداء دخول عند الفتح.
+    // لو الحارس ده بقى صحيح-تلقائياً لأن جلسة بتتعمل دايماً، يبقى اتشال.
+    final fakeAuth = _CountingAuth();
+    services = AppServices(
+      db: services.db,
+      routines: services.routines,
+      medications: services.medications,
+      events: services.events,
+      scheduler: services.scheduler,
+      patientId: services.patientId,
+      tapPayload: tap,
+      auth: fakeAuth,
+    );
+    await routines.saveRoutine(services.patientId, normalDay);
+    await pumpRoot(tester);
+
+    expect(find.byType(TodayScreen), findsOneWidget);
+    expect(find.byType(SignInScreen), findsNothing);
+    expect(fakeAuth.signInCalls, 0, reason: 'signInToLink من الزرار وبس');
+    expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
+    // وكل حاجة أساسية موجودة وشغّالة
+    expect(find.text('ضيف دوا'), findsOneWidget);
+    expect(find.text('صوّر روشتة'), findsOneWidget);
+  });
+
+  screenTest('حارس: «اربط ابني» → «مش دلوقتي» بترجّع لـ«يومك» كاملة', (tester) async {
+    await routines.saveRoutine(services.patientId, normalDay);
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpRoot(tester);
+
+    await tester.tap(find.text('اربط ابني'));
+    await settle(tester);
+    expect(find.byType(SignInScreen), findsOneWidget);
+
+    await tester.tap(find.text('مش دلوقتي'));
+    await settle(tester);
+
+    expect(find.byType(TodayScreen), findsOneWidget);
+    expect(find.text('ضيف دوا'), findsOneWidget);
+    expect(find.text('عدّل يومك'), findsOneWidget);
+  });
+
   screenTest('من غير روتين → الأسئلة الأول', (tester) async {
     await pumpRoot(tester);
     expect(find.byType(RoutineOnboardingScreen), findsOneWidget);
@@ -150,4 +202,18 @@ void main() {
     expect(find.byType(ReminderScreen), findsNothing);
     expect(tap.value, isNull);
   });
+}
+
+/// بيعدّ نداءات الدخول — الحارس بيثبت إنها صفر عند الفتح.
+class _CountingAuth implements AuthService {
+  int signInCalls = 0;
+
+  @override
+  Stream<FakkarniUser?> get authState => Stream.value(null);
+  @override
+  FakkarniUser? get currentUser => null;
+  @override
+  Future<void> signInToLink() async => signInCalls++;
+  @override
+  Future<void> signOut() async {}
 }

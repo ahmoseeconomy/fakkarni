@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_scope.dart';
 import 'app/bootstrap.dart';
+import 'data/auth/supabase_init.dart';
 import 'app/root.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/theme/tokens.dart';
@@ -13,7 +14,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final db = AppDatabase(openConnection());
-  final services = await buildServices(db);
+  // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
+  // إعداد ناقص، جلسة بايظة) بترجع null والتطبيق يفتح كامل زي ما هو.
+  final auth = await initSupabaseAuth();
+  final services = await buildServices(db, auth: auth);
 
   // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
   final actions = actionHandlerFor(services);
