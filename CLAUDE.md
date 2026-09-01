@@ -40,9 +40,15 @@ These are product decisions, already settled. Do not "improve" them without aski
    scheduled dose without an explicit tap on a confirmation screen. On that
    screen, "أعدّل" carries the same visual weight as "تمام" — never nudge
    someone into confirming a medication schedule they have not read.
-   «تمام» stays disabled while any line is «محتاج تحديد»; a «١×٣» line with
-   no meal named is always flagged, whatever confidence the model reports,
-   because spreading it over three meals is our convention, not the paper's.
+   Unknowns split into **blocking** and **non-blocking**: an unclear *name
+   or timing* blocks «تمام» (nothing to schedule); an unknown *amount* does
+   not — it stays gold with its note, «تمام» proceeds with a quiet
+   «هتتحفظ من غير الجرعة — تقدر تضيفها بعدين», and the row is saved with
+   `amountLabel = null, amountUnknown = true`, which «يومك» surfaces as
+   «اسأل الصيدلي عن جرعة …». Never invent a value to unblock a button; never
+   forget an unknown silently either. A «١×٣» line with no meal named is
+   always flagged, whatever confidence the model reports, because spreading
+   it over three meals is our convention, not the paper's.
    «صوّر تاني» is always offered — a bad read is fixed by a better photo,
    not by editing five fields by hand.
 
@@ -51,7 +57,9 @@ These are product decisions, already settled. Do not "improve" them without aski
    needless call, which is worse than a late one.
 
 6. **No medical advice, ever.** Default offsets (30 min before food, 15 min
-   before bed) are editable operational conventions, not clinical guidance. If a
+   before bed — one function, `defaultOffsetBefore(anchor)` in `domain/`,
+   used by both the editor and the Gemini reader) are editable operational
+   conventions, not clinical guidance. If a
    prescription line is unclear the answer is "مش متأكد — اسأل الصيدلي",
    never a confident guess. The app never suggests, changes or stops a drug.
 
@@ -101,8 +109,9 @@ lib/
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v3: patients, day_routines, medications,
-                              dose_schedules (timing_kind), fixed_timings, dose_events
+  data/db/                    drift (SQLite) v4: patients, day_routines, medications
+                              (amount_unknown), dose_schedules (timing_kind),
+                              fixed_timings, dose_events
   data/repositories/          routine / medication / dose_event
   data/services/              reminder_plan (pure: IDs, window, payload)
                               reminder_scheduler (engine → sink), reminder_sink
@@ -118,7 +127,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         184 passing
+test/                         200 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -147,6 +156,16 @@ new users… use models/gemini-3.6-flash"). Override without a code change via
 `--dart-define=GEMINI_MODEL=…`. When a scan fails, the logged
 `Gemini: HTTP <status>: <body>` line is the source of truth — read it before
 touching the request shape; our memory of which model exists is not.
+
+**Pinned, with a loud fallback.** A medication reader must not change its
+extraction behaviour silently, so the model stays pinned. But a 404 mid-demo
+is worse than a behaviour shift: on `404` + `NOT_FOUND` the reader retries
+**once** against `GeminiConfig.defaultFallbackModel` (`gemini-flash-latest`,
+override `--dart-define=GEMINI_FALLBACK_MODEL=…`), logs
+`Gemini: WARNING pinned model … retired`, and tags the reading with
+`modelWarning`, which the review screen shows in debug builds. That warning
+is the signal to re-pin deliberately. A `400` never triggers the fallback —
+masking a schema rejection is exactly the silent shift being guarded against.
 
 **Image quality beats prompt tuning.** Handwriting dies first under
 downscaling. `pickWithSystemCamera` uses `maxWidth/maxHeight 2560,
@@ -314,14 +333,22 @@ with the app fully closed, offline, and across a reboot.
   to the scan screen so both sources are offered again, never auto-opening
   the camera.
   «تمام» writes each clear line (one schedule per timing) then `rescheduleAll`.
-- Editor accepts prefilled values and now has an optional amount field.
+- Editor accepts prefilled values and now has an optional amount field;
+  the offset stepper follows the chip (30 before meals, 15 before sleep).
+- Unknown amount is non-blocking: saved as `amountUnknown`, surfaced on
+  «يومك» as «اسأل الصيدلي عن جرعة …» (no edit screen for it yet — see Next).
+- Model pinned to `gemini-3.6-flash` with a one-shot, loudly-logged fallback
+  to `gemini-flash-latest` on `404 NOT_FOUND`.
 - Not yet done on hardware: a real handwritten prescription through the
   live API — that is where the image-size numbers and the prompt get tuned.
 
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune
    `maxWidth`/`imageQuality` and the prompt from what actually fails
-2. Re-run the `/device` checklist for the action buttons specifically: tap
+2. Edit a medication (set the amount the pharmacist gave, stop it) — the
+   «اسأل الصيدلي» line has nowhere to go yet, and `stopMedication` still has
+   no screen
+3. Re-run the `/device` checklist for the action buttons specifically: tap
    «أخدته» on the lock screen with the app terminated, then check
    `pending()` grew (Android background isolate + iOS category actions were
    not part of the first device pass)

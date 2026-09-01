@@ -60,6 +60,11 @@ class Medications extends Table {
       integer().references(Patients, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text().withLength(min: 1, max: 120)();
   TextColumn get amountLabel => text().nullable()();
+
+  /// الورقة ما قالتش الجرعة. مسجّل عشان نسأل عنه بعدين — مجهول اتكتب
+  /// ونقدر نتابعه كويس؛ مجهول اتنسي في صمت لأ.
+  BoolColumn get amountUnknown =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
 
   /// null معناها الدوا لسه شغّال.

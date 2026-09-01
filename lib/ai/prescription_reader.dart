@@ -39,9 +39,11 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   final GeminiConfig config;
   final http.Client _client;
 
-  Uri get endpoint => Uri.https(
+  Uri get endpoint => endpointFor(config.model);
+
+  Uri endpointFor(String model) => Uri.https(
         'generativelanguage.googleapis.com',
-        '/v1beta/models/${config.model}:generateContent',
+        '/v1beta/models/$model:generateContent',
       );
 
   @override
@@ -49,31 +51,58 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     Uint8List image, {
     String mimeType = 'image/jpeg',
   }) async {
-    final http.Response response;
+    final body = jsonEncode(_request(image, mimeType));
+
+    var response = await _post(config.model, body);
+    var raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+    String? warning;
+
+    // الموديل المثبّت اتقفل؟ مرة واحدة على البديل، وبصوت عالي.
+    // ٤٠٠ (مشكلة schema) **ما بيعملش** ده — الإخفاء هنا هو بالظبط تغيّر
+    // السلوك اللي بنحمي منه.
+    if (_isRetired(response.statusCode, raw)) {
+      warning = 'الموديل المثبّت ${config.model} اتقفل — '
+          'القراءة جت من ${config.fallbackModel}. ثبّت تاني بإيدك. '
+          '(${_excerpt(raw, 200)})';
+      debugPrint('Gemini: WARNING pinned model ${config.model} retired: '
+          '${_excerpt(raw, 200)} — retrying once with ${config.fallbackModel}');
+      response = await _post(config.fallbackModel, body);
+      raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+    }
+
+    if (response.statusCode != 200) {
+      // السبب الحقيقي بيتسجّل هنا — مش بنخمّن. المفتاح عمره ما بيتطبع.
+      final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}'
+          '${warning == null ? '' : ' (after fallback ${config.fallbackModel})'}';
+      debugPrint('Gemini: $cause');
+      throw PrescriptionReadException('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.', cause);
+    }
+
+    final reading = _parse(raw);
+    return warning == null ? reading : reading.withModelWarning(warning);
+  }
+
+  Future<http.Response> _post(String model, String body) async {
     try {
-      response = await _client.post(
-        endpoint,
+      return await _client.post(
+        endpointFor(model),
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': config.apiKey,
         },
-        body: jsonEncode(_request(image, mimeType)),
+        body: body,
       );
     } catch (error) {
       debugPrint('Gemini: transport: $error');
       throw PrescriptionReadException('مفيش نت دلوقتي — جرّب تاني بعد شوية.', error);
     }
+  }
 
-    // utf8 صراحة: الرد فيه عربي، وترميز http الافتراضي latin1 لو الهيدر ناقص.
-    final raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+  /// ٤٠٤ ونصه بيقول NOT_FOUND — ده تقاعد موديل، مش مسار غلط.
+  static bool _isRetired(int status, String body) =>
+      status == 404 && body.contains('NOT_FOUND');
 
-    if (response.statusCode != 200) {
-      // السبب الحقيقي بيتسجّل هنا — مش بنخمّن. المفتاح عمره ما بيتطبع.
-      final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}';
-      debugPrint('Gemini: $cause');
-      throw PrescriptionReadException('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.', cause);
-    }
-
+  PrescriptionReading _parse(String raw) {
     try {
       final body = jsonDecode(raw) as Map<String, dynamic>;
       final text = (((body['candidates'] as List).first as Map)['content']
@@ -89,8 +118,8 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   }
 
   /// أول ٨٠٠ حرف — كفاية عشان نقرا رسالة الخطأ من غير ما نغرق اللوج.
-  static String _excerpt(String body) =>
-      body.length <= 800 ? body : '${body.substring(0, 800)}…';
+  static String _excerpt(String body, [int max = 800]) =>
+      body.length <= max ? body : '${body.substring(0, max)}…';
 
   Map<String, dynamic> _request(Uint8List image, String mimeType) => {
         'contents': [

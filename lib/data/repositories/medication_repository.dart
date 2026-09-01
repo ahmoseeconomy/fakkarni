@@ -51,6 +51,7 @@ class MedicationRepository {
     required DoseTiming timing,
     required DateTime startDate,
     String? amountLabel,
+    bool amountUnknown = false,
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
   }) =>
@@ -60,6 +61,7 @@ class MedicationRepository {
                 patientId: patientId,
                 name: name,
                 amountLabel: Value(amountLabel),
+                amountUnknown: Value(amountUnknown),
               ),
             );
         await _insertSchedule(
@@ -145,6 +147,17 @@ class MedicationRepository {
   Future<void> stopMedication(int medicationId) =>
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(MedicationsCompanion(stoppedAt: Value(DateTime.now())));
+
+  /// الأدوية اللي جرعتها مش معروفة ولسه شغّالة — عشان «اسأل الصيدلي عن…».
+  Stream<List<MedicationRow>> watchAmountUnknown(int patientId) =>
+      (_db.select(_db.medications)
+            ..where(
+              (t) =>
+                  t.patientId.equals(patientId) &
+                  t.amountUnknown.equals(true) &
+                  t.stoppedAt.isNull(),
+            ))
+          .watch();
 
   Stream<List<MedicationRow>> watchMedications(int patientId) =>
       (_db.select(_db.medications)

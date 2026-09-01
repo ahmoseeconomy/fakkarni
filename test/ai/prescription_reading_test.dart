@@ -183,4 +183,56 @@ void main() {
       expect(PrescriptionReading.fromJson(jsonDecode('{}') as Map<String, dynamic>).isEmpty, isTrue);
     });
   });
+
+  group('الإزاحة الافتراضية «قبل» — ٣٠ للأكل و١٥ للنوم', () {
+    ReadLine before(String anchor) => PrescriptionReading.fromJson({
+          'medications': [
+            med(
+              name: field('X', 0.9),
+              amount: field('قرص', 0.9),
+              timing: {'anchor': anchor, 'relation': 'before', 'confidence': 0.9},
+            ),
+          ],
+        }).lines.single;
+
+    test('قبل النوم → −١٥', () {
+      expect(before('sleep').timings.value, [const AnchorTiming(DayAnchor.sleep, -15)]);
+    });
+
+    test('قبل الغدا → −٣٠', () {
+      expect(before('lunch').timings.value, [const AnchorTiming(DayAnchor.lunch, -30)]);
+    });
+
+    test('المحرر والقارئ بيستخدموا نفس الدالة', () {
+      expect(defaultOffsetBefore(DayAnchor.sleep), 15);
+      expect(defaultOffsetBefore(DayAnchor.breakfast), 30);
+    });
+  });
+
+  group('اللي بيقفل «تمام» واللي لأ', () {
+    final ok = field('x', 0.95);
+
+    test('جرعة مش معروفة → محتاج تحديد بس ما بتقفلش', () {
+      final line = PrescriptionReading.fromJson({
+        'medications': [
+          med(name: field('Telfast 180', 0.95), amount: field(null, 0), timing: {'anchor': 'dinner', 'confidence': 0.9}),
+        ],
+      }).lines.single;
+      expect(line.amount.needsReview, isTrue);
+      expect(line.needsReview, isTrue);
+      expect(line.blocksConfirm, isFalse);
+    });
+
+    test('توقيت أو اسم مش واضح → بيقفل', () {
+      final noTiming = PrescriptionReading.fromJson({
+        'medications': [med(name: ok, amount: ok, timing: {'confidence': 0.1})],
+      }).lines.single;
+      expect(noTiming.blocksConfirm, isTrue);
+
+      final weakName = PrescriptionReading.fromJson({
+        'medications': [med(name: field('C?nc?r', 0.3), amount: ok, timing: {'anchor': 'lunch', 'confidence': 0.9})],
+      }).lines.single;
+      expect(weakName.blocksConfirm, isTrue);
+    });
+  });
 }

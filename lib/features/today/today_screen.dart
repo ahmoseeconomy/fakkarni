@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -38,6 +39,9 @@ class _TodayScreenState extends State<TodayScreen> {
   /// بتعمل بث جديد بيبعت إشعار تاني — لفة مالهاش آخر.
   Stream<List<DoseEventView>>? _events;
 
+  /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
+  Stream<List<MedicationRow>>? _amountUnknown;
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -48,6 +52,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
     final services = AppScope.of(context);
     _events = services.events.watchDay(_routineDay);
+    _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
     // فوراً، والإيقاف بيختفي، من غير ما حد يعمل refresh.
@@ -182,6 +187,19 @@ class _TodayScreenState extends State<TodayScreen> {
                     ruleLabelFor: _ruleLabelFor,
                     onTaken: _markTaken,
                   ),
+                StreamBuilder<List<MedicationRow>>(
+                  stream: _amountUnknown,
+                  builder: (context, snapshot) {
+                    final meds = snapshot.data ?? const <MedicationRow>[];
+                    if (meds.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: F.gap),
+                      child: _FollowUpPanel(
+                        lines: [for (final m in meds) 'اسأل الصيدلي عن جرعة ${m.name}'],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: F.gap),
                 SizedBox(
                   height: F.primaryButtonHeight,
@@ -256,6 +274,38 @@ class _TodayScreenState extends State<TodayScreen> {
       ),
     );
   }
+}
+
+/// نفس نبرة «التذكير هيفضل شغال لحد ما توقفه بنفسك»: سطر هادي، مش تنبيه.
+///
+/// مجهول اتسجّل ونقدر نتابعه كويس؛ اللي مش كويس هو مجهول اتنسي في صمت.
+class _FollowUpPanel extends StatelessWidget {
+  const _FollowUpPanel({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(F.gap),
+        decoration: BoxDecoration(
+          color: F.ivory,
+          borderRadius: BorderRadius.circular(F.radius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final line in lines)
+              Text(
+                line,
+                style: const TextStyle(
+                  fontSize: F.minTextSize,
+                  color: F.muted,
+                  height: 1.6,
+                ),
+              ),
+          ],
+        ),
+      );
 }
 
 class _AllDonePanel extends StatelessWidget {

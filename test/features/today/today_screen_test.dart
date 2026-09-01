@@ -215,6 +215,26 @@ void main() {
     }
   });
 
+  screenTest('دوا جرعته مش معروفة → سطر هادي «اسأل الصيدلي عن جرعة …»', (tester) async {
+    await meds.addMedication(
+      patientId: services.patientId,
+      name: 'Telfast 180 mg',
+      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      startDate: aug31,
+      amountUnknown: true,
+    );
+    // السطر تحت الشريط — برّه الـ٦٠٠ بكسل الافتراضية، فبنكبّر النافذة
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpToday(tester);
+
+    expect(find.text('اسأل الصيدلي عن جرعة Telfast 180 mg'), findsOneWidget);
+    final text = tester.widget<Text>(find.text('اسأل الصيدلي عن جرعة Telfast 180 mg'));
+    expect(text.style?.color, F.muted, reason: 'هادي، مش تنبيه');
+  });
+
   screenTest('مفيش أدوية → الحالة الفاضية وزرار الإضافة', (tester) async {
     await pumpToday(tester);
 
@@ -276,6 +296,21 @@ void main() {
       await tester.tap(find.text('بعد العشا'));
       await tester.pumpAndSettle();
       expect(find.text('يبقى حوالي ٨:٣٠ م'), findsOneWidget);
+    });
+
+    screenTest('«قبل النوم» بتاخد ١٥ دقيقة، والوجبات ٣٠', (tester) async {
+      await pumpAdd(tester);
+      expect(find.text('٣٠ دقيقة'), findsOneWidget); // قبل الفطار
+
+      await tester.tap(find.text('قبل النوم'));
+      await tester.pumpAndSettle();
+      expect(find.text('١٥ دقيقة'), findsOneWidget);
+      // نوم ١١:٣٠ م − ١٥ = ١١:١٥ م
+      expect(find.text('يبقى حوالي ١١:١٥ م'), findsOneWidget);
+
+      await tester.tap(find.text('قبل الغدا'));
+      await tester.pumpAndSettle();
+      expect(find.text('٣٠ دقيقة'), findsOneWidget);
     });
 
     screenTest('المدة المفتوحة هي الافتراضي وبتتخزّن null', (tester) async {

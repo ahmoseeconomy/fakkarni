@@ -8,6 +8,7 @@ import '../../ai/gemini_config.dart';
 import '../../ai/prescription_reader.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
+import 'debug_panel.dart';
 import 'review_prescription_screen.dart';
 
 /// بيجيب صورة من الكاميرا أو المعرض. مفصول عشان الشاشة تتختبر من غير جهاز.
@@ -168,7 +169,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                 _Panel(text: _error!, strong: true),
                 if (kDebugMode && _cause != null) ...[
                   const SizedBox(height: 8),
-                  _DebugCause(_cause!),
+                  DebugPanel(_cause!),
                 ],
               ],
               if (_phase == _Phase.retake) ...[
@@ -211,34 +212,6 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       ),
     );
   }
-}
-
-/// الرد الخام من Gemini — نسخة التطوير بس. الحد الأدنى للخط بيتطبّق هنا
-/// كمان، عشان ما يبقاش في استثناء «مش للمريض» بيتسحب على الشاشات التانية.
-class _DebugCause extends StatelessWidget {
-  const _DebugCause(this.cause);
-
-  final String cause;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: F.ivory,
-          borderRadius: BorderRadius.circular(F.radius),
-        ),
-        child: SelectableText(
-          cause,
-          textDirection: TextDirection.ltr,
-          style: const TextStyle(
-            fontSize: F.minTextSize,
-            color: F.muted,
-            fontFamily: F.monoFamily,
-            fontFamilyFallback: F.monoFallback,
-            height: 1.5,
-          ),
-        ),
-      );
 }
 
 /// عاجي للمعلومة، وبحدود للتنبيه — من غير أحمر، حتى للخطأ.

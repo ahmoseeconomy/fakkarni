@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../../ai/prescription_reading.dart';
@@ -6,6 +7,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../medication/add_medication_screen.dart';
+import 'debug_panel.dart';
 
 enum ReviewResult { confirmed, retake }
 
@@ -40,10 +42,18 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           if (!_saved.contains(i)) i,
       ];
 
-  bool get _hasUnresolved =>
-      _remaining.any((i) => widget.reading.lines[i].needsReview);
+  /// اللي بيقفل «تمام» فعلاً: اسم أو توقيت مش واضح.
+  bool get _hasBlocking =>
+      _remaining.any((i) => widget.reading.lines[i].blocksConfirm);
+
+  /// جرعة مش معروفة بس — بتتحفظ «مش معروفة» ونسأل عنها بعدين.
+  bool get _hasUnknownAmount =>
+      _remaining.any((i) => widget.reading.lines[i].amount.needsReview);
 
   int? get _firstToEdit {
+    for (final i in _remaining) {
+      if (widget.reading.lines[i].blocksConfirm) return i;
+    }
     for (final i in _remaining) {
       if (widget.reading.lines[i].needsReview) return i;
     }
@@ -69,7 +79,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
   /// «تمام»: بيحفظ السطور الواضحة المتبقية — وبس. الدوسة دي هي التأكيد.
   Future<void> _confirm() async {
-    if (_busy || _hasUnresolved) return;
+    if (_busy || _hasBlocking) return;
     setState(() => _busy = true);
 
     final services = AppScope.of(context);
@@ -79,10 +89,13 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     for (final i in _remaining) {
       final line = widget.reading.lines[i];
       final timings = line.timings.value!;
+      // جرعة مش واضحة → null + «مش معروفة». مش بنخترع قيمة عشان نكمّل.
+      final amountUnknown = line.amount.needsReview;
       final id = await services.medications.addMedication(
         patientId: services.patientId,
         name: line.name.value!,
-        amountLabel: line.amount.value,
+        amountLabel: amountUnknown ? null : line.amount.value,
+        amountUnknown: amountUnknown,
         timing: timings.first,
         startDate: today,
         durationDays: line.duration.value, // null = مفتوحة، زي ما الورقة سابتها
@@ -123,6 +136,10 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     'راجع كل سطر — اللي بالذهبي محتاج تحديد منك.',
                     style: TextStyle(fontSize: F.minBodySize, color: F.muted, height: 1.6),
                   ),
+                  if (kDebugMode && reading.modelWarning != null) ...[
+                    const SizedBox(height: 8),
+                    DebugPanel(reading.modelWarning!),
+                  ],
                   if (reading.doctor.value != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -150,13 +167,22 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_hasUnresolved)
+                  if (_hasBlocking)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 8),
                       child: Text(
-                        'في سطر محتاج تحديد — دوس «أعدّل» وحدده الأول.',
+                        'في سطر اسمه أو توقيته مش واضح — دوس «أعدّل» وحدده الأول.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+                      ),
+                    )
+                  else if (_hasUnknownAmount)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'هتتحفظ من غير الجرعة — تقدر تضيفها بعدين',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                       ),
                     ),
                   // القراءة الوحشة علاجها صورة أحسن، مش تعديل خمس حقول بالإيد.
@@ -197,7 +223,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         child: SizedBox(
                           height: F.primaryButtonHeight,
                           child: FilledButton(
-                            onPressed: _busy || _hasUnresolved ? null : _confirm,
+                            onPressed: _busy || _hasBlocking ? null : _confirm,
                             child: const Text('تمام'),
                           ),
                         ),

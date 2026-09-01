@@ -86,7 +86,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 3);
+    expect(version.read<int>('user_version'), 4);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -102,6 +102,10 @@ void main() {
     expect(linex.timing, const AnchorTiming(DayAnchor.dinner, 30));
     expect(linex.durationDays, 7);
     expect(linex.startDate, DateTime(2026, 8, 31));
+
+    // v4: «الجرعة مش معروفة» — الصفوف القديمة false، مش null ومش true
+    final rows = await db.select(db.medications).get();
+    expect(rows.every((m) => m.amountUnknown == false), isTrue);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

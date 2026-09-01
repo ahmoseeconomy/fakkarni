@@ -28,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +60,10 @@ class AppDatabase extends _$AppDatabase {
               await m.addColumn(doseSchedules, doseSchedules.timingKind);
               await m.alterTable(TableMigration(doseSchedules));
               await m.createTable(fixedTimings);
+            }
+            if (from < 4) {
+              // «الجرعة مش معروفة» — الصفوف القديمة كلها false.
+              await m.addColumn(medications, medications.amountUnknown);
             }
           });
           await customStatement('PRAGMA foreign_keys = ON');

@@ -56,6 +56,13 @@ class ReadLine {
   bool get needsReview =>
       name.needsReview || amount.needsReview || timings.needsReview;
 
+  /// اللي بيقفل «تمام»: الاسم والتوقيت. من غيرهم مفيش حاجة تتجدول.
+  ///
+  /// الجرعة **مش** بتقفل: تذكير بيقول «وقت Telfast» مفيد من غير «قرص واحد».
+  /// بتفضل ذهبية بملاحظتها، وبتتحفظ «مش معروفة» — مش بنخترع قيمة عشان
+  /// نفتح زرار.
+  bool get blocksConfirm => name.needsReview || timings.needsReview;
+
   /// «الفطار − ٣٠ د + الغدا − ٣٠ د» — للعرض.
   String get timingLabel =>
       (timings.value ?? const []).map((t) => t.ruleLabel).join(' + ');
@@ -63,12 +70,22 @@ class ReadLine {
 
 /// الروشتة كلها.
 class PrescriptionReading {
-  const PrescriptionReading({required this.doctor, required this.lines});
+  const PrescriptionReading({
+    required this.doctor,
+    required this.lines,
+    this.modelWarning,
+  });
 
   final ReadField<String> doctor;
   final List<ReadLine> lines;
 
+  /// الموديل المثبّت اتقفل والقراءة جت من البديل — تحذير للمطوّر، مش للمريض.
+  final String? modelWarning;
+
   bool get isEmpty => lines.isEmpty;
+
+  PrescriptionReading withModelWarning(String warning) =>
+      PrescriptionReading(doctor: doctor, lines: lines, modelWarning: warning);
 
   /// بيفكّ JSON بالشكل اللي طلبناه من Gemini في [prescriptionSchema].
   ///
@@ -139,7 +156,7 @@ class PrescriptionReading {
 
     if (anchor != null) {
       final signed = switch (relation) {
-        'before' => -(offset ?? defaultMealOffset),
+        'before' => -(offset ?? defaultOffsetBefore(anchor)),
         'after' => offset ?? 0,
         _ => offset ?? 0,
       };
@@ -158,7 +175,9 @@ class PrescriptionReading {
         2 => [DayAnchor.breakfast, DayAnchor.dinner],
         _ => [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner],
       };
-      final signed = relation == 'before' ? -(offset ?? defaultMealOffset) : (offset ?? 0);
+      // وجبات بس هنا، فالافتراضي ٣٠
+      final signed =
+          relation == 'before' ? -(offset ?? defaultOffsetBefore(anchors.first)) : (offset ?? 0);
       return ReadField(
         value: [for (final a in anchors) AnchorTiming(a, signed)],
         // أقل من العتبة عن قصد: ده اقتراح توزيع، مش قراءة من الورقة.
@@ -199,9 +218,6 @@ class PrescriptionReading {
     return n is String && n.trim().isNotEmpty ? n.trim() : null;
   }
 }
-
-/// الإزاحة الافتراضية قبل الأكل — عرف تشغيلي بيتعدّل، مش توجيه طبي.
-const int defaultMealOffset = 30;
 
 /// النص الثابت للتوقيت الغامض — القاعدة السادسة: ما بنخمّنش.
 const String unclearTimingNote = 'مش متأكد — اسأل الصيدلي';

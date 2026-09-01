@@ -4,7 +4,11 @@
 /// بيفتح عادي (التذكيرات ما تعتمدش عليه) بس شاشة التصوير بتقول بوضوح إنه
 /// ناقص — وعمرنا ما بننده الـAPI بمفتاح فاضي.
 class GeminiConfig {
-  const GeminiConfig({required this.apiKey, this.model = defaultModel});
+  const GeminiConfig({
+    required this.apiKey,
+    this.model = defaultModel,
+    this.fallbackModel = defaultFallbackModel,
+  });
 
   /// اسم الموديل — **جوجل هي اللي بتقرّر يعيش قد إيه، مش إحنا.**
   ///
@@ -17,9 +21,21 @@ class GeminiConfig {
 
   static const _envModel = String.fromEnvironment('GEMINI_MODEL');
 
+  /// البديل لو المثبّت اتقفل (٤٠٤ NOT_FOUND) — مرة واحدة، وبتحذير عالي.
+  ///
+  /// قارئ أدوية ما ينفعش سلوكه يتغيّر في صمت، فالمثبّت هو الأصل. بس ٤٠٤ في
+  /// نص عرض أسوأ من تغيّر سلوك — فبنشتغل «متدهور بس شغّال» والتحذير هو اللي
+  /// بيقولنا نثبّت تاني بإيدنا.
+  static const defaultFallbackModel = 'gemini-flash-latest';
+
+  static const _envFallback = String.fromEnvironment('GEMINI_FALLBACK_MODEL');
+
   /// الموديل الفعّال: اللي في `--dart-define` لو موجود، وإلا [defaultModel].
   static String get modelFromEnvironment =>
       _envModel.trim().isEmpty ? defaultModel : _envModel.trim();
+
+  static String get fallbackFromEnvironment =>
+      _envFallback.trim().isEmpty ? defaultFallbackModel : _envFallback.trim();
 
   static const missingKeyMessage =
       'مفتاح Gemini مش موجود. شغّل التطبيق بـ '
@@ -31,11 +47,16 @@ class GeminiConfig {
 
   final String apiKey;
   final String model;
+  final String fallbackModel;
 
   /// null لو المفتاح مش متظبط — الشاشة هي اللي بتقول للمستخدم.
   static GeminiConfig? tryFromEnvironment() => _envKey.trim().isEmpty
       ? null
-      : GeminiConfig(apiKey: _envKey.trim(), model: modelFromEnvironment);
+      : GeminiConfig(
+          apiKey: _envKey.trim(),
+          model: modelFromEnvironment,
+          fallbackModel: fallbackFromEnvironment,
+        );
 
   /// بيرمي فوراً برسالة واضحة بدل ما يكمّل بمفتاح فاضي.
   static GeminiConfig fromEnvironment() =>

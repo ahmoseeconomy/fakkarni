@@ -16,6 +16,13 @@ enum DayAnchor {
   final String label;
 }
 
+/// الإزاحة الافتراضية «قبل» مرساة — عرف تشغيلي بيتعدّل، مش توجيه طبي.
+///
+/// ٣٠ دقيقة قبل الأكل، و**١٥ قبل النوم** (القاعدة السادسة في CLAUDE.md).
+/// مكان واحد عشان القارئ والمحرر ما يختلفوش تاني.
+int defaultOffsetBefore(DayAnchor anchor) =>
+    anchor == DayAnchor.sleep ? 15 : 30;
+
 /// وقت في اليوم، متخزّن كدقائق من منتصف الليل (0 → 1439).
 class MinuteOfDay implements Comparable<MinuteOfDay> {
   const MinuteOfDay(this.minutes)

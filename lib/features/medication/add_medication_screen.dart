@@ -259,7 +259,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           _ChoiceChip(
                             label: choice.label,
                             selected: choice == _choice,
-                            onTap: () => setState(() => _choice = choice),
+                            onTap: () => setState(() {
+                            _choice = choice;
+                            // الافتراضي بيتبع المرساة: ٣٠ قبل الأكل، ١٥ قبل النوم
+                            _gap = choice.before
+                                ? defaultOffsetBefore(choice.anchor)
+                                : 30;
+                          }),
                           ),
                       ],
                     ),

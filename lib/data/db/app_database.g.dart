@@ -907,6 +907,21 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _amountUnknownMeta = const VerificationMeta(
+    'amountUnknown',
+  );
+  @override
+  late final GeneratedColumn<bool> amountUnknown = GeneratedColumn<bool>(
+    'amount_unknown',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("amount_unknown" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -945,6 +960,7 @@ class $MedicationsTable extends Medications
     patientId,
     name,
     amountLabel,
+    amountUnknown,
     notes,
     stoppedAt,
     createdAt,
@@ -986,6 +1002,15 @@ class $MedicationsTable extends Medications
         amountLabel.isAcceptableOrUnknown(
           data['amount_label']!,
           _amountLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('amount_unknown')) {
+      context.handle(
+        _amountUnknownMeta,
+        amountUnknown.isAcceptableOrUnknown(
+          data['amount_unknown']!,
+          _amountUnknownMeta,
         ),
       );
     }
@@ -1032,6 +1057,10 @@ class $MedicationsTable extends Medications
         DriftSqlType.string,
         data['${effectivePrefix}amount_label'],
       ),
+      amountUnknown: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}amount_unknown'],
+      )!,
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -1058,6 +1087,10 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   final int patientId;
   final String name;
   final String? amountLabel;
+
+  /// الورقة ما قالتش الجرعة. مسجّل عشان نسأل عنه بعدين — مجهول اتكتب
+  /// ونقدر نتابعه كويس؛ مجهول اتنسي في صمت لأ.
+  final bool amountUnknown;
   final String? notes;
 
   /// null معناها الدوا لسه شغّال.
@@ -1071,6 +1104,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     required this.patientId,
     required this.name,
     this.amountLabel,
+    required this.amountUnknown,
     this.notes,
     this.stoppedAt,
     required this.createdAt,
@@ -1084,6 +1118,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     if (!nullToAbsent || amountLabel != null) {
       map['amount_label'] = Variable<String>(amountLabel);
     }
+    map['amount_unknown'] = Variable<bool>(amountUnknown);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -1102,6 +1137,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       amountLabel: amountLabel == null && nullToAbsent
           ? const Value.absent()
           : Value(amountLabel),
+      amountUnknown: Value(amountUnknown),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -1122,6 +1158,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       patientId: serializer.fromJson<int>(json['patientId']),
       name: serializer.fromJson<String>(json['name']),
       amountLabel: serializer.fromJson<String?>(json['amountLabel']),
+      amountUnknown: serializer.fromJson<bool>(json['amountUnknown']),
       notes: serializer.fromJson<String?>(json['notes']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1135,6 +1172,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'patientId': serializer.toJson<int>(patientId),
       'name': serializer.toJson<String>(name),
       'amountLabel': serializer.toJson<String?>(amountLabel),
+      'amountUnknown': serializer.toJson<bool>(amountUnknown),
       'notes': serializer.toJson<String?>(notes),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1146,6 +1184,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     int? patientId,
     String? name,
     Value<String?> amountLabel = const Value.absent(),
+    bool? amountUnknown,
     Value<String?> notes = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
     DateTime? createdAt,
@@ -1154,6 +1193,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     patientId: patientId ?? this.patientId,
     name: name ?? this.name,
     amountLabel: amountLabel.present ? amountLabel.value : this.amountLabel,
+    amountUnknown: amountUnknown ?? this.amountUnknown,
     notes: notes.present ? notes.value : this.notes,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -1166,6 +1206,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       amountLabel: data.amountLabel.present
           ? data.amountLabel.value
           : this.amountLabel,
+      amountUnknown: data.amountUnknown.present
+          ? data.amountUnknown.value
+          : this.amountUnknown,
       notes: data.notes.present ? data.notes.value : this.notes,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1179,6 +1222,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('patientId: $patientId, ')
           ..write('name: $name, ')
           ..write('amountLabel: $amountLabel, ')
+          ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('createdAt: $createdAt')
@@ -1192,6 +1236,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     patientId,
     name,
     amountLabel,
+    amountUnknown,
     notes,
     stoppedAt,
     createdAt,
@@ -1204,6 +1249,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.patientId == this.patientId &&
           other.name == this.name &&
           other.amountLabel == this.amountLabel &&
+          other.amountUnknown == this.amountUnknown &&
           other.notes == this.notes &&
           other.stoppedAt == this.stoppedAt &&
           other.createdAt == this.createdAt);
@@ -1214,6 +1260,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<int> patientId;
   final Value<String> name;
   final Value<String?> amountLabel;
+  final Value<bool> amountUnknown;
   final Value<String?> notes;
   final Value<DateTime?> stoppedAt;
   final Value<DateTime> createdAt;
@@ -1222,6 +1269,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.patientId = const Value.absent(),
     this.name = const Value.absent(),
     this.amountLabel = const Value.absent(),
+    this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1231,6 +1279,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     required int patientId,
     required String name,
     this.amountLabel = const Value.absent(),
+    this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1241,6 +1290,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<int>? patientId,
     Expression<String>? name,
     Expression<String>? amountLabel,
+    Expression<bool>? amountUnknown,
     Expression<String>? notes,
     Expression<DateTime>? stoppedAt,
     Expression<DateTime>? createdAt,
@@ -1250,6 +1300,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (patientId != null) 'patient_id': patientId,
       if (name != null) 'name': name,
       if (amountLabel != null) 'amount_label': amountLabel,
+      if (amountUnknown != null) 'amount_unknown': amountUnknown,
       if (notes != null) 'notes': notes,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -1261,6 +1312,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<int>? patientId,
     Value<String>? name,
     Value<String?>? amountLabel,
+    Value<bool>? amountUnknown,
     Value<String?>? notes,
     Value<DateTime?>? stoppedAt,
     Value<DateTime>? createdAt,
@@ -1270,6 +1322,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       patientId: patientId ?? this.patientId,
       name: name ?? this.name,
       amountLabel: amountLabel ?? this.amountLabel,
+      amountUnknown: amountUnknown ?? this.amountUnknown,
       notes: notes ?? this.notes,
       stoppedAt: stoppedAt ?? this.stoppedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -1291,6 +1344,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (amountLabel.present) {
       map['amount_label'] = Variable<String>(amountLabel.value);
     }
+    if (amountUnknown.present) {
+      map['amount_unknown'] = Variable<bool>(amountUnknown.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -1310,6 +1366,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('patientId: $patientId, ')
           ..write('name: $name, ')
           ..write('amountLabel: $amountLabel, ')
+          ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('createdAt: $createdAt')
@@ -3333,6 +3390,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       required int patientId,
       required String name,
       Value<String?> amountLabel,
+      Value<bool> amountUnknown,
       Value<String?> notes,
       Value<DateTime?> stoppedAt,
       Value<DateTime> createdAt,
@@ -3343,6 +3401,7 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<int> patientId,
       Value<String> name,
       Value<String?> amountLabel,
+      Value<bool> amountUnknown,
       Value<String?> notes,
       Value<DateTime?> stoppedAt,
       Value<DateTime> createdAt,
@@ -3409,6 +3468,11 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<String> get amountLabel => $composableBuilder(
     column: $table.amountLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get amountUnknown => $composableBuilder(
+    column: $table.amountUnknown,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3500,6 +3564,11 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get amountUnknown => $composableBuilder(
+    column: $table.amountUnknown,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -3556,6 +3625,11 @@ class $$MedicationsTableAnnotationComposer
 
   GeneratedColumn<String> get amountLabel => $composableBuilder(
     column: $table.amountLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get amountUnknown => $composableBuilder(
+    column: $table.amountUnknown,
     builder: (column) => column,
   );
 
@@ -3649,6 +3723,7 @@ class $$MedicationsTableTableManager
                 Value<int> patientId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> amountLabel = const Value.absent(),
+                Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -3657,6 +3732,7 @@ class $$MedicationsTableTableManager
                 patientId: patientId,
                 name: name,
                 amountLabel: amountLabel,
+                amountUnknown: amountUnknown,
                 notes: notes,
                 stoppedAt: stoppedAt,
                 createdAt: createdAt,
@@ -3667,6 +3743,7 @@ class $$MedicationsTableTableManager
                 required int patientId,
                 required String name,
                 Value<String?> amountLabel = const Value.absent(),
+                Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -3675,6 +3752,7 @@ class $$MedicationsTableTableManager
                 patientId: patientId,
                 name: name,
                 amountLabel: amountLabel,
+                amountUnknown: amountUnknown,
                 notes: notes,
                 stoppedAt: stoppedAt,
                 createdAt: createdAt,

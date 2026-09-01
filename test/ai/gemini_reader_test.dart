@@ -137,6 +137,99 @@ void main() {
     });
   });
 
+  group('تقاعد الموديل — مرة واحدة على البديل وبصوت عالي', () {
+    late List<String> log;
+    setUp(() {
+      log = [];
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) log.add(message);
+      };
+    });
+    tearDown(() => debugPrint = debugPrintThrottled);
+
+    final okBody = geminiBody({
+      'medications': [
+        {
+          'name': {'value': 'Concor', 'confidence': 0.9},
+          'amount': {'value': 'قرص', 'confidence': 0.9},
+          'timing': {'anchor': 'breakfast', 'confidence': 0.9},
+          'durationDays': {'value': null, 'confidence': 1},
+        },
+      ],
+    });
+    const retired = '{"error":{"code":404,"message":"models/gemini-3.6-flash is no longer available to new users.","status":"NOT_FOUND"}}';
+
+    test('المثبّت شغّال → طلب واحد ومفيش تحذير', () async {
+      final paths = <String>[];
+      final client = MockClient((r) async {
+        paths.add(r.url.path);
+        return http.Response.bytes(utf8.encode(okBody), 200);
+      });
+      final reading = await GeminiPrescriptionReader(const GeminiConfig(apiKey: 'AQ.k'), client: client).read(image);
+
+      expect(paths, ['/v1beta/models/gemini-3.6-flash:generateContent']);
+      expect(reading.modelWarning, isNull);
+      expect(log, isEmpty);
+    });
+
+    test('٤٠٤ NOT_FOUND → إعادة مرة واحدة على gemini-flash-latest، تحذير، والقراءة معلّمة', () async {
+      final paths = <String>[];
+      final client = MockClient((r) async {
+        paths.add(r.url.path);
+        return paths.length == 1
+            ? http.Response(retired, 404)
+            : http.Response.bytes(utf8.encode(okBody), 200);
+      });
+      final reading = await GeminiPrescriptionReader(const GeminiConfig(apiKey: 'AQ.k'), client: client).read(image);
+
+      expect(paths, [
+        '/v1beta/models/gemini-3.6-flash:generateContent',
+        '/v1beta/models/gemini-flash-latest:generateContent',
+      ]);
+      expect(reading.lines.single.name.value, 'Concor');
+      expect(reading.modelWarning, contains('gemini-3.6-flash'));
+      expect(reading.modelWarning, contains('gemini-flash-latest'));
+      expect(log, hasLength(1));
+      expect(log.single, contains('WARNING'));
+      expect(log.single, contains('retired'));
+      expect(log.single, isNot(contains('AQ.k')));
+    });
+
+    test('البديل كمان وقع → استثناء بيقول إنه بعد البديل، ومفيش محاولة تالتة', () async {
+      var calls = 0;
+      final client = MockClient((_) async {
+        calls++;
+        return http.Response(retired, 404);
+      });
+      await expectLater(
+        () => GeminiPrescriptionReader(const GeminiConfig(apiKey: 'AQ.k'), client: client).read(image),
+        throwsA(isA<PrescriptionReadException>().having((e) => e.cause.toString(), 'cause', contains('after fallback'))),
+      );
+      expect(calls, 2);
+    });
+
+    test('٤٠٤ من غير NOT_FOUND، أو ٤٠٠ → مفيش إعادة (ده مش تقاعد)', () async {
+      for (final response in [http.Response('nope', 404), http.Response('{"error":{"status":"INVALID_ARGUMENT"}}', 400)]) {
+        var calls = 0;
+        final client = MockClient((_) async {
+          calls++;
+          return response;
+        });
+        await expectLater(
+          () => GeminiPrescriptionReader(const GeminiConfig(apiKey: 'AQ.k'), client: client).read(image),
+          throwsA(isA<PrescriptionReadException>()),
+        );
+        expect(calls, 1, reason: '${response.statusCode}');
+      }
+    });
+
+    test('اسم البديل بيتغيّر من الإعدادات زي المثبّت', () {
+      const config = GeminiConfig(apiKey: 'AQ.k', fallbackModel: 'gemini-x');
+      expect(config.fallbackModel, 'gemini-x');
+      expect(GeminiConfig.fallbackFromEnvironment, GeminiConfig.defaultFallbackModel);
+    });
+  });
+
   group('الطلب والرد', () {
     test('المفتاح في الهيدر، الصورة inline، والـschema مطلوبة', () async {
       http.Request? sent;
