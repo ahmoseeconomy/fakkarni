@@ -114,10 +114,11 @@ lib/
   features/medication/        add medication (anchor chips + offset stepper)
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
-  features/scan/              ScanPrescriptionScreen (advice → system camera via
-                              image_picker) + ReviewPrescriptionScreen «فهمت الروشتة كده»
+  features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
+                              «اختار من الصور», one image_picker path for both)
+                              + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         174 passing
+test/                         177 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -298,8 +299,11 @@ with the app fully closed, offline, and across a reboot.
 **Phase 2 — read a paper prescription (built, needs a real-photo pass)**
 - `lib/ai/`: config, reading model with per-field confidence, Gemini REST
   reader. Threshold 0.8; below it a field is gold «محتاج تحديد».
-- Scan screen (framing advice → system camera / gallery) and review screen
-  with per-line «أعدّل السطر ده», equal-weight «أعدّل»/«تمام», «صوّر تاني».
+- Scan screen (framing advice → «صوّر الروشتة» 64px / «اختار من الصور» 56px,
+  same size constraints for both) and review screen with per-line
+  «أعدّل السطر ده», equal-weight «أعدّل»/«تمام», «صوّر تاني» — which returns
+  to the scan screen so both sources are offered again, never auto-opening
+  the camera.
   «تمام» writes each clear line (one schedule per timing) then `rescheduleAll`.
 - Editor accepts prefilled values and now has an optional amount field.
 - Not yet done on hardware: a real handwritten prescription through the

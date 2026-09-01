@@ -52,7 +52,9 @@ class ScanPrescriptionScreen extends StatefulWidget {
   State<ScanPrescriptionScreen> createState() => _ScanPrescriptionScreenState();
 }
 
-enum _Phase { idle, reading, failed }
+/// [retake]: رجع من المراجعة بـ«صوّر تاني» — الشاشة دي نفسها هي الاختيار
+/// بين الكاميرا والصور، فمش بنفتح الكاميرا لوحدنا.
+enum _Phase { idle, reading, failed, retake }
 
 class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   _Phase _phase = _Phase.idle;
@@ -87,7 +89,8 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       if (!mounted) return;
       switch (result) {
         case ReviewResult.retake:
-          await _capture(ImageSource.camera);
+          // القراءة الوحشة علاجها صورة أحسن — من الكاميرا أو من الصور.
+          setState(() => _phase = _Phase.retake);
         case ReviewResult.confirmed:
           Navigator.of(context).pop();
         case null:
@@ -115,7 +118,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'صوّر الروشتة',
+          'روشتة',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
         ),
       ),
@@ -156,6 +159,13 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                 const SizedBox(height: F.gap),
                 _Panel(text: _error!, strong: true),
               ],
+              if (_phase == _Phase.retake) ...[
+                const SizedBox(height: F.gap),
+                const _Panel(
+                  text: 'صوّرها تاني في نور أحسن، أو اختار صورة أوضح من الصور.',
+                  strong: true,
+                ),
+              ],
               const SizedBox(height: F.gap),
               SizedBox(
                 height: F.primaryButtonHeight,
@@ -163,7 +173,11 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                   onPressed: _phase == _Phase.reading
                       ? null
                       : () => _capture(ImageSource.camera),
-                  child: Text(_phase == _Phase.failed ? 'صوّر تاني' : 'افتح الكاميرا'),
+                  child: Text(
+                    _phase == _Phase.failed || _phase == _Phase.retake
+                        ? 'صوّر تاني'
+                        : 'صوّر الروشتة',
+                  ),
                 ),
               ),
               const SizedBox(height: 10),

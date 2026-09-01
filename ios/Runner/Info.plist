@@ -69,6 +69,6 @@
 	<key>NSCameraUsageDescription</key>
 	<string>عشان تصوّر الروشتة ونقراها لك.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>عشان تختار صورة روشتة من صورك.</string>
+	<string>عشان نقرا روشتة عندك في صورك خلاص، بدل ما تصوّرها تاني.</string>
 </dict>
 </plist>
