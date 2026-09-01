@@ -332,6 +332,19 @@ appears at startup, that is a bug by definition —
 - Out of scope so far: tables, RLS, sync, invite codes, care
   relationships, anonymous auth.
 
+**The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
+hand in the SQL editor, order: 0001 → 0002 → tests). The publishable key
+ships in the binary, so every table has RLS enabled as its first statement
+and `anon` is stripped of table privileges entirely. All access checks
+route through one SECURITY DEFINER function,
+`private.can_access_patient` — patients' visibility depends on
+care_relationships and vice versa, and direct policies would recurse
+("infinite recursion detected in policy"). Always `(select auth.uid())`,
+never bare. Cloud PKs are the device-minted uuids; local int ids have no
+cloud column. Caregivers are read-only until escalation adds one narrow
+UPDATE policy. After ANY schema change run `tests/rls_test.sql` and the
+zero-rows `rowsecurity=false` check in `supabase/README.md`.
+
 ---
 
 ## دين تقني
