@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 import 'gemini_config.dart';
@@ -59,28 +60,37 @@ class GeminiPrescriptionReader implements PrescriptionReader {
         body: jsonEncode(_request(image, mimeType)),
       );
     } catch (error) {
+      debugPrint('Gemini: transport: $error');
       throw PrescriptionReadException('مفيش نت دلوقتي — جرّب تاني بعد شوية.', error);
     }
 
+    // utf8 صراحة: الرد فيه عربي، وترميز http الافتراضي latin1 لو الهيدر ناقص.
+    final raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+
     if (response.statusCode != 200) {
-      throw PrescriptionReadException(
-        'مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.',
-        'HTTP ${response.statusCode}: ${utf8.decode(response.bodyBytes, allowMalformed: true)}',
-      );
+      // السبب الحقيقي بيتسجّل هنا — مش بنخمّن. المفتاح عمره ما بيتطبع.
+      final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}';
+      debugPrint('Gemini: $cause');
+      throw PrescriptionReadException('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.', cause);
     }
 
     try {
-      // utf8 صراحة: الرد فيه عربي، وترميز http الافتراضي latin1 لو الهيدر ناقص.
-      final body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final body = jsonDecode(raw) as Map<String, dynamic>;
       final text = (((body['candidates'] as List).first as Map)['content']
           as Map)['parts'] as List;
       final json = jsonDecode((text.first as Map)['text'] as String)
           as Map<String, dynamic>;
       return PrescriptionReading.fromJson(json);
     } catch (error) {
-      throw PrescriptionReadException('الرد رجع بشكل غريب — صوّر تاني.', error);
+      final cause = 'parse: $error — body: ${_excerpt(raw)}';
+      debugPrint('Gemini: $cause');
+      throw PrescriptionReadException('الرد رجع بشكل غريب — صوّر تاني.', cause);
     }
   }
+
+  /// أول ٨٠٠ حرف — كفاية عشان نقرا رسالة الخطأ من غير ما نغرق اللوج.
+  static String _excerpt(String body) =>
+      body.length <= 800 ? body : '${body.substring(0, 800)}…';
 
   Map<String, dynamic> _request(Uint8List image, String mimeType) => {
         'contents': [

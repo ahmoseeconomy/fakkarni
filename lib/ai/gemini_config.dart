@@ -6,7 +6,20 @@
 class GeminiConfig {
   const GeminiConfig({required this.apiKey, this.model = defaultModel});
 
-  static const defaultModel = 'gemini-2.5-flash';
+  /// اسم الموديل — **جوجل هي اللي بتقرّر يعيش قد إيه، مش إحنا.**
+  ///
+  /// `gemini-2.5-flash` اتقفل قدام المستخدمين الجداد من غير أي إعلان غير
+  /// نص الخطأ في رد الـAPI نفسه (٤٠٤: «no longer available… use
+  /// gemini-3.6-flash»). يعني رسالة الخطأ هي مصدر الحقيقة، مش ذاكرتنا.
+  /// الاسم هنا في مكان واحد، وبيتغيّر من برّه بـ`--dart-define=GEMINI_MODEL=…`
+  /// من غير ما نلمس الكود.
+  static const defaultModel = 'gemini-3.6-flash';
+
+  static const _envModel = String.fromEnvironment('GEMINI_MODEL');
+
+  /// الموديل الفعّال: اللي في `--dart-define` لو موجود، وإلا [defaultModel].
+  static String get modelFromEnvironment =>
+      _envModel.trim().isEmpty ? defaultModel : _envModel.trim();
 
   static const missingKeyMessage =
       'مفتاح Gemini مش موجود. شغّل التطبيق بـ '
@@ -20,8 +33,9 @@ class GeminiConfig {
   final String model;
 
   /// null لو المفتاح مش متظبط — الشاشة هي اللي بتقول للمستخدم.
-  static GeminiConfig? tryFromEnvironment() =>
-      _envKey.trim().isEmpty ? null : GeminiConfig(apiKey: _envKey.trim());
+  static GeminiConfig? tryFromEnvironment() => _envKey.trim().isEmpty
+      ? null
+      : GeminiConfig(apiKey: _envKey.trim(), model: modelFromEnvironment);
 
   /// بيرمي فوراً برسالة واضحة بدل ما يكمّل بمفتاح فاضي.
   static GeminiConfig fromEnvironment() =>

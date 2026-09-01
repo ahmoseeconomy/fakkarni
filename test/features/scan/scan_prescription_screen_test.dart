@@ -94,13 +94,18 @@ void main() {
   });
 
   screenTest('القراءة فشلت → رسالتها من غير أحمر وزرار «صوّر تاني»', (tester) async {
-    final reader = FakeReader(() async => throw const PrescriptionReadException('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.'));
+    final reader = FakeReader(() async => throw const PrescriptionReadException(
+          'مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.',
+          'HTTP 400: {"error":"schema"}',
+        ));
     await pumpScan(tester, reader: reader);
 
     await tester.tap(find.text('صوّر الروشتة'));
     await settle(tester);
 
     expect(find.text('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.'), findsOneWidget);
+    // نسخة التطوير بتعرض السبب الخام عشان نقراه على الجهاز
+    expect(find.text('HTTP 400: {"error":"schema"}'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'صوّر تاني'), findsOneWidget);
     expectNoRedAndMinSize(tester);
   });

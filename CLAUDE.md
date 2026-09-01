@@ -118,7 +118,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         177 passing
+test/                         184 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -136,8 +136,17 @@ throws, and `GeminiPrescriptionReader`'s constructor throws on an empty key —
 so no request can ever leave with an empty key. `secrets.json` and `*.env`
 are gitignored for `--dart-define-from-file`. Run with
 `flutter run --dart-define=GEMINI_API_KEY=…`. Gemini is called over REST
-(`gemini-2.5-flash`, `responseSchema` JSON) — the `google_generative_ai`
-package is deprecated, and a REST call is testable with `MockClient`.
+(`responseSchema` JSON) — the `google_generative_ai` package is deprecated,
+and a REST call is testable with `MockClient`.
+
+**The model name is Google's to retire, not ours to assume.**
+`GeminiConfig.defaultModel` is the single place it lives (currently
+`gemini-3.6-flash`; `gemini-2.5-flash` was closed to new users on
+2026-09-01 with the only notice being the 404 body: "no longer available to
+new users… use models/gemini-3.6-flash"). Override without a code change via
+`--dart-define=GEMINI_MODEL=…`. When a scan fails, the logged
+`Gemini: HTTP <status>: <body>` line is the source of truth — read it before
+touching the request shape; our memory of which model exists is not.
 
 **Image quality beats prompt tuning.** Handwriting dies first under
 downscaling. `pickWithSystemCamera` uses `maxWidth/maxHeight 2560,

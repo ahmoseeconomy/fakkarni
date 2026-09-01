@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -60,6 +61,10 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   _Phase _phase = _Phase.idle;
   String? _error;
 
+  /// السبب التقني — بيتعرض في نسخة التطوير بس، عشان نشوف الرد على الجهاز
+  /// نفسه بدل ما نخمّن. في الإصدار المريض بيشوف الجملة العربية وبس.
+  String? _cause;
+
   Future<void> _capture(ImageSource source) async {
     final reader = widget.reader;
     if (reader == null || _phase == _Phase.reading) return;
@@ -70,6 +75,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
     setState(() {
       _phase = _Phase.reading;
       _error = null;
+      _cause = null;
     });
 
     try {
@@ -101,12 +107,14 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       setState(() {
         _phase = _Phase.failed;
         _error = e.message;
+        _cause = e.cause?.toString();
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
         _error = 'حصلت مشكلة وإحنا بنقرا الروشتة — صوّر تاني.';
+        _cause = e.toString();
       });
     }
   }
@@ -158,6 +166,10 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
               if (_phase == _Phase.failed && _error != null) ...[
                 const SizedBox(height: F.gap),
                 _Panel(text: _error!, strong: true),
+                if (kDebugMode && _cause != null) ...[
+                  const SizedBox(height: 8),
+                  _DebugCause(_cause!),
+                ],
               ],
               if (_phase == _Phase.retake) ...[
                 const SizedBox(height: F.gap),
@@ -199,6 +211,34 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       ),
     );
   }
+}
+
+/// الرد الخام من Gemini — نسخة التطوير بس. الحد الأدنى للخط بيتطبّق هنا
+/// كمان، عشان ما يبقاش في استثناء «مش للمريض» بيتسحب على الشاشات التانية.
+class _DebugCause extends StatelessWidget {
+  const _DebugCause(this.cause);
+
+  final String cause;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: F.ivory,
+          borderRadius: BorderRadius.circular(F.radius),
+        ),
+        child: SelectableText(
+          cause,
+          textDirection: TextDirection.ltr,
+          style: const TextStyle(
+            fontSize: F.minTextSize,
+            color: F.muted,
+            fontFamily: F.monoFamily,
+            fontFamilyFallback: F.monoFallback,
+            height: 1.5,
+          ),
+        ),
+      );
 }
 
 /// عاجي للمعلومة، وبحدود للتنبيه — من غير أحمر، حتى للخطأ.
