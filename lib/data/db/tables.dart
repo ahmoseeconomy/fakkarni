@@ -1,16 +1,33 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import 'converters.dart';
 
+/// هوية الصف للمزامنة — الجهاز هو اللي بيولّدها، عمرها ما تيجي من سيرفر.
+///
+/// الـid الرقمي تسلسل محلي: جهازين بيطلّعوا 1، 2، 3 لصفوف مختلفة، وأول
+/// مزامنة في جدول مشترك بتخلط صفوف الغرباء في صمت. الـuuid هو الهوية
+/// للمزامنة؛ الـid الرقمي سباكة داخلية لـSQLite والمفاتيح الأجنبية بتفضل
+/// عليه. `clientDefault` عشان ولا نقطة إدخال تقدر تنسى — اللي لازم حد
+/// يفتكره هيتنسي في يوم.
+const _uuid = Uuid();
+
+/// عام عشان الكود المولّد (part من app_database) يشوفه.
+String newSyncUuid() => _uuid.v4();
+
+mixin SyncIdentity on Table {
+  TextColumn get uuid => text().clientDefault(newSyncUuid).unique()();
+}
+
 // ملاحظة على الأسماء: كلاسات drift المولّدة بتاخد اسم الجدول بالمفرد، وده
 // كان هيصطدم بـDayRoutine و DoseSchedule بتوع الدومين. عشان كده الصفوف
 // كلها بلاحقة Row، والدومين بيفضل هو صاحب الاسم الأصلي.
 
 @DataClassName('PatientRow')
-class Patients extends Table {
+class Patients extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 80)();
 
@@ -32,7 +49,7 @@ class Patients extends Table {
 }
 
 @DataClassName('DayRoutineRow')
-class DayRoutines extends Table {
+class DayRoutines extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get patientId =>
       integer().references(Patients, #id, onDelete: KeyAction.cascade)();
@@ -54,7 +71,7 @@ class DayRoutines extends Table {
 }
 
 @DataClassName('MedicationRow')
-class Medications extends Table {
+class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get patientId =>
       integer().references(Patients, #id, onDelete: KeyAction.cascade)();
@@ -92,7 +109,7 @@ enum DoseTimingKind {
 /// المنفصل — عمود الساعة بيخص النوع ده لوحده، مش كل جرعة. لو حد ضاف عمود
 /// وقت هنا، اختبار `مفيش ولا عمود ساعة في جدول الجرعات` بيقع فوراً.
 @DataClassName('DoseScheduleRow')
-class DoseSchedules extends Table {
+class DoseSchedules extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get medicationId =>
       integer().references(Medications, #id, onDelete: KeyAction.cascade)();
@@ -120,7 +137,7 @@ class DoseSchedules extends Table {
 /// جدول منفصل عن قصد: الساعة بتخص النوع ده بس، فمفيش عمود وقت بيقعد فاضي
 /// على كل جرعة مرساة ويغري حد يكتب فيه.
 @DataClassName('FixedTimingRow')
-class FixedTimings extends Table {
+class FixedTimings extends Table with SyncIdentity {
   IntColumn get doseScheduleId =>
       integer().references(DoseSchedules, #id, onDelete: KeyAction.cascade)();
 
@@ -137,7 +154,7 @@ class FixedTimings extends Table {
 /// غيّر معاد فطاره النهاردة، الحدث بيفضل هو هو وساعته بس هي اللي بتتحرك.
 /// [scheduledAt] تسجيل لواقعة حصلت، مش مصدر للجدولة.
 @DataClassName('DoseEventRow')
-class DoseEvents extends Table {
+class DoseEvents extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get doseScheduleId =>
       integer().references(DoseSchedules, #id, onDelete: KeyAction.cascade)();

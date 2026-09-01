@@ -79,6 +79,7 @@ void main() {
 
       expect(names, {
         'id',
+        'uuid',
         'medication_id',
         'timing_kind',
         'anchor',
@@ -99,8 +100,31 @@ void main() {
     test('عمود الساعة موجود في جدول الساعات الثابتة وبس', () async {
       expect(
         await columnsOf('fixed_timings'),
-        {'dose_schedule_id', 'minute_of_day'},
+        {'uuid', 'dose_schedule_id', 'minute_of_day'},
       );
+    });
+
+    test('صفّين ورا بعض بياخدوا uuid مختلفين من غير ما حد يفتكر', () async {
+      // مفيش ولا نقطة إدخال بتمرّر uuid — الـclientDefault هو اللي بيولّد
+      await meds.addMedication(
+        patientId: patientId,
+        name: 'A',
+        timing: FixedTiming(MinuteOfDay.hm(8)),
+        startDate: aug31,
+      );
+      await meds.addMedication(
+        patientId: patientId,
+        name: 'B',
+        timing: FixedTiming(MinuteOfDay.hm(9)),
+        startDate: aug31,
+      );
+
+      final rows = await db.select(db.medications).get();
+      expect(rows.length, 2);
+      expect(rows[0].uuid, isNotEmpty);
+      expect(rows[0].uuid, isNot(rows[1].uuid));
+      final schedules = await db.select(db.doseSchedules).get();
+      expect(schedules[0].uuid, isNot(schedules[1].uuid));
     });
 
     test('الساعة الثابتة بترجع زي ما اتحطت ومن غير مرساة', () async {

@@ -9,6 +9,17 @@ class $PatientsTable extends Patients
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $PatientsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -60,7 +71,13 @@ class $PatientsTable extends Patients
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, notificationSlot, createdAt];
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    id,
+    name,
+    notificationSlot,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -73,6 +90,12 @@ class $PatientsTable extends Patients
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
@@ -112,6 +135,10 @@ class $PatientsTable extends Patients
   PatientRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PatientRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -138,6 +165,7 @@ class $PatientsTable extends Patients
 }
 
 class PatientRow extends DataClass implements Insertable<PatientRow> {
+  final String uuid;
   final int id;
   final String name;
 
@@ -149,6 +177,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   final int notificationSlot;
   final DateTime createdAt;
   const PatientRow({
+    required this.uuid,
     required this.id,
     required this.name,
     required this.notificationSlot,
@@ -157,6 +186,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['notification_slot'] = Variable<int>(notificationSlot);
@@ -166,6 +196,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
 
   PatientsCompanion toCompanion(bool nullToAbsent) {
     return PatientsCompanion(
+      uuid: Value(uuid),
       id: Value(id),
       name: Value(name),
       notificationSlot: Value(notificationSlot),
@@ -179,6 +210,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PatientRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       notificationSlot: serializer.fromJson<int>(json['notificationSlot']),
@@ -189,6 +221,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'notificationSlot': serializer.toJson<int>(notificationSlot),
@@ -197,11 +230,13 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   }
 
   PatientRow copyWith({
+    String? uuid,
     int? id,
     String? name,
     int? notificationSlot,
     DateTime? createdAt,
   }) => PatientRow(
+    uuid: uuid ?? this.uuid,
     id: id ?? this.id,
     name: name ?? this.name,
     notificationSlot: notificationSlot ?? this.notificationSlot,
@@ -209,6 +244,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   );
   PatientRow copyWithCompanion(PatientsCompanion data) {
     return PatientRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       notificationSlot: data.notificationSlot.present
@@ -221,6 +257,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   @override
   String toString() {
     return (StringBuffer('PatientRow(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notificationSlot: $notificationSlot, ')
@@ -230,11 +267,12 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   }
 
   @override
-  int get hashCode => Object.hash(id, name, notificationSlot, createdAt);
+  int get hashCode => Object.hash(uuid, id, name, notificationSlot, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PatientRow &&
+          other.uuid == this.uuid &&
           other.id == this.id &&
           other.name == this.name &&
           other.notificationSlot == this.notificationSlot &&
@@ -242,29 +280,34 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
 }
 
 class PatientsCompanion extends UpdateCompanion<PatientRow> {
+  final Value<String> uuid;
   final Value<int> id;
   final Value<String> name;
   final Value<int> notificationSlot;
   final Value<DateTime> createdAt;
   const PatientsCompanion({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   PatientsCompanion.insert({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     required String name,
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : name = Value(name);
   static Insertable<PatientRow> custom({
+    Expression<String>? uuid,
     Expression<int>? id,
     Expression<String>? name,
     Expression<int>? notificationSlot,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (notificationSlot != null) 'notification_slot': notificationSlot,
@@ -273,12 +316,14 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
   }
 
   PatientsCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? id,
     Value<String>? name,
     Value<int>? notificationSlot,
     Value<DateTime>? createdAt,
   }) {
     return PatientsCompanion(
+      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
       name: name ?? this.name,
       notificationSlot: notificationSlot ?? this.notificationSlot,
@@ -289,6 +334,9 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
@@ -307,6 +355,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
   @override
   String toString() {
     return (StringBuffer('PatientsCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notificationSlot: $notificationSlot, ')
@@ -322,6 +371,17 @@ class $DayRoutinesTable extends DayRoutines
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $DayRoutinesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -418,6 +478,7 @@ class $DayRoutinesTable extends DayRoutines
   );
   @override
   List<GeneratedColumn> get $columns => [
+    uuid,
     id,
     patientId,
     wakeMinutes,
@@ -439,6 +500,12 @@ class $DayRoutinesTable extends DayRoutines
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
@@ -524,6 +591,10 @@ class $DayRoutinesTable extends DayRoutines
   DayRoutineRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return DayRoutineRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -566,6 +637,7 @@ class $DayRoutinesTable extends DayRoutines
 }
 
 class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
+  final String uuid;
   final int id;
   final int patientId;
 
@@ -577,6 +649,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   final int sleepMinutes;
   final DateTime updatedAt;
   const DayRoutineRow({
+    required this.uuid,
     required this.id,
     required this.patientId,
     required this.wakeMinutes,
@@ -589,6 +662,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['id'] = Variable<int>(id);
     map['patient_id'] = Variable<int>(patientId);
     map['wake_minutes'] = Variable<int>(wakeMinutes);
@@ -602,6 +676,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
 
   DayRoutinesCompanion toCompanion(bool nullToAbsent) {
     return DayRoutinesCompanion(
+      uuid: Value(uuid),
       id: Value(id),
       patientId: Value(patientId),
       wakeMinutes: Value(wakeMinutes),
@@ -619,6 +694,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DayRoutineRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       id: serializer.fromJson<int>(json['id']),
       patientId: serializer.fromJson<int>(json['patientId']),
       wakeMinutes: serializer.fromJson<int>(json['wakeMinutes']),
@@ -633,6 +709,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'id': serializer.toJson<int>(id),
       'patientId': serializer.toJson<int>(patientId),
       'wakeMinutes': serializer.toJson<int>(wakeMinutes),
@@ -645,6 +722,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   }
 
   DayRoutineRow copyWith({
+    String? uuid,
     int? id,
     int? patientId,
     int? wakeMinutes,
@@ -654,6 +732,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     int? sleepMinutes,
     DateTime? updatedAt,
   }) => DayRoutineRow(
+    uuid: uuid ?? this.uuid,
     id: id ?? this.id,
     patientId: patientId ?? this.patientId,
     wakeMinutes: wakeMinutes ?? this.wakeMinutes,
@@ -665,6 +744,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   );
   DayRoutineRow copyWithCompanion(DayRoutinesCompanion data) {
     return DayRoutineRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       id: data.id.present ? data.id.value : this.id,
       patientId: data.patientId.present ? data.patientId.value : this.patientId,
       wakeMinutes: data.wakeMinutes.present
@@ -689,6 +769,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   @override
   String toString() {
     return (StringBuffer('DayRoutineRow(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('patientId: $patientId, ')
           ..write('wakeMinutes: $wakeMinutes, ')
@@ -703,6 +784,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
 
   @override
   int get hashCode => Object.hash(
+    uuid,
     id,
     patientId,
     wakeMinutes,
@@ -716,6 +798,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DayRoutineRow &&
+          other.uuid == this.uuid &&
           other.id == this.id &&
           other.patientId == this.patientId &&
           other.wakeMinutes == this.wakeMinutes &&
@@ -727,6 +810,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
 }
 
 class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
+  final Value<String> uuid;
   final Value<int> id;
   final Value<int> patientId;
   final Value<int> wakeMinutes;
@@ -736,6 +820,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
   final Value<int> sleepMinutes;
   final Value<DateTime> updatedAt;
   const DayRoutinesCompanion({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     this.patientId = const Value.absent(),
     this.wakeMinutes = const Value.absent(),
@@ -746,6 +831,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     this.updatedAt = const Value.absent(),
   });
   DayRoutinesCompanion.insert({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     required int patientId,
     required int wakeMinutes,
@@ -761,6 +847,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
        dinnerMinutes = Value(dinnerMinutes),
        sleepMinutes = Value(sleepMinutes);
   static Insertable<DayRoutineRow> custom({
+    Expression<String>? uuid,
     Expression<int>? id,
     Expression<int>? patientId,
     Expression<int>? wakeMinutes,
@@ -771,6 +858,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (id != null) 'id': id,
       if (patientId != null) 'patient_id': patientId,
       if (wakeMinutes != null) 'wake_minutes': wakeMinutes,
@@ -783,6 +871,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
   }
 
   DayRoutinesCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? id,
     Value<int>? patientId,
     Value<int>? wakeMinutes,
@@ -793,6 +882,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     Value<DateTime>? updatedAt,
   }) {
     return DayRoutinesCompanion(
+      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
       patientId: patientId ?? this.patientId,
       wakeMinutes: wakeMinutes ?? this.wakeMinutes,
@@ -807,6 +897,9 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
@@ -837,6 +930,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
   @override
   String toString() {
     return (StringBuffer('DayRoutinesCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('patientId: $patientId, ')
           ..write('wakeMinutes: $wakeMinutes, ')
@@ -856,6 +950,17 @@ class $MedicationsTable extends Medications
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $MedicationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -956,6 +1061,7 @@ class $MedicationsTable extends Medications
   );
   @override
   List<GeneratedColumn> get $columns => [
+    uuid,
     id,
     patientId,
     name,
@@ -977,6 +1083,12 @@ class $MedicationsTable extends Medications
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
@@ -1041,6 +1153,10 @@ class $MedicationsTable extends Medications
   MedicationRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return MedicationRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -1083,6 +1199,7 @@ class $MedicationsTable extends Medications
 }
 
 class MedicationRow extends DataClass implements Insertable<MedicationRow> {
+  final String uuid;
   final int id;
   final int patientId;
   final String name;
@@ -1100,6 +1217,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   final DateTime? stoppedAt;
   final DateTime createdAt;
   const MedicationRow({
+    required this.uuid,
     required this.id,
     required this.patientId,
     required this.name,
@@ -1112,6 +1230,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['id'] = Variable<int>(id);
     map['patient_id'] = Variable<int>(patientId);
     map['name'] = Variable<String>(name);
@@ -1131,6 +1250,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
 
   MedicationsCompanion toCompanion(bool nullToAbsent) {
     return MedicationsCompanion(
+      uuid: Value(uuid),
       id: Value(id),
       patientId: Value(patientId),
       name: Value(name),
@@ -1154,6 +1274,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MedicationRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       id: serializer.fromJson<int>(json['id']),
       patientId: serializer.fromJson<int>(json['patientId']),
       name: serializer.fromJson<String>(json['name']),
@@ -1168,6 +1289,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'id': serializer.toJson<int>(id),
       'patientId': serializer.toJson<int>(patientId),
       'name': serializer.toJson<String>(name),
@@ -1180,6 +1302,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   }
 
   MedicationRow copyWith({
+    String? uuid,
     int? id,
     int? patientId,
     String? name,
@@ -1189,6 +1312,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     Value<DateTime?> stoppedAt = const Value.absent(),
     DateTime? createdAt,
   }) => MedicationRow(
+    uuid: uuid ?? this.uuid,
     id: id ?? this.id,
     patientId: patientId ?? this.patientId,
     name: name ?? this.name,
@@ -1200,6 +1324,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   );
   MedicationRow copyWithCompanion(MedicationsCompanion data) {
     return MedicationRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       id: data.id.present ? data.id.value : this.id,
       patientId: data.patientId.present ? data.patientId.value : this.patientId,
       name: data.name.present ? data.name.value : this.name,
@@ -1218,6 +1343,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   @override
   String toString() {
     return (StringBuffer('MedicationRow(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('patientId: $patientId, ')
           ..write('name: $name, ')
@@ -1232,6 +1358,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
 
   @override
   int get hashCode => Object.hash(
+    uuid,
     id,
     patientId,
     name,
@@ -1245,6 +1372,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is MedicationRow &&
+          other.uuid == this.uuid &&
           other.id == this.id &&
           other.patientId == this.patientId &&
           other.name == this.name &&
@@ -1256,6 +1384,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
 }
 
 class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
+  final Value<String> uuid;
   final Value<int> id;
   final Value<int> patientId;
   final Value<String> name;
@@ -1265,6 +1394,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<DateTime?> stoppedAt;
   final Value<DateTime> createdAt;
   const MedicationsCompanion({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     this.patientId = const Value.absent(),
     this.name = const Value.absent(),
@@ -1275,6 +1405,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.createdAt = const Value.absent(),
   });
   MedicationsCompanion.insert({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     required int patientId,
     required String name,
@@ -1286,6 +1417,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   }) : patientId = Value(patientId),
        name = Value(name);
   static Insertable<MedicationRow> custom({
+    Expression<String>? uuid,
     Expression<int>? id,
     Expression<int>? patientId,
     Expression<String>? name,
@@ -1296,6 +1428,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (id != null) 'id': id,
       if (patientId != null) 'patient_id': patientId,
       if (name != null) 'name': name,
@@ -1308,6 +1441,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   }
 
   MedicationsCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? id,
     Value<int>? patientId,
     Value<String>? name,
@@ -1318,6 +1452,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<DateTime>? createdAt,
   }) {
     return MedicationsCompanion(
+      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
       patientId: patientId ?? this.patientId,
       name: name ?? this.name,
@@ -1332,6 +1467,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
@@ -1362,6 +1500,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   @override
   String toString() {
     return (StringBuffer('MedicationsCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('patientId: $patientId, ')
           ..write('name: $name, ')
@@ -1381,6 +1520,17 @@ class $DoseSchedulesTable extends DoseSchedules
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $DoseSchedulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -1469,6 +1619,7 @@ class $DoseSchedulesTable extends DoseSchedules
   );
   @override
   List<GeneratedColumn> get $columns => [
+    uuid,
     id,
     medicationId,
     timingKind,
@@ -1490,6 +1641,12 @@ class $DoseSchedulesTable extends DoseSchedules
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
@@ -1531,6 +1688,10 @@ class $DoseSchedulesTable extends DoseSchedules
   DoseScheduleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return DoseScheduleRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -1594,6 +1755,7 @@ class $DoseSchedulesTable extends DoseSchedules
 }
 
 class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
+  final String uuid;
   final int id;
   final int medicationId;
 
@@ -1611,6 +1773,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   /// null = مدة مفتوحة. ما بيتحطّش تخميناً أبداً.
   final int? durationDays;
   const DoseScheduleRow({
+    required this.uuid,
     required this.id,
     required this.medicationId,
     required this.timingKind,
@@ -1623,6 +1786,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['id'] = Variable<int>(id);
     map['medication_id'] = Variable<int>(medicationId);
     {
@@ -1656,6 +1820,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
 
   DoseSchedulesCompanion toCompanion(bool nullToAbsent) {
     return DoseSchedulesCompanion(
+      uuid: Value(uuid),
       id: Value(id),
       medicationId: Value(medicationId),
       timingKind: Value(timingKind),
@@ -1679,6 +1844,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DoseScheduleRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       id: serializer.fromJson<int>(json['id']),
       medicationId: serializer.fromJson<int>(json['medicationId']),
       timingKind: $DoseSchedulesTable.$convertertimingKind.fromJson(
@@ -1699,6 +1865,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'id': serializer.toJson<int>(id),
       'medicationId': serializer.toJson<int>(medicationId),
       'timingKind': serializer.toJson<String>(
@@ -1717,6 +1884,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   }
 
   DoseScheduleRow copyWith({
+    String? uuid,
     int? id,
     int? medicationId,
     DoseTimingKind? timingKind,
@@ -1726,6 +1894,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     DateTime? startDate,
     Value<int?> durationDays = const Value.absent(),
   }) => DoseScheduleRow(
+    uuid: uuid ?? this.uuid,
     id: id ?? this.id,
     medicationId: medicationId ?? this.medicationId,
     timingKind: timingKind ?? this.timingKind,
@@ -1739,6 +1908,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   );
   DoseScheduleRow copyWithCompanion(DoseSchedulesCompanion data) {
     return DoseScheduleRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       id: data.id.present ? data.id.value : this.id,
       medicationId: data.medicationId.present
           ? data.medicationId.value
@@ -1761,6 +1931,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   @override
   String toString() {
     return (StringBuffer('DoseScheduleRow(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
           ..write('timingKind: $timingKind, ')
@@ -1775,6 +1946,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
 
   @override
   int get hashCode => Object.hash(
+    uuid,
     id,
     medicationId,
     timingKind,
@@ -1788,6 +1960,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DoseScheduleRow &&
+          other.uuid == this.uuid &&
           other.id == this.id &&
           other.medicationId == this.medicationId &&
           other.timingKind == this.timingKind &&
@@ -1799,6 +1972,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
 }
 
 class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
+  final Value<String> uuid;
   final Value<int> id;
   final Value<int> medicationId;
   final Value<DoseTimingKind> timingKind;
@@ -1808,6 +1982,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   final Value<DateTime> startDate;
   final Value<int?> durationDays;
   const DoseSchedulesCompanion({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     this.medicationId = const Value.absent(),
     this.timingKind = const Value.absent(),
@@ -1818,6 +1993,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.durationDays = const Value.absent(),
   });
   DoseSchedulesCompanion.insert({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     required int medicationId,
     this.timingKind = const Value.absent(),
@@ -1830,6 +2006,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
        repeat = Value(repeat),
        startDate = Value(startDate);
   static Insertable<DoseScheduleRow> custom({
+    Expression<String>? uuid,
     Expression<int>? id,
     Expression<int>? medicationId,
     Expression<String>? timingKind,
@@ -1840,6 +2017,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Expression<int>? durationDays,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (id != null) 'id': id,
       if (medicationId != null) 'medication_id': medicationId,
       if (timingKind != null) 'timing_kind': timingKind,
@@ -1852,6 +2030,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   }
 
   DoseSchedulesCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? id,
     Value<int>? medicationId,
     Value<DoseTimingKind>? timingKind,
@@ -1862,6 +2041,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Value<int?>? durationDays,
   }) {
     return DoseSchedulesCompanion(
+      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
       medicationId: medicationId ?? this.medicationId,
       timingKind: timingKind ?? this.timingKind,
@@ -1876,6 +2056,9 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
@@ -1914,6 +2097,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   @override
   String toString() {
     return (StringBuffer('DoseSchedulesCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
           ..write('timingKind: $timingKind, ')
@@ -1933,6 +2117,17 @@ class $FixedTimingsTable extends FixedTimings
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $FixedTimingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _doseScheduleIdMeta = const VerificationMeta(
     'doseScheduleId',
   );
@@ -1959,7 +2154,7 @@ class $FixedTimingsTable extends FixedTimings
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [doseScheduleId, minuteOfDay];
+  List<GeneratedColumn> get $columns => [uuid, doseScheduleId, minuteOfDay];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1972,6 +2167,12 @@ class $FixedTimingsTable extends FixedTimings
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('dose_schedule_id')) {
       context.handle(
         _doseScheduleIdMeta,
@@ -2001,6 +2202,10 @@ class $FixedTimingsTable extends FixedTimings
   FixedTimingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FixedTimingRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       doseScheduleId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}dose_schedule_id'],
@@ -2019,17 +2224,20 @@ class $FixedTimingsTable extends FixedTimings
 }
 
 class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
+  final String uuid;
   final int doseScheduleId;
 
   /// دقايق من منتصف الليل (0 → 1439) — نفس تمثيل [MinuteOfDay].
   final int minuteOfDay;
   const FixedTimingRow({
+    required this.uuid,
     required this.doseScheduleId,
     required this.minuteOfDay,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['dose_schedule_id'] = Variable<int>(doseScheduleId);
     map['minute_of_day'] = Variable<int>(minuteOfDay);
     return map;
@@ -2037,6 +2245,7 @@ class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
 
   FixedTimingsCompanion toCompanion(bool nullToAbsent) {
     return FixedTimingsCompanion(
+      uuid: Value(uuid),
       doseScheduleId: Value(doseScheduleId),
       minuteOfDay: Value(minuteOfDay),
     );
@@ -2048,6 +2257,7 @@ class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FixedTimingRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       doseScheduleId: serializer.fromJson<int>(json['doseScheduleId']),
       minuteOfDay: serializer.fromJson<int>(json['minuteOfDay']),
     );
@@ -2056,18 +2266,24 @@ class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'doseScheduleId': serializer.toJson<int>(doseScheduleId),
       'minuteOfDay': serializer.toJson<int>(minuteOfDay),
     };
   }
 
-  FixedTimingRow copyWith({int? doseScheduleId, int? minuteOfDay}) =>
-      FixedTimingRow(
-        doseScheduleId: doseScheduleId ?? this.doseScheduleId,
-        minuteOfDay: minuteOfDay ?? this.minuteOfDay,
-      );
+  FixedTimingRow copyWith({
+    String? uuid,
+    int? doseScheduleId,
+    int? minuteOfDay,
+  }) => FixedTimingRow(
+    uuid: uuid ?? this.uuid,
+    doseScheduleId: doseScheduleId ?? this.doseScheduleId,
+    minuteOfDay: minuteOfDay ?? this.minuteOfDay,
+  );
   FixedTimingRow copyWithCompanion(FixedTimingsCompanion data) {
     return FixedTimingRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       doseScheduleId: data.doseScheduleId.present
           ? data.doseScheduleId.value
           : this.doseScheduleId,
@@ -2080,6 +2296,7 @@ class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
   @override
   String toString() {
     return (StringBuffer('FixedTimingRow(')
+          ..write('uuid: $uuid, ')
           ..write('doseScheduleId: $doseScheduleId, ')
           ..write('minuteOfDay: $minuteOfDay')
           ..write(')'))
@@ -2087,41 +2304,49 @@ class FixedTimingRow extends DataClass implements Insertable<FixedTimingRow> {
   }
 
   @override
-  int get hashCode => Object.hash(doseScheduleId, minuteOfDay);
+  int get hashCode => Object.hash(uuid, doseScheduleId, minuteOfDay);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is FixedTimingRow &&
+          other.uuid == this.uuid &&
           other.doseScheduleId == this.doseScheduleId &&
           other.minuteOfDay == this.minuteOfDay);
 }
 
 class FixedTimingsCompanion extends UpdateCompanion<FixedTimingRow> {
+  final Value<String> uuid;
   final Value<int> doseScheduleId;
   final Value<int> minuteOfDay;
   const FixedTimingsCompanion({
+    this.uuid = const Value.absent(),
     this.doseScheduleId = const Value.absent(),
     this.minuteOfDay = const Value.absent(),
   });
   FixedTimingsCompanion.insert({
+    this.uuid = const Value.absent(),
     this.doseScheduleId = const Value.absent(),
     required int minuteOfDay,
   }) : minuteOfDay = Value(minuteOfDay);
   static Insertable<FixedTimingRow> custom({
+    Expression<String>? uuid,
     Expression<int>? doseScheduleId,
     Expression<int>? minuteOfDay,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (doseScheduleId != null) 'dose_schedule_id': doseScheduleId,
       if (minuteOfDay != null) 'minute_of_day': minuteOfDay,
     });
   }
 
   FixedTimingsCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? doseScheduleId,
     Value<int>? minuteOfDay,
   }) {
     return FixedTimingsCompanion(
+      uuid: uuid ?? this.uuid,
       doseScheduleId: doseScheduleId ?? this.doseScheduleId,
       minuteOfDay: minuteOfDay ?? this.minuteOfDay,
     );
@@ -2130,6 +2355,9 @@ class FixedTimingsCompanion extends UpdateCompanion<FixedTimingRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (doseScheduleId.present) {
       map['dose_schedule_id'] = Variable<int>(doseScheduleId.value);
     }
@@ -2142,6 +2370,7 @@ class FixedTimingsCompanion extends UpdateCompanion<FixedTimingRow> {
   @override
   String toString() {
     return (StringBuffer('FixedTimingsCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('doseScheduleId: $doseScheduleId, ')
           ..write('minuteOfDay: $minuteOfDay')
           ..write(')'))
@@ -2155,6 +2384,17 @@ class $DoseEventsTable extends DoseEvents
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $DoseEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -2224,6 +2464,7 @@ class $DoseEventsTable extends DoseEvents
   );
   @override
   List<GeneratedColumn> get $columns => [
+    uuid,
     id,
     doseScheduleId,
     routineDay,
@@ -2243,6 +2484,12 @@ class $DoseEventsTable extends DoseEvents
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
@@ -2287,6 +2534,10 @@ class $DoseEventsTable extends DoseEvents
   DoseEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return DoseEventRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -2330,6 +2581,7 @@ class $DoseEventsTable extends DoseEvents
 }
 
 class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
+  final String uuid;
   final int id;
   final int doseScheduleId;
   final DateTime routineDay;
@@ -2339,6 +2591,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   final DoseState state;
   final DateTime? actedAt;
   const DoseEventRow({
+    required this.uuid,
     required this.id,
     required this.doseScheduleId,
     required this.routineDay,
@@ -2349,6 +2602,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
     map['id'] = Variable<int>(id);
     map['dose_schedule_id'] = Variable<int>(doseScheduleId);
     {
@@ -2370,6 +2624,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
 
   DoseEventsCompanion toCompanion(bool nullToAbsent) {
     return DoseEventsCompanion(
+      uuid: Value(uuid),
       id: Value(id),
       doseScheduleId: Value(doseScheduleId),
       routineDay: Value(routineDay),
@@ -2387,6 +2642,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DoseEventRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
       id: serializer.fromJson<int>(json['id']),
       doseScheduleId: serializer.fromJson<int>(json['doseScheduleId']),
       routineDay: serializer.fromJson<DateTime>(json['routineDay']),
@@ -2401,6 +2657,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
       'id': serializer.toJson<int>(id),
       'doseScheduleId': serializer.toJson<int>(doseScheduleId),
       'routineDay': serializer.toJson<DateTime>(routineDay),
@@ -2413,6 +2670,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   }
 
   DoseEventRow copyWith({
+    String? uuid,
     int? id,
     int? doseScheduleId,
     DateTime? routineDay,
@@ -2420,6 +2678,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     DoseState? state,
     Value<DateTime?> actedAt = const Value.absent(),
   }) => DoseEventRow(
+    uuid: uuid ?? this.uuid,
     id: id ?? this.id,
     doseScheduleId: doseScheduleId ?? this.doseScheduleId,
     routineDay: routineDay ?? this.routineDay,
@@ -2429,6 +2688,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   );
   DoseEventRow copyWithCompanion(DoseEventsCompanion data) {
     return DoseEventRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       id: data.id.present ? data.id.value : this.id,
       doseScheduleId: data.doseScheduleId.present
           ? data.doseScheduleId.value
@@ -2447,6 +2707,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   @override
   String toString() {
     return (StringBuffer('DoseEventRow(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('doseScheduleId: $doseScheduleId, ')
           ..write('routineDay: $routineDay, ')
@@ -2458,12 +2719,20 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, doseScheduleId, routineDay, scheduledAt, state, actedAt);
+  int get hashCode => Object.hash(
+    uuid,
+    id,
+    doseScheduleId,
+    routineDay,
+    scheduledAt,
+    state,
+    actedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DoseEventRow &&
+          other.uuid == this.uuid &&
           other.id == this.id &&
           other.doseScheduleId == this.doseScheduleId &&
           other.routineDay == this.routineDay &&
@@ -2473,6 +2742,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
 }
 
 class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
+  final Value<String> uuid;
   final Value<int> id;
   final Value<int> doseScheduleId;
   final Value<DateTime> routineDay;
@@ -2480,6 +2750,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   final Value<DoseState> state;
   final Value<DateTime?> actedAt;
   const DoseEventsCompanion({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     this.doseScheduleId = const Value.absent(),
     this.routineDay = const Value.absent(),
@@ -2488,6 +2759,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     this.actedAt = const Value.absent(),
   });
   DoseEventsCompanion.insert({
+    this.uuid = const Value.absent(),
     this.id = const Value.absent(),
     required int doseScheduleId,
     required DateTime routineDay,
@@ -2499,6 +2771,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
        scheduledAt = Value(scheduledAt),
        state = Value(state);
   static Insertable<DoseEventRow> custom({
+    Expression<String>? uuid,
     Expression<int>? id,
     Expression<int>? doseScheduleId,
     Expression<String>? routineDay,
@@ -2507,6 +2780,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     Expression<DateTime>? actedAt,
   }) {
     return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
       if (id != null) 'id': id,
       if (doseScheduleId != null) 'dose_schedule_id': doseScheduleId,
       if (routineDay != null) 'routine_day': routineDay,
@@ -2517,6 +2791,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   }
 
   DoseEventsCompanion copyWith({
+    Value<String>? uuid,
     Value<int>? id,
     Value<int>? doseScheduleId,
     Value<DateTime>? routineDay,
@@ -2525,6 +2800,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     Value<DateTime?>? actedAt,
   }) {
     return DoseEventsCompanion(
+      uuid: uuid ?? this.uuid,
       id: id ?? this.id,
       doseScheduleId: doseScheduleId ?? this.doseScheduleId,
       routineDay: routineDay ?? this.routineDay,
@@ -2537,6 +2813,9 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
@@ -2565,6 +2844,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   @override
   String toString() {
     return (StringBuffer('DoseEventsCompanion(')
+          ..write('uuid: $uuid, ')
           ..write('id: $id, ')
           ..write('doseScheduleId: $doseScheduleId, ')
           ..write('routineDay: $routineDay, ')
@@ -2638,12 +2918,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 }
 
 typedef $$PatientsTableCreateCompanionBuilder = PatientsCompanion Function({
+  Value<String> uuid,
   Value<int> id,
   required String name,
   Value<int> notificationSlot,
   Value<DateTime> createdAt,
 });
 typedef $$PatientsTableUpdateCompanionBuilder = PatientsCompanion Function({
+  Value<String> uuid,
   Value<int> id,
   Value<String> name,
   Value<int> notificationSlot,
@@ -2700,6 +2982,11 @@ class $$PatientsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -2780,6 +3067,11 @@ class $$PatientsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -2810,6 +3102,9 @@ class $$PatientsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -2903,11 +3198,13 @@ class $$PatientsTableTableManager
               $$PatientsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PatientsCompanion(
+                uuid: uuid,
                 id: id,
                 name: name,
                 notificationSlot: notificationSlot,
@@ -2915,11 +3212,13 @@ class $$PatientsTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PatientsCompanion.insert(
+                uuid: uuid,
                 id: id,
                 name: name,
                 notificationSlot: notificationSlot,
@@ -3010,6 +3309,7 @@ typedef $$PatientsTableProcessedTableManager =
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
     DayRoutinesCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       required int patientId,
       required int wakeMinutes,
@@ -3021,6 +3321,7 @@ typedef $$DayRoutinesTableCreateCompanionBuilder =
     });
 typedef $$DayRoutinesTableUpdateCompanionBuilder =
     DayRoutinesCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       Value<int> patientId,
       Value<int> wakeMinutes,
@@ -3062,6 +3363,11 @@ class $$DayRoutinesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -3130,6 +3436,11 @@ class $$DayRoutinesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -3198,6 +3509,9 @@ class $$DayRoutinesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -3281,6 +3595,7 @@ class $$DayRoutinesTableTableManager
               $$DayRoutinesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<int> patientId = const Value.absent(),
                 Value<int> wakeMinutes = const Value.absent(),
@@ -3290,6 +3605,7 @@ class $$DayRoutinesTableTableManager
                 Value<int> sleepMinutes = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DayRoutinesCompanion(
+                uuid: uuid,
                 id: id,
                 patientId: patientId,
                 wakeMinutes: wakeMinutes,
@@ -3301,6 +3617,7 @@ class $$DayRoutinesTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required int patientId,
                 required int wakeMinutes,
@@ -3310,6 +3627,7 @@ class $$DayRoutinesTableTableManager
                 required int sleepMinutes,
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DayRoutinesCompanion.insert(
+                uuid: uuid,
                 id: id,
                 patientId: patientId,
                 wakeMinutes: wakeMinutes,
@@ -3386,6 +3704,7 @@ typedef $$DayRoutinesTableProcessedTableManager =
     >;
 typedef $$MedicationsTableCreateCompanionBuilder =
     MedicationsCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       required int patientId,
       required String name,
@@ -3397,6 +3716,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
     });
 typedef $$MedicationsTableUpdateCompanionBuilder =
     MedicationsCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       Value<int> patientId,
       Value<String> name,
@@ -3456,6 +3776,11 @@ class $$MedicationsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -3549,6 +3874,11 @@ class $$MedicationsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -3617,6 +3947,9 @@ class $$MedicationsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -3719,6 +4052,7 @@ class $$MedicationsTableTableManager
               $$MedicationsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<int> patientId = const Value.absent(),
                 Value<String> name = const Value.absent(),
@@ -3728,6 +4062,7 @@ class $$MedicationsTableTableManager
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => MedicationsCompanion(
+                uuid: uuid,
                 id: id,
                 patientId: patientId,
                 name: name,
@@ -3739,6 +4074,7 @@ class $$MedicationsTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required int patientId,
                 required String name,
@@ -3748,6 +4084,7 @@ class $$MedicationsTableTableManager
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => MedicationsCompanion.insert(
+                uuid: uuid,
                 id: id,
                 patientId: patientId,
                 name: name,
@@ -3849,6 +4186,7 @@ typedef $$MedicationsTableProcessedTableManager =
     >;
 typedef $$DoseSchedulesTableCreateCompanionBuilder =
     DoseSchedulesCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       required int medicationId,
       Value<DoseTimingKind> timingKind,
@@ -3860,6 +4198,7 @@ typedef $$DoseSchedulesTableCreateCompanionBuilder =
     });
 typedef $$DoseSchedulesTableUpdateCompanionBuilder =
     DoseSchedulesCompanion Function({
+      Value<String> uuid,
       Value<int> id,
       Value<int> medicationId,
       Value<DoseTimingKind> timingKind,
@@ -3943,6 +4282,11 @@ class $$DoseSchedulesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -4065,6 +4409,11 @@ class $$DoseSchedulesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -4133,6 +4482,9 @@ class $$DoseSchedulesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -4267,6 +4619,7 @@ class $$DoseSchedulesTableTableManager
               $$DoseSchedulesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<int> medicationId = const Value.absent(),
                 Value<DoseTimingKind> timingKind = const Value.absent(),
@@ -4276,6 +4629,7 @@ class $$DoseSchedulesTableTableManager
                 Value<DateTime> startDate = const Value.absent(),
                 Value<int?> durationDays = const Value.absent(),
               }) => DoseSchedulesCompanion(
+                uuid: uuid,
                 id: id,
                 medicationId: medicationId,
                 timingKind: timingKind,
@@ -4287,6 +4641,7 @@ class $$DoseSchedulesTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required int medicationId,
                 Value<DoseTimingKind> timingKind = const Value.absent(),
@@ -4296,6 +4651,7 @@ class $$DoseSchedulesTableTableManager
                 required DateTime startDate,
                 Value<int?> durationDays = const Value.absent(),
               }) => DoseSchedulesCompanion.insert(
+                uuid: uuid,
                 id: id,
                 medicationId: medicationId,
                 timingKind: timingKind,
@@ -4427,11 +4783,13 @@ typedef $$DoseSchedulesTableProcessedTableManager =
     >;
 typedef $$FixedTimingsTableCreateCompanionBuilder =
     FixedTimingsCompanion Function({
+      Value<String> uuid,
       Value<int> doseScheduleId,
       required int minuteOfDay,
     });
 typedef $$FixedTimingsTableUpdateCompanionBuilder =
     FixedTimingsCompanion Function({
+      Value<String> uuid,
       Value<int> doseScheduleId,
       Value<int> minuteOfDay,
     });
@@ -4468,6 +4826,11 @@ class $$FixedTimingsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get minuteOfDay => $composableBuilder(
     column: $table.minuteOfDay,
     builder: (column) => ColumnFilters(column),
@@ -4506,6 +4869,11 @@ class $$FixedTimingsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get minuteOfDay => $composableBuilder(
     column: $table.minuteOfDay,
     builder: (column) => ColumnOrderings(column),
@@ -4544,6 +4912,9 @@ class $$FixedTimingsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get minuteOfDay => $composableBuilder(
     column: $table.minuteOfDay,
     builder: (column) => column,
@@ -4601,17 +4972,21 @@ class $$FixedTimingsTableTableManager
               $$FixedTimingsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> doseScheduleId = const Value.absent(),
                 Value<int> minuteOfDay = const Value.absent(),
               }) => FixedTimingsCompanion(
+                uuid: uuid,
                 doseScheduleId: doseScheduleId,
                 minuteOfDay: minuteOfDay,
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> doseScheduleId = const Value.absent(),
                 required int minuteOfDay,
               }) => FixedTimingsCompanion.insert(
+                uuid: uuid,
                 doseScheduleId: doseScheduleId,
                 minuteOfDay: minuteOfDay,
               ),
@@ -4681,6 +5056,7 @@ typedef $$FixedTimingsTableProcessedTableManager =
       PrefetchHooks Function({bool doseScheduleId})
     >;
 typedef $$DoseEventsTableCreateCompanionBuilder = DoseEventsCompanion Function({
+  Value<String> uuid,
   Value<int> id,
   required int doseScheduleId,
   required DateTime routineDay,
@@ -4689,6 +5065,7 @@ typedef $$DoseEventsTableCreateCompanionBuilder = DoseEventsCompanion Function({
   Value<DateTime?> actedAt,
 });
 typedef $$DoseEventsTableUpdateCompanionBuilder = DoseEventsCompanion Function({
+  Value<String> uuid,
   Value<int> id,
   Value<int> doseScheduleId,
   Value<DateTime> routineDay,
@@ -4729,6 +5106,11 @@ class $$DoseEventsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -4789,6 +5171,11 @@ class $$DoseEventsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -4847,6 +5234,9 @@ class $$DoseEventsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -4919,6 +5309,7 @@ class $$DoseEventsTableTableManager
               $$DoseEventsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<int> doseScheduleId = const Value.absent(),
                 Value<DateTime> routineDay = const Value.absent(),
@@ -4926,6 +5317,7 @@ class $$DoseEventsTableTableManager
                 Value<DoseState> state = const Value.absent(),
                 Value<DateTime?> actedAt = const Value.absent(),
               }) => DoseEventsCompanion(
+                uuid: uuid,
                 id: id,
                 doseScheduleId: doseScheduleId,
                 routineDay: routineDay,
@@ -4935,6 +5327,7 @@ class $$DoseEventsTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> uuid = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required int doseScheduleId,
                 required DateTime routineDay,
@@ -4942,6 +5335,7 @@ class $$DoseEventsTableTableManager
                 required DoseState state,
                 Value<DateTime?> actedAt = const Value.absent(),
               }) => DoseEventsCompanion.insert(
+                uuid: uuid,
                 id: id,
                 doseScheduleId: doseScheduleId,
                 routineDay: routineDay,

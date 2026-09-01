@@ -86,7 +86,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 4);
+    expect(version.read<int>('user_version'), 5);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -106,6 +106,11 @@ void main() {
     // v4: «الجرعة مش معروفة» — الصفوف القديمة false، مش null ومش true
     final rows = await db.select(db.medications).get();
     expect(rows.every((m) => m.amountUnknown == false), isTrue);
+
+    // v5: كل صف قديم خد uuid — حتى من قاعدة عمرها من نسخة ٢
+    final uuids = {for (final m in rows) m.uuid};
+    expect(uuids.length, rows.length);
+    expect(uuids.every((u) => u.isNotEmpty), isTrue);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

@@ -110,9 +110,10 @@ lib/
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v4: patients, day_routines, medications
+  data/db/                    drift (SQLite) v5: patients, day_routines, medications
                               (amount_unknown), dose_schedules (timing_kind),
-                              fixed_timings, dose_events
+                              fixed_timings, dose_events — every table carries a
+                              device-minted `uuid` (SyncIdentity mixin)
   data/repositories/          routine / medication / dose_event
   data/services/              reminder_plan (pure: IDs, window, payload)
                               reminder_scheduler (engine → sink), reminder_sink
@@ -132,7 +133,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         224 passing
+test/                         227 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -179,13 +180,30 @@ not on a screen. The system camera is used deliberately (familiar to a
 72-year-old, handles focus/exposure/retake); build a custom viewfinder only
 if real testing shows framing is what breaks the read.
 
+**The uuid is identity for sync; the int id is plumbing for SQLite.**
+Every synced-someday table mixes in `SyncIdentity`: `uuid TEXT NOT NULL
+UNIQUE`, minted on the device by a `clientDefault` — never by a server, and
+never by a call site (anything a call site must remember will be
+forgotten). Auto-increment ids are per-device sequences — two phones both
+mint 1, 2, 3 — so the uuid is what sync matches on, while all foreign keys
+stay on the local int id. Never expose an int id outside the device.
+Schema versions now live under `drift_schemas/` (`drift_dev schema dump`
+before and after every schema change) and migrations are proven by
+`SchemaVerifier` in `test/data/uuid_migration_test.dart` — written red
+before the migration existed, because migrations run on a phone holding
+real data.
+
 **Schema changes migrate in place — never wipe.** This database holds real
 patients' schedules. `onUpgrade` turns foreign keys off outside the
 transaction (the PRAGMA is a no-op inside one), runs every step inside one
 transaction, and turns them back on; `beforeOpen` re-asserts them.
 `test/data/migration_test.dart` opens a hand-written v2 database with anchor
 rows and asserts every schedule and event survived — add a case there for
-every future version.
+every future version. **Old migration steps use frozen historical SQL, never
+today's drift table definitions**: a step that references the current
+definition silently changes shape every time the schema grows (the v2→v3
+step broke exactly this way when v5 added `uuid`). Each step must produce
+its own version's schema, byte for byte, forever.
 
 **Times are built with `DateTime(y, m, d, 0, totalMinutes)`, never
 `.add(Duration)`.** Egypt observes daylight saving; the constructor works in
@@ -437,6 +455,10 @@ with the app fully closed, offline, and across a reboot.
   to `gemini-flash-latest` on `404 NOT_FOUND`.
 - Not yet done on hardware: a real handwritten prescription through the
   live API — that is where the image-size numbers and the prompt get tuned.
+
+**Round 3.2a — stable row identity (built)**
+- `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
+  SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
 
 **Phase 3.1 — identity plumbing (built)**
 - `AuthService` + `AnonymousAuthService` (live) + `GoogleAuthService`
