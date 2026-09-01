@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../ai/prescription_reader.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
@@ -19,6 +20,7 @@ class AppServices {
     required this.scheduler,
     required this.patientId,
     this.tapPayload,
+    this.prescriptionReader,
   });
 
   final AppDatabase db;
@@ -33,6 +35,10 @@ class AppServices {
   /// null في الاختبارات اللي مش بتهمها الدوسة. الجذر بيسمع له ويفتح شاشة
   /// التذكير على الجرعة الصح، وبيصفّره بعد ما يقرأه.
   final ValueNotifier<String?>? tapPayload;
+
+  /// قارئ الروشتة — null لو مفتاح Gemini مش متظبط. التذكيرات ما بتعتمدش
+  /// عليه؛ شاشة التصوير بس هي اللي بتقول إنه ناقص.
+  final PrescriptionReader? prescriptionReader;
 }
 
 class AppScope extends InheritedWidget {

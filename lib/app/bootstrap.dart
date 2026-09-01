@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
 
+import '../ai/gemini_config.dart';
+import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
@@ -39,7 +41,19 @@ Future<AppServices> buildServices(AppDatabase db) async {
     ),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
+    prescriptionReader: _readerFromEnvironment(),
   );
+}
+
+/// المفتاح من `--dart-define` وبس. لو مش موجود بنرجّع null ونقولها في
+/// الشاشة — مش بنكسر فتح التطبيق، ومش بننده الـAPI بمفتاح فاضي أبداً.
+PrescriptionReader? _readerFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  if (config == null) {
+    debugPrint(GeminiConfig.missingKeyMessage);
+    return null;
+  }
+  return GeminiPrescriptionReader(config);
 }
 
 NotificationActionHandler actionHandlerFor(AppServices services) =>

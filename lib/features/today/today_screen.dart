@@ -11,6 +11,7 @@ import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
 import '../routine/edit_routine_screen.dart';
+import '../scan/scan_prescription_screen.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/next_dose_card.dart';
 
@@ -182,6 +183,27 @@ class _TodayScreenState extends State<TodayScreen> {
                     onTaken: _markTaken,
                   ),
                 const SizedBox(height: F.gap),
+                SizedBox(
+                  height: F.primaryButtonHeight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ScanPrescriptionScreen(
+                          routine: widget.routine,
+                          reader: AppScope.of(context).prescriptionReader,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      'صوّر روشتة',
+                      style: TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(

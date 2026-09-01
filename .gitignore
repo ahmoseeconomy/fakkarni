@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Secrets — the Gemini key comes from --dart-define only, never from a tracked file.
+# `flutter run --dart-define-from-file=secrets.json` reads this if you keep one.
+secrets.json
+*.env

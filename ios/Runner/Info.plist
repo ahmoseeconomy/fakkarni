@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>عشان تصوّر الروشتة ونقراها لك.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>عشان تختار صورة روشتة من صورك.</string>
 </dict>
 </plist>

@@ -33,17 +33,32 @@ const _choices = [
 ];
 
 class AddMedicationScreen extends StatefulWidget {
-  const AddMedicationScreen({required this.routine, this.today, super.key});
+  const AddMedicationScreen({
+    required this.routine,
+    this.today,
+    this.initialName,
+    this.initialAmount,
+    this.initialTiming,
+    this.initialDurationDays,
+    super.key,
+  });
 
   final DayRoutine routine;
   final DateTime? today;
+
+  /// قيم مبدئية — من قراءة الروشتة. بتتعرض للتعديل، ما بتتحفظش لوحدها.
+  final String? initialName;
+  final String? initialAmount;
+  final DoseTiming? initialTiming;
+  final int? initialDurationDays;
 
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
 }
 
 class _AddMedicationScreenState extends State<AddMedicationScreen> {
-  final _name = TextEditingController();
+  late final _name = TextEditingController(text: widget.initialName ?? '');
+  late final _amount = TextEditingController(text: widget.initialAmount ?? '');
   _AnchorChoice _choice = _choices[1];
   int _gap = 30;
 
@@ -55,8 +70,38 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    _applyInitial();
+  }
+
+  /// بيحوّل التوقيت المبدئي لحالة الشاشة — أقرب شيب + إزاحة، أو ساعة ثابتة.
+  void _applyInitial() {
+    final days = widget.initialDurationDays;
+    if (days != null) {
+      _openEnded = false;
+      _days = days.clamp(1, 90);
+    }
+    switch (widget.initialTiming) {
+      case AnchorTiming(:final anchor, :final offsetMinutes):
+        final before = offsetMinutes < 0;
+        _choice = _choices.firstWhere(
+          (c) => c.anchor == anchor && (anchor == DayAnchor.wake || c.before == before),
+          orElse: () => _choices[1],
+        );
+        _gap = offsetMinutes.abs();
+      case FixedTiming(:final minuteOfDay):
+        _fixed = true;
+        _fixedTime = minuteOfDay;
+      case null:
+        break;
+    }
+  }
+
+  @override
   void dispose() {
     _name.dispose();
+    _amount.dispose();
     super.dispose();
   }
 
@@ -90,6 +135,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     await services.medications.addMedication(
       patientId: services.patientId,
       name: _name.text.trim(),
+      amountLabel: _amount.text.trim().isEmpty ? null : _amount.text.trim(),
       timing: _timing,
       startDate: widget.today ?? DateTime.now(),
       // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
@@ -97,7 +143,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     );
     await services.scheduler.rescheduleAll();
 
-    if (mounted) navigator.pop();
+    // true = اتحفظ — شاشة مراجعة الروشتة بتفرّق بين الحفظ والرجوع.
+    if (mounted) navigator.pop(true);
   }
 
   @override
@@ -127,6 +174,29 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                     decoration: InputDecoration(
                       hintText: 'زي Concor 5mg',
+                      hintStyle: const TextStyle(
+                        fontSize: F.minTextSize,
+                        color: F.muted,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 18,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(F.radius),
+                        borderSide: const BorderSide(color: F.line),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: F.gap),
+                  const _FieldLabel('الجرعة (اختياري)'),
+                  TextField(
+                    controller: _amount,
+                    style: const TextStyle(fontSize: F.minBodySize),
+                    decoration: InputDecoration(
+                      hintText: 'زي: قرص واحد',
                       hintStyle: const TextStyle(
                         fontSize: F.minTextSize,
                         color: F.muted,

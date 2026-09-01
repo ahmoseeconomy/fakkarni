@@ -40,6 +40,11 @@ These are product decisions, already settled. Do not "improve" them without aski
    scheduled dose without an explicit tap on a confirmation screen. On that
    screen, "أعدّل" carries the same visual weight as "تمام" — never nudge
    someone into confirming a medication schedule they have not read.
+   «تمام» stays disabled while any line is «محتاج تحديد»; a «١×٣» line with
+   no meal named is always flagged, whatever confidence the model reports,
+   because spreading it over three meals is our convention, not the paper's.
+   «صوّر تاني» is always offered — a bad read is fixed by a better photo,
+   not by editing five fields by hand.
 
 5. **A confirmation cancels escalation immediately, at any stage** — including
    while the phone is already ringing. A few seconds of lag here means a
@@ -65,9 +70,13 @@ These are product decisions, already settled. Do not "improve" them without aski
   never use red for an error, a warning, a validation message, or a missed
   dose. A missed dose uses gold and neutral wording — he forgot, he did not
   fail.
-- **Gold (`F.gold`) is only for reminders and the active state.** Anywhere else
-  it stops meaning anything. The mockups show a coral FAB in the bottom bar —
-  build that FAB in green, not coral. Gold must be the only colour that pops.
+- **Gold (`F.gold`) means one thing: "this needs your attention now."** A
+  dose that needs taking now, the state you are currently on, and a field the
+  AI is unsure about («محتاج تحديد») — all three are that one meaning. Do not
+  add a fourth use that isn't; a list of exceptions grows until the colour
+  means nothing, a principle does not. The mockups show a coral FAB in the
+  bottom bar — build that FAB in green, not coral. Gold must be the only
+  colour that pops.
 - **No time picker as the primary control.** The dose editor leads with anchor
   chips (`[قبل الفطار] [بعد العشا] …`) plus an offset stepper. A fixed clock
   time exists only as a small secondary link.
@@ -87,6 +96,9 @@ lib/
     dose_schedule.dart        DoseSchedule, DoseRepeat, DoseTiming
                               (AnchorTiming | FixedTiming)
     schedule_engine.dart      resolveTime / resolveFixed / remindersForDay
+  ai/                         Phase 2 — gemini_config (key from --dart-define),
+                              prescription_reading (pure model + responseSchema),
+                              prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
   data/db/                    drift (SQLite) v3: patients, day_routines, medications,
@@ -102,8 +114,10 @@ lib/
   features/medication/        add medication (anchor chips + offset stepper)
   features/today/             «يومك» — next dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
+  features/scan/              ScanPrescriptionScreen (advice → system camera via
+                              image_picker) + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         144 passing
+test/                         174 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -113,6 +127,23 @@ waking rather than 6 hours before it. A fixed time follows the same rule:
 calendar date), and otherwise never moves it. Both kinds resolve to the same
 minute-keyed map, so a fixed 2:00 PM and «قبل الغدا − ٣٠» at 2:00 PM merge
 into one `Reminder` like any other pair.
+
+**The Gemini key comes from `--dart-define` only.** `GeminiConfig` reads
+`String.fromEnvironment('GEMINI_API_KEY')`; `tryFromEnvironment()` returns
+null when missing and the scan screen says so in words, `fromEnvironment()`
+throws, and `GeminiPrescriptionReader`'s constructor throws on an empty key —
+so no request can ever leave with an empty key. `secrets.json` and `*.env`
+are gitignored for `--dart-define-from-file`. Run with
+`flutter run --dart-define=GEMINI_API_KEY=…`. Gemini is called over REST
+(`gemini-2.5-flash`, `responseSchema` JSON) — the `google_generative_ai`
+package is deprecated, and a REST call is testable with `MockClient`.
+
+**Image quality beats prompt tuning.** Handwriting dies first under
+downscaling. `pickWithSystemCamera` uses `maxWidth/maxHeight 2560,
+imageQuality 92`; settle those numbers on a real handwritten prescription,
+not on a screen. The system camera is used deliberately (familiar to a
+72-year-old, handles focus/exposure/retake); build a custom viewfinder only
+if real testing shows framing is what breaks the read.
 
 **Schema changes migrate in place — never wipe.** This database holds real
 patients' schedules. `onUpgrade` turns foreign keys off outside the
@@ -264,8 +295,20 @@ with the app fully closed, offline, and across a reboot.
   background isolate; every confirmation re-extends the window; early
   confirmations are excluded from re-scheduling
 
+**Phase 2 — read a paper prescription (built, needs a real-photo pass)**
+- `lib/ai/`: config, reading model with per-field confidence, Gemini REST
+  reader. Threshold 0.8; below it a field is gold «محتاج تحديد».
+- Scan screen (framing advice → system camera / gallery) and review screen
+  with per-line «أعدّل السطر ده», equal-weight «أعدّل»/«تمام», «صوّر تاني».
+  «تمام» writes each clear line (one schedule per timing) then `rescheduleAll`.
+- Editor accepts prefilled values and now has an optional amount field.
+- Not yet done on hardware: a real handwritten prescription through the
+  live API — that is where the image-size numbers and the prompt get tuned.
+
 **Next**
-1. Re-run the `/device` checklist for the action buttons specifically: tap
+1. Photograph a real handwritten prescription with the key set; tune
+   `maxWidth`/`imageQuality` and the prompt from what actually fails
+2. Re-run the `/device` checklist for the action buttons specifically: tap
    «أخدته» on the lock screen with the app terminated, then check
    `pending()` grew (Android background isolate + iOS category actions were
    not part of the first device pass)
@@ -290,4 +333,7 @@ with the app fully closed, offline, and across a reboot.
   restricts both to alarm/calling apps and will reject the review.
   Use `SCHEDULE_EXACT_ALARM` requested at runtime instead.
 - Write formal MSA in the UI
-- Invent a medication duration, dosage or timing
+- Invent a medication duration, dosage or timing — this applies to the
+  Gemini prompt as much as to the code
+- Hardcode an API key, put one in a tracked file, or call Gemini with an
+  empty key

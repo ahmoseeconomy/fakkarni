@@ -283,7 +283,7 @@ void main() {
 
       expect(find.text('مفتوحة'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'Concor 5mg');
+      await tester.enterText(find.byType(TextField).first, 'Concor 5mg');
       await tester.pumpAndSettle();
       await tester.tap(find.text('احفظ الجرعة'));
       await settle(tester);
@@ -338,7 +338,7 @@ void main() {
     screenTest('الحفظ في وضع الساعة الثابتة بيخزّن FixedTiming', (tester) async {
       await pumpAdd(tester);
 
-      await tester.enterText(find.byType(TextField), 'Eltroxin');
+      await tester.enterText(find.byType(TextField).first, 'Eltroxin');
       await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('احفظ الجرعة'));
