@@ -28,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -132,18 +132,76 @@ class AppDatabase extends _$AppDatabase {
                     [newSyncUuid(), row.read<int>('r')],
                   );
                 }
-                // إعادة البناء على تعريف drift الحالي — بيشيل الـDEFAULT
-                // المؤقت وبيضيف UNIQUE، والفاحص بيتأكد إن الناتج نسخة ٥ حرفياً
-                await m.alterTable(TableMigration(table));
+                // مفيش alterTable هنا: إعادة البناء على تعريف النهاردة كانت
+                // بتطلب أعمدة النسخ الجاية من جدول لسه ماوصلهاش. التطبيع
+                // الوحيد بيحصل مرة واحدة في **آخر** خطوة في السلسلة.
               }
             }
           });
+            if (from < 6) {
+              // ساعة المزامنة: updated_at_ms مبدئياً «دلوقتي» — والصفوف كلها
+              // متوسّخة (synced_at_ms فاضية) عشان أول دفعة ترفع التاريخ كله.
+              final backfill = DateTime.now().millisecondsSinceEpoch;
+              for (final table in <TableInfo<Table, dynamic>>[
+                patients,
+                dayRoutines,
+                medications,
+                doseSchedules,
+                fixedTimings,
+                doseEvents,
+              ]) {
+                final name = table.actualTableName;
+                // خطوة v5 بتعيد بناء الجداول على تعريف النهاردة، فالأعمدة
+                // ممكن تكون وصلت خلاص — نفس درس «الخطوات المجمّدة»
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('$name') WHERE name = 'updated_at_ms'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement(
+                    'ALTER TABLE $name ADD COLUMN updated_at_ms INTEGER NOT NULL DEFAULT $backfill',
+                  );
+                  await customStatement(
+                    'ALTER TABLE $name ADD COLUMN synced_at_ms INTEGER NULL',
+                  );
+                }
+                // التطبيع الوحيد في السلسلة كلها — آخر خطوة، بعد ما كل
+                // الأعمدة بقت موجودة فعلاً. بيشيل الـDEFAULTs المؤقتة
+                // وبيضيف UNIQUE، والفاحص بيقارن الناتج بآخر نسخة حرفياً.
+                await m.alterTable(TableMigration(table));
+              }
+            }
           await customStatement('PRAGMA foreign_keys = ON');
         },
         beforeOpen: (details) async {
           // من غير السطر ده SQLite بيتجاهل المفاتيح الأجنبية تماماً، ووقف
           // دوا كان هيسيب جرعاته يتيمة ورا.
           await customStatement('PRAGMA foreign_keys = ON');
+
+          // تريجرات ساعة المزامنة — هنا مش في الترحيل عن قصد: IF NOT EXISTS
+          // بيخلّيها ذاتية الشفاء بعد أي إعادة بناء جدول (alterTable بيوقّع
+          // التريجرات مع الجدول القديم)، وبتتعمل للتنزيلة الجديدة برضه.
+          //
+          // بتتخطى لما التعديل الوحيد هو تعليم المزامنة نفسه
+          // (WHEN NEW.synced_at_ms IS OLD.synced_at_ms) — من غيرها كل دفعة
+          // كانت هتوسّخ اللي لسه منضّفاه، للأبد.
+          for (final table in [
+            'patients',
+            'day_routines',
+            'medications',
+            'dose_schedules',
+            'fixed_timings',
+            'dose_events',
+          ]) {
+            await customStatement('''
+CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at
+AFTER UPDATE ON $table
+WHEN NEW.synced_at_ms IS OLD.synced_at_ms
+BEGIN
+  UPDATE $table
+     SET updated_at_ms = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)
+   WHERE rowid = NEW.rowid;
+END''');
+          }
         },
       );
 }

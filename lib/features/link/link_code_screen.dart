@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/care/care_circle_service.dart';
+import '../../data/sync/sync_service.dart';
 
 /// شاشة الأب: الكود اللي هيقوله لابنه في التليفون.
 ///
@@ -14,10 +17,15 @@ class LinkCodeScreen extends StatefulWidget {
     required this.care,
     required this.patientUuid,
     required this.patientName,
+    this.sync,
     super.key,
   });
 
   final CareCircleService care;
+
+  /// بعد نجاح رفع صف المريض بنعلّم «اتربطنا» — من اللحظة دي المزامنة
+  /// الصامتة مسموحة، وأول دفعة بترفع التاريخ كله.
+  final SyncService? sync;
   final String patientUuid;
   final String patientName;
 
@@ -46,6 +54,9 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
       // صف المريض الأول — البوابة على السيرفر بتتأكد إن الكود لمريض يملكه
       await widget.care
           .upsertPatient(uuid: widget.patientUuid, name: widget.patientName);
+      await widget.sync?.confirmLinked();
+      // أول دفعة — الروتين والأدوية والتاريخ كله بيطلع دلوقتي في الخلفية
+      unawaited(widget.sync?.push());
       final invite = await widget.care.createInvite(widget.patientUuid);
       if (mounted) setState(() => _invite = invite);
     } on CareCircleException catch (e) {

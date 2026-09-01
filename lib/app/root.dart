@@ -19,11 +19,25 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<AppRoot> {
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   /// نفس القاعدة: البث بيتعمل مرة واحدة، مش في كل build.
   Stream<DayRoutine?>? _routine;
   ValueNotifier<String?>? _tapPayload;
   bool _routineReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// رجوع للمقدمة = محفّز مزامنة — الجهاز ممكن يكون كان أوفلاين ساعات.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      AppScope.of(context).sync?.onAppForeground();
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -36,6 +50,7 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tapPayload?.removeListener(_openFromTap);
     super.dispose();
   }

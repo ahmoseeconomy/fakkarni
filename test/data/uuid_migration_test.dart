@@ -1,6 +1,6 @@
 // اختبار الترحيل بيتكتب **قبل** الترحيل نفسه، وبيتشاف أحمر الأول —
 // الترحيل ده بيمشي على موبايل فيه بيانات حقيقية، ومفيش «نضيفه بعدين».
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,9 +37,9 @@ void main() {
         "INSERT INTO dose_events (id, dose_schedule_id, routine_day, scheduled_at, state, acted_at) "
         "VALUES (100, 10, '2026-08-31', 1788235200, 'taken', 1788235500)");
 
-    // الترحيل + تحقق drift إن الناتج مطابق لمخطط نسخة ٥
+    // الترحيل + تحقق drift إن الناتج مطابق لآخر نسخة
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 5);
+    await verifier.migrateAndValidate(db, 6);
 
     // القيم الأصلية زي ما هي
     final patient = await (db.select(db.patients)..where((t) => t.id.equals(1))).getSingle();
@@ -82,12 +82,39 @@ void main() {
     await db.close();
   });
 
+  test('v5 → v6: الصفوف عايشة، وكلها متوسّخة (synced_at_ms فاضية) عشان أول '
+      'دفعة ترفع التاريخ كله', () async {
+    final schema = await verifier.schemaAt(5);
+    final raw = schema.rawDatabase;
+    raw.execute(
+        "INSERT INTO patients (id, uuid, name, notification_slot) VALUES (1, 'p-1', 'الحاج أحمد', 0)");
+    raw.execute(
+        "INSERT INTO medications (id, uuid, patient_id, name, amount_unknown) "
+        "VALUES (1, 'm-1', 1, 'Concor 5mg', 0)");
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 6);
+
+    final patient = (await db.select(db.patients).get()).single;
+    final med = (await db.select(db.medications).get()).single;
+    expect(patient.name, 'الحاج أحمد');
+    expect(med.name, 'Concor 5mg');
+    for (final (updated, synced) in [
+      (patient.updatedAtMs, patient.syncedAtMs),
+      (med.updatedAtMs, med.syncedAtMs),
+    ]) {
+      expect(updated, greaterThan(0));
+      expect(synced, isNull, reason: 'أول دفعة لازم ترفع التاريخ كله');
+    }
+    await db.close();
+  });
+
   test('كل النسخ المتسجّلة بتترحّل لآخر نسخة وتتطابق', () async {
     for (final version in GeneratedHelper.versions) {
-      if (version == 5) continue;
+      if (version == 6) continue;
       final schema = await verifier.schemaAt(version);
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 5);
+      await verifier.migrateAndValidate(db, 6);
       await db.close();
     }
   });

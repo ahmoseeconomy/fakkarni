@@ -3,7 +3,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_scope.dart';
 import 'app/bootstrap.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'data/auth/supabase_init.dart';
+import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/theme/tokens.dart';
@@ -17,8 +20,21 @@ Future<void> main() async {
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
   // إعداد ناقص، جلسة بايظة) بترجع null والتطبيق يفتح كامل زي ما هو.
   final cloud = await initSupabaseAuth();
-  final services =
-      await buildServices(db, auth: cloud?.auth, care: cloud?.care);
+  // مزامنة باتجاه واحد وصامتة — من غير سحابة مفيش مزامنة ومفيش أي نداء شبكة.
+  final sync = cloud == null
+      ? null
+      : SyncService(
+          db: db,
+          remote: cloud.syncRemote,
+          hasSession: () => cloud.auth.currentUser != null,
+        );
+  sync?.start(connectivity: Connectivity().onConnectivityChanged);
+  final services = await buildServices(
+    db,
+    auth: cloud?.auth,
+    care: cloud?.care,
+    sync: sync,
+  );
 
   // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
   final actions = actionHandlerFor(services);

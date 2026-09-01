@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../ai/prescription_reader.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
+import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
@@ -25,6 +26,7 @@ class AppServices {
     this.prescriptionReader,
     this.auth,
     this.care,
+    this.sync,
   });
 
   final AppDatabase db;
@@ -50,6 +52,9 @@ class AppServices {
 
   /// دائرة الرعاية — نفس شرط الهوية، ونفس الغياب الهادي.
   final CareCircleService? care;
+
+  /// المزامنة — اتجاه واحد، صامتة، والمستخدم مش المفروض يعرف إنها موجودة.
+  final SyncService? sync;
 }
 
 class AppScope extends InheritedWidget {

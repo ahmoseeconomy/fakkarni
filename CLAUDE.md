@@ -133,7 +133,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         236 passing
+test/                         245 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -349,6 +349,24 @@ Known accepted risk: a 6-digit code space is brute-forceable in principle;
 mitigations today are the 15-minute expiry and one live code per patient —
 rate limiting is future work.
 
+**Sync is one-way, silent, and derived.** Local drift is the source of
+truth; the cloud is a copy; only the owner's device writes; nothing pulls
+into drift (3.5 reads Supabase directly) — so there is no merge code, on
+purpose. Dirtiness is derived (`synced_at_ms IS NULL OR < updated_at_ms`,
+epoch **milliseconds** so a same-second edit during a push stays dirty),
+and `updated_at_ms` is maintained by SQLite triggers created idempotently
+in `beforeOpen` (self-healing after any table rebuild) — never by call
+sites. The trigger fires only `WHEN NEW.synced_at_ms IS OLD.synced_at_ms`
+so the push's own marking never re-dirties rows. `SyncService.push()` is
+parent-first, marks `synced_at_ms` with the pushed `updated_at_ms` (never
+now()), and is a silent no-op unless signed in AND linked
+(`confirmLinked()` fires once from the link screen). Triggers: foreground,
+3s-debounced local writes via `db.tableUpdates()`, connectivity restored.
+Never a timer, never an error surfaced to the user. Wire times are UTC ISO.
+**Migration steps normalize tables (alterTable) only in the LAST step of
+the chain** — an intermediate normalization builds tomorrow's shape from
+yesterday's columns and breaks old upgrade paths (bitten twice now).
+
 **The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
 hand in the SQL editor, order: 0001 → 0002 → tests). The publishable key
 ships in the binary, so every table has RLS enabled as its first statement
@@ -397,6 +415,13 @@ Consequences to handle:
   the only remaining way to make the caregiver alert harder to miss. It needs
   Apple's approval and the paid developer account. Request it before launch.
 
+0. **Sync has no deletes and no second owner device — yet.** Deletes ship
+   as soft-delete (`deleted_at`) with the first feature that needs one;
+   a second device for the same owner ships as last-write-wins by
+   `updated_at`. Neither exists today, and nothing may pretend to handle
+   them until they do. A dose confirmed from the lock screen stays dirty
+   until the next app open/foreground (the background isolate builds no
+   SyncService).
 1. **Anonymous sign-in is a development stand-in ONLY.** An anonymous user
    is bound to one device and is lost when app data is cleared. It must be
    upgraded via `linkIdentity` to Google before any store submission.
@@ -489,6 +514,14 @@ with the app fully closed, offline, and across a reboot.
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
   SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
+
+**Round 3.4 — one-way sync, father's device → cloud (built)**
+- drift v6: `updated_at_ms`/`synced_at_ms` on every SyncIdentity table,
+  SQLite triggers in beforeOpen, SchemaVerifier-proven migration (rows
+  survive, everything starts dirty so the first push uploads history).
+- `lib/data/sync/`: SyncService (dirty queries with uuid-joins, batched
+  upsert-on-uuid, silent failure policy) + SupabaseSyncRemote (injects
+  owner_id on patients). Cloud 0004: server-side updated_at (moddatetime).
 
 **Round 3.3 — invite code + care circle (built)**
 - SQL: `invite_codes` + `create_invite`/`redeem_invite` (the one gate);

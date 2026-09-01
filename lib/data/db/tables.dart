@@ -18,8 +18,21 @@ const _uuid = Uuid();
 /// عام عشان الكود المولّد (part من app_database) يشوفه.
 String newSyncUuid() => _uuid.v4();
 
+/// ساعة المزامنة بالملّي ثانية — أعمدة int عادية مش dateTime عن قصد:
+/// دقّة drift الافتراضية بالثواني، وتعديل في نفس ثانية الدفع كان هيبان
+/// «نضيف» ويضيع. القاعدة: الصف متوسّخ لما synced_at_ms IS NULL أو أقدم
+/// من updated_at_ms.
+int nowMs() => DateTime.now().millisecondsSinceEpoch;
+
 mixin SyncIdentity on Table {
   TextColumn get uuid => text().clientDefault(newSyncUuid).unique()();
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  IntColumn get updatedAtMs => integer().clientDefault(nowMs)();
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  IntColumn get syncedAtMs => integer().nullable()();
 }
 
 // ملاحظة على الأسماء: كلاسات drift المولّدة بتاخد اسم الجدول بالمفرد، وده

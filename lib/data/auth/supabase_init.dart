@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../care/care_circle_service.dart';
 import '../care/supabase_care_circle_service.dart';
+import '../sync/supabase_sync_remote.dart';
+import '../sync/sync_service.dart';
 import 'anonymous_auth_service.dart';
 import 'auth_service.dart';
 
@@ -46,7 +48,11 @@ class SupabaseAuthConfig {
 }
 
 /// خدمات السحابة مع بعض — الهوية ودائرة الرعاية فوق نفس العميل.
-typedef CloudServices = ({AuthService auth, CareCircleService care});
+typedef CloudServices = ({
+  AuthService auth,
+  CareCircleService care,
+  SyncRemote syncRemote,
+});
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
 ///
@@ -70,6 +76,7 @@ Future<CloudServices?> initSupabaseAuth() async {
     return (
       auth: AnonymousAuthService(supabase.client),
       care: SupabaseCareCircleService(supabase.client),
+      syncRemote: SupabaseSyncRemote(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

@@ -1,0 +1,25 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'sync_service.dart';
+
+/// السلك الحقيقي — upsert on conflict (uuid) do update.
+///
+/// owner_id بيتحقن هنا لصفوف patients: السيرفر بيطلبه وRLS بترفض غيره،
+/// والخدمة نفسها ما تعرفش حاجة عن الجلسات.
+class SupabaseSyncRemote implements SyncRemote {
+  SupabaseSyncRemote(this._supabase);
+
+  final SupabaseClient _supabase;
+
+  @override
+  Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return;
+    final owner = _supabase.auth.currentUser?.id;
+    final payload = table == 'patients'
+        ? [
+            for (final row in rows) {...row, 'owner_id': owner},
+          ]
+        : rows;
+    await _supabase.from(table).upsert(payload, onConflict: 'uuid');
+  }
+}

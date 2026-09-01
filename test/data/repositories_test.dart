@@ -80,6 +80,8 @@ void main() {
       expect(names, {
         'id',
         'uuid',
+        'updated_at_ms',
+        'synced_at_ms',
         'medication_id',
         'timing_kind',
         'anchor',
@@ -100,7 +102,7 @@ void main() {
     test('عمود الساعة موجود في جدول الساعات الثابتة وبس', () async {
       expect(
         await columnsOf('fixed_timings'),
-        {'uuid', 'dose_schedule_id', 'minute_of_day'},
+        {'uuid', 'updated_at_ms', 'synced_at_ms', 'dose_schedule_id', 'minute_of_day'},
       );
     });
 

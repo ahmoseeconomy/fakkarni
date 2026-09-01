@@ -82,6 +82,7 @@ class _SignInScreenState extends State<SignInScreen> {
           care: care,
           patientUuid: patient.uuid,
           patientName: patient.name,
+          sync: services.sync,
         ),
       ),
     );
