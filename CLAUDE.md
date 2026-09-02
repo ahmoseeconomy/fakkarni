@@ -528,17 +528,43 @@ RLS is the only scoping. Refresh: open, foreground, pull. No realtime, no
 timers; offline keeps the last snapshot visible under the agreed sentence.
 
 **The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
-hand in the SQL editor, order: 0001 → 0002 → tests). The publishable key
+hand in the SQL editor, order: 0001 → 0005 → tests). The publishable key
 ships in the binary, so every table has RLS enabled as its first statement
-and `anon` is stripped of table privileges entirely. All access checks
-route through one SECURITY DEFINER function,
-`private.can_access_patient` — patients' visibility depends on
-care_relationships and vice versa, and direct policies would recurse
-("infinite recursion detected in policy"). Always `(select auth.uid())`,
-never bare. Cloud PKs are the device-minted uuids; local int ids have no
-cloud column. Caregivers are read-only until escalation adds one narrow
-UPDATE policy. After ANY schema change run `tests/rls_test.sql` and the
-zero-rows `rowsecurity=false` check in `supabase/README.md`.
+and `anon` is stripped of table privileges entirely. Access checks for
+*other* tables route through SECURITY DEFINER functions in `private` —
+patients' visibility depends on care_relationships and vice versa, and
+direct policies would recurse ("infinite recursion detected in policy").
+Always `(select auth.uid())`, never bare. Cloud PKs are the device-minted
+uuids; local int ids have no cloud column. Caregivers are read-only until
+escalation adds one narrow UPDATE policy. After ANY schema change run
+`tests/rls_test.sql` and the zero-rows `rowsecurity=false` check in
+`supabase/README.md`.
+
+**A table's policy must NEVER call a function that queries that same
+table.** The row's own columns are already in scope inside the policy —
+compare against them directly (`owner_id = (select auth.uid())`). The
+definer-function indirection exists for one job only: reaching *other*
+tables without recursion. Breaking this does not fail loudly at
+`create policy` time; it fails on `INSERT ... RETURNING`, because
+Postgres applies the SELECT policy to the new row inside the same
+statement, where a subquery cannot yet see it. `patients_select` called
+`can_access_patient(uuid)`, which queries `public.patients` — so every
+new patient insert failed with 42501, always, for everyone. Fixed in
+`0005_fix_patients_select.sql`, and `tests/rls_test.sql` now inserts a
+patient, a medication and a dose_event **with RETURNING**, the way the
+app does.
+
+**SQL migrations are run against the real project in the same round that
+writes them, before that round is committed.** Both of the above shipped
+green because the SQL had never been executed — `0004` collided on a
+`day_routines.updated_at` that `0001` already created, and the policy bug
+above was invisible to a test that inserted without RETURNING. Code
+nobody has executed is not code, however carefully reviewed. Every
+migration must be idempotent (`if not exists`, `create or replace`,
+`drop ... if exists` before `create`) so re-running the whole chain is
+always safe. And when a test passes over a bug, fix the test's *shape* —
+ours exercised a different statement than the app, which is not
+thoroughness but a blind spot.
 
 ---
 

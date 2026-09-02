@@ -64,6 +64,72 @@ begin
   end if;
 end $$;
 
+-- ------------------------------------- INSERT ... RETURNING: زي ما التطبيق
+--                                       بيكتب بالظبط، مش زي ما الاختبار بيحب
+--
+-- الإدخالات اللي فوق من غير RETURNING، فهي بتفحص سياسة الإدخال وبس. التطبيق
+-- بيدخل بـRETURNING (drift بترجّع الصف)، وساعتها Postgres بيطبّق **سياسة
+-- القراءة** على الصف الجديد جوّه نفس الأمر. لو السياسة دي بتنادي دالة
+-- بتستعلم عن نفس الجدول، الدالة ما بتشوفش صف لسه بيتكتب في نفس الأمر،
+-- والإدخال بيقع بـ42501 — لكل مريض جديد، كل مرة.
+--
+-- ده بالظبط اللي حصل: patients_select كانت بتنادي can_access_patient
+-- اللي بتدوّر جوّه public.patients. الاختبار القديم عدّى لأن شكله مختلف عن
+-- شكل التطبيق. أي سياسة بتكسر RETURNING لازم توقّع الفحوص دي.
+do $$
+declare
+  got_patient    uuid;
+  got_medication uuid;
+  got_event      uuid;
+begin
+  insert into public.patients (uuid, owner_id, name)
+  values ('11111111-1111-1111-1111-11111111aaaa',
+          'aaaaaaaa-0000-0000-0000-000000000001', 'الحاج محمود')
+  returning uuid into got_patient;
+  if got_patient is null then
+    raise exception 'FAIL: إدخال مريض بـRETURNING ما رجّعش الصف';
+  end if;
+
+  insert into public.medications (uuid, patient_uuid, name, amount_label)
+  values ('33333333-3333-3333-3333-33333333aaaa',
+          '11111111-1111-1111-1111-11111111aaaa', 'Glucophage 850', 'قرص')
+  returning uuid into got_medication;
+  if got_medication is null then
+    raise exception 'FAIL: إدخال دواء بـRETURNING ما رجّعش الصف';
+  end if;
+
+  insert into public.dose_schedules
+    (uuid, medication_uuid, timing_kind, anchor, offset_minutes, repeat, start_date)
+  values ('44444444-4444-4444-4444-44444444aaaa',
+          '33333333-3333-3333-3333-33333333aaaa',
+          'anchor', 'lunch', -30, 'daily', '2026-08-31');
+
+  insert into public.dose_events
+    (uuid, dose_schedule_uuid, routine_day, scheduled_at, state)
+  values ('55555555-5555-5555-5555-55555555aaaa',
+          '44444444-4444-4444-4444-44444444aaaa',
+          '2026-08-31', '2026-08-31 14:00+02', 'pending')
+  returning uuid into got_event;
+  if got_event is null then
+    raise exception 'FAIL: إدخال حدث جرعة بـRETURNING ما رجّعش الصف';
+  end if;
+exception
+  when insufficient_privilege then
+    raise exception
+      'FAIL: سياسة قراءة بتكسر INSERT ... RETURNING — على الأرجح بتنادي '
+      'دالة بتستعلم عن نفس الجدول (شوف 0005). ده مسار التطبيق الحقيقي.';
+end $$;
+
+-- بعد الإدخالات دي: مريضين، دواءين، حدثين — والباقي بيتحسب على الأساس ده
+do $$
+begin
+  if (select count(*) from public.patients)    <> 2 or
+     (select count(*) from public.medications) <> 2 or
+     (select count(*) from public.dose_events) <> 2 then
+    raise exception 'FAIL: صفوف RETURNING مش ظاهرة للمالك بعد الإدخال';
+  end if;
+end $$;
+
 -- ------------------------------------------------ «ب» غريب: صفر في كل شيء
 call pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
 
@@ -140,10 +206,13 @@ values ('11111111-1111-1111-1111-111111111111',
 
 call pg_temp.act_as('bbbbbbbb-0000-0000-0000-000000000002');
 
+-- ملاحظة على الأرقام: «أ» عنده **مريضين** دلوقتي (التاني من فحص
+-- RETURNING فوق)، والعلاقة على الأول بس. فـ«١» هنا مش «كل مرضى أ» —
+-- دي بالظبط الحتة اللي بتثبت إن نطاق مقدّم الرعاية بالمريض، مش بالمالك.
 do $$
 declare n integer;
 begin
-  if (select count(*) from public.patients)    <> 1 then raise exception 'FAIL: مقدّم الرعاية accepted لا يقرأ المريض'; end if;
+  if (select count(*) from public.patients)    <> 1 then raise exception 'FAIL: مقدّم الرعاية accepted لا يقرأ المريض (أو بيقرا مريض مش مربوط بيه)'; end if;
   if (select count(*) from public.medications) <> 1 then raise exception 'FAIL: accepted لا يقرأ الأدوية'; end if;
   if (select count(*) from public.dose_events) <> 1 then raise exception 'FAIL: accepted لا يقرأ الأحداث'; end if;
   if (select count(*) from public.care_relationships) <> 1 then raise exception 'FAIL: accepted لا يرى علاقته'; end if;
