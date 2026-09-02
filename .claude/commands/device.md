@@ -15,5 +15,17 @@ most likely cause of a failure is:
 5. Reboot the phone and confirm the pending reminders survived.
 6. Change the wake or breakfast time and confirm every dependent dose moved
    with it.
+7. Escalation ladder (4.1): a dose two minutes out, phone locked and
+   untouched — rings at +0, +15 with vibration, +30. Then repeat and tap
+   «أخدته» on the +15 notification: the +30 rung must never ring. Then
+   repeat and touch nothing: past +45, «يومك» shows «نسيتها؟».
+8. Background sync (4.2a): force-quit the app, tap «أخدته» on the lock
+   screen, and check Supabase shows that dose_events row as `state=taken`
+   within a minute — without the app ever appearing on screen. Then leave
+   a dose past 45 minutes and interact with any notification: the cloud
+   row shows `missed`.
 
 Step 4 is the one that fails silently in the real world. Say so.
+Step 8 fails silently too: an unlinked or signed-out device is meant to
+make zero network calls, so "nothing in Supabase" is a pass there, not a
+bug — check the link state first.

@@ -145,12 +145,14 @@ lib/
   features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
                               read-only window, straight from Supabase
   data/auth/                  AuthService interface + GoogleAuthService +
-                              supabase_init (the only supabase/google imports)
+                              supabase_init (the only supabase/google imports;
+                              initSupabaseAuth for the app, initSupabaseForIsolate
+                              for the background wake-up)
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         293 passing
+test/                         305 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -369,6 +371,44 @@ patient row upsert (uuid, owner_id, name) right before showing a code.
 Known accepted risk: a 6-digit code space is brute-forceable in principle;
 mitigations today are the 15-minute expiry and one live code per patient —
 rate limiting is future work.
+
+**The background isolate pushes too, and cloud always comes last**
+(round 4.2a). A lock-screen «أخدته» is the most common confirmation path
+for a 72-year-old, and since 4.1 the same wake-up also materialises days
+and writes «اتنست». None of it reached the cloud until the next
+foreground, which the patient has no reason to trigger — so 4.2b's
+server-side scan would alert the son about a dose already taken.
+`NotificationActionHandler` now ends with `sync?.pushOnce()`, **after**
+the local write and after `rescheduleAll` has cancelled the slot's
+notifications. That order is rule 5: a network call placed before the
+cancels would leave the +30 rung armed on a bad connection and nag a man
+who already took his pill. The local write and the cancels are the
+promise; the push is a courtesy that is allowed to fail. `pushOnce` is
+one attempt with a `backgroundPushTimeout` (5s) and never throws — a
+timeout frees us, not the request, which is enough because everything
+that matters already happened. Unpushed rows stay dirty by construction
+(`synced_at_ms` is marked only after a successful upsert).
+
+**Supabase can be initialised inside the background isolate** — verified
+against the installed sources, not assumed (`supabase_flutter` 2.17.2,
+`gotrue` 2.27.2). `Supabase.initialize` awaits `SupabaseAuth.initialize`,
+which reads SharedPreferences and calls `setInitialSession`, so
+`currentUser` is ready after the await with no network; the unawaited
+`recoverSession()` is only a proactive refresh. Every PostgREST call takes
+its token from `getSession()`, which refreshes an expired one first and
+throws rather than sending it. Two settings are load-bearing in
+`initSupabaseForIsolate`: `detectSessionInUri: false` (no app_links
+observer in a background wake-up), and `autoRefreshToken` left at its
+default `true`, stopped by hand on shutdown. **Passing `false` is the
+trap**: with auto-refresh off, an expired session sends `recoverSession`
+into a local `_signOut`, so the isolate would sign the patient out of the
+whole app while recording a dose. The shutdown is skipped when
+`_initialisedByApp` is set, so if the background path ever runs inside the
+app's own isolate it cannot stop a live client's token refresh. The init
+itself carries `isolateCloudInitTimeout` (2s) because it runs *before* the
+local write: it is local plugin-channel work that should finish instantly,
+but a channel that hangs there would delay recording the dose and
+cancelling the ladder, and those are the promise.
 
 **Sync is one-way, silent, and derived.** Local drift is the source of
 truth; the cloud is a copy; only the owner's device writes; nothing pulls
@@ -672,6 +712,20 @@ device-verified)**
 - Fixed a latent test bug found on the way: the no-saved-routine case
   pointed its event repository at the wrong database, invisible until
   materialisation reached a day with real doses.
+
+**Round 4.2a — the isolate's writes reach the cloud (built, not yet
+device-verified)**
+- `SyncService.pushOnce({timeout})` — one bounded attempt over the same
+  `push()` body, so there is still exactly one definition of how a row
+  goes to the cloud; `backgroundTimeout` is injectable for tests.
+- `initSupabaseForIsolate()` beside `initSupabaseAuth()`; the background
+  entry point in `bootstrap.dart` builds a `SyncService` without
+  `start()` (no listeners, no timers) and calls `shutdown()` in `finally`.
+- `NotificationActionHandler.sync` pushes as its last statement. Tests
+  assert the last cancel happens before the first upsert, that an
+  unlinked device makes zero calls, and that a failing or hanging cloud
+  leaves the local write, the cancels and the dirty rows intact.
+- Device check pending: `/device` steps 7 and 8.
 
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by

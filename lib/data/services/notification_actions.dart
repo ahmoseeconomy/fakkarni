@@ -5,6 +5,7 @@ import '../../domain/scheduling/schedule_engine.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
 import '../repositories/routine_repository.dart';
+import '../sync/sync_service.dart';
 import 'reminder_plan.dart';
 import 'reminder_scheduler.dart';
 
@@ -20,6 +21,7 @@ class NotificationActionHandler {
     required this.events,
     required this.scheduler,
     required this.patientId,
+    this.sync,
   });
 
   final RoutineRepository routines;
@@ -27,6 +29,9 @@ class NotificationActionHandler {
   final DoseEventRepository events;
   final ReminderScheduler scheduler;
   final int patientId;
+
+  /// المزامنة اختيارية: من غير جلسة أو من غير ربط، الجهاز أوفلاين ١٠٠٪.
+  final SyncService? sync;
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
   Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
@@ -72,5 +77,16 @@ class NotificationActionHandler {
           now: now,
         );
     }
+
+    // السحابة **آخر حاجة خالص**، وبعد ما كل اللي فوق خلص.
+    //
+    // القاعدة الخامسة بتقول إن التأكيد بيسكّت التصعيد في نفس اللحظة. لو في
+    // نداء شبكة قبل الإلغاء، يبقى على شبكة بايظة درجة الـ+٣٠ بتفضل مسلّحة
+    // والموبايل بيزنّ على راجل خد دواه خلاص. الكتابة المحلية والإلغاء وعد
+    // للمريض؛ الرفع مجاملة للسيرفر ومسموح له يفشل.
+    //
+    // [SyncService.pushOnce] عمرها ما بترمي، فمفيش حاجة فوق ممكن تتلغي
+    // بسببها — وهي كمان آخر سطر، فمفيش حاجة بعدها تتأثر.
+    await sync?.pushOnce();
   }
 }

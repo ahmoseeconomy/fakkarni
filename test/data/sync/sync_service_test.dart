@@ -49,9 +49,13 @@ class FakeSyncRemote implements SyncRemote {
   /// بيتندَه قبل ما upsert يرجع — لمحاكاة تعديل أثناء الدفع.
   Future<void> Function(String table)? onUpsert;
 
+  /// سحابة بتعلّق — لمحاكاة شبكة بايظة في صحوة خلفية.
+  Duration? hangFor;
+
   @override
   Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
     calls++;
+    if (hangFor != null) await Future<void>.delayed(hangFor!);
     if (table == failOnTable) throw Exception('السحابة وقعت');
     await onUpsert?.call(table);
     final t = tables.putIfAbsent(table, () => {});
@@ -284,6 +288,72 @@ void main() {
 
     expect(remote.rowCount('medications'), 1);
   });
+  group('دفعة الخلفية المحدودة (pushOnce)', () {
+    /// نفس ما تعمله شاشة الربط: أول رفع لصف المريض هو علامة «مربوط».
+    Future<void> link() => sync.confirmLinked();
+
+    test('بتدفع زي push العادية بالظبط — نفس الترتيب ونفس التعليم', () async {
+      await addConcor();
+      await link();
+
+      await sync.pushOnce();
+
+      // صف المريض رفعته شاشة الربط، فconfirmLinked علّمته نضيف — الباقي
+      // بيتدفع أب-قبل-ابن زي push بالظبط
+      expect(remote.tables.keys.toList(),
+          ['day_routines', 'medications', 'dose_schedules']);
+      for (final row in await localState()) {
+        expect(row.synced, row.updated, reason: 'العلامة = اللي اتدفع');
+      }
+    });
+
+    test('غير مربوط → صفر نداءات', () async {
+      await addConcor();
+      await sync.pushOnce();
+      expect(remote.calls, 0);
+    });
+
+    test('السحابة وقعت → مفيش رمي، والصفوف بتفضل متوسّخة', () async {
+      await link();
+      await addConcor();
+      remote.failOnTable = 'medications';
+
+      // لو دي رمت، الـisolate كان هيقع وهو بيسجّل جرعة
+      await expectLater(sync.pushOnce(), completes);
+
+      expect((await localState()).single.synced, isNull);
+    });
+
+    test('الشبكة علّقت → المهلة بتحرّرنا، من غير رمي، والصف لسه متوسّخ',
+        () async {
+      await link();
+      await addConcor();
+      remote.hangFor = const Duration(seconds: 30);
+
+      final watch = Stopwatch()..start();
+      await expectLater(
+        sync.pushOnce(timeout: const Duration(milliseconds: 50)),
+        completes,
+      );
+      watch.stop();
+
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect((await localState()).single.synced, isNull,
+          reason: 'اللي ما لحقش بيستنى دفعة المقدمة الجاية');
+    });
+
+    test('المهلة الافتراضية ثواني معدودة — مش محاولة عنيدة', () {
+      expect(backgroundPushTimeout, lessThanOrEqualTo(const Duration(seconds: 10)));
+      expect(backgroundPushTimeout, greaterThanOrEqualTo(const Duration(seconds: 2)));
+    });
+  });
+
+  /// ٤.٢ب — جزء ١: السحابة لازم تعرف الجرعة **قبل معادها**.
+  ///
+  /// الأساس اللي الجولة كلها واقفة عليه. السيرفر بيصعّد لابنه من صفوف
+  /// موجودة في السحابة؛ أب بيهمل كل الإشعارات مش بيصحّي حاجة، فلو الصف
+  /// ما اترفعش وهو لسه جاي، المسح بيلاقي ولا حاجة والتصعيد بيسكت في صمت —
+  /// للراجل اللي التصعيد اتعمل عشانه بالظبط.
   group('الأب فتح التطبيق الصبح وساب الموبايل', () {
     late ReminderScheduler scheduler;
 

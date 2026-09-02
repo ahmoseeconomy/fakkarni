@@ -20,6 +20,13 @@ abstract interface class SyncRemote {
   Future<void> upsert(String table, List<Map<String, dynamic>> rows);
 }
 
+/// مهلة دفعة الخلفية.
+///
+/// iOS بيدي الـisolate ثواني معدودة؛ الرقم ده مساحة لنداء واحد على شبكة
+/// بطيئة، مش لمحاولة عنيدة. أطول من كده معناه إن الـisolate بيتقفل وهو
+/// مستني، وأقصر معناه إننا بنفشل على شبكة مصرية عادية.
+const Duration backgroundPushTimeout = Duration(seconds: 5);
+
 /// وقت على السلك: UTC ISO دايماً — المحطة المحلية بتفضل على الجهاز.
 String utcIso(DateTime local) => local.toUtc().toIso8601String();
 
@@ -33,12 +40,14 @@ class SyncService {
     required bool Function() hasSession,
     Stream<Object?>? localWrites,
     Duration debounce = const Duration(seconds: 3),
+    Duration backgroundTimeout = backgroundPushTimeout,
     int batchSize = 200,
   })  : _db = db,
         _remote = remote,
         _hasSession = hasSession,
         _localWrites = localWrites,
         _debounce = debounce,
+        _backgroundTimeout = backgroundTimeout,
         _batchSize = batchSize;
 
   final AppDatabase _db;
@@ -46,6 +55,7 @@ class SyncService {
   final bool Function() _hasSession;
   final Stream<Object?>? _localWrites;
   final Duration _debounce;
+  final Duration _backgroundTimeout;
   final int _batchSize;
 
   StreamSubscription<Object?>? _writesSub;
@@ -67,6 +77,27 @@ class SyncService {
   }
 
   void onAppForeground() => unawaited(push());
+
+  /// دفعة واحدة محدودة بوقت — لصحوة الخلفية بتاعة زرار الإشعار.
+  ///
+  /// الـisolate بيتفتح للحظة والنظام بيقفله بعدها؛ مفيش وقت لطابور ولا
+  /// إعادة محاولة. محاولة واحدة، مهلة قصيرة، وعمرها ما بترمي: اللي ما لحقش
+  /// بيفضل متوسّخاً (العلامة بتتحط بعد نجاح الـupsert مش قبله) وأول دفعة
+  /// في المقدمة بتشيله.
+  ///
+  /// المهلة مش بتلغي النداء اللي في السكة — دارت ما بتقدرش — هي بتحرّرنا
+  /// إحنا بس. وده كفاية: الكتابة المحلية وإلغاء الإشعارات خلصوا قبلها.
+  Future<void> pushOnce({Duration? timeout}) async {
+    try {
+      await push().timeout(timeout ?? _backgroundTimeout);
+    } on TimeoutException {
+      debugPrint('Sync: دفعة الخلفية عدّت المهلة — الصفوف بتفضل متوسّخة');
+    } catch (error, stack) {
+      // push() بتبلع أخطاءها جوّه، فده للنادر اللي بيفلت — ومش هنوقّع
+      // isolate بيسجّل جرعة عشان السحابة اتعبت.
+      debugPrint('Sync: دفعة الخلفية فشلت: $error\n$stack');
+    }
+  }
 
   Future<void> dispose() async {
     _debounceTimer?.cancel();

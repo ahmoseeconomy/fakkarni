@@ -12,6 +12,7 @@ import 'package:fakkarni/data/services/notification_actions.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -36,6 +37,7 @@ class DeviceSink implements ReminderSink {
   Future<void> schedule(PlannedNotification n) async => scheduled[n.id] = n;
   @override
   Future<void> cancel(int id) async {
+    trace.add('cancel');
     cancelled.add(id);
     scheduled.remove(id);
   }
@@ -57,14 +59,34 @@ class DeviceSink implements ReminderSink {
       .reduce((a, b) => a.isAfter(b) ? a : b);
 }
 
+/// سجل مرتّب لكل حاجة بتحصل — الترتيب هو اللي بنختبره، مش بس النتيجة.
+final trace = <String>[];
+
+/// سحابة وهمية بتقدر تقع أو تعلّق — زي شبكة مصرية في صحوة خلفية.
+class FakeRemote implements SyncRemote {
+  final List<String> tables = [];
+  bool fail = false;
+  Duration? hangFor;
+
+  @override
+  Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
+    trace.add('upsert:$table');
+    tables.add(table);
+    if (hangFor != null) await Future<void>.delayed(hangFor!);
+    if (fail) throw Exception('السحابة وقعت');
+  }
+}
+
 void main() {
   late AppDatabase db;
   late DeviceSink device;
+  late FakeRemote remote;
+  late bool signedIn;
   late int patientId;
 
   /// «التطبيق مقفول»: كل صحوة بتبني خدماتها من الصفر فوق نفس القاعدة،
   /// من غير أي widget — زي الـisolate اللي النظام بيصحّيه.
-  NotificationActionHandler wake() {
+  NotificationActionHandler wake({Duration? pushTimeout}) {
     final routines = RoutineRepository(db);
     final meds = MedicationRepository(db);
     final events = DoseEventRepository(db);
@@ -80,12 +102,31 @@ void main() {
         sink: device,
       ),
       patientId: patientId,
+      // زي الـisolate بالظبط: من غير start() — مفيش مستمعين ولا مؤقّتات
+      sync: SyncService(
+        db: db,
+        remote: remote,
+        hasSession: () => signedIn,
+        localWrites: const Stream.empty(),
+        backgroundTimeout: pushTimeout ?? backgroundPushTimeout,
+      ),
     );
   }
+
+  /// الجهاز اتربط: صف المريض اترفع من شاشة الربط وconfirmLinked علّمته.
+  Future<void> link() => SyncService(
+        db: db,
+        remote: remote,
+        hasSession: () => signedIn,
+        localWrites: const Stream.empty(),
+      ).confirmLinked();
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     device = DeviceSink();
+    remote = FakeRemote();
+    signedIn = true;
+    trace.clear();
     final routines = RoutineRepository(db);
     patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);
@@ -266,6 +307,136 @@ void main() {
     expect(missed.length, 1);
     expect(missed.single.scheduledAt, first.at);
     expect(missed.single.actedAt, isNull);
+  });
+
+  group('٤.٢أ — اللي الـisolate بيكتبه لازم يوصل السحابة', () {
+    Future<List<DoseEventRow>> dirtyEvents() async => (await db
+            .select(db.doseEvents)
+            .get())
+        .where((e) => e.syncedAtMs == null || e.syncedAtMs! < e.updatedAtMs)
+        .toList();
+
+    test('«أخدته» من شاشة القفل → الجرعة بتوصل السحابة من غير ما التطبيق يتفتح',
+        () async {
+      await link();
+      final first = firstReminder();
+
+      await wake().handle(NotificationActions.taken, first.payload,
+          now: DateTime(2026, 8, 31, 6, 55));
+
+      expect(remote.tables, contains('dose_events'),
+          reason: 'ده الصف اللي السيرفر هيقرا منه في ٤.٢ب');
+      expect(await dirtyEvents(), isEmpty, reason: 'اتعلّم بعد ما وصل');
+      final taken = (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.taken);
+      expect(taken.length, 1);
+    });
+
+    test('الرفع بيحصل بعد الكتابة المحلية وبعد إلغاء الإشعارات — مش قبلهم',
+        () async {
+      await link();
+      final first = firstReminder();
+
+      await wake().handle(NotificationActions.taken, first.payload,
+          now: DateTime(2026, 8, 31, 6, 55));
+
+      final firstUpsert = trace.indexWhere((e) => e.startsWith('upsert:'));
+      final lastCancel = trace.lastIndexOf('cancel');
+      expect(firstUpsert, greaterThan(-1));
+      expect(lastCancel, greaterThan(-1));
+      expect(lastCancel, lessThan(firstUpsert),
+          reason: 'القاعدة الخامسة: التصعيد بيتسكّت قبل ما نستنى أي شبكة');
+    });
+
+    test('من غير ربط → صفر نداءات شبكة، والتسجيل المحلي بيتم عادي', () async {
+      final first = firstReminder();
+
+      await wake().handle(NotificationActions.taken, first.payload,
+          now: DateTime(2026, 8, 31, 6, 55));
+
+      expect(remote.tables, isEmpty, reason: 'غير المربوط أوفلاين ١٠٠٪');
+      expect(device.cancelled, contains(first.id));
+      expect(
+        (await db.select(db.doseEvents).get())
+            .where((e) => e.state == DoseState.taken)
+            .length,
+        1,
+      );
+    });
+
+    test('السحابة وقعت → مفيش رمي، الجرعة اتسجّلت والإشعارات اتلغت، والصف متوسّخ',
+        () async {
+      await link();
+      remote.fail = true;
+      final first = firstReminder();
+
+      await expectLater(
+        wake().handle(NotificationActions.taken, first.payload,
+            now: DateTime(2026, 8, 31, 6, 55)),
+        completes,
+      );
+
+      expect(
+        (await db.select(db.doseEvents).get())
+            .where((e) => e.state == DoseState.taken)
+            .length,
+        1,
+      );
+      expect(device.cancelled, contains(first.id));
+      expect(await dirtyEvents(), isNotEmpty, reason: 'هيتشال في دفعة المقدمة');
+    });
+
+    test('الشبكة علّقت → المهلة بتحرّرنا، والوعد للمريض اتنفّذ قبلها', () async {
+      await link();
+      remote.hangFor = const Duration(seconds: 30);
+      final first = firstReminder();
+
+      final watch = Stopwatch()..start();
+      await expectLater(
+        wake(pushTimeout: const Duration(milliseconds: 50)).handle(
+            NotificationActions.taken, first.payload,
+            now: DateTime(2026, 8, 31, 6, 55)),
+        completes,
+      );
+      watch.stop();
+
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+      expect(device.cancelled, contains(first.id));
+      expect(await dirtyEvents(), isNotEmpty);
+    });
+
+    test('«اتنست» اللي الصحوة كتبتها بتوصل السحابة هي كمان', () async {
+      await link();
+      final first = firstReminder();
+      final second = device.doses.values
+          .where((p) => p.at.isAfter(first.at))
+          .reduce((a, b) => a.at.isBefore(b.at) ? a : b);
+
+      // أكّد التانية ٧:٥٠ — الأولى (٧:٠٠) عدّت المهلة والصحوة كتبتها «اتنست»
+      await wake().handle(NotificationActions.taken, second.payload,
+          now: DateTime(2026, 8, 31, 7, 50));
+
+      expect(remote.tables, contains('dose_events'));
+      expect(await dirtyEvents(), isEmpty);
+      final missed = (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.missed);
+      expect(missed.length, 1);
+    });
+
+    test('«فكّرني بعدين» مش بيكتب محلي → مفيش نداء شبكة من ورا التأجيل',
+        () async {
+      await link();
+      // ندفع كل المتوسّخ الأول عشان اللي بعده يبقى من التأجيل لوحده
+      await wake().handle(NotificationActions.taken, firstReminder().payload,
+          now: DateTime(2026, 8, 31, 6, 55));
+      remote.tables.clear();
+
+      final next = firstReminder();
+      await wake().handle(NotificationActions.snooze, next.payload,
+          now: DateTime(2026, 8, 31, 7, 5));
+
+      expect(remote.tables, isEmpty, reason: 'مفيش صف اتوسّخ، يبقى مفيش رفع');
+    });
   });
 
 }

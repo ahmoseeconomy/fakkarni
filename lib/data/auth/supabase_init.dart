@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -49,6 +51,73 @@ class SupabaseAuthConfig {
   }
 }
 
+/// اتهيّأت من `main` في الـisolate ده؟
+///
+/// `Supabase.initialize` singleton **لكل isolate**، فالعلامة دي في الـisolate
+/// بتاع الخلفية بتفضل false على طول (ذاكرته لوحده) وبتبقى true في isolate
+/// التطبيق. بنستخدمها عشان لو مسار الخلفية اتنده في isolate التطبيق —
+/// بيحصل على iOS في حالات — ما نقفلش تجديد التوكن على عميل شغّال.
+bool _initialisedByApp = false;
+
+/// السحابة زي ما الـisolate محتاجها: سلك الرفع بس، ومفتاح إقفال.
+typedef IsolateCloud = ({
+  SyncRemote syncRemote,
+  bool Function() hasSession,
+  Future<void> Function() shutdown,
+});
+
+/// تهيئة Supabase جوّه isolate الخلفية — بتقرا الجلسة المحفوظة، من غير شبكة.
+///
+/// الـisolate بتاع زرار الإشعار ذاكرته لوحده، فلازم تهيئة جديدة فيه. اتنين
+/// مهمين، الاتنين متحققين من مصدر الحزم المتسطّبة (supabase_flutter 2.17.2،
+/// gotrue 2.27.2):
+///
+/// * `detectSessionInUri: false` — مراقب الروابط العميقة (app_links) مالوش
+///   أي لازمة في صحوة خلفية.
+/// * `autoRefreshToken` بيفضل `true` (الافتراضي) وبنقفله بإيدنا في
+///   [IsolateCloud.shutdown]. **مغريّة وغلط** إننا نبعته `false`: ساعتها
+///   لو التوكن منتهي، `recoverSession` بتنده `_signOut` محلي — يعني
+///   الـisolate بيطلّع المريض من حسابه في التطبيق كله وهو بيسجّل جرعة.
+///
+/// الجلسة بتترجع من التخزين المحلي جوّه `Supabase.initialize` نفسها (بتستنى
+/// `setInitialSession`)، فبعد الـawait `currentUser` جاهز من غير أي نداء
+/// شبكة. والتوكن المنتهي بيتجدد لوحده عند أول نداء، لأن كل نداء بياخد
+/// توكنه من `getSession()` اللي بتجدد قبل ما تبعت.
+///
+/// **بمهلة، لأن دي بتحصل قبل الكتابة المحلية.** التهيئة محلية (قناة
+/// SharedPreferences) ومفروض تخلص في لحظة، بس «مفروض» مش ضمان: قناة
+/// بتتعلّق هنا كانت هتأخّر تسجيل الجرعة وإلغاء التصعيد — وهما الوعد
+/// للمريض. المهلة بتحوّل التعليقة دي لصحوة أوفلاين، والصفوف بتفضل
+/// متوسّخة لدفعة المقدمة الجاية.
+const Duration isolateCloudInitTimeout = Duration(seconds: 2);
+
+Future<IsolateCloud?> initSupabaseForIsolate() async {
+  final config = SupabaseAuthConfig.tryFromEnvironment();
+  if (config == null) return null;
+
+  try {
+    final supabase = await Supabase.initialize(
+      url: config.url,
+      publishableKey: config.key,
+      authOptions: const FlutterAuthClientOptions(detectSessionInUri: false),
+    ).timeout(isolateCloudInitTimeout);
+    return (
+      syncRemote: SupabaseSyncRemote(supabase.client),
+      hasSession: () => supabase.client.auth.currentUser != null,
+      // المؤقّت الدوري بتاع تجديد التوكن بيبدأ مع مُنشئ GoTrueClient؛
+      // بنوقّفه عشان ما يفضلش شغّال في isolate إحنا خلصنا منه — إلا لو
+      // العميل ده بتاع التطبيق أصلاً، ساعتها إحنا ضيوف عليه.
+      shutdown: _initialisedByApp
+          ? () async {}
+          : () async => supabase.client.auth.stopAutoRefresh(),
+    );
+  } catch (error, stack) {
+    // نفس سياسة الفتح: السحابة اختيارية، والجرعة لأ.
+    debugPrint('Sync: تهيئة Supabase في الخلفية فشلت: $error\n$stack');
+    return null;
+  }
+}
+
 /// خدمات السحابة مع بعض — الهوية ودائرة الرعاية فوق نفس العميل.
 typedef CloudServices = ({
   AuthService auth,
@@ -74,6 +143,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       url: config.url,
       publishableKey: config.key,
     );
+    _initialisedByApp = true;
     // مجهول مؤقتاً — GoogleAuthService جاهز كشقيق ويتركّب هنا لما يرجع
     // للخطة (config.googleServerClientId مستني له).
     return (

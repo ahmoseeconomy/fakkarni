@@ -8,6 +8,7 @@ import '../ai/gemini_config.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
+import '../data/auth/supabase_init.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/sync/sync_service.dart';
@@ -77,13 +78,19 @@ NotificationActionHandler actionHandlerFor(AppServices services) =>
       events: services.events,
       scheduler: services.scheduler,
       patientId: services.patientId,
+      sync: services.sync,
     );
 
 /// زرار على الإشعار والتطبيق مقفول.
 ///
 /// النظام بيصحّي التطبيق على isolate منفصل ويندَه الدالة دي. مفيش واجهة
-/// ولا `runApp`: بنفتح قاعدة البيانات، نسجّل، نمدّ النافذة، ونقفل. لازم
-/// تفضل دالة عليا بالـpragma ده وإلا المترجم بيشيلها.
+/// ولا `runApp`: بنفتح قاعدة البيانات، نسجّل، نمدّ النافذة، **وبعدين بس**
+/// نرفع للسحابة، ونقفل. لازم تفضل دالة عليا بالـpragma ده وإلا المترجم
+/// بيشيلها.
+///
+/// المزامنة هنا مش رفاهية: «أخدته» من شاشة القفل هي أكتر طريق بيأكّد بيه
+/// راجل عنده ٧٢ سنة، ومن غير الرفع ده الجرعة بتفضل على الجهاز لحد ما
+/// يفتح التطبيق — وهو مالوش سبب يفتحه.
 @pragma('vm:entry-point')
 Future<void> onBackgroundNotificationAction(NotificationResponse response) async {
   // الـisolate ده جديد: الإضافات (path_provider، الإشعارات) لازم تتسجّل فيه.
@@ -91,13 +98,29 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   DartPluginRegistrant.ensureInitialized();
 
   final db = AppDatabase(openConnection());
+  IsolateCloud? cloud;
   try {
     await NotificationService.init();
-    final services = await buildServices(db);
+    // تهيئة محلية بتقرا الجلسة المحفوظة — من غير جلسة أو من غير إعداد
+    // بترجع null والصحوة بتفضل أوفلاين بالكامل.
+    cloud = await initSupabaseForIsolate();
+    final services = await buildServices(
+      db,
+      sync: cloud == null
+          ? null
+          // من غير start(): مفيش مستمعين ولا مؤقّتات في صحوة بتموت
+          // بعد ثواني — دفعة واحدة محدودة وبس.
+          : SyncService(
+              db: db,
+              remote: cloud.syncRemote,
+              hasSession: cloud.hasSession,
+            ),
+    );
     await actionHandlerFor(services).handle(response.actionId, response.payload);
   } catch (error, stack) {
     debugPrint('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {
+    await cloud?.shutdown();
     await db.close();
   }
 }
