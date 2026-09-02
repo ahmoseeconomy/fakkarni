@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'care_circle_service.dart';
@@ -59,12 +60,15 @@ class SupabaseCareCircleService implements CareCircleService {
     } on CareCircleException {
       rethrow;
     } on PostgrestException catch (e) {
+      // الرسالة العربية بتخفي السبب — لازم يبان في الترمنال.
+      debugPrint('Care: Postgrest ${e.code}: ${e.message} | ${e.details} | ${e.hint}');
       throw CareCircleException(_mapPostgrest(e), e);
     } on SocketException catch (e) {
       throw CareCircleException(CareCircleFailure.offline, e);
     } on AuthRetryableFetchException catch (e) {
       throw CareCircleException(CareCircleFailure.offline, e);
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('Care: فشل غير متوقع: $e\n$stack');
       throw CareCircleException(CareCircleFailure.other, e);
     }
   }
