@@ -122,8 +122,14 @@ void main() {
     expect(first.at, DateTime(2026, 8, 31, 7));
     expect(device.doses.length, maxPendingReminders);
     final endBefore = device.coverageEnd;
-    expect(await db.select(db.doseEvents).get(), isEmpty,
-        reason: '«يومك» ما اتفتحتش — مفيش صف حدث لسه');
+    // الصفوف موجودة من قبل — الجدولة بتنزّلها عشان السحابة تعرف الجرعة
+    // قبل معادها (٤.٢ب جزء ١) — بس ولا واحدة اتأكدت لسه.
+    expect(
+      (await db.select(db.doseEvents).get())
+          .where((e) => e.state != DoseState.pending),
+      isEmpty,
+      reason: '«يومك» ما اتفتحتش — محدش أكّد حاجة',
+    );
 
     // المريض داس «أخدته» على شاشة القفل الساعة ٦:٥٥
     await wake().handle(
@@ -200,7 +206,12 @@ void main() {
 
     expect(device.scheduled, before);
     expect(device.cancelled, isEmpty);
-    expect(await db.select(db.doseEvents).get(), isEmpty);
+    expect(
+      (await db.select(db.doseEvents).get())
+          .where((e) => e.state != DoseState.pending),
+      isEmpty,
+      reason: 'ولا صف غيّر حالته',
+    );
   });
 
   test('إشعار لدوا اتوقف بعد الجدولة → بيتجاهل بهدوء', () async {
@@ -212,7 +223,12 @@ void main() {
 
     await wake().handle(NotificationActions.taken, first.payload);
 
-    expect(await db.select(db.doseEvents).get(), isEmpty);
+    expect(
+      (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.taken),
+      isEmpty,
+      reason: 'الدوا اتوقف — مفيش حاجة تتسجّل',
+    );
   });
   test('«أخدته» من درجة التصعيد على شاشة القفل: بتسجّل وبتلغي السلّم كله',
       () async {

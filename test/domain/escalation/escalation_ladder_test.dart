@@ -73,4 +73,36 @@ void main() {
     // اختبار شكل: المكتبة بتتحمّل في اختبار دارت عادي من غير أي إضافة.
     expect(EscalationRung.values.length, 2);
   });
+  group('مهلة السيرفر أطول من مهلة الجهاز', () {
+    test('الثابت الحاكم: مهلة السيرفر > مهلة الجهاز + هامش المزامنة', () {
+      expect(serverGraceWindow, greaterThan(graceWindow + syncSlack - const Duration(minutes: 1)));
+      expect(serverGraceWindow, greaterThan(graceWindow));
+    });
+
+    test('الأرقام: الجهاز ٤٥، السيرفر ٦٠، الهامش ١٥', () {
+      expect(graceWindow, const Duration(minutes: 45));
+      expect(serverGraceWindow, const Duration(minutes: 60));
+      expect(syncSlack, const Duration(minutes: 15));
+    });
+
+    test('تأكيد عند +٤٤ لسه جوّه مهلة السيرفر — مفيش إنذار كاذب', () {
+      final at = DateTime(2026, 8, 31, 8);
+      final confirmedAt = at.add(const Duration(minutes: 44));
+      final serverWouldEscalateAt = at.add(serverGraceWindow);
+
+      expect(confirmedAt.isBefore(serverWouldEscalateAt), isTrue);
+      // وفيه ١٦ دقيقة كاملة للسلك بعد التأكيد ده
+      expect(serverWouldEscalateAt.difference(confirmedAt),
+          greaterThanOrEqualTo(const Duration(minutes: 15)));
+    });
+
+    test('الجهاز بيقول «اتنست» في وقته — الزيادة مش تأخير للمريض', () {
+      final at = DateTime(2026, 8, 31, 8);
+      expect(
+        isPastGrace(scheduledAt: at, now: at.add(const Duration(minutes: 45))),
+        isTrue,
+      );
+    });
+  });
+
 }

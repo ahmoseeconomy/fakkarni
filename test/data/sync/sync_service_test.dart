@@ -8,6 +8,9 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/services/reminder_plan.dart';
+import 'package:fakkarni/data/services/reminder_scheduler.dart';
+import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -22,6 +25,18 @@ final normalDay = DayRoutine(
 );
 
 final aug31 = DateTime(2026, 8, 31);
+
+/// جهاز ما بيعملش حاجة — الاختبار ده عن السحابة، مش عن الإشعارات.
+class SilentSink implements ReminderSink {
+  @override
+  Future<void> schedule(PlannedNotification n) async {}
+  @override
+  Future<void> cancel(int id) async {}
+  @override
+  Future<Set<int>> pendingIds() async => {};
+  @override
+  Future<void> ensurePermissions() async {}
+}
 
 /// سحابة وهمية بتحترم upsert-on-uuid — اختبار العدّ فيها هو برهان 3.2a.
 class FakeSyncRemote implements SyncRemote {
@@ -269,4 +284,101 @@ void main() {
 
     expect(remote.rowCount('medications'), 1);
   });
+  group('الأب فتح التطبيق الصبح وساب الموبايل', () {
+    late ReminderScheduler scheduler;
+
+    setUp(() {
+      scheduler = ReminderScheduler(
+        routines: routines,
+        medications: meds,
+        events: DoseEventRepository(db),
+        patientId: patientId,
+        sink: SilentSink(),
+      );
+    });
+
+    /// ٣ جرعات في اليوم: ٧:٠٠ ص، ٢:٠٠ م، ٨:٣٠ م
+    Future<void> addThreeADay() async {
+      final id = await addConcor(); // قبل الفطار بنص ساعة = ٧:٠٠
+      await meds.addDoseSchedule(id,
+          timing: const AnchorTiming(DayAnchor.lunch, -30), startDate: aug31);
+      await meds.addDoseSchedule(id,
+          timing: const AnchorTiming(DayAnchor.dinner, 30), startDate: aug31);
+    }
+
+    List<Map<String, dynamic>> cloudEvents() =>
+        remote.tables['dose_events']?.values.toList() ?? [];
+
+    test('كل جرعات اليوم موجودة في السحابة كـpending قبل معادها', () async {
+      await addThreeADay();
+      await sync.confirmLinked();
+
+      // فتحة واحدة الساعة ٧:٠٠ ص، وبعدها الموبايل مالوش أي لمسة
+      final morning = DateTime(2026, 8, 31, 7);
+      await scheduler.rescheduleAll(now: morning);
+      await sync.push();
+
+      final today = cloudEvents()
+          .where((e) => e['routine_day'] == '2026-08-31')
+          .toList();
+      expect(today.length, 3, reason: 'التلات جرعات، مش اللي عدّت بس');
+      for (final event in today) {
+        expect(event['state'], 'pending');
+        // **قبل معادها**: اللحظة اللي جهاز الأب حسبها لسه ما جاتش
+        final at = DateTime.parse(event['scheduled_at'] as String);
+        expect(at.isBefore(morning.toUtc()), isFalse,
+            reason: 'الصف وصل السحابة والجرعة لسه جاية');
+      }
+    });
+
+    test('بكرة كمان موجود — التغطية يومين من غير أي لمسة تانية', () async {
+      await addThreeADay();
+      await sync.confirmLinked();
+
+      await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7));
+      await sync.push();
+
+      final tomorrow = cloudEvents()
+          .where((e) => e['routine_day'] == '2026-09-01')
+          .toList();
+      expect(tomorrow.length, 3);
+      expect(tomorrow.every((e) => e['state'] == 'pending'), isTrue);
+    });
+
+    test('إعادة الفتح ما بتكرّرش ولا صف — المفتاح (جرعة، يوم)', () async {
+      await addThreeADay();
+      await sync.confirmLinked();
+
+      await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7));
+      await sync.push();
+      final countAfterFirst = cloudEvents().length;
+      final localAfterFirst = (await db.select(db.doseEvents).get()).length;
+
+      // فتح تاني وتالت في نفس اليوم
+      await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 9));
+      await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 11));
+      await sync.push();
+
+      expect((await db.select(db.doseEvents).get()).length, localAfterFirst,
+          reason: 'materializeDay بتضيف الناقص بس');
+      expect(cloudEvents().length, countAfterFirst);
+    });
+
+    test('الجرعة اللي اتاخدت بتوصل السحابة بحالتها — مش بتفضل pending',
+        () async {
+      await addThreeADay();
+      await sync.confirmLinked();
+      await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7));
+      await sync.push();
+
+      final events = DoseEventRepository(db);
+      final schedules = await meds.activeSchedules(patientId);
+      await events.markTaken(int.parse(schedules.first.id), aug31);
+      await sync.push();
+
+      final taken = cloudEvents().where((e) => e['state'] == 'taken');
+      expect(taken.length, 1);
+    });
+  });
+
 }

@@ -42,13 +42,17 @@ CaregiverDoseEvent event(
       actedAt: actedAt,
     );
 
-CaregiverSnapshot snapshot(List<CaregiverDoseEvent> events) => CaregiverSnapshot(
+CaregiverSnapshot snapshot(
+  List<CaregiverDoseEvent> events, {
+  DateTime? lastUpdated,
+}) =>
+    CaregiverSnapshot(
       patient: const CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد'),
       medications: const [
         CaregiverMedication(uuid: 'm1', name: 'Concor 5mg', amountLabel: 'قرص واحد'),
       ],
       events: events,
-      lastUpdated: DateTime(2026, 8, 31, 13, 30),
+      lastUpdated: lastUpdated ?? DateTime(2026, 8, 31, 13, 30),
     );
 
 void main() {
@@ -175,4 +179,53 @@ void main() {
     final dayBefore = tester.widget<Text>(find.text('١/١'));
     expect(dayBefore.style?.color, F.greenDeep);
   });
+  group('تذييل «آخر تحديث» — سكوت الموبايل نفسه خبر', () {
+    screenTest('تحديث النهارده → رمادي هادي، مفيش ذهبي', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken')],
+        lastUpdated: now.subtract(const Duration(hours: 2)),
+      );
+      await pumpScreen(tester);
+
+      final footer = tester.widget<Text>(
+        find.textContaining('آخر تحديث من موبايل والدك'),
+      );
+      expect(footer.style?.color, F.muted);
+      expect(find.textContaining('عدّى يوم'), findsNothing);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('عدّى يوم من غير أي جديد → التذييل ذهبي وبيقول اطمن عليه',
+        (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken')],
+        lastUpdated: now.subtract(const Duration(hours: 30)),
+      );
+      await pumpScreen(tester);
+
+      final footer = tester.widget<Text>(
+        find.textContaining('آخر تحديث من موبايل والدك'),
+      );
+      expect(footer.style?.color, F.gold,
+          reason: 'الذهبي معناه ده محتاج انتباهك — وأب ساكت يوم هو كده');
+      expect(find.textContaining('اطمن عليه'), findsOneWidget);
+      // بيولّع قبل ما تغطية السحابة (يومين) تخلص، مش بعدها
+      expect(staleAfter, lessThan(const Duration(days: 2)));
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('على حد الـ٢٤ ساعة بالظبط لسه هادي', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken')],
+        lastUpdated: now.subtract(staleAfter),
+      );
+      await pumpScreen(tester);
+
+      final footer = tester.widget<Text>(
+        find.textContaining('آخر تحديث من موبايل والدك'),
+      );
+      expect(footer.style?.color, F.muted);
+    });
+  });
+
 }

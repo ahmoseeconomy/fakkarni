@@ -989,7 +989,9 @@ void main() {
 
       await ReminderScheduler(
         routines: freshRoutines,
-        events: DoseEventRepository(db),
+        // `fresh` مش `db` — الجدولة بتنزّل أحداث دلوقتي، وصف حدث لجرعة
+        // عايشة في قاعدة تانية بيكسر المفتاح الأجنبي.
+        events: DoseEventRepository(fresh),
         medications: freshMeds,
         patientId: freshPatient,
         sink: freshSink,
@@ -1082,22 +1084,24 @@ void main() {
         await scheduler.rescheduleAll(now: aug31at6);
         final events = DoseEventRepository(db);
 
+        // صف النهارده وبس — بكرة اتنزّل كمان عشان السحابة تعرفه بدري
+        Future<DoseEventRow> today() async => (await db.select(db.doseEvents).get())
+            .firstWhere((e) => e.routineDay == aug31);
+
         // ٧:٤٤ — لسه جوّه المهلة
         await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 44));
-        var rows = await db.select(db.doseEvents).get();
-        expect(rows.single.state, DoseState.pending);
+        expect((await today()).state, DoseState.pending);
 
         // ٧:٤٥ — المهلة خلصت
         await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 45));
-        rows = await db.select(db.doseEvents).get();
-        expect(rows.single.state, DoseState.missed);
-        expect(rows.single.actedAt, isNull, reason: 'محدش عمل حاجة — الصف بيقول كده');
+        expect((await today()).state, DoseState.missed);
+        expect((await today()).actedAt, isNull,
+            reason: 'محدش عمل حاجة — الصف بيقول كده');
         expect(sink.escalations.keys.any((id) => id == escalationIdFor(sevenAm, EscalationRung.second)), isFalse);
 
         // نسي وافتكر: «أخدته» بتكتب فوق «اتنست» عادي
-        await events.markTaken(rows.single.doseScheduleId, aug31);
-        rows = await db.select(db.doseEvents).get();
-        expect(rows.single.state, DoseState.taken);
+        await events.markTaken((await today()).doseScheduleId, aug31);
+        expect((await today()).state, DoseState.taken);
       });
 
       test('أحداث اليوم بتتنزّل من الجدولة نفسها — يوم من غير فتح ليه صفوف', () async {
@@ -1108,10 +1112,13 @@ void main() {
         await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 10));
 
         final rows = await db.select(db.doseEvents).get();
-        expect(rows.length, 1);
-        expect(rows.single.routineDay, aug31);
-        expect(rows.single.scheduledAt, sevenAm);
-        expect(rows.single.state, DoseState.pending);
+        final today = rows.where((e) => e.routineDay == aug31);
+        expect(today.length, 1);
+        expect(today.single.scheduledAt, sevenAm);
+        expect(today.single.state, DoseState.pending);
+
+        // وبكرة كمان — السحابة لازم تعرف الجرعة قبل معادها (٤.٢ب جزء ١)
+        expect(rows.where((e) => e.routineDay == DateTime(2026, 9, 1)).length, 1);
       });
 
       test('جرعة «قبل النوم» بتاعة امبارح بتتحسب برضه — يوم امبارح بيتنزّل معاه', () async {

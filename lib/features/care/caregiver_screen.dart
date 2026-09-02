@@ -7,6 +7,13 @@ import '../../data/care/caregiver_remote.dart';
 /// «متابعة {الاسم}» — نافذة الابن (المخطط 04 + شريط أسبوع 12).
 ///
 /// الشاشة دي **بتبلّغ ولا تحكم**: جرعة عدّى وقتها من غير تأكيد بتتقال
+/// بعد قد إيه من غير أي تحديث يبقى التذييل ذهبي.
+///
+/// يوم كامل: أب فتح التطبيق امبارح لسه عادي، وأب سكت يومين مش عادي —
+/// وتغطية السحابة نفسها يومين (شوف `rescheduleAll`). فالتذييل بيولّع
+/// قبل ما التغطية تخلص، مش بعدها.
+const Duration staleAfter = Duration(hours: 24);
+
 /// «لسه ما اتأكدتش» بالذهبي — مش «فاتت» ولا أحمر. قرار «فاتت» بتاع
 /// المرحلة الرابعة بمهلتها. ومفيش هنا ولا سطر جدولة — الأوقات كلها من
 /// اللي جهاز الأب كتبه.
@@ -124,12 +131,29 @@ class _CaregiverScreenState extends State<CaregiverScreen>
                 ..._todayList(snapshot),
                 const SizedBox(height: F.gap),
                 if (snapshot.lastUpdated != null)
-                  Text(
+                  () {
                     // تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل
                     // عايش، بس إن حاجة اتغيّرت ووصلت.
-                    'آخر تحديث من موبايل والدك: ${_when(snapshot.lastUpdated!)}',
-                    style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
-                  ),
+                    //
+                    // عدّى يوم من غير ما يوصل حاجة؟ يبقى ده بالظبط اللي
+                    // الابن المفروض يبص له: السحابة بقت قديمة، والتصعيد
+                    // بيشتغل على صفوف قديمة أو ما بيشتغلش. الذهبي معناه
+                    // «ده محتاج انتباهك دلوقتي» — ومش محتاج معنى تاني هنا.
+                    final stale = _now.difference(snapshot.lastUpdated!) > staleAfter;
+                    return Text(
+                      stale
+                          ? 'آخر تحديث من موبايل والدك: '
+                              '${_when(snapshot.lastUpdated!)} — عدّى يوم من غير جديد. '
+                              'اطمن عليه.'
+                          : 'آخر تحديث من موبايل والدك: ${_when(snapshot.lastUpdated!)}',
+                      style: TextStyle(
+                        fontSize: F.minTextSize,
+                        color: stale ? F.gold : F.muted,
+                        fontWeight: stale ? FontWeight.w600 : FontWeight.w400,
+                        height: 1.6,
+                      ),
+                    );
+                  }(),
               ] else
                 const _Panel(
                   text: 'لسه مفيش حاجة وصلت من موبايل والدك. '

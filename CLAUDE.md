@@ -53,9 +53,20 @@ These are product decisions, already settled. Do not "improve" them without aski
    «صوّر تاني» is always offered — a bad read is fixed by a better photo,
    not by editing five fields by hand.
 
-5. **A confirmation cancels escalation immediately, at any stage** — including
-   after the caregiver has already been alerted. A few seconds of lag here
-   means needlessly worrying the son, which is worse than a late alert.
+5. **A confirmation cancels every rung that has not yet fired — on the
+   device and on the server — immediately, at any stage.** No exceptions
+   and no "unless", including after the caregiver has already been
+   alerted: the next rung dies the moment he confirms. A few seconds of
+   lag here means needlessly worrying the son, which is worse than a late
+   alert.
+   The one thing this rule does **not** claim is the impossible. An alert
+   already delivered to the son's phone is not recalled — there is no
+   unsend, and both ways of faking one are worse than the alert itself.
+   A second "never mind" push spends the channel that has to stay
+   meaningful, and silently deleting a notification he may already have
+   read turns a worrying message into a vanishing one. The repair is a
+   correct view, not a deletion: his next refresh shows the dose as taken.
+   Never build a recall path; if you think you need one, re-read this.
 
 6. **No medical advice, ever.** Default offsets (30 min before food, 15 min
    before bed — one function, `defaultOffsetBefore(anchor)` in `domain/`,
@@ -106,7 +117,8 @@ lib/
                               (AnchorTiming | FixedTiming)
     schedule_engine.dart      resolveTime / resolveFixed / remindersForDay
   domain/escalation/          PURE DART — escalation_ladder.dart: rungs
-                              +15/+30, graceWindow 45, ladderFor, isPastGrace
+                              +15/+30, graceWindow 45, serverGraceWindow 60,
+                              syncSlack 15, ladderFor, isPastGrace
   ai/                         Phase 2 — gemini_config (key from --dart-define),
                               prescription_reading (pure model + responseSchema),
                               prescription_reader (Gemini REST, http.Client injectable)
@@ -138,7 +150,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         282 passing
+test/                         293 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -424,6 +436,36 @@ until 8:25"; a rung at 8:15 would nag against that request, so rungs at or
 before the snooze time are cancelled and rungs after it stay. Rule 5 is
 untouched: «أخدته» / «مش هاخده» cancel everything for the slot at once.
 
+**The server's grace is longer than the device's, and the gap is the sync
+budget** (round 4.2b). `graceWindow` is 45 on the device;
+`serverGraceWindow` is 60; `syncSlack` is the 15 between them, and the
+invariant `serverGraceWindow > graceWindow + syncSlack` is locked by a
+test. Both constants live in `domain/escalation/` so the SQL and the
+device read the same numbers. **Why they must differ:** the father
+confirms at +44, the push debounce is 3s, the cron ticks at +45 — the row
+is still `pending` in the cloud and the son is alarmed about a pill taken
+thirty seconds ago. That is not an edge case, it is the last minute of
+every grace window, and it is the same false alarm 4.2a exists to
+prevent. The device's own decision stays at 45, so «يومك» still says
+«نسيتها؟» on time; the extra fifteen minutes buys the wire, not the
+patient.
+
+**The cloud must know a dose before its time** (round 4.2b, part 1).
+The server escalates from rows that already exist, and it never resolves
+anchors (3.5) — it reads the instants the father's device computed. A
+father who ignores every notification wakes nothing, so `rescheduleAll`
+materialises **yesterday, today and tomorrow**: yesterday because a
+bedtime dose lands after midnight, today because a day the app never
+opened still needs rows, and tomorrow so an ignored dose already has its
+row in the cloud when its time comes. Materialising stays idempotent —
+the key is (schedule, routine day) and `materializeDay` only adds what is
+missing — so re-opening never duplicates a row. `test/data/sync/` proves
+the chain: one morning open, no further touch, every dose of that day and
+the next present in the cloud as `pending` before it is due. Build this
+before any alerting code, and never after: with the rows missing the scan
+finds nothing, yet every hand-run test still passes, because touching the
+app is itself what creates the row.
+
 **Not yet (4.2 / 4.3):** the caregiver push (Firebase Cloud Messaging +
 a Supabase scheduled job scanning `dose_events` server-side, which needs
 the device to sync the day's events *ahead* of time), the son's alert
@@ -493,21 +535,37 @@ Consequences to handle:
   the only remaining way to make the caregiver alert harder to miss. It needs
   Apple's approval and the paid developer account. Request it before launch.
 
-0. **Sync has no deletes and no second owner device — yet.** Deletes ship
+0. **Cloud coverage is two days, and the son can see when it runs out.**
+   Each app open uploads today and tomorrow, so escalation keeps working
+   for about two days with no interaction at all; after that the cloud
+   goes stale and the server has nothing current to judge. This is not
+   filed as an invisible risk — the caregiver footer
+   («آخر تحديث من موبايل والدك») turns **gold** once the last update is
+   older than `staleAfter` (24h), before coverage runs out rather than
+   after, and adds «اطمن عليه». Gold means "this needs your attention
+   now", and a father whose phone has said nothing for a day is exactly
+   that. Do not bury this under a retry or a background fetch; the
+   silence is the signal.
+0b. **A confirmation made offline can still alert the son.** He takes the
+   pill, confirms, and the push cannot leave — the cloud row stays
+   `pending` past +60 and the son is told. `syncSlack` covers a slow
+   wire, not a dead one. Inherent to any server-side scan; his view
+   corrects on the next refresh (rule 5).
+1. **Sync has no deletes and no second owner device — yet.** Deletes ship
    as soft-delete (`deleted_at`) with the first feature that needs one;
    a second device for the same owner ships as last-write-wins by
    `updated_at`. Neither exists today, and nothing may pretend to handle
    them until they do. A dose confirmed from the lock screen stays dirty
    until the next app open/foreground (the background isolate builds no
    SyncService).
-1. **Anonymous sign-in is a development stand-in ONLY.** An anonymous user
+2. **Anonymous sign-in is a development stand-in ONLY.** An anonymous user
    is bound to one device and is lost when app data is cleared. It must be
    upgraded via `linkIdentity` to Google before any store submission.
    **Shipping with anonymous auth is forbidden.**
-2. **Sign in with Apple is mandatory before any iOS App Store submission**
+3. **Sign in with Apple is mandatory before any iOS App Store submission**
    once Google is offered (Guideline 4.8). Blocked until the paid Apple
    Developer account exists. It lands as a sibling `AuthService` file.
-3. **Huawei / no-GMS devices cannot use Google Sign-In** — a real segment
+4. **Huawei / no-GMS devices cannot use Google Sign-In** — a real segment
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
 
@@ -602,6 +660,19 @@ device-verified)**
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
 
+**Round 4.2b part 1 — the cloud knows the dose before its time (built)**
+- `rescheduleAll` materialises yesterday, today **and tomorrow**;
+  idempotent, so re-opening adds nothing.
+- `serverGraceWindow` (60) + `syncSlack` (15) beside `graceWindow` (45),
+  with the invariant under test.
+- Caregiver footer goes gold past `staleAfter` (24h) with «اطمن عليه».
+- Foundation test in `test/data/sync/`: one morning open, no further
+  touch → every dose of today and tomorrow reaches the cloud as `pending`
+  before its time. Parts 2 and 3 (tokens, FCM, cron) are not built.
+- Fixed a latent test bug found on the way: the no-saved-routine case
+  pointed its event repository at the wrong database, invisible until
+  materialisation reached a day with real doses.
+
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
   SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
@@ -645,12 +716,14 @@ device-verified)**
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Round 4.2: caregiver push — FCM token per caregiver device,
-   `escalations` table (channel `push`), pg_cron scan of pending
-   `dose_events` past grace for linked patients, edge function sends;
-   the device must materialise and sync the day's events *before* they
-   are due. Rule 5 server-side: a `taken` arriving after the alert marks
-   the escalation resolved
+3. Round 4.2b parts 2 and 3: `device_tokens` + `escalations` SQL
+   (`escalations.rung` = `'caregiver'` for this round's alert, leaving
+   room for the +90 «الدائرة كلها» rung to be added later without anyone
+   guessing what the existing rows meant), Firebase + `firebase_messaging`
+   on Android only, an Edge Function that sends, and a bounded 5-minute
+   pg_cron scan selecting `pending` events past `serverGraceWindow` for
+   patients with an accepted caregiver. Part 1 is done, so the rows are
+   already waiting for it
 4. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---
