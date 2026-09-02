@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
@@ -31,11 +33,20 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  /// رجوع للمقدمة = محفّز مزامنة — الجهاز ممكن يكون كان أوفلاين ساعات.
+  /// رجوع للمقدمة = محفّز مزامنة — الجهاز ممكن يكون كان أوفلاين ساعات —
+  /// وصحوة لقرار المهلة: لو جرعة عدّى عليها ٤٥ دقيقة وهو بيفتح، «يومك»
+  /// لازم تقول «اتنست» دلوقتي مش في الفتحة الجاية.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      AppScope.of(context).sync?.onAppForeground();
+      final services = AppScope.of(context);
+      services.sync?.onAppForeground();
+      unawaited(
+        services.scheduler.rescheduleAll().catchError(
+              (Object error) =>
+                  debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),
+            ),
+      );
     }
   }
 

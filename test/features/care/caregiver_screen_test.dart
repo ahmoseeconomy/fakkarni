@@ -104,6 +104,19 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
+
+  screenTest('جهاز الأب كتب «اتنست» → بنعرضها بالحرف بالذهبي، ومفيش أحمر',
+      (tester) async {
+    remote.next = snapshot([
+      event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed'),
+    ]);
+    await pumpScreen(tester);
+
+    final flag = tester.widget<Text>(find.text('اتنست — لسه ما اتأكدتش'));
+    expect(flag.style?.color, F.gold);
+    expectNoRedAndMinSize(tester);
+  });
+
   screenTest('أسبوع فاضي → رسالة هادية والشاشة شغّالة', (tester) async {
     remote.next = snapshot(const []);
     await pumpScreen(tester);

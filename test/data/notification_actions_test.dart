@@ -12,6 +12,7 @@ import 'package:fakkarni/data/services/notification_actions.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
@@ -43,6 +44,12 @@ class DeviceSink implements ReminderSink {
   Future<Set<int>> pendingIds() async => scheduled.keys.toSet();
   @override
   Future<void> ensurePermissions() async {}
+
+  /// تذكيرات الجرعات بس — السلّم بيتعدّ لوحده.
+  Map<int, PlannedNotification> get doses => {
+        for (final e in scheduled.entries)
+          if (isDoseId(e.key)) e.key: e.value,
+      };
 
   DateTime get coverageEnd => scheduled.values
       .where((p) => isDoseId(p.id))
@@ -106,14 +113,14 @@ void main() {
   tearDown(() => db.close());
 
   /// الإشعار اللي هيرن ٧:٠٠ ص — حمولته زي ما اتجدولت.
-  PlannedNotification firstReminder() => device.scheduled.values
+  PlannedNotification firstReminder() => device.doses.values
       .reduce((a, b) => a.at.isBefore(b.at) ? a : b);
 
   test('«أخدته» من الإشعار والتطبيق مقفول: الجرعة اتسجّلت والنافذة اتمدّت',
       () async {
     final first = firstReminder();
     expect(first.at, DateTime(2026, 8, 31, 7));
-    expect(device.scheduled.length, maxPendingReminders);
+    expect(device.doses.length, maxPendingReminders);
     final endBefore = device.coverageEnd;
     expect(await db.select(db.doseEvents).get(), isEmpty,
         reason: '«يومك» ما اتفتحتش — مفيش صف حدث لسه');
@@ -134,9 +141,9 @@ void main() {
 
     expect(device.cancelled, contains(first.id));
     expect(device.cancelled, contains(snoozeIdFor(first.at)));
-    expect(device.scheduled.containsKey(first.id), isFalse,
+    expect(device.doses.containsKey(first.id), isFalse,
         reason: 'اتأكدت بدري وما رجعتش');
-    expect(device.scheduled.length, maxPendingReminders);
+    expect(device.doses.length, maxPendingReminders);
     expect(device.coverageEnd.isAfter(endBefore), isTrue,
         reason: 'التغطية اتمدّت من غير ما التطبيق يتفتح');
   });
@@ -150,8 +157,11 @@ void main() {
       final next = firstReminder();
       now = next.at.subtract(const Duration(minutes: 2));
       await wake().handle(NotificationActions.taken, next.payload, now: now);
-      expect(device.scheduled.length, maxPendingReminders);
-      expect(device.scheduled.length, lessThan(iosPendingLimit));
+      expect(device.doses.length, maxPendingReminders);
+      expect(
+        device.scheduled.length + snoozePendingSlack,
+        lessThanOrEqualTo(iosPendingLimit),
+      );
     }
 
     expect(device.coverageEnd.isAfter(endAtStart.add(const Duration(days: 6))),
@@ -204,4 +214,42 @@ void main() {
 
     expect(await db.select(db.doseEvents).get(), isEmpty);
   });
+  test('«أخدته» من درجة التصعيد على شاشة القفل: بتسجّل وبتلغي السلّم كله',
+      () async {
+    final first = firstReminder();
+    final rung = device.scheduled[escalationIdFor(first.at, EscalationRung.first)]!;
+    expect(rung.at, DateTime(2026, 8, 31, 7, 15));
+    expect(rung.payload, first.payload, reason: 'نفس الحمولة → نفس المعالجة');
+
+    // الجرعة رنّت ٧:٠٠ وعدّت، ودرجة ٧:١٥ رنّت، وهو داس «أخدته» عليها ٧:٢٠
+    await wake().handle(NotificationActions.taken, rung.payload,
+        now: DateTime(2026, 8, 31, 7, 20));
+
+    final events = await db.select(db.doseEvents).get();
+    expect(events.where((e) => e.state == DoseState.taken).length, 1);
+    expect(device.cancelled, contains(escalationIdFor(first.at, EscalationRung.first)));
+    expect(device.cancelled, contains(escalationIdFor(first.at, EscalationRung.second)));
+    expect(device.scheduled.containsKey(escalationIdFor(first.at, EscalationRung.second)), isFalse,
+        reason: 'القاعدة الخامسة: درجة ٧:٣٠ ما ترنّش على حاجة اتعملت');
+  });
+
+  test('صحوة بعد المهلة من غير أي زرار: الجرعة اللي فاتت «اتنست» — لا لوم ولا مسح',
+      () async {
+    final first = firstReminder();
+    final second = device.doses.values
+        .where((p) => p.at.isAfter(first.at))
+        .reduce((a, b) => a.at.isBefore(b.at) ? a : b);
+
+    // أكّد الجرعة التانية (٧:٠٥) الساعة ٧:٥٠ بس، من غير ما يلمس الأولى
+    // (٧:٠٠) — صحوة الخلفية. ٧:٠٠ عدّت المهلة؛ ٧:١٠ و٧:١٥ لسه جوّاها.
+    await wake().handle(NotificationActions.taken, second.payload,
+        now: DateTime(2026, 8, 31, 7, 50));
+
+    final events = await db.select(db.doseEvents).get();
+    final missed = events.where((e) => e.state == DoseState.missed).toList();
+    expect(missed.length, 1);
+    expect(missed.single.scheduledAt, first.at);
+    expect(missed.single.actedAt, isNull);
+  });
+
 }

@@ -57,6 +57,21 @@ class NotificationService {
     importance: Importance.max,
   );
 
+  /// قناة التصعيد — نفس الأولوية، بس بتهزّ بنمط أطول.
+  ///
+  /// «نغمة أعلى» على أندرويد معناها قناة تانية: مستوى الصوت بتاع القناة
+  /// المستخدم هو اللي بيحدده، وإحنا نقدر نديه قناة يعلّيها لوحدها من غير
+  /// ما يعلّي تذكير الجرعة العادي. على iOS الاتنين timeSensitive؛ اللي
+  /// أعلى من كده (Critical Alerts) محتاج موافقة آبل — راجع «دين تقني».
+  static final _escalationChannel = AndroidNotificationChannel(
+    'fakkarni_escalation',
+    'لسه ما أخدتش الدوا',
+    description: 'تنبيه أعلى لما تذكير الجرعة يعدّي من غير تأكيد',
+    importance: Importance.max,
+    enableVibration: true,
+    vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
+  );
+
   /// فئة إشعار الجرعة على iOS — هي اللي بتحدد الأزرار.
   ///
   /// من غير `foreground` عن قصد: الزرار بيصحّي التطبيق في الخلفية بس، والمريض
@@ -102,6 +117,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_doseChannel);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_escalationChannel);
 
     // لو التطبيق كان مقفول خالص واتفتح من الإشعار نفسه، الدوسة دي مش بتعدّي
     // على _onTap — لازم نسألوا عليها بإيدنا.
@@ -174,11 +193,16 @@ class NotificationService {
     required String body,
     required DateTime at,
     String? payload,
+
+    /// درجة على سلّم التصعيد — قناة بتهزّ. نفس الأزرار ونفس الحمولة.
+    bool escalation = false,
   }) async {
     await init();
 
     final when = tz.TZDateTime.from(at, tz.local);
     if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
+
+    final channel = escalation ? _escalationChannel : _doseChannel;
 
     await _plugin.zonedSchedule(
       id: id,
@@ -187,11 +211,13 @@ class NotificationService {
       scheduledDate: when,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          _doseChannel.id,
-          _doseChannel.name,
-          channelDescription: _doseChannel.description,
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
           importance: Importance.max,
           priority: Priority.high,
+          enableVibration: channel.enableVibration,
+          vibrationPattern: channel.vibrationPattern,
           category: AndroidNotificationCategory.reminder,
           // ملاحظة: مش بنستخدم fullScreenIntent — جوجل بلاي بتقصره على
           // تطبيقات المكالمات والمنبّهات، واستخدامه بيعرّض المراجعة للرفض.

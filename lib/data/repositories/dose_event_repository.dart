@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../db/app_database.dart';
 import '../dose_state.dart';
@@ -122,6 +123,24 @@ class DoseEventRepository {
         if (!row.routineDay.isBefore(since))
           doneKey(row.doseScheduleId.toString(), row.routineDay),
     };
+  }
+
+  /// قرار المهلة: أي جرعة «لسه» عدّى على معادها [graceWindow] بتتكتب «اتنست».
+  ///
+  /// بترجع عدد اللي اتكتب. `actedAt` بتفضل null — محدش عمل حاجة، وده
+  /// بالظبط اللي الصف بيسجّله. الحالة مش نهائية: «أخدته» بعدها بتكتب فوقها
+  /// عادي، هو نسي وبعدين افتكر، ما فشلش.
+  Future<int> sweepMissed({required DateTime now}) {
+    // «اتنست» ⇔ scheduledAt + المهلة ≤ الآن ⇔ scheduledAt ≤ الآن − المهلة
+    final cutoff = DateTime(now.year, now.month, now.day, now.hour,
+        now.minute - graceWindow.inMinutes, now.second);
+    return (_db.update(_db.doseEvents)
+          ..where(
+            (t) =>
+                t.state.equalsValue(DoseState.pending) &
+                t.scheduledAt.isSmallerOrEqualValue(cutoff),
+          ))
+        .write(const DoseEventsCompanion(state: Value(DoseState.missed)));
   }
 
   Future<void> markTaken(int doseScheduleId, DateTime routineDay) =>

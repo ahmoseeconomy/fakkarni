@@ -12,6 +12,7 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
@@ -184,9 +185,15 @@ void main() {
     await settle(tester);
 
     expect(await statesOf(ids), [DoseState.taken, DoseState.taken]);
+    // الخانة كلها: التذكير، التأجيل، والدرجتين — القاعدة الخامسة
     expect(
       sink.cancelled,
-      [notificationIdFor(lunchDose), snoozeIdFor(lunchDose)],
+      [
+        notificationIdFor(lunchDose),
+        snoozeIdFor(lunchDose),
+        escalationIdFor(lunchDose, EscalationRung.first),
+        escalationIdFor(lunchDose, EscalationRung.second),
+      ],
     );
   });
 
@@ -218,7 +225,12 @@ void main() {
     expect(decodePayload(snooze.payload)!.scheduleIds, ids);
     // الجرعة لسه معلّقة — التأجيل مش تخطّي
     expect(await statesOf(ids), [DoseState.pending]);
-    expect(sink.cancelled, isEmpty);
+    // التأجيل لـ٢:٣٠ بيسبق درجة ٢:١٥ وبيقع على درجة ٢:٣٠ → الاتنين بيتشالوا،
+    // والتذكير الأصلي وتأجيله ما بيتلمسوش
+    expect(sink.cancelled, [
+      escalationIdFor(lunchDose, EscalationRung.first),
+      escalationIdFor(lunchDose, EscalationRung.second),
+    ]);
   });
 
   screenTest('جرعة اتاخدت خلاص من «يومك» → مفيش أزرار، بس «ارجع ليومك»',

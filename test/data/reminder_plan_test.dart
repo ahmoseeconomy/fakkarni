@@ -5,12 +5,14 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
+import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
@@ -51,6 +53,17 @@ class FakeReminderSink implements ReminderSink {
   final Map<int, PlannedNotification> scheduled = {};
   final List<int> cancelled = [];
   int scheduleCalls = 0;
+
+  /// تذكيرات الجرعات بس — السلّم ليه مجموعته واختباراته لوحده.
+  Map<int, PlannedNotification> get doses => {
+        for (final e in scheduled.entries)
+          if (isDoseId(e.key)) e.key: e.value,
+      };
+
+  Map<int, PlannedNotification> get escalations => {
+        for (final e in scheduled.entries)
+          if (isEscalationId(e.key)) e.key: e.value,
+      };
 
   @override
   Future<void> schedule(PlannedNotification notification) async {
@@ -592,6 +605,111 @@ void main() {
     });
   });
 
+
+  group('أرقام التصعيد', () {
+    final sevenAm = DateTime(2026, 8, 31, 7);
+
+    test('كل درجة في نطاقها، وكل النطاقات مفصولة عن بعض', () {
+      final first = escalationIdFor(sevenAm, EscalationRung.first);
+      final second = escalationIdFor(sevenAm, EscalationRung.second);
+
+      expect(isEscalationId(first), isTrue);
+      expect(isEscalationId(second), isTrue);
+      expect(isDoseId(first), isFalse);
+      expect(isSnoozeId(first), isFalse);
+      expect(isEscalationId(notificationIdFor(sevenAm)), isFalse);
+      expect(isEscalationId(snoozeIdFor(sevenAm)), isFalse);
+      expect(first, isNot(second));
+    });
+
+    test('النطاقات هي اللي مكتوبة في CLAUDE.md وتحت سقف أندرويد', () {
+      expect(escalationFirstIdBase, 10000000);
+      expect(escalationSecondIdBase, 30000000);
+      final firstLimit = escalationFirstIdBase + maxPatients * patientIdSpan;
+      final secondLimit = escalationSecondIdBase + maxPatients * patientIdSpan;
+      // ما بيدخلش على التأجيل (٢٠ مليون) ولا على بعضه
+      expect(firstLimit, lessThan(snoozeIdBase));
+      expect(snoozeIdLimit, lessThan(escalationSecondIdBase));
+      expect(secondLimit, lessThan(2147483647));
+    });
+
+    test('مشتق من خانة الجرعة الأصلية — نفس المريض ونفس الخانة = نفس الرقم', () {
+      expect(
+        escalationIdFor(sevenAm, EscalationRung.first, patientIndex: 3),
+        escalationIdFor(sevenAm, EscalationRung.first, patientIndex: 3),
+      );
+      expect(
+        escalationIdFor(sevenAm, EscalationRung.first),
+        isNot(escalationIdFor(sevenAm, EscalationRung.first, patientIndex: 1)),
+      );
+    });
+
+    test('إعادة الجدولة بتملك الجرعات والتصعيد، والتأجيل لأ', () {
+      expect(isRescheduledId(notificationIdFor(sevenAm)), isTrue);
+      expect(isRescheduledId(escalationIdFor(sevenAm, EscalationRung.second)), isTrue);
+      expect(isRescheduledId(snoozeIdFor(sevenAm)), isFalse);
+    });
+  });
+
+  group('تخطيط السلّم', () {
+    List<PlannedNotification> reminders({int days = 7}) => planWindow(
+          routine: normalDay,
+          schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
+          from: aug31at6,
+          days: days,
+        );
+
+    test('كل تذكير بياخد درجتين +١٥ و+٣٠ بنفس الحمولة', () {
+      final ladder = planEscalations(reminders(days: 1), from: aug31at6);
+
+      expect(ladder.length, 2);
+      expect(ladder[0].at, DateTime(2026, 8, 31, 7, 15));
+      expect(ladder[1].at, DateTime(2026, 8, 31, 7, 30));
+      expect(ladder[0].id, escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.first));
+      expect(ladder[1].id, escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.second));
+      expect(ladder.every((p) => p.kind == NotificationKind.escalation), isTrue);
+      expect(ladder.every((p) => p.payload == reminders(days: 1).single.payload), isTrue);
+    });
+
+    test('النص سؤال مش لوم، وفيه اسم الدوا وقد إيه فات', () {
+      final ladder = planEscalations(reminders(days: 1), from: aug31at6);
+      expect(ladder[0].title, 'لسه ما أخدتش الدوا؟');
+      expect(ladder[0].body, 'Concor · فات ربع ساعة');
+      expect(ladder[1].body, 'Concor · فات نص ساعة');
+    });
+
+    test('أقرب ٧ تذكيرات بس هي اللي بتاخد سلّم — ١٤ إشعار', () {
+      final ladder = planEscalations(reminders(days: 20), from: aug31at6);
+      expect(ladder.length, maxPendingEscalations);
+      expect(maxPendingEscalations, 14);
+      final lastCovered = ladder.last.at;
+      expect(lastCovered, DateTime(2026, 9, 6, 7, 30));
+    });
+
+    test('الدرجة اللي معادها فات ما بتتجدولش، واللي جاية بتتجدول', () {
+      // الجرعة رنّت ٧:٠٠، وإحنا ٧:٢٠: درجة ٧:١٥ راحت، درجة ٧:٣٠ لسه
+      final base = planWindow(
+        routine: normalDay,
+        schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
+        from: DateTime(2026, 8, 31, 6, 35),
+        days: 1,
+      );
+      final ladder = planEscalations(base, from: DateTime(2026, 8, 31, 7, 20));
+      expect(ladder.map((p) => p.at), [DateTime(2026, 8, 31, 7, 30)]);
+    });
+
+    test('المطابقة بتلغي درجات التصعيد القديمة وبتسيب التأجيل', () {
+      final sevenAm = DateTime(2026, 8, 31, 7);
+      final stale = escalationIdFor(DateTime(2026, 8, 30, 7), EscalationRung.first);
+      final plan = reconcile(
+        planEscalations(reminders(days: 1), from: aug31at6),
+        {stale, snoozeIdFor(sevenAm), escalationIdFor(sevenAm, EscalationRung.first)},
+        inBand: isRescheduledId,
+      );
+      expect(plan.toCancel, {stale});
+    });
+  });
+
   group('إعادة الجدولة على جهاز', () {
     late AppDatabase db;
     late RoutineRepository routines;
@@ -629,19 +747,19 @@ void main() {
       await addConcor();
 
       await scheduler.rescheduleAll(now: aug31at6);
-      final firstPass = sink.scheduled.keys.toSet();
+      final firstPass = sink.doses.keys.toSet();
 
       await scheduler.rescheduleAll(now: aug31at6);
 
-      expect(sink.scheduled.keys.toSet(), firstPass);
-      expect(sink.scheduled.length, 7);
+      expect(sink.doses.keys.toSet(), firstPass);
+      expect(sink.doses.length, 7);
       expect(sink.cancelled, isEmpty);
     });
 
     test('الروتين اتغيّر → القديم اتلغى والجديد اتجدول', () async {
       await addConcor();
       await scheduler.rescheduleAll(now: aug31at6);
-      final oldIds = sink.scheduled.keys.toSet();
+      final oldIds = sink.doses.keys.toSet();
 
       await routines.saveRoutine(
         patientId,
@@ -649,11 +767,11 @@ void main() {
       );
       await scheduler.rescheduleAll(now: aug31at6);
 
-      final newIds = sink.scheduled.keys.toSet();
+      final newIds = sink.doses.keys.toSet();
       expect(newIds.intersection(oldIds), isEmpty, reason: 'كل المواعيد اتحركت');
-      expect(sink.cancelled.toSet(), oldIds);
+      expect(sink.cancelled.where(isDoseId).toSet(), oldIds);
       expect(newIds.length, 7);
-      expect(sink.scheduled[newIds.first]!.at.hour, 8);
+      expect(sink.doses[newIds.first]!.at.hour, 8);
     });
 
     test('الروتين اتغيّر → المرساة اتحركت والساعة الثابتة فضلت بنفس أرقامها',
@@ -667,10 +785,10 @@ void main() {
       );
       await scheduler.rescheduleAll(now: aug31at6);
 
-      final fixedBefore = sink.scheduled.keys.where(
-        (id) => sink.scheduled[id]!.body.contains('Eltroxin'),
+      final fixedBefore = sink.doses.keys.where(
+        (id) => sink.doses[id]!.body.contains('Eltroxin'),
       ).toSet();
-      final anchoredBefore = sink.scheduled.keys.toSet().difference(fixedBefore);
+      final anchoredBefore = sink.doses.keys.toSet().difference(fixedBefore);
       expect(fixedBefore.length, 7);
       expect(anchoredBefore.length, 7);
 
@@ -680,13 +798,14 @@ void main() {
       );
       await scheduler.rescheduleAll(now: aug31at6);
 
-      final fixedAfter = sink.scheduled.keys.where(
-        (id) => sink.scheduled[id]!.body.contains('Eltroxin'),
+      final fixedAfter = sink.doses.keys.where(
+        (id) => sink.doses[id]!.body.contains('Eltroxin'),
       ).toSet();
       expect(fixedAfter, fixedBefore, reason: 'الثابتة ما اتحركتش');
-      expect(sink.cancelled.toSet(), anchoredBefore, reason: 'المرساة بس اتلغت');
+      expect(sink.cancelled.where(isDoseId).toSet(), anchoredBefore,
+          reason: 'المرساة بس اتلغت');
       expect(
-        sink.scheduled.keys.toSet().difference(fixedAfter).intersection(anchoredBefore),
+        sink.doses.keys.toSet().difference(fixedAfter).intersection(anchoredBefore),
         isEmpty,
         reason: 'كل مواعيد المرساة اتحركت',
       );
@@ -704,8 +823,11 @@ void main() {
       );
       await scheduler.rescheduleAll(now: aug31at6);
 
-      expect(sink.scheduled.length, 14);
-      expect(sink.cancelled, isEmpty);
+      expect(sink.doses.length, 14);
+      expect(sink.cancelled.where(isDoseId), isEmpty);
+      // السلّم بيغطي أقرب ٧ تذكيرات بس، فدخول دوا تاني بيزقّ درجات
+      // الأيام البعيدة برّه — ده المقصود، مش لمس للدوا الأول
+      expect(sink.escalations.length, 14);
     });
 
     test('إيقاف دوا بيلغي تذكيراته كلها', () async {
@@ -716,13 +838,15 @@ void main() {
         startDate: aug31,
       );
       await scheduler.rescheduleAll(now: aug31at6);
-      expect(sink.scheduled.length, 7);
+      expect(sink.doses.length, 7);
 
       await meds.stopMedication(id);
       await scheduler.rescheduleAll(now: aug31at6);
 
-      expect(sink.scheduled, isEmpty);
-      expect(sink.cancelled.length, 7);
+      expect(sink.doses, isEmpty);
+      expect(sink.escalations, isEmpty, reason: 'سلّمه راح معاه');
+      expect(sink.cancelled.where(isDoseId).length, 7);
+      expect(sink.cancelled.where(isEscalationId).length, 14);
     });
 
     test('«أخدته» بيلغي التذكير ده وبس', () async {
@@ -731,11 +855,13 @@ void main() {
 
       await scheduler.cancelReminderAt(DateTime(2026, 8, 31, 7));
 
-      expect(sink.scheduled.length, 6);
-      // الخانة دي بس: تذكيرها وتأجيلها، ومفيش حاجة تانية
+      expect(sink.doses.length, 6);
+      // الخانة دي بس: تذكيرها وتأجيلها وسلّمها، ومفيش حاجة تانية
       expect(sink.cancelled, [
         notificationIdFor(DateTime(2026, 8, 31, 7)),
         snoozeIdFor(DateTime(2026, 8, 31, 7)),
+        escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.first),
+        escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.second),
       ]);
     });
 
@@ -764,16 +890,20 @@ void main() {
 
       await scheduler.rescheduleAll(now: aug31at6);
 
-      expect(sink.scheduled.length, maxPendingReminders);
-      expect(sink.scheduled.length, lessThan(iosPendingLimit));
-      expect(sink.scheduled.keys.every(isDoseId), isTrue);
+      expect(sink.doses.length, maxPendingReminders);
+      // الجرعات + السلّم + مكان التأجيل = السقف بالظبط، ولا واحد فوقه
+      expect(
+        sink.scheduled.length + snoozePendingSlack,
+        lessThanOrEqualTo(iosPendingLimit),
+      );
+      expect(sink.scheduled.keys.every(isRescheduledId), isTrue);
     });
 
     test('اللي اتجدول على الجهاز هو الأقرب', () async {
       await addSixThriceDaily();
       await scheduler.rescheduleAll(now: aug31at6);
 
-      final scheduled = sink.scheduled.values.map((p) => p.at).toList()..sort();
+      final scheduled = sink.doses.values.map((p) => p.at).toList()..sort();
       // أقرب جرعة: دوا ٠ قبل الفطار بنص ساعة = ٧:٠٠ ص
       expect(scheduled.first, DateTime(2026, 8, 31, 7));
 
@@ -793,18 +923,18 @@ void main() {
       await addSixThriceDaily();
 
       await scheduler.rescheduleAll(now: aug31at6);
-      final firstEnd = sink.scheduled.values
+      final firstEnd = sink.doses.values
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
       await scheduler.rescheduleAll(
         now: aug31at6.add(const Duration(days: 2)),
       );
-      final secondEnd = sink.scheduled.values
+      final secondEnd = sink.doses.values
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      expect(sink.scheduled.length, maxPendingReminders);
+      expect(sink.doses.length, maxPendingReminders);
       expect(secondEnd.isAfter(firstEnd), isTrue);
       expect(sink.cancelled, isNotEmpty, reason: 'اللي فات اتلغى');
     });
@@ -816,8 +946,8 @@ void main() {
       await scheduler.rescheduleAll(now: aug31at6);
 
       final firstId = notificationIdFor(DateTime(2026, 8, 31, 7));
-      expect(sink.scheduled.containsKey(firstId), isTrue);
-      final endBefore = sink.scheduled.values
+      expect(sink.doses.containsKey(firstId), isTrue);
+      final endBefore = sink.doses.values
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
@@ -834,10 +964,10 @@ void main() {
       );
 
       expect(sink.cancelled, contains(firstId));
-      expect(sink.scheduled.containsKey(firstId), isFalse,
+      expect(sink.doses.containsKey(firstId), isFalse,
           reason: 'اتأكدت بدري — ما بترجعش');
-      expect(sink.scheduled.length, maxPendingReminders, reason: 'الخانة اتملت');
-      final endAfter = sink.scheduled.values
+      expect(sink.doses.length, maxPendingReminders, reason: 'الخانة اتملت');
+      final endAfter = sink.doses.values
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);
       expect(endAfter.isAfter(endBefore), isTrue, reason: 'التغطية اتمدّت');
@@ -866,9 +996,140 @@ void main() {
       ).rescheduleAll(now: aug31at6);
 
       // الافتراضي فطاره ٨:٠٠ → الجرعة ٧:٣٠
-      expect(freshSink.scheduled.length, 7);
-      expect(freshSink.scheduled.values.first.at, DateTime(2026, 8, 31, 7, 30));
+      expect(freshSink.doses.length, 7);
+      expect(freshSink.doses.values.first.at, DateTime(2026, 8, 31, 7, 30));
       await fresh.close();
+    });
+    group('سلّم التصعيد على الجهاز', () {
+      final sevenAm = DateTime(2026, 8, 31, 7);
+
+      test('الجرعات + السلّم بيتجدولوا مع بعض، ولا واحد فوق السقف', () async {
+        await addConcor();
+        await scheduler.rescheduleAll(now: aug31at6);
+
+        expect(sink.doses.length, 7);
+        expect(sink.escalations.length, 14);
+        expect(
+          sink.scheduled.length + snoozePendingSlack,
+          lessThanOrEqualTo(iosPendingLimit),
+        );
+        expect(sink.escalations.values.every((p) => p.kind == NotificationKind.escalation), isTrue);
+      });
+
+      test('«أخدته» بتلغي الدرجتين مع التذكير في نفس اللحظة', () async {
+        await addConcor();
+        await scheduler.rescheduleAll(now: aug31at6);
+        final first = escalationIdFor(sevenAm, EscalationRung.first);
+        final second = escalationIdFor(sevenAm, EscalationRung.second);
+        expect(sink.scheduled.containsKey(first), isTrue);
+
+        await scheduler.cancelReminderAt(sevenAm);
+
+        expect(sink.scheduled.containsKey(first), isFalse);
+        expect(sink.scheduled.containsKey(second), isFalse);
+        expect(sink.cancelled, containsAll([first, second]));
+      });
+
+      test('فتح التطبيق بعد ما الجرعة رنّت ما بيسكّتش سلّمها', () async {
+        await addConcor();
+        await scheduler.rescheduleAll(now: aug31at6);
+        final first = escalationIdFor(sevenAm, EscalationRung.first);
+        final second = escalationIdFor(sevenAm, EscalationRung.second);
+
+        // ٧:١٠ — الجرعة رنّت من ١٠ دقايق ومحدش أكّد
+        await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 10));
+
+        expect(sink.cancelled, isNot(contains(first)));
+        expect(sink.cancelled, isNot(contains(second)));
+        expect(sink.scheduled.containsKey(first), isTrue);
+        expect(sink.scheduled.containsKey(second), isTrue);
+        // والتذكير الأصلي نفسه راح — معاده فات، مش بيتجدول تاني
+        expect(sink.doses.containsKey(notificationIdFor(sevenAm)), isFalse);
+      });
+
+      test('«أخدته» من «يومك» بدري → السلّم ما بيتجدولش أصلاً', () async {
+        await addConcor();
+        final events = DoseEventRepository(db);
+        final schedules = await meds.activeSchedules(patientId);
+        await events.materializeDay(aug31, ScheduleEngine(normalDay).remindersForDay(schedules, aug31));
+        await events.markTaken(int.parse(schedules.single.id), aug31);
+
+        await scheduler.rescheduleAll(now: aug31at6);
+
+        expect(sink.scheduled.containsKey(escalationIdFor(sevenAm, EscalationRung.first)), isFalse);
+        expect(sink.escalations.length, 12, reason: '٦ أيام × درجتين — يوم النهاردة اتأكد');
+      });
+
+      test('التأجيل بيشيل الدرجات اللي بيسبقها وبيسيب اللي بعده', () async {
+        await addConcor();
+        await scheduler.rescheduleAll(now: aug31at6);
+
+        // ٧:٠٥ + ربع ساعة = ٧:٢٠ → درجة ٧:١٥ بتتشال، درجة ٧:٣٠ بتفضل
+        await scheduler.snooze(
+          originalAt: sevenAm,
+          body: 'Concor',
+          payload: '{}',
+          now: DateTime(2026, 8, 31, 7, 5),
+        );
+
+        expect(sink.cancelled, [escalationIdFor(sevenAm, EscalationRung.first)]);
+        expect(sink.scheduled.containsKey(escalationIdFor(sevenAm, EscalationRung.second)), isTrue);
+        expect(sink.scheduled.containsKey(snoozeIdFor(sevenAm)), isTrue);
+      });
+
+      test('بعد المهلة: الجرعة بتتكتب «اتنست» والسلّم بتاعها بيتشال', () async {
+        await addConcor();
+        await scheduler.rescheduleAll(now: aug31at6);
+        final events = DoseEventRepository(db);
+
+        // ٧:٤٤ — لسه جوّه المهلة
+        await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 44));
+        var rows = await db.select(db.doseEvents).get();
+        expect(rows.single.state, DoseState.pending);
+
+        // ٧:٤٥ — المهلة خلصت
+        await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 45));
+        rows = await db.select(db.doseEvents).get();
+        expect(rows.single.state, DoseState.missed);
+        expect(rows.single.actedAt, isNull, reason: 'محدش عمل حاجة — الصف بيقول كده');
+        expect(sink.escalations.keys.any((id) => id == escalationIdFor(sevenAm, EscalationRung.second)), isFalse);
+
+        // نسي وافتكر: «أخدته» بتكتب فوق «اتنست» عادي
+        await events.markTaken(rows.single.doseScheduleId, aug31);
+        rows = await db.select(db.doseEvents).get();
+        expect(rows.single.state, DoseState.taken);
+      });
+
+      test('أحداث اليوم بتتنزّل من الجدولة نفسها — يوم من غير فتح ليه صفوف', () async {
+        await addConcor();
+        expect(await db.select(db.doseEvents).get(), isEmpty);
+
+        // ٧:١٠ — يوم ٣١ أغسطس ابتدى (الصحيان ٧:٠٠)؛ الساعة ٦:٠٠ كانت لسه يوم ٣٠
+        await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 7, 10));
+
+        final rows = await db.select(db.doseEvents).get();
+        expect(rows.length, 1);
+        expect(rows.single.routineDay, aug31);
+        expect(rows.single.scheduledAt, sevenAm);
+        expect(rows.single.state, DoseState.pending);
+      });
+
+      test('جرعة «قبل النوم» بتاعة امبارح بتتحسب برضه — يوم امبارح بيتنزّل معاه', () async {
+        await meds.addMedication(
+          patientId: patientId,
+          name: 'Zocor',
+          timing: AnchorTiming(DayAnchor.sleep, -15), // ١١:١٥ م
+          startDate: aug31,
+        );
+
+        // صباح ١ سبتمبر ٨:٠٠ — يوم روتين جديد؛ جرعة امبارح ١١:١٥ م عدّت المهلة
+        await scheduler.rescheduleAll(now: DateTime(2026, 9, 1, 8));
+
+        final rows = await db.select(db.doseEvents).get();
+        final yesterday = rows.where((r) => r.routineDay == aug31).toList();
+        expect(yesterday.length, 1);
+        expect(yesterday.single.state, DoseState.missed);
+      });
     });
   });
 
@@ -915,5 +1176,6 @@ void main() {
         '٢ أدوية دلوقتي: A + B',
       );
     });
+
   });
 }

@@ -27,6 +27,7 @@ class NotificationReminderSink implements ReminderSink {
         body: notification.body,
         at: notification.at,
         payload: notification.payload,
+        escalation: notification.kind == NotificationKind.escalation,
       );
 
   @override

@@ -1,4 +1,6 @@
+import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/schedule_engine.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
 import '../repositories/routine_repository.dart';
@@ -41,17 +43,53 @@ class ReminderScheduler {
     final routine = await routines.getRoutine(patientId) ?? DayRoutine.fallback;
     final schedules = await medications.activeSchedules(patientId);
 
+    // قرار المهلة بيتاخد هنا لأن هنا هي الصحوة الوحيدة المضمونة: فتح
+    // التطبيق، زرار من شاشة القفل، تأكيد. بننزّل أحداث اليوم وامبارح
+    // الأول عشان يوم ما التطبيق اتفتحش فيه يبقى له صفوف تتحسب — امبارح
+    // كمان لأن جرعة «قبل النوم» بتاعته ممكن تكون عدّت المهلة الصبح.
+    final engine = ScheduleEngine(routine);
+    final today = currentRoutineDay(routine, from);
+    for (final day in [
+      DateTime(today.year, today.month, today.day - 1),
+      today,
+    ]) {
+      await events.materializeDay(day, engine.remindersForDay(schedules, day));
+    }
+    await events.sweepMissed(now: from);
+
+    // جرعة اتأكدت بدري لسه «قدام» بالساعة — من غير السطر ده كانت
+    // هتتجدول تاني وترن على حاجة اتعملت.
+    final done = await events.doneKeys(from: from);
+
     final planned = planWindow(
       routine: routine,
       schedules: schedules,
       from: from,
       patientIndex: patientIndex,
-      // جرعة اتأكدت بدري لسه «قدام» بالساعة — من غير السطر ده كانت
-      // هتتجدول تاني وترن على حاجة اتعملت.
-      done: await events.doneKeys(from: from),
+      done: done,
     );
 
-    final plan = reconcile(planned, await sink.pendingIds());
+    // السلّم بيتبني من قبل «دلوقتي» بمهلة: جرعة رنّت من ١٠ دقايق لسه
+    // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها.
+    final ladder = planEscalations(
+      planWindow(
+        routine: routine,
+        schedules: schedules,
+        from: DateTime(from.year, from.month, from.day, from.hour,
+            from.minute - graceWindow.inMinutes),
+        patientIndex: patientIndex,
+        done: done,
+        maxPending: maxPendingEscalations ~/ EscalationRung.values.length,
+      ),
+      from: from,
+      patientIndex: patientIndex,
+    );
+
+    final plan = reconcile(
+      [...planned, ...ladder],
+      await sink.pendingIds(),
+      inBand: isRescheduledId,
+    );
 
     for (final id in plan.toCancel) {
       await sink.cancel(id);
@@ -70,9 +108,15 @@ class ReminderScheduler {
   ///
   /// بنلغي التأجيل بتاعها كمان: لو كان قال «فكّرني بعدين» وبعدين خدها من
   /// «يومك»، الموبايل ما يرنّش تاني على حاجة اتعملت.
+  ///
+  /// والسلّم كله معاها — القاعدة الخامسة: التأكيد بيلغي التصعيد فوراً، في
+  /// أي درجة كان.
   Future<void> cancelReminderAt(DateTime at) async {
     await sink.cancel(notificationIdFor(at, patientIndex: patientIndex));
     await sink.cancel(snoozeIdFor(at, patientIndex: patientIndex));
+    for (final rung in EscalationRung.values) {
+      await sink.cancel(escalationIdFor(at, rung, patientIndex: patientIndex));
+    }
   }
 
   /// المريض أكّد (خدها أو مش هياخدها): نسكّت الخانة **الأول**، وبعدين نمدّ
@@ -92,20 +136,33 @@ class ReminderScheduler {
   ///
   /// الرقم مشتق من الخانة الأصلية، فتأجيل التأجيل بيستبدل نفسه بدل ما
   /// يزوّد إشعار تاني، و«أخدته» بتلغيه من غير ما تعرف إنه كان موجود.
+  ///
+  /// التأجيل مش تأكيد، فالسلّم ما بيتلغيش. بس الدرجات اللي التأجيل
+  /// **بيسبقها أو بيقع عليها** بتتشال: «فكّرني بعدين» الساعة ٨:١٠ معناه
+  /// «سيبني لـ٨:٢٥» — درجة ٨:١٥ كانت هتزنّ عكس اللي طلبه. درجة ٨:٣٠ بعدها
+  /// بتفضل: السلّم سلّم.
   Future<void> snooze({
     required DateTime originalAt,
     required String body,
     required String payload,
     Duration delay = snoozeDelay,
     DateTime? now,
-  }) =>
-      sink.schedule(
-        PlannedNotification(
-          id: snoozeIdFor(originalAt, patientIndex: patientIndex),
-          at: (now ?? DateTime.now()).add(delay),
-          title: 'وقت الدوا',
-          body: body,
-          payload: payload,
-        ),
+  }) async {
+    final at = (now ?? DateTime.now()).add(delay);
+    for (final step in ladderFor(originalAt)) {
+      if (step.at.isAfter(at)) continue;
+      await sink.cancel(
+        escalationIdFor(originalAt, step.rung, patientIndex: patientIndex),
       );
+    }
+    await sink.schedule(
+      PlannedNotification(
+        id: snoozeIdFor(originalAt, patientIndex: patientIndex),
+        at: at,
+        title: 'وقت الدوا',
+        body: body,
+        payload: payload,
+      ),
+    );
+  }
 }

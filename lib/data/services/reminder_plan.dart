@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../core/format/arabic_time.dart';
+import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -43,6 +44,30 @@ const int snoozeIdLimit = snoozeIdBase + maxPatients * patientIdSpan;
 
 /// مدة التأجيل الافتراضية — ربع ساعة.
 const Duration snoozeDelay = Duration(minutes: 15);
+
+/// نطاقات التصعيد — نطاق كامل لكل درجة على السلّم.
+///
+/// الدرجة بتاخد رقمها من **خانة الجرعة الأصلية** زي التأجيل بالظبط: «أخدته»
+/// بتلغي الدرجتين من غير ما تخزّن حاجة، وإعادة الجدولة بتطلّع نفس الأرقام.
+/// درجة لكل نطاق لأن عرض النطاق (١٢٨ مريض × ٤٦٬٠٨٠) مش بيسيب مكان
+/// لدرجتين جوّه نطاق واحد؛ ١٠ مليون هو المحجوز من الأول، و٣٠ مليون أول
+/// حدّ فاضي بعده (٢٠ مليون بتاع التأجيل).
+const int escalationFirstIdBase = 10000000;
+const int escalationSecondIdBase = 30000000;
+
+/// مكان محجوز للتأجيل تحت سقف iOS.
+///
+/// «فكّرني بعدين» إشعار زيادة برّه أي نافذة. لو الجرعات والسلّم ملوا الـ٦٤،
+/// التأجيل كان هيبقى رقم ٦٥ وiOS يرميه في صمت — أو يرمي حاجة تانية.
+const int snoozePendingSlack = 2;
+
+/// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
+/// ومكان التأجيل: ٦٤ − ٤٨ − ٢ = ١٤.
+///
+/// ١٤ ÷ درجتين = أقرب ٧ تذكيرات بس هي اللي بياخدوا سلّم. النافذة دي
+/// بتتجدد مع كل تأكيد وكل فتحة زي نافذة الجرعات، فاللي بعدهم بيلحقوا.
+const int maxPendingEscalations =
+    iosPendingLimit - maxPendingReminders - snoozePendingSlack;
 
 /// نافذة الجدولة الافتراضية.
 const int reminderWindowDays = 7;
@@ -95,6 +120,31 @@ bool isDoseId(int id) => id >= doseIdBase && id < doseIdLimit;
 
 bool isSnoozeId(int id) => id >= snoozeIdBase && id < snoozeIdLimit;
 
+int _escalationBase(EscalationRung rung) => switch (rung) {
+      EscalationRung.first => escalationFirstIdBase,
+      EscalationRung.second => escalationSecondIdBase,
+    };
+
+/// رقم درجة تصعيد لجرعة معادها الأصلي [originalAt].
+int escalationIdFor(
+  DateTime originalAt,
+  EscalationRung rung, {
+  int patientIndex = 0,
+}) =>
+    _escalationBase(rung) + _patientSlot(originalAt, patientIndex);
+
+bool isEscalationId(int id) {
+  for (final rung in EscalationRung.values) {
+    final base = _escalationBase(rung);
+    if (id >= base && id < base + maxPatients * patientIdSpan) return true;
+  }
+  return false;
+}
+
+/// أي رقم بنملكه إحنا وبنعيد جدولته — جرعات وتصعيد. التأجيل برّه عن قصد:
+/// هو بيتلغي بالتأكيد بس، مش بإعادة الجدولة.
+bool isRescheduledId(int id) => isDoseId(id) || isEscalationId(id);
+
 /// يوم الروتين اللي إحنا فيه دلوقتي.
 ///
 /// اليوم بيبدأ من الصحيان مش من نص الليل: واحد بيصحى ٧ ص ولسه صاحي الساعة
@@ -114,6 +164,9 @@ DateTime currentRoutineDay(DayRoutine routine, DateTime now) {
 String doneKey(String scheduleId, DateTime routineDay) =>
     '$scheduleId|${routineDay.year}-${routineDay.month}-${routineDay.day}';
 
+/// نوع الإشعار — بيحدد القناة على الجهاز (التصعيد بيهزّ وبيعلّي).
+enum NotificationKind { dose, escalation }
+
 /// تذكير جاهز للجدولة على الجهاز.
 class PlannedNotification {
   const PlannedNotification({
@@ -123,6 +176,7 @@ class PlannedNotification {
     required this.body,
     required this.payload,
     this.doses = const [],
+    this.kind = NotificationKind.dose,
   });
 
   final int id;
@@ -131,6 +185,7 @@ class PlannedNotification {
   final String body;
   final String payload;
   final List<DoseSchedule> doses;
+  final NotificationKind kind;
 
   @override
   String toString() => 'PlannedNotification($id، $at، $body)';
@@ -207,6 +262,59 @@ List<PlannedNotification> planWindow({
   return planned;
 }
 
+/// سلّم التصعيد لأقرب التذكيرات.
+///
+/// [reminders] هي تذكيرات الجرعات اللي هنبني عليها — تتحسب بـ[planWindow]
+/// من **قبل [from] بمهلة** ([graceWindow])، مش من [from]: جرعة رنّت ٨:٠٠
+/// والتطبيق اتفتح ٨:١٠ لسه سلّمها شغّال، ولو حسبناها من ٨:١٠ كانت هتختفي
+/// من الخطة وإعادة الجدولة تلغي درجاتها المعلّقة كأنها اتأكدت.
+/// الدرجات اللي معادها فات بتتشال؛ الجايّة بس هي اللي بتتجدول.
+///
+/// نفس الحمولة بتاعة الجرعة: الدوسة أو «أخدته» على درجة التصعيد بتتعامل
+/// كأنها على التذكير الأصلي — وده اللي بيخلي القاعدة الخامسة تشتغل من
+/// الإشعار نفسه.
+List<PlannedNotification> planEscalations(
+  List<PlannedNotification> reminders, {
+  required DateTime from,
+  int maxPending = maxPendingEscalations,
+  int patientIndex = 0,
+}) {
+  final rungs = EscalationRung.values.length;
+  final planned = <PlannedNotification>[];
+
+  for (final reminder in reminders.take(maxPending ~/ rungs)) {
+    for (final step in ladderFor(reminder.at)) {
+      if (!step.at.isAfter(from)) continue;
+      planned.add(
+        PlannedNotification(
+          id: escalationIdFor(reminder.at, step.rung, patientIndex: patientIndex),
+          at: step.at,
+          title: escalationTitle,
+          body: escalationBody(step.rung, reminder.body),
+          payload: reminder.payload,
+          doses: reminder.doses,
+          kind: NotificationKind.escalation,
+        ),
+      );
+    }
+  }
+
+  planned.sort((a, b) => a.at.compareTo(b.at));
+  return planned;
+}
+
+/// عنوان درجة التصعيد — سؤال، مش لوم.
+const String escalationTitle = 'لسه ما أخدتش الدوا؟';
+
+/// نص الدرجة: نفس سطر الجرعة، وقدامه قد إيه عدّى.
+String escalationBody(EscalationRung rung, String reminderBody) {
+  final elapsed = switch (rung) {
+    EscalationRung.first => 'فات ربع ساعة',
+    EscalationRung.second => 'فات نص ساعة',
+  };
+  return '$reminderBody · $elapsed';
+}
+
 /// لحد إمتى التذكيرات مغطية فعلاً — آخر تذكير اتجدول، أو null لو مفيش.
 ///
 /// بيوضّح أثر السقف: مع أدوية كتير الرقم ده بيبقى بعد يومين مش سبعة.
@@ -275,15 +383,16 @@ ReminderPayload? decodePayload(String? payload) {
 /// الفرق بين اللي المفروض يكون متجدول واللي متجدول فعلاً.
 typedef Reconciliation = ({Set<int> toCancel, List<PlannedNotification> toSchedule});
 
-/// بنلغي اللي بقى مش مطلوب **جوّه نطاق الجرعات بس**.
+/// بنلغي اللي بقى مش مطلوب **جوّه نطاقاتنا بس** ([inBand]).
 ///
-/// عمداً مش بنستخدم cancelAll: هي كانت هتشيل معاها إشعارات التصعيد بتاعة
-/// المرحلة الرابعة.
+/// عمداً مش بنستخدم cancelAll: أي نطاق مش بتاعنا — التأجيل، أو أي حاجة
+/// جاية — بيعدّي من هنا سليم.
 Reconciliation reconcile(
   List<PlannedNotification> planned,
-  Set<int> pendingIds,
-) {
+  Set<int> pendingIds, {
+  bool Function(int id) inBand = isDoseId,
+}) {
   final desired = {for (final p in planned) p.id};
-  final stale = pendingIds.where(isDoseId).toSet().difference(desired);
+  final stale = pendingIds.where(inBand).toSet().difference(desired);
   return (toCancel: stale, toSchedule: planned);
 }

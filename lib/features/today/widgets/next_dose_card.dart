@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
 
 /// الجرعة الجاية — مثبّتة فوق وكبيرة.
@@ -26,6 +27,8 @@ class NextDoseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final at = doses.first.scheduledAt;
+    // المهلة خلصت — سؤال هادي، مش لوم. الكارت نفسه والزرار نفسه.
+    final missed = doses.any((d) => d.state == DoseState.missed);
 
     return Container(
       padding: const EdgeInsets.all(F.gap),
@@ -37,7 +40,7 @@ class NextDoseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'الجاية',
+            missed ? 'نسيتها؟' : 'الجاية',
             style: TextStyle(
               fontSize: F.minTextSize,
               fontWeight: FontWeight.w600,

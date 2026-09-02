@@ -113,6 +113,9 @@ class DayRail extends StatelessWidget {
     final at = group.first.scheduledAt;
     // فات معاده — بالذهبي والرمادي، من غير أحمر ومن غير لوم.
     final overdue = at.isBefore(now);
+    // المهلة خلصت وجهازه كتب «اتنست». نسي — ما فشلش. الزرار لسه شغّال:
+    // «أخدته» بعدها بتكتب فوقها عادي.
+    final missed = group.any((d) => d.state == DoseState.missed);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -143,7 +146,7 @@ class DayRail extends StatelessWidget {
             [
               arabicTime(at),
               ruleLabelFor(group.first.doseScheduleId),
-              if (overdue) 'فات معاده',
+              if (missed) 'اتنست' else if (overdue) 'فات معاده',
             ].nonNulls.join(' · '),
             style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
           ),

@@ -249,6 +249,8 @@ class _DoseRow extends StatelessWidget {
     final (label, colour) = switch (event.state) {
       'taken' => ('اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}', F.greenDeep),
       'skipped' => ('قال مش هياخده', F.muted),
+      // جهاز الأب هو اللي قال «اتنست» بعد المهلة — إحنا بننقل، مش بنحكم
+      'missed' => ('اتنست — لسه ما اتأكدتش', F.gold),
       _ when event.scheduledAt.isBefore(now) => ('لسه ما اتأكدتش', F.gold),
       _ => ('جاي ${arabicTime(event.scheduledAt)}', F.muted),
     };

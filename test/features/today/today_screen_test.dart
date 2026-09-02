@@ -11,6 +11,7 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
@@ -166,6 +167,24 @@ void main() {
     expect(find.text('الجاية'), findsNothing);
   });
 
+
+  screenTest('جرعة اتنست بعد المهلة → «نسيتها؟» و«اتنست» بالذهبي، والزرار شغّال', (tester) async {
+    await addDose('Antodine', DayAnchor.lunch, offset: -30); // ٢:٠٠ م
+    // فتحة الساعة ٣:٠٠ — عدّى ساعة على الجرعة من غير تأكيد
+    await services.scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 15));
+    await pumpToday(tester, now: DateTime(2026, 8, 31, 15));
+
+    expect(find.text('نسيتها؟'), findsOneWidget);
+    expect(find.textContaining('اتنست'), findsWidgets);
+    expect(find.text('الجاية'), findsNothing);
+    expect(find.text('أخدته'), findsWidgets, reason: 'نسي — لسه يقدر يقول أخدته');
+
+    await tester.tap(find.text('أخدته').first);
+    await settle(tester);
+    expect(find.text('نسيتها؟'), findsNothing);
+    expect(find.textContaining('أخدته ', skipOffstage: false), findsWidgets);
+  });
+
   screenTest('«أخدته» بيلغي تذكير الخانة دي', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
@@ -173,10 +192,13 @@ void main() {
     await tester.tap(find.text('أخدته').first);
     await settle(tester);
 
-    // التذكير والتأجيل بتاع نفس الخانة — لو كان قال «فكّرني بعدين» قبلها
+    // التذكير والتأجيل والسلّم بتوع نفس الخانة — لو كان قال «فكّرني بعدين»
+    // قبلها، أو كان السلّم شغّال
     expect(sink.cancelled, [
       notificationIdFor(DateTime(2026, 8, 31, 14)),
       snoozeIdFor(DateTime(2026, 8, 31, 14)),
+      escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.first),
+      escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.second),
     ]);
   });
 

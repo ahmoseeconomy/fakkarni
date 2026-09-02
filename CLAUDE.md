@@ -105,6 +105,8 @@ lib/
     dose_schedule.dart        DoseSchedule, DoseRepeat, DoseTiming
                               (AnchorTiming | FixedTiming)
     schedule_engine.dart      resolveTime / resolveFixed / remindersForDay
+  domain/escalation/          PURE DART — escalation_ladder.dart: rungs
+                              +15/+30, graceWindow 45, ladderFor, isPastGrace
   ai/                         Phase 2 — gemini_config (key from --dart-define),
                               prescription_reading (pure model + responseSchema),
                               prescription_reader (Gemini REST, http.Client injectable)
@@ -115,8 +117,9 @@ lib/
                               fixed_timings, dose_events — every table carries a
                               device-minted `uuid` (SyncIdentity mixin)
   data/repositories/          routine / medication / dose_event
-  data/services/              reminder_plan (pure: IDs, window, payload)
-                              reminder_scheduler (engine → sink), reminder_sink
+  data/services/              reminder_plan (pure: IDs, window, payload,
+                              planEscalations), reminder_scheduler (engine →
+                              sink; materialise → sweepMissed → plan), reminder_sink
                               notification_actions (lock-screen «أخدته»/«فكّرني بعدين»)
   app/                        AppScope (services), AppRoot (onboarding | today,
                               opens ReminderScreen on tap), bootstrap.dart
@@ -135,7 +138,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         252 passing
+test/                         282 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -244,9 +247,10 @@ for days — that waste is now the patient dimension.
 | Band | Range | Owner |
 |---|---|---|
 | Dose reminders | `1_000_000` – `6_898_239` | **Phase 1**, live. `doseIdBase` / `doseIdLimit` / `isDoseId()` in `reminder_plan.dart`. 128 patients × 46,080 |
-| Escalation | `10_000_000` – `15_898_239` | **Phase 4**, reserved and unused. Use base `10_000_000` and the same formula |
+| Escalation rung 1 (+15) | `10_000_000` – `15_898_239` | **Phase 4.1**, live. `escalationFirstIdBase` / `escalationIdFor(at, rung)` / `isEscalationId()`. Derived from the **original** dose slot like snooze |
 | Snooze | `20_000_000` – `25_898_239` | live. `snoozeIdBase` / `snoozeIdFor()` / `isSnoozeId()`. Derived from the **original** dose slot, not the snooze time — so a snooze can never overwrite a real dose that happens to fall on the same minute, and «أخدته» cancels it without storing anything |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary and add an `isXxxId()` guard beside `isDoseId()` |
+| Escalation rung 2 (+30) | `30_000_000` – `35_898_239` | **Phase 4.1**, live. `escalationSecondIdBase`. One band per rung because a band holds exactly one ID per (patient, slot) — a second rung needs a second band |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`40_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -255,8 +259,9 @@ far below the 32-bit ceiling Android imposes on notification IDs
 
 **iOS keeps only 64 pending local notifications per app and silently drops
 the rest** — no error, no warning. So the window is capped, not fixed:
-`maxPendingReminders` is 48, leaving 16 under the limit for Phase 4's
-escalation. `planWindow` sorts and keeps the **nearest** 48, so the horizon
+`maxPendingReminders` is 48; the remaining 16 are `maxPendingEscalations`
+(14 = the nearest 7 reminders × 2 rungs) plus `snoozePendingSlack` (2), so
+dose + ladder + a snooze never reach 65. `planWindow` sorts and keeps the **nearest** 48, so the horizon
 shortens by itself as medications accumulate — a patient on one drug gets the
 full 7 days, one on six drugs three times daily gets about two and a half.
 Every app launch calls `rescheduleAll()`, which re-extends the window from the
@@ -284,10 +289,12 @@ them; a grouped reminder keeps its remaining doses. The handler also
 materialises the day's events before marking, because «يومك» — which
 normally does that — may not have run that day.
 
-**Rescheduling only ever cancels inside its own band.** `ReminderScheduler`
+**Rescheduling only ever cancels inside its own bands.** `ReminderScheduler`
 diffs the planned IDs against `pending()` and cancels the stale ones filtered
-through `isDoseId`. `cancelReminderAt(at)` is the one exception by design: it
-cancels the dose ID *and* the snooze ID of that single slot, because a
+through `isRescheduledId` (dose + escalation; snooze is deliberately outside —
+it is cancelled by a confirmation, never by a rebuild). `cancelReminderAt(at)`
+is the one exception by design: it cancels the dose ID, the snooze ID *and*
+both escalation rung IDs of that single slot, because a
 confirmation must silence everything that slot could still ring. A missed
 critical dose escalates to the caregiver, and `cancelAll()` would silently take
 that escalation down while merely rebuilding a routine — so it is never used. Any new feature that schedules notifications
@@ -368,6 +375,59 @@ Never a timer, never an error surfaced to the user. Wire times are UTC ISO.
 **Migration steps normalize tables (alterTable) only in the LAST step of
 the chain** — an intermediate normalization builds tomorrow's shape from
 yesterday's columns and breaks old upgrade paths (bitten twice now).
+
+## Phase 4 — the escalation ladder
+
+**Every dose escalates; there is no "critical" flag** (decided 2026-09-02).
+Choosing which drug is critical is a clinical judgment rule 6 forbids, and
+mockup 26 already says the miss alert «لا يمكن إيقافه». Where this file
+says "critical dose" read "any dose". If a per-medication toggle is ever
+wanted it is worded operationally («لو نسيها، نبّه ابنك»), default on, and
+it only *filters* `planEscalations` — the ladder itself does not change.
+
+**The ladder is pure and pre-scheduled** (`lib/domain/escalation/`). Rungs
+are +15 (`EscalationRung.first`) and +30 (`second`) from the *original* dose
+minute, never from the previous rung; `graceWindow` is 45. Every rung is a
+local notification scheduled ahead of time, because neither OS runs our
+code when a notification merely fires — only when the user touches it. A
+rung carries the dose's own payload and the same «أخدته»/«فكّرني بعدين»
+buttons, so acting on a rung is acting on the dose. Android rungs go out on
+the `fakkarni_escalation` channel (vibration pattern, own volume slider);
+iOS stays `timeSensitive` until the Critical Alerts entitlement exists.
+
+**The ladder window is built from now − 45, not from now.** A dose that
+rang at 8:00 is gone from `planWindow(from: 8:10)`; if the ladder were
+derived from that plan, opening the app at 8:10 would cancel the 8:15 and
+8:30 rungs as "stale" — the app would silence the ladder of exactly the
+dose in progress. So `rescheduleAll` plans escalations from a second
+`planWindow` whose `from` is shifted back by `graceWindow`, then drops
+rungs already in the past. Only the nearest 7 reminders get a ladder; the
+window renews on every confirmation and launch like the dose window.
+
+**«اتنست» is a grace decision, written by the device, reversible.**
+`rescheduleAll` first materialises yesterday's and today's routine days
+(so a day the app never opened still has rows — and yesterday's bedtime
+dose is counted the next morning), then `sweepMissed(now)` writes
+`DoseState.missed` on every pending row whose `scheduled_at + 45 ≤ now`.
+`actedAt` stays null: nobody acted, and the row says so. «أخدته» after that
+overwrites it — he forgot, then remembered. `rescheduleAll` runs on launch,
+foreground resume, every confirmation and every lock-screen action, so the
+decision is taken at every wake-up the OS gives us; there is no timer.
+«يومك» shows «نسيتها؟» on the card and «اتنست» on the rail row, in gold,
+buttons unchanged; the son's screen renders `missed` verbatim as
+«اتنست — لسه ما اتأكدتش» in gold — reporting the father's device's
+decision, still not judging.
+
+**Snooze is not a confirmation, so it does not clear the ladder — but it
+removes the rungs it overtakes.** «فكّرني بعدين» at 8:10 means "leave me
+until 8:25"; a rung at 8:15 would nag against that request, so rungs at or
+before the snooze time are cancelled and rungs after it stay. Rule 5 is
+untouched: «أخدته» / «مش هاخده» cancel everything for the slot at once.
+
+**Not yet (4.2 / 4.3):** the caregiver push (Firebase Cloud Messaging +
+a Supabase scheduled job scanning `dose_events` server-side, which needs
+the device to sync the day's events *ahead* of time), the son's alert
+screen (mockup 27), Critical Alerts entitlement, the +90 «الدائرة كلها» rung.
 
 **The son's side never resolves anchors** (round 3.5). Resolving needs
 the father's routine plus the engine — a second scheduler that can silently
@@ -529,6 +589,19 @@ with the app fully closed, offline, and across a reboot.
 - Not yet done on hardware: a real handwritten prescription through the
   live API — that is where the image-size numbers and the prompt get tuned.
 
+**Round 4.1 — the local ladder on the father's phone (built, not yet
+device-verified)**
+- `domain/escalation/escalation_ladder.dart` (pure) + tests; bands 10M and
+  30M; `planEscalations`, `isRescheduledId`, `snoozePendingSlack`;
+  ladder planned from now − 45; rule-5 cancel covers both rungs; snooze
+  clears overtaken rungs only; `sweepMissed` + yesterday/today
+  materialisation inside `rescheduleAll`; resume hook reschedules;
+  `fakkarni_escalation` Android channel; «نسيتها؟» / «اتنست» on «يومك»,
+  `missed` verbatim on the caregiver screen. No schema change.
+- Device check pending: dose two minutes out, phone locked → rings +0,
+  +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
+  untouched past +45 → «يومك» shows «نسيتها؟».
+
 **Round 3.2a — stable row identity (built)**
 - `uuid` on all six tables, v4 backfilled per row, schema v5. Verified by
   SchemaVerifier (v4→v5) and the hand-written v2-file test (v2→v5).
@@ -572,7 +645,13 @@ with the app fully closed, offline, and across a reboot.
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Phase 4 groundwork: escalation band, caregiver contact, the ladder
+3. Round 4.2: caregiver push — FCM token per caregiver device,
+   `escalations` table (channel `push`), pg_cron scan of pending
+   `dose_events` past grace for linked patients, edge function sends;
+   the device must materialise and sync the day's events *before* they
+   are due. Rule 5 server-side: a `taken` arriving after the alert marks
+   the escalation resolved
+4. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---
 

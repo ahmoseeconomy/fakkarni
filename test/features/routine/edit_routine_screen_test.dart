@@ -171,7 +171,8 @@ void main() {
     // قبل الفطار (٨:٣٠) بنص ساعة = ٨:٠٠ — لكل الأيام اللي في النافذة
     final anchoredAfter = sink.scheduled.keys.toSet().difference(fixedAfter);
     expect(anchoredAfter, isNotEmpty);
-    for (final id in anchoredAfter) {
+    // الجرعات بس — درجات السلّم بتيجي +١٥ و+٣٠ من نفس الساعة
+    for (final id in anchoredAfter.where(isDoseId)) {
       expect(sink.scheduled[id]!.at.hour, 8);
       expect(sink.scheduled[id]!.at.minute, 0);
     }
