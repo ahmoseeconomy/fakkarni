@@ -6,6 +6,8 @@ import 'app/bootstrap.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'data/auth/supabase_init.dart';
+import 'data/push/firebase_token_source.dart';
+import 'data/push/push_token_service.dart';
 import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'core/notifications/notification_service.dart';
@@ -29,12 +31,33 @@ Future<void> main() async {
           hasSession: () => cloud.auth.currentUser != null,
         );
   sync?.start(connectivity: Connectivity().onConnectivityChanged);
+
+  // توكن الدفع — آخر درجة في السلّم بتوصل عليه. اختياري زي كل حاجة
+  // سحابية: من غير Supabase أو من غير Firebase (أو على iOS لحد ما APNs
+  // تتظبط) بيرجع null والتطبيق كامل زي ما هو، والتصعيد بيقف عند
+  // `no_token` في السحابة بدل ما يوصل لابنه.
+  //
+  // التهيئة هنا **ما بتندهش تسجيل دخول** ولا بتلمس أي جلسة: بتسمع بس.
+  // فتنزيلة جديدة بتوصل «يومك» من غير أي جلسة زي ما اختبار الجذر بيقفل
+  // عليه.
+  final tokenSource = await FirebaseTokenSource.initialise();
+  final push = (cloud == null || tokenSource == null)
+      ? null
+      : PushTokenService(
+          source: tokenSource,
+          remote: cloud.pushTokens,
+          signedIn: cloud.auth.authState.map((user) => user != null),
+          isSignedIn: () => cloud.auth.currentUser != null,
+        );
+  push?.start();
+
   final services = await buildServices(
     db,
     auth: cloud?.auth,
     care: cloud?.care,
     caregiver: cloud?.caregiver,
     sync: sync,
+    push: push,
   );
 
   // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.

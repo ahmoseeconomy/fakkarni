@@ -301,6 +301,7 @@ class _TodayScreenState extends State<TodayScreen> {
                         builder: (_) => SignInScreen(
                           auth: AppScope.of(context).auth,
                           caregiver: AppScope.of(context).caregiver,
+                          push: AppScope.of(context).push,
                         ),
                       ),
                     ),

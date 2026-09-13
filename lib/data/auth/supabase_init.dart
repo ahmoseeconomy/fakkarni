@@ -7,6 +7,8 @@ import '../care/care_circle_service.dart';
 import '../care/caregiver_remote.dart';
 import '../care/supabase_care_circle_service.dart';
 import '../care/supabase_caregiver_remote.dart';
+import '../push/push_tokens.dart';
+import '../push/supabase_push_tokens.dart';
 import '../sync/supabase_sync_remote.dart';
 import '../sync/sync_service.dart';
 import 'anonymous_auth_service.dart';
@@ -124,6 +126,7 @@ typedef CloudServices = ({
   CareCircleService care,
   CaregiverRemote caregiver,
   SyncRemote syncRemote,
+  PushTokenRemote pushTokens,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -151,6 +154,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       care: SupabaseCareCircleService(supabase.client),
       caregiver: SupabaseCaregiverRemote(supabase.client),
       syncRemote: SupabaseSyncRemote(supabase.client),
+      pushTokens: SupabasePushTokenRemote(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

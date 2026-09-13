@@ -145,14 +145,18 @@ lib/
   features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
                               read-only window, straight from Supabase
   data/auth/                  AuthService interface + GoogleAuthService +
-                              supabase_init (the only supabase/google imports;
-                              initSupabaseAuth for the app, initSupabaseForIsolate
-                              for the background wake-up)
+                              supabase_init (initSupabaseAuth for the app,
+                              initSupabaseForIsolate for the background wake-up)
+  data/push/                  PushTokens / DeviceTokenSource / PushTokenRemote
+                              (interfaces) + PushTokenService (pure decision
+                              logic, tested with fakes) + firebase_token_source
+                              (the ONLY firebase import in the app) +
+                              supabase_push_tokens (claim_device_token)
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         305 passing
+test/                         320 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -324,8 +328,15 @@ phone. Its single door is «اربط ابني» on «يومك». If a sign-in sc
 appears at startup, that is a bug by definition —
 `test/app/root_test.dart` has a loudly-named guard test for it.
 
-- `lib/data/auth/` is the ONLY place allowed to import `supabase_flutter`
-  or `google_sign_in`. Everything else sees the `AuthService` interface
+- **An SDK import lives in a `supabase_*` / `firebase_*` file behind an
+  interface, and nowhere else.** `lib/data/auth/` was once the only place
+  allowed to import `supabase_flutter`; that stopped being true in 3.3 and
+  this line stayed wrong until round 4.2b part 2. What actually holds is
+  the shape: the app sees `AuthService`, `SyncRemote`, `CaregiverRemote`,
+  `CareCircleService`, `PushTokenRemote`, `DeviceTokenSource`, and the SDK
+  sits in one named file implementing it. `firebase_messaging` appears in
+  exactly one file (`lib/data/push/firebase_token_source.dart`), and
+  `main.dart` imports neither SDK. Everything else sees the `AuthService` interface
   (`authState`, `currentUser`, `signInToLink`, `signOut`) and
   `FakkarniUser` (with `isAnonymous` from the JWT `is_anonymous` claim —
   unused yet, upgrade rounds will need it). The live implementation is
@@ -409,6 +420,21 @@ itself carries `isolateCloudInitTimeout` (2s) because it runs *before* the
 local write: it is local plugin-channel work that should finish instantly,
 but a channel that hangs there would delay recording the dose and
 cancelling the ladder, and those are the promise.
+
+**The push token is cleared BEFORE sign-out, never after.** Deleting the
+`device_tokens` row needs the session that owns it; call `signOut()` first
+and the row survives in the cloud, so a phone that has left the account
+keeps receiving alerts about a patient who is now a stranger to it.
+`PushTokens` is injected into `SignInScreen` like `AuthService` —
+deliberately *not* pulled from `AppScope` — because sign-out must work
+whether or not a scope sits above it. Registration is the mirror image: on
+every sign-in through the auth stream, *and* eagerly right after linking,
+because the son may close the app at once and his father's first missed
+dose can be an hour later. Failures are silent and logged like sync; the
+retry is the next sign-in, token rotation or launch. The one thing never
+done is deleting the Firebase token itself — it belongs to the install,
+not the account, and reattaching it to a new owner is what
+`claim_device_token` is for.
 
 **Sync is one-way, silent, and derived.** Local drift is the source of
 truth; the cloud is a copy; only the owner's device writes; nothing pulls
@@ -588,6 +614,15 @@ TypeScript copy of the scan inside the function is the "two definitions of
 selection" this whole round exists to prevent. `escalation_test.sql`
 asserts the wrapper and the inner function return the same rows, because
 the wrapper is the one the Edge Function actually calls.
+
+**The caregiver channel id is a second cross-language mirror.**
+`fakkarni_caregiver` is written in Dart
+(`NotificationService.caregiverChannelId`) and in TypeScript
+(`CAREGIVER_CHANNEL` in the Edge Function). If they drift, Android drops
+the alert onto the default channel — **no error anywhere** — so the last
+rung arrives at ordinary priority, or not at all if the son muted that
+channel. `test/data/push/push_channel_test.dart` reads the function file
+and fails if either side moves, exactly like the grace-window mirror.
 
 **The selection query has exactly one definition, in SQL.**
 `private.due_escalations` is called by the cron, by the Edge Function and
@@ -802,6 +837,28 @@ device-verified)**
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
 
+**Round 4.2b part 2 — the Dart side: registering the son's token (built,
+NOT device-verified)**
+- `lib/data/push/`: three interfaces, `PushTokenService` holding every
+  decision in plain Dart, `FirebaseTokenSource` (the only Firebase import;
+  Android only — iOS waits on APNs, debt 3) and `SupabasePushTokenRemote`
+  (calls `claim_device_token`).
+- `NotificationService` now creates the `fakkarni_caregiver` channel, its
+  own channel so the son can mute his father's ordinary dose reminders
+  without muting the alert that matters.
+- Wired in `main.dart` (null when Supabase or Firebase is absent — the app
+  is unchanged without either), cleared before sign-out, registered
+  eagerly after linking.
+- 12 tests with fakes, none touching Firebase, plus the channel-name mirror
+  test.
+- `firebase_core` ^4.14.0 + `firebase_messaging` ^16.6.0; google-services
+  Gradle plugin 4.5.0; **no firebase-bom** (the Flutter plugins carry their
+  own versions).
+- **Unverified:** there is no Android SDK on this machine, so
+  `flutter build apk` has never run with the google-services plugin
+  applied. The first real build is the first test of the Gradle wiring —
+  and the first proof that `handled 1 / sent` replaces `no_token`.
+
 **Round 4.2b part 2 — the alert path, verified on the live project**
 - `0006_push.sql`: `device_tokens` (token is the PK; writes go through
   `claim_device_token`) + `escalations` (`unique (dose_event_uuid,
@@ -899,15 +956,14 @@ device-verified)**
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Round 4.2b part 2 remainder: `lib/data/push/` (a `PushTokens`
-   interface with Firebase behind it the way Supabase sits behind
-   `lib/data/auth/`), `firebase_core` + `firebase_messaging` on Android,
-   register after sign-in / refresh on rotation / delete on sign-out, and
-   the `fakkarni_caregiver` Android channel — the Edge Function already
-   sends to that exact channel id, and a mismatch drops the alert to the
-   default channel silently. Then `0008_escalation_cron.sql` (pg_cron +
-   pg_net, service role key from Vault) so the scan runs unattended
-4. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
+3. Build the APK on a machine with the Android SDK, install it, sign in,
+   and confirm a `device_tokens` row appears — then invoke `escalate` by
+   hand and confirm `sent` instead of `no_token`. Everything upstream of
+   the token is already proven on the live project; this is the only
+   unverified link.
+4. `0008_escalation_cron.sql` (pg_cron + pg_net, service role key from
+   Vault) so the scan runs unattended
+5. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---
 

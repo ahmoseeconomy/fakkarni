@@ -72,6 +72,29 @@ class NotificationService {
     vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
   );
 
+  /// الـid بتاع قناة الابن، مكشوف عشان الاختبار يقارنه بالـTypeScript.
+  static const caregiverChannelId = 'fakkarni_caregiver';
+
+  /// قناة تنبيه **الابن** — الدرجة الأخيرة في السلّم.
+  ///
+  /// الـid `fakkarni_caregiver` مكرر حرفياً في
+  /// `supabase/functions/escalate/index.ts` (`CAREGIVER_CHANNEL`). لو
+  /// الاتنين اختلفوا، أندرويد بيرمي الإشعار على القناة الافتراضية
+  /// وبيفقد أولويته — **من غير أي خطأ يبان في أي مكان**. اختبار
+  /// `push_channel_test.dart` بيقفل على النصّين مع بعض.
+  ///
+  /// قناة لوحدها مش عشان الشكل: الابن ممكن يسكّت تذكيرات أبوه العادية
+  /// على موبايله (هو مش بياخد الدوا) ويسيب دي شغّالة. ولو كانوا قناة
+  /// واحدة، إسكات واحدة بيسكّت التانية.
+  static final _caregiverChannel = AndroidNotificationChannel(
+    caregiverChannelId,
+    'تنبيه عن والدك',
+    description: 'لما جرعة تعدّي من غير تأكيد على موبايل والدك',
+    importance: Importance.max,
+    enableVibration: true,
+    vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
+  );
+
   /// فئة إشعار الجرعة على iOS — هي اللي بتحدد الأزرار.
   ///
   /// من غير `foreground` عن قصد: الزرار بيصحّي التطبيق في الخلفية بس، والمريض
@@ -121,6 +144,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_escalationChannel);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_caregiverChannel);
 
     // لو التطبيق كان مقفول خالص واتفتح من الإشعار نفسه، الدوسة دي مش بتعدّي
     // على _onTap — لازم نسألوا عليها بإيدنا.

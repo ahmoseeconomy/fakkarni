@@ -1,5 +1,9 @@
 plugins {
     id("com.android.application")
+    // بيقرا android/app/google-services.json ويولّد موارد Firebase وقت
+    // البناء — عشان كده `Firebase.initializeApp()` بتشتغل من غير
+    // firebase_options.dart ومن غير أي مفتاح في الكود.
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }

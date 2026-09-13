@@ -11,6 +11,7 @@ import '../data/auth/auth_service.dart';
 import '../data/auth/supabase_init.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_remote.dart';
+import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
@@ -31,6 +32,7 @@ Future<AppServices> buildServices(
   CareCircleService? care,
   CaregiverRemote? caregiver,
   SyncService? sync,
+  PushTokens? push,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -57,6 +59,7 @@ Future<AppServices> buildServices(
     care: care,
     caregiver: caregiver,
     sync: sync,
+    push: push,
   );
 }
 

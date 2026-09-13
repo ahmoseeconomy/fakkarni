@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/auth/auth_service.dart';
+import '../../data/push/push_tokens.dart';
 import '../../data/auth/supabase_init.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../care/caregiver_screen.dart';
@@ -16,10 +17,20 @@ import 'redeem_code_screen.dart';
 /// «مش دلوقتي» بترجّع المستخدم لتطبيق كامل شغّال — الحساب للربط، مش شرط
 /// لأي حاجة تانية.
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({required this.auth, this.caregiver, super.key});
+  const SignInScreen({
+    required this.auth,
+    this.caregiver,
+    this.push,
+    super.key,
+  });
 
   /// null = إعداد Supabase مش موجود، والشاشة بتقول ده بوضوح.
   final AuthService? auth;
+
+  /// توكن الدفع — بيتحقن زي [auth] مش بيتسحب من AppScope، عشان مسار
+  /// الخروج ما يعتمدش على وجود الـscope فوق الشجرة. الخروج لازم يشتغل
+  /// دايماً؛ ده مش مكان لـassert.
+  final PushTokens? push;
 
   /// لو فيه علاقة accepted، بيظهر «متابعة {الاسم}».
   final CaregiverRemote? caregiver;
@@ -70,6 +81,10 @@ class _SignInScreenState extends State<SignInScreen> {
     try {
       // النداء الوحيد في التطبيق كله — من الزرار ده وبس.
       await auth.signInToLink();
+      // التوكن يتسجّل دلوقتي حالاً. السماع في `start()` بيمسك ده برضه،
+      // بس الابن ممكن يقفل التطبيق على طول بعد الربط — وأول جرعة
+      // فايتة ممكن تكون بعدها بساعة.
+      await widget.push?.registerNow();
     } on SignInException catch (e) {
       // الإلغاء بإيده مش خطأ — ولا رسالة.
       if (mounted && e.message != null) setState(() => _error = e.message);
@@ -107,6 +122,10 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _signOut() async {
     if (_busy) return;
     setState(() => _busy = true);
+    // **قبل** الخروج، مش بعده: مسح صف التوكن محتاج الجلسة الحالية. لو
+    // اتعكس الترتيب، الصف بيفضل في السحابة وموبايل خرج من حسابه يفضل
+    // يستقبل تنبيهات عن مريض بقى غريب عنه.
+    await widget.push?.clear();
     await widget.auth?.signOut();
     if (mounted) setState(() => _busy = false);
   }
