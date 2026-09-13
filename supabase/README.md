@@ -33,7 +33,17 @@
 8. `tests/escalation_test.sql` — يثبت الاختيار قبل وجود أي كود إرسال:
    يُطبع `ALL ESCALATION TESTS PASSED` ثم ROLLBACK. **شغّله بعد ٠٠٠٧**،
    لأن قسمه السابع بيفحص الغلاف اللي الدالة السحابية بتناديه فعلاً.
-9. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+9. `migrations/0008_escalation_cron.sql` — pg_cron + pg_net كل ٥ دقايق.
+   **قبله خطوة يدوية واحدة**: حطّ `escalate_function_url` و
+   `escalate_service_role_key` في Vault (التعليمات في أول الملف). المفتاح
+   بيتقرا وقت التشغيل جوّه الدالة، مش وقت الجدولة — عشان ما يتخزّنش في
+   `cron.job.command` حيث أي حد يقراه.
+10. `migrations/0009_escalation_retry.sql` — محاولة اتقطعت نصّها بترجع
+    مستحقة بعد ٥ دقايق، والحجز بقى عملية واحدة ذرّية
+    (`claim_escalation_for_service`). **الدالة السحابية لازم تتلصق من
+    جديد بعده** — النسخة القديمة بتحجز بـ`insert` وبتعتبر التعارض
+    «اتنبّه خلاص»، فالإصلاح ما بيبانش أثره من غيرها.
+11. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /

@@ -201,6 +201,73 @@ begin
 exception when unique_violation then null;
 end $$;
 
+-- ===================== ٤ب) محاولة اتقطعت بترجع، وقرار اتكتب ما بيرجعش
+-- الدالة السحابية بتحجز قبل ما تبعت. لو ماتت بين الاتنين، الصف بيفضل
+-- `claimed` — ومن غير القسم ده الجرعة دي عمرها ما تتنبّه عليها تاني.
+do $$
+declare v_count integer;
+begin
+  -- حجز عمره دقيقتين: الدالة ممكن تكون **لسه شغّالة**. سيبها.
+  update public.escalations set created_at = now() - interval '2 minutes'
+   where dose_event_uuid = 'e1000000-0000-0000-0000-000000000001';
+  select count(*) into v_count from private.due_escalations();
+  if v_count <> 0 then
+    raise exception 'FAIL: حجز عمره دقيقتين اتاخد تاني — ممكن يبعت مرتين وهو عايش';
+  end if;
+
+  -- حجز عمره ٦ دقايق: أطول من أقصى عمر للدالة. اللي ماسكه ميّت.
+  update public.escalations set created_at = now() - interval '6 minutes'
+   where dose_event_uuid = 'e1000000-0000-0000-0000-000000000001';
+  select count(*) into v_count from private.due_escalations();
+  if v_count <> 1 then
+    raise exception 'FAIL: حجز بايت ما رجعش مستحق — الجرعة دي ضاعت للأبد';
+  end if;
+end $$;
+
+do $$
+declare r record; v_count integer;
+begin
+  for r in select unnest(array['sent', 'no_token', 'failed']) as st loop
+    update public.escalations
+       set delivery_status = r.st, created_at = now() - interval '6 minutes'
+     where dose_event_uuid = 'e1000000-0000-0000-0000-000000000001';
+    select count(*) into v_count from private.due_escalations();
+    if v_count <> 0 then
+      raise exception 'FAIL: صف حالته % اتاخد تاني — ده قرار اتكتب مش محاولة اتقطعت', r.st;
+    end if;
+  end loop;
+
+  -- رجّعه حجز بايت عشان نختبر الأخد نفسه
+  update public.escalations
+     set delivery_status = 'claimed', created_at = now() - interval '6 minutes'
+   where dose_event_uuid = 'e1000000-0000-0000-0000-000000000001';
+end $$;
+
+-- الأخد ذرّي: بيرجّع الصف لو بقى بتاعنا، وnull لو حد ماسكه بحجز طازة
+do $$
+declare v_first uuid; v_second uuid; v_count integer;
+begin
+  v_first := public.claim_escalation_for_service(
+    'e1000000-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-00000000000b');
+  if v_first is null then
+    raise exception 'FAIL: الحجز البايت ما اتاخدش';
+  end if;
+
+  -- الأخد بيصفّر العدّاد، فالصف بقى طازة تاني
+  select count(*) into v_count from private.due_escalations();
+  if v_count <> 0 then
+    raise exception 'FAIL: بعد الأخد الصف لسه مستحق — تشغيلتين هياخدوه';
+  end if;
+
+  v_second := public.claim_escalation_for_service(
+    'e1000000-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-00000000000b');
+  if v_second is not null then
+    raise exception 'FAIL: اتاخد مرتين — السباق بين كرونين مش متأمّن';
+  end if;
+end $$;
+
 -- ============================ ٥) التنبيه لكل ابن على حدة، مش لكل جرعة
 -- عيلة فيها أخوين مربوطين: إن أخوه اتنبّه ما يمنعش تنبيهه هو. ده معنى
 -- `unique (dose_event_uuid, caregiver_id, rung)` — العمود التاني جزء من

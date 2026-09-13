@@ -161,6 +161,8 @@ class NotificationService {
 
   static void _onTap(NotificationResponse response) {
     final action = response.actionId;
+    // تشخيص: بيقول لنا إن الضغطة وصلت دارت أصلاً، وبأي actionId.
+    debugPrint('Notif: _onTap action=$action payload=${response.payload}');
     if (NotificationActions.isAction(action) && onAction != null) {
       onAction!(action!, response.payload);
       return;

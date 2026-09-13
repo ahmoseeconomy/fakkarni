@@ -286,6 +286,25 @@ Every app launch calls `rescheduleAll()`, which re-extends the window from the
 new "now". The cap applies on Android too: one behaviour on both platforms
 beats "works on my Android".
 
+**iOS runs notification actions in a SECOND Flutter engine, and that
+engine gets no plugins unless `AppDelegate` says so.** A tap on «أخدته»
+with the app terminated does not reuse the main engine — the plugin spawns
+a separate one (`FlutterEngineManager.m`: `NSAssert(registerPlugins != nil)`
+then `registerPlugins(backgroundEngine)`). Without
+`FlutterLocalNotificationsPlugin.setPluginRegistrantCallback` in
+`didInitializeImplicitFlutterEngine`, that engine has zero plugin
+registrations, so `onBackgroundNotificationAction` dies **before its first
+line**: no drift, no path_provider, not even a `debugPrint`. The symptom
+is exactly nothing from Dart while Console.app shows SpringBoard handling
+the action normally — which reads like a Dart bug and is not one.
+Registering the main engine (`GeneratedPluginRegistrant.register(with:
+engineBridge.pluginRegistry)`) is a **separate** line and both are needed;
+this app is on the UIScene lifecycle, so both live in
+`didInitializeImplicitFlutterEngine`, not `didFinishLaunchingWithOptions`.
+Android needs no equivalent. The two diagnostic `debugPrint`s that found
+this — at the isolate entry point and in `_onTap` — are kept on purpose:
+they are the only visibility into a path no test can reach.
+
 **The window must renew without the app ever being opened.** The patient
 has no reason to open it — the app exists to remind *him*. At 48 pending and
 12 doses a day that is four days of coverage; on day five reminders would
@@ -614,6 +633,49 @@ TypeScript copy of the scan inside the function is the "two definitions of
 selection" this whole round exists to prevent. `escalation_test.sql`
 asserts the wrapper and the inner function return the same rows, because
 the wrapper is the one the Edge Function actually calls.
+
+**An interrupted send retries after 5 minutes, and the duplicate that can
+cause is chosen deliberately** (`0009_escalation_retry.sql`). The function
+claims a row, then sends, then writes the result; if it dies in between —
+timeout, recycle, redeploy — the row sits at `'claimed'` forever and
+`due_escalations` used to exclude it, so that dose would never alert
+again, silently. Now a row still `'claimed'` after
+`private.escalation_retry_after()` (5 minutes) becomes due again, and the
+claim is a single atomic statement
+(`public.claim_escalation_for_service`) that inserts or takes over a dead
+claim — **not** an INSERT whose 409 the function reads as "already
+alerted", which is what made the plain SQL fix a no-op until the Edge
+Function changed with it.
+
+**The threshold must exceed the function's maximum lifetime.** Shorter,
+and a slow-but-still-running send gets a second claim from the next tick,
+manufacturing in the normal case the duplicate that should only ever
+happen during a failure. Never trim it for a faster retry; the number is
+about being sure the holder is dead, not about speed.
+
+**And the judgment, because it is the whole basis of the fix:** if the
+function died after FCM accepted the message but before writing `'sent'`,
+the retry sends the alert twice. A son annoyed by a duplicate has a second
+of confusion and then checks on his father. A son **never told** his
+father missed a dose is the failure this entire product exists to prevent,
+and with phone calls cancelled this push is the last rung. We choose the
+duplicate. (This is unrelated to rule 5's ban on a recall: there we would
+spend a channel that must stay meaningful to unsay something; here we say
+the same true thing twice.) `'sent'`, `'no_token'` and `'failed'` are
+written decisions and stay excluded forever.
+
+**The cron reads the service role key at run time, not at schedule time**
+(`0008_escalation_cron.sql`). Interpolating it into the scheduled command
+would store it verbatim in `cron.job.command`, readable by anyone who can
+read that table. So the job is literally `select
+private.run_escalation_scan()`, and that function looks both the URL and
+the key up in Vault on every tick. Missing secrets raise a loud exception
+every five minutes into `cron.job_run_details` — correct noise: it means
+the last rung of the ladder is down. `pg_net` does not wait for the
+response; it queues the request and a background worker runs it, so the
+reply lands in `net._http_response`, which is the first place to look when
+an alert does not arrive. Two overlapping runs are harmless — the unique
+on `escalations` is what prevents a double alert, never the cron's timing.
 
 **The caregiver channel id is a second cross-language mirror.**
 `fakkarni_caregiver` is written in Dart

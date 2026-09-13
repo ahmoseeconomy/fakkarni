@@ -31,13 +31,22 @@
 // **النداء بالإيد** مش اختيار — هو «ابعت للحدث ده، أنا اخترته بنفسي».
 // فهو **بيتخطى شرط الوقت عن قصد** (مستحيل تستنى ٦١ دقيقة وسط عرض)، لكنه
 // ما بيتخطاش حاجة تانية: لو مفيش ابن مربوط مفيش حد يتنبّه، ولو الصف
-// محجوز قبل كده الـunique بيرفض. الاستعلامات اللي تحته **بحث** مش
-// **اختيار** — مفيش فيها ولا شرط بيقرر استحقاق.
+// محجوز بحجز لسه طازة `claim_escalation_for_service` بترجّع null والنداء
+// بيعدّي. الاستعلامات اللي تحته **بحث** مش **اختيار** — مفيش فيها ولا
+// شرط بيقرر استحقاق.
 //
 // -------------------------------------------------------------- بعد الإرسال
 //
-// الصف بيتحجز في `escalations` **قبل** الإرسال. ده اللي بيمنع التكرار:
-// الـunique هو الحارس، مش ذاكرة في الكود.
+// الصف بيتحجز في `escalations` **قبل** الإرسال، عن طريق
+// `claim_escalation_for_service` (٠٠٠٩) — عملية واحدة ذرّية بتدخل الصف
+// أو بتاخد حجز بايت عدّى عليه أكتر من خمس دقايق. الـunique هو الحارس،
+// مش ذاكرة في الكود.
+//
+// الحجز البايت ده بيحصل لما الدالة دي تموت بين الحجز والكتابة (مهلة،
+// recycle، نشرة جديدة). إعادة المحاولة ممكن تبعت نفس التنبيه مرتين لو
+// FCM كان قبله قبل ما تموت — وده اختيار مكتوب بالتفصيل في
+// `0009_escalation_retry.sql`: ابن يتضايق من تكرار أهون من ابن ما
+// يتقالش إن أبوه نسي دواه.
 //
 // فشل FCM بيتقسم:
 //   * عطل عابر (5xx / 429 / الشبكة) → الحجز بيتشال، فالدقة الجاية بتعيد
@@ -314,29 +323,35 @@ async function manualTargets(doseEventUuid: string): Promise<Target[]> {
 async function handle(sa: ServiceAccount, bearer: string, target: Target) {
   const label = `${target.patient_name}/${target.caregiver_id}`;
 
-  // ١) الحجز قبل الإرسال. الـunique هو اللي بيمنع التكرار.
-  const claim = await db('escalations', {
+  // ١) الحجز قبل الإرسال — عملية واحدة ذرّية في القاعدة (٠٠٠٩).
+  //
+  // مش `insert` بيقع بـ409: ساعتها محاولة اتقطعت نصّها (صف فضل
+  // `claimed` لأن الدالة ماتت قبل ما تكتب النتيجة) كانت هتتشاف «اتنبّه
+  // خلاص» وتتعدّى — والجرعة دي عمرها ما تتنبّه عليها تاني.
+  //
+  // الدالة بترجّع uuid لو الحجز بقى بتاعنا، وnull لو حد تاني ماسكه بحجز
+  // لسه طازة.
+  const claim = await db('rpc/claim_escalation_for_service', {
     method: 'POST',
-    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
-      dose_event_uuid: target.dose_event_uuid,
-      caregiver_id: target.caregiver_id,
+      p_dose_event_uuid: target.dose_event_uuid,
+      p_caregiver_id: target.caregiver_id,
     }),
   });
+  const claimText = await claim.text();
+  if (!claim.ok) throw new Error(`claim_failed ${claim.status}: ${claimText}`);
 
-  if (claim.status === 409) {
+  const claimedUuid = JSON.parse(claimText) as string | null;
+  if (claimedUuid === null) {
     console.log(`escalate: ${label} اتنبّه قبل كده — مفيش إرسال`);
     return { ...target, result: 'already_escalated' };
   }
-  const claimText = await claim.text();
-  if (!claim.ok) throw new Error(`claim_failed ${claim.status}: ${claimText}`);
-  const row = (JSON.parse(claimText) as { uuid: string }[])[0];
 
   const release = async () => {
-    await db(`escalations?uuid=eq.${row.uuid}`, { method: 'DELETE' });
+    await db(`escalations?uuid=eq.${claimedUuid}`, { method: 'DELETE' });
   };
   const mark = async (fields: Record<string, unknown>) => {
-    await db(`escalations?uuid=eq.${row.uuid}`, {
+    await db(`escalations?uuid=eq.${claimedUuid}`, {
       method: 'PATCH',
       body: JSON.stringify(fields),
     });
@@ -354,7 +369,7 @@ async function handle(sa: ServiceAccount, bearer: string, target: Target) {
     // `sent_at` بيفضل فاضي عن قصد: مفيش حاجة اتبعتت. العمود يقول الحقيقة
     // أو ما يتملاش.
     await mark({ delivery_status: 'no_token' });
-    return { ...target, escalation_uuid: row.uuid, result: 'no_token' };
+    return { ...target, escalation_uuid: claimedUuid, result: 'no_token' };
   }
 
   // ٣) الإرسال لكل أجهزته.
@@ -402,7 +417,7 @@ async function handle(sa: ServiceAccount, bearer: string, target: Target) {
   console.log(`escalate: ${label} → ${status} (${delivered.length}/${outcomes.length})`);
   return {
     ...target,
-    escalation_uuid: row.uuid,
+    escalation_uuid: claimedUuid,
     result: status,
     devices: outcomes.length,
     delivered: delivered.length,

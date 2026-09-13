@@ -99,6 +99,8 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   // الـisolate ده جديد: الإضافات (path_provider، الإشعارات) لازم تتسجّل فيه.
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  // تشخيص: أول سطر في الـisolate — لو ما ظهرش، الضغطة عمرها ما وصلت دارت.
+  debugPrint('Isolate: دخلنا المعالج — action=${response.actionId}');
 
   final db = AppDatabase(openConnection());
   IsolateCloud? cloud;
