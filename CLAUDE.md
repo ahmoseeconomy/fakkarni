@@ -554,11 +554,12 @@ before any alerting code, and never after: with the rows missing the scan
 finds nothing, yet every hand-run test still passes, because touching the
 app is itself what creates the row.
 
-**Not yet (4.2 / 4.3):** device-token registration on the son's phone
-(`lib/data/push/`, `firebase_messaging`) — until it exists every alert
-resolves to `no_token`; the 5-minute `pg_cron` scan (`0008`), so nothing
-runs unattended yet; the son's alert screen (mockup 27); Critical Alerts
-entitlement; the +90 «الدائرة كلها» rung.
+**Not yet (4.2 / 4.3):** a real device token — `lib/data/push/` is built
+and unit-tested but has never run on hardware, so every alert still
+resolves to `no_token`; the son's alert screen (mockup 27), so a tap on
+the alert opens «يومك»; Critical Alerts entitlement; the +90
+«الدائرة كلها» rung. The cloud half is done and running: `0006`–`0009`
+are applied to the live project and the scan ticks every five minutes.
 
 **The son's side never resolves anchors** (round 3.5). Resolving needs
 the father's routine plus the engine — a second scheduler that can silently
@@ -921,6 +922,17 @@ NOT device-verified)**
   applied. The first real build is the first test of the Gradle wiring —
   and the first proof that `handled 1 / sent` replaces `no_token`.
 
+**Rounds 4.2b parts 2–3 — the cloud half is live**
+- `0006`–`0009` all applied to the real project, `ALL ESCALATION TESTS
+  PASSED` after each. `0008` schedules `fakkarni-escalate` every five
+  minutes; `0009` makes an interrupted claim retry after 5 minutes and
+  turns the claim into one atomic statement.
+- The Edge Function is deployed with the atomic claim
+  (`claim_escalation_for_service`); the old INSERT-then-409 version would
+  have made `0009` a no-op.
+- The only thing standing between a missed dose and the son's phone is a
+  registered device token.
+
 **Round 4.2b part 2 — the alert path, verified on the live project**
 - `0006_push.sql`: `device_tokens` (token is the PK; writes go through
   `claim_device_token`) + `escalations` (`unique (dose_event_uuid,
@@ -1018,13 +1030,14 @@ device-verified)**
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Build the APK on a machine with the Android SDK, install it, sign in,
+3. Re-run the `/device` checklist on iOS now that the background engine
+   registers plugins — the lock-screen path (and therefore 4.2a's push
+   from the isolate) has never actually executed on hardware
+4. Build the APK on a machine with the Android SDK, install it, sign in,
    and confirm a `device_tokens` row appears — then invoke `escalate` by
    hand and confirm `sent` instead of `no_token`. Everything upstream of
-   the token is already proven on the live project; this is the only
-   unverified link.
-4. `0008_escalation_cron.sql` (pg_cron + pg_net, service role key from
-   Vault) so the scan runs unattended
+   the token is proven on the live project; this is the only unverified
+   link in the chain
 5. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---
