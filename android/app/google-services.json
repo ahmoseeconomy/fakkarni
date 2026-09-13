@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "13438968334",
+    "project_id": "fakkarni-5704c",
+    "storage_bucket": "fakkarni-5704c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:13438968334:android:14a1ad2aeb2577954ed25f",
+        "android_client_info": {
+          "package_name": "com.fakkarni.fakkarni"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2SJ8WxL3vPoqFV4qoGkJy5_dSjIuYk0U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

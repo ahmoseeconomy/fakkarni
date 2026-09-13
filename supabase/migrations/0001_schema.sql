@@ -10,9 +10,15 @@
 -- ملاحظة أمان: مفتاح النشر (publishable key) داخل التطبيق نفسه — أي حد
 -- يقدر يستخرجه ويكلم Postgres مباشرة. RLS في 0002 هو الحاجز الوحيد.
 -- الملف ده لا يُشغَّل بدون 0002 بعده فوراً.
+--
+-- `if not exists` على كل جدول وفهرس: السلسلة كلها لازم تعيد التشغيل من
+-- الأول بأمان (وعد مكتوب في README، وكان **غلط** — الملف ده كان بيقع من
+-- أول `create table` على أي مشروع شغّال). الثمن المعروف: إعادة التشغيل
+-- ما بتغيّرش شكل جدول موجود. وده المطلوب — الترحيلات تاريخ، وتغيير الشكل
+-- بيجي في ملف جديد بترقيمه، مش بتعديل ملف قديم.
 
 -- ---------------------------------------------------------------- patients
-create table public.patients (
+create table if not exists public.patients (
   uuid              uuid primary key,            -- device-minted, no default
   owner_id          uuid not null references auth.users (id) on delete cascade,
   name              text not null check (char_length(name) between 1 and 80),
@@ -22,10 +28,10 @@ create table public.patients (
   created_at        timestamptz not null default now()
 );
 
-create index patients_owner_idx on public.patients (owner_id);
+create index if not exists patients_owner_idx on public.patients (owner_id);
 
 -- ------------------------------------------------------------ day_routines
-create table public.day_routines (
+create table if not exists public.day_routines (
   uuid              uuid primary key,
   patient_uuid      uuid not null references public.patients (uuid) on delete cascade,
   wake_minutes      integer not null check (wake_minutes      between 0 and 1439),
@@ -39,7 +45,7 @@ create table public.day_routines (
 );
 
 -- ------------------------------------------------------------- medications
-create table public.medications (
+create table if not exists public.medications (
   uuid           uuid primary key,
   patient_uuid   uuid not null references public.patients (uuid) on delete cascade,
   name           text not null check (char_length(name) between 1 and 120),
@@ -51,10 +57,10 @@ create table public.medications (
   created_at     timestamptz not null default now()
 );
 
-create index medications_patient_idx on public.medications (patient_uuid);
+create index if not exists medications_patient_idx on public.medications (patient_uuid);
 
 -- ---------------------------------------------------------- dose_schedules
-create table public.dose_schedules (
+create table if not exists public.dose_schedules (
   uuid            uuid primary key,
   medication_uuid uuid not null references public.medications (uuid) on delete cascade,
   timing_kind     text not null default 'anchor'
@@ -72,10 +78,10 @@ create table public.dose_schedules (
   )
 );
 
-create index dose_schedules_medication_idx on public.dose_schedules (medication_uuid);
+create index if not exists dose_schedules_medication_idx on public.dose_schedules (medication_uuid);
 
 -- ----------------------------------------------------------- fixed_timings
-create table public.fixed_timings (
+create table if not exists public.fixed_timings (
   uuid               uuid primary key,
   dose_schedule_uuid uuid not null unique
                        references public.dose_schedules (uuid) on delete cascade,
@@ -84,7 +90,7 @@ create table public.fixed_timings (
 );
 
 -- ------------------------------------------------------------- dose_events
-create table public.dose_events (
+create table if not exists public.dose_events (
   uuid               uuid primary key,
   dose_schedule_uuid uuid not null references public.dose_schedules (uuid) on delete cascade,
   routine_day        date not null,
@@ -95,12 +101,12 @@ create table public.dose_events (
   unique (dose_schedule_uuid, routine_day)       -- مفتاح الحدث زي المحلي
 );
 
-create index dose_events_schedule_idx on public.dose_events (dose_schedule_uuid);
+create index if not exists dose_events_schedule_idx on public.dose_events (dose_schedule_uuid);
 
 -- ------------------------------------------------------ care_relationships
 -- الجدول بس — تدفّق كود الدعوة جولة 3.3. موجود من دلوقتي لأن سياساته
 -- وسياسات patients نصفا تصميم واحد ولا يُكتبان منفصلين.
-create table public.care_relationships (
+create table if not exists public.care_relationships (
   uuid         uuid primary key default gen_random_uuid(),
   patient_uuid uuid not null references public.patients (uuid) on delete cascade,
   caregiver_id uuid not null references auth.users (id) on delete cascade,
@@ -110,5 +116,5 @@ create table public.care_relationships (
   unique (patient_uuid, caregiver_id)
 );
 
-create index care_relationships_caregiver_idx on public.care_relationships (caregiver_id);
-create index care_relationships_patient_idx   on public.care_relationships (patient_uuid);
+create index if not exists care_relationships_caregiver_idx on public.care_relationships (caregiver_id);
+create index if not exists care_relationships_patient_idx   on public.care_relationships (patient_uuid);

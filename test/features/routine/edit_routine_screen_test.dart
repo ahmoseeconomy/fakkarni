@@ -166,8 +166,27 @@ void main() {
         .where((e) => e.value.body.contains('Eltroxin'))
         .map((e) => e.key)
         .toSet();
-    expect(fixedAfter, fixedBefore, reason: 'الثابتة ما اتحركتش');
-    expect(sink.cancelled.toSet(), anchoredBefore, reason: 'المرساة اتحركت');
+
+    // الجرعات بس في المقارنتين دول. درجات السلّم **مش** جزء من السؤال
+    // «الثابتة اتحركت ولا لأ»: السلّم بيغطي أقرب ٧ تذكيرات، فلو تذكير
+    // جديد دخل النافذة قدّامها، أبعد درجة بتخرج — وده قرار تغطية سليم،
+    // مش جرعة ثابتة اتزحلقت.
+    //
+    // من غير الفلترة دي الاختبار بيرسب حسب **ساعة اليوم**: لو التشغيل
+    // وقع بين ٧:٠٠ و٨:٠٠، جرعة المرساة بتكون عدّت قبل التعديل ولسه جاية
+    // بعده، فبتدخل النافذة وبتزقّ درجة بتاعة الثابتة بره. الـ id بتاع
+    // الجرعة الثابتة نفسها ما بيتغيّرش أبداً — وده اللي القاعدة الأولى
+    // بتقوله.
+    expect(
+      fixedAfter.where(isDoseId).toSet(),
+      fixedBefore.where(isDoseId).toSet(),
+      reason: 'الثابتة ما اتحركتش',
+    );
+    expect(
+      sink.cancelled.where(isDoseId).toSet(),
+      anchoredBefore.where(isDoseId).toSet(),
+      reason: 'المرساة اتحركت',
+    );
     // قبل الفطار (٨:٣٠) بنص ساعة = ٨:٠٠ — لكل الأيام اللي في النافذة
     final anchoredAfter = sink.scheduled.keys.toSet().difference(fixedAfter);
     expect(anchoredAfter, isNotEmpty);

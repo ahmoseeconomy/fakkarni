@@ -74,8 +74,12 @@ void main() {
     expect(EscalationRung.values.length, 2);
   });
   group('مهلة السيرفر أطول من مهلة الجهاز', () {
-    test('الثابت الحاكم: مهلة السيرفر > مهلة الجهاز + هامش المزامنة', () {
-      expect(serverGraceWindow, greaterThan(graceWindow + syncSlack - const Duration(minutes: 1)));
+    test('الثابت الحاكم: مهلة السيرفر = مهلة الجهاز + هامش المزامنة', () {
+      // كانت مكتوبة `greaterThan(... - دقيقة)` — وده «أكبر من» مكسور
+      // بإيدنا عشان يعدّي على «يساوي». العلاقة الحقيقية هوية: `syncSlack`
+      // **هو** المسافة بين مهلة الجهاز ومهلة السيرفر (٤٥ + ١٥ = ٦٠)،
+      // فالمتراجحة كانت بتوصف الأرقام غلط وبتسمح لواحد منهم يتحرك لوحده.
+      expect(serverGraceWindow, graceWindow + syncSlack);
       expect(serverGraceWindow, greaterThan(graceWindow));
     });
 

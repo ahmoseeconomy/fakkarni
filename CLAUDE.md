@@ -479,8 +479,11 @@ untouched: «أخدته» / «مش هاخده» cancel everything for the slot a
 **The server's grace is longer than the device's, and the gap is the sync
 budget** (round 4.2b). `graceWindow` is 45 on the device;
 `serverGraceWindow` is 60; `syncSlack` is the 15 between them, and the
-invariant `serverGraceWindow > graceWindow + syncSlack` is locked by a
-test. Both constants live in `domain/escalation/` so the SQL and the
+invariant `serverGraceWindow == graceWindow + syncSlack` is locked by a
+test. It is an **identity, not an inequality** — `syncSlack` is defined as
+the gap, so 45 + 15 = 60 exactly; this file said `>` until round 4.2b part
+2, and the test that "locked" it subtracted a minute to make `>` pass on an
+`=`, which let any one of the three move alone. Both constants live in `domain/escalation/` so the SQL and the
 device read the same numbers. **Why they must differ:** the father
 confirms at +44, the push debounce is 3s, the cron ticks at +45 — the row
 is still `pending` in the cloud and the son is alarmed about a pill taken
@@ -506,10 +509,11 @@ before any alerting code, and never after: with the rows missing the scan
 finds nothing, yet every hand-run test still passes, because touching the
 app is itself what creates the row.
 
-**Not yet (4.2 / 4.3):** the caregiver push (Firebase Cloud Messaging +
-a Supabase scheduled job scanning `dose_events` server-side, which needs
-the device to sync the day's events *ahead* of time), the son's alert
-screen (mockup 27), Critical Alerts entitlement, the +90 «الدائرة كلها» rung.
+**Not yet (4.2 / 4.3):** device-token registration on the son's phone
+(`lib/data/push/`, `firebase_messaging`) — until it exists every alert
+resolves to `no_token`; the 5-minute `pg_cron` scan (`0008`), so nothing
+runs unattended yet; the son's alert screen (mockup 27); Critical Alerts
+entitlement; the +90 «الدائرة كلها» rung.
 
 **The son's side never resolves anchors** (round 3.5). Resolving needs
 the father's routine plus the engine — a second scheduler that can silently
@@ -554,6 +558,60 @@ new patient insert failed with 42501, always, for everyone. Fixed in
 patient, a medication and a dose_event **with RETURNING**, the way the
 app does.
 
+**Escalation rows are readable by the whole care circle, not just their
+recipient** (round 4.2b part 2). `escalations_select` goes through
+`private.can_access_patient`, so an accepted caregiver sees every alert
+sent about that patient — including ones sent to his *siblings*, not only
+to himself. For a family sharing one father that is the intended reading,
+and it is why the policy is not `caregiver_id = (select auth.uid())`.
+The same choice has a second consequence: a **revoked** caregiver loses
+sight of alerts he previously received, because access is re-derived from
+the relationship every time rather than stored on the row. Both of these
+are visible behaviour, decided, not accidents.
+
+`device_tokens` is the deliberate exception to the whole pattern: no
+`can_access_patient` appears anywhere in it, in either direction. A linked
+son sees his father's doses; he never sees his father's phone token, and
+his father never sees his. Every policy on it compares `user_id` against
+`(select auth.uid())` — a column already in the row, the cheapest possible
+form of the rule above. Writes go through `public.claim_device_token`,
+whose threat model is written out in `0006_push.sql` and tied to debt 2.
+
+**`private` is not exposed to PostgREST, so the Edge Function reaches the
+scan through one narrow `public` wrapper.** `public.due_escalations_for_service`
+(`0007_escalate_rpc.sql`) has no body of its own — it calls
+`private.due_escalations` and nothing else — and its EXECUTE is granted to
+`service_role` alone, revoked from `anon` and `authenticated`. The two
+rejected alternatives are worth naming: exposing the `private` schema in
+API settings would publish every definer access function at once, and a
+TypeScript copy of the scan inside the function is the "two definitions of
+selection" this whole round exists to prevent. `escalation_test.sql`
+asserts the wrapper and the inner function return the same rows, because
+the wrapper is the one the Edge Function actually calls.
+
+**The selection query has exactly one definition, in SQL.**
+`private.due_escalations` is called by the cron, by the Edge Function and
+by `tests/escalation_test.sql`. A copy of the scan written in TypeScript
+would let the test prove a statement the function never runs — which is
+precisely how `rls_test.sql` passed over the `0005` bug. Anything that
+picks rows for alerting lives in that function or it does not exist.
+`private.server_grace_window()` is the only place `60` appears in the SQL,
+and `due_escalations` is forced through it — the number is a **mirror** of
+`serverGraceWindow` in `domain/escalation/`, and the mirror is held by
+`test/data/sync/server_grace_sql_test.dart`, which fails if either side
+moves alone. Postgres cannot read Dart; drift between the two shows up as
+a false alarm on a son's phone, never as a failing build, so the test is
+the only thing standing there.
+
+**If a migration file changes after you have run it, say so — out loud, in
+the next message, with "re-run it".** "I ran `0006`" and "the file now on
+disk has run" are different facts, and the gap between them is invisible
+from both sides: the file looks right to whoever reads it, and the database
+looks right to whoever ran it. A function that was never actually created
+costs half an hour of debugging something that is not broken. This applies
+to a comment-only edit too — the cost of saying so is one sentence, and
+nobody can tell from the outside which kind of edit it was.
+
 **SQL migrations are run against the real project in the same round that
 writes them, before that round is committed.** Both of the above shipped
 green because the SQL had never been executed — `0004` collided on a
@@ -562,9 +620,16 @@ above was invisible to a test that inserted without RETURNING. Code
 nobody has executed is not code, however carefully reviewed. Every
 migration must be idempotent (`if not exists`, `create or replace`,
 `drop ... if exists` before `create`) so re-running the whole chain is
-always safe. And when a test passes over a bug, fix the test's *shape* —
-ours exercised a different statement than the app, which is not
-thoroughness but a blind spot.
+always safe. That promise was **false** until round 4.2b part 2: `0001`
+died on its first `create table` and `0002`/`0003` on their first
+`create policy` against any live project, while the README said the chain
+replayed. A README that lies costs a morning. The known price of
+`if not exists` is that a replay never reshapes an existing table — which
+is correct: migrations are history, and a shape change gets its own
+numbered file, never an edit to an old one.
+And when a test passes over a bug, fix the test's *shape* — ours exercised
+a different statement than the app, which is not thoroughness but a blind
+spot.
 
 ---
 
@@ -628,6 +693,17 @@ Consequences to handle:
    is bound to one device and is lost when app data is cleared. It must be
    upgraded via `linkIdentity` to Google before any store submission.
    **Shipping with anonymous auth is forbidden.**
+   **It also costs us `public.claim_device_token`.** Anonymous sign-out
+   mints a *new user on the same device*, so the unchanged FCM token
+   collides with a dead user's row; the function reattaches it atomically
+   and trusts possession of the token as proof. The accepted risk is named
+   in `0006_push.sql`: whoever obtains another install's token can claim
+   it, and that victim's phone then receives alerts naming a stranger's
+   patient and medication. Low risk today — the token leaves neither the
+   device nor our server. **When this debt is paid the collision disappears
+   at its source** (a real Google/Apple id survives sign-out), so delete
+   the function and go back to a plain upsert under RLS. Revisit it here,
+   not somewhere it will be forgotten.
 3. **Sign in with Apple is mandatory before any iOS App Store submission**
    once Google is offered (Guideline 4.8). Blocked until the paid Apple
    Developer account exists. It lands as a sibling `AuthService` file.
@@ -726,6 +802,33 @@ device-verified)**
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
 
+**Round 4.2b part 2 — the alert path, verified on the live project**
+- `0006_push.sql`: `device_tokens` (token is the PK; writes go through
+  `claim_device_token`) + `escalations` (`unique (dose_event_uuid,
+  caregiver_id, rung)` is the whole no-duplicate mechanism),
+  `private.server_grace_window()` and `private.due_escalations` — the one
+  definition of the selection. `0007_escalate_rpc.sql`: a `public` wrapper
+  for it, `service_role` only, because `private` is not exposed to
+  PostgREST.
+- `tests/escalation_test.sql` proved the selection **before** any sending
+  code existed: chosen once, second run empty, confirmed/missed/stopped/
+  unlinked/pending-link never chosen, +50 no and +60 exactly yes, the
+  unique catching a racing second claim, and a second brother still
+  alerted after the first.
+- `functions/escalate/index.ts`: no imports (plain fetch + Web Crypto),
+  three modes (`dry_run`, one event by hand ignoring the clock, bounded
+  scan), bearer must equal the service role key, claim-then-send, transient
+  FCM failures release the claim and permanent ones delete the dead token.
+- `test/data/sync/server_grace_sql_test.dart` holds the 60 in SQL against
+  `serverGraceWindow` in Dart, and fails if either moves alone.
+- Verified live: `ALL ESCALATION TESTS PASSED`, and a hand invocation
+  returned `handled 1 / no_token` — Google accepted the service account,
+  the care relationship resolved, the row was claimed. Only token
+  registration is missing.
+- Also fixed on the way: `0001`–`0003` could never be re-run (the README
+  claimed otherwise), and the `serverGraceWindow` invariant was written as
+  `>` and tested with a minute subtracted to make `>` pass on an `=`.
+
 **Round 4.2b part 1 — the cloud knows the dose before its time (built)**
 - `rescheduleAll` materialises yesterday, today **and tomorrow**;
   idempotent, so re-opening adds nothing.
@@ -734,7 +837,7 @@ device-verified)**
 - Caregiver footer goes gold past `staleAfter` (24h) with «اطمن عليه».
 - Foundation test in `test/data/sync/`: one morning open, no further
   touch → every dose of today and tomorrow reaches the cloud as `pending`
-  before its time. Parts 2 and 3 (tokens, FCM, cron) are not built.
+  before its time.
 - Fixed a latent test bug found on the way: the no-saved-routine case
   pointed its event repository at the wrong database, invisible until
   materialisation reached a day with real doses.
@@ -796,14 +899,14 @@ device-verified)**
    not part of the first device pass)
 2. Stop / edit a medication from «يومك» (`stopMedication` exists in the
    repository, no screen calls it)
-3. Round 4.2b parts 2 and 3: `device_tokens` + `escalations` SQL
-   (`escalations.rung` = `'caregiver'` for this round's alert, leaving
-   room for the +90 «الدائرة كلها» rung to be added later without anyone
-   guessing what the existing rows meant), Firebase + `firebase_messaging`
-   on Android only, an Edge Function that sends, and a bounded 5-minute
-   pg_cron scan selecting `pending` events past `serverGraceWindow` for
-   patients with an accepted caregiver. Part 1 is done, so the rows are
-   already waiting for it
+3. Round 4.2b part 2 remainder: `lib/data/push/` (a `PushTokens`
+   interface with Firebase behind it the way Supabase sits behind
+   `lib/data/auth/`), `firebase_core` + `firebase_messaging` on Android,
+   register after sign-in / refresh on rotation / delete on sign-out, and
+   the `fakkarni_caregiver` Android channel — the Edge Function already
+   sends to that exact channel id, and a mismatch drops the alert to the
+   default channel silently. Then `0008_escalation_cron.sql` (pg_cron +
+   pg_net, service role key from Vault) so the scan runs unattended
 4. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---

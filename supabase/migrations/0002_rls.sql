@@ -106,109 +106,133 @@ grant execute on function private.owns_patient(uuid),
 
 -- ---------------------------------------------------------------- patients
 -- القراءة عبر الدالة (مالك أو رعاية accepted)؛ الكتابة للمالك حصراً.
+drop policy if exists patients_select on public.patients;
 create policy patients_select on public.patients
   for select to authenticated
   using (private.can_access_patient(uuid));
 
+drop policy if exists patients_insert on public.patients;
 create policy patients_insert on public.patients
   for insert to authenticated
   with check (owner_id = (select auth.uid()));
 
+drop policy if exists patients_update on public.patients;
 create policy patients_update on public.patients
   for update to authenticated
   using (owner_id = (select auth.uid()))
   with check (owner_id = (select auth.uid()));
 
+drop policy if exists patients_delete on public.patients;
 create policy patients_delete on public.patients
   for delete to authenticated
   using (owner_id = (select auth.uid()));
 
 -- ------------------------------------------------------------ day_routines
+drop policy if exists day_routines_select on public.day_routines;
 create policy day_routines_select on public.day_routines
   for select to authenticated
   using (private.can_access_patient(patient_uuid));
 
+drop policy if exists day_routines_insert on public.day_routines;
 create policy day_routines_insert on public.day_routines
   for insert to authenticated
   with check (private.owns_patient(patient_uuid));
 
+drop policy if exists day_routines_update on public.day_routines;
 create policy day_routines_update on public.day_routines
   for update to authenticated
   using (private.owns_patient(patient_uuid))
   with check (private.owns_patient(patient_uuid));
 
+drop policy if exists day_routines_delete on public.day_routines;
 create policy day_routines_delete on public.day_routines
   for delete to authenticated
   using (private.owns_patient(patient_uuid));
 
 -- ------------------------------------------------------------- medications
+drop policy if exists medications_select on public.medications;
 create policy medications_select on public.medications
   for select to authenticated
   using (private.can_access_patient(patient_uuid));
 
+drop policy if exists medications_insert on public.medications;
 create policy medications_insert on public.medications
   for insert to authenticated
   with check (private.owns_patient(patient_uuid));
 
+drop policy if exists medications_update on public.medications;
 create policy medications_update on public.medications
   for update to authenticated
   using (private.owns_patient(patient_uuid))
   with check (private.owns_patient(patient_uuid));
 
+drop policy if exists medications_delete on public.medications;
 create policy medications_delete on public.medications
   for delete to authenticated
   using (private.owns_patient(patient_uuid));
 
 -- ---------------------------------------------------------- dose_schedules
+drop policy if exists dose_schedules_select on public.dose_schedules;
 create policy dose_schedules_select on public.dose_schedules
   for select to authenticated
   using (private.can_access_patient(private.patient_of_medication(medication_uuid)));
 
+drop policy if exists dose_schedules_insert on public.dose_schedules;
 create policy dose_schedules_insert on public.dose_schedules
   for insert to authenticated
   with check (private.owns_patient(private.patient_of_medication(medication_uuid)));
 
+drop policy if exists dose_schedules_update on public.dose_schedules;
 create policy dose_schedules_update on public.dose_schedules
   for update to authenticated
   using (private.owns_patient(private.patient_of_medication(medication_uuid)))
   with check (private.owns_patient(private.patient_of_medication(medication_uuid)));
 
+drop policy if exists dose_schedules_delete on public.dose_schedules;
 create policy dose_schedules_delete on public.dose_schedules
   for delete to authenticated
   using (private.owns_patient(private.patient_of_medication(medication_uuid)));
 
 -- ----------------------------------------------------------- fixed_timings
+drop policy if exists fixed_timings_select on public.fixed_timings;
 create policy fixed_timings_select on public.fixed_timings
   for select to authenticated
   using (private.can_access_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists fixed_timings_insert on public.fixed_timings;
 create policy fixed_timings_insert on public.fixed_timings
   for insert to authenticated
   with check (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists fixed_timings_update on public.fixed_timings;
 create policy fixed_timings_update on public.fixed_timings
   for update to authenticated
   using (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)))
   with check (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists fixed_timings_delete on public.fixed_timings;
 create policy fixed_timings_delete on public.fixed_timings
   for delete to authenticated
   using (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
 -- ------------------------------------------------------------- dose_events
+drop policy if exists dose_events_select on public.dose_events;
 create policy dose_events_select on public.dose_events
   for select to authenticated
   using (private.can_access_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists dose_events_insert on public.dose_events;
 create policy dose_events_insert on public.dose_events
   for insert to authenticated
   with check (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists dose_events_update on public.dose_events;
 create policy dose_events_update on public.dose_events
   for update to authenticated
   using (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)))
   with check (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
 
+drop policy if exists dose_events_delete on public.dose_events;
 create policy dose_events_delete on public.dose_events
   for delete to authenticated
   using (private.owns_patient(private.patient_of_schedule(dose_schedule_uuid)));
@@ -217,6 +241,7 @@ create policy dose_events_delete on public.dose_events
 -- مقدّم الرعاية يرى صفوفه؛ المالك يرى صفوف مرضاه. لا INSERT لأحد هذه
 -- الجولة (إنشاء العلاقة يأتي مع تدفّق كود الدعوة في 3.3 — الغياب هنا
 -- رفض افتراضي، ليس سهواً). لا أحد يعدّل status غير مالك المريض.
+drop policy if exists care_select on public.care_relationships;
 create policy care_select on public.care_relationships
   for select to authenticated
   using (
@@ -224,11 +249,13 @@ create policy care_select on public.care_relationships
     or private.owns_patient(patient_uuid)
   );
 
+drop policy if exists care_update on public.care_relationships;
 create policy care_update on public.care_relationships
   for update to authenticated
   using (private.owns_patient(patient_uuid))
   with check (private.owns_patient(patient_uuid));
 
+drop policy if exists care_delete on public.care_relationships;
 create policy care_delete on public.care_relationships
   for delete to authenticated
   using (private.owns_patient(patient_uuid));

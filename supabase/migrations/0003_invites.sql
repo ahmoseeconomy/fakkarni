@@ -7,7 +7,7 @@
 -- أياً من الثلاثة — قراءة صف الكود (سرّ لمالكه)، إدخال العلاقة، حرق
 -- الكود — والدالة تفعلها الثلاثة في معاملة واحدة: لا حالة نصف-استبدال.
 
-create table public.invite_codes (
+create table if not exists public.invite_codes (
   code         text primary key check (code ~ '^[0-9]{6}$'),
   patient_uuid uuid not null references public.patients (uuid) on delete cascade,
   created_by   uuid not null references auth.users (id) on delete cascade,
@@ -21,6 +21,7 @@ alter table public.invite_codes enable row level security;
 revoke all on public.invite_codes from anon, public;
 
 -- المالك يرى أكواده هو فقط. لا INSERT ولا UPDATE لأحد — الدالتان فقط.
+drop policy if exists invite_codes_select on public.invite_codes;
 create policy invite_codes_select on public.invite_codes
   for select to authenticated
   using (created_by = (select auth.uid()));
