@@ -157,6 +157,73 @@ void main() {
   PlannedNotification firstReminder() => device.doses.values
       .reduce((a, b) => a.at.isBefore(b.at) ? a : b);
 
+  group('تأكيد فشل عمره ما يشبه تأكيد نجح', () {
+    // الإشعار بيختفي من شاشة القفل سواء الكتابة نجحت أو وقعت — النظام
+    // بيشيله ساعة ما المستخدم يدوس، مش لما إحنا نخلص. فلو بلعنا الخطأ،
+    // المريض بيمشي وهو فاكر إنه أكّد والجرعة مش مسجّلة عند حد.
+    //
+    // ده اللي حصل بالظبط مع `database is locked`: `materializeDay` رمت،
+    // الـcatch اللي بره سجّلت، والمستخدم ما شافش أي فرق.
+
+    test('الكتابة وقعت → المعالج بيرمي، ما بيرجعش عادي', () async {
+      final first = firstReminder();
+      final handler = wake();
+      final broken = NotificationActionHandler(
+        routines: handler.routines,
+        medications: handler.medications,
+        // القاعدة اتقفلت في وشنا
+        events: _ThrowingEvents(handler.events),
+        scheduler: handler.scheduler,
+        patientId: patientId,
+      );
+
+      await expectLater(
+        broken.handle(NotificationActions.taken, first.payload),
+        throwsA(isA<Exception>()),
+        reason: 'لو رجع عادي، الفشل مش هيبان في أي لوج ولا لأي حد',
+      );
+    });
+
+    test('مدّ النافذة وقع → التأكيد بيفضل مسجّل والمعالج بيكمّل', () async {
+      final first = firstReminder();
+      final handler = wake();
+      final flaky = NotificationActionHandler(
+        routines: handler.routines,
+        medications: handler.medications,
+        events: handler.events,
+        scheduler: _ThrowingScheduler(
+          routines: RoutineRepository(db),
+          medications: MedicationRepository(db),
+          events: DoseEventRepository(db),
+          patientId: patientId,
+          sink: device,
+        ),
+        patientId: patientId,
+      );
+
+      // بيكمّل: المجاملة مسموح لها تفشل
+      await flaky.handle(NotificationActions.taken, first.payload);
+
+      // والوعد اتنفّذ: الجرعة مسجّلة
+      final taken = (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.taken);
+      expect(taken, isNotEmpty,
+          reason: 'فشل مدّ النافذة مش المفروض يوقّع التأكيد');
+    });
+
+    test('صف اليوم لسه ما اتنزّلش → التأكيد بيزرعه بنفسه', () async {
+      // «يومك» ما اتفتحتش النهاردة، فمفيش صفوف. الوعد لازم يشتغل برضه.
+      await db.delete(db.doseEvents).go();
+      final first = firstReminder();
+
+      await wake().handle(NotificationActions.taken, first.payload);
+
+      final taken = (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.taken);
+      expect(taken, isNotEmpty);
+    });
+  });
+
   test('«أخدته» من الإشعار والتطبيق مقفول: الجرعة اتسجّلت والنافذة اتمدّت',
       () async {
     final first = firstReminder();
@@ -439,4 +506,41 @@ void main() {
     });
   });
 
+}
+
+
+/// قاعدة بيانات بترفض تكتب — زي `database is locked` بالظبط.
+class _ThrowingEvents implements DoseEventRepository {
+  _ThrowingEvents(this._real);
+
+  final DoseEventRepository _real;
+
+  @override
+  Future<void> confirmDose({
+    required int doseScheduleId,
+    required DateTime routineDay,
+    required DateTime scheduledAt,
+    required DoseState state,
+  }) async =>
+      throw Exception('SqliteException(5): database is locked');
+
+  @override
+  noSuchMethod(Invocation invocation) =>
+      // الباقي بيعدّي للحقيقي عشان الاختبار يوصل لنقطة الكتابة أصلاً
+      (_real as dynamic).noSuchMethod(invocation);
+}
+
+/// مدّ النافذة بيقع — مجاملة، مش وعد.
+class _ThrowingScheduler extends ReminderScheduler {
+  _ThrowingScheduler({
+    required super.routines,
+    required super.medications,
+    required super.events,
+    required super.patientId,
+    required super.sink,
+  });
+
+  @override
+  Future<void> rescheduleAll({DateTime? now}) async =>
+      throw Exception('SqliteException(5): database is locked');
 }

@@ -100,7 +100,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   // تشخيص: أول سطر في الـisolate — لو ما ظهرش، الضغطة عمرها ما وصلت دارت.
-  debugPrint('Isolate: دخلنا المعالج — action=${response.actionId}');
+  debugPrint('Isolate: دخلنا المعالج — action=${response.actionId} payload=${response.payload}');
 
   debugPrint('Isolate: ١- بنفتح القاعدة');
   final db = AppDatabase(openConnection());

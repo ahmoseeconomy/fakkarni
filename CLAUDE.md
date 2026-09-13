@@ -286,6 +286,43 @@ Every app launch calls `rescheduleAll()`, which re-extends the window from the
 new "now". The cap applies on Android too: one behaviour on both platforms
 beats "works on my Android".
 
+**Two isolates write this SQLite file, so the connection sets WAL and a
+busy timeout — in one place, for every opener.** The app runs
+`rescheduleAll` as it starts; a lock-screen «أخدته» wakes a separate
+isolate that opens the *same file* and writes. That is the normal case,
+not a rare one — the same tap can do both. With SQLite's defaults the
+loser of the race fails instantly with
+`SqliteException(5): database is locked` on `BEGIN IMMEDIATE`. WAL stops a
+reader blocking a writer; **`busy_timeout` is the line that actually fixes
+it**, because WAL does nothing for two *writers* — the default is to give
+up at once rather than wait. `busy_timeout` is per-connection and is not
+stored in the file, so it must be set by every isolate: that is why it
+lives in `prepareDatabase` inside `connection.dart`, which everything goes
+through. `openDatabaseFile` is exposed so tests open the file exactly the
+way the device does. `test/data/db/concurrent_write_test.dart` reproduces
+the original exception when the pragmas are removed.
+
+**In the lock-screen handler, the promise is the dose row and the cancel;
+everything after is a courtesy.** Recording the confirmation now uses
+`DoseEventRepository.confirmDose` — one row seeded if missing and its state
+written, a two-statement transaction — and it runs *first*. It used to be
+`materializeDay` (the whole day, one large transaction) and only then
+`markTaken`, so a lock conflict on a write that is **not** the promise
+destroyed the confirmation itself. `rescheduleAll` still runs from the
+isolate, because nothing else renews coverage for a patient who never opens
+the app — but it is demoted to a courtesy: wrapped, logged loudly, and
+never able to undo a confirmation already written. The cloud push was
+already last and stays there.
+
+**A confirmation that fails must never look like one that succeeded.** iOS
+removes the notification the moment the button is tapped, whether our write
+worked or not — so a swallowed error leaves the patient certain he
+confirmed while nothing was recorded. The handler therefore **throws** when
+the promise fails and only swallows courtesies.
+`test/data/notification_actions_test.dart` pins both directions, and the
+throwing case was mutation-checked: wrap the promise in a `try`/`catch` and
+it goes red.
+
 **iOS runs notification actions in a SECOND Flutter engine, and that
 engine gets no plugins unless `AppDelegate` says so.** A tap on «أخدته»
 with the app terminated does not reuse the main engine — the plugin spawns

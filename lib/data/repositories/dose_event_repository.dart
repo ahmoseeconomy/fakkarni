@@ -149,6 +149,38 @@ class DoseEventRepository {
   Future<void> markSkipped(int doseScheduleId, DateTime routineDay) =>
       _setState(doseScheduleId, routineDay, DoseState.skipped);
 
+  /// بيسجّل تأكيد جرعة واحدة، حتى لو صف اليوم لسه ما اتنزّلش.
+  ///
+  /// ده **الوعد** بتاع ضغطة «أخدته» على شاشة القفل، معزول في أصغر كتابة
+  /// ممكنة: صف واحد يتزرع لو ناقص، وحالته تتكتب — معاملة من جملتين.
+  ///
+  /// ليه مش `materializeDay` وبعدها `markTaken` زي الأول: تنزيل اليوم
+  /// بيكتب صفوف اليوم كله في معاملة واحدة، وهي أكبر بكتير وأكتر عرضة
+  /// لتعارض القفل مع الـisolate التاني. ولمّا كانت بتقع، `markTaken` ما
+  /// كانتش بتوصل أصلاً — يعني التأكيد نفسه بيضيع عشان كتابة **مش** هي
+  /// الوعد. باقي اليوم بيتنزّل في `rescheduleAll` بعد كده، وهي مجاملة
+  /// مسموح لها تفشل.
+  Future<void> confirmDose({
+    required int doseScheduleId,
+    required DateTime routineDay,
+    required DateTime scheduledAt,
+    required DoseState state,
+  }) async {
+    final day = DateTime(routineDay.year, routineDay.month, routineDay.day);
+    await _db.transaction(() async {
+      await _db.into(_db.doseEvents).insert(
+            DoseEventsCompanion.insert(
+              doseScheduleId: doseScheduleId,
+              routineDay: day,
+              scheduledAt: scheduledAt,
+              state: DoseState.pending,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      await _setState(doseScheduleId, day, state);
+    });
+  }
+
   Future<void> _setState(
     int doseScheduleId,
     DateTime routineDay,

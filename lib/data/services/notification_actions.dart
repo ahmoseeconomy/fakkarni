@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../core/notifications/notification_service.dart'
     show NotificationActions;
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../dose_state.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
 import '../repositories/routine_repository.dart';
@@ -35,17 +37,28 @@ class NotificationActionHandler {
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
   Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
-    if (!NotificationActions.isAction(actionId)) return;
+    debugPrint('Handle: ٠- دخلنا — action=$actionId payload=$payload');
+    if (!NotificationActions.isAction(actionId)) {
+      debugPrint('Handle: خرجنا — actionId مش معروف');
+      return;
+    }
     final decoded = decodePayload(payload);
-    if (decoded == null) return;
+    if (decoded == null) {
+      debugPrint('Handle: خرجنا — الـpayload مش اتفكّ');
+      return;
+    }
+    debugPrint('Handle: ٠.٥- الـpayload اتفكّ');
 
+    debugPrint('Handle: أ- بنجيب الروتين');
     final routine = await routines.getRoutine(patientId) ?? DayRoutine.fallback;
+    debugPrint('Handle: ب- الروتين جه');
     final engine = ScheduleEngine(routine);
     final day = decoded.routineDay;
     final reminders = engine.remindersForDay(
       await medications.activeSchedules(patientId),
       day,
     );
+    debugPrint('Handle: ج- التذكيرات اتحسبت (${reminders.length})');
 
     // الجرعات اللي الإشعار ده كان عشانها — الساعة بنحسبها من الروتين
     // الحالي، مش من الإشعار: الـpayload فيه اليوم والجداول بس.
@@ -59,13 +72,36 @@ class NotificationActionHandler {
 
     switch (actionId) {
       case NotificationActions.taken:
-        // صف الحدث ممكن يكون لسه مش موجود — «يومك» هي اللي بتنزّله، والتطبيق
-        // ما اتفتحش النهاردة. من غير السطر ده التأكيد كان بيروح في صمت.
-        await events.materializeDay(day, reminders);
+        // ---------------------------------------------------- الوعد
+        // أصغر كتابة ممكنة، الأول خالص. صف الحدث ممكن يكون لسه مش
+        // موجود — «يومك» هي اللي بتنزّله، والتطبيق ما اتفتحش النهاردة —
+        // فـ[confirmDose] بتزرعه وتكتب حالته في معاملة واحدة.
+        //
+        // لو الكتابة دي وقعت، بنرمي. **تأكيد فشل عمره ما يشبه تأكيد
+        // نجح**: الإشعار بيختفي من شاشة القفل في الحالتين، فلو بلعنا
+        // الخطأ المريض بيفتكر إنه أكّد والجرعة مش مسجّلة.
+        debugPrint('Handle: د- بنسجّل التأكيد');
         for (final dose in doses) {
-          await events.markTaken(int.parse(dose.id), day);
+          await events.confirmDose(
+            doseScheduleId: int.parse(dose.id),
+            routineDay: day,
+            scheduledAt: at,
+            state: DoseState.taken,
+          );
         }
-        await scheduler.afterConfirmation(at, now: now);
+        debugPrint('Handle: هـ- التأكيد اتسجّل');
+
+        // القاعدة الخامسة — وعد كمان: التأكيد بيسكّت كل درجات السلّم
+        // للخانة دي في نفس اللحظة.
+        await scheduler.cancelReminderAt(at);
+        debugPrint('Handle: و- الخانة اتسكّتت');
+
+        // -------------------------------------------------- المجاملات
+        // مدّ النافذة ورفع السحابة. الاتنين مهمين — من غير مدّ النافذة
+        // التغطية بتخلص بعد أيام لمريض مالوش سبب يفتح التطبيق — لكن ولا
+        // واحد فيهم وعد. فشلهم بيتسجّل بصوت عالي وبيتساب، ومش مسموح له
+        // يوقّع تأكيد اتسجّل خلاص.
+        await _courtesy('مدّ النافذة', () => scheduler.rescheduleAll(now: now));
 
       case NotificationActions.snooze:
         await scheduler.snooze(
@@ -87,6 +123,20 @@ class NotificationActionHandler {
     //
     // [SyncService.pushOnce] عمرها ما بترمي، فمفيش حاجة فوق ممكن تتلغي
     // بسببها — وهي كمان آخر سطر، فمفيش حاجة بعدها تتأثر.
-    await sync?.pushOnce();
+    debugPrint('Handle: ح- بنرفع للسحابة');
+    await _courtesy('الرفع للسحابة', () async => sync?.pushOnce());
+    debugPrint('Handle: ط- الرفع خلص');
+  }
+
+  /// خطوة مسموح لها تفشل — بس مش مسموح لها تفشل في صمت.
+  ///
+  /// الوعد (تسجيل الجرعة وتسكيت الخانة) خلص قبل ما نوصل هنا، فأي رمية من
+  /// تحت ما بتلغيهوش. بنسجّلها بوضوح عشان تبان في Console.app وبنكمّل.
+  Future<void> _courtesy(String what, Future<void> Function() step) async {
+    try {
+      await step();
+    } catch (error, stack) {
+      debugPrint('Handle: ⚠ $what فشلت (التأكيد اتسجّل برضه): $error\n$stack');
+    }
   }
 }
