@@ -148,7 +148,10 @@ class AnchorChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(F.radiusChip),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: F.s14),
+              // widthFactor: الشريحة على قد كلمتها جوّه Wrap — من غير كده
+              // Center بيتمدّد على عرض السطر كله وكل شريحة تبقى في سطر لوحدها
               child: Center(
+                widthFactor: 1,
                 child: Text(
                   label,
                   style: const TextStyle(

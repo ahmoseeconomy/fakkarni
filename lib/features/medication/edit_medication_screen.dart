@@ -4,12 +4,16 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/db/app_database.dart';
+import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
+import '../../domain/scheduling/schedule_engine.dart';
+import 'dose_editor.dart';
 
-/// تعديل دوا موجود: الجرعة زي ما الصيدلي قالها، أو إيقافه.
+/// تعديل دوا موجود: الجرعة زي ما الصيدلي قالها، توقيت كل جرعة من
+/// [DoseEditor]، أو إيقافه.
 ///
-/// حاجتين بس عن قصد. التوقيت بيتعدّل من روتين اليوم مش من هنا، والإيقاف
-/// **بإيد إنسان وبس** وبخطوتين — التطبيق عمره ما بيوقف دوا من نفسه.
+/// الإيقاف **بإيد إنسان وبس** وبخطوتين — التطبيق عمره ما بيوقف دوا من نفسه.
+/// وتغيير الروتين نفسه (الفطار الساعة كام) من «مواعيد يومك»، مش من هنا.
 class EditMedicationScreen extends StatefulWidget {
   const EditMedicationScreen({required this.medicationId, super.key});
 
@@ -23,6 +27,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
   final _amount = TextEditingController();
   Stream<MedicationRow?>? _medication;
   List<DoseSchedule> _schedules = const [];
+  DayRoutine _routine = DayRoutine.fallback;
   bool _seeded = false;
   bool _confirmingStop = false;
   bool _busy = false;
@@ -33,9 +38,37 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     if (_medication != null) return;
     final services = AppScope.of(context);
     _medication = services.medications.watchMedication(widget.medicationId);
-    services.medications.schedulesFor(widget.medicationId).then((s) {
-      if (mounted) setState(() => _schedules = s);
+    _loadSchedules();
+    services.routines.getRoutine(services.patientId).then((r) {
+      if (mounted && r != null) setState(() => _routine = r);
     });
+  }
+
+  Future<void> _loadSchedules() async {
+    final s = await AppScope.of(context).medications.schedulesFor(widget.medicationId);
+    if (mounted) setState(() => _schedules = s);
+  }
+
+  /// «عدّل» على جرعة: محرّر الجرعة بتوقيتها الحالي، والحفظ بيغيّر الصف
+  /// نفسه (نفس id) وبيعيد الجدولة.
+  Future<void> _editTiming(DoseSchedule schedule, String name) async {
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+    await navigator.push<void>(
+      MaterialPageRoute(
+        builder: (_) => DoseEditor(
+          name: name,
+          routine: _routine,
+          initialTiming: schedule.timing,
+          onSave: (timing) async {
+            await services.medications.updateTiming(int.parse(schedule.id), timing);
+            await services.scheduler.rescheduleAll();
+            navigator.pop();
+          },
+        ),
+      ),
+    );
+    await _loadSchedules();
   }
 
   @override
@@ -109,15 +142,19 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _schedules.isEmpty
-                            ? 'التوقيت بيتعدّل من «عدّل يومك».'
-                            : '${_schedules.map((s) => s.ruleLabel).join(' + ')} — '
-                                'التوقيت بيتعدّل من «عدّل يومك».',
-                        style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                      const SizedBox(height: F.gap),
+                      const Text(
+                        'إمتى؟',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
                       ),
-                      const SizedBox(height: F.gap + 6),
+                      const SizedBox(height: F.s8),
+                      for (final schedule in _schedules)
+                        _TimingRow(
+                          schedule: schedule,
+                          time: arabicTime(ScheduleEngine(_routine).resolve(schedule, DateTime.now())),
+                          onEdit: _busy ? null : () => _editTiming(schedule, med.name),
+                        ),
+                      const SizedBox(height: F.gap),
                       const Text(
                         'الجرعة',
                         style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
@@ -265,6 +302,53 @@ class _StopConfirm extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      );
+}
+
+/// جرعة واحدة: القاعدة والوقت المحسوب، و«عدّل» بأيقونة وكلمة.
+class _TimingRow extends StatelessWidget {
+  const _TimingRow({required this.schedule, required this.time, required this.onEdit});
+
+  final DoseSchedule schedule;
+  final String time;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: F.s8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            border: Border.all(color: F.line),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${schedule.ruleLabel} · $time',
+                  style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+                ),
+              ),
+              SizedBox(
+                height: F.minTapTarget,
+                child: OutlinedButton.icon(
+                  onPressed: onEdit,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: F.ink,
+                    minimumSize: const Size(0, F.minTapTarget),
+                    padding: const EdgeInsets.symmetric(horizontal: F.s12),
+                    side: const BorderSide(color: F.line, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 22),
+                  label: const Text('عدّل', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
         ),
       );
 }

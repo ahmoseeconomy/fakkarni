@@ -5,6 +5,7 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/medication/edit_medication_screen.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
@@ -37,6 +38,28 @@ void main() {
     final gold = tester.widget<Text>(find.textContaining('اسأل الصيدلي واكتبها هنا'));
     expect(gold.style?.color, F.gold);
     expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('«عدّل» على الجرعة بيفتح محرّر الجرعة بتوقيتها، والحفظ بيغيّر الصف نفسه', (tester) async {
+    final id = await seedTelfast(unknown: false);
+    await pumpEdit(tester, id);
+
+    expect(find.textContaining('العشا'), findsOneWidget);
+    await tester.tap(find.text('عدّل'));
+    await settle(tester);
+    expect(find.byType(DoseEditor), findsOneWidget);
+    // متعبّي بالتوقيت الحالي: العشا، إزاحة ٠
+    expect(find.text('٠ دقيقة'), findsOneWidget);
+
+    await tester.tap(find.text('قبل الفطار'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
+
+    expect(find.byType(EditMedicationScreen), findsOneWidget);
+    final loaded = (await h.meds.schedulesFor(id)).single;
+    expect(loaded.timing, const AnchorTiming(DayAnchor.breakfast, -30));
+    expect(find.textContaining('الفطار − ٣٠ د'), findsOneWidget);
   });
 
   screenTest('كتابة الجرعة وحفظها بتقفل «مش معروفة» وبتعيد الجدولة', (tester) async {

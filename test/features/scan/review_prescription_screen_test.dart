@@ -6,6 +6,7 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
+import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/scan/debug_panel.dart';
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
 
@@ -195,6 +196,10 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Cataflam'), findsOneWidget);
 
+    // الحقول ثم محرّر الجرعة — التوقيت اللي كان مش واضح بيتحدد بإيده هنا
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+    expect(find.byType(DoseEditor), findsOneWidget);
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
 

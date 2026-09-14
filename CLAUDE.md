@@ -138,8 +138,12 @@ lib/
                               opens ReminderScreen on tap), bootstrap.dart
                               (buildServices + background action entry point)
   features/onboarding/        5 routine questions
-  features/medication/        add medication (anchor chips + offset stepper);
-                              EditMedicationScreen — set the amount, stop (two-step)
+  features/medication/        dose_editor (mockup 23 — the ONE timing editor:
+                              8 anchor chips, −/+ stepper, gold preview, fixed
+                              link last); add_medication (mockup 20 fields →
+                              one DoseEditor per timing, saved only after the
+                              last); EditMedicationScreen — amount, per-dose
+                              «عدّل» → DoseEditor (updateTiming), stop (two-step)
   features/today/             «جدول النهاردة» — pinned next-dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
@@ -984,6 +988,12 @@ with the app fully closed, offline, and across a reboot.
   «تمام، ظبّطهم» writes each clear line (one schedule per timing) then `rescheduleAll`.
 - Editor accepts prefilled values and now has an optional amount field;
   the offset stepper follows the chip (30 before meals, 15 before sleep).
+  Since D2.5 the timing lives in one shared `DoseEditor`; «ضيف دوا» asks
+  name / amount / «كام مرة» / «مع الأكل» / duration first and hands off to
+  it once per timing («الجرعة ١ من ٣»), saving nothing until the last
+  «احفظ الجرعة». «كام مرة» → meals is our operational convention (١×
+  الفطار، ٢× + العشا، ٣× + الغدا), every page editable. The design's
+  `{ anchor: … }` line is a designer's note, not UI — not built.
 - Unknown amount is non-blocking: saved as `amountUnknown`, surfaced on
   «يومك» as «اسأل الصيدلي عن جرعة …», which opens `EditMedicationScreen`.
 - «يومك» lists «أدويتك» (mockup 09 rows: name, amount · rule); each row

@@ -184,6 +184,39 @@ class MedicationRepository {
         return byMed.values.toList();
       });
 
+  /// تغيير توقيت جرعة موجودة — بإيد إنسان من محرّر الجرعة.
+  ///
+  /// نفس قاعدة الكتابة: النوع على الصف، والساعة الثابتة في جدولها، في
+  /// معاملة واحدة. مرساة → أنكر + إزاحة والساعة الثابتة بتتمسح؛ ساعة ثابتة →
+  /// المرساة والإزاحة null والساعة بتتكتب في fixed_timings. الصف نفسه بيفضل
+  /// (نفس id وuuid) فأحداث اليوم اللي عليه ما بتضيعش.
+  Future<void> updateTiming(int scheduleId, DoseTiming timing) =>
+      _db.transaction(() async {
+        await (_db.update(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).write(
+          switch (timing) {
+            AnchorTiming(:final anchor, :final offsetMinutes) => DoseSchedulesCompanion(
+                timingKind: const Value(DoseTimingKind.anchor),
+                anchor: Value(anchor),
+                offsetMinutes: Value(offsetMinutes),
+              ),
+            FixedTiming() => const DoseSchedulesCompanion(
+                timingKind: Value(DoseTimingKind.fixed),
+                anchor: Value(null),
+                offsetMinutes: Value(null),
+              ),
+          },
+        );
+        await (_db.delete(_db.fixedTimings)..where((t) => t.doseScheduleId.equals(scheduleId))).go();
+        if (timing case FixedTiming(:final minuteOfDay)) {
+          await _db.into(_db.fixedTimings).insert(
+                FixedTimingsCompanion.insert(
+                  doseScheduleId: Value(scheduleId),
+                  minuteOfDay: minuteOfDay.minutes,
+                ),
+              );
+        }
+      });
+
   /// الجرعة زي ما الصيدلي قالها. نص فاضي = لسه مش معروفة.
   ///
   /// دي الحتة الوحيدة اللي بتقفل `amountUnknown` — بإيد إنسان، بقيمة كتبها.

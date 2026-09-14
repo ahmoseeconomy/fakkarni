@@ -14,10 +14,14 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
+import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
+
+import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
 final normalDay = DayRoutine(
@@ -362,7 +366,7 @@ void main() {
     }
   });
 
-  group('ضيف دوا', () {
+  group('ضيف دوا → محرّر الجرعة', () {
     Future<void> pumpAdd(WidgetTester tester) async {
       // الشاشة أطول من ٦٠٠ بكسل الافتراضية، وعناصر ListView اللي برّه الشاشة
       // مش بتتبني أصلاً — فبنكبّر النافذة بدل ما ندوّر بالسكرول.
@@ -383,37 +387,80 @@ void main() {
           ),
         ),
       );
-        await settle(tester);
+      await settle(tester);
     }
 
-    screenTest('المرساة هي المدخل الأساسي، ومفيش منتقي ساعة', (tester) async {
+    /// الاسم ثم «كمّل» → محرّر الجرعة (جرعة واحدة قبل الأكل).
+    Future<void> pumpEditor(WidgetTester tester, {String name = 'Concor 5mg'}) async {
       await pumpAdd(tester);
+      await tester.enterText(find.byType(TextField).first, name);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('كمّل — إمتى؟'));
+      await settle(tester);
+      expect(find.byType(DoseEditor), findsOneWidget);
+    }
 
-      expect(find.text('قبل الفطار'), findsOneWidget);
-      expect(find.text('بعد العشا'), findsOneWidget);
+    screenTest('الحقول الأول، ومفيش منتقي ساعة ولا مراسي قبل «كمّل»', (tester) async {
+      await pumpAdd(tester);
+      expect(find.text('أضف دواءً وجرعته'), findsOneWidget);
+      expect(find.text('كام مرة في اليوم؟'), findsOneWidget);
+      expect(find.text('مع الأكل؟'), findsOneWidget);
+      expect(find.text('مفتوحة'), findsOneWidget);
       expect(find.byType(TimePickerDialog), findsNothing);
+      expect(find.byType(TimeWheel), findsNothing);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('المرساة هي المدخل الأساسي في المحرّر، بالترتيب، والنشطة ذهبية — ومفيش منتقي ساعة',
+        (tester) async {
+      await pumpEditor(tester);
+
+      expect(find.text('إمتى؟'), findsOneWidget);
+      expect(find.text('Concor 5mg'), findsOneWidget);
+      expect(find.text('اختار المرساة الأول — الساعة بتتحسب لوحدها.'), findsOneWidget);
+      final labels = [for (final c in anchorChoices) c.label];
+      expect(labels, anchorChipLabels, reason: 'ترتيب التصميم');
+      for (final label in labels) {
+        expect(find.widgetWithText(AnchorChip, label), findsOneWidget);
+      }
+      final active = tester.widget<Material>(find
+          .descendant(of: find.widgetWithText(AnchorChip, 'قبل الفطار'), matching: find.byType(Material))
+          .first);
+      expect(active.color, F.gold);
+      expect(find.byType(TimePickerDialog), findsNothing);
+      expect(find.byType(TimeWheel), findsNothing);
+      // العدّاد بكلمة مش أيقونة لوحدها
+      expect(find.text('أقل'), findsOneWidget);
+      expect(find.text('أكتر'), findsOneWidget);
+      expect(find.byIcon(Icons.remove), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsOneWidget);
+      expectNoRedAndMinSize(tester);
     });
 
     screenTest('المعاينة بتتحرك مع المرساة والإزاحة', (tester) async {
-      await pumpAdd(tester);
+      await pumpEditor(tester);
 
       // قبل الفطار بـ٣٠ = ٧:٠٠ ص
-      expect(find.text('يبقى حوالي ٧:٠٠ ص'), findsOneWidget);
+      expect(find.text('يعني حوالي ٧:٠٠ ص'), findsOneWidget);
 
       await tester.tap(find.text('بعد العشا'));
       await tester.pumpAndSettle();
-      expect(find.text('يبقى حوالي ٨:٣٠ م'), findsOneWidget);
+      expect(find.text('يعني حوالي ٨:٣٠ م'), findsOneWidget);
+
+      await tester.tap(find.text('أكتر'));
+      await tester.pumpAndSettle();
+      expect(find.text('يعني حوالي ٨:٣٥ م'), findsOneWidget);
     });
 
     screenTest('«قبل النوم» بتاخد ١٥ دقيقة، والوجبات ٣٠', (tester) async {
-      await pumpAdd(tester);
+      await pumpEditor(tester);
       expect(find.text('٣٠ دقيقة'), findsOneWidget); // قبل الفطار
 
       await tester.tap(find.text('قبل النوم'));
       await tester.pumpAndSettle();
       expect(find.text('١٥ دقيقة'), findsOneWidget);
       // نوم ١١:٣٠ م − ١٥ = ١١:١٥ م
-      expect(find.text('يبقى حوالي ١١:١٥ م'), findsOneWidget);
+      expect(find.text('يعني حوالي ١١:١٥ م'), findsOneWidget);
 
       await tester.tap(find.text('قبل الغدا'));
       await tester.pumpAndSettle();
@@ -421,12 +468,7 @@ void main() {
     });
 
     screenTest('المدة المفتوحة هي الافتراضي وبتتخزّن null', (tester) async {
-      await pumpAdd(tester);
-
-      expect(find.text('مفتوحة'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).first, 'Concor 5mg');
-      await tester.pumpAndSettle();
+      await pumpEditor(tester);
       await tester.tap(find.text('احفظ الجرعة'));
       await settle(tester);
 
@@ -436,15 +478,68 @@ void main() {
       expect(saved.timing, const AnchorTiming(DayAnchor.breakfast, -30));
     });
 
-    screenTest('من غير اسم الحفظ مقفول', (tester) async {
+    screenTest('من غير اسم «كمّل» مقفولة', (tester) async {
       await pumpAdd(tester);
-
       final button = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(button.onPressed, isNull);
     });
 
-    screenTest('لينك الساعة الثابتة آخر حاجة — تحت «احفظ الجرعة»', (tester) async {
+    screenTest('٣ مرات مع الأكل → تلات محرّرات بالترتيب وتلات جداول على دوا واحد بإزاحة صفر',
+        (tester) async {
       await pumpAdd(tester);
+      await tester.enterText(find.byType(TextField).first, 'Augmentin');
+      await tester.tap(find.text('٣ مرات'));
+      await tester.tap(find.text('مع الأكل'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('كمّل — إمتى؟'));
+      await settle(tester);
+
+      expect(find.text('الجرعة ١ من ٣'), findsOneWidget);
+      expect(find.text('٠ دقيقة'), findsOneWidget, reason: 'مع الأكل = إزاحة صفر');
+      expect(find.text('الجرعة اللي بعدها'), findsOneWidget);
+      // ولا حاجة اتحفظت لسه
+      expect(await meds.activeSchedules(services.patientId), isEmpty);
+
+      await tester.tap(find.text('الجرعة اللي بعدها'));
+      await settle(tester);
+      expect(find.text('الجرعة ٢ من ٣'), findsOneWidget);
+      await tester.tap(find.text('الجرعة اللي بعدها'));
+      await settle(tester);
+      expect(find.text('الجرعة ٣ من ٣'), findsOneWidget);
+      expect(await meds.activeSchedules(services.patientId), isEmpty, reason: 'الحفظ بعد الأخيرة بس');
+
+      await tester.tap(find.text('احفظ الجرعة'));
+      await settle(tester);
+
+      final saved = await meds.activeSchedules(services.patientId);
+      expect(saved.length, 3);
+      expect(saved.map((s) => s.medicationName).toSet(), {'Augmentin'});
+      expect(saved.map((s) => s.timing).toList(), [
+        const AnchorTiming(DayAnchor.breakfast, 0),
+        const AnchorTiming(DayAnchor.lunch, 0),
+        const AnchorTiming(DayAnchor.dinner, 0),
+      ]);
+    });
+
+    screenTest('رجع من المحرّر في النص → ولا دوا اتحفظ', (tester) async {
+      await pumpAdd(tester);
+      await tester.enterText(find.byType(TextField).first, 'Augmentin');
+      await tester.tap(find.text('مرتين'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('كمّل — إمتى؟'));
+      await settle(tester);
+      await tester.tap(find.text('الجرعة اللي بعدها'));
+      await settle(tester);
+      expect(find.text('الجرعة ٢ من ٢'), findsOneWidget);
+
+      await tester.pageBack();
+      await settle(tester);
+      expect(find.byType(AddMedicationScreen), findsOneWidget);
+      expect(await meds.activeSchedules(services.patientId), isEmpty);
+    });
+
+    screenTest('لينك الساعة الثابتة آخر حاجة — تحت «احفظ الجرعة»', (tester) async {
+      await pumpEditor(tester);
 
       final link = find.text('أحدد ساعة ثابتة بدل كده');
       expect(link, findsOneWidget);
@@ -459,7 +554,7 @@ void main() {
     });
 
     screenTest('الساعة الثابتة بتقول عن نفسها صراحة وبتشيل المراسي', (tester) async {
-      await pumpAdd(tester);
+      await pumpEditor(tester);
 
       await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
       await tester.pumpAndSettle();
@@ -468,7 +563,7 @@ void main() {
       expect(find.byType(TimeWheel), findsOneWidget);
       expect(find.text('قبل الفطار'), findsNothing);
       expect(find.text('أحدد ساعة ثابتة بدل كده'), findsNothing);
-      expect(find.text('يبقى حوالي ٨:٠٠ ص'), findsOneWidget);
+      expect(find.text('يعني حوالي ٨:٠٠ ص'), findsOneWidget);
 
       // والرجوع للمراسي متاح
       await tester.tap(find.text('ارجع للمراسي'));
@@ -478,9 +573,7 @@ void main() {
     });
 
     screenTest('الحفظ في وضع الساعة الثابتة بيخزّن FixedTiming', (tester) async {
-      await pumpAdd(tester);
-
-      await tester.enterText(find.byType(TextField).first, 'Eltroxin');
+      await pumpEditor(tester, name: 'Eltroxin');
       await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('احفظ الجرعة'));

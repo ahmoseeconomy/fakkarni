@@ -174,6 +174,32 @@ void main() {
       expect(loaded.ruleLabel, 'الفطار − ٣٠ د');
     });
 
+    test('updateTiming: مرساة → ساعة ثابتة → مرساة، نفس الصف ونفس uuid', () async {
+      final medId = await meds.addMedication(
+        patientId: patientId,
+        name: 'Antodine',
+        timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        startDate: aug31,
+      );
+      final before = (await db.select(db.doseSchedules).get()).single;
+
+      await meds.updateTiming(before.id, FixedTiming(MinuteOfDay.hm(14)));
+      var loaded = (await meds.schedulesFor(medId)).single;
+      expect(loaded.timing, FixedTiming(MinuteOfDay.hm(14)));
+      var row = (await db.select(db.doseSchedules).get()).single;
+      expect(row.id, before.id);
+      expect(row.uuid, before.uuid);
+      expect(row.anchor, isNull);
+      expect((await db.select(db.fixedTimings).get()).single.minuteOfDay, 14 * 60);
+
+      await meds.updateTiming(before.id, const AnchorTiming(DayAnchor.dinner, 30));
+      loaded = (await meds.schedulesFor(medId)).single;
+      expect(loaded.timing, const AnchorTiming(DayAnchor.dinner, 30));
+      row = (await db.select(db.doseSchedules).get()).single;
+      expect(row.uuid, before.uuid);
+      expect(await db.select(db.fixedTimings).get(), isEmpty, reason: 'الساعة الثابتة اتشالت');
+    });
+
     test('تعديل الروتين ما بيلمسش صف الجرعة', () async {
       await routines.saveRoutine(patientId, normalDay);
       await meds.addMedication(
