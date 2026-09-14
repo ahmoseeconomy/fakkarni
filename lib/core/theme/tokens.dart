@@ -81,7 +81,7 @@ abstract final class F {
   static const caption1 = 11.5, caption2 = 11.0;
   static const kicker1 = 10.0, kicker2 = 9.5;
 
-  /// تباعد حروف الـkicker — ‎.14em.
+  /// تباعد حروف الـkicker — ‎.14em. **للاتيني بس** — العربي متصل ومش بيتتبّع.
   static const kickerTracking = 0.14;
 
   /// مقاسات موروثة من المرحلة الأولى — لسه مستعملة.

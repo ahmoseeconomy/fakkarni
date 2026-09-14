@@ -949,8 +949,16 @@ with the app fully closed, offline, and across a reboot.
 - `lib/ai/`: config, reading model with per-field confidence, Gemini REST
   reader. Threshold 0.8; below it the medicine's row gets a gold side edge
   and «مش متأكد من دي — راجعها», listing each unsure field with its note.
-- Scan screen (framing advice → «صوّر الروشتة» 64px / «اختار من الصور» 56px,
-  same size constraints for both) and review screen (D2.2, mockup 06): one
+- Scan screen (D2.3, mockup 05): corner frame over the captured photo,
+  «صوّر الروشتة» 64px with «اختار من الصور» / «أكتبها بإيدي» 56px under it.
+  **The line-by-line reveal is honest by construction:** Gemini returns
+  everything at once, so while waiting the frame shows only «بيقرا
+  الروشتة…» with a pulsing dot and **no marked lines**; once the reply
+  lands the reveal walks the lines that actually came back (their real
+  count and names — dashed until read, filled ivory after), then goes to
+  review. Boxes are stacked, not placed: the model returns no coordinates
+  and drawing on an imagined spot would be the same lie. Pinned by a test
+  that completes the reader mid-flight. Then the review screen (D2.2, mockup 06): one
   row per medicine — mono name, resolved time shown in Arabic digits (never
   stored), a chip with the rule not the time, «عدّل» with icon + word — a
   dashed «أضف دوا ما اتعرفش عليه» row, and «أعدّل» / «تمام، ظبّطهم» as two

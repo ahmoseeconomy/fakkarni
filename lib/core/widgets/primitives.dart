@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../format/name_direction.dart';
 import '../theme/tokens.dart';
 
 /// البدائيات — كل مقاس ولون من `F`. ولا نص هنا أقل من ١٧، وولا هدف لمس
@@ -249,7 +250,8 @@ class FSwitch extends StatelessWidget {
       );
 }
 
-/// Kicker: سطر صغير فوق العنوان بالـmono، حروف متباعدة ‎.14em.
+/// Kicker: سطر صغير فوق العنوان — اللاتيني mono بحروف متباعدة ‎.14em،
+/// والعربي من غير تباعد.
 ///
 /// التصميم بيرسمه ١٠؛ إحنا **١٧** — الحد الأدنى بتاعنا قاعدة، وده نص
 /// ثانوي فعلاً، فمش بيخسر حاجة لما يكبر شوية.
@@ -260,17 +262,27 @@ class Kicker extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: F.minTextSize,
-          fontWeight: FontWeight.w600,
-          color: color,
-          letterSpacing: F.minTextSize * F.kickerTracking,
-          fontFamily: F.monoFamily,
-          fontFamilyFallback: F.monoFallback,
-        ),
+  Widget build(BuildContext context) {
+    // التتبيع للاتيني بس: العربي متصل، والمسافة بين الحروف بتكسر إيقاع
+    // الوصل. الـkicker العربي بيتميّز بالوزن واللون والحجم، مش بالتباعد.
+    if (hasArabic(text)) {
+      return Text(
+        text,
+        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: color),
       );
+    }
+    return Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: F.minTextSize,
+        fontWeight: FontWeight.w600,
+        color: color,
+        letterSpacing: F.minTextSize * F.kickerTracking,
+        fontFamily: F.monoFamily,
+        fontFamilyFallback: F.monoFallback,
+      ),
+    );
+  }
 }
 
 /// عنوان قسم — ١٩.

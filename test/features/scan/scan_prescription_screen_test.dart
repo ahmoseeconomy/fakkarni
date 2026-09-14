@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/ai/prescription_reading.dart';
+import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
 import 'package:fakkarni/features/scan/scan_prescription_screen.dart';
 
@@ -60,7 +64,60 @@ void main() {
     expect(find.textContaining('مفيش دوا بيتضاف'), findsOneWidget);
     expect(find.text('صوّر الروشتة'), findsOneWidget);
     expect(find.text('اختار من الصور'), findsOneWidget);
+    expect(find.text('أكتبها بإيدي'), findsOneWidget);
     expectNoRedAndMinSize(tester);
+  });
+
+  // ⚠️ أمانة الكشف: Gemini بيرجّع كله مرة واحدة. أثناء الانتظار مفيش ولا
+  // سطر متعلّم — والكشف بعد الرد بعدد السطور اللي رجعت فعلاً، مش أكتر.
+  screenTest('أمانة: وإحنا مستنيين الرد مفيش ولا سطر — بس «بيقرا الروشتة…»', (tester) async {
+    final pending = Completer<PrescriptionReading>();
+    final reader = FakeReader(() => pending.future);
+    await pumpScan(tester, reader: reader);
+
+    await tester.tap(find.text('صوّر الروشتة'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(reader.calls, 1);
+    expect(find.text('بيقرا الروشتة…'), findsOneWidget);
+    expect(find.textContaining('سطور'), findsNothing, reason: 'مفيش عدّاد قبل ما نقرا');
+    expect(find.textContaining('Concor'), findsNothing, reason: 'ولا سطر قبل الرد');
+    expect(find.byType(ReviewPrescriptionScreen), findsNothing);
+
+    // الرد وصل بسطرين حقيقيين → الكشف بيعدّ ٢ بالظبط، وأسماءهم هما
+    final second = ReadLine(
+      name: ok('Amaryl 2mg'),
+      amount: ok('قرص'),
+      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      duration: const ReadField(value: null, confidence: 1),
+    );
+    pending.complete(PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine, second]));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('بيقرا · ٠/٢ سطور'), findsOneWidget);
+    expect(find.textContaining('Concor 5mg'), findsOneWidget);
+    expect(find.textContaining('Amaryl 2mg'), findsOneWidget);
+
+    await tester.pump(ScanPrescriptionScreen.revealPerLine);
+    expect(find.text('بيقرا · ١/٢ سطور'), findsOneWidget);
+    await tester.pump(ScanPrescriptionScreen.revealPerLine);
+    expect(find.text('بيقرا · ٢/٢ سطور'), findsOneWidget);
+
+    await tester.pump(ScanPrescriptionScreen.revealHold);
+    await settle(tester);
+    expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+    // وولا حاجة اتحفظت — القاعدة ٤
+    expect(await h.meds.activeSchedules(h.services.patientId), isEmpty);
+  });
+
+  screenTest('«أكتبها بإيدي» بتفتح المحرر فاضي', (tester) async {
+    await pumpScan(tester, reader: FakeReader(() async => throw StateError('مش المفروض')));
+    await tester.tap(find.text('أكتبها بإيدي'));
+    await settle(tester);
+    expect(find.byType(AddMedicationScreen), findsOneWidget);
   });
 
   screenTest('مفيش مفتاح → رسالة --dart-define واضحة، ومفيش كاميرا', (tester) async {

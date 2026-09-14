@@ -155,4 +155,18 @@ void main() {
     expect(nameDirection('كونكور ٥'), TextDirection.rtl);
     expect(nameDirection('١٢٣'), TextDirection.rtl);
   });
+
+  testWidgets('الـkicker: اللاتيني متتبّع، والعربي من غير letterSpacing', (tester) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Column(children: [Kicker('مراجعة وتأكيد'), Kicker('Review')]),
+      ),
+    );
+    final arabic = tester.widget<Text>(find.text('مراجعة وتأكيد'));
+    expect(arabic.style?.letterSpacing, anyOf(isNull, 0));
+    expect(arabic.style?.fontWeight, FontWeight.w700);
+    final latin = tester.widget<Text>(find.text('REVIEW'));
+    expect(latin.style?.letterSpacing, greaterThan(0));
+  });
 }
