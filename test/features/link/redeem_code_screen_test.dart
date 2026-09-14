@@ -48,6 +48,17 @@ void main() {
         F.primaryButtonHeight);
   });
 
+  screenTest('الأرقام العربي مقبولة — بتتطبّع لغربي قبل ما تروح للسيرفر', (tester) async {
+    await pumpRedeem(tester);
+    await tester.enterText(find.byType(TextField), '١٢٣٤٥٦');
+    await settle(tester);
+    expect(linkButton(tester).onPressed, isNotNull);
+
+    await tester.tap(find.text('اربط'));
+    await settle(tester);
+    expect(care.redeemed, ['123456']);
+  });
+
   screenTest('كود صح → «اتربطت بـ…» باسم الأب', (tester) async {
     await pumpRedeem(tester);
 

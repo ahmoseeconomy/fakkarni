@@ -1,23 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
 import '../../data/sync/sync_service.dart';
 
-/// شاشة الأب: الكود اللي هيقوله لابنه في التليفون.
+/// شاشة الأب — «دائرة الرعاية» (المخطط 15): الكود اللي هيقوله لابنه.
 ///
-/// الكود ضخم عن قصد — بيتقري عبر أوضة على مكالمة. وأرقام غربية عن قصد:
-/// دي اللي كيبورد الابن هيكتبها. أول ما الشاشة تفتح بنرفع صف المريض
+/// الكود ضخم عن قصد — بيتقري عبر أوضة على مكالمة — وبأرقام عربي زي باقي
+/// التطبيق. اللي بيتنسخ للحافظة أرقام غربية: دي اللي كيبورد الابن
+/// هيكتبها، وشاشته بتقبل الاتنين. أول ما الشاشة تفتح بنرفع صف المريض
 /// (uuid + الاسم — أول وآخر مزامنة في الجولة دي) وبعدها بنطلب الكود.
+///
+/// التصميم بيستعمل لينك دعوة (`fakrny.app/join/…`) — مش مبني: الكود
+/// الستة أرقام شغّال ومتحقق على السحابة، واللينك محتاج دومين وdeep link
+/// مش موجودين. بلوك الدعوة نفسه هو اللي اتاخد، والكود جوّاه.
 class LinkCodeScreen extends StatefulWidget {
   const LinkCodeScreen({
     required this.care,
     required this.patientUuid,
     required this.patientName,
     this.sync,
+    this.share,
     super.key,
   });
 
@@ -29,6 +37,10 @@ class LinkCodeScreen extends StatefulWidget {
   final String patientUuid;
   final String patientName;
 
+  /// «ابعته»: بيتنده بنص الرسالة. null = مفيش ورقة مشاركة (مفيش share_plus
+  /// عن قصد قبل الديمو) — الزرار بينسخ وبيقول كده بالكلام.
+  final Future<void> Function(String text)? share;
+
   @override
   State<LinkCodeScreen> createState() => _LinkCodeScreenState();
 }
@@ -36,6 +48,7 @@ class LinkCodeScreen extends StatefulWidget {
 class _LinkCodeScreenState extends State<LinkCodeScreen> {
   InviteCode? _invite;
   String? _error;
+  String? _notice;
   bool _busy = false;
 
   @override
@@ -49,6 +62,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
     setState(() {
       _busy = true;
       _error = null;
+      _notice = null;
     });
     try {
       // صف المريض الأول — البوابة على السيرفر بتتأكد إن الكود لمريض يملكه
@@ -68,37 +82,65 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
     }
   }
 
-  /// «123 456» — مجموعتين تلاتة تلاتة، أسهل في القراية والكتابة.
+  /// «١٢٣ ٤٥٦» — مجموعتين تلاتة تلاتة، أسهل في القراية والكتابة.
   static String grouped(String code) =>
       code.length == 6 ? '${code.substring(0, 3)} ${code.substring(3)}' : code;
+
+  /// نص الرسالة اللي بتتبعت — الكود بأرقام غربية عشان يتكتب زي ما هو.
+  static String message(InviteCode invite) =>
+      'كود ربط فكّرني: ${invite.code} — اكتبه في التطبيق من «عندي كود». '
+      'صالح لحد ${arabicTime(invite.expiresAt)}.';
+
+  Future<void> _copy() async {
+    final invite = _invite;
+    if (invite == null) return;
+    await Clipboard.setData(ClipboardData(text: invite.code));
+    if (mounted) setState(() => _notice = 'اتنسخ — ابعته لابنك في واتساب أو رسالة.');
+  }
+
+  Future<void> _share() async {
+    final invite = _invite;
+    if (invite == null) return;
+    final share = widget.share;
+    if (share != null) {
+      await share(message(invite));
+      return;
+    }
+    // مفيش ورقة مشاركة — بننسخ الرسالة كاملة وبنقول كده، مش بنخلّي الزرار يعمل لا شيء
+    await Clipboard.setData(ClipboardData(text: message(invite)));
+    if (mounted) setState(() => _notice = 'الرسالة اتنسخت — الصقها لابنك في واتساب.');
+  }
 
   @override
   Widget build(BuildContext context) {
     final invite = _invite;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'كود الربط',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
+        top: false,
         child: ListView(
-          padding: const EdgeInsets.all(F.gap),
+          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
           children: [
             const Text(
-              'قول الكود ده لابنك في التليفون، وهو يكتبه عنده في التطبيق.',
+              'دائرة الرعاية',
+              style: TextStyle(
+                fontFamily: F.displayFamily,
+                fontSize: F.screenTitleSize,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+              ),
+            ),
+            const SizedBox(height: F.s6),
+            const Text(
+              'الكود ده بيربط موبايل ابنك بموبايلك: يشوف أدويتك ومواعيدك، '
+              'ولو جرعة اتنست يوصله تنبيه. قوله في التليفون أو ابعته.',
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
             ),
             const SizedBox(height: F.gap),
             if (_error != null) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: F.ivory,
-                  borderRadius: BorderRadius.circular(F.radius),
-                ),
+              FCard(
+                tone: FCardTone.warm,
                 child: Text(
                   _error!,
                   style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
@@ -106,38 +148,33 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               ),
               const SizedBox(height: F.gap),
             ],
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: F.gap + 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(F.radius + 4),
-                border: Border.all(color: F.line),
-              ),
+            // بلوك الدعوة — من التصميم، والكود مكان اللينك
+            FCard(
+              radius: F.radiusLarge,
+              padding: const EdgeInsets.fromLTRB(F.gap, F.s22, F.gap, F.gap),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Kicker('كود الربط'),
+                  const SizedBox(height: F.s8),
                   if (invite == null && _busy)
                     const SizedBox(
-                      height: 64,
-                      child: Center(
-                        child: CircularProgressIndicator(color: F.green),
-                      ),
+                      height: 72,
+                      child: Center(child: CircularProgressIndicator(color: F.green)),
                     )
                   else if (invite == null)
                     // فشل الطلب — مكان الكود فاضي بهدوء، والرسالة فوق بتقول ليه
                     const Text(
                       '· · ·',
-                      textDirection: TextDirection.ltr,
-                      style: TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
-                        color: F.line,
-                        height: 1.2,
-                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 56, fontWeight: FontWeight.w700, color: F.line, height: 1.2),
                     )
                   else
                     Text(
-                      grouped(invite.code),
-                      textDirection: TextDirection.ltr,
+                      grouped(arabicDigits(invite.code)),
+                      textAlign: TextAlign.center,
+                      // المجموعتين بيتقروا من اليمين زي أي رقم عربي في جملة عربي:
+                      // «٤٨٣» الأول (على اليمين) ثم «٩٢٠» — وده اللي الابن بيكتبه: 483920.
                       style: const TextStyle(
                         // أكبر خط في التطبيق كله — بيتقري من بعيد
                         fontSize: 56,
@@ -145,31 +182,65 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                         color: F.greenDeep,
                         fontFamily: F.monoFamily,
                         fontFamilyFallback: F.monoFallback,
+                        // أرقام — مش حروف متصلة، فالتباعد هنا مسموح
                         letterSpacing: 4,
+                        height: 1.2,
                       ),
                     ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'الكود صالح ١٥ دقيقة',
-                    style: TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  const SizedBox(height: F.s8),
+                  Text(
+                    invite == null
+                        ? 'الكود صالح ١٥ دقيقة'
+                        : 'صالح ١٥ دقيقة — لحد ${arabicTime(invite.expiresAt)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
                   ),
-                  if (invite != null)
-                    Text(
-                      'لحد ${arabicTime(invite.expiresAt)}',
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  const SizedBox(height: F.gap),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _WordButton(
+                          icon: Icons.copy_outlined,
+                          label: 'انسخ الكود',
+                          onPressed: invite == null ? null : _copy,
+                        ),
+                      ),
+                      const SizedBox(width: F.s10),
+                      Expanded(
+                        child: _WordButton(
+                          icon: Icons.send_outlined,
+                          label: 'ابعته',
+                          onPressed: invite == null ? null : _share,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_notice != null) ...[
+                    const SizedBox(height: F.s10),
+                    Row(
+                      children: [
+                        const Icon(Icons.check, size: 22, color: F.greenOk),
+                        const SizedBox(width: F.s6),
+                        Expanded(
+                          child: Text(
+                            _notice!,
+                            style: const TextStyle(fontSize: F.minTextSize, color: F.greenOk, height: 1.5),
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: F.gap),
-            SizedBox(
-              height: F.primaryButtonHeight,
-              child: FilledButton(
-                onPressed: _busy ? null : _refresh,
-                child: Text(_busy ? 'ثواني…' : 'كود جديد'),
-              ),
+            const SizedBox(height: F.s12),
+            const Text(
+              'ابنك بيفتح التطبيق عنده ويدوس «عندي كود» ويكتبه. الكود بيشتغل مرة واحدة.',
+              style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: F.gap),
+            FPrimaryButton(label: _busy ? 'ثواني…' : 'كود جديد', onPressed: _busy ? null : _refresh),
+            const SizedBox(height: F.s4),
             SizedBox(
               height: F.minTapTarget,
               child: TextButton(
@@ -185,4 +256,33 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
       ),
     );
   }
+}
+
+/// أيقونة **وكلمة** — ٥٦.
+class _WordButton extends StatelessWidget {
+  const _WordButton({required this.icon, required this.label, required this.onPressed});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.minTapTarget,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: F.ink,
+            side: const BorderSide(color: F.line, width: 1.5),
+            padding: const EdgeInsets.symmetric(horizontal: F.s8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+          ),
+          icon: Icon(icon, size: 22),
+          label: Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
 }

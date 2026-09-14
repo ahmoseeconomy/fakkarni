@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../care/caregiver_screen.dart';
 
-/// شاشة الابن: يكتب الكود اللي والده قاله في التليفون.
+/// شاشة الابن: يكتب الكود اللي والده قاله في التليفون (المخطط 15).
+///
+/// الحقل بيقبل الأرقام العربي والغربي — كيبورد الآيفون العربي بيكتب
+/// ٠-٩، والسيرفر عايز 0-9 — فبنطبّع قبل الإرسال.
 class RedeemCodeScreen extends StatefulWidget {
   const RedeemCodeScreen({required this.care, this.caregiver, super.key});
 
@@ -31,7 +35,24 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
     super.dispose();
   }
 
-  bool get _complete => _code.text.trim().length == 6;
+  /// الأرقام العربي-الهندي → غربية، وأي حاجة تانية بتتشال.
+  static String normalize(String raw) {
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+    final out = StringBuffer();
+    for (final rune in raw.runes) {
+      final ch = String.fromCharCode(rune);
+      final i = arabic.indexOf(ch);
+      if (i >= 0) {
+        out.write(i);
+      } else if (rune >= 0x30 && rune <= 0x39) {
+        out.write(ch);
+      }
+    }
+    return out.toString();
+  }
+
+  String get _digits => normalize(_code.text);
+  bool get _complete => _digits.length == 6;
 
   Future<void> _redeem() async {
     if (_busy || !_complete) return;
@@ -40,7 +61,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
       _error = null;
     });
     try {
-      final name = await widget.care.redeemInvite(_code.text.trim());
+      final name = await widget.care.redeemInvite(_digits);
       if (mounted) setState(() => _linkedName = name);
     } on CareCircleException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -56,15 +77,11 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
     final linked = _linkedName;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'عندي كود',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
+        top: false,
         child: ListView(
-          padding: const EdgeInsets.all(F.gap),
+          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
           children: linked != null
               ? [
                   const SizedBox(height: F.gap),
@@ -88,19 +105,15 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                   ),
                   const SizedBox(height: F.gap),
                   if (widget.caregiver != null) ...[
-                    SizedBox(
-                      height: F.primaryButtonHeight,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                CaregiverScreen(remote: widget.caregiver!),
-                          ),
+                    FPrimaryButton(
+                      label: 'افتح المتابعة',
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CaregiverScreen(remote: widget.caregiver!),
                         ),
-                        child: const Text('افتح المتابعة'),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: F.s4),
                   ],
                   SizedBox(
                     height: widget.caregiver != null
@@ -118,15 +131,25 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                               ),
                             ),
                           )
-                        : FilledButton(
+                        : FPrimaryButton(
+                            label: 'تمام',
                             onPressed: () => Navigator.of(context).maybePop(),
-                            child: const Text('تمام'),
                           ),
                   ),
                 ]
               : [
                   const Text(
-                    'اكتب الكود اللي والدك قالهولك — ٦ أرقام.',
+                    'عندي كود',
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.screenTitleSize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                    ),
+                  ),
+                  const SizedBox(height: F.s6),
+                  const Text(
+                    'اكتب الكود اللي والدك قالهولك — ٦ أرقام. بعدها هتشوف أدويته ومواعيده.',
                     style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
                   ),
                   const SizedBox(height: F.gap),
@@ -135,7 +158,8 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.number,
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
+                      // أرقام عربي أو غربي — الحروف بتتشال
+                      FilteringTextInputFormatter.allow(RegExp('[0-9٠-٩]')),
                       LengthLimitingTextInputFormatter(6),
                     ],
                     textAlign: TextAlign.center,
@@ -152,16 +176,24 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                       hintStyle: TextStyle(
                         fontSize: F.bigTimeSize,
                         letterSpacing: 8,
-                        color: F.line,
+                        color: F.placeholder,
                         fontFamily: F.monoFamily,
                         fontFamilyFallback: F.monoFallback,
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                      contentPadding: const EdgeInsets.symmetric(vertical: F.s18),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(F.radius),
+                        borderRadius: BorderRadius.circular(F.radiusCard),
                         borderSide: const BorderSide(color: F.line),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(F.radiusCard),
+                        borderSide: const BorderSide(color: F.line),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(F.radiusCard),
+                        borderSide: const BorderSide(color: F.green, width: 2),
                       ),
                     ),
                   ),
@@ -179,14 +211,11 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     ),
                   ],
                   const SizedBox(height: F.gap),
-                  SizedBox(
-                    height: F.primaryButtonHeight,
-                    child: FilledButton(
-                      onPressed: _busy || !_complete ? null : _redeem,
-                      child: Text(_busy ? 'ثواني…' : 'اربط'),
-                    ),
+                  FPrimaryButton(
+                    label: _busy ? 'ثواني…' : 'اربط',
+                    onPressed: _busy || !_complete ? null : _redeem,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: F.s4),
                   SizedBox(
                     height: F.minTapTarget,
                     child: TextButton(

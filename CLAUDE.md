@@ -889,6 +889,15 @@ Consequences to handle:
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
 **Deferred by decision (not by oversight):**
+- **Mockup 15's per-member permissions (checkboxes per caregiver) are not
+  built.** There is no permissions table in the backend; a permissions UI
+  that changes nothing is worse than none. Ships with the schema that
+  makes it true, or not at all.
+- **The invite *link* (`fakrny.app/join/…`) is not built.** The 6-digit
+  code is live and verified on the cloud; a link needs a domain and a deep
+  link that do not exist. The design's invite block is used with the code
+  inside it; «ابعته» copies the ready message (no `share_plus` before the
+  demo — the callback is injectable when it lands).
 - **Mockup 22's «قواعد الافتراض» block (قبل/مع/بعد الأكل + gap stepper +
   live 1×/2×/3× table + default duration) is not built — and not because
   of time.** «مع الأكل» and «المدة» are now asked **per medication** in the

@@ -94,10 +94,7 @@ class _CaregiverScreenState extends State<CaregiverScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          snapshot == null ? 'المتابعة' : 'متابعة ${snapshot.patient.name}',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
+        title: Text(snapshot == null ? 'المتابعة' : 'متابعة ${snapshot.patient.name}'),
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -219,7 +216,7 @@ class _WeekStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(F.radius),
+        borderRadius: BorderRadius.circular(F.radiusCard),
         border: Border.all(color: F.line),
       ),
       child: Row(
@@ -419,10 +416,10 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(F.s14),
         decoration: BoxDecoration(
-          color: F.ivory,
-          borderRadius: BorderRadius.circular(F.radius),
+          color: F.ivoryWarm,
+          borderRadius: BorderRadius.circular(F.radiusCard),
         ),
         child: Text(
           text,
