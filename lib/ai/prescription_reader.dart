@@ -51,7 +51,28 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     Uint8List image, {
     String mimeType = 'image/jpeg',
   }) async {
-    final body = jsonEncode(_request(image, mimeType));
+    final result = await generate(
+      image: image,
+      mimeType: mimeType,
+      prompt: prompt,
+      schema: prescriptionSchema,
+      failure: 'مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.',
+    );
+    final reading = PrescriptionReading.fromJson(result.json);
+    return result.warning == null ? reading : reading.withModelWarning(result.warning!);
+  }
+
+  /// النقل المشترك (D3.6): الروشتة والتحليل نفس الطريق — نفس المفتاح، نفس
+  /// التثبيت والبديل، نفس الأخطاء — ببرومبت وschema مختلفين.
+  Future<({Map<String, dynamic> json, String? warning})> generate({
+    required Uint8List image,
+    required String mimeType,
+    required String prompt,
+    required Map<String, dynamic> schema,
+    required String failure,
+    String? systemInstruction,
+  }) async {
+    final body = jsonEncode(_request(image, mimeType, prompt, schema, systemInstruction));
 
     var response = await _post(config.model, body);
     var raw = utf8.decode(response.bodyBytes, allowMalformed: true);
@@ -75,11 +96,10 @@ class GeminiPrescriptionReader implements PrescriptionReader {
       final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}'
           '${warning == null ? '' : ' (after fallback ${config.fallbackModel})'}';
       debugPrint('Gemini: $cause');
-      throw PrescriptionReadException('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.', cause);
+      throw PrescriptionReadException(failure, cause);
     }
 
-    final reading = _parse(raw);
-    return warning == null ? reading : reading.withModelWarning(warning);
+    return (json: _parse(raw), warning: warning);
   }
 
   Future<http.Response> _post(String model, String body) async {
@@ -102,14 +122,13 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   static bool _isRetired(int status, String body) =>
       status == 404 && body.contains('NOT_FOUND');
 
-  PrescriptionReading _parse(String raw) {
+  Map<String, dynamic> _parse(String raw) {
     try {
       final body = jsonDecode(raw) as Map<String, dynamic>;
       final text = (((body['candidates'] as List).first as Map)['content']
           as Map)['parts'] as List;
-      final json = jsonDecode((text.first as Map)['text'] as String)
+      return jsonDecode((text.first as Map)['text'] as String)
           as Map<String, dynamic>;
-      return PrescriptionReading.fromJson(json);
     } catch (error) {
       final cause = 'parse: $error — body: ${_excerpt(raw)}';
       debugPrint('Gemini: $cause');
@@ -121,7 +140,20 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   static String _excerpt(String body, [int max = 800]) =>
       body.length <= max ? body : '${body.substring(0, max)}…';
 
-  Map<String, dynamic> _request(Uint8List image, String mimeType) => {
+  Map<String, dynamic> _request(
+    Uint8List image,
+    String mimeType,
+    String prompt,
+    Map<String, dynamic> schema,
+    String? systemInstruction,
+  ) =>
+      {
+        if (systemInstruction != null)
+          'systemInstruction': {
+            'parts': [
+              {'text': systemInstruction},
+            ],
+          },
         'contents': [
           {
             'parts': [
@@ -138,7 +170,7 @@ class GeminiPrescriptionReader implements PrescriptionReader {
         'generationConfig': {
           'temperature': 0,
           'responseMimeType': 'application/json',
-          'responseSchema': prescriptionSchema,
+          'responseSchema': schema,
         },
       };
 

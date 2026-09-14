@@ -9,14 +9,17 @@ import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
+import '../../data/repositories/readings_repository.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/edit_medication_screen.dart';
+import '../health/glucose_screen.dart';
 import '../reminder/reminder_screen.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
+import 'widgets/glucose_home_card.dart';
 import 'widgets/now_card.dart';
 import 'widgets/water_widget.dart';
 
@@ -56,6 +59,10 @@ class _TodayScreenState extends State<TodayScreen> {
   /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
   Stream<List<MedicationRow>>? _amountUnknown;
 
+  /// قياسات السكر (D3.6) — لكارت السكر.
+  StreamSubscription<List<ReadingRow>>? _readingsSub;
+  List<ReadingRow> _readings = const [];
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -71,6 +78,9 @@ class _TodayScreenState extends State<TodayScreen> {
     );
     _patient = services.routines.watchPatient(services.patientId);
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
+    _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
+      if (mounted) setState(() => _readings = rows);
+    });
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
     // فوراً، والإيقاف بيختفي، من غير ما حد يعمل refresh.
@@ -107,6 +117,7 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   void dispose() {
     _schedulesSub?.cancel();
+    _readingsSub?.cancel();
     super.dispose();
   }
 
@@ -147,6 +158,10 @@ class _TodayScreenState extends State<TodayScreen> {
     ];
   }
 
+  void _openGlucose() => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()),
+      );
+
   List<List<DoseEventView>> _group(List<DoseEventView> events) => groupByMinute(events);
 
   /// الدوسة على كارت في السكة بتفتح شاشة التذكير بتاعته — أخدته / فكّرني /
@@ -172,6 +187,7 @@ class _TodayScreenState extends State<TodayScreen> {
           final groups = _group(events);
 
           final nowCards = nowGroups(groups, _now);
+          final glucoseNow = latestOutsideUsual(_readings);
 
           return ListView(
             padding: const EdgeInsets.all(F.gap),
@@ -181,7 +197,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 builder: (context, snap) => _HomeHeader(patient: snap.data, now: _now),
               ),
               const SizedBox(height: F.gap),
-              if (nowCards.isNotEmpty) ...[
+              if (nowCards.isNotEmpty || glucoseNow) ...[
                 const _SectionTitle('الآن'),
                 const SizedBox(height: F.s8),
                 for (final (i, group) in nowCards.indexed) ...[
@@ -196,8 +212,14 @@ class _TodayScreenState extends State<TodayScreen> {
                   ),
                   const SizedBox(height: F.s10),
                 ],
+                // سكر برّه المعتاد ليه هو — في «الآن»، ذهبي ومن غير لوم
+                if (glucoseNow) ...[
+                  GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
+                  const SizedBox(height: F.s10),
+                ],
                 const SizedBox(height: F.s8),
-              ] else if (events.isNotEmpty) ...[
+              ],
+              if (nowCards.isEmpty && events.isNotEmpty) ...[
                 const _AllDonePanel(),
                 const SizedBox(height: F.gap),
               ],
@@ -212,6 +234,10 @@ class _TodayScreenState extends State<TodayScreen> {
                   );
                 },
               ),
+              if (_readings.isNotEmpty && !glucoseNow) ...[
+                GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
+                const SizedBox(height: F.gap),
+              ],
               const WaterWidget(),
               const SizedBox(height: F.gap),
               const Text(

@@ -7,13 +7,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../ai/gemini_config.dart';
 import '../../ai/prescription_reader.dart';
 import '../../ai/prescription_reading.dart';
-import '../../core/format/arabic_time.dart';
-import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../medication/add_medication_screen.dart';
 import 'debug_panel.dart';
 import 'review_prescription_screen.dart';
+import 'scan_stage.dart';
 
 /// بيجيب صورة من الكاميرا أو المعرض. مفصول عشان الشاشة تتختبر من غير جهاز.
 typedef PickImage = Future<Uint8List?> Function(ImageSource source);
@@ -213,18 +212,21 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
           padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
           children: [
             if (!hasReader) ...[
-              const _Panel(text: GeminiConfig.missingKeyMessage),
+              const PanelOnDark(text: GeminiConfig.missingKeyMessage),
               const SizedBox(height: F.gap),
               SizedBox(
                 height: F.minTapTarget,
-                child: _SecondaryOnDark(label: 'أكتبها بإيدي', onPressed: _writeByHand),
+                child: SecondaryOnDark(label: 'أكتبها بإيدي', onPressed: _writeByHand),
               ),
             ] else ...[
-              _Stage(
+              ScanStage(
                 image: _image,
-                phase: _phase,
-                lines: _lines,
+                busy: _busy,
+                labels: _lines == null ? null : [for (final l in _lines!) _labelFor(l)],
                 revealed: _revealed,
+                adviceTitle: 'حطها على سطح مستوي والنور يكون كويس',
+                adviceBody: 'خلّي الورقة كلها جوّه الإطار، ولو الخط مش باين قرّب شوية.',
+                waitingText: 'بيقرا الروشتة…',
               ),
               const SizedBox(height: F.s14),
               const Text(
@@ -235,7 +237,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
               ),
               if (_phase == _Phase.failed && _error != null) ...[
                 const SizedBox(height: F.gap),
-                _Panel(text: _error!),
+                PanelOnDark(text: _error!),
                 if (kDebugMode && _cause != null) ...[
                   const SizedBox(height: F.s8),
                   DebugPanel(_cause!),
@@ -243,7 +245,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
               ],
               if (_phase == _Phase.retake) ...[
                 const SizedBox(height: F.gap),
-                const _Panel(
+                const PanelOnDark(
                   text: 'صوّرها تاني في نور أحسن، أو اختار صورة أوضح من الصور.',
                 ),
               ],
@@ -270,14 +272,14 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _SecondaryOnDark(
+                    child: SecondaryOnDark(
                       label: 'اختار من الصور',
                       onPressed: _busy ? null : () => _capture(ImageSource.gallery),
                     ),
                   ),
                   const SizedBox(width: F.s10),
                   Expanded(
-                    child: _SecondaryOnDark(
+                    child: SecondaryOnDark(
                       label: 'أكتبها بإيدي',
                       onPressed: _busy ? null : _writeByHand,
                     ),
@@ -292,329 +294,9 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   }
 }
 
-/// الإطار بأركان: فاضي بنصيحة قبل التصوير، وبعده الصورة الحقيقية مغمّقة.
-class _Stage extends StatelessWidget {
-  const _Stage({
-    required this.image,
-    required this.phase,
-    required this.lines,
-    required this.revealed,
-  });
-
-  final Uint8List? image;
-  final _Phase phase;
-  final List<ReadLine>? lines;
-  final int revealed;
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = this.lines;
-    return AspectRatio(
-      aspectRatio: 3 / 4,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(F.radiusSection),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const ColoredBox(color: F.greenDark),
-            if (image != null) ...[
-              Image.memory(
-                image!,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-              // الصورة تحت، مغمّقة عشان الصناديق والنص يتقروا فوقها
-              ColoredBox(color: F.inkDeep.withValues(alpha: 0.6)),
-            ],
-            const Padding(
-              padding: EdgeInsets.all(F.s18),
-              child: CustomPaint(painter: _CornerFrame()),
-            ),
-            if (image == null)
-              const Padding(
-                padding: EdgeInsets.all(F.s30),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'حطها على سطح مستوي والنور يكون كويس',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: F.subtitleSize,
-                        fontWeight: FontWeight.w700,
-                        color: F.ivory,
-                        height: 1.4,
-                      ),
-                    ),
-                    SizedBox(height: F.s10),
-                    Text(
-                      'خلّي الورقة كلها جوّه الإطار، ولو الخط مش باين قرّب شوية.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: F.minTextSize, color: F.ivoryWarm, height: 1.6),
-                    ),
-                  ],
-                ),
-              ),
-            // السطور — بس بعد ما الرد يوصل، وبعدد اللي رجع فعلاً
-            if (lines != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(F.s30, F.s30, F.s30, 84),
-                child: SingleChildScrollView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (i, line) in lines.indexed) ...[
-                        _LineBox(label: _labelFor(line), read: i < revealed),
-                        const SizedBox(height: F.s12),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            if (phase == _Phase.reading || phase == _Phase.revealing)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: F.s26,
-                child: Center(
-                  child: _ReadingBadge(
-                    text: phase == _Phase.reading || lines == null
-                        ? 'بيقرا الروشتة…'
-                        : 'بيقرا · ${arabicNumber(revealed)}/${arabicNumber(lines.length)} سطور',
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// «Concor 5mg — الفطار» — من اللي Gemini رجّعه، مش من تخمين.
-  static String _labelFor(ReadLine line) {
-    final name = line.name.value ?? 'سطر مش واضح';
-    final rule = line.timings.value == null ? null : line.timingLabel;
-    return rule == null || rule.isEmpty ? name : '$name — $rule';
-  }
-}
-
-/// سطر واحد: متقطع شفاف قبل ما يتعلّم، ممتلئ عاجي بعده.
-class _LineBox extends StatelessWidget {
-  const _LineBox({required this.label, required this.read});
-
-  final String label;
-  final bool read;
-
-  /// rgba(255,255,255,.28) و rgba(234,231,219,.18) — من README.
-  static const _unreadStroke = Color(0x47FFFFFF);
-  static final _readFill = F.ivoryWarm.withValues(alpha: 0.18);
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      constraints: const BoxConstraints(minHeight: F.minTapTarget - F.s8),
-      padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s8),
-      alignment: AlignmentDirectional.centerStart,
-      decoration: read
-          ? BoxDecoration(
-              color: _readFill,
-              borderRadius: BorderRadius.circular(F.radiusChip),
-              border: Border.all(color: F.ivoryWarm, width: 1.5),
-            )
-          : null,
-      child: Text(
-        label,
-        textDirection: nameDirection(label),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: F.minTextSize,
-          fontWeight: FontWeight.w600,
-          color: read ? F.ivory : F.ivory.withValues(alpha: 0.5),
-          fontFamily: F.monoFamily,
-          fontFamilyFallback: F.monoFallback,
-        ),
-      ),
-    );
-    if (read) return content;
-    return CustomPaint(
-      painter: const _DashedRect(color: _unreadStroke, radius: F.radiusChip),
-      child: content,
-    );
-  }
-}
-
-class _ReadingBadge extends StatelessWidget {
-  const _ReadingBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s8),
-        decoration: BoxDecoration(
-          color: F.inkDeep.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(F.radiusTile),
-          border: Border.all(color: F.ivory.withValues(alpha: 0.28)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const _PulseDot(),
-            const SizedBox(width: F.s8),
-            Text(
-              text,
-              style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ivory),
-            ),
-          ],
-        ),
-      );
-}
-
-/// نقطة نابضة — ساكنة مع «تقليل الحركة».
-class _PulseDot extends StatefulWidget {
-  const _PulseDot();
-
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-    lowerBound: 0.35,
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _c.value = 1;
-    } else if (!_c.isAnimating) {
-      _c.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _c,
-        child: Container(
-          width: 10,
-          height: 10,
-          decoration: const BoxDecoration(color: F.ivory, shape: BoxShape.circle),
-        ),
-      );
-}
-
-/// أركان الإطار — أربع زوايا عاجي، من غير مستطيل كامل.
-class _CornerFrame extends CustomPainter {
-  const _CornerFrame();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = F.ivory
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    const arm = 30.0;
-    final w = size.width, h = size.height;
-    for (final (x, y, dx, dy) in [
-      (0.0, 0.0, 1.0, 1.0),
-      (w, 0.0, -1.0, 1.0),
-      (0.0, h, 1.0, -1.0),
-      (w, h, -1.0, -1.0),
-    ]) {
-      canvas.drawLine(Offset(x, y), Offset(x + arm * dx, y), paint);
-      canvas.drawLine(Offset(x, y), Offset(x, y + arm * dy), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CornerFrame old) => false;
-}
-
-class _DashedRect extends CustomPainter {
-  const _DashedRect({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-        Radius.circular(radius),
-      ));
-    const dash = 6.0, gap = 4.0;
-    for (final metric in path.computeMetrics()) {
-      for (var d = 0.0; d < metric.length; d += dash + gap) {
-        canvas.drawPath(metric.extractPath(d, d + dash), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedRect old) => old.color != color || old.radius != radius;
-}
-
-/// ثانوي على الغامق — محدّد عاجي، ٥٦.
-class _SecondaryOnDark extends StatelessWidget {
-  const _SecondaryOnDark({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: F.minTapTarget,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: F.ivory,
-            disabledForegroundColor: F.mutedLight,
-            side: BorderSide(color: F.ivory.withValues(alpha: 0.4), width: 1.5),
-            padding: const EdgeInsets.symmetric(horizontal: F.s8),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600),
-          ),
-        ),
-      );
-}
-
-/// معلومة أو غلطة على الغامق — من غير أحمر، حتى للخطأ.
-class _Panel extends StatelessWidget {
-  const _Panel({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(F.s14),
-        decoration: BoxDecoration(
-          color: F.ivoryWarm,
-          borderRadius: BorderRadius.circular(F.radiusCard),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
-        ),
-      );
+/// «Concor 5mg — الفطار» — من اللي Gemini رجّعه، مش من تخمين.
+String _labelFor(ReadLine line) {
+  final name = line.name.value ?? 'سطر مش واضح';
+  final rule = line.timings.value == null ? null : line.timingLabel;
+  return rule == null || rule.isEmpty ? name : '$name — $rule';
 }

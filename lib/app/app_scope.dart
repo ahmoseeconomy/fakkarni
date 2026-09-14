@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../ai/lab_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
@@ -7,6 +8,7 @@ import '../data/care/caregiver_remote.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
+import '../data/files/attachment_store.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
 import '../data/repositories/preferences_repository.dart';
@@ -27,6 +29,8 @@ class AppServices {
     required this.patientId,
     this.tapPayload,
     this.prescriptionReader,
+    this.labReader,
+    this.attachments = const DirectoryAttachmentStore(),
     this.auth,
     this.care,
     this.caregiver,
@@ -73,6 +77,12 @@ class AppServices {
   /// لحد ما APNs تتظبط). غيابه معناه إن التصعيد بيقف عند `no_token`،
   /// والتطبيق بالكامل شغّال زي ما هو.
   final PushTokens? push;
+
+  /// قارئ تقارير التحاليل (D3.6) — نفس مفتاح Gemini. null = المفتاح مش متظبط.
+  final LabReportReader? labReader;
+
+  /// صور التقارير — فولدر التطبيق. الاختبارات بتحط فولدر مؤقت.
+  final AttachmentStore attachments;
 }
 
 class AppScope extends InheritedWidget {

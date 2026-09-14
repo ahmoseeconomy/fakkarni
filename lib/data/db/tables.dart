@@ -191,6 +191,41 @@ class Records extends Table with SyncIdentity {
   DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
+/// سياق قياس السكر — الاتنين بس.
+enum GlucoseContext { fasting, afterMeal }
+
+/// قياسات السكر (D3.6، المخطط ١٤) — **سكر الدم بس**. مفيش ضغط ولا نبض ولا
+/// وزن في المنتج ده، ومفيش عمود ليهم يتملى بالغلط.
+///
+/// محلي بأعمدة SyncIdentity من الأول، وSyncService ما بيقراهوش.
+@DataClassName('ReadingRow')
+class Readings extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
+
+  /// ملّيجرام/ديسيلتر — زي ما الجهاز بيقول.
+  IntColumn get valueMgDl => integer()();
+  DateTimeColumn get measuredAt => dateTime()();
+  TextColumn get context => textEnum<GlucoseContext>()();
+}
+
+/// نتايج تقرير تحليل اتأكد بإيد إنسان (D3.6، المخطط ٨) — سطر لكل تحليل،
+/// متعلّق بصف `records` نوعه lab. بيتقرا عشان «المعتاد ليه هو»: نفس التحليل
+/// في تقاريره اللي فاتت، مش نطاق من كتاب. **مفيش عمود لنطاق مرجعي ولا
+/// لعلامة H/L** — اللي مالوش مكان ما يوصلش للشاشة.
+@DataClassName('LabResultRow')
+class LabResults extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get recordId =>
+      integer().references(Records, #id, onDelete: KeyAction.cascade)();
+
+  /// اسم التحليل زي ما هو مطبوع.
+  TextColumn get testName => text().withLength(min: 1, max: 120)();
+  RealColumn get value => real()();
+  TextColumn get unit => text().nullable()();
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();

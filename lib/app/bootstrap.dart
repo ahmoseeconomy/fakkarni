@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
 
 import '../ai/gemini_config.dart';
+import '../ai/lab_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
@@ -58,6 +59,7 @@ Future<AppServices> buildServices(
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     prescriptionReader: _readerFromEnvironment(),
+    labReader: _labReaderFromEnvironment(),
     auth: auth,
     care: care,
     caregiver: caregiver,
@@ -73,11 +75,17 @@ Future<AppServices> buildServices(
 /// الجاية.
 Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {
   try {
-    final purged = await RecordsRepository(services.db).purgeDeleted(now: now);
+    final purged = await RecordsRepository(services.db).purgeDeleted(now: now, attachments: services.attachments);
     if (purged > 0) debugPrint('الملف الصحي: اتمسح نهائي $purged صف عدّى عليهم ٣٠ يوم');
   } catch (error, stack) {
     debugPrint('تنظيف الملف الصحي ما اشتغلش: $error\n$stack');
   }
+}
+
+/// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.
+LabReportReader? _labReaderFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  return config == null ? null : GeminiLabReader(config);
 }
 
 /// المفتاح من `--dart-define` وبس. لو مش موجود بنرجّع null ونقولها في

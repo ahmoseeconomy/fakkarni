@@ -27,13 +27,15 @@ part 'app_database.g.dart';
     DevicePreferences,
     EmergencyProfile,
     Records,
+    Readings,
+    LabResults,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -251,6 +253,31 @@ class AppDatabase extends _$AppDatabase {
                 '"deleted_at" INTEGER NULL)',
               );
             }
+            if (from < 12) {
+              // سكر الدم ونتايج التحاليل — SQL مجمّد بالحرف.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "readings" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"patient_id" INTEGER NOT NULL REFERENCES patients (id) ON DELETE CASCADE, '
+                '"value_mg_dl" INTEGER NOT NULL, '
+                '"measured_at" INTEGER NOT NULL, '
+                '"context" TEXT NOT NULL)',
+              );
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "lab_results" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"record_id" INTEGER NOT NULL REFERENCES records (id) ON DELETE CASCADE, '
+                '"test_name" TEXT NOT NULL, '
+                '"value" REAL NOT NULL, '
+                '"unit" TEXT NULL)',
+              );
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -290,6 +317,8 @@ class AppDatabase extends _$AppDatabase {
             'dose_events',
             'emergency_profile',
             'records',
+            'readings',
+            'lab_results',
           ]) {
             await customStatement('''
 CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at

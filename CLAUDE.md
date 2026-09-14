@@ -135,6 +135,7 @@ lib/
                               the +15/+30 rung switches), emergency_profile
                               (v10, local: SyncIdentity columns but never
                               pushed), records (v11, local, soft delete),
+                              readings + lab_results (v12, local),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -975,14 +976,19 @@ Consequences to handle:
   works «من غير فك الموبايل»; a test asserts that.
 - **Mockup 19's «ملاحظة للمسعف» field and mockup 32's «مشاركة سريعة» are
   not built** — not in the plan, and sharing needs `share_plus`.
-- **Records attachments are not built.** `records.attachment_path` exists
-  and nothing writes it yet; files (and deleting them in the 30-day purge)
-  arrive with report photos in D3.6. Mockup 13's «استخراج الملف» waits for
+- **Mockup 13's «استخراج الملف» waits for
   D3.8, and its «نشطة/منتهية» chips and 29's «إيقاف دوا» entries come from
   `medications`, not records, so they are not on these screens.
 - **A manual «روشتة» or «حجز» record schedules nothing.** Both forms say so
   in words; medicines are added through «ضيف», and bookings have no
   notification band.
+- **Mockup 14's voice entry is not built** — there is no speech input.
+  Glucose is typed. Its «المستهدف» line and «أعلى من المستهدف» chip are
+  not built either: that is a textbook target dressed as an interface.
+- **Mockup 7's multi-page capture is not built** — one page per scan.
+- **Mockup 8's lab reference range, «أعلى» chips and red cards are not
+  built, and cannot be:** the Gemini schema has no field for a range, a
+  flag or an interpretation, so none can reach the screen.
 - **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
   hours silence everything **except** a missed dose and emergency — and
   those are the only alerts we have, so the switch would do nothing. A
@@ -1238,6 +1244,43 @@ device-verified)**
   reading is confident — otherwise null). It runs after the medicines and
   `rescheduleAll`, wrapped and logged: a failed record never undoes a
   confirmation. «صوّر تاني» writes nothing.
+
+**D3.6 — glucose + labs (built)**
+- Schema v12 (written red first): `readings` — **blood glucose only**
+  (`value_mg_dl`, `measured_at`, `context` صايم | بعد الأكل); no pressure,
+  pulse or weight exist in this product. `lab_results` — one row per
+  confirmed test (record_id → `records` lab row, test name as printed,
+  value, unit). Both local with SyncIdentity columns + triggers, and the
+  no-sync guard test covers them.
+- **The dangerous screen follows two rules that do not bend.**
+  (a) Number, range, difference — stop. No advice, no diagnosis, no
+  «يُفضّل», no «راجع دكتورك», no «ممكن يكون». `GeminiLabReader.systemInstruction`
+  says so explicitly (pinned by a test); the schema carries only test,
+  value, unit, lab and date, so no model free text ever renders.
+  `adviceWords` in `features/health/usual_words.dart` is checked against
+  the rendered text of 14, 8 and the home card **and** against every
+  string literal in `lib/features/health/` — mutation-checked: putting
+  «مرتفع» in the comparison fails three tests.
+  (b) «المعتاد» means **his** usual (`domain/health/usual_range.dart`,
+  pure): lowest–highest of his last 10 values — glucose needs 5 in the
+  same context, a lab test 2 earlier values in the same unit. Below that
+  the screen says «لسه ما عندناش قياسات كفاية نعرف المعتاد ليك» and marks
+  nothing. A different unit says «مش هنقارن». Never a reference range.
+- «قياس السكر» (14): typed, 20–600 refused as a typo («برّه اللي أجهزة
+  القياس بتقراه»), context must be chosen, latest reading + his usual +
+  a plain green line. «تصوير تقرير تحليل» (7): the prescription transport
+  (`GeminiPrescriptionReader.generate`) with another prompt, and the
+  shared `ScanStage` — no line marked before the reply, reveal walks what
+  came back (tested with a mid-flight completer). «قراءة التقرير» (8):
+  unsure lines gold «مش متأكد من دي — راجعها» and block «تمام، احفظه»
+  until edited or removed; «صوّر تاني» carries equal weight.
+- Confirming saves a `lab` record + `lab_results` + the photo through
+  `AttachmentStore` (relative path in `attachment_path`); the 30-day purge
+  deletes the file after the row.
+- Home: the glucose card is gold and sits in «الآن» **only** when the
+  latest reading is outside his own usual; otherwise a quiet card above
+  water. «افتح» is secondary. Entry: «ضيف» sheet («قيس السكر», «صوّر
+  تقرير تحليل») and «الملف الصحي».
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

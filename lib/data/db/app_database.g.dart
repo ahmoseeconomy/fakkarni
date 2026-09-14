@@ -5844,6 +5844,1048 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
   }
 }
 
+class $ReadingsTable extends Readings
+    with TableInfo<$ReadingsTable, ReadingRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES patients (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _valueMgDlMeta = const VerificationMeta(
+    'valueMgDl',
+  );
+  @override
+  late final GeneratedColumn<int> valueMgDl = GeneratedColumn<int>(
+    'value_mg_dl',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _measuredAtMeta = const VerificationMeta(
+    'measuredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> measuredAt = GeneratedColumn<DateTime>(
+    'measured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<GlucoseContext, String> context =
+      GeneratedColumn<String>(
+        'context',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<GlucoseContext>($ReadingsTable.$convertercontext);
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    valueMgDl,
+    measuredAt,
+    context,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'readings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patientIdMeta);
+    }
+    if (data.containsKey('value_mg_dl')) {
+      context.handle(
+        _valueMgDlMeta,
+        valueMgDl.isAcceptableOrUnknown(data['value_mg_dl']!, _valueMgDlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMgDlMeta);
+    }
+    if (data.containsKey('measured_at')) {
+      context.handle(
+        _measuredAtMeta,
+        measuredAt.isAcceptableOrUnknown(data['measured_at']!, _measuredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_measuredAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReadingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      valueMgDl: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_mg_dl'],
+      )!,
+      measuredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}measured_at'],
+      )!,
+      context: $ReadingsTable.$convertercontext.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}context'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $ReadingsTable createAlias(String alias) {
+    return $ReadingsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<GlucoseContext, String, String> $convertercontext =
+      const EnumNameConverter<GlucoseContext>(GlucoseContext.values);
+}
+
+class ReadingRow extends DataClass implements Insertable<ReadingRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int patientId;
+
+  /// ملّيجرام/ديسيلتر — زي ما الجهاز بيقول.
+  final int valueMgDl;
+  final DateTime measuredAt;
+  final GlucoseContext context;
+  const ReadingRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.patientId,
+    required this.valueMgDl,
+    required this.measuredAt,
+    required this.context,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['patient_id'] = Variable<int>(patientId);
+    map['value_mg_dl'] = Variable<int>(valueMgDl);
+    map['measured_at'] = Variable<DateTime>(measuredAt);
+    {
+      map['context'] = Variable<String>(
+        $ReadingsTable.$convertercontext.toSql(context),
+      );
+    }
+    return map;
+  }
+
+  ReadingsCompanion toCompanion(bool nullToAbsent) {
+    return ReadingsCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      patientId: Value(patientId),
+      valueMgDl: Value(valueMgDl),
+      measuredAt: Value(measuredAt),
+      context: Value(context),
+    );
+  }
+
+  factory ReadingRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      patientId: serializer.fromJson<int>(json['patientId']),
+      valueMgDl: serializer.fromJson<int>(json['valueMgDl']),
+      measuredAt: serializer.fromJson<DateTime>(json['measuredAt']),
+      context: $ReadingsTable.$convertercontext.fromJson(
+        serializer.fromJson<String>(json['context']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'patientId': serializer.toJson<int>(patientId),
+      'valueMgDl': serializer.toJson<int>(valueMgDl),
+      'measuredAt': serializer.toJson<DateTime>(measuredAt),
+      'context': serializer.toJson<String>(
+        $ReadingsTable.$convertercontext.toJson(context),
+      ),
+    };
+  }
+
+  ReadingRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? patientId,
+    int? valueMgDl,
+    DateTime? measuredAt,
+    GlucoseContext? context,
+  }) => ReadingRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    patientId: patientId ?? this.patientId,
+    valueMgDl: valueMgDl ?? this.valueMgDl,
+    measuredAt: measuredAt ?? this.measuredAt,
+    context: context ?? this.context,
+  );
+  ReadingRow copyWithCompanion(ReadingsCompanion data) {
+    return ReadingRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      valueMgDl: data.valueMgDl.present ? data.valueMgDl.value : this.valueMgDl,
+      measuredAt: data.measuredAt.present
+          ? data.measuredAt.value
+          : this.measuredAt,
+      context: data.context.present ? data.context.value : this.context,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('valueMgDl: $valueMgDl, ')
+          ..write('measuredAt: $measuredAt, ')
+          ..write('context: $context')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    valueMgDl,
+    measuredAt,
+    context,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.patientId == this.patientId &&
+          other.valueMgDl == this.valueMgDl &&
+          other.measuredAt == this.measuredAt &&
+          other.context == this.context);
+}
+
+class ReadingsCompanion extends UpdateCompanion<ReadingRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> patientId;
+  final Value<int> valueMgDl;
+  final Value<DateTime> measuredAt;
+  final Value<GlucoseContext> context;
+  const ReadingsCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.patientId = const Value.absent(),
+    this.valueMgDl = const Value.absent(),
+    this.measuredAt = const Value.absent(),
+    this.context = const Value.absent(),
+  });
+  ReadingsCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int patientId,
+    required int valueMgDl,
+    required DateTime measuredAt,
+    required GlucoseContext context,
+  }) : patientId = Value(patientId),
+       valueMgDl = Value(valueMgDl),
+       measuredAt = Value(measuredAt),
+       context = Value(context);
+  static Insertable<ReadingRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? patientId,
+    Expression<int>? valueMgDl,
+    Expression<DateTime>? measuredAt,
+    Expression<String>? context,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (patientId != null) 'patient_id': patientId,
+      if (valueMgDl != null) 'value_mg_dl': valueMgDl,
+      if (measuredAt != null) 'measured_at': measuredAt,
+      if (context != null) 'context': context,
+    });
+  }
+
+  ReadingsCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? patientId,
+    Value<int>? valueMgDl,
+    Value<DateTime>? measuredAt,
+    Value<GlucoseContext>? context,
+  }) {
+    return ReadingsCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      valueMgDl: valueMgDl ?? this.valueMgDl,
+      measuredAt: measuredAt ?? this.measuredAt,
+      context: context ?? this.context,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (valueMgDl.present) {
+      map['value_mg_dl'] = Variable<int>(valueMgDl.value);
+    }
+    if (measuredAt.present) {
+      map['measured_at'] = Variable<DateTime>(measuredAt.value);
+    }
+    if (context.present) {
+      map['context'] = Variable<String>(
+        $ReadingsTable.$convertercontext.toSql(context.value),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingsCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('valueMgDl: $valueMgDl, ')
+          ..write('measuredAt: $measuredAt, ')
+          ..write('context: $context')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LabResultsTable extends LabResults
+    with TableInfo<$LabResultsTable, LabResultRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LabResultsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _recordIdMeta = const VerificationMeta(
+    'recordId',
+  );
+  @override
+  late final GeneratedColumn<int> recordId = GeneratedColumn<int>(
+    'record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES records (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _testNameMeta = const VerificationMeta(
+    'testName',
+  );
+  @override
+  late final GeneratedColumn<String> testName = GeneratedColumn<String>(
+    'test_name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 120,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<double> value = GeneratedColumn<double>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    recordId,
+    testName,
+    value,
+    unit,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'lab_results';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LabResultRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('record_id')) {
+      context.handle(
+        _recordIdMeta,
+        recordId.isAcceptableOrUnknown(data['record_id']!, _recordIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordIdMeta);
+    }
+    if (data.containsKey('test_name')) {
+      context.handle(
+        _testNameMeta,
+        testName.isAcceptableOrUnknown(data['test_name']!, _testNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_testNameMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LabResultRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LabResultRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      recordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}record_id'],
+      )!,
+      testName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}test_name'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}value'],
+      )!,
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      ),
+    );
+  }
+
+  @override
+  $LabResultsTable createAlias(String alias) {
+    return $LabResultsTable(attachedDatabase, alias);
+  }
+}
+
+class LabResultRow extends DataClass implements Insertable<LabResultRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int recordId;
+
+  /// اسم التحليل زي ما هو مطبوع.
+  final String testName;
+  final double value;
+  final String? unit;
+  const LabResultRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.recordId,
+    required this.testName,
+    required this.value,
+    this.unit,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['record_id'] = Variable<int>(recordId);
+    map['test_name'] = Variable<String>(testName);
+    map['value'] = Variable<double>(value);
+    if (!nullToAbsent || unit != null) {
+      map['unit'] = Variable<String>(unit);
+    }
+    return map;
+  }
+
+  LabResultsCompanion toCompanion(bool nullToAbsent) {
+    return LabResultsCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      recordId: Value(recordId),
+      testName: Value(testName),
+      value: Value(value),
+      unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
+    );
+  }
+
+  factory LabResultRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LabResultRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      recordId: serializer.fromJson<int>(json['recordId']),
+      testName: serializer.fromJson<String>(json['testName']),
+      value: serializer.fromJson<double>(json['value']),
+      unit: serializer.fromJson<String?>(json['unit']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'recordId': serializer.toJson<int>(recordId),
+      'testName': serializer.toJson<String>(testName),
+      'value': serializer.toJson<double>(value),
+      'unit': serializer.toJson<String?>(unit),
+    };
+  }
+
+  LabResultRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? recordId,
+    String? testName,
+    double? value,
+    Value<String?> unit = const Value.absent(),
+  }) => LabResultRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    recordId: recordId ?? this.recordId,
+    testName: testName ?? this.testName,
+    value: value ?? this.value,
+    unit: unit.present ? unit.value : this.unit,
+  );
+  LabResultRow copyWithCompanion(LabResultsCompanion data) {
+    return LabResultRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      recordId: data.recordId.present ? data.recordId.value : this.recordId,
+      testName: data.testName.present ? data.testName.value : this.testName,
+      value: data.value.present ? data.value.value : this.value,
+      unit: data.unit.present ? data.unit.value : this.unit,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LabResultRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('recordId: $recordId, ')
+          ..write('testName: $testName, ')
+          ..write('value: $value, ')
+          ..write('unit: $unit')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    recordId,
+    testName,
+    value,
+    unit,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LabResultRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.recordId == this.recordId &&
+          other.testName == this.testName &&
+          other.value == this.value &&
+          other.unit == this.unit);
+}
+
+class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> recordId;
+  final Value<String> testName;
+  final Value<double> value;
+  final Value<String?> unit;
+  const LabResultsCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.recordId = const Value.absent(),
+    this.testName = const Value.absent(),
+    this.value = const Value.absent(),
+    this.unit = const Value.absent(),
+  });
+  LabResultsCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int recordId,
+    required String testName,
+    required double value,
+    this.unit = const Value.absent(),
+  }) : recordId = Value(recordId),
+       testName = Value(testName),
+       value = Value(value);
+  static Insertable<LabResultRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? recordId,
+    Expression<String>? testName,
+    Expression<double>? value,
+    Expression<String>? unit,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (recordId != null) 'record_id': recordId,
+      if (testName != null) 'test_name': testName,
+      if (value != null) 'value': value,
+      if (unit != null) 'unit': unit,
+    });
+  }
+
+  LabResultsCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? recordId,
+    Value<String>? testName,
+    Value<double>? value,
+    Value<String?>? unit,
+  }) {
+    return LabResultsCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      recordId: recordId ?? this.recordId,
+      testName: testName ?? this.testName,
+      value: value ?? this.value,
+      unit: unit ?? this.unit,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (recordId.present) {
+      map['record_id'] = Variable<int>(recordId.value);
+    }
+    if (testName.present) {
+      map['test_name'] = Variable<String>(testName.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<double>(value.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LabResultsCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('recordId: $recordId, ')
+          ..write('testName: $testName, ')
+          ..write('value: $value, ')
+          ..write('unit: $unit')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5860,6 +6902,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $RecordsTable records = $RecordsTable(this);
+  late final $ReadingsTable readings = $ReadingsTable(this);
+  late final $LabResultsTable labResults = $LabResultsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5875,6 +6919,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     devicePreferences,
     emergencyProfile,
     records,
+    readings,
+    labResults,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5933,6 +6979,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('records', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'patients',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('readings', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'records',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('lab_results', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -6052,6 +7112,24 @@ final class $$PatientsTableReferences
     ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_recordsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ReadingsTable, List<ReadingRow>>
+  _readingsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.readings,
+    aliasName: 'patients__id__readings__patient_id',
+  );
+
+  $$ReadingsTableProcessedTableManager get readingsRefs {
+    final manager = $$ReadingsTableTableManager(
+      $_db,
+      $_db.readings,
+    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_readingsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -6229,6 +7307,31 @@ class $$PatientsTableFilterComposer
           }) => $$RecordsTableFilterComposer(
             $db: $db,
             $table: $db.records,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> readingsRefs(
+    Expression<bool> Function($$ReadingsTableFilterComposer f) f,
+  ) {
+    final $$ReadingsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readings,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingsTableFilterComposer(
+            $db: $db,
+            $table: $db.readings,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6460,6 +7563,31 @@ class $$PatientsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> readingsRefs<T extends Object>(
+    Expression<T> Function($$ReadingsTableAnnotationComposer a) f,
+  ) {
+    final $$ReadingsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.readings,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ReadingsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.readings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PatientsTableTableManager
@@ -6481,6 +7609,7 @@ class $$PatientsTableTableManager
             bool routineBackupsRefs,
             bool emergencyProfileRefs,
             bool recordsRefs,
+            bool readingsRefs,
           })
         > {
   $$PatientsTableTableManager(_$AppDatabase db, $PatientsTable table)
@@ -6553,6 +7682,7 @@ class $$PatientsTableTableManager
                 routineBackupsRefs = false,
                 emergencyProfileRefs = false,
                 recordsRefs = false,
+                readingsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6562,6 +7692,7 @@ class $$PatientsTableTableManager
                     if (routineBackupsRefs) db.routineBackups,
                     if (emergencyProfileRefs) db.emergencyProfile,
                     if (recordsRefs) db.records,
+                    if (readingsRefs) db.readings,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -6671,6 +7802,27 @@ class $$PatientsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (readingsRefs)
+                        await $_getPrefetchedData<
+                          PatientRow,
+                          $PatientsTable,
+                          ReadingRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PatientsTableReferences
+                              ._readingsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PatientsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).readingsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.patientId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6697,6 +7849,7 @@ typedef $$PatientsTableProcessedTableManager =
         bool routineBackupsRefs,
         bool emergencyProfileRefs,
         bool recordsRefs,
+        bool readingsRefs,
       })
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
@@ -10044,6 +11197,24 @@ final class $$RecordsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<$LabResultsTable, List<LabResultRow>>
+  _labResultsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.labResults,
+    aliasName: 'records__id__lab_results__record_id',
+  );
+
+  $$LabResultsTableProcessedTableManager get labResultsRefs {
+    final manager = $$LabResultsTableTableManager(
+      $_db,
+      $_db.labResults,
+    ).filter((f) => f.recordId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_labResultsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$RecordsTableFilterComposer
@@ -10137,6 +11308,31 @@ class $$RecordsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> labResultsRefs(
+    Expression<bool> Function($$LabResultsTableFilterComposer f) f,
+  ) {
+    final $$LabResultsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.labResults,
+      getReferencedColumn: (t) => t.recordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LabResultsTableFilterComposer(
+            $db: $db,
+            $table: $db.labResults,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -10308,6 +11504,31 @@ class $$RecordsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> labResultsRefs<T extends Object>(
+    Expression<T> Function($$LabResultsTableAnnotationComposer a) f,
+  ) {
+    final $$LabResultsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.labResults,
+      getReferencedColumn: (t) => t.recordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LabResultsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.labResults,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$RecordsTableTableManager
@@ -10323,7 +11544,7 @@ class $$RecordsTableTableManager
           $$RecordsTableUpdateCompanionBuilder,
           (RecordRow, $$RecordsTableReferences),
           RecordRow,
-          PrefetchHooks Function({bool patientId})
+          PrefetchHooks Function({bool patientId, bool labResultsRefs})
         > {
   $$RecordsTableTableManager(_$AppDatabase db, $RecordsTable table)
     : super(
@@ -10404,10 +11625,10 @@ class $$RecordsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({patientId = false}) {
+          prefetchHooksCallback: ({patientId = false, labResultsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [],
+              explicitlyWatchedTables: [if (labResultsRefs) db.labResults],
               addJoins:
                   <
                     T extends TableManagerState<
@@ -10439,7 +11660,26 @@ class $$RecordsTableTableManager
                     return state;
                   },
               getPrefetchedDataCallback: (items) async {
-                return [];
+                return [
+                  if (labResultsRefs)
+                    await $_getPrefetchedData<
+                      RecordRow,
+                      $RecordsTable,
+                      LabResultRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$RecordsTableReferences
+                          ._labResultsRefsTable(db),
+                      managerFromTypedResult: (p0) => $$RecordsTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).labResultsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.recordId == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
             );
           },
@@ -10459,7 +11699,746 @@ typedef $$RecordsTableProcessedTableManager =
       $$RecordsTableUpdateCompanionBuilder,
       (RecordRow, $$RecordsTableReferences),
       RecordRow,
+      PrefetchHooks Function({bool patientId, bool labResultsRefs})
+    >;
+typedef $$ReadingsTableCreateCompanionBuilder = ReadingsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  required int patientId,
+  required int valueMgDl,
+  required DateTime measuredAt,
+  required GlucoseContext context,
+});
+typedef $$ReadingsTableUpdateCompanionBuilder = ReadingsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  Value<int> patientId,
+  Value<int> valueMgDl,
+  Value<DateTime> measuredAt,
+  Value<GlucoseContext> context,
+});
+
+final class $$ReadingsTableReferences
+    extends BaseReferences<_$AppDatabase, $ReadingsTable, ReadingRow> {
+  $$ReadingsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
+      db.patients.createAlias('readings__patient_id__patients__id');
+
+  $$PatientsTableProcessedTableManager get patientId {
+    final $_column = $_itemColumn<int>('patient_id')!;
+
+    final manager = $$PatientsTableTableManager(
+      $_db,
+      $_db.patients,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ReadingsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingsTable> {
+  $$ReadingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueMgDl => $composableBuilder(
+    column: $table.valueMgDl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<GlucoseContext, GlucoseContext, String>
+  get context => $composableBuilder(
+    column: $table.context,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  $$PatientsTableFilterComposer get patientId {
+    final $$PatientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableFilterComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingsTable> {
+  $$ReadingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueMgDl => $composableBuilder(
+    column: $table.valueMgDl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get context => $composableBuilder(
+    column: $table.context,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PatientsTableOrderingComposer get patientId {
+    final $$PatientsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableOrderingComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingsTable> {
+  $$ReadingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get valueMgDl =>
+      $composableBuilder(column: $table.valueMgDl, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<GlucoseContext, String> get context =>
+      $composableBuilder(column: $table.context, builder: (column) => column);
+
+  $$PatientsTableAnnotationComposer get patientId {
+    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ReadingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingsTable,
+          ReadingRow,
+          $$ReadingsTableFilterComposer,
+          $$ReadingsTableOrderingComposer,
+          $$ReadingsTableAnnotationComposer,
+          $$ReadingsTableCreateCompanionBuilder,
+          $$ReadingsTableUpdateCompanionBuilder,
+          (ReadingRow, $$ReadingsTableReferences),
+          ReadingRow,
+          PrefetchHooks Function({bool patientId})
+        > {
+  $$ReadingsTableTableManager(_$AppDatabase db, $ReadingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> patientId = const Value.absent(),
+                Value<int> valueMgDl = const Value.absent(),
+                Value<DateTime> measuredAt = const Value.absent(),
+                Value<GlucoseContext> context = const Value.absent(),
+              }) => ReadingsCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                valueMgDl: valueMgDl,
+                measuredAt: measuredAt,
+                context: context,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int patientId,
+                required int valueMgDl,
+                required DateTime measuredAt,
+                required GlucoseContext context,
+              }) => ReadingsCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                valueMgDl: valueMgDl,
+                measuredAt: measuredAt,
+                context: context,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ReadingsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({patientId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (patientId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.patientId,
+                        referencedTable: $$ReadingsTableReferences
+                            ._patientIdTable(db),
+                        referencedColumn: $$ReadingsTableReferences
+                            ._patientIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ReadingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingsTable,
+      ReadingRow,
+      $$ReadingsTableFilterComposer,
+      $$ReadingsTableOrderingComposer,
+      $$ReadingsTableAnnotationComposer,
+      $$ReadingsTableCreateCompanionBuilder,
+      $$ReadingsTableUpdateCompanionBuilder,
+      (ReadingRow, $$ReadingsTableReferences),
+      ReadingRow,
       PrefetchHooks Function({bool patientId})
+    >;
+typedef $$LabResultsTableCreateCompanionBuilder = LabResultsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  required int recordId,
+  required String testName,
+  required double value,
+  Value<String?> unit,
+});
+typedef $$LabResultsTableUpdateCompanionBuilder = LabResultsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  Value<int> recordId,
+  Value<String> testName,
+  Value<double> value,
+  Value<String?> unit,
+});
+
+final class $$LabResultsTableReferences
+    extends BaseReferences<_$AppDatabase, $LabResultsTable, LabResultRow> {
+  $$LabResultsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $RecordsTable _recordIdTable(_$AppDatabase db) =>
+      db.records.createAlias('lab_results__record_id__records__id');
+
+  $$RecordsTableProcessedTableManager get recordId {
+    final $_column = $_itemColumn<int>('record_id')!;
+
+    final manager = $$RecordsTableTableManager(
+      $_db,
+      $_db.records,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_recordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LabResultsTableFilterComposer
+    extends Composer<_$AppDatabase, $LabResultsTable> {
+  $$LabResultsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get testName => $composableBuilder(
+    column: $table.testName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$RecordsTableFilterComposer get recordId {
+    final $$RecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.records,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LabResultsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LabResultsTable> {
+  $$LabResultsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get testName => $composableBuilder(
+    column: $table.testName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$RecordsTableOrderingComposer get recordId {
+    final $$RecordsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableOrderingComposer(
+            $db: $db,
+            $table: $db.records,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LabResultsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LabResultsTable> {
+  $$LabResultsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get testName =>
+      $composableBuilder(column: $table.testName, builder: (column) => column);
+
+  GeneratedColumn<double> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  $$RecordsTableAnnotationComposer get recordId {
+    final $$RecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.recordId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.records,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LabResultsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LabResultsTable,
+          LabResultRow,
+          $$LabResultsTableFilterComposer,
+          $$LabResultsTableOrderingComposer,
+          $$LabResultsTableAnnotationComposer,
+          $$LabResultsTableCreateCompanionBuilder,
+          $$LabResultsTableUpdateCompanionBuilder,
+          (LabResultRow, $$LabResultsTableReferences),
+          LabResultRow,
+          PrefetchHooks Function({bool recordId})
+        > {
+  $$LabResultsTableTableManager(_$AppDatabase db, $LabResultsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LabResultsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LabResultsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LabResultsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> recordId = const Value.absent(),
+                Value<String> testName = const Value.absent(),
+                Value<double> value = const Value.absent(),
+                Value<String?> unit = const Value.absent(),
+              }) => LabResultsCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                recordId: recordId,
+                testName: testName,
+                value: value,
+                unit: unit,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int recordId,
+                required String testName,
+                required double value,
+                Value<String?> unit = const Value.absent(),
+              }) => LabResultsCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                recordId: recordId,
+                testName: testName,
+                value: value,
+                unit: unit,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$LabResultsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({recordId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (recordId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.recordId,
+                        referencedTable: $$LabResultsTableReferences
+                            ._recordIdTable(db),
+                        referencedColumn: $$LabResultsTableReferences
+                            ._recordIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LabResultsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LabResultsTable,
+      LabResultRow,
+      $$LabResultsTableFilterComposer,
+      $$LabResultsTableOrderingComposer,
+      $$LabResultsTableAnnotationComposer,
+      $$LabResultsTableCreateCompanionBuilder,
+      $$LabResultsTableUpdateCompanionBuilder,
+      (LabResultRow, $$LabResultsTableReferences),
+      LabResultRow,
+      PrefetchHooks Function({bool recordId})
     >;
 
 class $AppDatabaseManager {
@@ -10485,4 +12464,8 @@ class $AppDatabaseManager {
       $$EmergencyProfileTableTableManager(_db, _db.emergencyProfile);
   $$RecordsTableTableManager get records =>
       $$RecordsTableTableManager(_db, _db.records);
+  $$ReadingsTableTableManager get readings =>
+      $$ReadingsTableTableManager(_db, _db.readings);
+  $$LabResultsTableTableManager get labResults =>
+      $$LabResultsTableTableManager(_db, _db.labResults);
 }

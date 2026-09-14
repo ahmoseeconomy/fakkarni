@@ -11,6 +11,8 @@ import '../features/emergency/emergency_card_screen.dart';
 import '../features/link/sign_in_screen.dart';
 import '../features/medication/add_medication_screen.dart';
 import '../features/medication/medications_screen.dart';
+import '../features/health/glucose_screen.dart';
+import '../features/health/scan_lab_screen.dart';
 import '../features/records/manual_entry_screen.dart';
 import '../features/scan/scan_prescription_screen.dart';
 import '../features/settings/settings_screen.dart';
@@ -83,6 +85,23 @@ class _AppShellState extends State<AppShell> {
               MaterialPageRoute<void>(
                 builder: (_) => AddMedicationScreen(routine: widget.routine),
               ),
+            );
+          },
+        ),
+        // سكر الدم وتقارير التحاليل (D3.6)
+        FSecondaryButton(
+          label: 'قيس السكر',
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()));
+          },
+        ),
+        FSecondaryButton(
+          label: 'صوّر تقرير تحليل',
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => ScanLabScreen(reader: services.labReader)),
             );
           },
         ),

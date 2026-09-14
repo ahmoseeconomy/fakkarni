@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../db/app_database.dart';
 import '../db/tables.dart';
+import '../files/attachment_store.dart';
 
 /// الملف الصحي (D3.5) — محلي. SyncService ما بيقراهوش.
 class RecordsRepository {
@@ -59,12 +60,22 @@ class RecordsRepository {
 
   /// المسح النهائي: كل صف اتمسح من أكتر من [retentionDays]. بيتنده عند فتح
   /// التطبيق. الحد بالتقويم (`DateTime(y, m, d - 30, …)`) مش بـDuration —
-  /// التوقيت الصيفي. بيرجّع عدد الصفوف اللي راحت.
-  Future<int> purgeDeleted({DateTime? now}) {
+  /// التوقيت الصيفي. الصورة المرفقة بتتمسح معاه (بعد الصف، عشان صف من غير
+  /// ملف أهون من ملف يتيم بيانات مريض). بيرجّع عدد الصفوف اللي راحت.
+  Future<int> purgeDeleted({DateTime? now, AttachmentStore? attachments}) async {
     final n = now ?? DateTime.now();
     final cutoff = DateTime(n.year, n.month, n.day - retentionDays, n.hour, n.minute, n.second);
-    return (_db.delete(_db.records)
+    final doomed = await (_db.select(_db.records)
           ..where((t) => t.deletedAt.isNotNull() & t.deletedAt.isSmallerThanValue(cutoff)))
+        .get();
+    if (doomed.isEmpty) return 0;
+    final count = await (_db.delete(_db.records)
+          ..where((t) => t.id.isIn([for (final r in doomed) r.id])))
         .go();
+    for (final r in doomed) {
+      final path = r.attachmentPath;
+      if (path != null) await attachments?.delete(path);
+    }
+    return count;
   }
 }

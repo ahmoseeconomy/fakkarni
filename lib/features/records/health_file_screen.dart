@@ -8,6 +8,7 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/records_repository.dart';
+import '../health/scan_lab_screen.dart';
 import 'deleted_row.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
@@ -150,6 +151,15 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                   const SizedBox(width: F.s10),
                   Expanded(child: FSecondaryButton(label: '+ ضيف', onPressed: _add)),
                 ],
+              ),
+              const SizedBox(height: F.s10),
+              FSecondaryButton(
+                label: 'صوّر تقرير تحليل',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ScanLabScreen(reader: AppScope.of(context).labReader, today: widget.today),
+                  ),
+                ),
               ),
               const SizedBox(height: F.gap),
               if (all == null)

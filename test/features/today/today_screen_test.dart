@@ -18,6 +18,10 @@ import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/features/today/widgets/now_card.dart';
+import 'package:fakkarni/data/db/tables.dart' show GlucoseContext;
+import 'package:fakkarni/data/repositories/readings_repository.dart';
+import 'package:fakkarni/features/health/glucose_screen.dart';
+import 'package:fakkarni/features/health/usual_words.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
@@ -448,6 +452,53 @@ void main() {
       expect(tester.getCenter(find.text('الآن')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
       expect(tester.getCenter(find.text('المية')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
       expectNoRedAndMinSize(tester);
+    });
+  });
+
+  group('كارت السكر على الرئيسية (D3.6)', () {
+    Future<void> seed(List<int> fasting, {required int latest}) async {
+      final repo = ReadingsRepository(db);
+      for (final (i, v) in fasting.indexed) {
+        await repo.add(patientId: services.patientId, valueMgDl: v, context: GlucoseContext.fasting, measuredAt: DateTime(2026, 8, 20 + i, 7));
+      }
+      await repo.add(patientId: services.patientId, valueMgDl: latest, context: GlucoseContext.fasting, measuredAt: DateTime(2026, 8, 31, 7, 30));
+    }
+
+    FCard glucoseCard(WidgetTester tester) => tester.widget<FCard>(find.byKey(const ValueKey('glucose-home')));
+
+    screenTest('من غير قياسات → مفيش كارت سكر', (tester) async {
+      await pumpToday(tester);
+      expect(find.byKey(const ValueKey('glucose-home')), findsNothing);
+    });
+
+    screenTest('برّه المعتاد ليه هو → في «الآن»، ذهبي، رقم وفرق، من غير أحمر ولا نصيحة، و«افتح» ثانوي', (tester) async {
+      await seed([118, 110, 131, 122, 125], latest: 152);
+      await pumpToday(tester);
+
+      expect(glucoseCard(tester).tone, FCardTone.attention);
+      expect(find.text('الآن'), findsOneWidget, reason: 'حتى من غير جرعات');
+      expect(find.text('أعلى من أعلى قياس معتاد ليك (١٣١) بـ ٢١'), findsOneWidget);
+      expect(tester.getCenter(find.byKey(const ValueKey('glucose-home'))).dy,
+          lessThan(tester.getCenter(find.text('المية')).dy));
+      expect(find.byType(FilledButton), findsNothing, reason: '«افتح» مش أساسي');
+      for (final t in tester.widgetList<Text>(find.byType(Text))) {
+        for (final w in adviceWords.where((w) => !RegExp(r'^[a-z]+$').hasMatch(w))) {
+          expect((t.data ?? '').contains(w), isFalse, reason: '«$w» في ${t.data}');
+        }
+      }
+      expectNoRed(tester);
+
+      await tester.tap(find.descendant(of: find.byKey(const ValueKey('glucose-home')), matching: find.text('افتح')));
+      await settle(tester);
+      expect(find.byType(GlucoseScreen), findsOneWidget);
+    });
+
+    screenTest('جوّه المعتاد أو لسه مش كفاية → كارت هادي مش ذهبي، ومش في «الآن»', (tester) async {
+      await seed([118, 110], latest: 152);
+      await pumpToday(tester);
+      expect(glucoseCard(tester).tone, FCardTone.plain);
+      expect(find.text(notEnoughForUsual), findsOneWidget);
+      expect(find.text('الآن'), findsNothing);
     });
   });
 
