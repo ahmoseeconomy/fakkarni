@@ -247,10 +247,26 @@ void main() {
       expect(find.textContaining('أكّدها بعدين'), findsNothing);
     });
 
-    screenTest('no_token → «حاول يبلّغك … ما وصلش»، مش «بلّغك»', (tester) async {
+    screenTest('no_token → تنبيه داخل التطبيق، القناة محتاجة تفعيل — مش فشل ومش «بلّغك»',
+        (tester) async {
       remote.next = snapshot(
         [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
         alerts: [alert(deliveryStatus: 'no_token')],
+      );
+      await pumpScreen(tester);
+
+      expect(find.text('تنبيه داخل التطبيق — إشعار الجهاز محتاج تفعيل'),
+          findsOneWidget);
+      expect(find.textContaining('السيرفر بلّغك'), findsNothing);
+      expect(find.textContaining('ما وصلش'), findsNothing,
+          reason: 'السيرفر قرّر وسجّل — ده مش فشل');
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('failed → فشل حقيقي، بيتقال كده', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
+        alerts: [alert(deliveryStatus: 'failed')],
       );
       await pumpScreen(tester);
 

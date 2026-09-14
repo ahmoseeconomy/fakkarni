@@ -349,10 +349,14 @@ class _AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final attention = !alert.takenLater;
-    // «بلّغك» بس لما FCM قبل الرسالة فعلاً — غير كده الجملة تبقى كذب
-    final line = alert.delivered
-        ? 'السيرفر بلّغك ${when(alert.sentAt!)}'
-        : 'السيرفر حاول يبلّغك ${when(alert.createdAt)} — الإشعار ما وصلش';
+    // «بلّغك» بس لما FCM قبل الرسالة فعلاً. no_token مش فشل: السيرفر قرّر
+    // وسجّل، والبطاقة دي هي التبليغ — قناة الجهاز بس لسه ما اتفعّلتش.
+    // failed فشل حقيقي وبيتقال كده.
+    final line = switch (alert.deliveryStatus) {
+      'sent' when alert.sentAt != null => 'السيرفر بلّغك ${when(alert.sentAt!)}',
+      'no_token' => 'تنبيه داخل التطبيق — إشعار الجهاز محتاج تفعيل',
+      _ => 'السيرفر حاول يبلّغك ${when(alert.createdAt)} — الإشعار ما وصلش',
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: F.gap),
