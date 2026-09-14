@@ -156,7 +156,7 @@ lib/
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «فهمت الروشتة كده»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
-test/                         320 passing
+test/                         334 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -598,6 +598,37 @@ the alert opens «يومك»; Critical Alerts entitlement; the +90
 «الدائرة كلها» rung. The cloud half is done and running: `0006`–`0009`
 are applied to the live project and the scan ticks every five minutes.
 
+**The server's decision is visible on the son's screen** (round 4.2c).
+`CaregiverRemote.snapshot()` also reads `escalations` of the last 48
+hours (`alertWindow`), and each one is a card at the top of
+`CaregiverScreen`: «⚠ والدك ما أكّدش جرعة {med} الساعة {time}» plus one
+line per `delivery_status`. Three decisions live there:
+- **`no_token` is not a failure and is not worded as one.** The server
+  decided and recorded, and the card the son is reading *is* the alert;
+  only the device channel is not activated yet. So it says «تنبيه داخل
+  التطبيق — إشعار الجهاز محتاج تفعيل», `sent` says «السيرفر بلّغك {sent_at}»
+  and only `failed` says «الإشعار ما وصلش» — that one really did fail. A
+  row still `claimed` is hidden: the send is in flight, and `0009` will
+  settle or retry it within five minutes.
+- **A dose taken later keeps its card** and adds «أكّدها بعدين ✓» — the
+  alert happened; the outcome is the update, not a deletion (rule 5).
+  `skipped` gets no ✓; he did not take it. Open cards are gold and always
+  render above resolved ones even when the resolved alert is newer;
+  resolved cards drop to ivory with a muted header — same sizes, because
+  the header is body text at the 20px floor and fading it below the
+  assumed contrast would be the same violation by another route.
+- **Filtered to `caregiver_id = me` for wording, not access.** RLS lets a
+  brother read alerts sent to his siblings (decided in 4.2b part 2), and
+  «بلّغك» must not point at the wrong person. RLS is still the only
+  scoping of what the circle may see.
+No empty-state card, no sound, no animation; refresh is the existing
+open/foreground/pull path. `alertFromRow` is pure so the nested embed
+(`dose_events → dose_schedules → medications`) is unit-tested without
+Supabase — but the `!inner` embed filter on `patient_uuid` has **never
+run against the live project**; if a card fails to appear on a device it
+is the first suspect, and dropping that `.eq` is safe for a son with one
+linked father.
+
 **The son's side never resolves anchors** (round 3.5). Resolving needs
 the father's routine plus the engine — a second scheduler that can silently
 disagree with the real one. The father's device is the only scheduler; the
@@ -937,6 +968,20 @@ device-verified)**
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
 
+**Round 4.2c — escalation alerts on the caregiver screen (built, NOT
+device-verified)**
+- `CaregiverAlert` + `CaregiverSnapshot.alerts`; `SupabaseCaregiverRemote`
+  reads `escalations` (48h, mine, `sent|no_token|failed`, newest first)
+  with the dose and medication embedded; `_AlertCard` above the week
+  strip — gold while open, ivory + «أكّدها بعدين ✓» once taken, open
+  always above resolved. Wording per status as described in Phase 4.
+- 13 tests: six screen cases with a fake remote (one alert, resolved,
+  skipped, `no_token`, `failed`, none → nothing), ordering open-above-
+  resolved, and the pure `alertFromRow` parse.
+- Unverified: the nested-embed `.eq` filter on the live project, and what
+  a real `sent` row looks like there — every live row is still `no_token`
+  until «Next» 4 lands, so the demo shows the in-app wording.
+
 **Round 4.2b part 2 — the Dart side: registering the son's token (built,
 NOT device-verified)**
 - `lib/data/push/`: three interfaces, `PushTokenService` holding every
@@ -1074,8 +1119,12 @@ device-verified)**
    and confirm a `device_tokens` row appears — then invoke `escalate` by
    hand and confirm `sent` instead of `no_token`. Everything upstream of
    the token is proven on the live project; this is the only unverified
-   link in the chain
-5. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
+   link in the chain — and the first time the caregiver screen's
+   `sent` line («السيرفر بلّغك …») renders from a real row
+5. Open the caregiver screen against the live project with at least one
+   `escalations` row present and confirm the card appears — that is the
+   first run of the nested-embed filter in `SupabaseCaregiverRemote`
+6. Round 4.3: the son's alert screen (mockup 27); Critical Alerts request
 
 ---
 
