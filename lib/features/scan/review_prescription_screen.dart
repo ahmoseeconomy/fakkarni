@@ -7,6 +7,8 @@ import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../data/db/tables.dart';
+import '../../data/repositories/records_repository.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -135,6 +137,26 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       }
     }
     await services.scheduler.rescheduleAll();
+
+    // الملف الصحي (D3.5): الروشتة اللي اتأكدت بتتسجّل — بالتاريخ والأدوية.
+    // بعد الأدوية والجدولة (دول الوعد)؛ لو السطر ده فشل التأكيد ما بيتلغيش.
+    // الدكتور بس لو القراءة واثقة منه — مفيش تخمين في ملف حد.
+    final names = [for (final i in _remaining) widget.reading.lines[i].name.value!];
+    if (names.isNotEmpty) {
+      try {
+        final doctor = widget.reading.doctor;
+        await RecordsRepository(services.db).add(
+          patientId: services.patientId,
+          kind: RecordKind.prescription,
+          title: prescriptionRecordTitle(names.length),
+          happenedAt: DateTime(_today.year, _today.month, _today.day),
+          doctor: doctor.needsReview ? null : doctor.value,
+          notes: names.join(' · '),
+        );
+      } catch (error, stack) {
+        debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');
+      }
+    }
 
     if (mounted) navigator.pop(ReviewResult.confirmed);
   }
@@ -614,3 +636,10 @@ class _EmptyReading extends StatelessWidget {
         ),
       );
 }
+
+/// «روشتة — دوا واحد» / «روشتة — دواءين» / «روشتة — ٣ أدوية».
+String prescriptionRecordTitle(int count) => switch (count) {
+      1 => 'روشتة — دوا واحد',
+      2 => 'روشتة — دواءين',
+      _ => 'روشتة — ${arabicNumber(count)} أدوية',
+    };

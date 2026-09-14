@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/data/db/tables.dart';
+import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
@@ -19,8 +21,9 @@ void main() {
 
   Future<Future<ReviewResult?> Function()> pumpReview(
     WidgetTester tester,
-    List<ReadLine> lines,
-  ) async {
+    List<ReadLine> lines, {
+    ReadField<String> doctor = const ReadField.missing(),
+  }) async {
     ReviewResult? result;
     final screen = Builder(
       builder: (context) => Scaffold(
@@ -31,7 +34,7 @@ void main() {
                 MaterialPageRoute(
                   builder: (_) => ReviewPrescriptionScreen(
                     reading: PrescriptionReading(
-                      doctor: const ReadField.missing(),
+                      doctor: doctor,
                       lines: lines,
                     ),
                     routine: normalDay,
@@ -211,6 +214,57 @@ void main() {
     );
     expect(confirm.onPressed, isNotNull);
     expect((await h.meds.activeSchedules(h.services.patientId)).single.medicationName, 'Cataflam');
+  });
+
+  group('الملف الصحي (D3.5)', () {
+    Future<List<dynamic>> records() => RecordsRepository(h.db).all(h.services.patientId);
+
+    screenTest('«تمام، ظبّطهم» بيكتب صف روشتة واحد بالتاريخ والأدوية — والدكتور الواثق منه بس', (tester) async {
+      final second = ReadLine(
+        name: ok('Antodine 40 mg'),
+        amount: ok('قرص واحد'),
+        timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+        duration: const ReadField(value: null, confidence: 1),
+      );
+      await pumpReview(tester, [clearLine, second], doctor: ok('د. هشام مام'));
+      await open(tester);
+      await tester.tap(find.text('تمام، ظبّطهم'));
+      await settle(tester);
+
+      final rows = await RecordsRepository(h.db).all(h.services.patientId);
+      expect(rows, hasLength(1));
+      final r = rows.single;
+      expect(r.kind, RecordKind.prescription);
+      expect(r.title, 'روشتة — دواءين');
+      expect(r.notes, 'Concor 5mg · Antodine 40 mg');
+      expect(r.doctor, 'د. هشام مام');
+      expect(r.happenedAt, DateTime(2026, 8, 31));
+    });
+
+    screenTest('دكتور القراءة مش واضح → العمود فاضي، مش تخمين', (tester) async {
+      await pumpReview(tester, [clearLine], doctor: low('د. هشـ؟', 'الخط مش واضح'));
+      await open(tester);
+      await tester.tap(find.text('تمام، ظبّطهم'));
+      await settle(tester);
+
+      final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
+      expect(r.doctor, isNull);
+      expect(r.title, 'روشتة — دوا واحد');
+    });
+
+    screenTest('«صوّر تاني» ما بيكتبش أي سجل', (tester) async {
+      await pumpReview(tester, [clearLine]);
+      await open(tester);
+      await tester.tap(find.text('صوّر تاني'));
+      await settle(tester);
+      expect(await records(), isEmpty);
+    });
+
+    test('عنوان الروشتة بالعدد', () {
+      expect(prescriptionRecordTitle(1), 'روشتة — دوا واحد');
+      expect(prescriptionRecordTitle(2), 'روشتة — دواءين');
+      expect(prescriptionRecordTitle(4), 'روشتة — ٤ أدوية');
+    });
   });
 
   screenTest('«صوّر تاني» موجودة وبترجّع retake', (tester) async {

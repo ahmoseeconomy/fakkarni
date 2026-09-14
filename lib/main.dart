@@ -62,6 +62,9 @@ Future<void> main() async {
     push: push,
   );
 
+  // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.
+  await launchHousekeeping(services);
+
   // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
   final actions = actionHandlerFor(services);
   NotificationService.onAction =

@@ -5072,6 +5072,778 @@ class EmergencyProfileCompanion extends UpdateCompanion<EmergencyProfileRow> {
   }
 }
 
+class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES patients (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<RecordKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<RecordKind>($RecordsTable.$converterkind);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 200,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _happenedAtMeta = const VerificationMeta(
+    'happenedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> happenedAt = GeneratedColumn<DateTime>(
+    'happened_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _doctorMeta = const VerificationMeta('doctor');
+  @override
+  late final GeneratedColumn<String> doctor = GeneratedColumn<String>(
+    'doctor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _placeMeta = const VerificationMeta('place');
+  @override
+  late final GeneratedColumn<String> place = GeneratedColumn<String>(
+    'place',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attachmentPathMeta = const VerificationMeta(
+    'attachmentPath',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentPath = GeneratedColumn<String>(
+    'attachment_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    kind,
+    title,
+    happenedAt,
+    doctor,
+    place,
+    notes,
+    attachmentPath,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecordRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patientIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('happened_at')) {
+      context.handle(
+        _happenedAtMeta,
+        happenedAt.isAcceptableOrUnknown(data['happened_at']!, _happenedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_happenedAtMeta);
+    }
+    if (data.containsKey('doctor')) {
+      context.handle(
+        _doctorMeta,
+        doctor.isAcceptableOrUnknown(data['doctor']!, _doctorMeta),
+      );
+    }
+    if (data.containsKey('place')) {
+      context.handle(
+        _placeMeta,
+        place.isAcceptableOrUnknown(data['place']!, _placeMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('attachment_path')) {
+      context.handle(
+        _attachmentPathMeta,
+        attachmentPath.isAcceptableOrUnknown(
+          data['attachment_path']!,
+          _attachmentPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecordRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecordRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      kind: $RecordsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      happenedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}happened_at'],
+      )!,
+      doctor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}doctor'],
+      ),
+      place: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}place'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      attachmentPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_path'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $RecordsTable createAlias(String alias) {
+    return $RecordsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<RecordKind, String, String> $converterkind =
+      const EnumNameConverter<RecordKind>(RecordKind.values);
+}
+
+class RecordRow extends DataClass implements Insertable<RecordRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int patientId;
+  final RecordKind kind;
+  final String title;
+  final DateTime happenedAt;
+  final String? doctor;
+
+  /// المركز، المعمل، أو العيادة — تلات استمارات من خمسة محتاجاه.
+  final String? place;
+  final String? notes;
+
+  /// محجوز للمرفقات (D3.6) — مفيش واجهة بتكتبه لسه.
+  final String? attachmentPath;
+  final DateTime? deletedAt;
+  const RecordRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.patientId,
+    required this.kind,
+    required this.title,
+    required this.happenedAt,
+    this.doctor,
+    this.place,
+    this.notes,
+    this.attachmentPath,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['patient_id'] = Variable<int>(patientId);
+    {
+      map['kind'] = Variable<String>($RecordsTable.$converterkind.toSql(kind));
+    }
+    map['title'] = Variable<String>(title);
+    map['happened_at'] = Variable<DateTime>(happenedAt);
+    if (!nullToAbsent || doctor != null) {
+      map['doctor'] = Variable<String>(doctor);
+    }
+    if (!nullToAbsent || place != null) {
+      map['place'] = Variable<String>(place);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || attachmentPath != null) {
+      map['attachment_path'] = Variable<String>(attachmentPath);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  RecordsCompanion toCompanion(bool nullToAbsent) {
+    return RecordsCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      patientId: Value(patientId),
+      kind: Value(kind),
+      title: Value(title),
+      happenedAt: Value(happenedAt),
+      doctor: doctor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doctor),
+      place: place == null && nullToAbsent
+          ? const Value.absent()
+          : Value(place),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      attachmentPath: attachmentPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentPath),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory RecordRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecordRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      patientId: serializer.fromJson<int>(json['patientId']),
+      kind: $RecordsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      title: serializer.fromJson<String>(json['title']),
+      happenedAt: serializer.fromJson<DateTime>(json['happenedAt']),
+      doctor: serializer.fromJson<String?>(json['doctor']),
+      place: serializer.fromJson<String?>(json['place']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      attachmentPath: serializer.fromJson<String?>(json['attachmentPath']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'patientId': serializer.toJson<int>(patientId),
+      'kind': serializer.toJson<String>(
+        $RecordsTable.$converterkind.toJson(kind),
+      ),
+      'title': serializer.toJson<String>(title),
+      'happenedAt': serializer.toJson<DateTime>(happenedAt),
+      'doctor': serializer.toJson<String?>(doctor),
+      'place': serializer.toJson<String?>(place),
+      'notes': serializer.toJson<String?>(notes),
+      'attachmentPath': serializer.toJson<String?>(attachmentPath),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  RecordRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? patientId,
+    RecordKind? kind,
+    String? title,
+    DateTime? happenedAt,
+    Value<String?> doctor = const Value.absent(),
+    Value<String?> place = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<String?> attachmentPath = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => RecordRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    patientId: patientId ?? this.patientId,
+    kind: kind ?? this.kind,
+    title: title ?? this.title,
+    happenedAt: happenedAt ?? this.happenedAt,
+    doctor: doctor.present ? doctor.value : this.doctor,
+    place: place.present ? place.value : this.place,
+    notes: notes.present ? notes.value : this.notes,
+    attachmentPath: attachmentPath.present
+        ? attachmentPath.value
+        : this.attachmentPath,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  RecordRow copyWithCompanion(RecordsCompanion data) {
+    return RecordRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      title: data.title.present ? data.title.value : this.title,
+      happenedAt: data.happenedAt.present
+          ? data.happenedAt.value
+          : this.happenedAt,
+      doctor: data.doctor.present ? data.doctor.value : this.doctor,
+      place: data.place.present ? data.place.value : this.place,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      attachmentPath: data.attachmentPath.present
+          ? data.attachmentPath.value
+          : this.attachmentPath,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('happenedAt: $happenedAt, ')
+          ..write('doctor: $doctor, ')
+          ..write('place: $place, ')
+          ..write('notes: $notes, ')
+          ..write('attachmentPath: $attachmentPath, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    kind,
+    title,
+    happenedAt,
+    doctor,
+    place,
+    notes,
+    attachmentPath,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecordRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.patientId == this.patientId &&
+          other.kind == this.kind &&
+          other.title == this.title &&
+          other.happenedAt == this.happenedAt &&
+          other.doctor == this.doctor &&
+          other.place == this.place &&
+          other.notes == this.notes &&
+          other.attachmentPath == this.attachmentPath &&
+          other.deletedAt == this.deletedAt);
+}
+
+class RecordsCompanion extends UpdateCompanion<RecordRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> patientId;
+  final Value<RecordKind> kind;
+  final Value<String> title;
+  final Value<DateTime> happenedAt;
+  final Value<String?> doctor;
+  final Value<String?> place;
+  final Value<String?> notes;
+  final Value<String?> attachmentPath;
+  final Value<DateTime?> deletedAt;
+  const RecordsCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.patientId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.title = const Value.absent(),
+    this.happenedAt = const Value.absent(),
+    this.doctor = const Value.absent(),
+    this.place = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.attachmentPath = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  RecordsCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int patientId,
+    required RecordKind kind,
+    required String title,
+    required DateTime happenedAt,
+    this.doctor = const Value.absent(),
+    this.place = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.attachmentPath = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  }) : patientId = Value(patientId),
+       kind = Value(kind),
+       title = Value(title),
+       happenedAt = Value(happenedAt);
+  static Insertable<RecordRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? patientId,
+    Expression<String>? kind,
+    Expression<String>? title,
+    Expression<DateTime>? happenedAt,
+    Expression<String>? doctor,
+    Expression<String>? place,
+    Expression<String>? notes,
+    Expression<String>? attachmentPath,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (patientId != null) 'patient_id': patientId,
+      if (kind != null) 'kind': kind,
+      if (title != null) 'title': title,
+      if (happenedAt != null) 'happened_at': happenedAt,
+      if (doctor != null) 'doctor': doctor,
+      if (place != null) 'place': place,
+      if (notes != null) 'notes': notes,
+      if (attachmentPath != null) 'attachment_path': attachmentPath,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  RecordsCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? patientId,
+    Value<RecordKind>? kind,
+    Value<String>? title,
+    Value<DateTime>? happenedAt,
+    Value<String?>? doctor,
+    Value<String?>? place,
+    Value<String?>? notes,
+    Value<String?>? attachmentPath,
+    Value<DateTime?>? deletedAt,
+  }) {
+    return RecordsCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      kind: kind ?? this.kind,
+      title: title ?? this.title,
+      happenedAt: happenedAt ?? this.happenedAt,
+      doctor: doctor ?? this.doctor,
+      place: place ?? this.place,
+      notes: notes ?? this.notes,
+      attachmentPath: attachmentPath ?? this.attachmentPath,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $RecordsTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (happenedAt.present) {
+      map['happened_at'] = Variable<DateTime>(happenedAt.value);
+    }
+    if (doctor.present) {
+      map['doctor'] = Variable<String>(doctor.value);
+    }
+    if (place.present) {
+      map['place'] = Variable<String>(place.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (attachmentPath.present) {
+      map['attachment_path'] = Variable<String>(attachmentPath.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordsCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('happenedAt: $happenedAt, ')
+          ..write('doctor: $doctor, ')
+          ..write('place: $place, ')
+          ..write('notes: $notes, ')
+          ..write('attachmentPath: $attachmentPath, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5087,6 +5859,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $EmergencyProfileTable emergencyProfile = $EmergencyProfileTable(
     this,
   );
+  late final $RecordsTable records = $RecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5101,6 +5874,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     routineBackups,
     devicePreferences,
     emergencyProfile,
+    records,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5152,6 +5926,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('emergency_profile', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'patients',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('records', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -5252,6 +6033,25 @@ final class $$PatientsTableReferences
     final cache = $_typedResult.readTableOrNull(
       _emergencyProfileRefsTable($_db),
     );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecordsTable, List<RecordRow>> _recordsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.records,
+    aliasName: 'patients__id__records__patient_id',
+  );
+
+  $$RecordsTableProcessedTableManager get recordsRefs {
+    final manager = $$RecordsTableTableManager(
+      $_db,
+      $_db.records,
+    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_recordsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -5404,6 +6204,31 @@ class $$PatientsTableFilterComposer
           }) => $$EmergencyProfileTableFilterComposer(
             $db: $db,
             $table: $db.emergencyProfile,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recordsRefs(
+    Expression<bool> Function($$RecordsTableFilterComposer f) f,
+  ) {
+    final $$RecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.records,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5610,6 +6435,31 @@ class $$PatientsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> recordsRefs<T extends Object>(
+    Expression<T> Function($$RecordsTableAnnotationComposer a) f,
+  ) {
+    final $$RecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.records,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PatientsTableTableManager
@@ -5630,6 +6480,7 @@ class $$PatientsTableTableManager
             bool medicationsRefs,
             bool routineBackupsRefs,
             bool emergencyProfileRefs,
+            bool recordsRefs,
           })
         > {
   $$PatientsTableTableManager(_$AppDatabase db, $PatientsTable table)
@@ -5701,6 +6552,7 @@ class $$PatientsTableTableManager
                 medicationsRefs = false,
                 routineBackupsRefs = false,
                 emergencyProfileRefs = false,
+                recordsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -5709,6 +6561,7 @@ class $$PatientsTableTableManager
                     if (medicationsRefs) db.medications,
                     if (routineBackupsRefs) db.routineBackups,
                     if (emergencyProfileRefs) db.emergencyProfile,
+                    if (recordsRefs) db.records,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -5797,6 +6650,27 @@ class $$PatientsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (recordsRefs)
+                        await $_getPrefetchedData<
+                          PatientRow,
+                          $PatientsTable,
+                          RecordRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PatientsTableReferences
+                              ._recordsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PatientsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recordsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.patientId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5822,6 +6696,7 @@ typedef $$PatientsTableProcessedTableManager =
         bool medicationsRefs,
         bool routineBackupsRefs,
         bool emergencyProfileRefs,
+        bool recordsRefs,
       })
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
@@ -9118,6 +9993,474 @@ typedef $$EmergencyProfileTableProcessedTableManager =
       EmergencyProfileRow,
       PrefetchHooks Function({bool patientId})
     >;
+typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  required int patientId,
+  required RecordKind kind,
+  required String title,
+  required DateTime happenedAt,
+  Value<String?> doctor,
+  Value<String?> place,
+  Value<String?> notes,
+  Value<String?> attachmentPath,
+  Value<DateTime?> deletedAt,
+});
+typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  Value<int> patientId,
+  Value<RecordKind> kind,
+  Value<String> title,
+  Value<DateTime> happenedAt,
+  Value<String?> doctor,
+  Value<String?> place,
+  Value<String?> notes,
+  Value<String?> attachmentPath,
+  Value<DateTime?> deletedAt,
+});
+
+final class $$RecordsTableReferences
+    extends BaseReferences<_$AppDatabase, $RecordsTable, RecordRow> {
+  $$RecordsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
+      db.patients.createAlias('records__patient_id__patients__id');
+
+  $$PatientsTableProcessedTableManager get patientId {
+    final $_column = $_itemColumn<int>('patient_id')!;
+
+    final manager = $$PatientsTableTableManager(
+      $_db,
+      $_db.patients,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$RecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<RecordKind, RecordKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get happenedAt => $composableBuilder(
+    column: $table.happenedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get doctor => $composableBuilder(
+    column: $table.doctor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get place => $composableBuilder(
+    column: $table.place,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PatientsTableFilterComposer get patientId {
+    final $$PatientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableFilterComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get happenedAt => $composableBuilder(
+    column: $table.happenedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get doctor => $composableBuilder(
+    column: $table.doctor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get place => $composableBuilder(
+    column: $table.place,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PatientsTableOrderingComposer get patientId {
+    final $$PatientsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableOrderingComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<RecordKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get happenedAt => $composableBuilder(
+    column: $table.happenedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get doctor =>
+      $composableBuilder(column: $table.doctor, builder: (column) => column);
+
+  GeneratedColumn<String> get place =>
+      $composableBuilder(column: $table.place, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get attachmentPath => $composableBuilder(
+    column: $table.attachmentPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$PatientsTableAnnotationComposer get patientId {
+    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecordsTable,
+          RecordRow,
+          $$RecordsTableFilterComposer,
+          $$RecordsTableOrderingComposer,
+          $$RecordsTableAnnotationComposer,
+          $$RecordsTableCreateCompanionBuilder,
+          $$RecordsTableUpdateCompanionBuilder,
+          (RecordRow, $$RecordsTableReferences),
+          RecordRow,
+          PrefetchHooks Function({bool patientId})
+        > {
+  $$RecordsTableTableManager(_$AppDatabase db, $RecordsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> patientId = const Value.absent(),
+                Value<RecordKind> kind = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<DateTime> happenedAt = const Value.absent(),
+                Value<String?> doctor = const Value.absent(),
+                Value<String?> place = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> attachmentPath = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => RecordsCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                kind: kind,
+                title: title,
+                happenedAt: happenedAt,
+                doctor: doctor,
+                place: place,
+                notes: notes,
+                attachmentPath: attachmentPath,
+                deletedAt: deletedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int patientId,
+                required RecordKind kind,
+                required String title,
+                required DateTime happenedAt,
+                Value<String?> doctor = const Value.absent(),
+                Value<String?> place = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> attachmentPath = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => RecordsCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                kind: kind,
+                title: title,
+                happenedAt: happenedAt,
+                doctor: doctor,
+                place: place,
+                notes: notes,
+                attachmentPath: attachmentPath,
+                deletedAt: deletedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$RecordsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({patientId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (patientId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.patientId,
+                        referencedTable: $$RecordsTableReferences
+                            ._patientIdTable(db),
+                        referencedColumn: $$RecordsTableReferences
+                            ._patientIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$RecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecordsTable,
+      RecordRow,
+      $$RecordsTableFilterComposer,
+      $$RecordsTableOrderingComposer,
+      $$RecordsTableAnnotationComposer,
+      $$RecordsTableCreateCompanionBuilder,
+      $$RecordsTableUpdateCompanionBuilder,
+      (RecordRow, $$RecordsTableReferences),
+      RecordRow,
+      PrefetchHooks Function({bool patientId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9140,4 +10483,6 @@ class $AppDatabaseManager {
       $$DevicePreferencesTableTableManager(_db, _db.devicePreferences);
   $$EmergencyProfileTableTableManager get emergencyProfile =>
       $$EmergencyProfileTableTableManager(_db, _db.emergencyProfile);
+  $$RecordsTableTableManager get records =>
+      $$RecordsTableTableManager(_db, _db.records);
 }

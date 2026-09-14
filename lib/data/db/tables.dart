@@ -162,6 +162,35 @@ class EmergencyProfile extends Table with SyncIdentity {
   String get tableName => 'emergency_profile';
 }
 
+/// نوع السجل في الملف الصحي (D3.5).
+enum RecordKind { imaging, visit, lab, prescription, booking }
+
+/// الملف الصحي (D3.5، المخطط ٢٨ و١٣ و٢٩) — أشعة، زيارات، تحاليل، روشتات، حجوزات.
+///
+/// محلي بس، بأعمدة SyncIdentity من الأول (PHASE_D3) — SyncService ما بيقراهوش.
+///
+/// **الحذف ناعم**: `deletedAt` بيتحط والصف بيفضل باين مشطوب لحد ما يعدّي
+/// ٣٠ يوم، وبعدها تنظيف فتح التطبيق بيمسحه نهائي. الوعد ده مكتوب
+/// للمستخدم، فالتنظيف مش اختياري.
+@DataClassName('RecordRow')
+class Records extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
+  TextColumn get kind => textEnum<RecordKind>()();
+  TextColumn get title => text().withLength(min: 1, max: 200)();
+  DateTimeColumn get happenedAt => dateTime()();
+  TextColumn get doctor => text().nullable()();
+
+  /// المركز، المعمل، أو العيادة — تلات استمارات من خمسة محتاجاه.
+  TextColumn get place => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  /// محجوز للمرفقات (D3.6) — مفيش واجهة بتكتبه لسه.
+  TextColumn get attachmentPath => text().nullable()();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();

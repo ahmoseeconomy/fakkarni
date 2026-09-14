@@ -62,3 +62,13 @@ String arabicCountdown(Duration remaining) {
 
   return late ? 'فات معاده بـ$amount' : 'كمان $amount';
 }
+
+/// أسماء الشهور زي ما بتتقال في مصر.
+const List<String> arabicMonths = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+];
+
+/// «٢٨ أغسطس ٢٠٢٦».
+String arabicDate(DateTime date) =>
+    '${arabicNumber(date.day)} ${arabicMonths[date.month - 1]} ${arabicNumber(date.year)}';

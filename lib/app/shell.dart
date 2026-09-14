@@ -11,6 +11,7 @@ import '../features/emergency/emergency_card_screen.dart';
 import '../features/link/sign_in_screen.dart';
 import '../features/medication/add_medication_screen.dart';
 import '../features/medication/medications_screen.dart';
+import '../features/records/manual_entry_screen.dart';
 import '../features/scan/scan_prescription_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/today/today_screen.dart';
@@ -82,6 +83,16 @@ class _AppShellState extends State<AppShell> {
               MaterialPageRoute<void>(
                 builder: (_) => AddMedicationScreen(routine: widget.routine),
               ),
+            );
+          },
+        ),
+        // الملف الصحي (D3.5) — مش دوا، فمش بيتجدول
+        FSecondaryButton(
+          label: 'سجّل زيارة أو تحليل أو أشعة',
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ManualEntryScreen()),
             );
           },
         ),

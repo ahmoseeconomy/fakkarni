@@ -11,6 +11,7 @@ import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
+import '../records/health_file_screen.dart';
 import '../../data/repositories/preferences_repository.dart';
 
 /// «الإعدادات» (المخطط 33) — بس الصفوف اللي وراها حاجة حقيقية.
@@ -122,6 +123,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const NotificationsScreen()),
             ),
             _ElderModeRow(settings: services.preferences),
+            _Row(
+              icon: Icons.folder_outlined,
+              label: 'الملف الصحي',
+              hint: 'الزيارات والتحاليل والأشعة والروشتات',
+              onTap: () => _open(const HealthFileScreen()),
+            ),
             _Row(
               icon: Icons.medical_information_outlined,
               label: 'معلومات الطوارئ',

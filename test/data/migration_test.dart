@@ -87,7 +87,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 10);
+    expect(version.read<int>('user_version'), 11);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -127,6 +127,9 @@ void main() {
 
     // v10: جدول الطوارئ موجود وفاضي — ولا فصيلة دم ولا حساسية اتخمّنت
     expect(await db.select(db.emergencyProfile).get(), isEmpty);
+
+    // v11: الملف الصحي موجود وفاضي
+    expect(await db.select(db.records).get(), isEmpty);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

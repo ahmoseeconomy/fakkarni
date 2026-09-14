@@ -134,7 +134,7 @@ lib/
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
                               (v10, local: SyncIdentity columns but never
-                              pushed),
+                              pushed), records (v11, local, soft delete),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -975,6 +975,14 @@ Consequences to handle:
   works «من غير فك الموبايل»; a test asserts that.
 - **Mockup 19's «ملاحظة للمسعف» field and mockup 32's «مشاركة سريعة» are
   not built** — not in the plan, and sharing needs `share_plus`.
+- **Records attachments are not built.** `records.attachment_path` exists
+  and nothing writes it yet; files (and deleting them in the 30-day purge)
+  arrive with report photos in D3.6. Mockup 13's «استخراج الملف» waits for
+  D3.8, and its «نشطة/منتهية» chips and 29's «إيقاف دوا» entries come from
+  `medications`, not records, so they are not on these screens.
+- **A manual «روشتة» or «حجز» record schedules nothing.** Both forms say so
+  in words; medicines are added through «ضيف», and bookings have no
+  notification band.
 - **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
   hours silence everything **except** a missed dose and emergency — and
   those are the only alerts we have, so the switch would do nothing. A
@@ -1200,6 +1208,36 @@ device-verified)**
   `LSApplicationQueriesSchemes`. Contact calls go straight to the OS: iOS
   asks "Call …?" itself, Android opens the dialer without calling. Not yet
   tried on hardware — the simulator cannot place a call.
+
+**D3.5 — records (built)**
+- Schema v11 `records` (local, SyncIdentity columns + trigger, not synced —
+  `test/data/sync/records_not_synced_test.dart`): kind (imaging | visit |
+  lab | prescription | booking), title, happened_at, doctor, **place** (added
+  beyond PHASE_D3's list: the imaging centre, lab and clinic fields of
+  mockup 28 had no column), notes, attachment_path, deleted_at. Written red
+  first; frozen SQL above the `from < 6` block.
+- **Soft delete is a promise, and the promise runs.** `deletedAt` is set,
+  the row stays in place on «الملف الصحي» and «الحالات السابقة» — struck
+  through at 45%, with «اتمسح», «هيتمسح نهائي بعد ٣٠ يوم — تقدر ترجّعه لحد
+  كده» and «↺ رجّعه» at full contrast. There is no trash screen and the
+  text never mentions one (the brief's «يُنقل إلى المحذوفات» was MSA and
+  untrue). `launchHousekeeping` in `main.dart` calls
+  `RecordsRepository.purgeDeleted` on every launch: rows deleted more than
+  `retentionDays` (30, the number the text is built from) ago are removed
+  for good; 31 days goes, 29 stays, both under test.
+- «إدخال يدوي» (28): five forms, same primitives, own labels per kind;
+  date chips («النهارده»/«امبارح», «بكرة» for a booking) + a date picker.
+  «الملف الصحي» (13): search across title, doctor, place, notes and the
+  written date in Arabic or Western digits; «⋯ خيارات» (a word, not a bare
+  icon) → «امسحه» → confirm. «الحالات السابقة» (29): timeline newest first,
+  kind and period filters (period uses calendar arithmetic). Every empty
+  state says «لسه مفيش حاجة هنا» and how to add. Entry: settings «الملف
+  الصحي», and a third option in the «ضيف» sheet.
+- **The review screen fills the file from real use.** «تمام، ظبّطهم» writes
+  one `prescription` record (date, medicine names; the doctor only if the
+  reading is confident — otherwise null). It runs after the medicines and
+  `rescheduleAll`, wrapped and logged: a failed record never undoes a
+  confirmation. «صوّر تاني» writes nothing.
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

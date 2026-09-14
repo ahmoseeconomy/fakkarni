@@ -20,6 +20,7 @@ import '../data/repositories/medication_repository.dart';
 import '../data/repositories/routine_repository.dart';
 import '../data/services/notification_actions.dart';
 import '../data/repositories/preferences_repository.dart';
+import '../data/repositories/records_repository.dart';
 import '../data/services/reminder_scheduler.dart';
 import 'app_scope.dart';
 
@@ -63,6 +64,20 @@ Future<AppServices> buildServices(
     sync: sync,
     push: push,
   );
+}
+
+/// شغل البيت عند فتح التطبيق — مش في صحوة الخلفية.
+///
+/// الملف الصحي بيقول للمستخدم «هيتمسح نهائي بعد ٣٠ يوم»؛ السطر ده هو اللي
+/// بيخلّي الجملة دي حقيقية. فشله ما بيوقفش الفتح — الصفوف بتتمسح الفتحة
+/// الجاية.
+Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {
+  try {
+    final purged = await RecordsRepository(services.db).purgeDeleted(now: now);
+    if (purged > 0) debugPrint('الملف الصحي: اتمسح نهائي $purged صف عدّى عليهم ٣٠ يوم');
+  } catch (error, stack) {
+    debugPrint('تنظيف الملف الصحي ما اشتغلش: $error\n$stack');
+  }
 }
 
 /// المفتاح من `--dart-define` وبس. لو مش موجود بنرجّع null ونقولها في
