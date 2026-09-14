@@ -10,18 +10,13 @@ import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
-import '../../data/repositories/medication_repository.dart';
-import '../medication/add_medication_screen.dart';
 import '../medication/edit_medication_screen.dart';
-import '../link/sign_in_screen.dart';
-import '../routine/edit_routine_screen.dart';
-import '../routine/ramadan_screen.dart';
-import '../scan/scan_prescription_screen.dart';
+import '../reminder/reminder_screen.dart';
 import 'widgets/day_rail.dart';
-import 'widgets/medication_list.dart';
 import 'widgets/next_dose_card.dart';
 
-/// «يومك» — الجرعة الجاية فوق، وباقي اليوم تحتها على شريط زمني.
+/// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
+/// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
 class TodayScreen extends StatefulWidget {
   const TodayScreen({required this.routine, this.now, super.key});
 
@@ -47,9 +42,6 @@ class _TodayScreenState extends State<TodayScreen> {
   /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
   Stream<List<MedicationRow>>? _amountUnknown;
 
-  /// قايمة «أدويتك» — كل دوا بجداوله، والدوسة عليه بتفتح التعديل.
-  Stream<List<MedicationSummary>>? _summaries;
-
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -61,7 +53,6 @@ class _TodayScreenState extends State<TodayScreen> {
     final services = AppScope.of(context);
     _events = services.events.watchDay(_routineDay);
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
-    _summaries = services.medications.watchActiveSummaries(services.patientId);
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
     // فوراً، والإيقاف بيختفي، من غير ما حد يعمل refresh.
@@ -152,200 +143,93 @@ class _TodayScreenState extends State<TodayScreen> {
     return [for (final time in times) byTime[time]!];
   }
 
+  /// الدوسة على كارت في السكة بتفتح شاشة التذكير بتاعته — أخدته / فكّرني /
+  /// مش هاخده — بدل زرار أساسي على كل كارت.
+  void _openReminder(List<DoseEventView> group) => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ReminderScreen(
+            routineDay: _routineDay,
+            scheduleIds: [for (final d in group) d.doseScheduleId.toString()],
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
+    // Scaffold جوّه تبويب الهيكل: الأرضية، وMaterial للـInkWell لما الشاشة
+    // تتبني لوحدها في الاختبار.
     return Scaffold(
-      body: SafeArea(
-        child: StreamBuilder<List<DoseEventView>>(
-          stream: _events,
-          builder: (context, snapshot) {
-            final events = snapshot.data ?? const <DoseEventView>[];
-            final groups = _group(events);
+      body: StreamBuilder<List<DoseEventView>>(
+        stream: _events,
+        builder: (context, snapshot) {
+          final events = snapshot.data ?? const <DoseEventView>[];
+          final groups = _group(events);
 
-            final pending = groups.where((g) => g.any((d) => !d.isDone));
-            final next = pending.isEmpty ? null : pending.first;
+          final pending = groups.where((g) => g.any((d) => !d.isDone));
+          final next = pending.isEmpty ? null : pending.first;
 
-            return ListView(
-              padding: const EdgeInsets.all(F.gap),
-              children: [
-                const Text(
-                  'يومك',
-                  style: TextStyle(
-                    fontSize: F.screenTitleSize,
-                    fontWeight: FontWeight.w700,
-                    color: F.ink,
-                  ),
+          return ListView(
+            padding: const EdgeInsets.all(F.gap),
+            children: [
+              const Text(
+                'جدول النهاردة',
+                style: TextStyle(
+                  fontFamily: F.displayFamily,
+                  fontSize: F.screenTitleSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'المراسي ثابتة، والجرعات معلّقة عليها.',
-                  style: TextStyle(fontSize: F.minTextSize, color: F.muted),
+              ),
+              const SizedBox(height: F.s4),
+              const Text(
+                'المراسي ثابتة، والجرعات معلّقة عليها.',
+                style: TextStyle(fontSize: F.minTextSize, color: F.muted),
+              ),
+              const SizedBox(height: F.gap),
+              if (next != null) ...[
+                NextDoseCard(
+                  doses: next,
+                  now: _now,
+                  onTaken: () => _markTaken(next),
+                  onSkipped: () => _markSkipped(next),
                 ),
                 const SizedBox(height: F.gap),
-                if (next != null) ...[
-                  NextDoseCard(
-                    doses: next,
-                    now: _now,
-                    onTaken: () => _markTaken(next),
-                    onSkipped: () => _markSkipped(next),
-                  ),
-                  const SizedBox(height: F.gap),
-                ] else if (events.isNotEmpty)
-                  const _AllDonePanel(),
-                if (events.isEmpty)
-                  const _EmptyPanel()
-                else
-                  DayRail(
-                    anchors: _anchors,
-                    groups: groups,
-                    now: _now,
-                    ruleLabelFor: _ruleLabelFor,
-                    onTaken: _markTaken,
-                  ),
-                StreamBuilder<List<MedicationRow>>(
-                  stream: _amountUnknown,
-                  builder: (context, snapshot) {
-                    final meds = snapshot.data ?? const <MedicationRow>[];
-                    if (meds.isEmpty) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: F.gap),
-                      child: _FollowUpPanel(
-                        items: [
-                          for (final m in meds)
-                            (label: 'اسأل الصيدلي عن جرعة ${m.name}', onTap: () => _openEdit(m.id)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                StreamBuilder<List<MedicationSummary>>(
-                  stream: _summaries,
-                  builder: (context, snapshot) {
-                    final items = snapshot.data ?? const <MedicationSummary>[];
-                    if (items.isEmpty) return const SizedBox.shrink();
-                    return MedicationList(items: items, onTap: (m) => _openEdit(m.medication.id));
-                  },
-                ),
+              ] else if (events.isNotEmpty) ...[
+                const _AllDonePanel(),
                 const SizedBox(height: F.gap),
-                SizedBox(
-                  height: F.primaryButtonHeight,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ScanPrescriptionScreen(
-                          routine: widget.routine,
-                          reader: AppScope.of(context).prescriptionReader,
-                        ),
-                      ),
-                    ),
-                    child: const Text(
-                      'صوّر روشتة',
-                      style: TextStyle(
-                        fontSize: F.minBodySize,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: F.primaryButtonHeight,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  AddMedicationScreen(routine: widget.routine),
-                            ),
-                          ),
-                          child: const Text(
-                            'ضيف دوا',
-                            style: TextStyle(
-                              fontSize: F.minBodySize,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: SizedBox(
-                        height: F.primaryButtonHeight,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  EditRoutineScreen(routine: widget.routine),
-                            ),
-                          ),
-                          child: const Text(
-                            'عدّل يومك',
-                            style: TextStyle(
-                              fontSize: F.minBodySize,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: F.primaryButtonHeight,
-                        // باب الهوية الوحيد في التطبيق كله — الحساب للربط، مش شرط.
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SignInScreen(
-                                auth: AppScope.of(context).auth,
-                                caregiver: AppScope.of(context).caregiver,
-                                push: AppScope.of(context).push,
-                              ),
-                            ),
-                          ),
-                          child: const Text(
-                            'اربط ابني',
-                            style: TextStyle(
-                              fontSize: F.minBodySize,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: SizedBox(
-                        height: F.primaryButtonHeight,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const RamadanScreen(),
-                            ),
-                          ),
-                          child: const Text(
-                            'وضع رمضان',
-                            style: TextStyle(
-                              fontSize: F.minBodySize,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
-            );
-          },
-        ),
+              if (events.isEmpty)
+                const _EmptyPanel()
+              else
+                DayRail(
+                  anchors: _anchors,
+                  groups: groups,
+                  now: _now,
+                  ruleLabelFor: _ruleLabelFor,
+                  onOpen: _openReminder,
+                ),
+              // القاعدة ٤: مجهول اتسجّل لازم يفضل ظاهر هنا — سؤال هادي للصيدلي
+              StreamBuilder<List<MedicationRow>>(
+                stream: _amountUnknown,
+                builder: (context, snapshot) {
+                  final meds = snapshot.data ?? const <MedicationRow>[];
+                  if (meds.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: F.gap),
+                    child: _FollowUpPanel(
+                      items: [
+                        for (final m in meds)
+                          (label: 'اسأل الصيدلي عن جرعة ${m.name}', onTap: () => _openEdit(m.id)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              // مسافة تحت عشان آخر سطر ما يستخبّاش ورا زرار «ضيف»
+              const SizedBox(height: F.s30 * 2),
+            ],
+          );
+        },
       ),
     );
   }
@@ -431,7 +315,7 @@ class _EmptyPanel extends StatelessWidget {
           border: Border.all(color: F.line),
         ),
         child: const Text(
-          'مفيش أدوية لسه. ضيف أول دوا وإحنا نفكّرك بيه.',
+          'مفيش أدوية لسه. دوس «ضيف» تحت وإحنا نفكّرك بيه.',
           style: TextStyle(
             fontSize: F.minBodySize,
             color: F.ink,

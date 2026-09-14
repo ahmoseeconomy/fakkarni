@@ -139,7 +139,7 @@ lib/
   features/onboarding/        5 routine questions
   features/medication/        add medication (anchor chips + offset stepper);
                               EditMedicationScreen — set the amount, stop (two-step)
-  features/today/             «يومك» — next dose card + day rail
+  features/today/             «جدول النهاردة» — pinned next-dose card + day rail
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
   features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
@@ -547,8 +547,12 @@ dose is counted the next morning), then `sweepMissed(now)` writes
 overwrites it — he forgot, then remembered. `rescheduleAll` runs on launch,
 foreground resume, every confirmation and every lock-screen action, so the
 decision is taken at every wake-up the OS gives us; there is no timer.
-«يومك» shows «نسيتها؟» on the card and «اتنست» on the rail row, in gold,
-buttons unchanged; the son's screen renders `missed` verbatim as
+«جدول النهاردة» shows «نسيتها؟» on the pinned card and «لسه ما اتأكدتش»
+on the rail card — the same line for an overdue dose and a swept `missed`
+one, with the same gold edge as a dose still to come (gold = «دي لسه
+عايزاك»; never grey, never red). «أخدته» on the pinned card is the only
+primary; tapping a rail card opens its `ReminderScreen`. A taken dose
+collapses to a ✓ line and never leaves the rail. The son's screen renders `missed` verbatim as
 «اتنست — لسه ما اتأكدتش» in gold — reporting the father's device's
 decision, still not judging.
 

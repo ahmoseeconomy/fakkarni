@@ -1,26 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
+import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
 import '../../../domain/scheduling/day_routine.dart';
 
-/// علامة مرساة على الشريط — «الفطار ٧:٣٠ ص».
+/// علامة مرساة على الشريط — «الفطار · ٧:٣٠ ص».
 class AnchorMark {
   const AnchorMark(this.anchor, this.at);
   final DayAnchor anchor;
   final DateTime at;
 }
 
-/// شريط اليوم: المراسي علامات، والجرعات واقفة بينها بترتيب الوقت.
+/// سكة اليوم (المخطط 24): خط رأسي على **اليمين**، المراسي عُقد خضرا
+/// بالاسم والوقت، والجرعات كروت متعلّقة بالسكة بينهم بترتيب الوقت.
+///
+/// قاعدة اللون: الذهبي معناه «دي لسه عايزاك» — الجرعة المنتظرة والفايتة
+/// الاتنين بحافة ذهبية، والفايتة بتقول «لسه ما اتأكدتش» من غير لوم. مفيش
+/// رمادي للفايتة ومفيش أحمر. المأخوذة بتنطوي لسطر ✓ هادي وما بتتشالش.
+///
+/// الكروت مفيهاش زرار «أخدته» — الزرار الأساسي الوحيد هو اللي في الكارت
+/// المثبّت فوق. الدوسة على كارت بتفتح شاشة التذكير بتاعته.
 class DayRail extends StatelessWidget {
   const DayRail({
     required this.anchors,
     required this.groups,
     required this.now,
     required this.ruleLabelFor,
-    required this.onTaken,
+    required this.onOpen,
     super.key,
   });
 
@@ -30,67 +39,120 @@ class DayRail extends StatelessWidget {
   final List<List<DoseEventView>> groups;
   final DateTime now;
   final String? Function(int doseScheduleId) ruleLabelFor;
-  final void Function(List<DoseEventView> group) onTaken;
+  final void Function(List<DoseEventView> group) onOpen;
+
+  /// عرض عمود السكة، ومقاس العقدة.
+  static const double _railWidth = 28;
+  static const double _node = 14;
 
   @override
   Widget build(BuildContext context) {
-    final entries = <({DateTime at, Widget child})>[
+    final entries = <({DateTime at, bool isAnchor, Widget child})>[
       for (final anchor in anchors)
-        (at: anchor.at, child: _anchorRow(anchor)),
+        (at: anchor.at, isAnchor: true, child: _anchorLabel(anchor)),
       for (final group in groups)
-        (at: group.first.scheduledAt, child: _groupCard(group)),
-    ]..sort((a, b) => a.at.compareTo(b.at));
+        (at: group.first.scheduledAt, isAnchor: false, child: _dose(group)),
+    ]..sort((a, b) {
+        final byTime = a.at.compareTo(b.at);
+        // مرساة وجرعة في نفس الدقيقة: المرساة الأول
+        if (byTime != 0) return byTime;
+        return a.isAnchor == b.isAnchor ? 0 : (a.isAnchor ? -1 : 1);
+      });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final entry in entries) entry.child],
+      children: [
+        for (var i = 0; i < entries.length; i++)
+          _railRow(
+            node: entries[i].isAnchor,
+            first: i == 0,
+            last: i == entries.length - 1,
+            child: entries[i].child,
+          ),
+      ],
     );
   }
 
-  Widget _anchorRow(AnchorMark mark) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+  /// صف واحد: عمود السكة على اليمين (أول ابن في RTL) والمحتوى جنبه.
+  Widget _railRow({
+    required bool node,
+    required bool first,
+    required bool last,
+    required Widget child,
+  }) =>
+      IntrinsicHeight(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: F.green,
-                shape: BoxShape.circle,
+            SizedBox(
+              width: _railWidth,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  // الخط — متصل من أول صف لآخر صف
+                  Positioned(
+                    top: first ? F.s20 : 0,
+                    bottom: last ? null : 0,
+                    height: last ? F.s20 : null,
+                    child: Container(width: 2, color: F.line),
+                  ),
+                  if (node)
+                    Positioned(
+                      top: F.s20 - _node / 2,
+                      child: Container(
+                        width: _node,
+                        height: _node,
+                        decoration: const BoxDecoration(
+                          color: F.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              '${mark.anchor.label} ${arabicTime(mark.at)}',
-              style: const TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: FontWeight.w600,
-                color: F.muted,
-              ),
-            ),
+            const SizedBox(width: F.s10),
+            Expanded(child: child),
           ],
         ),
       );
 
-  Widget _groupCard(List<DoseEventView> group) {
-    final done = group.every((d) => d.isDone);
-    return Padding(
-      padding: const EdgeInsets.only(right: 20, bottom: 10),
-      child: done ? _quietLine(group) : _activeCard(group),
-    );
-  }
+  Widget _anchorLabel(AnchorMark mark) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: F.s8),
+        child: SizedBox(
+          height: F.s20 + F.s4,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              '${mark.anchor.label} · ${arabicTime(mark.at)}',
+              style: const TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+              ),
+            ),
+          ),
+        ),
+      );
 
-  /// جرعة اتاخدت: سطر هادي بعلامة صح. **ما بتتشالش من القايمة أبداً** —
+  Widget _dose(List<DoseEventView> group) => Padding(
+        padding: const EdgeInsets.only(bottom: F.s10),
+        child: group.every((d) => d.isDone) ? _quietLine(group) : _card(group),
+      );
+
+  /// جرعة اتاخدت: سطر هادي بعلامة صح. **ما بتتشالش من السكة أبداً** —
   /// المريض لازم يشوف إنه خدها، مش يلاقي السطر اختفى ويشك إنه نسي.
   Widget _quietLine(List<DoseEventView> group) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: F.s8),
         child: Row(
           children: [
-            const Icon(Icons.check, size: 20, color: F.muted),
-            const SizedBox(width: 8),
+            const Icon(Icons.check, size: 22, color: F.greenOk),
+            const SizedBox(width: F.s8),
             Expanded(
               child: Text(
                 group.map((d) => d.medicationName).join(' + '),
+                textDirection: nameDirection(group.first.medicationName),
+                textAlign: TextAlign.start,
                 style: const TextStyle(
                   fontSize: F.minTextSize,
                   color: F.muted,
@@ -99,6 +161,7 @@ class DayRail extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: F.s8),
             Text(
               group.first.state == DoseState.skipped
                   ? 'اتأجّل'
@@ -109,64 +172,79 @@ class DayRail extends StatelessWidget {
         ),
       );
 
-  Widget _activeCard(List<DoseEventView> group) {
+  /// جرعة لسه عايزاك — منتظرة أو فايتة، نفس الحافة الذهبية.
+  Widget _card(List<DoseEventView> group) {
     final at = group.first.scheduledAt;
-    // فات معاده — بالذهبي والرمادي، من غير أحمر ومن غير لوم.
-    final overdue = at.isBefore(now);
-    // المهلة خلصت وجهازه كتب «اتنست». نسي — ما فشلش. الزرار لسه شغّال:
-    // «أخدته» بعدها بتكتب فوقها عادي.
-    final missed = group.any((d) => d.state == DoseState.missed);
+    // فات معادها أو جهازه كتب «اتنست» — نفس الجملة الهادية. نسي، ما فشلش.
+    final unconfirmed =
+        at.isBefore(now) || group.any((d) => d.state == DoseState.missed);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(F.radius),
-        border: Border.all(color: overdue ? F.line : F.gold, width: 1.5),
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(F.radiusCard),
+        side: const BorderSide(color: F.gold, width: 2),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final dose in group)
-            Text(
-              dose.amountLabel == null
-                  ? dose.medicationName
-                  : '${dose.medicationName} — ${dose.amountLabel}',
-              style: const TextStyle(
-                fontSize: F.minBodySize,
-                fontWeight: FontWeight.w600,
-                color: F.ink,
-                fontFamily: F.monoFamily,
-                fontFamilyFallback: F.monoFallback,
-                height: 1.5,
-              ),
-            ),
-          const SizedBox(height: 4),
-          Text(
-            [
-              arabicTime(at),
-              ruleLabelFor(group.first.doseScheduleId),
-              if (missed) 'اتنست' else if (overdue) 'فات معاده',
-            ].nonNulls.join(' · '),
-            style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: F.minTapTarget,
-            child: OutlinedButton(
-              onPressed: () => onTaken(group),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: F.greenDeep,
-                side: const BorderSide(color: F.green, width: 1.5),
-                textStyle: const TextStyle(
-                  fontSize: F.minBodySize,
-                  fontWeight: FontWeight.w600,
+      child: InkWell(
+        onTap: () => onOpen(group),
+        borderRadius: BorderRadius.circular(F.radiusCard),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: F.minTapTarget),
+          padding: const EdgeInsets.all(F.s14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final dose in group)
+                      Text(
+                        dose.medicationName,
+                        textDirection: nameDirection(dose.medicationName),
+                        textAlign: TextAlign.start,
+                        style: const TextStyle(
+                          fontSize: F.minBodySize,
+                          fontWeight: FontWeight.w600,
+                          color: F.ink,
+                          fontFamily: F.monoFamily,
+                          fontFamilyFallback: F.monoFallback,
+                          height: 1.4,
+                        ),
+                      ),
+                    const SizedBox(height: F.s4),
+                    Text(
+                      [
+                        arabicTime(at),
+                        ruleLabelFor(group.first.doseScheduleId),
+                      ].nonNulls.join(' · '),
+                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                    ),
+                    if (unconfirmed) ...[
+                      const SizedBox(height: F.s4),
+                      const Text(
+                        'لسه ما اتأكدتش',
+                        style: TextStyle(
+                          fontSize: F.minTextSize,
+                          fontWeight: FontWeight.w700,
+                          color: F.ink,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              child: const Text('أخدته'),
-            ),
+              const SizedBox(width: F.s8),
+              const Text(
+                'افتح',
+                style: TextStyle(
+                  fontSize: F.minTextSize,
+                  fontWeight: FontWeight.w600,
+                  color: F.green,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

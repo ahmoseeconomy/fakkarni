@@ -131,9 +131,9 @@ void main() {
     expect(find.byType(SignInScreen), findsNothing);
     expect(fakeAuth.signInCalls, 0, reason: 'signInToLink من الزرار وبس');
     expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
-    // وكل حاجة أساسية موجودة وشغّالة
-    expect(find.text('ضيف دوا'), findsOneWidget);
-    expect(find.text('صوّر روشتة'), findsOneWidget);
+    // وكل حاجة أساسية موجودة وشغّالة — «ضيف» في الهيكل بيفتح الروشتة والإدخال
+    expect(find.text('جدول النهاردة'), findsOneWidget);
+    expect(find.text('ضيف'), findsOneWidget);
   });
 
   screenTest('حارس: «اربط ابني» → «مش دلوقتي» بترجّع لـ«يومك» كاملة', (tester) async {
@@ -144,16 +144,22 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await pumpRoot(tester);
 
+    // «اربط ابني» بقى في تبويب «العائلة» — والباب لسه بالدوسة وبس
+    await tester.tap(find.text('العائلة'));
+    await settle(tester);
     await tester.tap(find.text('اربط ابني'));
     await settle(tester);
     expect(find.byType(SignInScreen), findsOneWidget);
 
     await tester.tap(find.text('مش دلوقتي'));
     await settle(tester);
+    expect(find.byType(SignInScreen), findsNothing);
 
+    await tester.tap(find.text('اليوم'));
+    await settle(tester);
     expect(find.byType(TodayScreen), findsOneWidget);
-    expect(find.text('ضيف دوا'), findsOneWidget);
-    expect(find.text('عدّل يومك'), findsOneWidget);
+    expect(find.text('جدول النهاردة'), findsOneWidget);
+    expect(find.text('ضيف'), findsOneWidget);
   });
 
   screenTest('من غير روتين → الأسئلة الأول', (tester) async {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/app/splash.dart';
+import 'package:fakkarni/core/format/name_direction.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/core/widgets/fa_mark.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
@@ -146,5 +147,12 @@ void main() {
     await tester.pump();
     expect(find.text('فكرني'), findsNothing);
     expect(find.text('الشاشة الأولى'), findsOneWidget);
+  });
+
+  test('اتجاه اسم الدوا من أول حرف قوي: لاتيني LTR، عربي RTL', () {
+    expect(nameDirection('Antodine 40 mg'), TextDirection.ltr);
+    expect(nameDirection('40 mg Telfast'), TextDirection.ltr);
+    expect(nameDirection('كونكور ٥'), TextDirection.rtl);
+    expect(nameDirection('١٢٣'), TextDirection.rtl);
   });
 }

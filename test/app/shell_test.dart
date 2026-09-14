@@ -105,13 +105,15 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('أربع تبويبات بكلمة، «ضيف» بكلمة، «الإعدادات» فوق بكلمة — ومفيش أحمر', (tester) async {
+  screenTest('أربع تبويبات بكلمة، «ضيف» بكلمة، والشريط العلوي علامة ف بس — ومفيش أحمر', (tester) async {
     await pumpShell(tester);
 
     for (final tab in AppShell.tabs) {
       expect(find.text(tab), findsWidgets, reason: tab);
     }
     expect(find.text('ضيف'), findsOneWidget, reason: 'الـ+ مش لوحده');
+    expect(find.text('الإعدادات'), findsOneWidget, reason: 'تبويب بس — مش زرار فوق كمان');
+    expect(find.descendant(of: find.byType(AppBar), matching: find.byType(TextButton)), findsNothing);
     expect(find.byType(TodayScreen), findsOneWidget);
     expect(find.byType(SignInScreen), findsNothing, reason: 'الهوية مش بوابة');
     expectNoRedAndMinSize(tester);

@@ -6,6 +6,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/edit_medication_screen.dart';
+import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
 import '../scan/scan_test_support.dart';
@@ -132,9 +133,15 @@ void main() {
       expect(find.byType(EditMedicationScreen), findsOneWidget);
     });
 
+  });
+
+  // قايمة «أدويتك» اتنقلت من «جدول النهاردة» لتبويب «الأدوية» (D2.1)
+  group('من تبويب «الأدوية»', () {
+    Future<void> pumpMeds(WidgetTester tester) => h.pump(tester, const MedicationsScreen());
+
     screenTest('قايمة «أدويتك»: الاسم والجرعة · القاعدة، والدوسة بتعدّل', (tester) async {
       await seedTelfast(unknown: false);
-      await pumpToday(tester);
+      await pumpMeds(tester);
 
       expect(find.text('أدويتك'), findsOneWidget);
       expect(find.text('قرص واحد · العشا'), findsOneWidget);
@@ -147,8 +154,15 @@ void main() {
     screenTest('الدوا الموقوف بيختفي من «أدويتك»', (tester) async {
       final id = await seedTelfast(unknown: false);
       await h.meds.stopMedication(id);
-      await pumpToday(tester);
+      await pumpMeds(tester);
 
+      expect(find.text('أدويتك'), findsNothing);
+      expect(find.text('Telfast 180 mg'), findsNothing);
+    });
+
+    screenTest('«جدول النهاردة» مابقاش فيه قايمة «أدويتك»', (tester) async {
+      await seedTelfast(unknown: false);
+      await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
       expect(find.text('أدويتك'), findsNothing);
     });
   });

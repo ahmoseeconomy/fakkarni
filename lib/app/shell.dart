@@ -19,8 +19,8 @@ import 'app_scope.dart';
 /// مش موجود لأنه مالوش باك إند — مكانه «الإعدادات». ومفيش شريحة «طوارئ»
 /// حمرا: الأحمر للطوارئ، ومفيش طوارئ دلوقتي.
 ///
-/// كل زرار هنا بكلمة — حتى الـ«+» و«الإعدادات» فوق. القاعدة: مفيش زرار
-/// أيقونة من غير كلمة.
+/// كل زرار هنا بكلمة — حتى الـ«+». القاعدة: مفيش زرار أيقونة من غير كلمة.
+/// الشريط العلوي علامة ف بس.
 class AppShell extends StatefulWidget {
   const AppShell({required this.routine, this.now, super.key});
 
@@ -86,9 +86,10 @@ class _AppShellState extends State<AppShell> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         titleSpacing: F.gap,
+        // علامة ف بس. «الإعدادات» تبويب تحت — زرار فوق كان تكرار.
         title: Row(
           children: [
-            // علامة ف صغيرة — على بلاطة خضرا عشان العاجي يبان
+            // على بلاطة خضرا عشان العاجي يبان
             Container(
               width: 36,
               height: 36,
@@ -98,19 +99,6 @@ class _AppShellState extends State<AppShell> {
               ),
               alignment: Alignment.center,
               child: const FaMark(size: 24, breathing: true),
-            ),
-            const Spacer(),
-            SizedBox(
-              height: F.minTapTarget,
-              child: TextButton.icon(
-                onPressed: () => setState(() => _tab = 3),
-                style: TextButton.styleFrom(foregroundColor: F.ink),
-                icon: const Icon(Icons.person_outline, size: 26),
-                label: const Text(
-                  'الإعدادات',
-                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600),
-                ),
-              ),
             ),
           ],
         ),
