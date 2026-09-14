@@ -10,6 +10,7 @@ import 'data/push/firebase_token_source.dart';
 import 'data/push/push_token_service.dart';
 import 'data/sync/sync_service.dart';
 import 'app/root.dart';
+import 'app/splash.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
@@ -107,9 +108,11 @@ class FakkarniApp extends StatelessWidget {
         ],
         // العربي بيجيب RTL لوحده، بس بنثبّتها صراحة عشان أي شاشة تتبني
         // في اختبار من غير locale تفضل من اليمين لليسار.
+        // شاشة البداية طبقة فوق التطبيق، مش بوابة قدامه: الشاشة الأولى
+        // بتتبني تحتها من أول فريم، وهي بتتلاشى بعد ١.٦ ث.
         builder: (context, child) => Directionality(
           textDirection: TextDirection.rtl,
-          child: child ?? const SizedBox.shrink(),
+          child: SplashOverlay(child: child ?? const SizedBox.shrink()),
         ),
         home: const AppRoot(),
       ),

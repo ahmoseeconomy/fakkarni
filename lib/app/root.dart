@@ -7,8 +7,8 @@ import '../data/services/reminder_plan.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/onboarding/routine_onboarding_screen.dart';
 import '../features/reminder/reminder_screen.dart';
-import '../features/today/today_screen.dart';
 import 'app_scope.dart';
+import 'shell.dart';
 
 /// بيقرر يبدأ منين: لو مفيش روتين محفوظ، الأسئلة الأول.
 ///
@@ -106,7 +106,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             if (mounted) _openFromTap();
           });
         }
-        return TodayScreen(routine: snapshot.data!);
+        return AppShell(routine: snapshot.data!);
       },
     );
   }
