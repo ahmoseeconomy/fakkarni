@@ -11,6 +11,7 @@ import 'data/push/push_token_service.dart';
 import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
+import 'core/widgets/patient_voice.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
@@ -112,7 +113,10 @@ class FakkarniApp extends StatelessWidget {
         // بتتبني تحتها من أول فريم، وهي بتتلاشى بعد ١.٦ ث.
         builder: (context, child) => Directionality(
           textDirection: TextDirection.rtl,
-          child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+          // صوت المريض بجنسه فوق الـNavigator — كل شاشة بتتفتح بـpush بتشوفه
+          child: PatientVoiceScope(
+            child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+          ),
         ),
         home: const AppRoot(),
       ),

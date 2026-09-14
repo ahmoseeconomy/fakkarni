@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import 'routine_presets.dart';
@@ -44,7 +45,7 @@ class RoutineQuestionPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  question.text,
+                  questionTextFor(question, PatientVoice.of(context)),
                   style: const TextStyle(
                     fontFamily: F.displayFamily,
                     fontSize: F.questionSize,
@@ -94,9 +95,9 @@ class RoutineQuestionPage extends StatelessWidget {
                 height: F.minTapTarget,
                 child: TextButton(
                   onPressed: onNotSure,
-                  child: const Text(
-                    'مش متأكد',
-                    style: TextStyle(
+                  child: Text(
+                    PatientVoice.of(context).notSure,
+                    style: const TextStyle(
                       fontSize: F.minBodySize,
                       fontWeight: FontWeight.w600,
                       color: F.green,

@@ -94,6 +94,24 @@ class $PatientsTable extends Patients
     defaultValue: currentDateAndTime,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<Sex?, String> sex =
+      GeneratedColumn<String>(
+        'sex',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Sex?>($PatientsTable.$convertersexn);
+  static const VerificationMeta _ageMeta = const VerificationMeta('age');
+  @override
+  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+    'age',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
   List<GeneratedColumn> get $columns => [
     uuid,
     updatedAtMs,
@@ -102,6 +120,8 @@ class $PatientsTable extends Patients
     name,
     notificationSlot,
     createdAt,
+    sex,
+    age,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -165,6 +185,12 @@ class $PatientsTable extends Patients
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('age')) {
+      context.handle(
+        _ageMeta,
+        age.isAcceptableOrUnknown(data['age']!, _ageMeta),
+      );
+    }
     return context;
   }
 
@@ -206,6 +232,16 @@ class $PatientsTable extends Patients
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      sex: $PatientsTable.$convertersexn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}sex'],
+        ),
+      ),
+      age: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}age'],
+      ),
     );
   }
 
@@ -213,6 +249,11 @@ class $PatientsTable extends Patients
   $PatientsTable createAlias(String alias) {
     return $PatientsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<Sex, String, String> $convertersex =
+      const EnumNameConverter<Sex>(Sex.values);
+  static JsonTypeConverter2<Sex?, String?, String?> $convertersexn =
+      JsonTypeConverter2.asNullable($convertersex);
 }
 
 class PatientRow extends DataClass implements Insertable<PatientRow> {
@@ -234,6 +275,13 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   /// صغيرة وثابتة طول عمر المريض.
   final int notificationSlot;
   final DateTime createdAt;
+
+  /// نسخة ٨ — الجنس (m/f) عشان الكلام يخاطبه صح. **محلي**: مش بيتدفع
+  /// للسحابة (SyncService بيبعت uuid والاسم والخانة بس). null = ما اتسألش.
+  final Sex? sex;
+
+  /// نسخة ٨ — السن بالسنين. محلي، وnull = ما اتسألش.
+  final int? age;
   const PatientRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -242,6 +290,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     required this.name,
     required this.notificationSlot,
     required this.createdAt,
+    this.sex,
+    this.age,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -255,6 +305,12 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     map['name'] = Variable<String>(name);
     map['notification_slot'] = Variable<int>(notificationSlot);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || sex != null) {
+      map['sex'] = Variable<String>($PatientsTable.$convertersexn.toSql(sex));
+    }
+    if (!nullToAbsent || age != null) {
+      map['age'] = Variable<int>(age);
+    }
     return map;
   }
 
@@ -269,6 +325,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       name: Value(name),
       notificationSlot: Value(notificationSlot),
       createdAt: Value(createdAt),
+      sex: sex == null && nullToAbsent ? const Value.absent() : Value(sex),
+      age: age == null && nullToAbsent ? const Value.absent() : Value(age),
     );
   }
 
@@ -285,6 +343,10 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       name: serializer.fromJson<String>(json['name']),
       notificationSlot: serializer.fromJson<int>(json['notificationSlot']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      sex: $PatientsTable.$convertersexn.fromJson(
+        serializer.fromJson<String?>(json['sex']),
+      ),
+      age: serializer.fromJson<int?>(json['age']),
     );
   }
   @override
@@ -298,6 +360,10 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       'name': serializer.toJson<String>(name),
       'notificationSlot': serializer.toJson<int>(notificationSlot),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'sex': serializer.toJson<String?>(
+        $PatientsTable.$convertersexn.toJson(sex),
+      ),
+      'age': serializer.toJson<int?>(age),
     };
   }
 
@@ -309,6 +375,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     String? name,
     int? notificationSlot,
     DateTime? createdAt,
+    Value<Sex?> sex = const Value.absent(),
+    Value<int?> age = const Value.absent(),
   }) => PatientRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -317,6 +385,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     name: name ?? this.name,
     notificationSlot: notificationSlot ?? this.notificationSlot,
     createdAt: createdAt ?? this.createdAt,
+    sex: sex.present ? sex.value : this.sex,
+    age: age.present ? age.value : this.age,
   );
   PatientRow copyWithCompanion(PatientsCompanion data) {
     return PatientRow(
@@ -333,6 +403,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           ? data.notificationSlot.value
           : this.notificationSlot,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      sex: data.sex.present ? data.sex.value : this.sex,
+      age: data.age.present ? data.age.value : this.age,
     );
   }
 
@@ -345,7 +417,9 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notificationSlot: $notificationSlot, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('sex: $sex, ')
+          ..write('age: $age')
           ..write(')'))
         .toString();
   }
@@ -359,6 +433,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     name,
     notificationSlot,
     createdAt,
+    sex,
+    age,
   );
   @override
   bool operator ==(Object other) =>
@@ -370,7 +446,9 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           other.id == this.id &&
           other.name == this.name &&
           other.notificationSlot == this.notificationSlot &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.sex == this.sex &&
+          other.age == this.age);
 }
 
 class PatientsCompanion extends UpdateCompanion<PatientRow> {
@@ -381,6 +459,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
   final Value<String> name;
   final Value<int> notificationSlot;
   final Value<DateTime> createdAt;
+  final Value<Sex?> sex;
+  final Value<int?> age;
   const PatientsCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -389,6 +469,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     this.name = const Value.absent(),
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.sex = const Value.absent(),
+    this.age = const Value.absent(),
   });
   PatientsCompanion.insert({
     this.uuid = const Value.absent(),
@@ -398,6 +480,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     required String name,
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.sex = const Value.absent(),
+    this.age = const Value.absent(),
   }) : name = Value(name);
   static Insertable<PatientRow> custom({
     Expression<String>? uuid,
@@ -407,6 +491,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     Expression<String>? name,
     Expression<int>? notificationSlot,
     Expression<DateTime>? createdAt,
+    Expression<String>? sex,
+    Expression<int>? age,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -416,6 +502,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
       if (name != null) 'name': name,
       if (notificationSlot != null) 'notification_slot': notificationSlot,
       if (createdAt != null) 'created_at': createdAt,
+      if (sex != null) 'sex': sex,
+      if (age != null) 'age': age,
     });
   }
 
@@ -427,6 +515,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     Value<String>? name,
     Value<int>? notificationSlot,
     Value<DateTime>? createdAt,
+    Value<Sex?>? sex,
+    Value<int?>? age,
   }) {
     return PatientsCompanion(
       uuid: uuid ?? this.uuid,
@@ -436,6 +526,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
       name: name ?? this.name,
       notificationSlot: notificationSlot ?? this.notificationSlot,
       createdAt: createdAt ?? this.createdAt,
+      sex: sex ?? this.sex,
+      age: age ?? this.age,
     );
   }
 
@@ -463,6 +555,14 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (sex.present) {
+      map['sex'] = Variable<String>(
+        $PatientsTable.$convertersexn.toSql(sex.value),
+      );
+    }
+    if (age.present) {
+      map['age'] = Variable<int>(age.value);
+    }
     return map;
   }
 
@@ -475,7 +575,9 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('notificationSlot: $notificationSlot, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('sex: $sex, ')
+          ..write('age: $age')
           ..write(')'))
         .toString();
   }
@@ -4147,6 +4249,8 @@ typedef $$PatientsTableCreateCompanionBuilder = PatientsCompanion Function({
   required String name,
   Value<int> notificationSlot,
   Value<DateTime> createdAt,
+  Value<Sex?> sex,
+  Value<int?> age,
 });
 typedef $$PatientsTableUpdateCompanionBuilder = PatientsCompanion Function({
   Value<String> uuid,
@@ -4156,6 +4260,8 @@ typedef $$PatientsTableUpdateCompanionBuilder = PatientsCompanion Function({
   Value<String> name,
   Value<int> notificationSlot,
   Value<DateTime> createdAt,
+  Value<Sex?> sex,
+  Value<int?> age,
 });
 
 final class $$PatientsTableReferences
@@ -4258,6 +4364,17 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<Sex?, Sex, String> get sex =>
+      $composableBuilder(
+        column: $table.sex,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<int> get age => $composableBuilder(
+    column: $table.age,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4380,6 +4497,16 @@ class $$PatientsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sex => $composableBuilder(
+    column: $table.sex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get age => $composableBuilder(
+    column: $table.age,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PatientsTableAnnotationComposer
@@ -4417,6 +4544,12 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<Sex?, String> get sex =>
+      $composableBuilder(column: $table.sex, builder: (column) => column);
+
+  GeneratedColumn<int> get age =>
+      $composableBuilder(column: $table.age, builder: (column) => column);
 
   Expression<T> dayRoutinesRefs<T extends Object>(
     Expression<T> Function($$DayRoutinesTableAnnotationComposer a) f,
@@ -4533,6 +4666,8 @@ class $$PatientsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<Sex?> sex = const Value.absent(),
+                Value<int?> age = const Value.absent(),
               }) => PatientsCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -4541,6 +4676,8 @@ class $$PatientsTableTableManager
                 name: name,
                 notificationSlot: notificationSlot,
                 createdAt: createdAt,
+                sex: sex,
+                age: age,
               ),
           createCompanionCallback:
               ({
@@ -4551,6 +4688,8 @@ class $$PatientsTableTableManager
                 required String name,
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<Sex?> sex = const Value.absent(),
+                Value<int?> age = const Value.absent(),
               }) => PatientsCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -4559,6 +4698,8 @@ class $$PatientsTableTableManager
                 name: name,
                 notificationSlot: notificationSlot,
                 createdAt: createdAt,
+                sex: sex,
+                age: age,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/format/arabic_time.dart';
 import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/patient_voice.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
@@ -42,7 +43,7 @@ class NextDoseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            missed ? 'نسيتها؟' : 'الجاية',
+            missed ? PatientVoice.of(context).forgotIt : 'الجاية',
             style: const TextStyle(
               fontSize: F.minTextSize,
               fontWeight: FontWeight.w600,

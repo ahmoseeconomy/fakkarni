@@ -125,10 +125,12 @@ lib/
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v5: patients, day_routines, medications
-                              (amount_unknown), dose_schedules (timing_kind),
-                              fixed_timings, dose_events — every table carries a
-                              device-minted `uuid` (SyncIdentity mixin)
+  data/db/                    drift (SQLite) v8: patients (sex, age — local),
+                              day_routines, routine_backups (v7, local),
+                              medications (amount_unknown), dose_schedules
+                              (timing_kind), fixed_timings, dose_events — every
+                              synced table carries a device-minted `uuid`
+                              (SyncIdentity mixin)
   data/repositories/          routine / medication / dose_event
   data/services/              reminder_plan (pure: IDs, window, payload,
                               planEscalations), reminder_scheduler (engine →
@@ -516,7 +518,13 @@ now()), and is a silent no-op unless signed in AND linked
 Never a timer, never an error surfaced to the user. Wire times are UTC ISO.
 **Migration steps normalize tables (alterTable) only in the LAST step of
 the chain** — an intermediate normalization builds tomorrow's shape from
-yesterday's columns and breaks old upgrade paths (bitten twice now).
+yesterday's columns and breaks old upgrade paths (bitten **three** times
+now). In code that means: the `if (from < 6)` normalization block sits at
+the very **end** of `onUpgrade`, after every later step's columns exist.
+v8 found it the hard way — the block used to live inside the v6 step,
+rebuilt `patients` on a definition that already had `sex`, and failed
+every upgrade from v5 or older until it moved. **Any new column goes in
+its own `from < N` step ABOVE that block, added with an existence check.**
 
 ## Phase 4 — the escalation ladder
 
@@ -889,6 +897,19 @@ Consequences to handle:
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
 **Deferred by decision (not by oversight):**
+- **Mockup 21's «الروشتة لو مش مكتوب فيها ميعاد؟» policy block is not
+  built.** Its third option («افترض من غير ما تسأل») lets an AI reading
+  become a scheduled dose without a tap — rule 4 forbids exactly that.
+- **`accountType` is not stored.** «Roles emerge from data… there is no
+  role column» (3.3). Mockup 2's option-card style is used for the path
+  choice after sign-in («اعرض كود الربط» / «عندي كود من والدي»), not as
+  a startup screen; the root guard still finds no sign-in at launch.
+- **Google and Apple sign-in are shown disabled on mockup 3, each with its
+  own real reason** — Google «قريباً», Apple «محتاج حساب Apple Developer».
+  They are not buttons (no InkWell, a lock, a muted fill), a test taps them
+  and asserts zero sign-in calls. The only working control is «كمّل بحساب
+  تجريبي», labelled as what it is (debt 2). Email is not offered (Email OTP
+  was removed from the product).
 - **Mockup 33's rows with no backend are not built:** نمط كبار السن,
   التنبيهات, الاسم والسن, بطاقة الطوارئ, تصدير البيانات. A settings row that
   opens onto nothing is worse than a row that is not there. Each returns
@@ -1042,6 +1063,27 @@ device-verified)**
 - Device check pending: dose two minutes out, phone locked → rings +0,
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
+
+**D3.1 — the front door (built)**
+- Schema v8: `patients.sex` (`Sex.m`/`Sex.f`) and `patients.age`, both
+  nullable and **local** (sync still sends uuid/name/slot only). Written
+  red first: the SchemaVerifier failed with «no such column: sex», then the
+  step went in — and moving the normalization to the end of the chain was
+  what made v2→v8 and v5→v8 pass.
+- «نتعرّف عليك» (mockup 21) before «ظبّط يومك» when `sex` is null: name,
+  راجل/ست, optional age (range chip then stepper; untouched = null — no
+  invented age). Existing installs are not re-asked.
+- **Sex-keyed copy layer:** `domain/patient/sex.dart` → `Say`, provided by
+  `PatientVoice` / `PatientVoiceScope` above the Navigator. Applied to the
+  sentences that address the patient in onboarding («بتفطر/بتفطري»,
+  «مش متأكد/ة»), the alert («خدته/خدتيه خلاص», «ارجع/ي ليومك», «أخدته/ي
+  {time}») and the rail («نسيتها/نسيتيها؟», the ✓ line, «خلصت/خلّصتي»).
+  Unknown sex (pre-v8) = masculine, exactly the text it had. **Buttons in
+  the patient's own voice stay as they are** — «أخدته» on the pinned card is
+  the patient saying "I took it", identical for both. Everything else moves
+  over screen by screen.
+- Mockup 3 restyled on `SignInScreen` (see deferred list for the honest
+  Google/Apple rows); mockup 2's cards for the post-sign-in path choice.
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

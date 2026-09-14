@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/format/arabic_time.dart';
 import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/patient_voice.dart';
+import '../../../domain/patient/sex.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
 import '../../../domain/scheduling/day_routine.dart';
@@ -52,7 +54,7 @@ class DayRail extends StatelessWidget {
       for (final anchor in anchors)
         (at: anchor.at, isAnchor: true, child: _anchorLabel(anchor)),
       for (final group in groups)
-        (at: group.first.scheduledAt, isAnchor: false, child: _dose(group)),
+        (at: group.first.scheduledAt, isAnchor: false, child: _dose(group, PatientVoice.of(context))),
     ]..sort((a, b) {
         final byTime = a.at.compareTo(b.at);
         // مرساة وجرعة في نفس الدقيقة: المرساة الأول
@@ -136,14 +138,14 @@ class DayRail extends StatelessWidget {
         ),
       );
 
-  Widget _dose(List<DoseEventView> group) => Padding(
+  Widget _dose(List<DoseEventView> group, Say say) => Padding(
         padding: const EdgeInsets.only(bottom: F.s10),
-        child: group.every((d) => d.isDone) ? _quietLine(group) : _card(group),
+        child: group.every((d) => d.isDone) ? _quietLine(group, say) : _card(group),
       );
 
   /// جرعة اتاخدت: سطر هادي بعلامة صح. **ما بتتشالش من السكة أبداً** —
   /// المريض لازم يشوف إنه خدها، مش يلاقي السطر اختفى ويشك إنه نسي.
-  Widget _quietLine(List<DoseEventView> group) => Padding(
+  Widget _quietLine(List<DoseEventView> group, Say say) => Padding(
         padding: const EdgeInsets.symmetric(vertical: F.s8),
         child: Row(
           children: [
@@ -166,7 +168,7 @@ class DayRail extends StatelessWidget {
             Text(
               group.first.state == DoseState.skipped
                   ? 'اتأجّل'
-                  : 'أخدته ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}',
+                  : say.takenAt(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
               style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
             ),
           ],

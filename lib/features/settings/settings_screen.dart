@@ -171,7 +171,7 @@ class _AccountCard extends StatelessWidget {
     final (label, tone) = user == null
         ? ('مش مربوط', StatusTone.neutral)
         : user!.isAnonymous
-            ? ('حساب تجريبي', StatusTone.attention)
+            ? ('حساب تجريبي', StatusTone.neutral)
             : ('مربوط', StatusTone.ok);
     return FCard(
       child: Row(

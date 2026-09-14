@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 // الأنواع دي مستعملة في الملف المولّد (`part`)، واللي بيشوف استيرادات
 // المكتبة الأم بس — عشان كده لازم تتستورد هنا حتى لو الملف ده مش بينده عليها.
+import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
@@ -29,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -165,10 +166,9 @@ class AppDatabase extends _$AppDatabase {
                     'ALTER TABLE $name ADD COLUMN synced_at_ms INTEGER NULL',
                   );
                 }
-                // التطبيع الوحيد في السلسلة كلها — آخر خطوة، بعد ما كل
-                // الأعمدة بقت موجودة فعلاً. بيشيل الـDEFAULTs المؤقتة
-                // وبيضيف UNIQUE، والفاحص بيقارن الناتج بآخر نسخة حرفياً.
-                await m.alterTable(TableMigration(table));
+                // التطبيع اتنقل لآخر السلسلة (تحت) — هنا كان بيبني جدول
+                // patients على تعريف النهاردة قبل ما أعمدة نسخة ٨ توصل،
+                // وده كسر كل ترقية من ٥ أو أقدم أول ما v8 اتضافت.
               }
             }
             if (from < 7) {
@@ -187,6 +187,35 @@ class AppDatabase extends _$AppDatabase {
                 '"suhoor_minutes" INTEGER NOT NULL, '
                 'PRIMARY KEY ("patient_id"))',
               );
+            }
+            if (from < 8) {
+              // الجنس والسن — محليين، nullable، والصفوف القديمة ما اتسألتش.
+              // ADD COLUMN بحماية وجود: مسار قديم ممكن يكون عدّى على خطوة
+              // بنت الجدول بشكل أحدث (نفس درس «الخطوات المجمّدة»).
+              for (final (column, type) in [('sex', 'TEXT'), ('age', 'INTEGER')]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('patients') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE patients ADD COLUMN $column $type NULL');
+                }
+              }
+            }
+            if (from < 6) {
+              // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
+              // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
+              // المؤقتة بتاعة ٥ و٦ وبيضيف UNIQUE، والفاحص بيقارن الناتج بآخر
+              // نسخة حرفياً. أي عمود جديد في نسخة جاية لازم يتضاف **قبل** البلوك ده.
+              for (final table in <TableInfo<Table, dynamic>>[
+                patients,
+                dayRoutines,
+                medications,
+                doseSchedules,
+                fixedTimings,
+                doseEvents,
+              ]) {
+                await m.alterTable(TableMigration(table));
+              }
             }
           await customStatement('PRAGMA foreign_keys = ON');
         },

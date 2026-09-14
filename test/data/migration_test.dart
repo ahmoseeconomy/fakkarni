@@ -87,7 +87,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 7);
+    expect(version.read<int>('user_version'), 8);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -112,6 +112,11 @@ void main() {
     final uuids = {for (final m in rows) m.uuid};
     expect(uuids.length, rows.length);
     expect(uuids.every((u) => u.isNotEmpty), isTrue);
+
+    // v8: الجنس والسن موجودين وفاضيين — قاعدة من نسخة ٢ عمرها ما اتسألت
+    final patientRow = (await db.select(db.patients).get()).single;
+    expect(patientRow.sex, isNull);
+    expect(patientRow.age, isNull);
 
     // v7: جدول رمضان موجود وفاضي — رمضان مقفول لكل قاعدة قديمة
     expect(await db.select(db.routineBackups).get(), isEmpty);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/patient_voice.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/services/reminder_plan.dart';
@@ -292,9 +293,9 @@ class _AllDonePanel extends StatelessWidget {
           color: F.ivory,
           borderRadius: BorderRadius.circular(F.radius),
         ),
-        child: const Text(
-          'خلصت أدوية النهاردة كلها. تسلم.',
-          style: TextStyle(
+        child: Text(
+          PatientVoice.of(context).allDone,
+          style: const TextStyle(
             fontSize: F.minBodySize,
             fontWeight: FontWeight.w600,
             color: F.greenDeep,

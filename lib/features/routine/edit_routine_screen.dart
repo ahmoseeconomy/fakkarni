@@ -4,6 +4,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../onboarding/routine_presets.dart';
 import '../onboarding/routine_question_page.dart' show PresetRow;
@@ -170,7 +171,7 @@ class _AnchorCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  question.text,
+                  questionTextFor(question, PatientVoice.of(context)),
                   style: const TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,

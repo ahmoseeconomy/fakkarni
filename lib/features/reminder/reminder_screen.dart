@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/patient_voice.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/widgets/primitives.dart';
@@ -184,7 +185,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   ),
                   const SizedBox(height: F.s8),
                   Text(
-                    pending.isEmpty ? 'خدته خلاص' : _headline(stage),
+                    pending.isEmpty ? PatientVoice.of(context).tookItAlready : _headline(stage),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: F.subtitleSize,
@@ -306,7 +307,7 @@ class _DoseRow extends StatelessWidget {
         const SizedBox(height: F.s4),
         Text(
           dose.isDone && dose.actedAt != null
-              ? 'أخدته ${arabicTime(dose.actedAt!)}'
+              ? PatientVoice.of(context).takenAt(arabicTime(dose.actedAt!))
               : details,
           style: const TextStyle(
             fontSize: F.minTextSize,
@@ -479,13 +480,13 @@ class _DoneActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'تسلم. مفيش حاجة مطلوبة منك دلوقتي.',
+        Text(
+          '${PatientVoice.of(context).thanks} مفيش حاجة مطلوبة منك دلوقتي.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+          style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
         const SizedBox(height: F.gap),
-        FPrimaryButton(label: 'ارجع ليومك', onPressed: onBack),
+        FPrimaryButton(label: PatientVoice.of(context).backToDay, onPressed: onBack),
       ],
     );
   }
@@ -522,7 +523,7 @@ class _GonePanel extends StatelessWidget {
                 backgroundColor: F.ivory,
                 foregroundColor: F.ink,
               ),
-              child: const Text('ارجع ليومك'),
+              child: Text(PatientVoice.of(context).backToDay),
             ),
           ),
         ],

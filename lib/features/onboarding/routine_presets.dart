@@ -1,3 +1,4 @@
+import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
 
 /// سؤال واحد من أسئلة الروتين الخمسة.
@@ -69,3 +70,13 @@ DayRoutine routineFromAnswers(Map<DayAnchor, MinuteOfDay> answers) => DayRoutine
       dinner: answers[DayAnchor.dinner] ?? DayRoutine.fallback.dinner,
       sleep: answers[DayAnchor.sleep] ?? DayRoutine.fallback.sleep,
     );
+
+/// نص السؤال بجنس المريض — «بتفطر» / «بتفطري». [RoutineQuestion.text]
+/// هو المذكّر الافتراضي، وده اللي بيتعرض فعلاً.
+String questionTextFor(RoutineQuestion question, Say say) => switch (question.anchor) {
+      DayAnchor.wake => say.wakeQuestion,
+      DayAnchor.breakfast => say.breakfastQuestion,
+      DayAnchor.lunch => say.lunchQuestion,
+      DayAnchor.dinner => say.dinnerQuestion,
+      DayAnchor.sleep => say.sleepQuestion,
+    };

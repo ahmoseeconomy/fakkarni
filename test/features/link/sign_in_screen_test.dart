@@ -15,6 +15,11 @@ void main() {
   tearDown(() => auth.dispose());
 
   Future<void> pumpSignIn(WidgetTester tester, {AuthService? service}) async {
+    // الشاشة بقت أطول (علامة ف وصفوف الدخول) — نكبّر النافذة بدل السكرول
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
         theme: F.light,
@@ -41,13 +46,13 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('الشرح بالعربي، زرار جوجل ٦٤، و«مش دلوقتي» ≥٥٦ — ومفيش أحمر', (tester) async {
+  screenTest('الشرح بالعربي، «كمّل بحساب تجريبي» ٦٤، و«مش دلوقتي» ≥٥٦ — ومفيش أحمر', (tester) async {
     await pumpSignIn(tester, service: auth);
 
     expect(find.textContaining('عشان لو جرعة مهمة فاتت'), findsOneWidget);
-    expect(tester.getSize(find.widgetWithText(FilledButton, 'اربط ابني')).height,
+    expect(find.text('حساب تجريبي'), findsOneWidget, reason: 'الدخول مجهول — بنسمّيه باسمه');
+    expect(tester.getSize(find.widgetWithText(FilledButton, 'كمّل بحساب تجريبي')).height,
         F.primaryButtonHeight);
-    expect(find.text('سجّل بحساب جوجل'), findsNothing, reason: 'جوجل متأجّلة');
     expect(
       tester.getSize(find.ancestor(of: find.text('مش دلوقتي'), matching: find.byType(TextButton))).height,
       F.minTapTarget,
@@ -70,12 +75,12 @@ void main() {
     auth.nextFailure = const SignInException(SignInFailure.aborted);
     await pumpSignIn(tester, service: auth);
 
-    await tester.tap(find.text('اربط ابني'));
+    await tester.tap(find.text('كمّل بحساب تجريبي'));
     await settle(tester);
 
     expect(find.textContaining('مقدرناش'), findsNothing);
     expect(find.textContaining('مفيش نت'), findsNothing);
-    expect(find.text('اربط ابني'), findsOneWidget);
+    expect(find.text('كمّل بحساب تجريبي'), findsOneWidget);
   });
 
   screenTest('أوفلاين وباقي الأسباب: الجملة المحددة، مش رسالة SDK', (tester) async {
@@ -87,7 +92,7 @@ void main() {
       (SignInFailure.other, 'مقدرناش نكمّل التسجيل. جرّب تاني.'),
     ]) {
       auth.nextFailure = SignInException(failure, 'PlatformException(raw sdk text)');
-      await tester.tap(find.text('اربط ابني'));
+      await tester.tap(find.text('كمّل بحساب تجريبي'));
       await settle(tester);
 
       expect(find.text(message), findsOneWidget);
@@ -99,24 +104,60 @@ void main() {
     auth.signedInUser = const FakkarniUser(id: 'anon-1', isAnonymous: true);
     await pumpSignIn(tester, service: auth);
 
-    await tester.tap(find.text('اربط ابني'));
+    await tester.tap(find.text('كمّل بحساب تجريبي'));
     await settle(tester);
 
-    // الدورين من البيانات: نفس الشاشة بتعرض الطريقين بعد الدخول
-    expect(find.widgetWithText(FilledButton, 'اعرض كود الربط'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'عندي كود من والدي'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'اربط ابني'), findsNothing);
+    // الدورين من البيانات: نفس الشاشة بتعرض الطريقين بعد الدخول (كروت المخطط ٢)
+    expect(find.text('اعرض كود الربط'), findsOneWidget);
+    expect(find.text('عندي كود من والدي'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'كمّل بحساب تجريبي'), findsNothing);
+    expect(find.text('المتابعة بحساب Google'), findsNothing, reason: 'بعد الدخول مفيش صفوف دخول');
 
+    await tester.ensureVisible(find.text('تسجيل الخروج'));
     await tester.tap(find.text('تسجيل الخروج'));
     await settle(tester);
-    expect(find.widgetWithText(FilledButton, 'اربط ابني'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'كمّل بحساب تجريبي'), findsOneWidget);
+  });
+
+  // ⚠️ ممنوع زرار Google أو Apple شكله شغّال وهو مش شغّال.
+  screenTest('Google و Apple معروضين ومعطّلين — مش أزرار، وكل واحد بسببه هو', (tester) async {
+    await pumpSignIn(tester, service: auth);
+
+    final google = find.text('المتابعة بحساب Google');
+    final apple = find.text('المتابعة بحساب Apple');
+    expect(google, findsOneWidget);
+    expect(apple, findsOneWidget);
+
+    // مش جوّه أي زرار ولا InkWell — مفيش حاجة تتداس
+    for (final row in [google, apple]) {
+      expect(find.ancestor(of: row, matching: find.byType(ButtonStyleButton)), findsNothing);
+      expect(find.ancestor(of: row, matching: find.byType(InkWell)), findsNothing);
+    }
+
+    // السبب بتاع كل صف جنبه هو — مش سبب أبل على صف جوجل
+    Finder rowOf(Finder title) =>
+        find.ancestor(of: title, matching: find.byType(Row)).first;
+    expect(find.descendant(of: rowOf(google), matching: find.text('قريباً')), findsOneWidget);
+    expect(find.descendant(of: rowOf(google), matching: find.textContaining('Apple Developer')), findsNothing);
+    expect(find.descendant(of: rowOf(apple), matching: find.text('محتاج حساب Apple Developer')), findsOneWidget);
+    expect(find.descendant(of: rowOf(apple), matching: find.text('قريباً')), findsNothing);
+
+    // الدوس عليهم ما بيعملش حاجة
+    await tester.tap(google, warnIfMissed: false);
+    await tester.tap(apple, warnIfMissed: false);
+    await settle(tester);
+    expect(auth.signInCalls, 0);
+    expect(find.widgetWithText(FilledButton, 'كمّل بحساب تجريبي'), findsOneWidget,
+        reason: 'الزرار الشغّال الوحيد');
+    expect(find.byType(FilledButton), findsOneWidget);
+    expectNoRedAndMinSize(tester);
   });
 
   screenTest('من غير إعداد Supabase → رسالة الناقص، ومفيش زرار جوجل', (tester) async {
     await pumpSignIn(tester, service: null);
 
     expect(find.textContaining('SUPABASE_URL'), findsOneWidget);
-    expect(find.text('اربط ابني'), findsNothing);
+    expect(find.text('كمّل بحساب تجريبي'), findsNothing);
     expect(find.text('مش دلوقتي'), findsOneWidget);
   });
 }

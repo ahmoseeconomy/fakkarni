@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 
+import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/ramadan.dart';
 import '../services/reminder_plan.dart' show maxPatients;
@@ -159,6 +160,28 @@ class RoutineRepository {
         dinnerMinutes: Value(routine.dinner.minutes),
         sleepMinutes: Value(routine.sleep.minutes),
       ));
+
+  /// صف المريض — بيتحدّث مع أي تعديل (الاسم أو الجنس أو السن).
+  Stream<PatientRow?> watchPatient(int patientId) =>
+      (_db.select(_db.patients)..where((t) => t.id.equals(patientId))).watchSingleOrNull();
+
+  /// «نتعرّف عليك» (المخطط 21): الاسم والجنس والسن.
+  ///
+  /// الجنس والسن **محليين** — SyncService بيبعت uuid والاسم والخانة بس.
+  /// السن null لو ما اتختارش: مش بنكتب رقم ما قالهوش.
+  Future<void> saveProfile(
+    int patientId, {
+    required String name,
+    required Sex sex,
+    int? age,
+  }) =>
+      (_db.update(_db.patients)..where((t) => t.id.equals(patientId))).write(
+        PatientsCompanion(
+          name: Value(name),
+          sex: Value(sex),
+          age: Value(age),
+        ),
+      );
 
   /// صف المريض كامل — شاشة الربط محتاجة uuid والاسم.
   Future<PatientRow?> getPatient(int patientId) =>

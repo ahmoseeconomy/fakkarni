@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/fa_mark.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/auth/auth_service.dart';
 import '../../data/push/push_tokens.dart';
 import '../../data/auth/supabase_init.dart';
@@ -133,117 +135,119 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'الربط',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
+        top: false,
         child: ListView(
-          padding: const EdgeInsets.all(F.gap),
+          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
           children: [
-            const Text(
-              'ليه محتاجين حساب؟',
-              style: TextStyle(
-                fontSize: F.questionSize,
-                fontWeight: FontWeight.w700,
-                color: F.ink,
-                height: 1.4,
+            Center(
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: F.greenDeep,
+                  borderRadius: BorderRadius.circular(F.radiusTile),
+                ),
+                alignment: Alignment.center,
+                child: const FaMark(size: 42),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: F.s12),
+            const Text(
+              'سجّل الدخول للربط',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: F.displayFamily,
+                fontSize: F.screenTitleSize,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+              ),
+            ),
+            const SizedBox(height: F.s8),
             const Text(
               'عشان لو جرعة مهمة فاتت، نعرف نكلّم ابنك على موبايله هو. '
               'الربط ده محتاج حساب يعرّفنا مين أنت — والتطبيق من غيره '
               'شغّال بكل حاجة تانية عادي.',
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
             ),
+            const SizedBox(height: F.s12),
+            // الحقيقة: الدخول دلوقتي مجهول (دين تقني ٢) — بنسمّيه باسمه. رمادي مش
+            // ذهبي: ده وصف، مش حاجة محتاجة انتباهه دلوقتي.
+            const Center(child: StatusChip(label: 'حساب تجريبي')),
             const SizedBox(height: F.gap),
             if (widget.auth == null)
               const _Panel(text: SupabaseAuthConfig.missingConfigMessage)
             else if (_user != null) ...[
               // الدورين من البيانات مش من الحساب: الأب بيطلع كوداً،
-              // والابن بيكتب كوداً — نفس الحساب، نفس الشاشة.
-              SizedBox(
-                height: F.primaryButtonHeight,
-                child: FilledButton(
-                  onPressed: _busy ? null : _showCode,
-                  child: const Text('اعرض كود الربط'),
-                ),
+              // والابن بيكتب كوداً — نفس الحساب، نفس الشاشة (بشكل المخطط ٢).
+              _PathCard(
+                icon: Icons.person_outline,
+                title: 'اعرض كود الربط',
+                hint: 'أنا صاحب الأدوية — عايز ابني يتابعني',
+                onTap: _busy ? null : _showCode,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: F.s10),
               if (_followed != null) ...[
-                SizedBox(
-                  height: F.primaryButtonHeight,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            CaregiverScreen(remote: widget.caregiver!),
-                      ),
-                    ),
-                    child: Text(
-                      'متابعة ${_followed!.name}',
-                      style: const TextStyle(
-                        fontSize: F.minBodySize,
-                        fontWeight: FontWeight.w600,
-                      ),
+                _PathCard(
+                  icon: Icons.visibility_outlined,
+                  title: 'متابعة ${_followed!.name}',
+                  hint: 'افتح جدوله وتنبيهاته',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CaregiverScreen(remote: widget.caregiver!),
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: F.s10),
               ],
-              SizedBox(
-                height: F.primaryButtonHeight,
-                child: OutlinedButton(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          final care = AppScope.of(context).care;
-                          if (care == null) return;
-                          Navigator.of(context)
-                              .push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => RedeemCodeScreen(
-                                    care: care,
-                                    caregiver: widget.caregiver,
-                                  ),
+              _PathCard(
+                icon: Icons.link,
+                title: 'عندي كود من والدي',
+                hint: 'أنا بتابع حد — معايا كود الربط بتاعه',
+                onTap: _busy
+                    ? null
+                    : () {
+                        final care = AppScope.of(context).care;
+                        if (care == null) return;
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => RedeemCodeScreen(
+                                  care: care,
+                                  caregiver: widget.caregiver,
                                 ),
-                              )
-                              .then((_) => _checkFollowed());
-                        },
-                  child: const Text(
-                    'عندي كود من والدي',
-                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
-                  ),
-                ),
+                              ),
+                            )
+                            .then((_) => _checkFollowed());
+                      },
               ),
               const SizedBox(height: F.gap),
-              SizedBox(
-                height: F.minTapTarget,
-                child: OutlinedButton(
-                  onPressed: _busy ? null : _signOut,
-                  child: const Text(
-                    'تسجيل الخروج',
-                    style: TextStyle(fontSize: F.minTextSize + 1, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+              FSecondaryButton(label: 'تسجيل الخروج', onPressed: _busy ? null : _signOut),
             ] else ...[
               if (_error != null) ...[
                 _Panel(text: _error!),
                 const SizedBox(height: F.gap),
               ],
-              SizedBox(
-                height: F.primaryButtonHeight,
-                child: FilledButton(
-                  onPressed: _busy ? null : _signIn,
-                  child: Text(_busy ? 'ثواني…' : 'اربط ابني'),
-                ),
+              // معروضين عشان يبان إنهم جايين — **معطّلين**، وكل واحد بسببه هو
+              const _UnavailableRow(
+                title: 'المتابعة بحساب Google',
+                reason: 'قريباً',
+              ),
+              const SizedBox(height: F.s8),
+              const _UnavailableRow(
+                title: 'المتابعة بحساب Apple',
+                reason: 'محتاج حساب Apple Developer',
+              ),
+              const SizedBox(height: F.gap),
+              // الزرار الشغّال الوحيد
+              FPrimaryButton(
+                label: _busy ? 'ثواني…' : 'كمّل بحساب تجريبي',
+                onPressed: _busy ? null : _signIn,
               ),
             ],
-            const SizedBox(height: 4),
+            const SizedBox(height: F.s4),
             SizedBox(
               height: F.minTapTarget,
               child: TextButton(
@@ -263,6 +267,103 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
+}
+
+/// طريقة دخول مش متاحة: معروضة بشكل واضح إنها **مش زرار** — مفيش InkWell،
+/// تعبئة باهتة، قفل، والسبب الحقيقي بتاعها هي مكتوب جنبها.
+class _UnavailableRow extends StatelessWidget {
+  const _UnavailableRow({required this.title, required this.reason});
+
+  final String title;
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: '$title — مش متاح: $reason',
+        enabled: false,
+        excludeSemantics: true,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: F.minTapTarget),
+          padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s10),
+          decoration: BoxDecoration(
+            color: F.ivoryPale,
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            border: Border.all(color: F.lineSoft),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_outline, size: 22, color: F.mutedLight),
+              const SizedBox(width: F.s10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                ),
+              ),
+              const SizedBox(width: F.s8),
+              Flexible(
+                child: Text(
+                  reason,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// اختيار طريق بعد الدخول — كارت بأيقونة وعنوان وسطر، بشكل المخطط ٢.
+class _PathCard extends StatelessWidget {
+  const _PathCard({required this.icon, required this.title, required this.hint, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String hint;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          side: const BorderSide(color: F.line, width: 1.5),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: F.primaryButtonHeight),
+            padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s12),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: F.ivoryWarm,
+                    borderRadius: BorderRadius.circular(F.radiusTile),
+                  ),
+                  child: Icon(icon, size: 24, color: F.ink),
+                ),
+                const SizedBox(width: F.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      Text(hint, style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.4)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_left, size: 26, color: F.muted),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _Panel extends StatelessWidget {

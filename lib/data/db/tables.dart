@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
@@ -53,6 +54,13 @@ class Patients extends Table with SyncIdentity {
       integer().withDefault(const Constant(0))();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// نسخة ٨ — الجنس (m/f) عشان الكلام يخاطبه صح. **محلي**: مش بيتدفع
+  /// للسحابة (SyncService بيبعت uuid والاسم والخانة بس). null = ما اتسألش.
+  TextColumn get sex => textEnum<Sex>().nullable()();
+
+  /// نسخة ٨ — السن بالسنين. محلي، وnull = ما اتسألش.
+  IntColumn get age => integer().nullable()();
 
   /// مينفعش مريضين ياخدوا نفس الخانة — ده بالظبط التصادم اللي بنمنعه.
   @override

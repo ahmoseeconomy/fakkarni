@@ -11,9 +11,12 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
+
+import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 
 /// النص المطلوب بالظبط وبالترتيب.
 const expectedQuestions = [
@@ -66,7 +69,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> pumpOnboarding(WidgetTester tester) async {
+  Future<void> pumpOnboarding(WidgetTester tester, {bool askProfile = false}) async {
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -74,7 +77,10 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: RoutineOnboardingScreen(onDone: () => finished = true),
+            child: RoutineOnboardingScreen(
+              onDone: () => finished = true,
+              askProfile: askProfile,
+            ),
           ),
         ),
       ),
@@ -209,5 +215,75 @@ void main() {
       find.ancestor(of: mid, matching: find.byType(Material)).first,
     );
     expect(material.color, F.gold);
+  });
+
+  group('«نتعرّف عليك» قبل الأسئلة (المخطط 21)', () {
+    Future<void> pumpTall(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1000, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpOnboarding(tester, askProfile: true);
+    }
+
+    testWidgets('أول مرة: الاسم والجنس والسن الأول، و«كمّل» مقفولة لحد اسم وجنس', (tester) async {
+      await pumpTall(tester);
+
+      expect(find.text('نتعرّف عليك'), findsOneWidget);
+      expect(find.text('اسمك إيه؟'), findsOneWidget);
+      expect(find.text('راجل ولا ست؟'), findsOneWidget);
+      expect(find.text(expectedQuestions.first), findsNothing, reason: 'الأسئلة بعدين');
+
+      FilledButton next() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'كمّل'));
+      expect(next().onPressed, isNull);
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tester.pumpAndSettle();
+      expect(next().onPressed, isNull, reason: 'لسه الجنس');
+      await tapAndSettle(tester, 'راجل');
+      expect(next().onPressed, isNotNull);
+      expectNoRedAndMinSize(tester);
+    });
+
+    testWidgets('ست → الأسئلة بالمؤنث، والجنس والاسم اتحفظوا، والسن null لو ما اختارتش', (tester) async {
+      await pumpTall(tester);
+
+      await tester.enterText(find.byType(TextField), 'الحاجة فاطمة');
+      await tapAndSettle(tester, 'ست');
+      // الكلام على الشاشة نفسها بيتبع الجنس فوراً
+      expect(find.textContaining('بتفطري الساعة كام؟'), findsOneWidget);
+      await tapAndSettle(tester, 'كمّل');
+
+      expect(find.text('بتصحي الساعة كام؟'), findsOneWidget);
+      expect(find.text('مش متأكدة'), findsOneWidget);
+      expect(find.text('بتصحى الساعة كام؟'), findsNothing);
+
+      final row = (await services.routines.getPatient(services.patientId))!;
+      expect(row.name, 'الحاجة فاطمة');
+      expect(row.sex, Sex.f);
+      expect(row.age, isNull, reason: 'مش بنكتب سن ما اتقالش');
+    });
+
+    testWidgets('راجل وسن من الشريحة → الأسئلة بالمذكر والسن اتحفظ', (tester) async {
+      await pumpTall(tester);
+
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tapAndSettle(tester, 'راجل');
+      await tapAndSettle(tester, '٦٥–٧٤');
+      await tapAndSettle(tester, 'أكتر');
+      await tapAndSettle(tester, 'كمّل');
+
+      expect(find.text('بتصحى الساعة كام؟'), findsOneWidget);
+      expect(find.text('مش متأكد'), findsOneWidget);
+      final row = (await services.routines.getPatient(services.patientId))!;
+      expect(row.sex, Sex.m);
+      expect(row.age, 71);
+    });
+
+    testWidgets('الجنس متسجّل قبل كده → الأسئلة على طول من غير «نتعرّف عليك»', (tester) async {
+      await services.routines.saveProfile(services.patientId, name: 'الحاج أحمد', sex: Sex.m);
+      await pumpTall(tester);
+      expect(find.text('نتعرّف عليك'), findsNothing);
+      expect(find.text(expectedQuestions.first), findsOneWidget);
+    });
   });
 }

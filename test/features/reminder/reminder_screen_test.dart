@@ -12,7 +12,9 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
@@ -284,6 +286,32 @@ void main() {
     expect(find.text('تم التناول ✅'), findsNothing);
     expect(find.text('سلّم التصعيد'), findsNothing);
     expect(find.text('ارجع ليومك'), findsOneWidget);
+  });
+
+  screenTest('صوت المريضة: «خدتيه خلاص» و«ارجعي ليومك» لما الجنس ست', (tester) async {
+    final ids = await seed(['Antodine']);
+    await events.markTaken(int.parse(ids.single), aug31);
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: F.light,
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: PatientVoice(
+              say: const Say(Sex.f),
+              child: ReminderScreen(routineDay: aug31, scheduleIds: ids, now: DateTime(2026, 8, 31, 14, 15)),
+            ),
+          ),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('خدتيه خلاص'), findsOneWidget);
+    expect(find.text('ارجعي ليومك'), findsOneWidget);
+    expect(find.textContaining('أخدتيه'), findsOneWidget);
+    expect(find.text('خدته خلاص'), findsNothing);
   });
 
   screenTest('إشعار لجرعة اتشالت من اليوم → رسالة هادية بدل شاشة فاضية',
