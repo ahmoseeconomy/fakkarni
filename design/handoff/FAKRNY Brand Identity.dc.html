@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0C201C;font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#E9A93B;text-decoration:none}a:hover{color:#F1C476}
+
+/* --- looping dot: 3.4s, still for the first 72% --- */
+@keyframes dotBeat{
+  0%,72%{transform:scale(1)}
+  79.4%{transform:scale(1.18)}
+  86.8%,100%{transform:scale(1)}
+}
+@keyframes haloBeat{
+  0%,72%{transform:scale(.5);opacity:0}
+  76%{opacity:.75}
+  79.4%{transform:scale(1.6);opacity:.6}
+  86.8%{transform:scale(2.6);opacity:0}
+  100%{transform:scale(2.6);opacity:0}
+}
+
+/* --- splash sequence, authored on a 4.4s cycle: 1.6s build, hold, exit --- */
+@keyframes splashBowl{
+  0%,2.3%{stroke-dashoffset:120}
+  9.1%,84.1%{stroke-dashoffset:0}
+  100%{stroke-dashoffset:0}
+}
+@keyframes splashTail{
+  0%,8%{stroke-dashoffset:120}
+  14.8%,84.1%{stroke-dashoffset:0}
+  100%{stroke-dashoffset:0}
+}
+@keyframes splashDot{
+  0%,14.8%{opacity:0;transform:translateY(-4px)}
+  20.5%,84.1%{opacity:1;transform:translateY(0)}
+  100%{opacity:1;transform:translateY(0)}
+}
+@keyframes splashHalo{
+  0%,19.3%{transform:scale(.5);opacity:0}
+  23%{opacity:.75}
+  26%{transform:scale(1.6);opacity:.6}
+  33%,100%{transform:scale(2.6);opacity:0}
+}
+@keyframes splashWord{
+  0%,21.6%{opacity:0;transform:translateY(8px)}
+  29.5%,84.1%{opacity:1;transform:translateY(0)}
+  100%{opacity:1;transform:translateY(0)}
+}
+@keyframes splashExit{
+  0%,77.3%{transform:scale(1);opacity:1}
+  84.1%{transform:scale(1.04);opacity:0}
+  99.9%{transform:scale(1);opacity:0}
+  100%{transform:scale(1);opacity:1}
+}
+@media (prefers-reduced-motion: reduce){
+  [data-anim]{animation:none !important;opacity:1 !important;transform:none !important;stroke-dashoffset:0 !important}
+}
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:56px 60px 90px;display:flex;flex-direction:column;gap:56px" dir="rtl">
+
+  <header style="display:flex;align-items:flex-end;gap:44px;flex-wrap:wrap;border-bottom:1px solid rgba(241,239,230,.13);padding-bottom:34px">
+    <div style="flex:none;width:96px;height:96px;border-radius:26px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+      <svg viewBox="0 0 120 120" style="width:74px;height:74px;overflow:visible">
+        <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+          <circle cx="76" cy="56" r="17"></circle>
+          <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+        </g>
+        <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+      </svg>
+    </div>
+    <div style="flex:1;min-width:280px">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.22em;color:#7E9B91;text-transform:uppercase">brand identity canvas</div>
+      <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:46px;letter-spacing:-.02em;color:#F1EFE6;line-height:1.1;margin-top:10px">فكرني</div>
+      <div style="font-size:14.5px;color:#A9C0B8;margin-top:10px;line-height:1.65;max-width:62ch;text-wrap:pretty">المِعلَم هو حرف الفاء، أول حرف من الاسم. نقطة الإعجام وحدها هي القرص والتنبيه في آن واحد — وفي المخطوطات العربية كانت هذه النقط تُكتب بالذهب. الذهب محجوز للنقطة، ولا يظهر في أي مكان آخر.</div>
+    </div>
+    <div style="flex:none;display:flex;gap:10px">
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;border-radius:14px;background:#122E28;border:1px solid rgba(241,239,230,.14)"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9px;color:#7E9B91;margin-top:7px">122E28</div>
+        <div style="font-size:9.5px;color:#5E7A72;margin-top:2px">حبر</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;border-radius:14px;background:#10715E"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9px;color:#7E9B91;margin-top:7px">10715E</div>
+        <div style="font-size:9.5px;color:#5E7A72;margin-top:2px">أخضر</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;border-radius:14px;background:#0A4638"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9px;color:#7E9B91;margin-top:7px">0A4638</div>
+        <div style="font-size:9.5px;color:#5E7A72;margin-top:2px">أخضر غامق</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;border-radius:14px;background:#E9A93B"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9px;color:#7E9B91;margin-top:7px">E9A93B</div>
+        <div style="font-size:9.5px;color:#5E7A72;margin-top:2px">ذهب · النقطة</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;border-radius:14px;background:#F1EFE6"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9px;color:#7E9B91;margin-top:7px">F1EFE6</div>
+        <div style="font-size:9.5px;color:#5E7A72;margin-top:2px">عاجي · الحرف</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 01 · SPLASH -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">01</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">شاشة البداية — متحركة</div>
+      <div style="font-size:13px;color:#7E9B91">تُعرض مرة واحدة، ١٫٦ ثانية، ثم تُسلّم التطبيق</div>
+    </div>
+
+    <div style="display:flex;gap:46px;flex-wrap:wrap;align-items:flex-start">
+
+      <div style="flex:none">
+        <div style="width:258px;height:558px;border-radius:30px;overflow:hidden;position:relative;box-shadow:0 30px 70px rgba(0,0,0,.5)">
+          <div style="position:absolute;top:0;left:0;width:1170px;height:2532px;transform:scale(.2205);transform-origin:top left;background:#0A4638">
+            <div data-anim style="position:absolute;inset:0;animation:splashExit 4.4s ease-in-out infinite">
+              <svg viewBox="0 0 120 120" style="position:absolute;left:50%;top:954px;width:420px;height:420px;margin-left:-210px;overflow:visible">
+                <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+                  <circle data-anim cx="76" cy="56" r="17" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashBowl 4.4s ease-out infinite"></circle>
+                  <path data-anim d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashTail 4.4s ease-out infinite"></path>
+                </g>
+                <circle data-anim cx="76" cy="18" r="8" fill="none" stroke="#E9A93B" stroke-width="3" style="transform-box:view-box;transform-origin:76px 18px;animation:splashHalo 4.4s ease-out infinite"></circle>
+                <circle data-anim cx="76" cy="18" r="8" fill="#E9A93B" style="transform-box:view-box;transform-origin:76px 18px;animation:splashDot 4.4s ease-out infinite"></circle>
+              </svg>
+              <div data-anim style="position:absolute;left:0;right:0;top:1490px;text-align:center;font-family:'Alexandria',sans-serif;font-weight:700;font-size:140px;letter-spacing:-.02em;color:#F1EFE6;animation:splashWord 4.4s ease-out infinite">فكرني</div>
+              <div style="position:absolute;left:0;right:0;bottom:150px;text-align:center;font-family:'IBM Plex Sans Arabic',sans-serif;font-weight:400;font-size:46px;color:rgba(241,239,230,.45)">صحّتهم في إيدك</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">ios · 1170 × 2532</div>
+      </div>
+
+      <div style="flex:none">
+        <div style="width:238px;height:529px;border-radius:26px;overflow:hidden;position:relative;box-shadow:0 30px 70px rgba(0,0,0,.5)">
+          <div style="position:absolute;top:0;left:0;width:1080px;height:2400px;transform:scale(.2204);transform-origin:top left;background:#0A4638">
+            <div data-anim style="position:absolute;inset:0;animation:splashExit 4.4s ease-in-out infinite">
+              <svg viewBox="0 0 120 120" style="position:absolute;left:50%;top:910px;width:388px;height:388px;margin-left:-194px;overflow:visible">
+                <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+                  <circle data-anim cx="76" cy="56" r="17" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashBowl 4.4s ease-out infinite"></circle>
+                  <path data-anim d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashTail 4.4s ease-out infinite"></path>
+                </g>
+                <circle data-anim cx="76" cy="18" r="8" fill="none" stroke="#E9A93B" stroke-width="3" style="transform-box:view-box;transform-origin:76px 18px;animation:splashHalo 4.4s ease-out infinite"></circle>
+                <circle data-anim cx="76" cy="18" r="8" fill="#E9A93B" style="transform-box:view-box;transform-origin:76px 18px;animation:splashDot 4.4s ease-out infinite"></circle>
+              </svg>
+              <div data-anim style="position:absolute;left:0;right:0;top:1420px;text-align:center;font-family:'Alexandria',sans-serif;font-weight:700;font-size:130px;letter-spacing:-.02em;color:#F1EFE6;animation:splashWord 4.4s ease-out infinite">فكرني</div>
+              <div style="position:absolute;left:0;right:0;bottom:140px;text-align:center;font-family:'IBM Plex Sans Arabic',sans-serif;font-weight:400;font-size:44px;color:rgba(241,239,230,.45)">صحّتهم في إيدك</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">android · 1080 × 2400</div>
+      </div>
+
+      <div style="flex:none">
+        <div style="width:238px;height:529px;border-radius:26px;overflow:hidden;position:relative;box-shadow:0 30px 70px rgba(0,0,0,.5)">
+          <div style="position:absolute;top:0;left:0;width:1080px;height:2400px;transform:scale(.2204);transform-origin:top left;background:#122E28">
+            <div data-anim style="position:absolute;inset:0;animation:splashExit 4.4s ease-in-out infinite">
+              <svg viewBox="0 0 120 120" style="position:absolute;left:50%;top:910px;width:388px;height:388px;margin-left:-194px;overflow:visible">
+                <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+                  <circle data-anim cx="76" cy="56" r="17" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashBowl 4.4s ease-out infinite"></circle>
+                  <path data-anim d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85" stroke-dasharray="120" stroke-dashoffset="120" style="animation:splashTail 4.4s ease-out infinite"></path>
+                </g>
+                <circle data-anim cx="76" cy="18" r="8" fill="none" stroke="#E9A93B" stroke-width="3" style="transform-box:view-box;transform-origin:76px 18px;animation:splashHalo 4.4s ease-out infinite"></circle>
+                <circle data-anim cx="76" cy="18" r="8" fill="#E9A93B" style="transform-box:view-box;transform-origin:76px 18px;animation:splashDot 4.4s ease-out infinite"></circle>
+              </svg>
+              <div data-anim style="position:absolute;left:0;right:0;top:1420px;text-align:center;font-family:'Alexandria',sans-serif;font-weight:700;font-size:130px;letter-spacing:-.02em;color:#F1EFE6;animation:splashWord 4.4s ease-out infinite">فكرني</div>
+              <div style="position:absolute;left:0;right:0;bottom:140px;text-align:center;font-family:'IBM Plex Sans Arabic',sans-serif;font-weight:400;font-size:44px;color:rgba(241,239,230,.45)">صحّتهم في إيدك</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">night · 122E28</div>
+      </div>
+
+      <div style="flex:1;min-width:300px;max-width:430px;background:rgba(241,239,230,.04);border:1px solid rgba(241,239,230,.1);border-radius:20px;padding:24px">
+        <div style="font-size:13.5px;font-weight:700;color:#F1EFE6">التتابع — ١٫٦ ثانية</div>
+        <div style="display:flex;flex-direction:column;gap:0;margin-top:16px">
+          <div style="display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(241,239,230,.08)">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">0.00s</div>
+            <div style="flex:1;font-size:12.5px;color:#A9C0B8;line-height:1.55">الأرضية مرسومة سلفًا — مطابقة تمامًا لصورة الإطلاق الساكنة</div>
+          </div>
+          <div style="display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(241,239,230,.08)">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">0.10s</div>
+            <div style="flex:1;font-size:12.5px;color:#A9C0B8;line-height:1.55">حروف الفاء تُرسم — الكأس أولًا ثم الذيل · ٠٫٥٥ث ease-out</div>
+          </div>
+          <div style="display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(241,239,230,.08)">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">0.65s</div>
+            <div style="flex:1;font-size:12.5px;color:#A9C0B8;line-height:1.55">النقطة الذهبية تظهر وتستقر ٤px لأسفل · ٠٫٢٥ث</div>
+          </div>
+          <div style="display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(241,239,230,.08)">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">0.85s</div>
+            <div style="flex:1;font-size:12.5px;color:#F1EFE6;font-weight:600;line-height:1.55">موجة هالة واحدة من النقطة — الضربة التي وُجدت الشاشة من أجلها</div>
+          </div>
+          <div style="display:flex;gap:14px;padding:11px 0;border-bottom:1px solid rgba(241,239,230,.08)">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">0.95s</div>
+            <div style="flex:1;font-size:12.5px;color:#A9C0B8;line-height:1.55">الاسم يظهر صاعدًا ٨px · ٠٫٣٥ث ease-out</div>
+          </div>
+          <div style="display:flex;gap:14px;padding:11px 0">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#E9A93B;flex:none;width:52px">1.60s</div>
+            <div style="flex:1;font-size:12.5px;color:#A9C0B8;line-height:1.55">المجموعة تتسع إلى ١٫٠٤ وتختفي في ٠٫٣ث بينما تظهر أول شاشة تحتها</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;background:rgba(233,169,59,.1);border:1px solid rgba(233,169,59,.3);border-radius:13px;padding:14px;font-size:12px;color:#F0D3A0;line-height:1.65">لا يُحجب التطبيق على هذه الشاشة أبدًا. إن جهز في ٣٠٠ms تُقطع الشاشة بسلاسة — ليست انتظارًا مفروضًا لـ١٫٦ث.</div>
+        <div style="margin-top:11px;font-size:11.5px;color:#7E9B91;line-height:1.65">المعروض هنا يُعيد التتابع في حلقة ٤٫٤ث للمراجعة فقط: بناء ١٫٦ث · ثبات · خروج.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 02 · STATIC LAUNCH ASSET -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">02</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">صورة الإطلاق الساكنة — إطار 0.00s</div>
+      <div style="font-size:13px;color:#7E9B91">شاشات إطلاق iOS وAndroid لا تتحرك — هذه هي الصورة التي يقطع منها التطبيق</div>
+    </div>
+
+    <div style="display:flex;gap:46px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:none">
+        <div style="width:258px;height:558px;border-radius:30px;overflow:hidden;background:#0A4638;box-shadow:0 30px 70px rgba(0,0,0,.5)"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">ios launch · 1170 × 2532</div>
+      </div>
+      <div style="flex:none">
+        <div style="width:238px;height:529px;border-radius:26px;overflow:hidden;background:#0A4638;box-shadow:0 30px 70px rgba(0,0,0,.5)"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">android launch · 1080 × 2400</div>
+      </div>
+      <div style="flex:none">
+        <div style="width:238px;height:529px;border-radius:26px;overflow:hidden;background:#122E28;box-shadow:0 30px 70px rgba(0,0,0,.5)"></div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;color:#7E9B91;margin-top:13px;text-align:center">night launch · 122E28</div>
+      </div>
+      <div style="flex:1;min-width:300px;max-width:430px;background:rgba(241,239,230,.04);border:1px solid rgba(241,239,230,.1);border-radius:20px;padding:24px">
+        <div style="font-size:13.5px;font-weight:700;color:#F1EFE6">التسليم الأصلي</div>
+        <div style="font-size:12.5px;color:#A9C0B8;margin-top:12px;line-height:1.75">في اللحظة صفر لا شيء على الشاشة سوى الأرضية الصلبة — لا حرف، لا نقطة، لا اسم. لذلك تكون صورة الإطلاق أرضية واحدة مسطحة تمامًا، والقطع من شاشة نظام التشغيل إلى الشاشة المتحركة غير مرئي: نفس اللون، نفس الحدود، بلا وميض ولا إزاحة.</div>
+        <div style="margin-top:16px;background:rgba(241,239,230,.05);border-radius:13px;padding:14px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;color:#A9C0B8;line-height:1.9;direction:ltr;text-align:left">ios &nbsp;→ &nbsp;#0A4638 · flat<br>android → &nbsp;#0A4638 · flat<br>night &nbsp;→ &nbsp;#122E28 · flat</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · ANIMATED HERO -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">03</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">اللوحة المتحركة — النقطة في حلقة ٣٫٤ث</div>
+      <div style="font-size:13px;color:#7E9B91">سكون تام لأول ٧٢٪ من الدورة، ثم ضربة واحدة</div>
+    </div>
+
+    <div style="display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:none;width:520px;height:330px;border-radius:26px;background:#10715E;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;box-shadow:0 26px 60px rgba(0,0,0,.4)">
+        <svg viewBox="0 0 120 120" style="width:146px;height:146px;overflow:visible">
+          <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+            <circle cx="76" cy="56" r="17"></circle>
+            <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+          </g>
+          <circle data-anim cx="76" cy="18" r="8" fill="none" stroke="#E9A93B" stroke-width="3" style="transform-box:view-box;transform-origin:76px 18px;animation:haloBeat 3.4s ease-in-out infinite"></circle>
+          <circle data-anim cx="76" cy="18" r="8" fill="#E9A93B" style="transform-box:view-box;transform-origin:76px 18px;animation:dotBeat 3.4s ease-in-out infinite"></circle>
+        </svg>
+        <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:52px;letter-spacing:-.02em;color:#F1EFE6;line-height:1">فكرني</div>
+      </div>
+
+      <div style="flex:1;min-width:290px;max-width:400px;background:rgba(241,239,230,.04);border:1px solid rgba(241,239,230,.1);border-radius:20px;padding:24px">
+        <div style="font-size:13.5px;font-weight:700;color:#F1EFE6">إيقاع النقطة</div>
+        <div style="margin-top:18px;height:44px;border-radius:10px;background:rgba(241,239,230,.06);position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;bottom:0;right:0;width:72%;background:rgba(241,239,230,.05);display:flex;align-items:center;justify-content:center;font-size:11px;color:#7E9B91">سكون · ٢٫٤٥ث</div>
+          <div style="position:absolute;top:0;bottom:0;left:0;width:28%;background:rgba(233,169,59,.28);display:flex;align-items:center;justify-content:center;font-size:11px;color:#F0D3A0;font-weight:700">ضربة · ٠٫٥ث</div>
+        </div>
+        <div style="font-size:12.5px;color:#A9C0B8;margin-top:16px;line-height:1.75">النقطة تتسع ١ ← ١٫١٨ ← ١ في نصف ثانية، وفي اللحظة نفسها تتوسّع هالة ذهبية من ٠٫٥ إلى ٢٫٦ وتتلاشى. نقطة الدوران هي مركز النقطة نفسها (76px 18px).</div>
+        <div style="margin-top:16px;background:rgba(233,169,59,.1);border:1px solid rgba(233,169,59,.3);border-radius:13px;padding:14px;font-size:12px;color:#F0D3A0;line-height:1.65">يجب أن تُقرأ كتذكير هادئ متقطّع — نبضة قلب براحة طويلة — لا نبضًا مستمرًا ولا مؤشر تحميل. الانضباط هو المقصد.</div>
+        <div style="margin-top:11px;font-size:11.5px;color:#7E9B91;line-height:1.65">مع prefers-reduced-motion تظهر النقطة ساكنة بلا حركة.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · APP ICON -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">04</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">أيقونة التطبيق</div>
+      <div style="font-size:13px;color:#7E9B91">المِعلَم في منتصف مربّع بزوايا ٢٢٫٥٪</div>
+    </div>
+    <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-end">
+      <div style="text-align:center">
+        <div style="width:220px;height:220px;border-radius:49.5px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 120 120" style="width:150px;height:150px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">1024</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:120px;height:120px;border-radius:27px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 120 120" style="width:82px;height:82px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">180</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:76px;height:76px;border-radius:17.1px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 120 120" style="width:52px;height:52px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">120</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border-radius:10.8px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 120 120" style="width:33px;height:33px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">76</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 · REDUCTION PROOF -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">05</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">إثبات التصغير — النقطة وحلقتان</div>
+      <div style="font-size:13px;color:#7E9B91">عند ١٦px يسقط الحرف وتبقى النقطة وحدها علامة</div>
+    </div>
+    <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-end">
+      <div style="text-align:center">
+        <div style="width:200px;height:200px;border-radius:26px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 64 64" style="width:200px;height:200px">
+            <circle cx="32" cy="32" r="25" fill="none" stroke="#F1EFE6" stroke-width="2.5"></circle>
+            <circle cx="32" cy="32" r="16" fill="none" stroke="#F1EFE6" stroke-width="3.5"></circle>
+            <circle cx="32" cy="32" r="7" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">512</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:104px;height:104px;border-radius:14px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 64 64" style="width:104px;height:104px">
+            <circle cx="32" cy="32" r="25" fill="none" stroke="#F1EFE6" stroke-width="2.5"></circle>
+            <circle cx="32" cy="32" r="16" fill="none" stroke="#F1EFE6" stroke-width="3.5"></circle>
+            <circle cx="32" cy="32" r="7" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">128</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border-radius:7px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 64 64" style="width:48px;height:48px">
+            <circle cx="32" cy="32" r="25" fill="none" stroke="#F1EFE6" stroke-width="3"></circle>
+            <circle cx="32" cy="32" r="16" fill="none" stroke="#F1EFE6" stroke-width="4"></circle>
+            <circle cx="32" cy="32" r="7.5" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">48</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:24px;height:24px;border-radius:4px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 64 64" style="width:24px;height:24px">
+            <circle cx="32" cy="32" r="25" fill="none" stroke="#F1EFE6" stroke-width="4"></circle>
+            <circle cx="32" cy="32" r="15" fill="none" stroke="#F1EFE6" stroke-width="5"></circle>
+            <circle cx="32" cy="32" r="8" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">24</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:16px;height:16px;border-radius:3px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+          <svg viewBox="0 0 64 64" style="width:16px;height:16px">
+            <circle cx="32" cy="32" r="24" fill="none" stroke="#F1EFE6" stroke-width="5"></circle>
+            <circle cx="32" cy="32" r="14" fill="none" stroke="#F1EFE6" stroke-width="6"></circle>
+            <circle cx="32" cy="32" r="9" fill="#E9A93B"></circle>
+          </svg>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10px;color:#7E9B91;margin-top:12px">16</div>
+      </div>
+      <div style="flex:1;min-width:260px;max-width:360px;font-size:12.5px;color:#A9C0B8;line-height:1.75;padding-bottom:22px">تزيد سماكة الحلقات ونصف قطر النقطة كلما صغر المقاس، حتى تبقى الثلاث حلقات مقروءة عند ١٦px بلا امتزاج.</div>
+    </div>
+  </section>
+
+  <!-- 06 · LOCKUPS -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">06</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">التركيبات</div>
+      <div style="font-size:13px;color:#7E9B91">أفقية: المِعلَم يمين الاسم · ورأسية</div>
+    </div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:stretch">
+      <div style="flex:1;min-width:340px;background:#10715E;border-radius:22px;padding:40px 44px;display:flex;align-items:center;justify-content:center;gap:26px">
+        <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:56px;letter-spacing:-.02em;color:#F1EFE6;line-height:1">فكرني</div>
+        <div style="width:1px;height:56px;background:rgba(241,239,230,.22);flex:none"></div>
+        <svg viewBox="0 0 120 120" style="width:86px;height:86px;flex:none;overflow:visible">
+          <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+            <circle cx="76" cy="56" r="17"></circle>
+            <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+          </g>
+          <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+        </svg>
+      </div>
+      <div style="flex:none;width:280px;background:#10715E;border-radius:22px;padding:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+        <svg viewBox="0 0 120 120" style="width:104px;height:104px;overflow:visible">
+          <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+            <circle cx="76" cy="56" r="17"></circle>
+            <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+          </g>
+          <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+        </svg>
+        <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:38px;letter-spacing:-.02em;color:#F1EFE6;line-height:1">فكرني</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 · MONOCHROME -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">07</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">أحادي اللون</div>
+      <div style="font-size:13px;color:#7E9B91">حين لا يمكن طباعة الذهب — تصبح النقطة من لون الحرف</div>
+    </div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap">
+      <div style="flex:1;min-width:300px;background:#10715E;border-radius:22px;padding:40px;display:flex;align-items:center;justify-content:center;gap:24px">
+        <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:44px;letter-spacing:-.02em;color:#F1EFE6;line-height:1">فكرني</div>
+        <svg viewBox="0 0 120 120" style="width:76px;height:76px;flex:none;overflow:visible">
+          <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+            <circle cx="76" cy="56" r="17"></circle>
+            <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+          </g>
+          <circle cx="76" cy="18" r="8" fill="#F1EFE6"></circle>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:300px;background:#F1EFE6;border-radius:22px;padding:40px;display:flex;align-items:center;justify-content:center;gap:24px">
+        <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:44px;letter-spacing:-.02em;color:#122E28;line-height:1">فكرني</div>
+        <svg viewBox="0 0 120 120" style="width:76px;height:76px;flex:none;overflow:visible">
+          <g fill="none" stroke="#122E28" stroke-width="11" stroke-linecap="round">
+            <circle cx="76" cy="56" r="17"></circle>
+            <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+          </g>
+          <circle cx="76" cy="18" r="8" fill="#122E28"></circle>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 · MISUSE -->
+  <section style="display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.2em;color:#E9A93B">08</div>
+      <div style="font-size:19px;font-weight:700;color:#F1EFE6">سوء الاستخدام</div>
+      <div style="font-size:13px;color:#7E9B91">لا تفعل</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px">
+
+      <div style="background:rgba(241,239,230,.04);border:1px solid rgba(192,32,47,.4);border-radius:20px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="width:100%;height:150px;border-radius:14px;background:#0A4638;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+          <svg viewBox="0 0 120 120" style="width:92px;height:92px;overflow:visible">
+            <g fill="none" stroke="#E9A93B" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><line x1="8" y1="8" x2="92" y2="92" stroke="#C0202F" stroke-width="2.4"></line></svg>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#F1EFE6;text-align:center;line-height:1.4">لا تصبغ الحرف بالذهب</div>
+      </div>
+
+      <div style="background:rgba(241,239,230,.04);border:1px solid rgba(192,32,47,.4);border-radius:20px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="width:100%;height:150px;border-radius:14px;background:#0A4638;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+          <svg viewBox="0 0 120 120" style="width:92px;height:92px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+            <circle cx="30" cy="30" r="7" fill="#E9A93B"></circle>
+          </svg>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><line x1="8" y1="8" x2="92" y2="92" stroke="#C0202F" stroke-width="2.4"></line></svg>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#F1EFE6;text-align:center;line-height:1.4">لا تضف عنصرًا ذهبيًا ثانيًا</div>
+      </div>
+
+      <div style="background:rgba(241,239,230,.04);border:1px solid rgba(192,32,47,.4);border-radius:20px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="width:100%;height:150px;border-radius:14px;background:#0A4638;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+          <svg viewBox="0 0 120 120" style="width:92px;height:92px;overflow:visible;transform:rotate(-18deg)">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+          </svg>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><line x1="8" y1="8" x2="92" y2="92" stroke="#C0202F" stroke-width="2.4"></line></svg>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#F1EFE6;text-align:center;line-height:1.4">لا تُدر المِعلَم</div>
+      </div>
+
+      <div style="background:rgba(241,239,230,.04);border:1px solid rgba(192,32,47,.4);border-radius:20px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+        <div style="width:100%;height:150px;border-radius:14px;background:#0A4638;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+          <svg viewBox="0 0 120 120" style="width:92px;height:92px;overflow:visible">
+            <g fill="none" stroke="#F1EFE6" stroke-width="11" stroke-linecap="round">
+              <circle cx="76" cy="56" r="17"></circle>
+              <path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path>
+            </g>
+            <circle cx="104" cy="56" r="8" fill="#E9A93B"></circle>
+          </svg>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><line x1="8" y1="8" x2="92" y2="92" stroke="#C0202F" stroke-width="2.4"></line></svg>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#F1EFE6;text-align:center;line-height:1.4">لا تضع النقطة في غير موضعها فوق الكأس</div>
+      </div>
+
+    </div>
+    <div style="font-size:12.5px;color:#7E9B91;line-height:1.75;max-width:70ch">كل سطح مسطّح — بلا تدرّجات، بلا ظلال، بلا حواف بارزة. ولا جرس ولا قرص ولا ساعة ولا قلب ولا يد في أي مكان.</div>
+  </section>
+
+</div>
+</x-dc>
+</body>
+</html>

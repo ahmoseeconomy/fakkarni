@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#122E28;font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#E9A93B;text-decoration:none}a:hover{color:#F1C476}
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:52px 56px 90px;display:flex;flex-direction:column;gap:44px" dir="rtl">
+
+  <header style="display:flex;align-items:flex-end;gap:40px;flex-wrap:wrap;border-bottom:1px solid rgba(241,239,230,.13);padding-bottom:30px">
+    <div style="flex:none;width:88px;height:88px;border-radius:24px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+      <svg viewBox="0 0 120 120" style="width:66px;height:66px;overflow:visible">
+        <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+        <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+      </svg>
+    </div>
+    <div style="flex:1;min-width:320px">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.2em;color:#7E9B91;text-transform:uppercase">scheduling flow · 390 × 844 · rtl</div>
+      <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:42px;letter-spacing:-.02em;color:#F1EFE6;line-height:1.1;margin-top:9px">مواعيد فكرني</div>
+      <div style="font-size:14.5px;color:#A9C0B8;margin-top:10px;line-height:1.7;max-width:68ch;text-wrap:pretty">الروشتة مكتوبة بالمراسي — «قبل الفطار»، «قبل النوم» — مش بالساعة. فالتطبيق يسأل عن اليوم مرة واحدة، وبعد كده كل روشتة تظبّط نفسها. الجرعة محفوظة {anchor: breakfast, offset: −30} ومش محفوظة أبدًا {time: 07:00}. الساعة الثابتة موجودة كمخرج، ومش الطريق الأساسي في أي شاشة.</div>
+    </div>
+    <div style="flex:none;display:flex;gap:9px">
+      <div style="text-align:center"><div style="width:58px;height:58px;border-radius:13px;background:#122E28;border:1px solid rgba(241,239,230,.16)"></div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:8.5px;color:#7E9B91;margin-top:6px">122E28</div></div>
+      <div style="text-align:center"><div style="width:58px;height:58px;border-radius:13px;background:#10715E"></div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:8.5px;color:#7E9B91;margin-top:6px">10715E</div></div>
+      <div style="text-align:center"><div style="width:58px;height:58px;border-radius:13px;background:#0A4638"></div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:8.5px;color:#7E9B91;margin-top:6px">0A4638</div></div>
+      <div style="text-align:center"><div style="width:58px;height:58px;border-radius:13px;background:#E9A93B"></div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:8.5px;color:#7E9B91;margin-top:6px">E9A93B</div></div>
+      <div style="text-align:center"><div style="width:58px;height:58px;border-radius:13px;background:#F1EFE6"></div><div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:8.5px;color:#7E9B91;margin-top:6px">F1EFE6</div></div>
+    </div>
+  </header>
+
+  <section data-row="light" style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:22px;color:#F1EFE6">الصف النهاري</div>
+      <div style="font-size:13.5px;color:#7E9B91">أرضية عاجية · النص حبر · الذهب للمنبّه والحالة النشطة فقط</div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px">
+
+      <!-- 01 · INTRO -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠١" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:26px;padding:0 34px">
+            <div style="width:104px;height:104px;border-radius:28px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 120 120" style="width:78px;height:78px;overflow:visible">
+                <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+                <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:36px;color:#122E28;letter-spacing:-.02em;line-height:1.25">خلينا نعرف يومك</div>
+              <div style="font-size:21px;color:#5E7A72;margin-top:16px;line-height:1.75;text-wrap:pretty">خمس أسئلة مرة واحدة بس — وبعدها أي روشتة هنظبطها لوحدنا</div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <div style="width:11px;height:11px;border-radius:50%;background:#DFDACB"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#DFDACB"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#DFDACB"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#DFDACB"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#DFDACB"></div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">يلا نبدأ</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">بعدين</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠١ · الترحيب</div>
+      </div>
+
+      <!-- 02 · WAKE -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٢" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">١ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">بتصحى الساعة كام؟</div>
+              <div style="font-size:20px;color:#5E7A72;margin-top:12px;line-height:1.7">اختار اللي أقرب — تقدر تغيّره في أي وقت</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٦:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٦:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#5E7A72;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#F7F5EC;border:1px solid #DFDACB;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٦:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#122E28;padding:12px 0;border-top:1px solid #DFDACB;border-bottom:1px solid #DFDACB">٦:٣٠ ص</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٦:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٢ · الصحيان</div>
+      </div>
+
+      <!-- 03 · BREAKFAST -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٣" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">٢ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">بتفطر الساعة كام؟</div>
+              <div style="font-size:20px;color:#5E7A72;margin-top:12px;line-height:1.7">أدوية كتير معلّقة على الفطار</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٨:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#5E7A72;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#F7F5EC;border:1px solid #DFDACB;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٧:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#122E28;padding:12px 0;border-top:1px solid #DFDACB;border-bottom:1px solid #DFDACB">٧:٣٠ ص</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٧:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٣ · الفطار</div>
+      </div>
+
+      <!-- 04 · LUNCH -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٤" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">٣ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">بتتغدى الساعة كام؟</div>
+              <div style="font-size:20px;color:#5E7A72;margin-top:12px;line-height:1.7">لو بيختلف، اختار الأغلب</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٢:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٣:٣٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#5E7A72;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#F7F5EC;border:1px solid #DFDACB;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٢:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#122E28;padding:12px 0;border-top:1px solid #DFDACB;border-bottom:1px solid #DFDACB">٢:٣٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٢:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٤ · الغدا</div>
+      </div>
+
+      <!-- 05 · DINNER -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٥" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">٤ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">بتتعشى الساعة كام؟</div>
+              <div style="font-size:20px;color:#5E7A72;margin-top:12px;line-height:1.7">فيه دوا بياخده بعد العشا</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٨:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٩:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#5E7A72;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#F7F5EC;border:1px solid #DFDACB;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٧:٤٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#122E28;padding:12px 0;border-top:1px solid #DFDACB;border-bottom:1px solid #DFDACB">٨:٠٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">٨:١٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٥ · العشا</div>
+      </div>
+
+      <!-- 06 · SLEEP -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٦" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">٥ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#DFDACB;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">بتنام الساعة كام؟</div>
+              <div style="font-size:20px;color:#5E7A72;margin-top:12px;line-height:1.7">آخر سؤال — وبعده خلصنا</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١٠:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١١:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١٢:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#5E7A72;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#F7F5EC;border:1px solid #DFDACB;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">١١:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#122E28;padding:12px 0;border-top:1px solid #DFDACB;border-bottom:1px solid #DFDACB">١١:٣٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#5E7A72;opacity:.5;padding:6px 0">١١:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">خلصنا</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٦ · النوم</div>
+      </div>
+
+      <!-- 07 · SCAN (viewfinder — same in both rows) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٧" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#0B0F0D;border:1px solid rgba(245,241,228,.14);box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:rgba(245,241,228,.6)">٩:٤١</div>
+            <div style="font-size:17px;color:rgba(245,241,228,.6)">فكرني</div>
+          </div>
+          <div style="flex:none;padding:26px 28px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:32px;color:#F5F1E4;letter-spacing:-.02em">صوّر الروشتة</div>
+            <div style="font-size:20px;color:rgba(245,241,228,.62);margin-top:11px;line-height:1.7">حطها على سطح مستوي والنور يكون كويس</div>
+          </div>
+          <div style="flex:1;margin:24px 28px;border-radius:24px;background:rgba(245,241,228,.05);position:relative;overflow:hidden">
+            <div style="position:absolute;top:20px;right:20px;width:46px;height:46px;border-top:4px solid #F5F1E4;border-right:4px solid #F5F1E4;border-top-right-radius:12px"></div>
+            <div style="position:absolute;top:20px;left:20px;width:46px;height:46px;border-top:4px solid #F5F1E4;border-left:4px solid #F5F1E4;border-top-left-radius:12px"></div>
+            <div style="position:absolute;bottom:20px;right:20px;width:46px;height:46px;border-bottom:4px solid #F5F1E4;border-right:4px solid #F5F1E4;border-bottom-right-radius:12px"></div>
+            <div style="position:absolute;bottom:20px;left:20px;width:46px;height:46px;border-bottom:4px solid #F5F1E4;border-left:4px solid #F5F1E4;border-bottom-left-radius:12px"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 40px">
+              <div style="font-size:19px;color:rgba(245,241,228,.5);text-align:center;line-height:1.7">خلي الورقة جوه الأربع زوايا</div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#F5F1E4;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">صوّر</div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;height:56px;border-radius:18px;background:rgba(245,241,228,.1);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;cursor:pointer">اختار من الصور</div>
+              <div style="flex:1;height:56px;border-radius:18px;background:rgba(245,241,228,.1);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;cursor:pointer">أكتبها بإيدي</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٧ · تصوير الروشتة</div>
+      </div>
+
+      <!-- 08 · AI CONFIRMATION -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٨" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">فكرني</div>
+          </div>
+          <div style="flex:none;padding:22px 24px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:31px;color:#122E28;letter-spacing:-.02em;line-height:1.3">فهمت الروشتة كده</div>
+            <div style="font-size:20px;color:#5E7A72;margin-top:10px;line-height:1.65">راجعها قبل ما نظبط المنبّهات</div>
+          </div>
+          <div style="flex:1;padding:18px 24px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left;line-height:1.25">Antodine 40 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">٧:٠٠ ص</div>
+                    <div style="background:#EAE7DB;color:#122E28;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">الفطار − ٣٠ د</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#10715E;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left;line-height:1.25">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">٨:٠٠ ص و ٨:٣٠ م</div>
+                    <div style="background:#EAE7DB;color:#122E28;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">بعد الأكل</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#10715E;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-inline-start:5px solid #E9A93B;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left;line-height:1.25">Telfast 180 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">١١:١٥ م</div>
+                    <div style="background:#EAE7DB;color:#122E28;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">النوم − ١٥ د</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:9px;margin-top:12px">
+                    <div style="flex:none;width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                    <div style="font-size:18px;font-weight:600;color:#122E28">مش متأكد من دي — راجعها</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#10715E;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left;line-height:1.25">Amebazole 1 gm</div>
+                  <div style="font-size:20px;color:#122E28;margin-top:10px;line-height:1.55">حبتين مرة واحدة — النهاردة بس</div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#10715E;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+          </div>
+          <div style="flex:none;padding:16px 24px 36px;display:flex;gap:12px">
+            <div style="flex:1;height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;cursor:pointer">تمام، ظبّطهم</div>
+            <div style="flex:1;height:64px;border-radius:20px;background:#FFFFFF;border:2px solid #10715E;color:#10715E;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;cursor:pointer">أعدّل</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٨ · تأكيد ما فهمه التطبيق</div>
+      </div>
+
+      <!-- 09 · DURATION SHEET -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٩" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;justify-content:flex-end;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="position:absolute;inset:0;padding:16px 24px;display:flex;flex-direction:column;gap:12px;opacity:.4">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+              <div style="font-size:17px;color:#5E7A72">فكرني</div>
+            </div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:31px;color:#122E28;margin-top:8px">فهمت الروشتة كده</div>
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:16px 18px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left">Amebazole 1 gm</div>
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:16px 18px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#122E28;direction:ltr;text-align:left">Antodine 40 mg</div>
+          </div>
+          <div style="position:absolute;inset:0;background:rgba(18,46,40,.42)"></div>
+          <div style="position:relative;background:#F1EFE6;border-top-left-radius:32px;border-top-right-radius:32px;padding:12px 24px 34px">
+            <div style="width:48px;height:5px;border-radius:3px;background:#DFDACB;margin:0 auto 20px"></div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:29px;color:#122E28;letter-spacing:-.02em;line-height:1.35">الدكتور قال تاخده لحد امتى؟</div>
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;margin-top:10px;direction:ltr;text-align:right">Amebazole 1 gm</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:22px">
+              <div style="min-height:64px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">عدد أيام محدد</div>
+              <div style="min-height:64px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">لحد ما العلبة تخلص</div>
+              <div style="min-height:64px;border-radius:20px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">مستمر</div>
+              <div style="min-height:64px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">مش عارف</div>
+            </div>
+            <div style="margin-top:18px;background:#EAE7DB;border-radius:16px;padding:16px 18px;font-size:19px;color:#122E28;line-height:1.6">هنفكّرك تسأل الدكتور بعد أسبوع</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٩ · المدة الناقصة</div>
+      </div>
+
+      <!-- 10 · DOSE EDITOR -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٠" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:19px;font-weight:600;color:#10715E;cursor:pointer">رجوع</div>
+          </div>
+          <div style="flex:none;padding:20px 26px 0">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:25px;font-weight:600;color:#122E28;direction:ltr;text-align:right">Antodine 40 mg</div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;margin-top:8px">إمتى؟</div>
+          </div>
+          <div style="flex:1;padding:22px 26px 0;display:flex;flex-direction:column;gap:24px">
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <div style="min-height:56px;border-radius:17px;background:#E9A93B;border:1px solid #E9A93B;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل الفطار</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد الفطار</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل الغدا</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد الغدا</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل العشا</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد العشا</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل النوم</div>
+              <div style="min-height:56px;border-radius:17px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">أول ما أصحى</div>
+            </div>
+
+            <div>
+              <div style="font-size:20px;color:#5E7A72;padding:0 4px 12px">بكام؟</div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="flex:none;width:72px;height:72px;border-radius:22px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:600;cursor:pointer">−</div>
+                <div style="flex:1;height:72px;border-radius:22px;background:#EAE7DB;display:flex;align-items:center;justify-content:center;gap:9px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:30px;font-weight:600;color:#122E28">٣٠</div>
+                  <div style="font-size:21px;color:#122E28">دقيقة</div>
+                </div>
+                <div style="flex:none;width:72px;height:72px;border-radius:22px;background:#FFFFFF;border:1px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:600;cursor:pointer">+</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;background:#FFFFFF;border:1px solid #E9A93B;border-radius:20px;padding:18px 20px">
+              <div style="flex:none;width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+              <div style="flex:1;font-size:22px;font-weight:600;color:#122E28">يعني حوالي ٧:٠٠ ص</div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 26px 36px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">احفظ</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#5E7A72;text-decoration:underline;cursor:pointer">أحدد ساعة ثابتة بدل كده</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٠ · محرّر الجرعة</div>
+      </div>
+
+      <!-- 11 · TODAY -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١١" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">النهاردة</div>
+          </div>
+
+          <div style="flex:none;padding:18px 26px 0">
+            <div style="background:#10715E;border-radius:26px;padding:22px">
+              <div style="font-size:19px;color:rgba(251,250,245,.72)">الجاية</div>
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;color:#FBFAF5;margin-top:8px;direction:ltr;text-align:right">Antodine 40 mg</div>
+              <div style="font-size:22px;color:#FBFAF5;margin-top:8px">كمان ٢٥ دقيقة · ٧:٠٠ ص</div>
+              <div style="height:64px;border-radius:20px;background:#E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;margin-top:18px;cursor:pointer">أخدته</div>
+            </div>
+          </div>
+
+          <div style="flex:1;padding:22px 26px 30px;overflow:hidden">
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#10715E"></div>
+                <div style="width:2px;flex:1;background:#DFDACB;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#122E28">الصحيان · ٦:٣٠ ص</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:2px;flex:1;background:#DFDACB"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="background:#FFFFFF;border:1.5px solid #E9A93B;border-radius:18px;padding:15px 17px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28;direction:ltr;text-align:right">Antodine 40 mg</div>
+                  <div style="font-size:19px;color:#5E7A72;margin-top:7px">٧:٠٠ ص · الفطار − ٣٠ د</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#10715E"></div>
+                <div style="width:2px;flex:1;background:#DFDACB;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#122E28">الفطار · ٧:٣٠ ص</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:2px;flex:1;background:#DFDACB"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="display:flex;align-items:center;gap:11px;padding:6px 4px">
+                  <div style="flex:none;font-size:20px;color:#10715E;font-weight:700">✓</div>
+                  <div style="flex:1;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="flex:none;font-size:18px;color:#5E7A72">أخدته ٨:٠٠ ص</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#10715E"></div>
+                <div style="width:2px;flex:1;background:#DFDACB;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#122E28">الغدا · ٢:٣٠ م</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#10715E"></div>
+                <div style="width:2px;flex:1;background:#DFDACB;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#122E28">النوم · ١١:٣٠ م</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px"></div>
+              <div style="flex:1">
+                <div style="background:#FFFFFF;border:1.5px solid #E9A93B;border-radius:18px;padding:15px 17px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28;direction:ltr;text-align:right">Telfast 180 mg</div>
+                  <div style="font-size:19px;color:#5E7A72;margin-top:7px">١١:١٥ م · النوم − ١٥ د</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١١ · النهاردة</div>
+      </div>
+
+      <!-- 12 · RAMADAN -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٢" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:19px;font-weight:600;color:#10715E;cursor:pointer">رجوع</div>
+          </div>
+          <div style="flex:none;padding:18px 26px 0">
+            <div style="background:#EAE7DB;border-radius:22px;padding:20px">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:26px;color:#122E28;letter-spacing:-.02em;line-height:1.35">رمضان قرّب — نظبط مواعيدك؟</div>
+              <div style="font-size:19px;color:#5E7A72;margin-top:10px;line-height:1.6">مفيش حاجة هتتغير غير لما تضغط</div>
+            </div>
+          </div>
+          <div style="flex:1;padding:20px 26px 0;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+            <div>
+              <div style="font-size:20px;font-weight:600;color:#122E28;padding:0 4px 12px">يومك في رمضان</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#122E28">السحور</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">٣:٣٠ ص</div>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#122E28">الفطار (المغرب)</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">٦:٤٥ م</div>
+                </div>
+                <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#122E28">النوم</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#122E28">١:٠٠ ص</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:20px;font-weight:600;color:#122E28;padding:0 4px 12px">٤ أدوية هتتحرك</div>
+              <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:4px 18px">
+                <div style="padding:14px 0;border-bottom:1px solid #DFDACB">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28;direction:ltr;text-align:right">Antodine 40 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;text-decoration:line-through">٧:٠٠ ص</div>
+                    <div style="font-size:18px;color:#5E7A72">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28">٦:١٥ م</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0;border-bottom:1px solid #DFDACB">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;text-decoration:line-through">٨:٠٠ ص</div>
+                    <div style="font-size:18px;color:#5E7A72">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28">٧:١٥ م</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0;border-bottom:1px solid #DFDACB">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;text-decoration:line-through">٨:٣٠ م</div>
+                    <div style="font-size:18px;color:#5E7A72">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28">٤:٠٠ ص</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28;direction:ltr;text-align:right">Telfast 180 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#5E7A72;text-decoration:line-through">١١:١٥ م</div>
+                    <div style="font-size:18px;color:#5E7A72">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28">١٢:٤٥ ص</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:16px 26px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">فعّل وضع رمضان</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5E7A72;cursor:pointer">مش دلوقتي</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٢ · وضع رمضان</div>
+      </div>
+
+      <!-- 13 · REMINDER (day) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٣" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٧:٠٠</div>
+            <div style="font-size:17px;color:#5E7A72">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;padding:0 34px">
+            <div style="width:96px;height:96px;border-radius:26px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 120 120" style="width:72px;height:72px;overflow:visible">
+                <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+                <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#122E28;letter-spacing:-.02em;line-height:1.3">وقت Antodine</div>
+              <div style="font-size:23px;color:#5E7A72;margin-top:14px;line-height:1.6">قرص واحد قبل الفطار</div>
+              <div style="display:inline-flex;align-items:center;gap:9px;margin-top:20px;background:#EAE7DB;border-radius:14px;padding:11px 16px">
+                <div style="width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#122E28">٧:٠٠ ص</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 40px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer">أخدته</div>
+            <div style="height:64px;border-radius:20px;background:#FFFFFF;border:2px solid #DFDACB;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;cursor:pointer">فكّرني بعد شوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٣ · المنبّه · نهارًا</div>
+      </div>
+
+      <!-- 14 · REMINDER (night — same in both rows) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٤" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#0A4638;border:1px solid rgba(245,241,228,.14);box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:rgba(245,241,228,.55)">١١:١٥</div>
+            <div style="font-size:17px;color:rgba(245,241,228,.55)">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;padding:0 34px">
+            <svg viewBox="0 0 120 120" style="width:82px;height:82px;overflow:visible">
+              <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+              <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+            </svg>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F5F1E4;letter-spacing:-.02em;line-height:1.3">وقت Telfast</div>
+              <div style="font-size:23px;color:rgba(245,241,228,.7);margin-top:14px;line-height:1.6">قرص واحد قبل النوم</div>
+              <div style="display:inline-flex;align-items:center;gap:9px;margin-top:20px;background:rgba(245,241,228,.1);border-radius:14px;padding:11px 16px">
+                <div style="width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F5F1E4">١١:١٥ م</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 40px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#E9A93B;color:#122E28;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer">أخدته</div>
+            <div style="height:64px;border-radius:20px;background:rgba(245,241,228,.1);border:2px solid rgba(245,241,228,.22);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;cursor:pointer">فكّرني بعد شوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٤ · المنبّه · ليلًا</div>
+      </div>
+
+      <!-- 15 · CAREGIVER -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٥" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#F1EFE6;border:1px solid #DFDACB;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 24px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#5E7A72">٩:٤١</div>
+            <div style="font-size:17px;color:#5E7A72">فكرني</div>
+          </div>
+          <div style="flex:none;padding:20px 24px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:28px;color:#122E28;letter-spacing:-.02em">بابا أحمد</div>
+            <div style="font-size:18px;color:#5E7A72;margin-top:8px">الأسبوع ده · ٢٤ جرعة من ٢٨</div>
+          </div>
+          <div style="flex:1;padding:20px 24px 0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:18px">
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">سبت</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">حد</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">اتنين</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">تلات</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">أربع</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">خميس</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#5E7A72">جمعة</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#10715E"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#DFDACB"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#DFDACB"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid #DFDACB;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;background:#10715E"></div>
+                  <div style="font-size:17px;color:#5E7A72">أخدها</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;border:2px solid #E9A93B"></div>
+                  <div style="font-size:17px;color:#5E7A72">فاتت</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;background:#DFDACB"></div>
+                  <div style="font-size:17px;color:#5E7A72">لسه</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF;border:1px solid #DFDACB;border-radius:20px;padding:18px">
+              <div style="font-size:21px;font-weight:600;color:#122E28;line-height:1.5">دوا الضغط هيخلص خلال ٥ أيام</div>
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:18px;color:#5E7A72;margin-top:8px;direction:ltr;text-align:right">Antodine 40 mg · ٥ أقراص فاضلة</div>
+              <div style="min-height:56px;border-radius:18px;background:#10715E;color:#FBFAF5;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;margin-top:16px;cursor:pointer">اطلب التجديد</div>
+            </div>
+
+            <div style="background:#EAE7DB;border-radius:18px;padding:16px 18px;font-size:18px;color:#122E28;line-height:1.6">Telfast اتأخرت مرتين الأسبوع ده — الساعة ١١:١٥ م ممكن تكون متأخرة عليه</div>
+
+          </div>
+          <div style="flex:none;padding:16px 24px 34px">
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#5E7A72;cursor:pointer">افتح جدول الأدوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٥ · شاشة الابن</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section data-row="dark" style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:22px;color:#071A16">الصف الليلي</div>
+      <div style="font-size:13.5px;color:#7E9B91">أرضية أخضر غامق · النص عاجي · نفس القياسات ونفس المسافات بالحرف</div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px">
+
+      <!-- 01 · INTRO -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠١" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:26px;padding:0 34px">
+            <div style="width:104px;height:104px;border-radius:28px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 120 120" style="width:78px;height:78px;overflow:visible">
+                <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+                <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:36px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.25">خلينا نعرف يومك</div>
+              <div style="font-size:21px;color:#A9C0B8;margin-top:16px;line-height:1.75;text-wrap:pretty">خمس أسئلة مرة واحدة بس — وبعدها أي روشتة هنظبطها لوحدنا</div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <div style="width:11px;height:11px;border-radius:50%;background:#24463D"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#24463D"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#24463D"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#24463D"></div>
+              <div style="width:11px;height:11px;border-radius:50%;background:#24463D"></div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">يلا نبدأ</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">بعدين</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠١ · الترحيب</div>
+      </div>
+
+      <!-- 02 · WAKE -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٢" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">١ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">بتصحى الساعة كام؟</div>
+              <div style="font-size:20px;color:#A9C0B8;margin-top:12px;line-height:1.7">اختار اللي أقرب — تقدر تغيّره في أي وقت</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٦:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٦:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#A9C0B8;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#0C2620;border:1px solid #24463D;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٦:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#F1EFE6;padding:12px 0;border-top:1px solid #24463D;border-bottom:1px solid #24463D">٦:٣٠ ص</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٦:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٢ · الصحيان</div>
+      </div>
+
+      <!-- 03 · BREAKFAST -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٣" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">٢ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">بتفطر الساعة كام؟</div>
+              <div style="font-size:20px;color:#A9C0B8;margin-top:12px;line-height:1.7">أدوية كتير معلّقة على الفطار</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٨:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#A9C0B8;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#0C2620;border:1px solid #24463D;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٧:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#F1EFE6;padding:12px 0;border-top:1px solid #24463D;border-bottom:1px solid #24463D">٧:٣٠ ص</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٧:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٣ · الفطار</div>
+      </div>
+
+      <!-- 04 · LUNCH -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٤" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">٣ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">بتتغدى الساعة كام؟</div>
+              <div style="font-size:20px;color:#A9C0B8;margin-top:12px;line-height:1.7">لو بيختلف، اختار الأغلب</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٢:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٣:٣٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#A9C0B8;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#0C2620;border:1px solid #24463D;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٢:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#F1EFE6;padding:12px 0;border-top:1px solid #24463D;border-bottom:1px solid #24463D">٢:٣٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٢:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٤ · الغدا</div>
+      </div>
+
+      <!-- 05 · DINNER -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٥" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">٤ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">بتتعشى الساعة كام؟</div>
+              <div style="font-size:20px;color:#A9C0B8;margin-top:12px;line-height:1.7">فيه دوا بياخده بعد العشا</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٧:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٨:٠٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">٩:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#A9C0B8;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#0C2620;border:1px solid #24463D;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٧:٤٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#F1EFE6;padding:12px 0;border-top:1px solid #24463D;border-bottom:1px solid #24463D">٨:٠٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">٨:١٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">تمام</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٥ · العشا</div>
+      </div>
+
+      <!-- 06 · SLEEP -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٦" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">٥ من ٥</div>
+          </div>
+          <div style="flex:none;padding:22px 28px 0;display:flex;gap:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#24463D;margin-top:1px"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+          </div>
+          <div style="flex:1;padding:30px 28px 0;display:flex;flex-direction:column;gap:26px">
+            <div>
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">بتنام الساعة كام؟</div>
+              <div style="font-size:20px;color:#A9C0B8;margin-top:12px;line-height:1.7">آخر سؤال — وبعده خلصنا</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١٠:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١١:٣٠</div>
+              <div style="flex:1;min-height:88px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;cursor:pointer">١٢:٠٠</div>
+            </div>
+            <div>
+              <div style="font-size:18px;color:#A9C0B8;padding:0 4px 10px">أو لفّ الشريط لوقت تاني</div>
+              <div style="background:#0C2620;border:1px solid #24463D;border-radius:22px;padding:10px 0">
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">١١:١٥</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:32px;font-weight:600;color:#F1EFE6;padding:12px 0;border-top:1px solid #24463D;border-bottom:1px solid #24463D">١١:٣٠ م</div>
+                <div style="text-align:center;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;color:#A9C0B8;opacity:.5;padding:6px 0">١١:٤٥</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">خلصنا</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش متأكد</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٦ · النوم</div>
+      </div>
+
+      <!-- 07 · SCAN (viewfinder — same in both rows) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٧" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#0B0F0D;border:1px solid rgba(245,241,228,.14);box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:rgba(245,241,228,.6)">٩:٤١</div>
+            <div style="font-size:17px;color:rgba(245,241,228,.6)">فكرني</div>
+          </div>
+          <div style="flex:none;padding:26px 28px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:32px;color:#F5F1E4;letter-spacing:-.02em">صوّر الروشتة</div>
+            <div style="font-size:20px;color:rgba(245,241,228,.62);margin-top:11px;line-height:1.7">حطها على سطح مستوي والنور يكون كويس</div>
+          </div>
+          <div style="flex:1;margin:24px 28px;border-radius:24px;background:rgba(245,241,228,.05);position:relative;overflow:hidden">
+            <div style="position:absolute;top:20px;right:20px;width:46px;height:46px;border-top:4px solid #F5F1E4;border-right:4px solid #F5F1E4;border-top-right-radius:12px"></div>
+            <div style="position:absolute;top:20px;left:20px;width:46px;height:46px;border-top:4px solid #F5F1E4;border-left:4px solid #F5F1E4;border-top-left-radius:12px"></div>
+            <div style="position:absolute;bottom:20px;right:20px;width:46px;height:46px;border-bottom:4px solid #F5F1E4;border-right:4px solid #F5F1E4;border-bottom-right-radius:12px"></div>
+            <div style="position:absolute;bottom:20px;left:20px;width:46px;height:46px;border-bottom:4px solid #F5F1E4;border-left:4px solid #F5F1E4;border-bottom-left-radius:12px"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 40px">
+              <div style="font-size:19px;color:rgba(245,241,228,.5);text-align:center;line-height:1.7">خلي الورقة جوه الأربع زوايا</div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#F5F1E4;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">صوّر</div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1;height:56px;border-radius:18px;background:rgba(245,241,228,.1);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;cursor:pointer">اختار من الصور</div>
+              <div style="flex:1;height:56px;border-radius:18px;background:rgba(245,241,228,.1);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;cursor:pointer">أكتبها بإيدي</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٧ · تصوير الروشتة</div>
+      </div>
+
+      <!-- 08 · AI CONFIRMATION -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٨" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">فكرني</div>
+          </div>
+          <div style="flex:none;padding:22px 24px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:31px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">فهمت الروشتة كده</div>
+            <div style="font-size:20px;color:#A9C0B8;margin-top:10px;line-height:1.65">راجعها قبل ما نظبط المنبّهات</div>
+          </div>
+          <div style="flex:1;padding:18px 24px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left;line-height:1.25">Antodine 40 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">٧:٠٠ ص</div>
+                    <div style="background:#174036;color:#F1EFE6;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">الفطار − ٣٠ د</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#3A9B83;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left;line-height:1.25">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">٨:٠٠ ص و ٨:٣٠ م</div>
+                    <div style="background:#174036;color:#F1EFE6;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">بعد الأكل</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#3A9B83;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#10312A;border:1px solid #24463D;border-inline-start:5px solid #E9A93B;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left;line-height:1.25">Telfast 180 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">١١:١٥ م</div>
+                    <div style="background:#174036;color:#F1EFE6;border-radius:9px;padding:6px 11px;font-size:17px;font-weight:600">النوم − ١٥ د</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:9px;margin-top:12px">
+                    <div style="flex:none;width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                    <div style="font-size:18px;font-weight:600;color:#F1EFE6">مش متأكد من دي — راجعها</div>
+                  </div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#3A9B83;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:16px 18px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left;line-height:1.25">Amebazole 1 gm</div>
+                  <div style="font-size:20px;color:#F1EFE6;margin-top:10px;line-height:1.55">حبتين مرة واحدة — النهاردة بس</div>
+                </div>
+                <div style="flex:none;min-height:56px;display:flex;align-items:center;padding:0 6px;font-size:20px;font-weight:600;color:#3A9B83;cursor:pointer">عدّل</div>
+              </div>
+            </div>
+
+          </div>
+          <div style="flex:none;padding:16px 24px 36px;display:flex;gap:12px">
+            <div style="flex:1;height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;cursor:pointer">تمام، ظبّطهم</div>
+            <div style="flex:1;height:64px;border-radius:20px;background:#10312A;border:2px solid #3A9B83;color:#3A9B83;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;cursor:pointer">أعدّل</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٨ · تأكيد ما فهمه التطبيق</div>
+      </div>
+
+      <!-- 09 · DURATION SHEET -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="٠٩" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;justify-content:flex-end;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="position:absolute;inset:0;padding:16px 24px;display:flex;flex-direction:column;gap:12px;opacity:.4">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+              <div style="font-size:17px;color:#A9C0B8">فكرني</div>
+            </div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:31px;color:#F1EFE6;margin-top:8px">فهمت الروشتة كده</div>
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:16px 18px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left">Amebazole 1 gm</div>
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:16px 18px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:24px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:left">Antodine 40 mg</div>
+          </div>
+          <div style="position:absolute;inset:0;background:rgba(4,14,11,.62)"></div>
+          <div style="position:relative;background:#071A16;border-top-left-radius:32px;border-top-right-radius:32px;padding:12px 24px 34px">
+            <div style="width:48px;height:5px;border-radius:3px;background:#24463D;margin:0 auto 20px"></div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:29px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.35">الدكتور قال تاخده لحد امتى؟</div>
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;margin-top:10px;direction:ltr;text-align:right">Amebazole 1 gm</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:22px">
+              <div style="min-height:64px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">عدد أيام محدد</div>
+              <div style="min-height:64px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">لحد ما العلبة تخلص</div>
+              <div style="min-height:64px;border-radius:20px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">مستمر</div>
+              <div style="min-height:64px;border-radius:20px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;padding:0 20px;font-size:21px;font-weight:600;cursor:pointer">مش عارف</div>
+            </div>
+            <div style="margin-top:18px;background:#174036;border-radius:16px;padding:16px 18px;font-size:19px;color:#F1EFE6;line-height:1.6">هنفكّرك تسأل الدكتور بعد أسبوع</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">٠٩ · المدة الناقصة</div>
+      </div>
+
+      <!-- 10 · DOSE EDITOR -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٠" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:19px;font-weight:600;color:#3A9B83;cursor:pointer">رجوع</div>
+          </div>
+          <div style="flex:none;padding:20px 26px 0">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:25px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">Antodine 40 mg</div>
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;margin-top:8px">إمتى؟</div>
+          </div>
+          <div style="flex:1;padding:22px 26px 0;display:flex;flex-direction:column;gap:24px">
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
+              <div style="min-height:56px;border-radius:17px;background:#E9A93B;border:1px solid #E9A93B;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل الفطار</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد الفطار</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل الغدا</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد الغدا</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل العشا</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">بعد العشا</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">قبل النوم</div>
+              <div style="min-height:56px;border-radius:17px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;padding:0 17px;font-size:19px;font-weight:600;cursor:pointer">أول ما أصحى</div>
+            </div>
+
+            <div>
+              <div style="font-size:20px;color:#A9C0B8;padding:0 4px 12px">بكام؟</div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="flex:none;width:72px;height:72px;border-radius:22px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:600;cursor:pointer">−</div>
+                <div style="flex:1;height:72px;border-radius:22px;background:#174036;display:flex;align-items:center;justify-content:center;gap:9px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:30px;font-weight:600;color:#F1EFE6">٣٠</div>
+                  <div style="font-size:21px;color:#F1EFE6">دقيقة</div>
+                </div>
+                <div style="flex:none;width:72px;height:72px;border-radius:22px;background:#10312A;border:1px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:600;cursor:pointer">+</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;background:#10312A;border:1px solid #E9A93B;border-radius:20px;padding:18px 20px">
+              <div style="flex:none;width:12px;height:12px;border-radius:50%;background:#E9A93B"></div>
+              <div style="flex:1;font-size:22px;font-weight:600;color:#F1EFE6">يعني حوالي ٧:٠٠ ص</div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 26px 36px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">احفظ</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#A9C0B8;text-decoration:underline;cursor:pointer">أحدد ساعة ثابتة بدل كده</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٠ · محرّر الجرعة</div>
+      </div>
+
+      <!-- 11 · TODAY -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١١" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">النهاردة</div>
+          </div>
+
+          <div style="flex:none;padding:18px 26px 0">
+            <div style="background:#3A9B83;border-radius:26px;padding:22px">
+              <div style="font-size:19px;color:rgba(251,250,245,.72)">الجاية</div>
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:27px;font-weight:600;color:#06231C;margin-top:8px;direction:ltr;text-align:right">Antodine 40 mg</div>
+              <div style="font-size:22px;color:#06231C;margin-top:8px">كمان ٢٥ دقيقة · ٧:٠٠ ص</div>
+              <div style="height:64px;border-radius:20px;background:#E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;margin-top:18px;cursor:pointer">أخدته</div>
+            </div>
+          </div>
+
+          <div style="flex:1;padding:22px 26px 30px;overflow:hidden">
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#3A9B83"></div>
+                <div style="width:2px;flex:1;background:#24463D;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#F1EFE6">الصحيان · ٦:٣٠ ص</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:2px;flex:1;background:#24463D"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="background:#10312A;border:1.5px solid #E9A93B;border-radius:18px;padding:15px 17px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">Antodine 40 mg</div>
+                  <div style="font-size:19px;color:#A9C0B8;margin-top:7px">٧:٠٠ ص · الفطار − ٣٠ د</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#3A9B83"></div>
+                <div style="width:2px;flex:1;background:#24463D;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#F1EFE6">الفطار · ٧:٣٠ ص</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:2px;flex:1;background:#24463D"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="display:flex;align-items:center;gap:11px;padding:6px 4px">
+                  <div style="flex:none;font-size:20px;color:#3A9B83;font-weight:700">✓</div>
+                  <div style="flex:1;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="flex:none;font-size:18px;color:#A9C0B8">أخدته ٨:٠٠ ص</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#3A9B83"></div>
+                <div style="width:2px;flex:1;background:#24463D;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#F1EFE6">الغدا · ٢:٣٠ م</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px;display:flex;flex-direction:column;align-items:center">
+                <div style="width:20px;height:20px;border-radius:50%;background:#3A9B83"></div>
+                <div style="width:2px;flex:1;background:#24463D;min-height:18px"></div>
+              </div>
+              <div style="flex:1;padding-bottom:14px">
+                <div style="font-size:20px;font-weight:600;color:#F1EFE6">النوم · ١١:٣٠ م</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:14px">
+              <div style="flex:none;width:36px"></div>
+              <div style="flex:1">
+                <div style="background:#10312A;border:1.5px solid #E9A93B;border-radius:18px;padding:15px 17px">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">Telfast 180 mg</div>
+                  <div style="font-size:19px;color:#A9C0B8;margin-top:7px">١١:١٥ م · النوم − ١٥ د</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١١ · النهاردة</div>
+      </div>
+
+      <!-- 12 · RAMADAN -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٢" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 26px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:19px;font-weight:600;color:#3A9B83;cursor:pointer">رجوع</div>
+          </div>
+          <div style="flex:none;padding:18px 26px 0">
+            <div style="background:#174036;border-radius:22px;padding:20px">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:26px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.35">رمضان قرّب — نظبط مواعيدك؟</div>
+              <div style="font-size:19px;color:#A9C0B8;margin-top:10px;line-height:1.6">مفيش حاجة هتتغير غير لما تضغط</div>
+            </div>
+          </div>
+          <div style="flex:1;padding:20px 26px 0;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+            <div>
+              <div style="font-size:20px;font-weight:600;color:#F1EFE6;padding:0 4px 12px">يومك في رمضان</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="background:#10312A;border:1px solid #24463D;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#F1EFE6">السحور</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">٣:٣٠ ص</div>
+                </div>
+                <div style="background:#10312A;border:1px solid #24463D;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#F1EFE6">الفطار (المغرب)</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">٦:٤٥ م</div>
+                </div>
+                <div style="background:#10312A;border:1px solid #24463D;border-radius:18px;padding:15px 18px;display:flex;align-items:center;gap:12px">
+                  <div style="flex:1;font-size:20px;font-weight:600;color:#F1EFE6">النوم</div>
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;color:#F1EFE6">١:٠٠ ص</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:20px;font-weight:600;color:#F1EFE6;padding:0 4px 12px">٤ أدوية هتتحرك</div>
+              <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:4px 18px">
+                <div style="padding:14px 0;border-bottom:1px solid #24463D">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">Antodine 40 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;text-decoration:line-through">٧:٠٠ ص</div>
+                    <div style="font-size:18px;color:#A9C0B8">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6">٦:١٥ م</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0;border-bottom:1px solid #24463D">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;text-decoration:line-through">٨:٠٠ ص</div>
+                    <div style="font-size:18px;color:#A9C0B8">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6">٧:١٥ م</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0;border-bottom:1px solid #24463D">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">LINEX Adult cap</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;text-decoration:line-through">٨:٣٠ م</div>
+                    <div style="font-size:18px;color:#A9C0B8">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6">٤:٠٠ ص</div>
+                  </div>
+                </div>
+                <div style="padding:14px 0">
+                  <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6;direction:ltr;text-align:right">Telfast 180 mg</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:19px;color:#A9C0B8;text-decoration:line-through">١١:١٥ م</div>
+                    <div style="font-size:18px;color:#A9C0B8">←</div>
+                    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6">١٢:٤٥ ص</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:16px 26px 36px;display:flex;flex-direction:column;gap:12px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;cursor:pointer">فعّل وضع رمضان</div>
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A9C0B8;cursor:pointer">مش دلوقتي</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٢ · وضع رمضان</div>
+      </div>
+
+      <!-- 13 · REMINDER (day) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٣" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٧:٠٠</div>
+            <div style="font-size:17px;color:#A9C0B8">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;padding:0 34px">
+            <div style="width:96px;height:96px;border-radius:26px;background:#0A4638;display:flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 120 120" style="width:72px;height:72px;overflow:visible">
+                <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+                <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F1EFE6;letter-spacing:-.02em;line-height:1.3">وقت Antodine</div>
+              <div style="font-size:23px;color:#A9C0B8;margin-top:14px;line-height:1.6">قرص واحد قبل الفطار</div>
+              <div style="display:inline-flex;align-items:center;gap:9px;margin-top:20px;background:#174036;border-radius:14px;padding:11px 16px">
+                <div style="width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F1EFE6">٧:٠٠ ص</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 40px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer">أخدته</div>
+            <div style="height:64px;border-radius:20px;background:#10312A;border:2px solid #24463D;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;cursor:pointer">فكّرني بعد شوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٣ · المنبّه · نهارًا</div>
+      </div>
+
+      <!-- 14 · REMINDER (night — same in both rows) -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٤" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#0A4638;border:1px solid rgba(245,241,228,.14);box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 28px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:rgba(245,241,228,.55)">١١:١٥</div>
+            <div style="font-size:17px;color:rgba(245,241,228,.55)">فكرني</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;padding:0 34px">
+            <svg viewBox="0 0 120 120" style="width:82px;height:82px;overflow:visible">
+              <g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g>
+              <circle cx="76" cy="18" r="8" fill="#E9A93B"></circle>
+            </svg>
+            <div style="text-align:center">
+              <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:34px;color:#F5F1E4;letter-spacing:-.02em;line-height:1.3">وقت Telfast</div>
+              <div style="font-size:23px;color:rgba(245,241,228,.7);margin-top:14px;line-height:1.6">قرص واحد قبل النوم</div>
+              <div style="display:inline-flex;align-items:center;gap:9px;margin-top:20px;background:rgba(245,241,228,.1);border-radius:14px;padding:11px 16px">
+                <div style="width:10px;height:10px;border-radius:50%;background:#E9A93B"></div>
+                <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:#F5F1E4">١١:١٥ م</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;padding:0 28px 40px;display:flex;flex-direction:column;gap:14px">
+            <div style="height:64px;border-radius:20px;background:#E9A93B;color:#F1EFE6;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;cursor:pointer">أخدته</div>
+            <div style="height:64px;border-radius:20px;background:rgba(245,241,228,.1);border:2px solid rgba(245,241,228,.22);color:#F5F1E4;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;cursor:pointer">فكّرني بعد شوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٤ · المنبّه · ليلًا</div>
+      </div>
+
+      <!-- 15 · CAREGIVER -->
+      <div style="flex:none;width:390px">
+        <div data-screen-label="١٥" style="width:390px;height:844px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#071A16;border:1px solid #24463D;box-shadow:0 22px 50px rgba(0,0,0,.35)">
+          <div style="flex:none;padding:16px 24px 0;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:17px;color:#A9C0B8">٩:٤١</div>
+            <div style="font-size:17px;color:#A9C0B8">فكرني</div>
+          </div>
+          <div style="flex:none;padding:20px 24px 0">
+            <div style="font-family:'Alexandria',sans-serif;font-weight:700;font-size:28px;color:#F1EFE6;letter-spacing:-.02em">بابا أحمد</div>
+            <div style="font-size:18px;color:#A9C0B8;margin-top:8px">الأسبوع ده · ٢٤ جرعة من ٢٨</div>
+          </div>
+          <div style="flex:1;padding:20px 24px 0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:18px">
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">سبت</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">حد</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">اتنين</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">تلات</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">أربع</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">خميس</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;border:2px solid #E9A93B"></div>
+                  </div>
+                </div>
+                <div style="flex:1;text-align:center">
+                  <div style="font-size:17px;color:#A9C0B8">جمعة</div>
+                  <div style="display:flex;flex-direction:column;gap:7px;margin-top:11px;align-items:center">
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#3A9B83"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#24463D"></div>
+                    <div style="width:15px;height:15px;border-radius:50%;background:#24463D"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid #24463D;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;background:#3A9B83"></div>
+                  <div style="font-size:17px;color:#A9C0B8">أخدها</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;border:2px solid #E9A93B"></div>
+                  <div style="font-size:17px;color:#A9C0B8">فاتت</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:13px;height:13px;border-radius:50%;background:#24463D"></div>
+                  <div style="font-size:17px;color:#A9C0B8">لسه</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#10312A;border:1px solid #24463D;border-radius:20px;padding:18px">
+              <div style="font-size:21px;font-weight:600;color:#F1EFE6;line-height:1.5">دوا الضغط هيخلص خلال ٥ أيام</div>
+              <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:18px;color:#A9C0B8;margin-top:8px;direction:ltr;text-align:right">Antodine 40 mg · ٥ أقراص فاضلة</div>
+              <div style="min-height:56px;border-radius:18px;background:#3A9B83;color:#06231C;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;margin-top:16px;cursor:pointer">اطلب التجديد</div>
+            </div>
+
+            <div style="background:#174036;border-radius:18px;padding:16px 18px;font-size:18px;color:#F1EFE6;line-height:1.6">Telfast اتأخرت مرتين الأسبوع ده — الساعة ١١:١٥ م ممكن تكون متأخرة عليه</div>
+
+          </div>
+          <div style="flex:none;padding:16px 24px 34px">
+            <div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#A9C0B8;cursor:pointer">افتح جدول الأدوية</div>
+          </div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;color:#7E9B91;margin-top:12px;text-align:center">١٥ · شاشة الابن</div>
+      </div>
+
+    </div>
+  </section>
+
+  
+  <div data-sentinel="rows-end"></div>
+
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#0A4638"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#0A4638"></rect><g fill="none" stroke="#F5F1E4" stroke-width="11" stroke-linecap="round"><circle cx="76" cy="56" r="17"></circle><path d="M59 56 H40 C24 56 15 68 21 80 C27 91 44 92 55 85"></path></g><circle cx="76" cy="18" r="8" fill="#E9A93B"></circle></svg></template>
+</x-dc>
+</body>
+</html>

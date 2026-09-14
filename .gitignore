@@ -51,3 +51,6 @@ app.*.map.json
 # `flutter run --dart-define-from-file=secrets.json` reads this if you keep one.
 secrets.json
 *.env
+
+# ملف التصميم المضغوط — المفكوك في design/handoff هو المرجع
+design/design_handoff.zip
