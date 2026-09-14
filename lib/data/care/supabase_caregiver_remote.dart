@@ -4,6 +4,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'caregiver_remote.dart';
 
+/// تنبيهات السيرفر اللي بتظهر فوق الشاشة.
+const Duration alertWindow = Duration(hours: 48);
+
+/// صف escalations بالـembed بتاعه → [CaregiverAlert]. منفصلة عشان تتختبر
+/// من غير Supabase.
+CaregiverAlert alertFromRow(Map<String, dynamic> row) {
+  final event = row['dose_events'] as Map;
+  final med = (event['dose_schedules'] as Map?)?['medications'] as Map?;
+  DateTime? time(dynamic iso) =>
+      iso is String ? DateTime.parse(iso).toLocal() : null;
+  return CaregiverAlert(
+    uuid: row['uuid'] as String,
+    medicationName: (med?['name'] as String?) ?? 'دواء',
+    scheduledAt: time(event['scheduled_at'])!,
+    doseState: event['state'] as String,
+    deliveryStatus: row['delivery_status'] as String,
+    createdAt: time(row['created_at'])!,
+    sentAt: time(row['sent_at']),
+  );
+}
+
 /// القراءة الحقيقية. العلاقات بتيجي من care_relationships (RLS بتوريني
 /// صفوفي أنا)، والمريض بيتحدّد منها — مش من فلترة owner_id على العميل:
 /// الابن ممكن يكون مريضاً في تطبيقه هو كمان، وصفّه بيظهر في patients عادي.
@@ -51,6 +72,20 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
             .gte('scheduled_at', since.toIso8601String())
             .order('scheduled_at', ascending: true);
 
+        final alertsSince =
+            DateTime.now().toUtc().subtract(alertWindow).toIso8601String();
+        final alerts = await _supabase
+            .from('escalations')
+            .select('uuid, delivery_status, created_at, sent_at, '
+                'dose_events!inner(scheduled_at, state, '
+                'dose_schedules!inner(medications!inner(name, patient_uuid)))')
+            .eq('caregiver_id', _supabase.auth.currentUser?.id ?? '')
+            .inFilter('delivery_status', ['sent', 'no_token', 'failed'])
+            .gte('created_at', alertsSince)
+            .eq('dose_events.dose_schedules.medications.patient_uuid',
+                patient.uuid)
+            .order('created_at', ascending: false);
+
         DateTime? last;
         void bump(dynamic iso) {
           if (iso is! String) return;
@@ -93,6 +128,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
                     : DateTime.parse(e['acted_at'] as String).toLocal(),
               ),
           ],
+          alerts: [for (final a in alerts) alertFromRow(a)],
           lastUpdated: last?.toLocal(),
         );
       });

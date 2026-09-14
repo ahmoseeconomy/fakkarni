@@ -44,6 +44,7 @@ CaregiverDoseEvent event(
 
 CaregiverSnapshot snapshot(
   List<CaregiverDoseEvent> events, {
+  List<CaregiverAlert> alerts = const [],
   DateTime? lastUpdated,
 }) =>
     CaregiverSnapshot(
@@ -52,7 +53,23 @@ CaregiverSnapshot snapshot(
         CaregiverMedication(uuid: 'm1', name: 'Concor 5mg', amountLabel: 'قرص واحد'),
       ],
       events: events,
+      alerts: alerts,
       lastUpdated: lastUpdated ?? DateTime(2026, 8, 31, 13, 30),
+    );
+
+/// تنبيه سيرفر على جرعة الساعة ٨ الصبح، اتبعت +٦٠ (٩:٠٠).
+CaregiverAlert alert({
+  String doseState = 'pending',
+  String deliveryStatus = 'sent',
+}) =>
+    CaregiverAlert(
+      uuid: 'esc-1',
+      medicationName: 'Concor 5mg',
+      scheduledAt: DateTime(2026, 8, 31, 8),
+      doseState: doseState,
+      deliveryStatus: deliveryStatus,
+      createdAt: DateTime(2026, 8, 31, 9),
+      sentAt: deliveryStatus == 'sent' ? DateTime(2026, 8, 31, 9) : null,
     );
 
 void main() {
@@ -179,6 +196,82 @@ void main() {
     final dayBefore = tester.widget<Text>(find.text('١/١'));
     expect(dayBefore.style?.color, F.greenDeep);
   });
+  group('تنبيهات السيرفر — سجل اللي حصل، فوق الشاشة', () {
+    screenTest('تنبيه واحد → بطاقة ذهبية فوق شريط الأسبوع بالسطرين', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
+        alerts: [alert()],
+      );
+      await pumpScreen(tester);
+
+      final header = find.text('⚠ والدك ما أكّدش جرعة Concor 5mg الساعة ٨:٠٠ ص');
+      expect(header, findsOneWidget);
+      expect(tester.widget<Text>(header).style?.color, F.gold);
+      expect(find.text('السيرفر بلّغك النهارده ٩:٠٠ ص'), findsOneWidget);
+      expect(find.textContaining('أكّدها بعدين'), findsNothing);
+
+      // فوق شريط الأسبوع — الأحدث الأول يعني أوّل حاجة في الصفحة
+      expect(
+        tester.getTopLeft(header).dy,
+        lessThan(tester.getTopLeft(find.text('الاتنين')).dy),
+      );
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('اتاخدت بعد التنبيه → البطاقة بتفضل وبتزوّد «أكّدها بعدين ✓»، ومش ذهبية',
+        (tester) async {
+      remote.next = snapshot(
+        [
+          event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken',
+              actedAt: DateTime(2026, 8, 31, 9, 20)),
+        ],
+        alerts: [alert(doseState: 'taken')],
+      );
+      await pumpScreen(tester);
+
+      final header = find.textContaining('والدك ما أكّدش جرعة');
+      expect(header, findsOneWidget, reason: 'التنبيه حصل — ما بيتمسحش');
+      expect(tester.widget<Text>(header).style?.color, isNot(F.gold),
+          reason: 'الذهبي معناه «محتاج انتباهك دلوقتي» — ودي اتاخدت');
+      expect(find.text('أكّدها بعدين ✓'), findsOneWidget);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('«مش هاخده» بعد التنبيه مش ✓ — ما خدهاش', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'skipped')],
+        alerts: [alert(doseState: 'skipped')],
+      );
+      await pumpScreen(tester);
+
+      expect(find.textContaining('أكّدها بعدين'), findsNothing);
+    });
+
+    screenTest('no_token → «حاول يبلّغك … ما وصلش»، مش «بلّغك»', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
+        alerts: [alert(deliveryStatus: 'no_token')],
+      );
+      await pumpScreen(tester);
+
+      expect(find.text('السيرفر حاول يبلّغك النهارده ٩:٠٠ ص — الإشعار ما وصلش'),
+          findsOneWidget);
+      expect(find.textContaining('السيرفر بلّغك'), findsNothing);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('مفيش تنبيهات → مفيش بطاقة ولا جملة فاضية', (tester) async {
+      remote.next = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken')],
+      );
+      await pumpScreen(tester);
+
+      expect(find.textContaining('والدك ما أكّدش'), findsNothing);
+      expect(find.textContaining('السيرفر'), findsNothing);
+      expect(find.textContaining('تنبيه'), findsNothing);
+    });
+  });
+
   group('تذييل «آخر تحديث» — سكوت الموبايل نفسه خبر', () {
     screenTest('تحديث النهارده → رمادي هادي، مفيش ذهبي', (tester) async {
       remote.next = snapshot(

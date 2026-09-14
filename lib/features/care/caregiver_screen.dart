@@ -117,6 +117,10 @@ class _CaregiverScreenState extends State<CaregiverScreen>
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
               else if (snapshot != null) ...[
+                // سجل اللي السيرفر عمله — فوق كل حاجة، الأحدث الأول، ومن
+                // غير أي بطاقة «مفيش تنبيهات»: السكوت هنا خبر كويس.
+                for (final alert in snapshot.alerts)
+                  _AlertCard(alert: alert, when: _when),
                 _WeekStrip(events: snapshot.events, now: _now),
                 const SizedBox(height: F.gap),
                 const Text(
@@ -327,6 +331,74 @@ class _DoseRow extends StatelessWidget {
               height: 1.4,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// تنبيه السيرفر زي ما حصل. البطاقة ما بتتمسحش لما الأب يأكّد بعدين —
+/// التنبيه حصل فعلاً، والنتيجة سطر زيادة (القاعدة ٥: التصحيح عرض صحيح،
+/// مش حذف). الذهبي بس طول ما الجرعة لسه محتاجة انتباه؛ لما تتاخد بيهدى.
+class _AlertCard extends StatelessWidget {
+  const _AlertCard({required this.alert, required this.when});
+
+  final CaregiverAlert alert;
+  final String Function(DateTime) when;
+
+  @override
+  Widget build(BuildContext context) {
+    final attention = !alert.takenLater;
+    // «بلّغك» بس لما FCM قبل الرسالة فعلاً — غير كده الجملة تبقى كذب
+    final line = alert.delivered
+        ? 'السيرفر بلّغك ${when(alert.sentAt!)}'
+        : 'السيرفر حاول يبلّغك ${when(alert.createdAt)} — الإشعار ما وصلش';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: F.gap),
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(F.radius),
+        border: Border.all(
+          color: attention ? F.gold : F.line,
+          width: attention ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '⚠ والدك ما أكّدش جرعة ${alert.medicationName} '
+            'الساعة ${arabicTime(alert.scheduledAt)}',
+            style: TextStyle(
+              fontSize: F.minBodySize,
+              fontWeight: FontWeight.w700,
+              color: attention ? F.gold : F.ink,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            line,
+            style: const TextStyle(
+              fontSize: F.minTextSize,
+              color: F.muted,
+              height: 1.5,
+            ),
+          ),
+          if (alert.takenLater) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'أكّدها بعدين ✓',
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: FontWeight.w700,
+                color: F.greenDeep,
+                height: 1.5,
+              ),
+            ),
+          ],
         ],
       ),
     );
