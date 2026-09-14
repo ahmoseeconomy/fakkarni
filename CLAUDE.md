@@ -156,7 +156,8 @@ lib/
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
-  features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
+  features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
+                              تخطّي, four-rung ladder from domain constants
 test/                         334 passing
 ```
 
@@ -881,6 +882,20 @@ Consequences to handle:
 4. **Huawei / no-GMS devices cannot use Google Sign-In** — a real segment
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
+**Deferred by decision (not by oversight):**
+- **Mockup 10's voice line («قول تمام لتسجيل الجرعة») is dropped, not
+  deferred.** The app has no TTS and no speech input. A line asking a
+  72-year-old to speak to a phone that cannot hear him is worse than no
+  line: he says «تمام», nothing happens, and the dose he just took looks
+  unconfirmed. If voice confirmation is ever built, it lands as a real
+  input path with its own test, and only then does the line come back.
+- **Escalation rung 5 («+٩٠ — دائرة الرعاية كلها») is not built**, so the
+  alert screen's ladder shows the four rungs that exist and its ramp stops
+  at `F.orange`. Red never appears on it — the fifth rung would have been
+  the only red, and drawing it would promise an alert nobody sends.
+- **«لا أذكر» on the alert screen** — no state for it in `dose_events`;
+  «تخطّي» with a human asking covers the same case.
+
 5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
    normal text at 17px** (AA needs 4.5:1). README's token table was
    followed as-is for the demo (design fidelity «high»). For a

@@ -18,6 +18,8 @@ import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 
+import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
+
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
   breakfast: MinuteOfDay.hm(7, 30),
@@ -149,18 +151,21 @@ void main() {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
-    expect(find.text('تذكير'), findsOneWidget);
+    expect(find.text('تنبيه · المرحلة ٢'), findsOneWidget);
     expect(find.text('Antodine'), findsOneWidget);
     expect(find.textContaining('قرص واحد'), findsOneWidget);
     expect(find.textContaining('الغدا'), findsOneWidget);
     expect(find.textContaining('٢:٠٠ م'), findsOneWidget);
   });
 
-  screenTest('اتأخر ربع ساعة → «فات معاده» من غير أحمر ولا لوم', (tester) async {
+  screenTest('اتأخر ربع ساعة → المرحلة ٢، «مرّت ١٥ دقيقة»، الدرجة التانية أمبر — من غير أحمر ولا لوم', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
-    expect(find.text('فات معاده بـ١٥ دقيقة'), findsOneWidget);
+    expect(find.text('مرّت ١٥ دقيقة على موعد الجرعة'), findsOneWidget);
+    expect(find.text('تنبيه · المرحلة ٢'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('+١٥ د')).style?.color, F.amber);
+    expect(tester.widget<Text>(find.text('في الموعد')).style?.color, isNot(F.amber));
 
     for (final text in tester.widgetList<Text>(find.byType(Text))) {
       final colour = text.style?.color;
@@ -170,18 +175,20 @@ void main() {
     }
   });
 
-  screenTest('لسه في المعاد → «وقت الدوا»', (tester) async {
+  screenTest('لسه في المعاد → «وقت الدوا» والمرحلة ١', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids, now: lunchDose);
 
     expect(find.text('وقت الدوا'), findsOneWidget);
+    expect(find.text('تنبيه · المرحلة ١'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('في الموعد')).style?.color, F.amber);
   });
 
   screenTest('«أخدته» بتسجّل وبتلغي تذكير الخانة والتأجيل بتاعها', (tester) async {
     final ids = await seed(['Antodine', 'Vitamin D']);
     await pumpReminder(tester, ids);
 
-    await tester.tap(find.text('أخدته'));
+    await tester.tap(find.text('تم التناول ✅'));
     await settle(tester);
 
     expect(await statesOf(ids), [DoseState.taken, DoseState.taken]);
@@ -197,24 +204,25 @@ void main() {
     );
   });
 
-  screenTest('«مش هاخده دلوقتي» بتسجّل تخطّي وبتلغي التذكير', (tester) async {
+  screenTest('«تخطّي» بتسجّل تخطّي وبتلغي التذكير — من غير ❌', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
-    await tester.tap(find.text('مش هاخده دلوقتي'));
+    expect(find.textContaining('❌'), findsNothing);
+    await tester.tap(find.text('تخطّي'));
     await settle(tester);
 
     expect(await statesOf(ids), [DoseState.skipped]);
     expect(sink.cancelled, contains(notificationIdFor(lunchDose)));
   });
 
-  screenTest('«فكّرني بعد ربع ساعة» بتجدول تذكير واحد في نطاق التأجيل',
+  screenTest('«تأجيل ١٥ د ⏰» بتجدول تذكير واحد في نطاق التأجيل',
       (tester) async {
     final ids = await seed(['Antodine']);
     final now = DateTime(2026, 8, 31, 14, 15);
     await pumpReminder(tester, ids, now: now);
 
-    await tester.tap(find.text('فكّرني بعد ربع ساعة'));
+    await tester.tap(find.text('تأجيل ١٥ د ⏰'));
     await settle(tester);
 
     final snooze = sink.scheduled.single;
@@ -233,6 +241,38 @@ void main() {
     ]);
   });
 
+  screenTest('بعد ٤٥ دقيقة → المرحلة ٤ «إشعار لابنك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
+    final ids = await seed(['Antodine']);
+    await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 14, 50));
+
+    expect(find.text('تنبيه · المرحلة ٤'), findsOneWidget);
+    expect(find.text('مرّت ٤٥ دقيقة على موعد الجرعة'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('+٤٥ د — إشعار لابنك')).style?.color, F.amber);
+    expect(ladderSteps.length, 4, reason: 'الدرجة الخامسة مش مبنية');
+    expect(find.textContaining('دائرة الرعاية'), findsNothing);
+    expect(find.textContaining('+٩٠'), findsNothing);
+    // أساسي واحد بس، والسلّم من ثوابت الدومين
+    expect(find.byType(FilledButton), findsOneWidget);
+    expect(ladderSteps[1].after, EscalationRung.first.delay);
+    expect(ladderSteps[3].after, graceWindow);
+    expect(find.textContaining('قول'), findsNothing, reason: 'مفيش سطر صوت');
+    expect(find.textContaining('لا أذكر'), findsNothing);
+    expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('دواءين في نفس الدقيقة → كارت واحد بالاتنين وأزرار واحدة', (tester) async {
+    final ids = await seed(['Antodine', 'Vitamin D']);
+    await pumpReminder(tester, ids);
+
+    expect(find.text('Antodine'), findsOneWidget);
+    expect(find.text('Vitamin D'), findsOneWidget);
+    expect(find.text('تم التناول ✅'), findsOneWidget);
+
+    await tester.tap(find.text('تم التناول ✅'));
+    await settle(tester);
+    expect(await statesOf(ids), [DoseState.taken, DoseState.taken]);
+  });
+
   screenTest('جرعة اتاخدت خلاص من «يومك» → مفيش أزرار، بس «ارجع ليومك»',
       (tester) async {
     final ids = await seed(['Antodine']);
@@ -241,7 +281,8 @@ void main() {
 
     expect(find.text('خدته خلاص'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
-    expect(find.text('أخدته'), findsNothing);
+    expect(find.text('تم التناول ✅'), findsNothing);
+    expect(find.text('سلّم التصعيد'), findsNothing);
     expect(find.text('ارجع ليومك'), findsOneWidget);
   });
 
@@ -257,9 +298,13 @@ void main() {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
+    // أساسي واحد ٦٤، وثانويين ٥٦ جنب بعض — مفيش TextButton باهت
     expect(tester.getSize(find.byType(FilledButton)).height, F.primaryButtonHeight);
-    expect(tester.getSize(find.byType(OutlinedButton)).height, F.primaryButtonHeight);
-    expect(tester.getSize(find.byType(TextButton)).height, F.minTapTarget);
+    for (final button in find.byType(OutlinedButton).evaluate()) {
+      expect(tester.getSize(find.byWidget(button.widget)).height, F.minTapTarget);
+    }
+    expect(find.byType(OutlinedButton), findsNWidgets(2));
+    expect(find.byType(TextButton), findsNothing);
 
     for (final text in tester.widgetList<Text>(find.byType(Text))) {
       final size = text.style?.fontSize;

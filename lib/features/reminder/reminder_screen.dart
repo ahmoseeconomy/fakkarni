@@ -6,14 +6,46 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/repositories/dose_event_repository.dart';
+import '../../core/format/name_direction.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/services/reminder_plan.dart';
+import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 
-/// شاشة التذكير — اللي بتفتح لما المريض يدوس على الإشعار.
+/// «تنبيه متصاعد» (المخطط 10) — اللي بتفتح لما المريض يدوس على الإشعار.
 ///
 /// حاجة واحدة بس مطلوبة منه هنا: يقول خدها ولا لأ. عشان كده الشاشة غامقة،
-/// الدوا في النص، وزرار «أخدته» أكبر حاجة فيها. مفيش شريط يوم ولا قايمة —
-/// «يومك» موجودة وراها لما يخلص.
+/// الدوا في النص، و«تم التناول» أكبر حاجة فيها وهو الأساسي الوحيد. مفيش
+/// شريط يوم ولا قايمة — «يومك» موجودة وراها لما يخلص.
+///
+/// السلّم **أربع** درجات — اللي موجود فعلاً: في الموعد · +١٥ · +٣٠ ·
+/// +٤٥ (إشعار لابنه). الرامب بيقف عند البرتقالي؛ مفيش أحمر لأن الدرجة
+/// الخامسة (دائرة الرعاية كلها) مش مبنية. المرحلة من الوقت الفعلي اللي
+/// عدّى، والدرجات من `domain/escalation/` — مش أرقام تانية هنا.
+/// درجة على السلّم زي ما بتتعرض.
+class LadderStep {
+  const LadderStep(this.label, this.after);
+  final String label;
+  final Duration after;
+}
+
+/// الأربع درجات — من ثوابت الدومين، مش نسخة تانية منها.
+final List<LadderStep> ladderSteps = [
+  const LadderStep('في الموعد', Duration.zero),
+  LadderStep('+${arabicNumber(EscalationRung.first.delay.inMinutes)} د', EscalationRung.first.delay),
+  LadderStep('+${arabicNumber(EscalationRung.second.delay.inMinutes)} د', EscalationRung.second.delay),
+  LadderStep('+${arabicNumber(graceWindow.inMinutes)} د — إشعار لابنك', graceWindow),
+];
+
+/// المرحلة الحالية (0..3) من الوقت اللي عدّى فعلاً على معاد الجرعة.
+int stageFor(Duration elapsed) {
+  var stage = 0;
+  for (var i = 1; i < ladderSteps.length; i++) {
+    if (elapsed >= ladderSteps[i].after) stage = i;
+  }
+  return stage;
+}
+
 class ReminderScreen extends StatefulWidget {
   const ReminderScreen({
     required this.routineDay,
@@ -114,82 +146,98 @@ class _ReminderScreenState extends State<ReminderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: F.greenDeep,
-      body: SafeArea(
-        child: StreamBuilder<List<DoseEventView>>(
-          stream: _events,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: F.gold));
-            }
-            final doses = snapshot.data!;
-            if (doses.isEmpty) return const _GonePanel();
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [F.greenDeep, F.greenDark],
+          ),
+        ),
+        child: SafeArea(
+          child: StreamBuilder<List<DoseEventView>>(
+            stream: _events,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator(color: F.gold));
+              }
+              final doses = snapshot.data!;
+              if (doses.isEmpty) return const _GonePanel();
 
-            final pending = [for (final d in doses) if (!d.isDone) d];
-            final at = doses.first.scheduledAt;
+              final pending = [for (final d in doses) if (!d.isDone) d];
+              final at = doses.first.scheduledAt;
+              final elapsed = _now.difference(at);
+              final stage = stageFor(elapsed);
 
-            return ListView(
-              padding: const EdgeInsets.all(F.gap),
-              children: [
-                const SizedBox(height: F.gap),
-                // الذهبي هنا في مكانه: ده تذكير.
-                const Text(
-                  'تذكير',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: F.minTextSize,
-                    fontWeight: FontWeight.w700,
-                    color: F.gold,
-                    letterSpacing: 0.5,
+              return ListView(
+                padding: const EdgeInsets.all(F.gap),
+                children: [
+                  const SizedBox(height: F.s8),
+                  // الذهبي هنا في مكانه: ده تذكير.
+                  Center(
+                    child: Kicker(
+                      pending.isEmpty
+                          ? 'تنبيه'
+                          : 'تنبيه · المرحلة ${arabicNumber(stage + 1)}',
+                      color: F.gold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  pending.isEmpty ? 'خدته خلاص' : _headline(at),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: F.questionSize,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    height: 1.3,
+                  const SizedBox(height: F.s8),
+                  Text(
+                    pending.isEmpty ? 'خدته خلاص' : _headline(stage),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: F.subtitleSize,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: F.gap),
-                _DoseCard(doses: doses, ruleLabelFor: _ruleLabelFor),
-                const SizedBox(height: F.gap),
-                if (pending.isEmpty)
-                  _DoneActions(onBack: () => Navigator.of(context).maybePop())
-                else
-                  _PendingActions(
-                    enabled: !_busy,
-                    onTaken: () => _taken(pending),
-                    onSnooze: () => _snooze(pending),
-                    onSkipped: () => _skipped(pending),
+                  const SizedBox(height: F.gap),
+                  _DoseCard(
+                    doses: doses,
+                    ruleLabelFor: _ruleLabelFor,
+                    actions: pending.isEmpty
+                        ? _DoneActions(onBack: () => Navigator.of(context).maybePop())
+                        : _PendingActions(
+                            enabled: !_busy,
+                            onTaken: () => _taken(pending),
+                            onSnooze: () => _snooze(pending),
+                            onSkipped: () => _skipped(pending),
+                          ),
                   ),
-              ],
-            );
-          },
+                  if (pending.isNotEmpty) ...[
+                    const SizedBox(height: F.gap),
+                    _Ladder(current: stage),
+                  ],
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  /// «وقت الدوا» لو لسه، «فات معاده بـ١٥ دقيقة» لو اتأخر — من غير لوم.
-  String _headline(DateTime at) {
-    final diff = at.difference(_now);
-    if (diff.abs().inMinutes < 1 || !diff.isNegative) return 'وقت الدوا';
-    return arabicCountdown(diff);
+  /// «وقت الدوا» في الموعد، وبعدها «مرّت N دقيقة على موعد الجرعة» — N من
+  /// الدرجة الفعلية اللي وصلناها، من غير لوم.
+  String _headline(int stage) {
+    if (stage == 0) return 'وقت الدوا';
+    return 'مرّت ${arabicNumber(ladderSteps[stage].after.inMinutes)} دقيقة على موعد الجرعة';
   }
 
   String? _ruleLabelFor(int doseScheduleId) =>
       _schedules[doseScheduleId.toString()]?.ruleLabel;
 }
 
-/// كارت الدوا — أبيض على الغامق، الاسم أكبر حاجة فيه.
+/// كارت الدوا — أبيض على الغامق: الأدوية فوق (مجموعة، مش دوا واحد) والأزرار
+/// جوّاه تحتها زي التصميم.
 class _DoseCard extends StatelessWidget {
-  const _DoseCard({required this.doses, required this.ruleLabelFor});
+  const _DoseCard({required this.doses, required this.ruleLabelFor, required this.actions});
 
   final List<DoseEventView> doses;
   final String? Function(int doseScheduleId) ruleLabelFor;
+  final Widget actions;
 
   @override
   Widget build(BuildContext context) {
@@ -197,15 +245,18 @@ class _DoseCard extends StatelessWidget {
       padding: const EdgeInsets.all(F.gap),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(F.radius + 4),
+        borderRadius: BorderRadius.circular(F.radiusLarge),
+        boxShadow: F.shadowModalDark,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (i, dose) in doses.indexed) ...[
-            if (i > 0) const Divider(color: F.line, height: F.gap * 2),
+            if (i > 0) const Divider(color: F.lineSoft, height: F.gap * 2),
             _DoseRow(dose: dose, ruleLabel: ruleLabelFor(dose.doseScheduleId)),
           ],
+          const Divider(color: F.lineSoft, height: F.gap * 2),
+          actions,
         ],
       ),
     );
@@ -234,8 +285,10 @@ class _DoseRow extends StatelessWidget {
             Expanded(
               child: Text(
                 dose.medicationName,
+                textDirection: nameDirection(dose.medicationName),
+                textAlign: TextAlign.start,
                 style: const TextStyle(
-                  fontSize: F.screenTitleSize,
+                  fontSize: F.medicationNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
                   fontFamily: F.monoFamily,
@@ -245,12 +298,12 @@ class _DoseRow extends StatelessWidget {
               ),
             ),
             if (dose.isDone) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.check, color: F.green, size: 28),
+              const SizedBox(width: F.s8),
+              const Icon(Icons.check, color: F.greenOk, size: 28),
             ],
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: F.s4),
         Text(
           dose.isDone && dose.actedAt != null
               ? 'أخدته ${arabicTime(dose.actedAt!)}'
@@ -266,11 +319,12 @@ class _DoseRow extends StatelessWidget {
   }
 }
 
-/// الأزرار الثلاثة: أساسي ذهبي، تأجيل مرسوم، وتخطّي نصّي.
+/// الأزرار: «تم التناول ✅» أخضر ٦٤ — الأساسي الوحيد — و«تأجيل ١٥ د ⏰»
+/// و«تخطّي» جنب بعض ٥٦.
 ///
-/// المخطط عنده أربع تحكّمات (تناول، تأجيل، تخطّي، لا أذكر) — «لا أذكر» مش
-/// موجود عن قصد: حد الشاشة إجراءين أساسيين، ولو مش فاكر فده هو نفسه
-/// «مش هاخده دلوقتي» مع واحد يسأله.
+/// «تخطّي» من غير ❌ عن قصد: الإيموجي أحمر، والأحمر للطوارئ بس — والتخطّي
+/// مش غلطة تتزيّن بعلامة رفض. و«لا أذكر» مش موجودة: مفيش حالة ليها في
+/// dose_events، ولو مش فاكر فده هو نفسه «تخطّي» مع واحد يسأله.
 class _PendingActions extends StatelessWidget {
   const _PendingActions({
     required this.enabled,
@@ -289,52 +343,127 @@ class _PendingActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: F.primaryButtonHeight,
-          child: FilledButton(
-            onPressed: enabled ? onTaken : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: F.gold,
-              foregroundColor: F.ink,
-              textStyle: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+        FPrimaryButton(label: 'تم التناول ✅', onPressed: enabled ? onTaken : null),
+        const SizedBox(height: F.s10),
+        Row(
+          children: [
+            Expanded(
+              child: FSecondaryButton(
+                label: 'تأجيل ${arabicNumber(snoozeDelay.inMinutes)} د ⏰',
+                onPressed: enabled ? onSnooze : null,
               ),
             ),
-            child: const Text('أخدته'),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: F.primaryButtonHeight,
-          child: OutlinedButton(
-            onPressed: enabled ? onSnooze : null,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: BorderSide(color: F.ivory.withValues(alpha: 0.6), width: 1.5),
-              textStyle: const TextStyle(
-                fontSize: F.minBodySize,
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(width: F.s10),
+            Expanded(
+              child: FSecondaryButton(label: 'تخطّي', onPressed: enabled ? onSkipped : null),
             ),
-            child: const Text('فكّرني بعد ربع ساعة'),
-          ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          height: F.minTapTarget,
-          child: TextButton(
-            onPressed: enabled ? onSkipped : null,
-            child: Text(
-              'مش هاخده دلوقتي',
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                color: F.ivory.withValues(alpha: 0.8),
-              ),
-            ),
-          ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+/// سلّم التصعيد — أربع درجات، الحالية بالأمبر، والرامب بيقف عند البرتقالي.
+class _Ladder extends StatelessWidget {
+  const _Ladder({required this.current});
+
+  final int current;
+
+  /// رامب README من غير درجته الخامسة: رمادي → أخضر → أمبر → برتقالي.
+  static const _ramp = [F.line, F.green, F.amber, F.orange];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(F.radiusSection),
+        border: Border.all(color: F.ivory.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'سلّم التصعيد',
+            style: TextStyle(
+              fontSize: F.minTextSize,
+              fontWeight: FontWeight.w700,
+              color: F.ivory.withValues(alpha: 0.85),
+            ),
+          ),
+          const SizedBox(height: F.s8),
+          for (final (i, step) in ladderSteps.indexed)
+            _LadderRow(
+              index: i,
+              step: step,
+              colour: _ramp[i],
+              isCurrent: i == current,
+              isPast: i < current,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LadderRow extends StatelessWidget {
+  const _LadderRow({
+    required this.index,
+    required this.step,
+    required this.colour,
+    required this.isCurrent,
+    required this.isPast,
+  });
+
+  final int index;
+  final LadderStep step;
+  final Color colour;
+  final bool isCurrent;
+  final bool isPast;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColour = isCurrent
+        ? F.amber
+        : isPast
+            ? F.ivory.withValues(alpha: 0.8)
+            : F.ivory.withValues(alpha: 0.45);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: F.s6),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isCurrent ? F.amber : colour.withValues(alpha: isPast ? 1 : 0.35),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              arabicNumber(index + 1),
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: FontWeight.w700,
+                color: isCurrent || index == 0 ? F.ink : Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: F.s12),
+          Expanded(
+            child: Text(
+              step.label,
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                color: textColour,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -350,27 +479,13 @@ class _DoneActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
+        const Text(
           'تسلم. مفيش حاجة مطلوبة منك دلوقتي.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: F.minBodySize,
-            color: F.ivory.withValues(alpha: 0.85),
-            height: 1.6,
-          ),
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
         const SizedBox(height: F.gap),
-        SizedBox(
-          height: F.primaryButtonHeight,
-          child: FilledButton(
-            onPressed: onBack,
-            style: FilledButton.styleFrom(
-              backgroundColor: F.ivory,
-              foregroundColor: F.ink,
-            ),
-            child: const Text('ارجع ليومك'),
-          ),
-        ),
+        FPrimaryButton(label: 'ارجع ليومك', onPressed: onBack),
       ],
     );
   }

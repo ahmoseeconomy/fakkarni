@@ -100,8 +100,11 @@ class FSecondaryButton extends StatelessWidget {
             side: const BorderSide(color: F.line, width: 1.5),
             textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+            // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
+            // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠
+            padding: const EdgeInsets.symmetric(horizontal: F.s8),
           ),
-          child: Text(label),
+          child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
         ),
       );
 }
