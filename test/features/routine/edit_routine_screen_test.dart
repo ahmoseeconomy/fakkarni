@@ -154,13 +154,13 @@ void main() {
     final anchoredBefore = sink.scheduled.keys.toSet().difference(fixedBefore);
 
     await pumpEdit(tester);
-    await tester.tap(find.text('٨:٣٠ ص')); // اقتراح الفطار التاني
+    await tester.tap(find.text('٨:٠٠ ص')); // اقتراح الفطار التالت
     await tester.pumpAndSettle();
     await tester.tap(find.text('احفظ يومك'));
     await settle(tester);
 
     final saved = await routines.getRoutine(services.patientId);
-    expect(saved!.breakfast, MinuteOfDay.hm(8, 30));
+    expect(saved!.breakfast, MinuteOfDay.hm(8));
     expect(saved.lunch, normalDay.lunch, reason: 'الباقي زي ما هو');
 
     final fixedAfter = sink.scheduled.entries
@@ -188,13 +188,13 @@ void main() {
       anchoredBefore.where(isDoseId).toSet(),
       reason: 'المرساة اتحركت',
     );
-    // قبل الفطار (٨:٣٠) بنص ساعة = ٨:٠٠ — لكل الأيام اللي في النافذة
+    // قبل الفطار (٨:٠٠) بنص ساعة = ٧:٣٠ — لكل الأيام اللي في النافذة
     final anchoredAfter = sink.scheduled.keys.toSet().difference(fixedAfter);
     expect(anchoredAfter, isNotEmpty);
     // الجرعات بس — درجات السلّم بتيجي +١٥ و+٣٠ من نفس الساعة
     for (final id in anchoredAfter.where(isDoseId)) {
-      expect(sink.scheduled[id]!.at.hour, 8);
-      expect(sink.scheduled[id]!.at.minute, 0);
+      expect(sink.scheduled[id]!.at.hour, 7);
+      expect(sink.scheduled[id]!.at.minute, 30);
     }
   });
 

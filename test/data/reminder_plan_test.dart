@@ -997,9 +997,9 @@ void main() {
         sink: freshSink,
       ).rescheduleAll(now: aug31at6);
 
-      // الافتراضي فطاره ٨:٠٠ → الجرعة ٧:٣٠
+      // الافتراضي فطاره ٧:٣٠ (README) → الجرعة ٧:٠٠
       expect(freshSink.doses.length, 7);
-      expect(freshSink.doses.values.first.at, DateTime(2026, 8, 31, 7, 30));
+      expect(freshSink.doses.values.first.at, DateTime(2026, 8, 31, 7));
       await fresh.close();
     });
     group('سلّم التصعيد على الجهاز', () {

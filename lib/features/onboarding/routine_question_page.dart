@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import 'routine_presets.dart';
 import 'time_wheel.dart';
 
-/// شاشة سؤال واحد.
+/// شاشة سؤال واحد (المخطط 22 — سؤال في المرة).
 ///
 /// الترتيب مقصود: تلات اقتراحات كبيرة **فوق** العجلة، لأن أغلب الناس هتلاقي
-/// معادها في واحد منهم وتخلص من غير ما تلف حاجة.
+/// معادها في واحد منهم وتخلص من غير ما تلف حاجة. «مش متأكد» بياخد الافتراضي
+/// ويمشي — عمره ما بيوقف حد. خمس نقط تحت: الحالية ذهبية والباقي line.
 class RoutineQuestionPage extends StatelessWidget {
   const RoutineQuestionPage({
     required this.question,
@@ -37,77 +39,41 @@ class RoutineQuestionPage extends StatelessWidget {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, 0),
+            padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'سؤال ${arabicNumber(stepNumber)} من ${arabicNumber(totalSteps)}',
-                  style: const TextStyle(
-                    fontSize: F.labelSize,
-                    fontWeight: FontWeight.w600,
-                    color: F.gold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
                   question.text,
                   style: const TextStyle(
+                    fontFamily: F.displayFamily,
                     fontSize: F.questionSize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: F.s6),
                 Text(
                   question.hint,
-                  style: const TextStyle(
-                    fontSize: F.minTextSize,
-                    color: F.muted,
-                    height: 1.5,
-                  ),
+                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                 ),
                 const SizedBox(height: F.gap),
-                Row(
-                  children: [
-                    for (final preset in question.presets) ...[
-                      Expanded(
-                        child: _PresetChip(
-                          time: preset,
-                          selected: preset == value,
-                          onTap: () => onChanged(preset),
-                        ),
-                      ),
-                      if (preset != question.presets.last)
-                        const SizedBox(width: 10),
-                    ],
-                  ],
-                ),
+                PresetRow(presets: question.presets, value: value, onChanged: onChanged),
                 const SizedBox(height: F.gap),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: F.gap,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(F.radius),
-                    border: Border.all(color: F.line),
-                  ),
+                FCard(
+                  padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.gap),
                   child: Column(
                     children: [
                       Text(
-                        arabicTime(
-                          DateTime(2026, 1, 1, value.hour, value.minute),
-                        ),
+                        arabicTime(DateTime(2026, 1, 1, value.hour, value.minute)),
                         style: const TextStyle(
                           fontSize: F.bigTimeSize,
                           fontWeight: FontWeight.w700,
                           color: F.greenDeep,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: F.s8),
                       TimeWheel(value: value, onChanged: onChanged),
                     ],
                   ),
@@ -118,12 +84,12 @@ class RoutineQuestionPage extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
+          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton(onPressed: onConfirm, child: const Text('تمام')),
-              const SizedBox(height: 4),
+              FPrimaryButton(label: 'تمام', onPressed: onConfirm),
+              const SizedBox(height: F.s4),
               SizedBox(
                 height: F.minTapTarget,
                 child: TextButton(
@@ -138,6 +104,8 @@ class RoutineQuestionPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: F.s8),
+              ProgressDots(current: stepNumber, total: totalSteps),
             ],
           ),
         ),
@@ -146,44 +114,65 @@ class RoutineQuestionPage extends StatelessWidget {
   }
 }
 
-/// اقتراح كبير. الذهبي هنا معناه «ده اللي مختار» — نفس معنى الذهبي في
-/// باقي التطبيق: الحالة النشطة.
-class _PresetChip extends StatelessWidget {
-  const _PresetChip({
-    required this.time,
-    required this.selected,
-    required this.onTap,
+/// تلات اقتراحات كبيرة — الذهبي = «ده اللي مختار»، نفس معناه في التطبيق.
+class PresetRow extends StatelessWidget {
+  const PresetRow({
+    required this.presets,
+    required this.value,
+    required this.onChanged,
+    super.key,
   });
 
-  final MinuteOfDay time;
-  final bool selected;
-  final VoidCallback onTap;
+  final List<MinuteOfDay> presets;
+  final MinuteOfDay value;
+  final ValueChanged<MinuteOfDay> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: F.chipHeight,
-      child: Material(
-        color: selected ? F.gold : Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(F.radius),
-          side: BorderSide(color: selected ? F.gold : F.line, width: 1.5),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(F.radius),
-          child: Center(
-            child: Text(
-              arabicTime(DateTime(2026, 1, 1, time.hour, time.minute)),
-              style: TextStyle(
-                fontSize: F.minBodySize,
-                fontWeight: FontWeight.w700,
-                color: F.ink,
+  Widget build(BuildContext context) => Row(
+        children: [
+          for (final preset in presets) ...[
+            Expanded(
+              child: SizedBox(
+                height: F.chipHeight,
+                child: AnchorChip(
+                  label: arabicTime(DateTime(2026, 1, 1, preset.hour, preset.minute)),
+                  selected: preset == value,
+                  onTap: () => onChanged(preset),
+                ),
               ),
             ),
-          ),
+            if (preset != presets.last) const SizedBox(width: F.s10),
+          ],
+        ],
+      );
+}
+
+/// خمس نقط تقدّم — الحالية ذهبية (إنت هنا)، والباقي line.
+class ProgressDots extends StatelessWidget {
+  const ProgressDots({required this.current, required this.total, super.key});
+
+  /// ١-based.
+  final int current;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'سؤال ${arabicNumber(current)} من ${arabicNumber(total)}',
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 1; i <= total; i++)
+              Container(
+                key: ValueKey('dot-$i'),
+                width: i == current ? 28 : 10,
+                height: 10,
+                margin: const EdgeInsets.symmetric(horizontal: F.s4),
+                decoration: BoxDecoration(
+                  color: i == current ? F.gold : F.line,
+                  borderRadius: BorderRadius.circular(F.radiusChip),
+                ),
+              ),
+          ],
         ),
-      ),
-    );
-  }
+      );
 }

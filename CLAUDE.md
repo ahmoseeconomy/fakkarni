@@ -137,7 +137,9 @@ lib/
   app/                        AppScope (services), AppRoot (onboarding | today,
                               opens ReminderScreen on tap), bootstrap.dart
                               (buildServices + background action entry point)
-  features/onboarding/        5 routine questions
+  features/onboarding/        5 routine questions (mockup 22): one per
+                              screen, 3 preset chips above the wheel,
+                              «مش متأكد» → DayRoutine.fallback, 5 dots
   features/medication/        dose_editor (mockup 23 — the ONE timing editor:
                               8 anchor chips, −/+ stepper, gold preview, fixed
                               link last); add_medication (mockup 20 fields →
@@ -887,6 +889,13 @@ Consequences to handle:
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
 **Deferred by decision (not by oversight):**
+- **Mockup 22's «قواعد الافتراض» block (قبل/مع/بعد الأكل + gap stepper +
+  live 1×/2×/3× table + default duration) is not built — and not because
+  of time.** «مع الأكل» and «المدة» are now asked **per medication** in the
+  «ضيف دوا» path, which is more precise than one global rule; a global
+  rule would be a second place holding the same decision, free to
+  disagree with the first. If it ever returns it must *feed* the per-dose
+  defaults, never override them.
 - **Mockup 10's voice line («قول تمام لتسجيل الجرعة») is dropped, not
   deferred.** The app has no TTS and no speech input. A line asking a
   72-year-old to speak to a phone that cannot hear him is worse than no

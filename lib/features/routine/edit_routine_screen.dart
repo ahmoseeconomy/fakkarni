@@ -4,7 +4,9 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../../core/widgets/primitives.dart';
 import '../onboarding/routine_presets.dart';
+import '../onboarding/routine_question_page.dart' show PresetRow;
 import '../onboarding/time_wheel.dart';
 
 /// تعديل روتين اليوم بعد الأسئلة الأولى.
@@ -160,13 +162,7 @@ class _AnchorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(F.gap),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(F.radius),
-        border: Border.all(color: F.line),
-      ),
+    return FCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -192,80 +188,20 @@ class _AnchorCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (final preset in question.presets) ...[
-                Expanded(
-                  child: _PresetChip(
-                    label: _label(preset),
-                    selected: preset == value,
-                    onTap: () => onChanged(preset),
-                  ),
-                ),
-                if (preset != question.presets.last) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: F.minTapTarget,
-            child: OutlinedButton(
-              onPressed: onToggleWheel,
-              child: Text(
-                wheelOpen ? 'تمام كده' : 'ساعة تانية',
-                style: const TextStyle(
-                  fontSize: F.minTextSize + 1,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          const SizedBox(height: F.s12),
+          // نفس اقتراحات الأسئلة الأولى — الذهبي = المختار
+          PresetRow(presets: question.presets, value: value, onChanged: onChanged),
+          const SizedBox(height: F.s8),
+          FSecondaryButton(
+            label: wheelOpen ? 'تمام كده' : 'ساعة تانية',
+            onPressed: onToggleWheel,
           ),
           if (wheelOpen) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: F.s8),
             TimeWheel(value: value, onChanged: onChanged),
           ],
         ],
       ),
     );
   }
-}
-
-/// نفس اقتراح الأسئلة: الذهبي = المختار.
-class _PresetChip extends StatelessWidget {
-  const _PresetChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: F.chipHeight,
-        child: Material(
-          color: selected ? F.gold : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(F.radius),
-            side: BorderSide(color: selected ? F.gold : F.line, width: 1.5),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(F.radius),
-            child: Center(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: F.minBodySize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
 }

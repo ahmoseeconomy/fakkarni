@@ -73,12 +73,16 @@ class DayRoutine {
 
   /// الروتين الافتراضي لما المستخدم يختار «مش متأكد».
   /// مش تخمين طبي — مجرد نقطة بداية المستخدم بيعدّلها.
+  ///
+  /// القيم من README (D2.6): الصحيان ٦:٣٠ · الفطار ٧:٣٠ · الغدا ٢:٠٠ ·
+  /// العشا ٨:٠٠ · النوم ١١:٣٠. المصدر الوحيد للافتراضي — «مش متأكد» في
+  /// الأسئلة وإعادة الجدولة من غير روتين بيقروا من هنا.
   static final DayRoutine fallback = DayRoutine(
-    wake: MinuteOfDay.hm(7),
-    breakfast: MinuteOfDay.hm(8),
+    wake: MinuteOfDay.hm(6, 30),
+    breakfast: MinuteOfDay.hm(7, 30),
     lunch: MinuteOfDay.hm(14),
     dinner: MinuteOfDay.hm(20),
-    sleep: MinuteOfDay.hm(23),
+    sleep: MinuteOfDay.hm(23, 30),
   );
 
   MinuteOfDay at(DayAnchor anchor) => switch (anchor) {

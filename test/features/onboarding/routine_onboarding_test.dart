@@ -126,7 +126,7 @@ void main() {
   testWidgets('الشيب بيغيّر الوقت المعروض وبيتحفظ', (tester) async {
     await pumpOnboarding(tester);
 
-    // أول سؤال: الاقتراحات ٦:٠٠ / ٧:٠٠ / ٨:٠٠ والافتراضي المختار ٧:٠٠
+    // أول سؤال: الاقتراحات ٦:٠٠ / ٦:٣٠ / ٧:٠٠ والافتراضي المختار ٦:٣٠
     expect(find.text('٦:٠٠ ص'), findsOneWidget);
     await tapAndSettle(tester, '٦:٠٠ ص');
     // الوقت الكبير فوق العجلة بقى ٦:٠٠ كمان → بقى ظاهر مرتين
@@ -169,5 +169,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('بتصحى الساعة كام؟'), findsOneWidget);
+  });
+
+  testWidgets('خمس نقط تقدّم: الحالية ذهبية والباقي line، وبتتحرك مع الأسئلة', (tester) async {
+    await pumpOnboarding(tester);
+
+    Color dot(int i) =>
+        (tester.widget<Container>(find.byKey(ValueKey('dot-$i'))).decoration! as BoxDecoration).color!;
+    expect(dot(1), F.gold);
+    for (var i = 2; i <= 5; i++) {
+      expect(dot(i), F.line, reason: 'نقطة $i');
+    }
+    // مفيش عدّاد نصّي ولا شريط تقدّم قديم
+    expect(find.textContaining('سؤال ١ من'), findsNothing);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    await tapAndSettle(tester, 'تمام');
+    expect(dot(1), F.line);
+    expect(dot(2), F.gold);
+  });
+
+  testWidgets('«مش متأكد» بتدي افتراضيات README: ٦:٣٠ · ٧:٣٠ · ٢:٠٠ · ٨:٠٠ · ١١:٣٠', (tester) async {
+    await pumpOnboarding(tester);
+    for (var i = 0; i < expectedQuestions.length; i++) {
+      await tapAndSettle(tester, 'مش متأكد');
+    }
+    final saved = (await routines.getRoutine(services.patientId))!;
+    expect(saved.wake, MinuteOfDay.hm(6, 30));
+    expect(saved.breakfast, MinuteOfDay.hm(7, 30));
+    expect(saved.lunch, MinuteOfDay.hm(14));
+    expect(saved.dinner, MinuteOfDay.hm(20));
+    expect(saved.sleep, MinuteOfDay.hm(23, 30));
+  });
+
+  testWidgets('الاقتراح النصّاني هو الافتراضي، وبيبان ذهبي من غير ما يدوس', (tester) async {
+    await pumpOnboarding(tester);
+    final mid = find.text('٦:٣٠ ص').first;
+    final material = tester.widget<Material>(
+      find.ancestor(of: mid, matching: find.byType(Material)).first,
+    );
+    expect(material.color, F.gold);
   });
 }

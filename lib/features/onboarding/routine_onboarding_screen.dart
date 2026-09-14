@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import 'routine_presets.dart';
 import 'routine_question_page.dart';
@@ -74,29 +75,27 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, 0),
-              child: Text(
-                'خلينا نعرف يومك',
-                style: TextStyle(
-                  fontSize: F.screenTitleSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: F.gap,
-                vertical: 12,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: (_index + 1) / routineQuestions.length,
-                  minHeight: 8,
-                  backgroundColor: F.line,
-                  valueColor: const AlwaysStoppedAnimation(F.gold),
-                ),
+              padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.s4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Kicker('مرة واحدة بس'),
+                  SizedBox(height: F.s4),
+                  Text(
+                    'خلينا نعرف يومك',
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.screenTitleSize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                    ),
+                  ),
+                  SizedBox(height: F.s4),
+                  Text(
+                    'خمس أسئلة — وبعدها أي روشتة هتتظبط لوحدها على مواعيدك.',
+                    style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                  ),
+                ],
               ),
             ),
             Expanded(
