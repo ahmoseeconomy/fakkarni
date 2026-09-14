@@ -1027,6 +1027,28 @@ device-verified)**
   +15 (vibrates), +30; repeat and tap «أخدته» at +16 → +30 never rings;
   untouched past +45 → «يومك» shows «نسيتها؟».
 
+**Ramadan mode (built, screen restyled in D2.7)**
+- `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults
+  18:00 / 03:30) and `ramadanRoutine(original, times)` — breakfast → Iftar,
+  lunch → Iftar too (a «قبل الغدا» dose merges instead of vanishing),
+  dinner → Suhoor, sleep = Suhoor + 60, wake unchanged.
+- Schema v7 `routine_backups` (device-only, not synced): its row existing
+  IS the toggle. `RoutineRepository.enterRamadan` writes the backup BEFORE
+  the routine and updates `day_routines` in place (same uuid);
+  `leaveRamadan` restores it verbatim. Re-entering while on recomputes
+  from the stored original, never from the live routine. ON→OFF twice
+  equals the start (tested).
+- `features/routine/ramadan_screen.dart` (mockup 25): «يومك في رمضان»,
+  state card (gold when on), Suhoor / Iftar editable with sleep derived,
+  and the preview as the heart — «N أدوية هتتحرك» with before → after per
+  medication from the real engine, fixed doses listed as unmoved. **One
+  button that IS the act** («فعّل وضع رمضان» / «اقفل وضع رمضان»); no
+  switch, no autosave. A test opens the screen, edits Iftar, closes it,
+  and asserts routine, backup and every scheduled notification are
+  identical. Entry: the settings card, gold-edged with «شغّال» when on.
+- Guard: «عدّل يومك» is locked while Ramadan is on (gold line) so an edit
+  cannot be silently discarded by a later OFF.
+
 **Round 4.2c — escalation alerts on the caregiver screen (built, NOT
 device-verified)**
 - `CaregiverAlert` + `CaregiverSnapshot.alerts`; `SupabaseCaregiverRemote`

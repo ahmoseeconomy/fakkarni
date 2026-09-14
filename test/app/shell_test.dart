@@ -14,6 +14,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/settings/settings_screen.dart';
@@ -152,5 +153,20 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'صوّر روشتة'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'أكتبها بإيدي'), findsOneWidget);
     expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('كارت رمضان في الإعدادات: حده ذهبي وهو شغّال والسطر بيقرا الحالة', (tester) async {
+    await services.routines.enterRamadan(services.patientId, RamadanTimes.cairoDefaults);
+    await pumpShell(tester);
+    await tester.tap(find.text('الإعدادات').last);
+    await settle(tester);
+
+    expect(find.text('شغّال'), findsOneWidget);
+    final card = tester.widget<Material>(
+      find.ancestor(of: find.text('وضع رمضان'), matching: find.byType(Material)).first,
+    );
+    final shape = card.shape as RoundedRectangleBorder;
+    expect(shape.side.color, F.gold);
+    expect(tester.widget<Text>(find.text('شغّال')).style?.color, F.gold);
   });
 }

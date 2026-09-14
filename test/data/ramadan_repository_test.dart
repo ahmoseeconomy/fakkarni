@@ -129,6 +129,14 @@ void main() {
         reason: 'لو النسخة الاحتياطية اتكتبت من روتين رمضان، الأصل كان ضاع');
   });
 
+  test('ramadanOriginal: null وهو مقفول، والأصل بالحرف وهو شغّال', () async {
+    expect(await routines.ramadanOriginal(patientId), isNull);
+    await routines.enterRamadan(patientId, times);
+    expect(await routines.ramadanOriginal(patientId), normalDay);
+    await routines.leaveRamadan(patientId);
+    expect(await routines.ramadanOriginal(patientId), isNull);
+  });
+
   test('قفل وهو مقفول → ولا حاجة بتحصل', () async {
     await routines.leaveRamadan(patientId);
     expect(await routines.getRoutine(patientId), normalDay);

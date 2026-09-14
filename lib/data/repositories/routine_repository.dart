@@ -60,6 +60,22 @@ class RoutineRepository {
           );
   }
 
+  /// الروتين الأصلي المحفوظ وهو رمضان شغّال — للعرض بس (المعاينة بتقارن
+  /// الأصل بالساري). null لو رمضان مقفول. **قراءة فقط**: الكتابة والرجوع
+  /// من [enterRamadan] و[leaveRamadan] وبس.
+  Future<DayRoutine?> ramadanOriginal(int patientId) async {
+    final row = await _backup(patientId);
+    return row == null
+        ? null
+        : DayRoutine(
+            wake: MinuteOfDay(row.wakeMinutes),
+            breakfast: MinuteOfDay(row.breakfastMinutes),
+            lunch: MinuteOfDay(row.lunchMinutes),
+            dinner: MinuteOfDay(row.dinnerMinutes),
+            sleep: MinuteOfDay(row.sleepMinutes),
+          );
+  }
+
   /// بيفتح وضع رمضان — أو بيعدّل مواعيده لو مفتوح خلاص.
   ///
   /// أول مرة: الروتين الحالي بيتنسخ بالحرف في routine_backups **قبل** أي
