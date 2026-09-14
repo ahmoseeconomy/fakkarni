@@ -39,7 +39,7 @@ void main() {
 
     // الترحيل + تحقق drift إن الناتج مطابق لآخر نسخة
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 10);
 
     // القيم الأصلية زي ما هي
     final patient = await (db.select(db.patients)..where((t) => t.id.equals(1))).getSingle();
@@ -93,7 +93,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 0)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 10);
 
     final patient = (await db.select(db.patients).get()).single;
     final med = (await db.select(db.medications).get()).single;
@@ -122,7 +122,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 10);
 
     final routine = (await db.select(db.dayRoutines).get()).single;
     expect(routine.uuid, 'r-1');
@@ -145,7 +145,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 10);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
@@ -170,7 +170,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 10);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
@@ -182,12 +182,34 @@ void main() {
     await db.close();
   });
 
+  test('v9 → v10: المريض والتفضيلات عايشين، وجدول الطوارئ فاضي — مفيش حقل اتملا لوحده', () async {
+    final schema = await verifier.schemaAt(9);
+    final raw = schema.rawDatabase;
+    raw.execute(
+        "INSERT INTO patients (id, uuid, name, notification_slot, sex, age, updated_at_ms, synced_at_ms) "
+        "VALUES (1, 'p-1', 'أحمد', 0, 'm', 72, 1000, 1000)");
+    raw.execute("INSERT INTO device_preferences (id, elder_mode, rung_first_on, rung_second_on) VALUES (1, 1, 0, 1)");
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 10);
+
+    final patient = (await db.select(db.patients).get()).single;
+    expect(patient.uuid, 'p-1');
+    expect(patient.updatedAtMs, 1000, reason: 'الترحيل ما بيوسّخش صف نضيف');
+    final prefs = (await db.select(db.devicePreferences).get()).single;
+    expect(prefs.elderMode, isTrue);
+    expect(prefs.rungFirstOn, isFalse);
+    expect(await db.select(db.emergencyProfile).get(), isEmpty,
+        reason: 'فصيلة دم ما حدش كتبها عمرها ما تتحط');
+    await db.close();
+  });
+
   test('كل النسخ المتسجّلة بتترحّل لآخر نسخة وتتطابق', () async {
     for (final version in GeneratedHelper.versions) {
-      if (version == 9) continue;
+      if (version == 10) continue;
       final schema = await verifier.schemaAt(version);
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 9);
+      await verifier.migrateAndValidate(db, 10);
       await db.close();
     }
   });

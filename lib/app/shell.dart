@@ -7,6 +7,7 @@ import '../core/widgets/primitives.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/elder/elder_home_screen.dart';
+import '../features/emergency/emergency_card_screen.dart';
 import '../features/link/sign_in_screen.dart';
 import '../features/medication/add_medication_screen.dart';
 import '../features/medication/medications_screen.dart';
@@ -18,8 +19,8 @@ import 'app_scope.dart';
 /// هيكل التطبيق: شريط علوي + أربع تبويبات + زرار «ضيف» في النص.
 ///
 /// التبويبات: اليوم · الأدوية · العائلة · الإعدادات. «الملف» بتاع التصميم
-/// مش موجود لأنه مالوش باك إند — مكانه «الإعدادات». ومفيش شريحة «طوارئ»
-/// حمرا: الأحمر للطوارئ، ومفيش طوارئ دلوقتي.
+/// مش موجود لأنه مالوش باك إند — مكانه «الإعدادات». زرار «طوارئ» فوق
+/// (D3.4) بيفتح البطاقة بلمسة، بحدّ حبر مش أحمر.
 ///
 /// كل زرار هنا بكلمة — حتى الـ«+». القاعدة: مفيش زرار أيقونة من غير كلمة.
 /// الشريط العلوي علامة ف بس.
@@ -98,6 +99,32 @@ class _AppShellState extends State<AppShell> {
   AppBar _appBar() => AppBar(
         automaticallyImplyLeading: false,
         titleSpacing: F.gap,
+        actions: [
+          // بطاقة الطوارئ بلمسة واحدة من أي تبويب — بحدّ حبر، **مش أحمر**:
+          // الأحمر جوّه شاشتين الطوارئ بس.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: F.gap),
+            child: SizedBox(
+              height: F.minTapTarget,
+              child: OutlinedButton.icon(
+                key: const ValueKey('emergency-shortcut'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const EmergencyCardScreen()),
+                ),
+                icon: const Icon(Icons.medical_information_outlined, size: 24),
+                label: const Text('طوارئ'),
+                style: OutlinedButton.styleFrom(
+                  // الثيم بيدّي الزراير عرض كامل — في الشريط العلوي لأ
+                  minimumSize: const Size(0, F.minTapTarget),
+                  foregroundColor: F.ink,
+                  side: const BorderSide(color: F.ink, width: 1.5),
+                  textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+                ),
+              ),
+            ),
+          ),
+        ],
         // علامة ف بس. «الإعدادات» تبويب تحت — زرار فوق كان تكرار.
         title: Row(
           children: [

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 /// توكنز هوية فكرني — الجدول الكامل من `design/handoff/README.md`.
 ///
 /// **كل hex وكل مقاس من هنا، ومفيش hex بيتكتب مرتين.** الذهبي محجوز
-/// للتذكير والحالة النشطة فقط؛ الأحمر للطوارئ فقط — ومفيش طوارئ دلوقتي،
-/// فالأحمر معرّف هنا ومش مستعمل في أي مكان.
+/// للتذكير والحالة النشطة فقط؛ الأحمر للطوارئ فقط — شاشتين الطوارئ
+/// (`features/emergency/`) وبس.
 abstract final class F {
   // ------------------------------------------------------------- الألوان
   static const ink = Color(0xFF122E28);
@@ -38,9 +38,17 @@ abstract final class F {
   static const amber = Color(0xFFD3A21C);
   static const orange = Color(0xFFD9691F);
 
-  /// **الطوارئ بس.** معرّف عشان الجدول يكون كامل — مش مستعمل.
+  /// **الطوارئ بس** (D3.4): زرار الإسعاف وأرضية شاشة الطوارئ. ولا لون من
+  /// دول بيظهر برّه `features/emergency/` — اختبار بيقرا الكود ويوقع لو حصل.
   static const red = Color(0xFFC0202F);
   static const redDeep = Color(0xFFA81E26);
+
+  /// لوح أغمق على أرضية الطوارئ (الحساسية وجهات الاتصال).
+  static const redPanel = Color(0xFF8C1820);
+
+  /// النص على الأحمر — أبيض، والثانوي أبيض شفّاف شوية (لسه فوق ٤.٥:١).
+  static const onRed = Color(0xFFFFFFFF);
+  static const onRedMuted = Color(0xE6FFFFFF);
 
   /// اتأكدت / اتاخدت.
   static const greenOk = Color(0xFF175E39);

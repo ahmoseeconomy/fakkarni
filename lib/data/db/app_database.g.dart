@@ -4487,6 +4487,591 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
   }
 }
 
+class $EmergencyProfileTable extends EmergencyProfile
+    with TableInfo<$EmergencyProfileTable, EmergencyProfileRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EmergencyProfileTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'UNIQUE REFERENCES patients (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _bloodTypeMeta = const VerificationMeta(
+    'bloodType',
+  );
+  @override
+  late final GeneratedColumn<String> bloodType = GeneratedColumn<String>(
+    'blood_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _allergiesMeta = const VerificationMeta(
+    'allergies',
+  );
+  @override
+  late final GeneratedColumn<String> allergies = GeneratedColumn<String>(
+    'allergies',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _chronicConditionsMeta = const VerificationMeta(
+    'chronicConditions',
+  );
+  @override
+  late final GeneratedColumn<String> chronicConditions =
+      GeneratedColumn<String>(
+        'chronic_conditions',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _contactsJsonMeta = const VerificationMeta(
+    'contactsJson',
+  );
+  @override
+  late final GeneratedColumn<String> contactsJson = GeneratedColumn<String>(
+    'contacts_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    bloodType,
+    allergies,
+    chronicConditions,
+    contactsJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'emergency_profile';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EmergencyProfileRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patientIdMeta);
+    }
+    if (data.containsKey('blood_type')) {
+      context.handle(
+        _bloodTypeMeta,
+        bloodType.isAcceptableOrUnknown(data['blood_type']!, _bloodTypeMeta),
+      );
+    }
+    if (data.containsKey('allergies')) {
+      context.handle(
+        _allergiesMeta,
+        allergies.isAcceptableOrUnknown(data['allergies']!, _allergiesMeta),
+      );
+    }
+    if (data.containsKey('chronic_conditions')) {
+      context.handle(
+        _chronicConditionsMeta,
+        chronicConditions.isAcceptableOrUnknown(
+          data['chronic_conditions']!,
+          _chronicConditionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contacts_json')) {
+      context.handle(
+        _contactsJsonMeta,
+        contactsJson.isAcceptableOrUnknown(
+          data['contacts_json']!,
+          _contactsJsonMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  EmergencyProfileRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EmergencyProfileRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      bloodType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}blood_type'],
+      ),
+      allergies: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}allergies'],
+      ),
+      chronicConditions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chronic_conditions'],
+      ),
+      contactsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contacts_json'],
+      )!,
+    );
+  }
+
+  @override
+  $EmergencyProfileTable createAlias(String alias) {
+    return $EmergencyProfileTable(attachedDatabase, alias);
+  }
+}
+
+class EmergencyProfileRow extends DataClass
+    implements Insertable<EmergencyProfileRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int patientId;
+
+  /// «O+» … «AB-» بالحرف اللاتيني زي ما بيتكتب في التحليل.
+  final String? bloodType;
+  final String? allergies;
+  final String? chronicConditions;
+
+  /// `[{name, phone, relation}]` — عمود JSON في نفس الجدول.
+  final String contactsJson;
+  const EmergencyProfileRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.patientId,
+    this.bloodType,
+    this.allergies,
+    this.chronicConditions,
+    required this.contactsJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['patient_id'] = Variable<int>(patientId);
+    if (!nullToAbsent || bloodType != null) {
+      map['blood_type'] = Variable<String>(bloodType);
+    }
+    if (!nullToAbsent || allergies != null) {
+      map['allergies'] = Variable<String>(allergies);
+    }
+    if (!nullToAbsent || chronicConditions != null) {
+      map['chronic_conditions'] = Variable<String>(chronicConditions);
+    }
+    map['contacts_json'] = Variable<String>(contactsJson);
+    return map;
+  }
+
+  EmergencyProfileCompanion toCompanion(bool nullToAbsent) {
+    return EmergencyProfileCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      patientId: Value(patientId),
+      bloodType: bloodType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bloodType),
+      allergies: allergies == null && nullToAbsent
+          ? const Value.absent()
+          : Value(allergies),
+      chronicConditions: chronicConditions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(chronicConditions),
+      contactsJson: Value(contactsJson),
+    );
+  }
+
+  factory EmergencyProfileRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EmergencyProfileRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      patientId: serializer.fromJson<int>(json['patientId']),
+      bloodType: serializer.fromJson<String?>(json['bloodType']),
+      allergies: serializer.fromJson<String?>(json['allergies']),
+      chronicConditions: serializer.fromJson<String?>(
+        json['chronicConditions'],
+      ),
+      contactsJson: serializer.fromJson<String>(json['contactsJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'patientId': serializer.toJson<int>(patientId),
+      'bloodType': serializer.toJson<String?>(bloodType),
+      'allergies': serializer.toJson<String?>(allergies),
+      'chronicConditions': serializer.toJson<String?>(chronicConditions),
+      'contactsJson': serializer.toJson<String>(contactsJson),
+    };
+  }
+
+  EmergencyProfileRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? patientId,
+    Value<String?> bloodType = const Value.absent(),
+    Value<String?> allergies = const Value.absent(),
+    Value<String?> chronicConditions = const Value.absent(),
+    String? contactsJson,
+  }) => EmergencyProfileRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    patientId: patientId ?? this.patientId,
+    bloodType: bloodType.present ? bloodType.value : this.bloodType,
+    allergies: allergies.present ? allergies.value : this.allergies,
+    chronicConditions: chronicConditions.present
+        ? chronicConditions.value
+        : this.chronicConditions,
+    contactsJson: contactsJson ?? this.contactsJson,
+  );
+  EmergencyProfileRow copyWithCompanion(EmergencyProfileCompanion data) {
+    return EmergencyProfileRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      bloodType: data.bloodType.present ? data.bloodType.value : this.bloodType,
+      allergies: data.allergies.present ? data.allergies.value : this.allergies,
+      chronicConditions: data.chronicConditions.present
+          ? data.chronicConditions.value
+          : this.chronicConditions,
+      contactsJson: data.contactsJson.present
+          ? data.contactsJson.value
+          : this.contactsJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EmergencyProfileRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('bloodType: $bloodType, ')
+          ..write('allergies: $allergies, ')
+          ..write('chronicConditions: $chronicConditions, ')
+          ..write('contactsJson: $contactsJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    bloodType,
+    allergies,
+    chronicConditions,
+    contactsJson,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EmergencyProfileRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.patientId == this.patientId &&
+          other.bloodType == this.bloodType &&
+          other.allergies == this.allergies &&
+          other.chronicConditions == this.chronicConditions &&
+          other.contactsJson == this.contactsJson);
+}
+
+class EmergencyProfileCompanion extends UpdateCompanion<EmergencyProfileRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> patientId;
+  final Value<String?> bloodType;
+  final Value<String?> allergies;
+  final Value<String?> chronicConditions;
+  final Value<String> contactsJson;
+  const EmergencyProfileCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.patientId = const Value.absent(),
+    this.bloodType = const Value.absent(),
+    this.allergies = const Value.absent(),
+    this.chronicConditions = const Value.absent(),
+    this.contactsJson = const Value.absent(),
+  });
+  EmergencyProfileCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int patientId,
+    this.bloodType = const Value.absent(),
+    this.allergies = const Value.absent(),
+    this.chronicConditions = const Value.absent(),
+    this.contactsJson = const Value.absent(),
+  }) : patientId = Value(patientId);
+  static Insertable<EmergencyProfileRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? patientId,
+    Expression<String>? bloodType,
+    Expression<String>? allergies,
+    Expression<String>? chronicConditions,
+    Expression<String>? contactsJson,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (patientId != null) 'patient_id': patientId,
+      if (bloodType != null) 'blood_type': bloodType,
+      if (allergies != null) 'allergies': allergies,
+      if (chronicConditions != null) 'chronic_conditions': chronicConditions,
+      if (contactsJson != null) 'contacts_json': contactsJson,
+    });
+  }
+
+  EmergencyProfileCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? patientId,
+    Value<String?>? bloodType,
+    Value<String?>? allergies,
+    Value<String?>? chronicConditions,
+    Value<String>? contactsJson,
+  }) {
+    return EmergencyProfileCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      bloodType: bloodType ?? this.bloodType,
+      allergies: allergies ?? this.allergies,
+      chronicConditions: chronicConditions ?? this.chronicConditions,
+      contactsJson: contactsJson ?? this.contactsJson,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (bloodType.present) {
+      map['blood_type'] = Variable<String>(bloodType.value);
+    }
+    if (allergies.present) {
+      map['allergies'] = Variable<String>(allergies.value);
+    }
+    if (chronicConditions.present) {
+      map['chronic_conditions'] = Variable<String>(chronicConditions.value);
+    }
+    if (contactsJson.present) {
+      map['contacts_json'] = Variable<String>(contactsJson.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EmergencyProfileCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('bloodType: $bloodType, ')
+          ..write('allergies: $allergies, ')
+          ..write('chronicConditions: $chronicConditions, ')
+          ..write('contactsJson: $contactsJson')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4499,6 +5084,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RoutineBackupsTable routineBackups = $RoutineBackupsTable(this);
   late final $DevicePreferencesTable devicePreferences =
       $DevicePreferencesTable(this);
+  late final $EmergencyProfileTable emergencyProfile = $EmergencyProfileTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4512,6 +5100,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     doseEvents,
     routineBackups,
     devicePreferences,
+    emergencyProfile,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4556,6 +5145,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('routine_backups', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'patients',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('emergency_profile', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -4636,6 +5232,26 @@ final class $$PatientsTableReferences
     ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_routineBackupsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$EmergencyProfileTable, List<EmergencyProfileRow>>
+  _emergencyProfileRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.emergencyProfile,
+    aliasName: 'patients__id__emergency_profile__patient_id',
+  );
+
+  $$EmergencyProfileTableProcessedTableManager get emergencyProfileRefs {
+    final manager = $$EmergencyProfileTableTableManager(
+      $_db,
+      $_db.emergencyProfile,
+    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _emergencyProfileRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4763,6 +5379,31 @@ class $$PatientsTableFilterComposer
           }) => $$RoutineBackupsTableFilterComposer(
             $db: $db,
             $table: $db.routineBackups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> emergencyProfileRefs(
+    Expression<bool> Function($$EmergencyProfileTableFilterComposer f) f,
+  ) {
+    final $$EmergencyProfileTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.emergencyProfile,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EmergencyProfileTableFilterComposer(
+            $db: $db,
+            $table: $db.emergencyProfile,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4944,6 +5585,31 @@ class $$PatientsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> emergencyProfileRefs<T extends Object>(
+    Expression<T> Function($$EmergencyProfileTableAnnotationComposer a) f,
+  ) {
+    final $$EmergencyProfileTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.emergencyProfile,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EmergencyProfileTableAnnotationComposer(
+            $db: $db,
+            $table: $db.emergencyProfile,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PatientsTableTableManager
@@ -4963,6 +5629,7 @@ class $$PatientsTableTableManager
             bool dayRoutinesRefs,
             bool medicationsRefs,
             bool routineBackupsRefs,
+            bool emergencyProfileRefs,
           })
         > {
   $$PatientsTableTableManager(_$AppDatabase db, $PatientsTable table)
@@ -5033,6 +5700,7 @@ class $$PatientsTableTableManager
                 dayRoutinesRefs = false,
                 medicationsRefs = false,
                 routineBackupsRefs = false,
+                emergencyProfileRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -5040,6 +5708,7 @@ class $$PatientsTableTableManager
                     if (dayRoutinesRefs) db.dayRoutines,
                     if (medicationsRefs) db.medications,
                     if (routineBackupsRefs) db.routineBackups,
+                    if (emergencyProfileRefs) db.emergencyProfile,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -5107,6 +5776,27 @@ class $$PatientsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (emergencyProfileRefs)
+                        await $_getPrefetchedData<
+                          PatientRow,
+                          $PatientsTable,
+                          EmergencyProfileRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PatientsTableReferences
+                              ._emergencyProfileRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PatientsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).emergencyProfileRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.patientId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5131,6 +5821,7 @@ typedef $$PatientsTableProcessedTableManager =
         bool dayRoutinesRefs,
         bool medicationsRefs,
         bool routineBackupsRefs,
+        bool emergencyProfileRefs,
       })
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
@@ -8023,6 +8714,410 @@ typedef $$DevicePreferencesTableProcessedTableManager =
       DevicePreferencesRow,
       PrefetchHooks Function()
     >;
+typedef $$EmergencyProfileTableCreateCompanionBuilder =
+    EmergencyProfileCompanion Function({
+      Value<String> uuid,
+      Value<int> updatedAtMs,
+      Value<int?> syncedAtMs,
+      Value<int> id,
+      required int patientId,
+      Value<String?> bloodType,
+      Value<String?> allergies,
+      Value<String?> chronicConditions,
+      Value<String> contactsJson,
+    });
+typedef $$EmergencyProfileTableUpdateCompanionBuilder =
+    EmergencyProfileCompanion Function({
+      Value<String> uuid,
+      Value<int> updatedAtMs,
+      Value<int?> syncedAtMs,
+      Value<int> id,
+      Value<int> patientId,
+      Value<String?> bloodType,
+      Value<String?> allergies,
+      Value<String?> chronicConditions,
+      Value<String> contactsJson,
+    });
+
+final class $$EmergencyProfileTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $EmergencyProfileTable,
+          EmergencyProfileRow
+        > {
+  $$EmergencyProfileTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
+      db.patients.createAlias('emergency_profile__patient_id__patients__id');
+
+  $$PatientsTableProcessedTableManager get patientId {
+    final $_column = $_itemColumn<int>('patient_id')!;
+
+    final manager = $$PatientsTableTableManager(
+      $_db,
+      $_db.patients,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$EmergencyProfileTableFilterComposer
+    extends Composer<_$AppDatabase, $EmergencyProfileTable> {
+  $$EmergencyProfileTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bloodType => $composableBuilder(
+    column: $table.bloodType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get allergies => $composableBuilder(
+    column: $table.allergies,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chronicConditions => $composableBuilder(
+    column: $table.chronicConditions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactsJson => $composableBuilder(
+    column: $table.contactsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PatientsTableFilterComposer get patientId {
+    final $$PatientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableFilterComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EmergencyProfileTableOrderingComposer
+    extends Composer<_$AppDatabase, $EmergencyProfileTable> {
+  $$EmergencyProfileTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bloodType => $composableBuilder(
+    column: $table.bloodType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get allergies => $composableBuilder(
+    column: $table.allergies,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chronicConditions => $composableBuilder(
+    column: $table.chronicConditions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactsJson => $composableBuilder(
+    column: $table.contactsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PatientsTableOrderingComposer get patientId {
+    final $$PatientsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableOrderingComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EmergencyProfileTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EmergencyProfileTable> {
+  $$EmergencyProfileTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get bloodType =>
+      $composableBuilder(column: $table.bloodType, builder: (column) => column);
+
+  GeneratedColumn<String> get allergies =>
+      $composableBuilder(column: $table.allergies, builder: (column) => column);
+
+  GeneratedColumn<String> get chronicConditions => $composableBuilder(
+    column: $table.chronicConditions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contactsJson => $composableBuilder(
+    column: $table.contactsJson,
+    builder: (column) => column,
+  );
+
+  $$PatientsTableAnnotationComposer get patientId {
+    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EmergencyProfileTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EmergencyProfileTable,
+          EmergencyProfileRow,
+          $$EmergencyProfileTableFilterComposer,
+          $$EmergencyProfileTableOrderingComposer,
+          $$EmergencyProfileTableAnnotationComposer,
+          $$EmergencyProfileTableCreateCompanionBuilder,
+          $$EmergencyProfileTableUpdateCompanionBuilder,
+          (EmergencyProfileRow, $$EmergencyProfileTableReferences),
+          EmergencyProfileRow,
+          PrefetchHooks Function({bool patientId})
+        > {
+  $$EmergencyProfileTableTableManager(
+    _$AppDatabase db,
+    $EmergencyProfileTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EmergencyProfileTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EmergencyProfileTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EmergencyProfileTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> patientId = const Value.absent(),
+                Value<String?> bloodType = const Value.absent(),
+                Value<String?> allergies = const Value.absent(),
+                Value<String?> chronicConditions = const Value.absent(),
+                Value<String> contactsJson = const Value.absent(),
+              }) => EmergencyProfileCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                bloodType: bloodType,
+                allergies: allergies,
+                chronicConditions: chronicConditions,
+                contactsJson: contactsJson,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int patientId,
+                Value<String?> bloodType = const Value.absent(),
+                Value<String?> allergies = const Value.absent(),
+                Value<String?> chronicConditions = const Value.absent(),
+                Value<String> contactsJson = const Value.absent(),
+              }) => EmergencyProfileCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                bloodType: bloodType,
+                allergies: allergies,
+                chronicConditions: chronicConditions,
+                contactsJson: contactsJson,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$EmergencyProfileTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({patientId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (patientId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.patientId,
+                        referencedTable: $$EmergencyProfileTableReferences
+                            ._patientIdTable(db),
+                        referencedColumn: $$EmergencyProfileTableReferences
+                            ._patientIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$EmergencyProfileTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EmergencyProfileTable,
+      EmergencyProfileRow,
+      $$EmergencyProfileTableFilterComposer,
+      $$EmergencyProfileTableOrderingComposer,
+      $$EmergencyProfileTableAnnotationComposer,
+      $$EmergencyProfileTableCreateCompanionBuilder,
+      $$EmergencyProfileTableUpdateCompanionBuilder,
+      (EmergencyProfileRow, $$EmergencyProfileTableReferences),
+      EmergencyProfileRow,
+      PrefetchHooks Function({bool patientId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8043,4 +9138,6 @@ class $AppDatabaseManager {
       $$RoutineBackupsTableTableManager(_db, _db.routineBackups);
   $$DevicePreferencesTableTableManager get devicePreferences =>
       $$DevicePreferencesTableTableManager(_db, _db.devicePreferences);
+  $$EmergencyProfileTableTableManager get emergencyProfile =>
+      $$EmergencyProfileTableTableManager(_db, _db.emergencyProfile);
 }

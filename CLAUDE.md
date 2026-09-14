@@ -85,11 +85,15 @@ These are product decisions, already settled. Do not "improve" them without aski
 - The mockups render small and their type and targets read below these minimums.
   **Take every size from `class F`, never from measuring the image.** Where a
   mockup is tighter than the minimums, the minimums win — and say so.
-- **Red belongs to the emergency card and to nothing else.** The mockups spend
-  red on the `طوارئ` shortcut in the top bar. That is its only job in this app:
-  never use red for an error, a warning, a validation message, or a missed
-  dose. A missed dose uses gold and neutral wording — he forgot, he did not
-  fail.
+- **Red belongs to the two emergency screens and to nothing else** —
+  «معلومات الطوارئ» (`F.redDeep` ground) and «بطاقة الطوارئ», both in
+  `lib/features/emergency/`, with `F.red` on the ambulance button. The
+  mockups also spend red on the `طوارئ` shortcut in the top bar; ours is
+  ink-outlined, because red on any other screen is wrong — including the
+  door to the emergency screens. Never use red for an error, a warning, a
+  validation message, or a missed dose. A missed dose uses gold and neutral
+  wording — he forgot, he did not fail. `test/app/red_only_in_emergency_test.dart`
+  reads `lib/` and fails on any red token or hex outside that folder.
 - **Gold (`F.gold`) means one thing: "this needs your attention now."** A
   dose that needs taking now, the state you are currently on, and a field the
   AI is unsure about (the review row's gold edge, «مش متأكد من دي — راجعها»)
@@ -128,7 +132,9 @@ lib/
   data/db/                    drift (SQLite) v9: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
-                              the +15/+30 rung switches),
+                              the +15/+30 rung switches), emergency_profile
+                              (v10, local: SyncIdentity columns but never
+                              pushed),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -950,12 +956,25 @@ Consequences to handle:
   the only red, and drawing it would promise an alert nobody sends.
 - **«لا أذكر» on the alert screen** — no state for it in `dose_events`;
   «تخطّي» with a human asking covers the same case.
-- **Mockup 18's «📞 اتصل بمحمد» (and its «اتصل» tab) is not built.** It
-  needs the son's phone number, and we do not collect phone numbers at all
-  — that was deliberate when phone calls were cancelled. Elder mode's
+- **Mockup 18's «📞 اتصل بمحمد» (and its «اتصل» tab) is not built.** Since
+  D3.4 the patient can type emergency contacts (name, number, relation),
+  stored **on this device only** and never synced — so the old reason ("we
+  collect no phone numbers") no longer holds. The honest reason now: a call
+  button on the elder home lands *on top of* those contacts (which one is
+  «ابنك»?), not on its own, and the one-tap «طوارئ» card already carries
+  their call buttons. The server still holds no phone number, and phone
+  calls from the escalation ladder stay cancelled. Elder mode's
   second tab is «الإعدادات» instead: it is the only way back out of the
   mode. Its voice line («قول تمام وأنا هسجّلها») is dropped for the same
   reason as mockup 10's.
+- **Mockup 32's emergency card on the real lock screen is not built.** That
+  needs a WidgetKit extension in Swift plus an App Group for the data, and
+  the Android equivalent. What exists is an **in-app full screen** with the
+  same look and function, one tap from the top bar in every tab (and in
+  elder mode). No user-facing text calls it a lock-screen card or says it
+  works «من غير فك الموبايل»; a test asserts that.
+- **Mockup 19's «ملاحظة للمسعف» field and mockup 32's «مشاركة سريعة» are
+  not built** — not in the plan, and sharing needs `share_plus`.
 - **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
   hours silence everything **except** a missed dose and emergency — and
   those are the only alerts we have, so the switch would do nothing. A
@@ -1156,6 +1175,31 @@ device-verified)**
   **above** the normal floor (text 24+). Confirm and snooze are the shared
   `confirmGroup` / `snoozeGroup` in `features/today/dose_actions.dart`,
   used by the home too. The settings tab keeps normal sizes.
+
+**D3.4 — emergency (built)**
+- Schema v10 `emergency_profile`: SyncIdentity columns and a touch trigger
+  from day one (PHASE_D3 rule 2), one row per patient: `blood_type`,
+  `allergies`, `chronic_conditions`, `contacts_json` (`[{name, phone,
+  relation}]`). Written red first; frozen SQL above the `from < 6` block.
+  **Not synced**: SyncService never reads it, and
+  `test/data/sync/emergency_not_synced_test.dart` fails if that changes
+  silently. Current medications are read from `medications`, never copied.
+- **No field is ever filled or guessed.** null renders «لسه ما اتملاش», and
+  nothing else — no «لا يوجد», no default blood type. Blank input saves
+  as null; «مفيش حساسية» has to be typed by a person. A blood type outside
+  the eight is refused, not stored. The only writer is
+  `EmergencyEditScreen` (8 chips + «مش عارف» = null, free text, contacts).
+- «معلومات الطوارئ» (19) on `F.redDeep`, «بطاقة الطوارئ» (32) as a full
+  in-app screen with the gradient and a live clock (timer cancelled in
+  dispose). Every contact has an «اتصال» button; the ambulance button
+  pulses (short pulse on a timer, off under reduced motion) and **always
+  asks «تتصل بالإسعاف ١٢٣؟» first** — mutation-checked: dialling directly
+  fails the test. Entry: ink «طوارئ» in the top bar → card (all tabs,
+  elder mode); settings «معلومات الطوارئ» → screen 19.
+- `url_launcher` for `tel:` (`dialNumber` is swappable for tests); `tel` in
+  `LSApplicationQueriesSchemes`. Contact calls go straight to the OS: iOS
+  asks "Call …?" itself, Android opens the dialer without calling. Not yet
+  tried on hardware — the simulator cannot place a call.
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

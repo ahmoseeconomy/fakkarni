@@ -136,6 +136,32 @@ class DevicePreferences extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// بيانات الطوارئ (D3.4، المخطط ١٩ و٣٢) — اللي المريض أو أهله كتبوه بإيدهم.
+///
+/// **ولا عمود هنا بيتملا لوحده ولا بيتخمّن**: null = «لسه ما اتملاش». حد
+/// عنده حساسية بنسلين وبطاقته بتقول حاجة تانية ده مش باج واجهة. الأدوية
+/// الحالية مش هنا — بتتقرا من medications عشان ما يبقاش فيه نسختين تختلفوا.
+///
+/// SyncIdentity من الأول (قاعدة PHASE_D3) بس **مش بيتزامن**: SyncService
+/// ما بيقراهوش. أرقام جهات الاتصال على الموبايل ده بس.
+@DataClassName('EmergencyProfileRow')
+class EmergencyProfile extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade).unique()();
+
+  /// «O+» … «AB-» بالحرف اللاتيني زي ما بيتكتب في التحليل.
+  TextColumn get bloodType => text().nullable()();
+  TextColumn get allergies => text().nullable()();
+  TextColumn get chronicConditions => text().nullable()();
+
+  /// `[{name, phone, relation}]` — عمود JSON في نفس الجدول.
+  TextColumn get contactsJson => text().withDefault(const Constant('[]'))();
+
+  @override
+  String get tableName => 'emergency_profile';
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();

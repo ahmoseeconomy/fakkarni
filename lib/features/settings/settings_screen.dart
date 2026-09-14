@@ -10,14 +10,15 @@ import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
 import 'notifications_screen.dart';
+import '../emergency/emergency_info_screen.dart';
 import '../../data/repositories/preferences_repository.dart';
 
 /// «الإعدادات» (المخطط 33) — بس الصفوف اللي وراها حاجة حقيقية.
 ///
 /// كارت الحساب بيقول الحقيقة: «حساب تجريبي» طول ما الدخول مجهول (دين
 /// تقني ٢)، و«مش مربوط» لو مفيش جلسة أصلاً. «نمط كبار السن» و«التنبيهات»
-/// دخلوا في D3.3 (تفضيلات الجهاز). الاسم والسن وبطاقة الطوارئ والتصدير مش
-/// هنا — مالهمش باك إند، وصف بيفتح على فراغ أسوأ من صف مش موجود.
+/// دخلوا في D3.3 (تفضيلات الجهاز)، و«معلومات الطوارئ» في D3.4. الاسم والسن
+/// والتصدير مش هنا — مالهمش باك إند، وصف بيفتح على فراغ أسوأ من صف مش موجود.
 /// «اللغة: عربي» معروض ومعطّل.
 ///
 /// الخروج بيمسح توكن الإشعارات **قبل** الجلسة — نفس ترتيب شاشة الربط:
@@ -121,6 +122,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const NotificationsScreen()),
             ),
             _ElderModeRow(settings: services.preferences),
+            _Row(
+              icon: Icons.medical_information_outlined,
+              label: 'معلومات الطوارئ',
+              hint: 'فصيلة الدم، الحساسية، وجهات الاتصال',
+              onTap: () => _open(const EmergencyInfoScreen()),
+            ),
             _Row(
               icon: Icons.people_outline,
               label: 'دائرة الرعاية',

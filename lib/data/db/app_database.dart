@@ -25,13 +25,14 @@ part 'app_database.g.dart';
     DoseEvents,
     RoutineBackups,
     DevicePreferences,
+    EmergencyProfile,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -214,6 +215,22 @@ class AppDatabase extends _$AppDatabase {
                 'PRIMARY KEY ("id"))',
               );
             }
+            if (from < 10) {
+              // بيانات الطوارئ — SQL مجمّد بالحرف. فاضي: ولا حقل بيتملا
+              // لوحده. التريجر بتاعه بيتعمل في beforeOpen زي باقي الجداول.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "emergency_profile" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"patient_id" INTEGER NOT NULL UNIQUE REFERENCES patients (id) ON DELETE CASCADE, '
+                '"blood_type" TEXT NULL, '
+                '"allergies" TEXT NULL, '
+                '"chronic_conditions" TEXT NULL, '
+                '"contacts_json" TEXT NOT NULL DEFAULT \'[]\')',
+              );
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -251,6 +268,7 @@ class AppDatabase extends _$AppDatabase {
             'dose_schedules',
             'fixed_timings',
             'dose_events',
+            'emergency_profile',
           ]) {
             await customStatement('''
 CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at
