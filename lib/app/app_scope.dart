@@ -9,6 +9,7 @@ import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
+import '../data/repositories/preferences_repository.dart';
 import '../data/repositories/routine_repository.dart';
 import '../data/services/reminder_scheduler.dart';
 
@@ -39,6 +40,11 @@ class AppServices {
   final DoseEventRepository events;
   final ReminderScheduler scheduler;
   final int patientId;
+
+  /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات
+  /// بيلاقيها من غير سطر زيادة. الجدولة بتقراها من نسخة بتاعتها في
+  /// `buildServices`.
+  PreferencesRepository get preferences => PreferencesRepository(db);
 
   /// آخر إشعار المستخدم دَس عليه — بيجي من [NotificationService.lastPayload].
   ///

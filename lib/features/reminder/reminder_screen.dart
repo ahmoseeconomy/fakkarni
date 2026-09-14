@@ -20,7 +20,7 @@ import '../../domain/scheduling/dose_schedule.dart';
 /// شريط يوم ولا قايمة — «يومك» موجودة وراها لما يخلص.
 ///
 /// السلّم **أربع** درجات — اللي موجود فعلاً: في الموعد · +١٥ · +٣٠ ·
-/// +٤٥ (إشعار لابنه). الرامب بيقف عند البرتقالي؛ مفيش أحمر لأن الدرجة
+/// +٦٠ (إشعار لابنه من السيرفر). الرامب بيقف عند البرتقالي؛ مفيش أحمر لأن الدرجة
 /// الخامسة (دائرة الرعاية كلها) مش مبنية. المرحلة من الوقت الفعلي اللي
 /// عدّى، والدرجات من `domain/escalation/` — مش أرقام تانية هنا.
 /// درجة على السلّم زي ما بتتعرض.
@@ -35,7 +35,9 @@ final List<LadderStep> ladderSteps = [
   const LadderStep('في الموعد', Duration.zero),
   LadderStep('+${arabicNumber(EscalationRung.first.delay.inMinutes)} د', EscalationRung.first.delay),
   LadderStep('+${arabicNumber(EscalationRung.second.delay.inMinutes)} د', EscalationRung.second.delay),
-  LadderStep('+${arabicNumber(graceWindow.inMinutes)} د — إشعار لابنك', graceWindow),
+  // السيرفر هو اللي بيبلّغ الابن، بعد مهلته هو (٦٠) — مش مهلة الجهاز (٤٥).
+  // «+٤٥» كان بيوعد بإشعار قبل ما حد يبعته فعلاً.
+  LadderStep('+${arabicNumber(serverGraceWindow.inMinutes)} د — إشعار لابنك', serverGraceWindow),
 ];
 
 /// المرحلة الحالية (0..3) من الوقت اللي عدّى فعلاً على معاد الجرعة.

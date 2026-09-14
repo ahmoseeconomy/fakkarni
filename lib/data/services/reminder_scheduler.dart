@@ -3,6 +3,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
+import '../repositories/preferences_repository.dart';
 import '../repositories/routine_repository.dart';
 import 'reminder_plan.dart';
 import 'reminder_sink.dart';
@@ -19,6 +20,7 @@ class ReminderScheduler {
     required this.patientId,
     this.patientIndex = 0,
     this.sink = const NotificationReminderSink(),
+    this.preferences,
   });
 
   final RoutineRepository routines;
@@ -28,6 +30,14 @@ class ReminderScheduler {
   final DoseEventRepository events;
   final ReminderSink sink;
   final int patientId;
+
+  /// «التنبيهات» (D3.3): درجتين +١٥ و+٣٠ ممكن يتقفلوا. null = السلّم كامل.
+  ///
+  /// بيتقرا **وقت الجدولة بس** وبيفلتر الدرجات اللي طالعة من
+  /// [planEscalations] — السلّم نفسه ما اتغيّرش. الدرجة اللي اتقفلت وكانت
+  /// متجدولة بتتلغي لوحدها في المقارنة تحت (رقمها في نطاق إعادة الجدولة
+  /// ومش في الخطة).
+  final PreferencesRepository? preferences;
 
   /// خانة المريض في نطاق أرقام الإشعارات — بتفصل أرقام كل مريض عن التاني.
   final int patientIndex;
@@ -95,8 +105,14 @@ class ReminderScheduler {
       patientIndex: patientIndex,
     );
 
+    final enabled = (await preferences?.get())?.enabledRungs ?? EscalationRung.values.toSet();
+    final allowedLadder = [
+      for (final n in ladder)
+        if (enabled.contains(escalationRungOf(n.id))) n,
+    ];
+
     final plan = reconcile(
-      [...planned, ...ladder],
+      [...planned, ...allowedLadder],
       await sink.pendingIds(),
       inBand: isRescheduledId,
     );

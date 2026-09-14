@@ -8,6 +8,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/preferences_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
@@ -1184,5 +1185,94 @@ void main() {
       );
     });
 
+  });
+
+  group('«التنبيهات»: درجات السلّم اللي بتتقفل (D3.3)', () {
+    late AppDatabase db;
+    late MedicationRepository meds;
+    late PreferencesRepository prefs;
+    late FakeReminderSink sink;
+    late ReminderScheduler scheduler;
+
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      final routines = RoutineRepository(db);
+      meds = MedicationRepository(db);
+      prefs = PreferencesRepository(db);
+      sink = FakeReminderSink();
+      final patientId = await routines.ensurePatient();
+      await routines.saveRoutine(patientId, normalDay);
+      scheduler = ReminderScheduler(
+        routines: routines,
+        medications: meds,
+        events: DoseEventRepository(db),
+        patientId: patientId,
+        sink: sink,
+        preferences: prefs,
+      );
+      await meds.addMedication(
+        patientId: patientId,
+        name: 'Concor',
+        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        startDate: aug31,
+      );
+    });
+
+    tearDown(() => db.close());
+
+    int countOf(EscalationRung rung) =>
+        sink.escalations.keys.where((id) => escalationRungOf(id) == rung).length;
+
+    test('من غير صف تفضيلات → السلّم كامل زي الأول', () async {
+      await scheduler.rescheduleAll(now: aug31at6);
+      expect(sink.doses.length, 7);
+      expect(countOf(EscalationRung.first), 7);
+      expect(countOf(EscalationRung.second), 7);
+    });
+
+    test('الاتنين مقفولين → الإلزامي بس بيتجدول: التذكير نفسه، ومفيش ولا درجة محلية', () async {
+      await prefs.setRung(EscalationRung.first, false);
+      await prefs.setRung(EscalationRung.second, false);
+      await scheduler.rescheduleAll(now: aug31at6);
+
+      expect(sink.doses.length, 7, reason: '«في الموعد» ما بيتقفلش');
+      expect(sink.escalations, isEmpty);
+      expect(sink.scheduled.keys.every(isDoseId), isTrue);
+    });
+
+    test('+١٥ بس مقفولة → درجة +٣٠ فاضلة كاملة', () async {
+      await prefs.setRung(EscalationRung.first, false);
+      await scheduler.rescheduleAll(now: aug31at6);
+
+      expect(sink.doses.length, 7);
+      expect(countOf(EscalationRung.first), 0);
+      expect(countOf(EscalationRung.second), 7);
+    });
+
+    test('درجة كانت متجدولة واتقفلت → بتتلغي في إعادة الجدولة الجاية، والتذكيرات ما اتلمستش', () async {
+      await scheduler.rescheduleAll(now: aug31at6);
+      expect(countOf(EscalationRung.second), 7);
+
+      await prefs.setRung(EscalationRung.second, false);
+      await scheduler.rescheduleAll(now: aug31at6);
+
+      expect(countOf(EscalationRung.second), 0);
+      expect(countOf(EscalationRung.first), 7);
+      expect(sink.cancelled.where(isDoseId), isEmpty);
+      expect(sink.cancelled.where((id) => escalationRungOf(id) == EscalationRung.second).length, 7);
+
+      // ورجعت اتفتحت → رجعت
+      await prefs.setRung(EscalationRung.second, true);
+      await scheduler.rescheduleAll(now: aug31at6);
+      expect(countOf(EscalationRung.second), 7);
+    });
+
+    test('escalationRungOf بيعرف كل درجة، وnull لأي رقم تاني', () {
+      final at = DateTime(2026, 8, 31, 7);
+      expect(escalationRungOf(escalationIdFor(at, EscalationRung.first)), EscalationRung.first);
+      expect(escalationRungOf(escalationIdFor(at, EscalationRung.second, patientIndex: 5)), EscalationRung.second);
+      expect(escalationRungOf(notificationIdFor(at)), isNull);
+      expect(escalationRungOf(snoozeIdFor(at)), isNull);
+    });
   });
 }

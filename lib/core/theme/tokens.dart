@@ -68,6 +68,15 @@ abstract final class F {
   /// أسماء الأدوية.
   static const medicationNameSize = 24.0;
 
+  // ------------------------------------------- نمط كبار السن (المخطط ١٨)
+  /// **أكبر** من الحدود العادية، مش مساوية ليها: اللي فتح النمط ده طلب
+  /// صراحةً حاجة أكبر من العادي.
+  static const elderTextSize = 24.0;
+  static const elderTitleSize = 34.0;
+  static const elderNameSize = 32.0;
+  static const elderPrimaryButtonHeight = 80.0;
+  static const elderSecondaryButtonHeight = 64.0;
+
   // ----------------------------------------------------- سلّم الخط (README)
   static const display1 = 46.0;
   static const display2 = 38.0;

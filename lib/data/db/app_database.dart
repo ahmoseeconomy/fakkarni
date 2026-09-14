@@ -24,13 +24,14 @@ part 'app_database.g.dart';
     FixedTimings,
     DoseEvents,
     RoutineBackups,
+    DevicePreferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -200,6 +201,18 @@ class AppDatabase extends _$AppDatabase {
                   await customStatement('ALTER TABLE patients ADD COLUMN $column $type NULL');
                 }
               }
+            }
+            if (from < 9) {
+              // تفضيلات الجهاز (نمط كبار السن + درجتين السلّم). SQL مجمّد
+              // بالحرف زي خطوة v7. من غير صف = الافتراضي، فمفيش حاجة تتملي.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "device_preferences" ('
+                '"id" INTEGER NOT NULL, '
+                '"elder_mode" INTEGER NOT NULL DEFAULT 0 CHECK ("elder_mode" IN (0, 1)), '
+                '"rung_first_on" INTEGER NOT NULL DEFAULT 1 CHECK ("rung_first_on" IN (0, 1)), '
+                '"rung_second_on" INTEGER NOT NULL DEFAULT 1 CHECK ("rung_second_on" IN (0, 1)), '
+                'PRIMARY KEY ("id"))',
+              );
             }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل

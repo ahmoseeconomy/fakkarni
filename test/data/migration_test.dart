@@ -87,7 +87,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 8);
+    expect(version.read<int>('user_version'), 9);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -121,6 +121,9 @@ void main() {
     // v7: جدول رمضان موجود وفاضي — رمضان مقفول لكل قاعدة قديمة
     expect(await db.select(db.routineBackups).get(), isEmpty);
     expect(await RoutineRepository(db).ramadanTimes(1), isNull);
+
+    // v9: التفضيلات موجودة وفاضية — النمط العادي والسلّم كامل
+    expect(await db.select(db.devicePreferences).get(), isEmpty);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

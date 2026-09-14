@@ -13,11 +13,17 @@ import 'package:fakkarni/data/push/push_tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/preferences_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/features/elder/elder_home_screen.dart';
+import 'package:fakkarni/features/settings/notifications_screen.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
@@ -25,6 +31,7 @@ import 'package:fakkarni/features/settings/settings_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
 import '../features/scan/scan_test_support.dart' show expectNoRedAndMinSize;
+import '../features/today/today_screen_test.dart' show expectNoRed;
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -58,6 +65,7 @@ void screenTest(String name, Future<void> Function(WidgetTester) body) {
 void main() {
   late AppDatabase db;
   late AppServices services;
+  late _Sink sink;
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -75,7 +83,8 @@ void main() {
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
-        sink: _Sink(),
+        sink: sink = _Sink(),
+        preferences: PreferencesRepository(db),
       ),
       patientId: patientId,
     );
@@ -90,7 +99,7 @@ void main() {
     await tester.pump(const Duration(seconds: 4)); // نبضة العلامة بتلف
   }
 
-  Future<void> pumpShell(WidgetTester tester) async {
+  Future<void> pumpShell(WidgetTester tester, {DateTime? now}) async {
     tester.view.physicalSize = const Size(1000, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -102,7 +111,7 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)),
+            child: AppShell(routine: normalDay, now: now ?? DateTime(2026, 8, 31, 6)),
           ),
         ),
       ),
@@ -175,20 +184,20 @@ void main() {
   });
 
   group('الإعدادات (المخطط 33)', () {
-    screenTest('من غير جلسة: كارت الحساب «مش مربوط»، الصفوف التلاتة، اللغة معطّلة، ومفيش خروج', (tester) async {
+    screenTest('من غير جلسة: كارت الحساب «مش مربوط»، الصفوف، اللغة معطّلة، ومفيش خروج', (tester) async {
       await pumpShell(tester);
       await tester.tap(find.text('الإعدادات').last);
       await settle(tester);
 
       expect(find.text('مش مربوط'), findsWidgets);
       expect(find.text('حساب تجريبي'), findsNothing);
-      for (final row in ['مواعيد يومك', 'وضع رمضان', 'دائرة الرعاية', 'اللغة']) {
+      for (final row in ['مواعيد يومك', 'وضع رمضان', 'التنبيهات', 'نمط كبار السن', 'دائرة الرعاية', 'اللغة']) {
         expect(find.text(row), findsOneWidget, reason: row);
       }
       expect(find.text('عربي'), findsOneWidget);
       expect(find.text('تسجيل الخروج'), findsNothing, reason: 'مفيش جلسة تخرج منها');
       // المؤجَّل مش موجود — ولا صف بيفتح على فراغ
-      for (final gone in ['نمط كبار السن', 'التنبيهات', 'الاسم والسن', 'بطاقة الطوارئ', 'تصدير']) {
+      for (final gone in ['الاسم والسن', 'بطاقة الطوارئ', 'تصدير']) {
         expect(find.textContaining(gone), findsNothing, reason: gone);
       }
       expectNoRedAndMinSize(tester);
@@ -219,6 +228,144 @@ void main() {
       expect(push.clearedBeforeSignOut, isTrue, reason: 'التوكن قبل الجلسة — مش بعدها');
       expect(auth.user, isNull);
       expect(find.text('مش مربوط'), findsWidgets);
+    });
+  });
+
+  group('نمط كبار السن (D3.3، المخطط 18)', () {
+    Future<void> addDose(String name, DayAnchor anchor, {int offset = 0}) =>
+        services.medications.addMedication(
+          patientId: services.patientId,
+          name: name,
+          timing: AnchorTiming(anchor, offset),
+          startDate: DateTime(2026, 8, 31),
+          amountLabel: 'قرص واحد',
+        );
+
+    screenTest('المفتاح في الإعدادات → تبويبتين بس ومن غير «ضيف»، وتاني دوسة بترجّع العادي', (tester) async {
+      await pumpShell(tester);
+      await tester.tap(find.text('الإعدادات').last);
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey('elder-mode')));
+      await settle(tester);
+
+      expect((await services.preferences.get()).elderMode, isTrue);
+      for (final tab in AppShell.elderTabs) {
+        expect(find.text(tab), findsWidgets, reason: tab);
+      }
+      expect(find.text('الأدوية'), findsNothing);
+      expect(find.text('العائلة'), findsNothing);
+      expect(find.text('ضيف'), findsNothing);
+      expect(find.byType(ElderHomeScreen), findsOneWidget);
+
+      // الخروج من نفس التبويب التاني
+      await tester.tap(find.text('الإعدادات').last);
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('elder-mode')));
+      await settle(tester);
+      for (final tab in AppShell.tabs) {
+        expect(find.text(tab), findsWidgets, reason: tab);
+      }
+    });
+
+    screenTest('كارت جرعة واحد بس، نص ٢٤+، «تم ✅» ٨٠، ومفيش «اتصل» ولا سطر صوت ولا أحمر', (tester) async {
+      await services.routines.saveProfile(services.patientId, name: 'فاطمة', sex: Sex.f);
+      await services.preferences.setElderMode(true);
+      await addDose('Concor', DayAnchor.breakfast, offset: -30); // ٧:٠٠
+      await addDose('Telfast', DayAnchor.dinner); // ٨:٠٠ م
+      await pumpShell(tester, now: DateTime(2026, 8, 31, 8));
+
+      expect(find.text('صباح الخير'), findsOneWidget);
+      expect(find.text('يا فاطمة'), findsOneWidget);
+      expect(find.text('Concor'), findsOneWidget);
+      expect(find.text('Telfast'), findsNothing, reason: 'كارت واحد — الجاية بس');
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(tester.getSize(find.widgetWithText(FilledButton, 'تم ✅')).height, F.elderPrimaryButtonHeight);
+
+      final home = find.byType(ElderHomeScreen);
+      for (final text in tester.widgetList<Text>(find.descendant(of: home, matching: find.byType(Text)))) {
+        final size = text.style?.fontSize;
+        if (size != null) expect(size, greaterThanOrEqualTo(F.elderTextSize), reason: text.data);
+      }
+      for (final gone in ['اتصل', 'قول']) {
+        expect(find.textContaining(gone), findsNothing, reason: gone);
+      }
+      expectNoRed(tester);
+    });
+
+    screenTest('«تم ✅» بيسجّل الجرعة وبيجيب اللي بعدها، و«بعد شوية ⏰» تأجيل حقيقي', (tester) async {
+      await services.preferences.setElderMode(true);
+      await addDose('Concor', DayAnchor.breakfast, offset: -30); // ٧:٠٠
+      await addDose('Telfast', DayAnchor.dinner); // ٨:٠٠ م
+      await pumpShell(tester, now: DateTime(2026, 8, 31, 8));
+
+      await tester.tap(find.text('بعد شوية ⏰'));
+      await settle(tester);
+      expect(sink.scheduled.keys, contains(snoozeIdFor(DateTime(2026, 8, 31, 7))));
+      expect(find.text('هنفكّرك تاني بعد ربع ساعة'), findsOneWidget);
+
+      await tester.tap(find.text('تم ✅'));
+      await settle(tester);
+      expect(find.text('Concor'), findsNothing);
+      expect(find.text('Telfast'), findsOneWidget);
+      expect(sink.scheduled.keys, isNot(contains(snoozeIdFor(DateTime(2026, 8, 31, 7)))),
+          reason: 'التأكيد بيسكّت الخانة كلها — التأجيل معاها');
+    });
+  });
+
+  group('التنبيهات (D3.3، المخطط 26)', () {
+    Future<void> openNotifications(WidgetTester tester) async {
+      await pumpShell(tester);
+      await tester.tap(find.text('الإعدادات').last);
+      await settle(tester);
+      await tester.tap(find.text('التنبيهات'));
+      await settle(tester);
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+    }
+
+    screenTest('الإلزامي 🔒 «دائمًا» ومالوش مفتاح، +١٥ و+٣٠ بس بمفتاح، والمؤجَّل مش موجود', (tester) async {
+      await openNotifications(tester);
+
+      expect(find.text('دائمًا'), findsNWidgets(3));
+      expect(find.text('تفويت جرعة'), findsOneWidget);
+      expect(find.text('في الموعد'), findsOneWidget);
+      expect(find.text('+٦٠ د — إشعار لابنك'), findsOneWidget);
+      expect(find.byType(Switch), findsNWidgets(2));
+      expect(find.text('+١٥ د'), findsOneWidget);
+      expect(find.text('+٣٠ د'), findsOneWidget);
+      expect(find.text('الإعدادات دي على الموبايل ده بس.'), findsOneWidget);
+      for (final gone in ['ساعات الهدوء', 'نداء الطوارئ', 'سكر', 'انضمام', 'رفع تقرير', '+٤٥', 'مالك الرعاية']) {
+        expect(find.textContaining(gone), findsNothing, reason: gone);
+      }
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('قفل الدرجتين من الشاشة → بيتحفظ، والجدولة فيها تذكيرات بس ومفيش ولا درجة', (tester) async {
+      final today = DateTime.now();
+      await services.medications.addMedication(
+        patientId: services.patientId,
+        name: 'Concor',
+        timing: const AnchorTiming(DayAnchor.dinner, 0),
+        startDate: DateTime(today.year, today.month, today.day),
+      );
+      await openNotifications(tester);
+
+      await tester.tap(find.byKey(const ValueKey('rung-first')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rung-second')));
+      await settle(tester);
+
+      final saved = await services.preferences.get();
+      expect(saved.enabledRungs, isEmpty);
+      expect(sink.scheduled.keys.where(isDoseId), isNotEmpty);
+      expect(sink.scheduled.keys.where(isEscalationId), isEmpty);
+      expect(tester.widgetList<Switch>(find.byType(Switch)).every((s) => !s.value), isTrue);
+
+      // وفتح واحدة بيرجّعها هي بس
+      await tester.tap(find.byKey(const ValueKey('rung-second')));
+      await settle(tester);
+      expect(sink.scheduled.keys.where((id) => escalationRungOf(id) == EscalationRung.second), isNotEmpty);
+      expect(sink.scheduled.keys.where((id) => escalationRungOf(id) == EscalationRung.first), isEmpty);
     });
   });
 }

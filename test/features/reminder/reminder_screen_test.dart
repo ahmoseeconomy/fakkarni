@@ -243,20 +243,20 @@ void main() {
     ]);
   });
 
-  screenTest('بعد ٤٥ دقيقة → المرحلة ٤ «إشعار لابنك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
+  screenTest('بعد ٦٠ دقيقة → المرحلة ٤ «إشعار لابنك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
     final ids = await seed(['Antodine']);
-    await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 14, 50));
+    await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 15, 5));
 
     expect(find.text('تنبيه · المرحلة ٤'), findsOneWidget);
-    expect(find.text('مرّت ٤٥ دقيقة على موعد الجرعة'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+٤٥ د — إشعار لابنك')).style?.color, F.amber);
+    expect(find.text('مرّت ٦٠ دقيقة على موعد الجرعة'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('+٦٠ د — إشعار لابنك')).style?.color, F.amber);
     expect(ladderSteps.length, 4, reason: 'الدرجة الخامسة مش مبنية');
     expect(find.textContaining('دائرة الرعاية'), findsNothing);
     expect(find.textContaining('+٩٠'), findsNothing);
     // أساسي واحد بس، والسلّم من ثوابت الدومين
     expect(find.byType(FilledButton), findsOneWidget);
     expect(ladderSteps[1].after, EscalationRung.first.delay);
-    expect(ladderSteps[3].after, graceWindow);
+    expect(ladderSteps[3].after, serverGraceWindow, reason: 'الابن بيتبلّغ من السيرفر بعد مهلته هو');
     expect(find.textContaining('قول'), findsNothing, reason: 'مفيش سطر صوت');
     expect(find.textContaining('لا أذكر'), findsNothing);
     expectNoRedAndMinSize(tester);

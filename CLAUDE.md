@@ -125,8 +125,10 @@ lib/
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v8: patients (sex, age — local),
+  data/db/                    drift (SQLite) v9: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
+                              device_preferences (v9, local: elder mode +
+                              the +15/+30 rung switches),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -148,8 +150,11 @@ lib/
                               one DoseEditor per timing, saved only after the
                               last); EditMedicationScreen — amount, per-dose
                               «عدّل» → DoseEditor (updateTiming), stop (two-step)
-  features/today/             «جدول النهاردة» — pinned next-dose card + day rail
+  features/today/             home (greeting, «الآن», 48h, water) + day rail;
+                              dose_actions (confirm/snooze shared with elder)
+  features/elder/             ElderHomeScreen — one dose card, «تم ✅» 80
   features/routine/           EditRoutineScreen — change any anchor after onboarding
+  features/settings/          SettingsScreen + NotificationsScreen (rung switches)
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
   features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
                               read-only window, straight from Supabase
@@ -945,6 +950,20 @@ Consequences to handle:
   the only red, and drawing it would promise an alert nobody sends.
 - **«لا أذكر» on the alert screen** — no state for it in `dose_events`;
   «تخطّي» with a human asking covers the same case.
+- **Mockup 18's «📞 اتصل بمحمد» (and its «اتصل» tab) is not built.** It
+  needs the son's phone number, and we do not collect phone numbers at all
+  — that was deliberate when phone calls were cancelled. Elder mode's
+  second tab is «الإعدادات» instead: it is the only way back out of the
+  mode. Its voice line («قول تمام وأنا هسجّلها») is dropped for the same
+  reason as mockup 10's.
+- **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
+  hours silence everything **except** a missed dose and emergency — and
+  those are the only alerts we have, so the switch would do nothing. A
+  settings row that does nothing is worse than a row that is not there.
+- **Mockup 26's other rows wait for their features:** «نداء الطوارئ 🔒»
+  lands with D3.4 (a locked row would promise an alert nobody sends),
+  «قراءة سكر غير معتادة» with D3.6, and «عضو أكّد جرعة» / «انضمام عضو
+  بالرابط» / «رفع تقرير أو تحليل» when a notification exists behind them.
 
 5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
    normal text at 17px** (AA needs 4.5:1). README's token table was
@@ -1107,6 +1126,36 @@ device-verified)**
   and is cancelled in `dispose` (mutation-checked: removing the cancel
   fails the test).
 - **No sugar or lab cards until D3.6** — they get added to «الآن» then.
+
+**D3.3 — elder mode + notifications (built)**
+- Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —
+  `elder_mode`, `rung_first_on`, `rung_second_on`; no row = defaults.
+  Written red first (the SchemaVerifier failed with «does not contain
+  device_preferences»), frozen SQL above the `from < 6` block, and the v2
+  file test now checks the table is empty. In drift, not
+  shared_preferences, because the lock-screen isolate reschedules too.
+- **The rung switches filter, they do not change the ladder.**
+  `ReminderScheduler.preferences` is read at scheduling time only; rungs
+  from `planEscalations` whose `escalationRungOf(id)` is off are dropped
+  before `reconcile`, so an already-pending one is cancelled as stale.
+  `planEscalations`, `ladderFor` and the domain are untouched.
+  `buildServices` (app **and** background isolate) passes it — a test
+  guards that line. Mutation-checked: dropping the filter fails four tests.
+- «التنبيهات» (mockup 26): «تفويت جرعة», «في الموعد» and «+٦٠ د — إشعار
+  لابنك» are 🔒 «دائمًا» with no switch at all; only +١٥ and +٣٠ switch,
+  and each change reschedules at once. Banner in colloquial
+  («الإعدادات دي على الموبايل ده بس»).
+- **The son's rung reads +٦٠ everywhere now**, from `serverGraceWindow`
+  — the reminder screen said «+٤٥» (the device's grace), which promised
+  an alert before the server sends one.
+- «نمط كبار السن» (mockup 18): a switch in settings (gold when on). When on,
+  `AppShell` shows two tabs («الرئيسية», «الإعدادات») and no «ضيف»;
+  `ElderHomeScreen` shows the greeting and **one** dose card — the first of
+  `nowGroups`, the same selection as the home — with «تم ✅» (green, 80)
+  and «بعد شوية ⏰» (real snooze, 64). Sizes come from `F.elder*` and are
+  **above** the normal floor (text 24+). Confirm and snooze are the shared
+  `confirmGroup` / `snoozeGroup` in `features/today/dose_actions.dart`,
+  used by the home too. The settings tab keeps normal sizes.
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

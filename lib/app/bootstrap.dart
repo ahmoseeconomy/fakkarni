@@ -19,6 +19,7 @@ import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
 import '../data/repositories/routine_repository.dart';
 import '../data/services/notification_actions.dart';
+import '../data/repositories/preferences_repository.dart';
 import '../data/services/reminder_scheduler.dart';
 import 'app_scope.dart';
 
@@ -51,6 +52,7 @@ Future<AppServices> buildServices(
       events: events,
       patientId: patientId,
       patientIndex: patientIndex,
+      preferences: PreferencesRepository(db),
     ),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,

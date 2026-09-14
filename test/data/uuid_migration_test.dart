@@ -39,7 +39,7 @@ void main() {
 
     // الترحيل + تحقق drift إن الناتج مطابق لآخر نسخة
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 8);
+    await verifier.migrateAndValidate(db, 9);
 
     // القيم الأصلية زي ما هي
     final patient = await (db.select(db.patients)..where((t) => t.id.equals(1))).getSingle();
@@ -93,7 +93,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 0)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 8);
+    await verifier.migrateAndValidate(db, 9);
 
     final patient = (await db.select(db.patients).get()).single;
     final med = (await db.select(db.medications).get()).single;
@@ -122,7 +122,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 8);
+    await verifier.migrateAndValidate(db, 9);
 
     final routine = (await db.select(db.dayRoutines).get()).single;
     expect(routine.uuid, 'r-1');
@@ -145,7 +145,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 8);
+    await verifier.migrateAndValidate(db, 9);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
@@ -158,12 +158,36 @@ void main() {
     await db.close();
   });
 
+  test('v8 → v9: المريض والروتين عايشين، وجدول التفضيلات فاضي (يعني الافتراضي: النمط العادي والسلّم كامل)', () async {
+    final schema = await verifier.schemaAt(8);
+    final raw = schema.rawDatabase;
+    raw.execute(
+        "INSERT INTO patients (id, uuid, name, notification_slot, sex, age, updated_at_ms, synced_at_ms) "
+        "VALUES (1, 'p-1', 'فاطمة', 0, 'f', 68, 1000, 1000)");
+    raw.execute(
+        "INSERT INTO day_routines (id, uuid, patient_id, wake_minutes, breakfast_minutes, "
+        "lunch_minutes, dinner_minutes, sleep_minutes, updated_at_ms) "
+        "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 9);
+
+    final patient = (await db.select(db.patients).get()).single;
+    expect(patient.uuid, 'p-1');
+    expect(patient.age, 68);
+    expect(patient.updatedAtMs, 1000, reason: 'الترحيل ما بيوسّخش صف نضيف');
+    expect((await db.select(db.dayRoutines).get()).single.breakfastMinutes, 450);
+    expect(await db.select(db.devicePreferences).get(), isEmpty,
+        reason: 'مفيش صف = الافتراضي — مش بنكتب اختيار ما حدش اختاره');
+    await db.close();
+  });
+
   test('كل النسخ المتسجّلة بتترحّل لآخر نسخة وتتطابق', () async {
     for (final version in GeneratedHelper.versions) {
-      if (version == 8) continue;
+      if (version == 9) continue;
       final schema = await verifier.schemaAt(version);
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 8);
+      await verifier.migrateAndValidate(db, 9);
       await db.close();
     }
   });

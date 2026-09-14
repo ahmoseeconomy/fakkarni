@@ -133,12 +133,16 @@ int escalationIdFor(
 }) =>
     _escalationBase(rung) + _patientSlot(originalAt, patientIndex);
 
-bool isEscalationId(int id) {
+bool isEscalationId(int id) => escalationRungOf(id) != null;
+
+/// الدرجة اللي الرقم ده بتاعها — أو null لو مش رقم تصعيد. بيستعمله فلتر
+/// «التنبيهات» (D3.3) عشان يشيل درجة مقفولة من غير ما يلمس السلّم.
+EscalationRung? escalationRungOf(int id) {
   for (final rung in EscalationRung.values) {
     final base = _escalationBase(rung);
-    if (id >= base && id < base + maxPatients * patientIdSpan) return true;
+    if (id >= base && id < base + maxPatients * patientIdSpan) return rung;
   }
-  return false;
+  return null;
 }
 
 /// أي رقم بنملكه إحنا وبنعيد جدولته — جرعات وتصعيد. التأجيل برّه عن قصد:

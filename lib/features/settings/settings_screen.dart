@@ -9,13 +9,16 @@ import '../../domain/scheduling/day_routine.dart';
 import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
+import 'notifications_screen.dart';
+import '../../data/repositories/preferences_repository.dart';
 
 /// «الإعدادات» (المخطط 33) — بس الصفوف اللي وراها حاجة حقيقية.
 ///
 /// كارت الحساب بيقول الحقيقة: «حساب تجريبي» طول ما الدخول مجهول (دين
-/// تقني ٢)، و«مش مربوط» لو مفيش جلسة أصلاً. نمط كبار السن والتنبيهات
-/// والاسم والسن وبطاقة الطوارئ والتصدير مش هنا — مالهمش باك إند، وصف
-/// بيفتح على فراغ أسوأ من صف مش موجود. «اللغة: عربي» معروض ومعطّل.
+/// تقني ٢)، و«مش مربوط» لو مفيش جلسة أصلاً. «نمط كبار السن» و«التنبيهات»
+/// دخلوا في D3.3 (تفضيلات الجهاز). الاسم والسن وبطاقة الطوارئ والتصدير مش
+/// هنا — مالهمش باك إند، وصف بيفتح على فراغ أسوأ من صف مش موجود.
+/// «اللغة: عربي» معروض ومعطّل.
 ///
 /// الخروج بيمسح توكن الإشعارات **قبل** الجلسة — نفس ترتيب شاشة الربط:
 /// مسح الصف محتاج الجلسة اللي بتملكه.
@@ -112,6 +115,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const RamadanScreen()),
             ),
             _Row(
+              icon: Icons.notifications_outlined,
+              label: 'التنبيهات',
+              hint: 'سلّم التذكير، وإمتى ابنك بيتبلّغ',
+              onTap: () => _open(const NotificationsScreen()),
+            ),
+            _ElderModeRow(settings: services.preferences),
+            _Row(
               icon: Icons.people_outline,
               label: 'دائرة الرعاية',
               hint: 'اربط ابنك أو بنتك عشان يتابعوك',
@@ -156,6 +166,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static String _ar(Object v) => v.toString().replaceAllMapped(
         RegExp('[0-9]'),
         (m) => String.fromCharCode(0x660 + int.parse(m.group(0)!)),
+      );
+}
+
+/// «نمط كبار السن» — مفتاح على طول، مش صف بيفتح شاشة: التغيير بيبان
+/// فوراً في التبويبات تحت. شغّال = ذهبي (الحالة اللي إنت عليها).
+class _ElderModeRow extends StatefulWidget {
+  const _ElderModeRow({required this.settings});
+
+  final PreferencesRepository settings;
+
+  @override
+  State<_ElderModeRow> createState() => _ElderModeRowState();
+}
+
+class _ElderModeRowState extends State<_ElderModeRow> {
+  late final Stream<DeviceSettings> _stream = widget.settings.watch();
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<DeviceSettings>(
+        stream: _stream,
+        builder: (context, snap) {
+          final on = snap.data?.elderMode ?? false;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: F.s10),
+            child: Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(F.radiusCard),
+                side: BorderSide(color: on ? F.gold : F.line, width: on ? 2 : 1),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s4),
+                child: FSwitch(
+                  key: const ValueKey('elder-mode'),
+                  label: 'نمط كبار السن',
+                  subtitle: 'كارت جرعة واحد، خط أكبر، وتبويبتين بس',
+                  value: on,
+                  onChanged: widget.settings.setElderMode,
+                ),
+              ),
+            ),
+          );
+        },
       );
 }
 

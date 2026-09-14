@@ -4,7 +4,9 @@ import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
 import '../core/widgets/f_sheet.dart';
 import '../core/widgets/primitives.dart';
+import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
+import '../features/elder/elder_home_screen.dart';
 import '../features/link/sign_in_screen.dart';
 import '../features/medication/add_medication_screen.dart';
 import '../features/medication/medications_screen.dart';
@@ -21,6 +23,10 @@ import 'app_scope.dart';
 ///
 /// كل زرار هنا بكلمة — حتى الـ«+». القاعدة: مفيش زرار أيقونة من غير كلمة.
 /// الشريط العلوي علامة ف بس.
+///
+/// **نمط كبار السن** (D3.3، المخطط 18): تبويبتين بس — «الرئيسية» (كارت جرعة
+/// واحد) و«الإعدادات» — ومن غير «ضيف». التبويب التاني هو الإعدادات عشان
+/// ده الطريق الوحيد للخروج من النمط؛ «📞 اتصل» بتاع التصميم مش مبني.
 class AppShell extends StatefulWidget {
   const AppShell({required this.routine, this.now, super.key});
 
@@ -30,6 +36,7 @@ class AppShell extends StatefulWidget {
   final DateTime? now;
 
   static const tabs = ['اليوم', 'الأدوية', 'العائلة', 'الإعدادات'];
+  static const elderTabs = ['الرئيسية', 'الإعدادات'];
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -37,6 +44,14 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
+  int _elderTab = 0;
+  Stream<DeviceSettings>? _settings;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _settings ??= AppScope.of(context).preferences.watch();
+  }
 
   void _openAdd() {
     final services = AppScope.of(context);
@@ -74,16 +89,13 @@ class _AppShellState extends State<AppShell> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final pages = [
-      TodayScreen(routine: widget.routine, now: widget.now),
-      const MedicationsScreen(),
-      const _FamilyTab(),
-      const SettingsScreen(),
-    ];
+  Widget build(BuildContext context) => StreamBuilder<DeviceSettings>(
+        stream: _settings,
+        builder: (context, snap) =>
+            snap.data?.elderMode ?? false ? _buildElder(context) : _buildNormal(context),
+      );
 
-    return Scaffold(
-      appBar: AppBar(
+  AppBar _appBar() => AppBar(
         automaticallyImplyLeading: false,
         titleSpacing: F.gap,
         // علامة ف بس. «الإعدادات» تبويب تحت — زرار فوق كان تكرار.
@@ -102,11 +114,49 @@ class _AppShellState extends State<AppShell> {
             ),
           ],
         ),
-      ),
+      );
+
+  Widget _buildElder(BuildContext context) => Scaffold(
+        appBar: _appBar(),
+        body: IndexedStack(
+          index: _elderTab,
+          children: [
+            ElderHomeScreen(routine: widget.routine, now: widget.now),
+            const SettingsScreen(),
+          ],
+        ),
+        bottomNavigationBar: _TabBar(
+          labels: AppShell.elderTabs,
+          icons: const [Icons.home_outlined, Icons.settings_outlined],
+          gapForAdd: false,
+          labelSize: F.elderTextSize,
+          current: _elderTab,
+          onSelect: (i) => setState(() => _elderTab = i),
+        ),
+      );
+
+  Widget _buildNormal(BuildContext context) {
+    final pages = [
+      TodayScreen(routine: widget.routine, now: widget.now),
+      const MedicationsScreen(),
+      const _FamilyTab(),
+      const SettingsScreen(),
+    ];
+
+    return Scaffold(
+      appBar: _appBar(),
       body: IndexedStack(index: _tab, children: pages),
       floatingActionButton: _AddButton(onPressed: _openAdd),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _TabBar(
+        labels: AppShell.tabs,
+        icons: const [
+          Icons.today_outlined,
+          Icons.medication_outlined,
+          Icons.people_outline,
+          Icons.settings_outlined,
+        ],
+        gapForAdd: true,
         current: _tab,
         onSelect: (i) => setState(() => _tab = i),
       ),
@@ -174,17 +224,25 @@ class _AddButton extends StatelessWidget {
 }
 
 class _TabBar extends StatelessWidget {
-  const _TabBar({required this.current, required this.onSelect});
+  const _TabBar({
+    required this.labels,
+    required this.icons,
+    required this.gapForAdd,
+    required this.current,
+    required this.onSelect,
+    this.labelSize = F.minTextSize,
+  });
 
+  /// نمط كبار السن: ٢٤ — حتى في شريط التبويبات.
+  final double labelSize;
+
+  final List<String> labels;
+  final List<IconData> icons;
+
+  /// فجوة في النص لزرار «ضيف» — نمط كبار السن مالوش «ضيف».
+  final bool gapForAdd;
   final int current;
   final ValueChanged<int> onSelect;
-
-  static const _icons = [
-    Icons.today_outlined,
-    Icons.medication_outlined,
-    Icons.people_outline,
-    Icons.settings_outlined,
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -199,21 +257,21 @@ class _TabBar extends StatelessWidget {
           height: 72,
           child: Row(
             children: [
-              for (var i = 0; i < AppShell.tabs.length; i++) ...[
+              for (var i = 0; i < labels.length; i++) ...[
                 // فجوة في النص لزرار «ضيف»
-                if (i == 2) const SizedBox(width: 108),
+                if (gapForAdd && i == 2) const SizedBox(width: 108),
                 Expanded(
                   child: InkWell(
                     onTap: () => onSelect(i),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(_icons[i], size: 26, color: i == current ? F.green : F.mutedLight),
+                        Icon(icons[i], size: 26, color: i == current ? F.green : F.mutedLight),
                         const SizedBox(height: F.s4),
                         Text(
-                          AppShell.tabs[i],
+                          labels[i],
                           style: TextStyle(
-                            fontSize: F.minTextSize,
+                            fontSize: labelSize,
                             fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
                             color: i == current ? F.green : F.muted,
                           ),

@@ -4171,6 +4171,322 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
   }
 }
 
+class $DevicePreferencesTable extends DevicePreferences
+    with TableInfo<$DevicePreferencesTable, DevicePreferencesRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DevicePreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _elderModeMeta = const VerificationMeta(
+    'elderMode',
+  );
+  @override
+  late final GeneratedColumn<bool> elderMode = GeneratedColumn<bool>(
+    'elder_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("elder_mode" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _rungFirstOnMeta = const VerificationMeta(
+    'rungFirstOn',
+  );
+  @override
+  late final GeneratedColumn<bool> rungFirstOn = GeneratedColumn<bool>(
+    'rung_first_on',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("rung_first_on" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _rungSecondOnMeta = const VerificationMeta(
+    'rungSecondOn',
+  );
+  @override
+  late final GeneratedColumn<bool> rungSecondOn = GeneratedColumn<bool>(
+    'rung_second_on',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("rung_second_on" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    elderMode,
+    rungFirstOn,
+    rungSecondOn,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'device_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DevicePreferencesRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('elder_mode')) {
+      context.handle(
+        _elderModeMeta,
+        elderMode.isAcceptableOrUnknown(data['elder_mode']!, _elderModeMeta),
+      );
+    }
+    if (data.containsKey('rung_first_on')) {
+      context.handle(
+        _rungFirstOnMeta,
+        rungFirstOn.isAcceptableOrUnknown(
+          data['rung_first_on']!,
+          _rungFirstOnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rung_second_on')) {
+      context.handle(
+        _rungSecondOnMeta,
+        rungSecondOn.isAcceptableOrUnknown(
+          data['rung_second_on']!,
+          _rungSecondOnMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DevicePreferencesRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DevicePreferencesRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      elderMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}elder_mode'],
+      )!,
+      rungFirstOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}rung_first_on'],
+      )!,
+      rungSecondOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}rung_second_on'],
+      )!,
+    );
+  }
+
+  @override
+  $DevicePreferencesTable createAlias(String alias) {
+    return $DevicePreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class DevicePreferencesRow extends DataClass
+    implements Insertable<DevicePreferencesRow> {
+  final int id;
+  final bool elderMode;
+  final bool rungFirstOn;
+  final bool rungSecondOn;
+  const DevicePreferencesRow({
+    required this.id,
+    required this.elderMode,
+    required this.rungFirstOn,
+    required this.rungSecondOn,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['elder_mode'] = Variable<bool>(elderMode);
+    map['rung_first_on'] = Variable<bool>(rungFirstOn);
+    map['rung_second_on'] = Variable<bool>(rungSecondOn);
+    return map;
+  }
+
+  DevicePreferencesCompanion toCompanion(bool nullToAbsent) {
+    return DevicePreferencesCompanion(
+      id: Value(id),
+      elderMode: Value(elderMode),
+      rungFirstOn: Value(rungFirstOn),
+      rungSecondOn: Value(rungSecondOn),
+    );
+  }
+
+  factory DevicePreferencesRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DevicePreferencesRow(
+      id: serializer.fromJson<int>(json['id']),
+      elderMode: serializer.fromJson<bool>(json['elderMode']),
+      rungFirstOn: serializer.fromJson<bool>(json['rungFirstOn']),
+      rungSecondOn: serializer.fromJson<bool>(json['rungSecondOn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'elderMode': serializer.toJson<bool>(elderMode),
+      'rungFirstOn': serializer.toJson<bool>(rungFirstOn),
+      'rungSecondOn': serializer.toJson<bool>(rungSecondOn),
+    };
+  }
+
+  DevicePreferencesRow copyWith({
+    int? id,
+    bool? elderMode,
+    bool? rungFirstOn,
+    bool? rungSecondOn,
+  }) => DevicePreferencesRow(
+    id: id ?? this.id,
+    elderMode: elderMode ?? this.elderMode,
+    rungFirstOn: rungFirstOn ?? this.rungFirstOn,
+    rungSecondOn: rungSecondOn ?? this.rungSecondOn,
+  );
+  DevicePreferencesRow copyWithCompanion(DevicePreferencesCompanion data) {
+    return DevicePreferencesRow(
+      id: data.id.present ? data.id.value : this.id,
+      elderMode: data.elderMode.present ? data.elderMode.value : this.elderMode,
+      rungFirstOn: data.rungFirstOn.present
+          ? data.rungFirstOn.value
+          : this.rungFirstOn,
+      rungSecondOn: data.rungSecondOn.present
+          ? data.rungSecondOn.value
+          : this.rungSecondOn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DevicePreferencesRow(')
+          ..write('id: $id, ')
+          ..write('elderMode: $elderMode, ')
+          ..write('rungFirstOn: $rungFirstOn, ')
+          ..write('rungSecondOn: $rungSecondOn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, elderMode, rungFirstOn, rungSecondOn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DevicePreferencesRow &&
+          other.id == this.id &&
+          other.elderMode == this.elderMode &&
+          other.rungFirstOn == this.rungFirstOn &&
+          other.rungSecondOn == this.rungSecondOn);
+}
+
+class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
+  final Value<int> id;
+  final Value<bool> elderMode;
+  final Value<bool> rungFirstOn;
+  final Value<bool> rungSecondOn;
+  const DevicePreferencesCompanion({
+    this.id = const Value.absent(),
+    this.elderMode = const Value.absent(),
+    this.rungFirstOn = const Value.absent(),
+    this.rungSecondOn = const Value.absent(),
+  });
+  DevicePreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    this.elderMode = const Value.absent(),
+    this.rungFirstOn = const Value.absent(),
+    this.rungSecondOn = const Value.absent(),
+  });
+  static Insertable<DevicePreferencesRow> custom({
+    Expression<int>? id,
+    Expression<bool>? elderMode,
+    Expression<bool>? rungFirstOn,
+    Expression<bool>? rungSecondOn,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (elderMode != null) 'elder_mode': elderMode,
+      if (rungFirstOn != null) 'rung_first_on': rungFirstOn,
+      if (rungSecondOn != null) 'rung_second_on': rungSecondOn,
+    });
+  }
+
+  DevicePreferencesCompanion copyWith({
+    Value<int>? id,
+    Value<bool>? elderMode,
+    Value<bool>? rungFirstOn,
+    Value<bool>? rungSecondOn,
+  }) {
+    return DevicePreferencesCompanion(
+      id: id ?? this.id,
+      elderMode: elderMode ?? this.elderMode,
+      rungFirstOn: rungFirstOn ?? this.rungFirstOn,
+      rungSecondOn: rungSecondOn ?? this.rungSecondOn,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (elderMode.present) {
+      map['elder_mode'] = Variable<bool>(elderMode.value);
+    }
+    if (rungFirstOn.present) {
+      map['rung_first_on'] = Variable<bool>(rungFirstOn.value);
+    }
+    if (rungSecondOn.present) {
+      map['rung_second_on'] = Variable<bool>(rungSecondOn.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DevicePreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('elderMode: $elderMode, ')
+          ..write('rungFirstOn: $rungFirstOn, ')
+          ..write('rungSecondOn: $rungSecondOn')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4181,6 +4497,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FixedTimingsTable fixedTimings = $FixedTimingsTable(this);
   late final $DoseEventsTable doseEvents = $DoseEventsTable(this);
   late final $RoutineBackupsTable routineBackups = $RoutineBackupsTable(this);
+  late final $DevicePreferencesTable devicePreferences =
+      $DevicePreferencesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4193,6 +4511,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fixedTimings,
     doseEvents,
     routineBackups,
+    devicePreferences,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -7512,6 +7831,198 @@ typedef $$RoutineBackupsTableProcessedTableManager =
       RoutineBackupRow,
       PrefetchHooks Function({bool patientId})
     >;
+typedef $$DevicePreferencesTableCreateCompanionBuilder =
+    DevicePreferencesCompanion Function({
+      Value<int> id,
+      Value<bool> elderMode,
+      Value<bool> rungFirstOn,
+      Value<bool> rungSecondOn,
+    });
+typedef $$DevicePreferencesTableUpdateCompanionBuilder =
+    DevicePreferencesCompanion Function({
+      Value<int> id,
+      Value<bool> elderMode,
+      Value<bool> rungFirstOn,
+      Value<bool> rungSecondOn,
+    });
+
+class $$DevicePreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $DevicePreferencesTable> {
+  $$DevicePreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get elderMode => $composableBuilder(
+    column: $table.elderMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get rungFirstOn => $composableBuilder(
+    column: $table.rungFirstOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get rungSecondOn => $composableBuilder(
+    column: $table.rungSecondOn,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DevicePreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DevicePreferencesTable> {
+  $$DevicePreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get elderMode => $composableBuilder(
+    column: $table.elderMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get rungFirstOn => $composableBuilder(
+    column: $table.rungFirstOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get rungSecondOn => $composableBuilder(
+    column: $table.rungSecondOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DevicePreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DevicePreferencesTable> {
+  $$DevicePreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get elderMode =>
+      $composableBuilder(column: $table.elderMode, builder: (column) => column);
+
+  GeneratedColumn<bool> get rungFirstOn => $composableBuilder(
+    column: $table.rungFirstOn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get rungSecondOn => $composableBuilder(
+    column: $table.rungSecondOn,
+    builder: (column) => column,
+  );
+}
+
+class $$DevicePreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DevicePreferencesTable,
+          DevicePreferencesRow,
+          $$DevicePreferencesTableFilterComposer,
+          $$DevicePreferencesTableOrderingComposer,
+          $$DevicePreferencesTableAnnotationComposer,
+          $$DevicePreferencesTableCreateCompanionBuilder,
+          $$DevicePreferencesTableUpdateCompanionBuilder,
+          (
+            DevicePreferencesRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DevicePreferencesTable,
+              DevicePreferencesRow
+            >,
+          ),
+          DevicePreferencesRow,
+          PrefetchHooks Function()
+        > {
+  $$DevicePreferencesTableTableManager(
+    _$AppDatabase db,
+    $DevicePreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DevicePreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DevicePreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DevicePreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> elderMode = const Value.absent(),
+                Value<bool> rungFirstOn = const Value.absent(),
+                Value<bool> rungSecondOn = const Value.absent(),
+              }) => DevicePreferencesCompanion(
+                id: id,
+                elderMode: elderMode,
+                rungFirstOn: rungFirstOn,
+                rungSecondOn: rungSecondOn,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> elderMode = const Value.absent(),
+                Value<bool> rungFirstOn = const Value.absent(),
+                Value<bool> rungSecondOn = const Value.absent(),
+              }) => DevicePreferencesCompanion.insert(
+                id: id,
+                elderMode: elderMode,
+                rungFirstOn: rungFirstOn,
+                rungSecondOn: rungSecondOn,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DevicePreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DevicePreferencesTable,
+      DevicePreferencesRow,
+      $$DevicePreferencesTableFilterComposer,
+      $$DevicePreferencesTableOrderingComposer,
+      $$DevicePreferencesTableAnnotationComposer,
+      $$DevicePreferencesTableCreateCompanionBuilder,
+      $$DevicePreferencesTableUpdateCompanionBuilder,
+      (
+        DevicePreferencesRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DevicePreferencesTable,
+          DevicePreferencesRow
+        >,
+      ),
+      DevicePreferencesRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7530,4 +8041,6 @@ class $AppDatabaseManager {
       $$DoseEventsTableTableManager(_db, _db.doseEvents);
   $$RoutineBackupsTableTableManager get routineBackups =>
       $$RoutineBackupsTableTableManager(_db, _db.routineBackups);
+  $$DevicePreferencesTableTableManager get devicePreferences =>
+      $$DevicePreferencesTableTableManager(_db, _db.devicePreferences);
 }

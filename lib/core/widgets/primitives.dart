@@ -56,6 +56,8 @@ class FPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.gold = false,
+    this.height = F.primaryButtonHeight,
+    this.fontSize = F.minBodySize,
     super.key,
   });
 
@@ -63,10 +65,14 @@ class FPrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool gold;
 
+  /// نمط كبار السن بيكبّره (٨٠) — عمره ما بيصغر عن الحد.
+  final double height;
+  final double fontSize;
+
   @override
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity,
-        height: F.primaryButtonHeight,
+        height: height,
         child: FilledButton(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
@@ -74,7 +80,7 @@ class FPrimaryButton extends StatelessWidget {
             foregroundColor: gold ? F.ink : Colors.white,
             disabledBackgroundColor: F.ivoryWarm,
             disabledForegroundColor: F.mutedDark,
-            textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+            textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
           ),
           child: Text(label),
@@ -84,21 +90,29 @@ class FPrimaryButton extends StatelessWidget {
 
 /// الزرار الثانوي — ٥٦، محدّد.
 class FSecondaryButton extends StatelessWidget {
-  const FSecondaryButton({required this.label, required this.onPressed, super.key});
+  const FSecondaryButton({
+    required this.label,
+    required this.onPressed,
+    this.height = F.minTapTarget,
+    this.fontSize = F.minBodySize,
+    super.key,
+  });
 
   final String label;
   final VoidCallback? onPressed;
+  final double height;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity,
-        height: F.minTapTarget,
+        height: height,
         child: OutlinedButton(
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: F.ink,
             side: const BorderSide(color: F.line, width: 1.5),
-            textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
+            textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
             // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠

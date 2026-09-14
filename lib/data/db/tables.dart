@@ -116,6 +116,26 @@ class RoutineBackups extends Table {
   Set<Column<Object>> get primaryKey => {patientId};
 }
 
+/// تفضيلات الجهاز ده (D3.3): نمط كبار السن ودرجتين السلّم اللي بيتقفلوا.
+///
+/// صف واحد (`id = 1`)؛ من غير صف = الافتراضي (النمط العادي، والدرجات كلها
+/// شغّالة). **مش بيتزامن** (مفيش SyncIdentity): الإعدادات دي تخص الموبايل
+/// ده بس. في drift مش shared_preferences لأن عزلة الخلفية بتاعة «أخدته»
+/// بتعيد الجدولة ولازم تقرا نفس القيم.
+///
+/// الدرجة الإلزامية (التذكير نفسه، وإشعار الابن من السيرفر) مالهاش عمود —
+/// اللي مالوش مفتاح ما يتقفلش بالغلط.
+@DataClassName('DevicePreferencesRow')
+class DevicePreferences extends Table {
+  IntColumn get id => integer()();
+  BoolColumn get elderMode => boolean().withDefault(const Constant(false))();
+  BoolColumn get rungFirstOn => boolean().withDefault(const Constant(true))();
+  BoolColumn get rungSecondOn => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();

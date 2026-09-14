@@ -15,6 +15,7 @@ import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/edit_medication_screen.dart';
 import '../reminder/reminder_screen.dart';
+import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/now_card.dart';
 import 'widgets/water_widget.dart';
@@ -109,29 +110,12 @@ class _TodayScreenState extends State<TodayScreen> {
     super.dispose();
   }
 
-  Future<void> _markTaken(List<DoseEventView> group) async {
-    final services = AppScope.of(context);
-    for (final dose in group) {
-      await services.events.markTaken(dose.doseScheduleId, _routineDay);
-    }
-    // التذكير ده خلاص — نلغيه، ونمدّ النافذة بالخانة اللي فضيت.
-    await services.scheduler.afterConfirmation(group.first.scheduledAt);
-  }
+  Future<void> _markTaken(List<DoseEventView> group) =>
+      confirmGroup(AppScope.of(context), _routineDay, group);
 
   /// «لاحقًا» = التأجيل الحقيقي (ربع ساعة)، نفس «تأجيل ١٥ د» في شاشة التذكير.
   Future<void> _later(List<DoseEventView> group) async {
-    final services = AppScope.of(context);
-    await services.scheduler.snooze(
-      originalAt: group.first.scheduledAt,
-      body: reminderBodyFor([
-        for (final d in group) (name: d.medicationName, amount: d.amountLabel),
-      ]),
-      payload: encodePayloadFor(
-        _routineDay,
-        [for (final d in group) d.doseScheduleId.toString()],
-      ),
-      now: _now,
-    );
+    await snoozeGroup(AppScope.of(context), _routineDay, group, now: _now);
     if (mounted) setState(() => _snoozed.add(group.first.scheduledAt));
   }
 
@@ -163,15 +147,7 @@ class _TodayScreenState extends State<TodayScreen> {
     ];
   }
 
-  /// بتجمّع الأحداث اللي في نفس الدقيقة — نفس تجميع المحرك بالظبط.
-  List<List<DoseEventView>> _group(List<DoseEventView> events) {
-    final byTime = <DateTime, List<DoseEventView>>{};
-    for (final event in events) {
-      byTime.putIfAbsent(event.scheduledAt, () => []).add(event);
-    }
-    final times = byTime.keys.toList()..sort();
-    return [for (final time in times) byTime[time]!];
-  }
+  List<List<DoseEventView>> _group(List<DoseEventView> events) => groupByMinute(events);
 
   /// الدوسة على كارت في السكة بتفتح شاشة التذكير بتاعته — أخدته / فكّرني /
   /// مش هاخده — بدل زرار أساسي على كل كارت.
@@ -195,11 +171,7 @@ class _TodayScreenState extends State<TodayScreen> {
           final events = snapshot.data ?? const <DoseEventView>[];
           final groups = _group(events);
 
-          // «الآن»: اللي فات معاده من غير تأكيد (الأقدم الأول)، وبعده الجاية.
-          final open = [for (final g in groups) if (g.any((d) => !d.isDone)) g];
-          final overdue = [for (final g in open) if (g.first.scheduledAt.isBefore(_now)) g];
-          final upcoming = [for (final g in open) if (!g.first.scheduledAt.isBefore(_now)) g];
-          final nowCards = [...overdue, if (upcoming.isNotEmpty) upcoming.first];
+          final nowCards = nowGroups(groups, _now);
 
           return ListView(
             padding: const EdgeInsets.all(F.gap),
