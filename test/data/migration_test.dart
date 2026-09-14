@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
@@ -86,7 +87,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 6);
+    expect(version.read<int>('user_version'), 7);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -111,6 +112,10 @@ void main() {
     final uuids = {for (final m in rows) m.uuid};
     expect(uuids.length, rows.length);
     expect(uuids.every((u) => u.isNotEmpty), isTrue);
+
+    // v7: جدول رمضان موجود وفاضي — رمضان مقفول لكل قاعدة قديمة
+    expect(await db.select(db.routineBackups).get(), isEmpty);
+    expect(await RoutineRepository(db).ramadanTimes(1), isNull);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 
 import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/ramadan.dart';
 import '../services/reminder_plan.dart' show maxPatients;
 import '../db/app_database.dart';
 import '../mappers.dart';
@@ -44,6 +45,104 @@ class RoutineRepository {
               ),
             );
       });
+
+  // ------------------------------------------------------------ وضع رمضان
+
+  /// الفطار والسحور لو رمضان شغّال — null لو مقفول. وجود النسخة
+  /// الاحتياطية هو الحالة نفسها.
+  Future<RamadanTimes?> ramadanTimes(int patientId) async {
+    final row = await _backup(patientId);
+    return row == null
+        ? null
+        : RamadanTimes(
+            iftar: MinuteOfDay(row.iftarMinutes),
+            suhoor: MinuteOfDay(row.suhoorMinutes),
+          );
+  }
+
+  /// بيفتح وضع رمضان — أو بيعدّل مواعيده لو مفتوح خلاص.
+  ///
+  /// أول مرة: الروتين الحالي بيتنسخ بالحرف في routine_backups **قبل** أي
+  /// كتابة. لو مفتوح خلاص، النسخة الاحتياطية ما بتتلمسش — روتين رمضان
+  /// بيتحسب من الأصل المحفوظ، مش من الروتين الساري، عشان تعديل الفطار
+  /// مرتين ما يخلّيش «الأصل» هو رمضان نفسه.
+  ///
+  /// الصف في day_routines بيتعدّل في مكانه (نفس uuid) — مش delete/insert
+  /// زي [saveRoutine] — عشان الرجوع يبقى بالحرف فعلاً والسحابة تشوف صف
+  /// واحد بيتغيّر.
+  Future<void> enterRamadan(int patientId, RamadanTimes times) =>
+      _db.transaction(() async {
+        final current = await _routineRow(patientId);
+        if (current == null) {
+          throw StateError('مفيش روتين للمريض $patientId');
+        }
+        final existing = await _backup(patientId);
+        final original = existing == null
+            ? routineFromRow(current)
+            : DayRoutine(
+                wake: MinuteOfDay(existing.wakeMinutes),
+                breakfast: MinuteOfDay(existing.breakfastMinutes),
+                lunch: MinuteOfDay(existing.lunchMinutes),
+                dinner: MinuteOfDay(existing.dinnerMinutes),
+                sleep: MinuteOfDay(existing.sleepMinutes),
+              );
+
+        await _db.into(_db.routineBackups).insertOnConflictUpdate(
+              RoutineBackupsCompanion.insert(
+                patientId: Value(patientId),
+                wakeMinutes: original.wake.minutes,
+                breakfastMinutes: original.breakfast.minutes,
+                lunchMinutes: original.lunch.minutes,
+                dinnerMinutes: original.dinner.minutes,
+                sleepMinutes: original.sleep.minutes,
+                iftarMinutes: times.iftar.minutes,
+                suhoorMinutes: times.suhoor.minutes,
+              ),
+            );
+        await _updateInPlace(patientId, ramadanRoutine(original, times));
+      });
+
+  /// بيقفل وضع رمضان: الأصل بيرجع بالحرف والنسخة الاحتياطية بتتمسح.
+  /// لو مش مفتوح، مفيش حاجة بتحصل.
+  Future<void> leaveRamadan(int patientId) => _db.transaction(() async {
+        final backup = await _backup(patientId);
+        if (backup == null) return;
+        await _updateInPlace(
+          patientId,
+          DayRoutine(
+            wake: MinuteOfDay(backup.wakeMinutes),
+            breakfast: MinuteOfDay(backup.breakfastMinutes),
+            lunch: MinuteOfDay(backup.lunchMinutes),
+            dinner: MinuteOfDay(backup.dinnerMinutes),
+            sleep: MinuteOfDay(backup.sleepMinutes),
+          ),
+        );
+        await (_db.delete(_db.routineBackups)
+              ..where((t) => t.patientId.equals(patientId)))
+            .go();
+      });
+
+  Future<DayRoutineRow?> _routineRow(int patientId) =>
+      (_db.select(_db.dayRoutines)
+            ..where((t) => t.patientId.equals(patientId)))
+          .getSingleOrNull();
+
+  Future<RoutineBackupRow?> _backup(int patientId) =>
+      (_db.select(_db.routineBackups)
+            ..where((t) => t.patientId.equals(patientId)))
+          .getSingleOrNull();
+
+  /// الخمس أعمدة بس — الصف وuuid بتاعه بيفضلوا هما هما.
+  Future<void> _updateInPlace(int patientId, DayRoutine routine) =>
+      (_db.update(_db.dayRoutines)
+            ..where((t) => t.patientId.equals(patientId)))
+          .write(DayRoutinesCompanion(
+        wakeMinutes: Value(routine.wake.minutes),
+        breakfastMinutes: Value(routine.breakfast.minutes),
+        lunchMinutes: Value(routine.lunch.minutes),
+        dinnerMinutes: Value(routine.dinner.minutes),
+        sleepMinutes: Value(routine.sleep.minutes),
+      ));
 
   /// صف المريض كامل — شاشة الربط محتاجة uuid والاسم.
   Future<PatientRow?> getPatient(int patientId) =>

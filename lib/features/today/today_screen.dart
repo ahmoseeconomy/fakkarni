@@ -15,6 +15,7 @@ import '../medication/add_medication_screen.dart';
 import '../medication/edit_medication_screen.dart';
 import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
+import '../routine/ramadan_screen.dart';
 import '../scan/scan_prescription_screen.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/next_dose_card.dart';
@@ -292,27 +293,53 @@ class _TodayScreenState extends State<TodayScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // باب الهوية الوحيد في التطبيق كله — الحساب للربط، مش شرط.
-                SizedBox(
-                  height: F.primaryButtonHeight,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SignInScreen(
-                          auth: AppScope.of(context).auth,
-                          caregiver: AppScope.of(context).caregiver,
-                          push: AppScope.of(context).push,
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: F.primaryButtonHeight,
+                        // باب الهوية الوحيد في التطبيق كله — الحساب للربط، مش شرط.
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SignInScreen(
+                                auth: AppScope.of(context).auth,
+                                caregiver: AppScope.of(context).caregiver,
+                                push: AppScope.of(context).push,
+                              ),
+                            ),
+                          ),
+                          child: const Text(
+                            'اربط ابني',
+                            style: TextStyle(
+                              fontSize: F.minBodySize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    child: const Text(
-                      'اربط ابني',
-                      style: TextStyle(
-                        fontSize: F.minBodySize,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: F.primaryButtonHeight,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const RamadanScreen(),
+                            ),
+                          ),
+                          child: const Text(
+                            'وضع رمضان',
+                            style: TextStyle(
+                              fontSize: F.minBodySize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             );

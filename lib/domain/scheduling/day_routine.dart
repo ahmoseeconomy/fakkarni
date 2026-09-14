@@ -111,6 +111,20 @@ class DayRoutine {
         sleep: sleep ?? this.sleep,
       );
 
+  /// روتينين بنفس الخمس مواعيد هما نفس الروتين — ده اللي بيخلّي
+  /// «رجّع الأصل بالحرف» جملة تتختبر.
+  @override
+  bool operator ==(Object other) =>
+      other is DayRoutine &&
+      other.wake == wake &&
+      other.breakfast == breakfast &&
+      other.lunch == lunch &&
+      other.dinner == dinner &&
+      other.sleep == sleep;
+
+  @override
+  int get hashCode => Object.hash(wake, breakfast, lunch, dinner, sleep);
+
   @override
   String toString() => 'DayRoutine(صحيان $wake، فطار $breakfast، '
       'غدا $lunch، عشا $dinner، نوم $sleep)';

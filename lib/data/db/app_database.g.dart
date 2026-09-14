@@ -3525,6 +3525,550 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   }
 }
 
+class $RoutineBackupsTable extends RoutineBackups
+    with TableInfo<$RoutineBackupsTable, RoutineBackupRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RoutineBackupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES patients (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _wakeMinutesMeta = const VerificationMeta(
+    'wakeMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> wakeMinutes = GeneratedColumn<int>(
+    'wake_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _breakfastMinutesMeta = const VerificationMeta(
+    'breakfastMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> breakfastMinutes = GeneratedColumn<int>(
+    'breakfast_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lunchMinutesMeta = const VerificationMeta(
+    'lunchMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> lunchMinutes = GeneratedColumn<int>(
+    'lunch_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dinnerMinutesMeta = const VerificationMeta(
+    'dinnerMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> dinnerMinutes = GeneratedColumn<int>(
+    'dinner_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sleepMinutesMeta = const VerificationMeta(
+    'sleepMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> sleepMinutes = GeneratedColumn<int>(
+    'sleep_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iftarMinutesMeta = const VerificationMeta(
+    'iftarMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> iftarMinutes = GeneratedColumn<int>(
+    'iftar_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _suhoorMinutesMeta = const VerificationMeta(
+    'suhoorMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> suhoorMinutes = GeneratedColumn<int>(
+    'suhoor_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    patientId,
+    wakeMinutes,
+    breakfastMinutes,
+    lunchMinutes,
+    dinnerMinutes,
+    sleepMinutes,
+    iftarMinutes,
+    suhoorMinutes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'routine_backups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RoutineBackupRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    }
+    if (data.containsKey('wake_minutes')) {
+      context.handle(
+        _wakeMinutesMeta,
+        wakeMinutes.isAcceptableOrUnknown(
+          data['wake_minutes']!,
+          _wakeMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_wakeMinutesMeta);
+    }
+    if (data.containsKey('breakfast_minutes')) {
+      context.handle(
+        _breakfastMinutesMeta,
+        breakfastMinutes.isAcceptableOrUnknown(
+          data['breakfast_minutes']!,
+          _breakfastMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_breakfastMinutesMeta);
+    }
+    if (data.containsKey('lunch_minutes')) {
+      context.handle(
+        _lunchMinutesMeta,
+        lunchMinutes.isAcceptableOrUnknown(
+          data['lunch_minutes']!,
+          _lunchMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lunchMinutesMeta);
+    }
+    if (data.containsKey('dinner_minutes')) {
+      context.handle(
+        _dinnerMinutesMeta,
+        dinnerMinutes.isAcceptableOrUnknown(
+          data['dinner_minutes']!,
+          _dinnerMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_dinnerMinutesMeta);
+    }
+    if (data.containsKey('sleep_minutes')) {
+      context.handle(
+        _sleepMinutesMeta,
+        sleepMinutes.isAcceptableOrUnknown(
+          data['sleep_minutes']!,
+          _sleepMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sleepMinutesMeta);
+    }
+    if (data.containsKey('iftar_minutes')) {
+      context.handle(
+        _iftarMinutesMeta,
+        iftarMinutes.isAcceptableOrUnknown(
+          data['iftar_minutes']!,
+          _iftarMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_iftarMinutesMeta);
+    }
+    if (data.containsKey('suhoor_minutes')) {
+      context.handle(
+        _suhoorMinutesMeta,
+        suhoorMinutes.isAcceptableOrUnknown(
+          data['suhoor_minutes']!,
+          _suhoorMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_suhoorMinutesMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {patientId};
+  @override
+  RoutineBackupRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RoutineBackupRow(
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      wakeMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_minutes'],
+      )!,
+      breakfastMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}breakfast_minutes'],
+      )!,
+      lunchMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lunch_minutes'],
+      )!,
+      dinnerMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dinner_minutes'],
+      )!,
+      sleepMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sleep_minutes'],
+      )!,
+      iftarMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}iftar_minutes'],
+      )!,
+      suhoorMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}suhoor_minutes'],
+      )!,
+    );
+  }
+
+  @override
+  $RoutineBackupsTable createAlias(String alias) {
+    return $RoutineBackupsTable(attachedDatabase, alias);
+  }
+}
+
+class RoutineBackupRow extends DataClass
+    implements Insertable<RoutineBackupRow> {
+  final int patientId;
+
+  /// الخمس مواعيد الأصلية زي ما كانت في day_routines بالظبط.
+  final int wakeMinutes;
+  final int breakfastMinutes;
+  final int lunchMinutes;
+  final int dinnerMinutes;
+  final int sleepMinutes;
+  final int iftarMinutes;
+  final int suhoorMinutes;
+  const RoutineBackupRow({
+    required this.patientId,
+    required this.wakeMinutes,
+    required this.breakfastMinutes,
+    required this.lunchMinutes,
+    required this.dinnerMinutes,
+    required this.sleepMinutes,
+    required this.iftarMinutes,
+    required this.suhoorMinutes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['patient_id'] = Variable<int>(patientId);
+    map['wake_minutes'] = Variable<int>(wakeMinutes);
+    map['breakfast_minutes'] = Variable<int>(breakfastMinutes);
+    map['lunch_minutes'] = Variable<int>(lunchMinutes);
+    map['dinner_minutes'] = Variable<int>(dinnerMinutes);
+    map['sleep_minutes'] = Variable<int>(sleepMinutes);
+    map['iftar_minutes'] = Variable<int>(iftarMinutes);
+    map['suhoor_minutes'] = Variable<int>(suhoorMinutes);
+    return map;
+  }
+
+  RoutineBackupsCompanion toCompanion(bool nullToAbsent) {
+    return RoutineBackupsCompanion(
+      patientId: Value(patientId),
+      wakeMinutes: Value(wakeMinutes),
+      breakfastMinutes: Value(breakfastMinutes),
+      lunchMinutes: Value(lunchMinutes),
+      dinnerMinutes: Value(dinnerMinutes),
+      sleepMinutes: Value(sleepMinutes),
+      iftarMinutes: Value(iftarMinutes),
+      suhoorMinutes: Value(suhoorMinutes),
+    );
+  }
+
+  factory RoutineBackupRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RoutineBackupRow(
+      patientId: serializer.fromJson<int>(json['patientId']),
+      wakeMinutes: serializer.fromJson<int>(json['wakeMinutes']),
+      breakfastMinutes: serializer.fromJson<int>(json['breakfastMinutes']),
+      lunchMinutes: serializer.fromJson<int>(json['lunchMinutes']),
+      dinnerMinutes: serializer.fromJson<int>(json['dinnerMinutes']),
+      sleepMinutes: serializer.fromJson<int>(json['sleepMinutes']),
+      iftarMinutes: serializer.fromJson<int>(json['iftarMinutes']),
+      suhoorMinutes: serializer.fromJson<int>(json['suhoorMinutes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'patientId': serializer.toJson<int>(patientId),
+      'wakeMinutes': serializer.toJson<int>(wakeMinutes),
+      'breakfastMinutes': serializer.toJson<int>(breakfastMinutes),
+      'lunchMinutes': serializer.toJson<int>(lunchMinutes),
+      'dinnerMinutes': serializer.toJson<int>(dinnerMinutes),
+      'sleepMinutes': serializer.toJson<int>(sleepMinutes),
+      'iftarMinutes': serializer.toJson<int>(iftarMinutes),
+      'suhoorMinutes': serializer.toJson<int>(suhoorMinutes),
+    };
+  }
+
+  RoutineBackupRow copyWith({
+    int? patientId,
+    int? wakeMinutes,
+    int? breakfastMinutes,
+    int? lunchMinutes,
+    int? dinnerMinutes,
+    int? sleepMinutes,
+    int? iftarMinutes,
+    int? suhoorMinutes,
+  }) => RoutineBackupRow(
+    patientId: patientId ?? this.patientId,
+    wakeMinutes: wakeMinutes ?? this.wakeMinutes,
+    breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
+    lunchMinutes: lunchMinutes ?? this.lunchMinutes,
+    dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
+    sleepMinutes: sleepMinutes ?? this.sleepMinutes,
+    iftarMinutes: iftarMinutes ?? this.iftarMinutes,
+    suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+  );
+  RoutineBackupRow copyWithCompanion(RoutineBackupsCompanion data) {
+    return RoutineBackupRow(
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      wakeMinutes: data.wakeMinutes.present
+          ? data.wakeMinutes.value
+          : this.wakeMinutes,
+      breakfastMinutes: data.breakfastMinutes.present
+          ? data.breakfastMinutes.value
+          : this.breakfastMinutes,
+      lunchMinutes: data.lunchMinutes.present
+          ? data.lunchMinutes.value
+          : this.lunchMinutes,
+      dinnerMinutes: data.dinnerMinutes.present
+          ? data.dinnerMinutes.value
+          : this.dinnerMinutes,
+      sleepMinutes: data.sleepMinutes.present
+          ? data.sleepMinutes.value
+          : this.sleepMinutes,
+      iftarMinutes: data.iftarMinutes.present
+          ? data.iftarMinutes.value
+          : this.iftarMinutes,
+      suhoorMinutes: data.suhoorMinutes.present
+          ? data.suhoorMinutes.value
+          : this.suhoorMinutes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RoutineBackupRow(')
+          ..write('patientId: $patientId, ')
+          ..write('wakeMinutes: $wakeMinutes, ')
+          ..write('breakfastMinutes: $breakfastMinutes, ')
+          ..write('lunchMinutes: $lunchMinutes, ')
+          ..write('dinnerMinutes: $dinnerMinutes, ')
+          ..write('sleepMinutes: $sleepMinutes, ')
+          ..write('iftarMinutes: $iftarMinutes, ')
+          ..write('suhoorMinutes: $suhoorMinutes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    patientId,
+    wakeMinutes,
+    breakfastMinutes,
+    lunchMinutes,
+    dinnerMinutes,
+    sleepMinutes,
+    iftarMinutes,
+    suhoorMinutes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RoutineBackupRow &&
+          other.patientId == this.patientId &&
+          other.wakeMinutes == this.wakeMinutes &&
+          other.breakfastMinutes == this.breakfastMinutes &&
+          other.lunchMinutes == this.lunchMinutes &&
+          other.dinnerMinutes == this.dinnerMinutes &&
+          other.sleepMinutes == this.sleepMinutes &&
+          other.iftarMinutes == this.iftarMinutes &&
+          other.suhoorMinutes == this.suhoorMinutes);
+}
+
+class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
+  final Value<int> patientId;
+  final Value<int> wakeMinutes;
+  final Value<int> breakfastMinutes;
+  final Value<int> lunchMinutes;
+  final Value<int> dinnerMinutes;
+  final Value<int> sleepMinutes;
+  final Value<int> iftarMinutes;
+  final Value<int> suhoorMinutes;
+  const RoutineBackupsCompanion({
+    this.patientId = const Value.absent(),
+    this.wakeMinutes = const Value.absent(),
+    this.breakfastMinutes = const Value.absent(),
+    this.lunchMinutes = const Value.absent(),
+    this.dinnerMinutes = const Value.absent(),
+    this.sleepMinutes = const Value.absent(),
+    this.iftarMinutes = const Value.absent(),
+    this.suhoorMinutes = const Value.absent(),
+  });
+  RoutineBackupsCompanion.insert({
+    this.patientId = const Value.absent(),
+    required int wakeMinutes,
+    required int breakfastMinutes,
+    required int lunchMinutes,
+    required int dinnerMinutes,
+    required int sleepMinutes,
+    required int iftarMinutes,
+    required int suhoorMinutes,
+  }) : wakeMinutes = Value(wakeMinutes),
+       breakfastMinutes = Value(breakfastMinutes),
+       lunchMinutes = Value(lunchMinutes),
+       dinnerMinutes = Value(dinnerMinutes),
+       sleepMinutes = Value(sleepMinutes),
+       iftarMinutes = Value(iftarMinutes),
+       suhoorMinutes = Value(suhoorMinutes);
+  static Insertable<RoutineBackupRow> custom({
+    Expression<int>? patientId,
+    Expression<int>? wakeMinutes,
+    Expression<int>? breakfastMinutes,
+    Expression<int>? lunchMinutes,
+    Expression<int>? dinnerMinutes,
+    Expression<int>? sleepMinutes,
+    Expression<int>? iftarMinutes,
+    Expression<int>? suhoorMinutes,
+  }) {
+    return RawValuesInsertable({
+      if (patientId != null) 'patient_id': patientId,
+      if (wakeMinutes != null) 'wake_minutes': wakeMinutes,
+      if (breakfastMinutes != null) 'breakfast_minutes': breakfastMinutes,
+      if (lunchMinutes != null) 'lunch_minutes': lunchMinutes,
+      if (dinnerMinutes != null) 'dinner_minutes': dinnerMinutes,
+      if (sleepMinutes != null) 'sleep_minutes': sleepMinutes,
+      if (iftarMinutes != null) 'iftar_minutes': iftarMinutes,
+      if (suhoorMinutes != null) 'suhoor_minutes': suhoorMinutes,
+    });
+  }
+
+  RoutineBackupsCompanion copyWith({
+    Value<int>? patientId,
+    Value<int>? wakeMinutes,
+    Value<int>? breakfastMinutes,
+    Value<int>? lunchMinutes,
+    Value<int>? dinnerMinutes,
+    Value<int>? sleepMinutes,
+    Value<int>? iftarMinutes,
+    Value<int>? suhoorMinutes,
+  }) {
+    return RoutineBackupsCompanion(
+      patientId: patientId ?? this.patientId,
+      wakeMinutes: wakeMinutes ?? this.wakeMinutes,
+      breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
+      lunchMinutes: lunchMinutes ?? this.lunchMinutes,
+      dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
+      sleepMinutes: sleepMinutes ?? this.sleepMinutes,
+      iftarMinutes: iftarMinutes ?? this.iftarMinutes,
+      suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (wakeMinutes.present) {
+      map['wake_minutes'] = Variable<int>(wakeMinutes.value);
+    }
+    if (breakfastMinutes.present) {
+      map['breakfast_minutes'] = Variable<int>(breakfastMinutes.value);
+    }
+    if (lunchMinutes.present) {
+      map['lunch_minutes'] = Variable<int>(lunchMinutes.value);
+    }
+    if (dinnerMinutes.present) {
+      map['dinner_minutes'] = Variable<int>(dinnerMinutes.value);
+    }
+    if (sleepMinutes.present) {
+      map['sleep_minutes'] = Variable<int>(sleepMinutes.value);
+    }
+    if (iftarMinutes.present) {
+      map['iftar_minutes'] = Variable<int>(iftarMinutes.value);
+    }
+    if (suhoorMinutes.present) {
+      map['suhoor_minutes'] = Variable<int>(suhoorMinutes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RoutineBackupsCompanion(')
+          ..write('patientId: $patientId, ')
+          ..write('wakeMinutes: $wakeMinutes, ')
+          ..write('breakfastMinutes: $breakfastMinutes, ')
+          ..write('lunchMinutes: $lunchMinutes, ')
+          ..write('dinnerMinutes: $dinnerMinutes, ')
+          ..write('sleepMinutes: $sleepMinutes, ')
+          ..write('iftarMinutes: $iftarMinutes, ')
+          ..write('suhoorMinutes: $suhoorMinutes')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3534,6 +4078,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DoseSchedulesTable doseSchedules = $DoseSchedulesTable(this);
   late final $FixedTimingsTable fixedTimings = $FixedTimingsTable(this);
   late final $DoseEventsTable doseEvents = $DoseEventsTable(this);
+  late final $RoutineBackupsTable routineBackups = $RoutineBackupsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3545,6 +4090,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     doseSchedules,
     fixedTimings,
     doseEvents,
+    routineBackups,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3582,6 +4128,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('dose_events', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'patients',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('routine_backups', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3640,6 +4193,24 @@ final class $$PatientsTableReferences
     ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RoutineBackupsTable, List<RoutineBackupRow>>
+  _routineBackupsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.routineBackups,
+    aliasName: 'patients__id__routine_backups__patient_id',
+  );
+
+  $$RoutineBackupsTableProcessedTableManager get routineBackupsRefs {
+    final manager = $$RoutineBackupsTableTableManager(
+      $_db,
+      $_db.routineBackups,
+    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_routineBackupsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3731,6 +4302,31 @@ class $$PatientsTableFilterComposer
           }) => $$MedicationsTableFilterComposer(
             $db: $db,
             $table: $db.medications,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> routineBackupsRefs(
+    Expression<bool> Function($$RoutineBackupsTableFilterComposer f) f,
+  ) {
+    final $$RoutineBackupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.routineBackups,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RoutineBackupsTableFilterComposer(
+            $db: $db,
+            $table: $db.routineBackups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3871,6 +4467,31 @@ class $$PatientsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> routineBackupsRefs<T extends Object>(
+    Expression<T> Function($$RoutineBackupsTableAnnotationComposer a) f,
+  ) {
+    final $$RoutineBackupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.routineBackups,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RoutineBackupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.routineBackups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PatientsTableTableManager
@@ -3886,7 +4507,11 @@ class $$PatientsTableTableManager
           $$PatientsTableUpdateCompanionBuilder,
           (PatientRow, $$PatientsTableReferences),
           PatientRow,
-          PrefetchHooks Function({bool dayRoutinesRefs, bool medicationsRefs})
+          PrefetchHooks Function({
+            bool dayRoutinesRefs,
+            bool medicationsRefs,
+            bool routineBackupsRefs,
+          })
         > {
   $$PatientsTableTableManager(_$AppDatabase db, $PatientsTable table)
     : super(
@@ -3944,12 +4569,17 @@ class $$PatientsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({dayRoutinesRefs = false, medicationsRefs = false}) {
+              ({
+                dayRoutinesRefs = false,
+                medicationsRefs = false,
+                routineBackupsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (dayRoutinesRefs) db.dayRoutines,
                     if (medicationsRefs) db.medications,
+                    if (routineBackupsRefs) db.routineBackups,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3996,6 +4626,27 @@ class $$PatientsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (routineBackupsRefs)
+                        await $_getPrefetchedData<
+                          PatientRow,
+                          $PatientsTable,
+                          RoutineBackupRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PatientsTableReferences
+                              ._routineBackupsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PatientsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).routineBackupsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.patientId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4016,7 +4667,11 @@ typedef $$PatientsTableProcessedTableManager =
       $$PatientsTableUpdateCompanionBuilder,
       (PatientRow, $$PatientsTableReferences),
       PatientRow,
-      PrefetchHooks Function({bool dayRoutinesRefs, bool medicationsRefs})
+      PrefetchHooks Function({
+        bool dayRoutinesRefs,
+        bool medicationsRefs,
+        bool routineBackupsRefs,
+      })
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
     DayRoutinesCompanion Function({
@@ -6329,6 +6984,393 @@ typedef $$DoseEventsTableProcessedTableManager =
       DoseEventRow,
       PrefetchHooks Function({bool doseScheduleId})
     >;
+typedef $$RoutineBackupsTableCreateCompanionBuilder =
+    RoutineBackupsCompanion Function({
+      Value<int> patientId,
+      required int wakeMinutes,
+      required int breakfastMinutes,
+      required int lunchMinutes,
+      required int dinnerMinutes,
+      required int sleepMinutes,
+      required int iftarMinutes,
+      required int suhoorMinutes,
+    });
+typedef $$RoutineBackupsTableUpdateCompanionBuilder =
+    RoutineBackupsCompanion Function({
+      Value<int> patientId,
+      Value<int> wakeMinutes,
+      Value<int> breakfastMinutes,
+      Value<int> lunchMinutes,
+      Value<int> dinnerMinutes,
+      Value<int> sleepMinutes,
+      Value<int> iftarMinutes,
+      Value<int> suhoorMinutes,
+    });
+
+final class $$RoutineBackupsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $RoutineBackupsTable, RoutineBackupRow> {
+  $$RoutineBackupsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
+      db.patients.createAlias('routine_backups__patient_id__patients__id');
+
+  $$PatientsTableProcessedTableManager get patientId {
+    final $_column = $_itemColumn<int>('patient_id')!;
+
+    final manager = $$PatientsTableTableManager(
+      $_db,
+      $_db.patients,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$RoutineBackupsTableFilterComposer
+    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
+  $$RoutineBackupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get wakeMinutes => $composableBuilder(
+    column: $table.wakeMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get breakfastMinutes => $composableBuilder(
+    column: $table.breakfastMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lunchMinutes => $composableBuilder(
+    column: $table.lunchMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dinnerMinutes => $composableBuilder(
+    column: $table.dinnerMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sleepMinutes => $composableBuilder(
+    column: $table.sleepMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get iftarMinutes => $composableBuilder(
+    column: $table.iftarMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get suhoorMinutes => $composableBuilder(
+    column: $table.suhoorMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PatientsTableFilterComposer get patientId {
+    final $$PatientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableFilterComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RoutineBackupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
+  $$RoutineBackupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get wakeMinutes => $composableBuilder(
+    column: $table.wakeMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get breakfastMinutes => $composableBuilder(
+    column: $table.breakfastMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lunchMinutes => $composableBuilder(
+    column: $table.lunchMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dinnerMinutes => $composableBuilder(
+    column: $table.dinnerMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sleepMinutes => $composableBuilder(
+    column: $table.sleepMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get iftarMinutes => $composableBuilder(
+    column: $table.iftarMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get suhoorMinutes => $composableBuilder(
+    column: $table.suhoorMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PatientsTableOrderingComposer get patientId {
+    final $$PatientsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableOrderingComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RoutineBackupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
+  $$RoutineBackupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get wakeMinutes => $composableBuilder(
+    column: $table.wakeMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get breakfastMinutes => $composableBuilder(
+    column: $table.breakfastMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lunchMinutes => $composableBuilder(
+    column: $table.lunchMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dinnerMinutes => $composableBuilder(
+    column: $table.dinnerMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sleepMinutes => $composableBuilder(
+    column: $table.sleepMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get iftarMinutes => $composableBuilder(
+    column: $table.iftarMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get suhoorMinutes => $composableBuilder(
+    column: $table.suhoorMinutes,
+    builder: (column) => column,
+  );
+
+  $$PatientsTableAnnotationComposer get patientId {
+    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RoutineBackupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RoutineBackupsTable,
+          RoutineBackupRow,
+          $$RoutineBackupsTableFilterComposer,
+          $$RoutineBackupsTableOrderingComposer,
+          $$RoutineBackupsTableAnnotationComposer,
+          $$RoutineBackupsTableCreateCompanionBuilder,
+          $$RoutineBackupsTableUpdateCompanionBuilder,
+          (RoutineBackupRow, $$RoutineBackupsTableReferences),
+          RoutineBackupRow,
+          PrefetchHooks Function({bool patientId})
+        > {
+  $$RoutineBackupsTableTableManager(
+    _$AppDatabase db,
+    $RoutineBackupsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RoutineBackupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RoutineBackupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RoutineBackupsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> patientId = const Value.absent(),
+                Value<int> wakeMinutes = const Value.absent(),
+                Value<int> breakfastMinutes = const Value.absent(),
+                Value<int> lunchMinutes = const Value.absent(),
+                Value<int> dinnerMinutes = const Value.absent(),
+                Value<int> sleepMinutes = const Value.absent(),
+                Value<int> iftarMinutes = const Value.absent(),
+                Value<int> suhoorMinutes = const Value.absent(),
+              }) => RoutineBackupsCompanion(
+                patientId: patientId,
+                wakeMinutes: wakeMinutes,
+                breakfastMinutes: breakfastMinutes,
+                lunchMinutes: lunchMinutes,
+                dinnerMinutes: dinnerMinutes,
+                sleepMinutes: sleepMinutes,
+                iftarMinutes: iftarMinutes,
+                suhoorMinutes: suhoorMinutes,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> patientId = const Value.absent(),
+                required int wakeMinutes,
+                required int breakfastMinutes,
+                required int lunchMinutes,
+                required int dinnerMinutes,
+                required int sleepMinutes,
+                required int iftarMinutes,
+                required int suhoorMinutes,
+              }) => RoutineBackupsCompanion.insert(
+                patientId: patientId,
+                wakeMinutes: wakeMinutes,
+                breakfastMinutes: breakfastMinutes,
+                lunchMinutes: lunchMinutes,
+                dinnerMinutes: dinnerMinutes,
+                sleepMinutes: sleepMinutes,
+                iftarMinutes: iftarMinutes,
+                suhoorMinutes: suhoorMinutes,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$RoutineBackupsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({patientId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (patientId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.patientId,
+                        referencedTable: $$RoutineBackupsTableReferences
+                            ._patientIdTable(db),
+                        referencedColumn: $$RoutineBackupsTableReferences
+                            ._patientIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$RoutineBackupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RoutineBackupsTable,
+      RoutineBackupRow,
+      $$RoutineBackupsTableFilterComposer,
+      $$RoutineBackupsTableOrderingComposer,
+      $$RoutineBackupsTableAnnotationComposer,
+      $$RoutineBackupsTableCreateCompanionBuilder,
+      $$RoutineBackupsTableUpdateCompanionBuilder,
+      (RoutineBackupRow, $$RoutineBackupsTableReferences),
+      RoutineBackupRow,
+      PrefetchHooks Function({bool patientId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6345,4 +7387,6 @@ class $AppDatabaseManager {
       $$FixedTimingsTableTableManager(_db, _db.fixedTimings);
   $$DoseEventsTableTableManager get doseEvents =>
       $$DoseEventsTableTableManager(_db, _db.doseEvents);
+  $$RoutineBackupsTableTableManager get routineBackups =>
+      $$RoutineBackupsTableTableManager(_db, _db.routineBackups);
 }

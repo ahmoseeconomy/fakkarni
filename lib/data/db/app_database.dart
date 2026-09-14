@@ -22,13 +22,14 @@ part 'app_database.g.dart';
     DoseSchedules,
     FixedTimings,
     DoseEvents,
+    RoutineBackups,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -169,6 +170,23 @@ class AppDatabase extends _$AppDatabase {
                 // وبيضيف UNIQUE، والفاحص بيقارن الناتج بآخر نسخة حرفياً.
                 await m.alterTable(TableMigration(table));
               }
+            }
+            if (from < 7) {
+              // وضع رمضان: النسخة الاحتياطية للروتين. SQL مجمّد بالحرف —
+              // مش m.createTable — عشان الخطوة تفضل تطلّع شكل نسخة ٧
+              // مهما كبر الجدول بعدين (درس خطوة v2→v3).
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "routine_backups" ('
+                '"patient_id" INTEGER NOT NULL REFERENCES patients (id) ON DELETE CASCADE, '
+                '"wake_minutes" INTEGER NOT NULL, '
+                '"breakfast_minutes" INTEGER NOT NULL, '
+                '"lunch_minutes" INTEGER NOT NULL, '
+                '"dinner_minutes" INTEGER NOT NULL, '
+                '"sleep_minutes" INTEGER NOT NULL, '
+                '"iftar_minutes" INTEGER NOT NULL, '
+                '"suhoor_minutes" INTEGER NOT NULL, '
+                'PRIMARY KEY ("patient_id"))',
+              );
             }
           await customStatement('PRAGMA foreign_keys = ON');
         },

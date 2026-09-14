@@ -83,6 +83,31 @@ class DayRoutines extends Table with SyncIdentity {
       ];
 }
 
+/// الروتين الأصلي وقت ما اتفتح وضع رمضان — بيرجع بالحرف لما يتقفل.
+///
+/// وجود الصف هو «رمضان شغّال»؛ مفيش عمود boolean يقدر يختلف مع الصف.
+/// **مش بيتزامن** عن قصد (مفيش SyncIdentity): الابن بيشوف الروتين
+/// الساري، مش النسخة الاحتياطية بتاعة جهاز أبوه. والفطار والسحور محفوظين
+/// هنا عشان يتحطّوا مرة واحدة.
+@DataClassName('RoutineBackupRow')
+class RoutineBackups extends Table {
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
+
+  /// الخمس مواعيد الأصلية زي ما كانت في day_routines بالظبط.
+  IntColumn get wakeMinutes => integer()();
+  IntColumn get breakfastMinutes => integer()();
+  IntColumn get lunchMinutes => integer()();
+  IntColumn get dinnerMinutes => integer()();
+  IntColumn get sleepMinutes => integer()();
+
+  IntColumn get iftarMinutes => integer()();
+  IntColumn get suhoorMinutes => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {patientId};
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
