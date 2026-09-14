@@ -26,6 +26,9 @@ class Say {
   String get sleepQuestion => pick('بتنام الساعة كام؟', 'بتنامي الساعة كام؟');
   String get notSure => pick('مش متأكد', 'مش متأكدة');
 
+  // ---- الرئيسية
+  String get whatNow => pick('تعمل إيه دلوقتي؟', 'تعملي إيه دلوقتي؟');
+
   // ---- التنبيه والسكة: الحالة اللي التطبيق بيقولها له / لها
   /// «أخدته ٨:٠٠ ص» — التطبيق بيقول للمريض إنه خده.
   String takenAt(String time) => pick('أخدته $time', 'أخدتيه $time');

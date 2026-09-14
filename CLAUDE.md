@@ -1085,6 +1085,29 @@ device-verified)**
 - Mockup 3 restyled on `SignInScreen` (see deferred list for the honest
   Google/Apple rows); mockup 2's cards for the post-sign-in path choice.
 
+**D3.2 — the home (built)**
+- The home (mockup 04) sits **at the top of the «اليوم» tab** and replaces
+  the pinned next-dose card; «جدول النهاردة» stays below it. Tabs unchanged.
+  Why: a separate home tab would show the same next dose twice, with two
+  places to confirm it.
+- Order: «يومك» + «صباح/مساء الخير يا {name}» + «{name} · {age} سنة» (only
+  when an age exists) + `say.whatNow` («تعمل/تعملي إيه دلوقتي؟» — the
+  mockup's «ماذا أفعل الآن؟» is MSA). Then «الآن», «خلال ٤٨ ساعة»
+  (tomorrow's doses), water, the rail.
+- «الآن» (`NowCard`): unconfirmed past doses (oldest first), then the next
+  one. **All gold, neutral wording** («لسه ما اتأكدتش · كان معادها …») —
+  the mockup's red cards are not ours. Only the first card has the primary
+  «تأكيد الجرعة/الجرعات»; the rest have «افتح» (ReminderScreen).
+  «لاحقًا» is the real 15-minute `scheduler.snooze`, and the card says so.
+  «مش هاخده» now lives only on ReminderScreen.
+- Water (`WaterWidget`): cups 0–8, interval 1/2/3 h, countdown ring. Three
+  `shared_preferences` keys (`water.*`), local, not synced, reset on a new
+  calendar day. No notification, no advice — 8 is the counter's limit, not
+  a recommendation. The one periodic timer runs only after the first cup
+  and is cancelled in `dispose` (mutation-checked: removing the cancel
+  fails the test).
+- **No sugar or lab cards until D3.6** — they get added to «الآن» then.
+
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults
   18:00 / 03:30) and `ramadanRoutine(original, times)` — breakfast → Iftar,

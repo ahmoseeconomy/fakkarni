@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/services/reminder_plan.dart';
@@ -14,7 +16,8 @@ import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/edit_medication_screen.dart';
 import '../reminder/reminder_screen.dart';
 import 'widgets/day_rail.dart';
-import 'widgets/next_dose_card.dart';
+import 'widgets/now_card.dart';
+import 'widgets/water_widget.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
@@ -40,6 +43,15 @@ class _TodayScreenState extends State<TodayScreen> {
   /// بتعمل بث جديد بيبعت إشعار تاني — لفة مالهاش آخر.
   Stream<List<DoseEventView>>? _events;
 
+  /// جرعات بكرة — «خلال ٤٨ ساعة».
+  Stream<List<DoseEventView>>? _tomorrow;
+
+  /// الاسم والسن للترحيب.
+  Stream<PatientRow?>? _patient;
+
+  /// مجموعات اتأجّلت من الشاشة دي — بنقول «هنفكّرك تاني» تحتها.
+  final Set<DateTime> _snoozed = {};
+
   /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
   Stream<List<MedicationRow>>? _amountUnknown;
 
@@ -53,6 +65,10 @@ class _TodayScreenState extends State<TodayScreen> {
 
     final services = AppScope.of(context);
     _events = services.events.watchDay(_routineDay);
+    _tomorrow = services.events.watchDay(
+      DateTime(_routineDay.year, _routineDay.month, _routineDay.day + 1),
+    );
+    _patient = services.routines.watchPatient(services.patientId);
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
@@ -72,6 +88,10 @@ class _TodayScreenState extends State<TodayScreen> {
       _routineDay,
       engine.remindersForDay(schedules, _routineDay),
     );
+    // «خلال ٤٨ ساعة» بتقرا صفوف بكرة — rescheduleAll بينزّلها أصلاً، وده
+    // idempotent لو الشاشة اتفتحت قبله.
+    final tomorrow = DateTime(_routineDay.year, _routineDay.month, _routineDay.day + 1);
+    await services.events.materializeDay(tomorrow, engine.remindersForDay(schedules, tomorrow));
   }
 
   @override
@@ -98,12 +118,21 @@ class _TodayScreenState extends State<TodayScreen> {
     await services.scheduler.afterConfirmation(group.first.scheduledAt);
   }
 
-  Future<void> _markSkipped(List<DoseEventView> group) async {
+  /// «لاحقًا» = التأجيل الحقيقي (ربع ساعة)، نفس «تأجيل ١٥ د» في شاشة التذكير.
+  Future<void> _later(List<DoseEventView> group) async {
     final services = AppScope.of(context);
-    for (final dose in group) {
-      await services.events.markSkipped(dose.doseScheduleId, _routineDay);
-    }
-    await services.scheduler.afterConfirmation(group.first.scheduledAt);
+    await services.scheduler.snooze(
+      originalAt: group.first.scheduledAt,
+      body: reminderBodyFor([
+        for (final d in group) (name: d.medicationName, amount: d.amountLabel),
+      ]),
+      payload: encodePayloadFor(
+        _routineDay,
+        [for (final d in group) d.doseScheduleId.toString()],
+      ),
+      now: _now,
+    );
+    if (mounted) setState(() => _snoozed.add(group.first.scheduledAt));
   }
 
   void _openEdit(int medicationId) => Navigator.of(context).push(
@@ -166,17 +195,58 @@ class _TodayScreenState extends State<TodayScreen> {
           final events = snapshot.data ?? const <DoseEventView>[];
           final groups = _group(events);
 
-          final pending = groups.where((g) => g.any((d) => !d.isDone));
-          final next = pending.isEmpty ? null : pending.first;
+          // «الآن»: اللي فات معاده من غير تأكيد (الأقدم الأول)، وبعده الجاية.
+          final open = [for (final g in groups) if (g.any((d) => !d.isDone)) g];
+          final overdue = [for (final g in open) if (g.first.scheduledAt.isBefore(_now)) g];
+          final upcoming = [for (final g in open) if (!g.first.scheduledAt.isBefore(_now)) g];
+          final nowCards = [...overdue, if (upcoming.isNotEmpty) upcoming.first];
 
           return ListView(
             padding: const EdgeInsets.all(F.gap),
             children: [
+              StreamBuilder<PatientRow?>(
+                stream: _patient,
+                builder: (context, snap) => _HomeHeader(patient: snap.data, now: _now),
+              ),
+              const SizedBox(height: F.gap),
+              if (nowCards.isNotEmpty) ...[
+                const _SectionTitle('الآن'),
+                const SizedBox(height: F.s8),
+                for (final (i, group) in nowCards.indexed) ...[
+                  NowCard(
+                    doses: group,
+                    now: _now,
+                    primary: i == 0,
+                    snoozed: _snoozed.contains(group.first.scheduledAt),
+                    onConfirm: () => _markTaken(group),
+                    onOpen: () => _openReminder(group),
+                    onLater: () => _later(group),
+                  ),
+                  const SizedBox(height: F.s10),
+                ],
+                const SizedBox(height: F.s8),
+              ] else if (events.isNotEmpty) ...[
+                const _AllDonePanel(),
+                const SizedBox(height: F.gap),
+              ],
+              StreamBuilder<List<DoseEventView>>(
+                stream: _tomorrow,
+                builder: (context, snap) {
+                  final tomorrow = _group(snap.data ?? const []);
+                  if (tomorrow.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _Upcoming(groups: tomorrow),
+                  );
+                },
+              ),
+              const WaterWidget(),
+              const SizedBox(height: F.gap),
               const Text(
                 'جدول النهاردة',
                 style: TextStyle(
                   fontFamily: F.displayFamily,
-                  fontSize: F.screenTitleSize,
+                  fontSize: F.subtitleSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
                 ),
@@ -186,19 +256,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 'المراسي ثابتة، والجرعات معلّقة عليها.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.muted),
               ),
-              const SizedBox(height: F.gap),
-              if (next != null) ...[
-                NextDoseCard(
-                  doses: next,
-                  now: _now,
-                  onTaken: () => _markTaken(next),
-                  onSkipped: () => _markSkipped(next),
-                ),
-                const SizedBox(height: F.gap),
-              ] else if (events.isNotEmpty) ...[
-                const _AllDonePanel(),
-                const SizedBox(height: F.gap),
-              ],
+              const SizedBox(height: F.s12),
               if (events.isEmpty)
                 const _EmptyPanel()
               else
@@ -280,6 +338,127 @@ class _FollowUpPanel extends StatelessWidget {
               ),
           ],
         ),
+      );
+}
+
+/// الترحيب (المخطط 4): kicker، «صباح الخير يا محمد» بجنسه، والعنوان.
+///
+/// العنوان في التصميم «ماذا أفعل الآن؟» فصحى — والفصحى ممنوعة في الواجهة؛
+/// «تعمل/تعملي إيه دلوقتي؟». سطر «الاسم · السن» بيظهر لو السن متسجّل.
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.patient, required this.now});
+
+  final PatientRow? patient;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final say = PatientVoice.of(context);
+    final name = patient?.name;
+    final hasName = name != null && name.isNotEmpty && name != 'أنا';
+    final greeting = now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Kicker('يومك'),
+        const SizedBox(height: F.s4),
+        Text(
+          hasName ? '$greeting يا $name' : greeting,
+          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+        ),
+        if (hasName && patient?.age != null)
+          Text(
+            '$name · ${arabicNumber(patient!.age!)} سنة',
+            style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+          ),
+        const SizedBox(height: F.s6),
+        Text(
+          say.whatNow,
+          style: const TextStyle(
+            fontFamily: F.displayFamily,
+            fontSize: F.screenTitleSize,
+            fontWeight: FontWeight.w700,
+            color: F.ink,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// عنوان قسم بنقطة صغيرة — «الآن» / «خلال ٤٨ ساعة». النقطة خضرا، مش حمرا
+/// زي التصميم.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(color: F.green, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: F.s8),
+          Text(
+            text,
+            style: const TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green),
+          ),
+        ],
+      );
+}
+
+/// «خلال ٤٨ ساعة»: جرعات بكرة — صف لكل دقيقة. مفيش سكر ولا تحاليل هنا لسه
+/// (D3.6).
+class _Upcoming extends StatelessWidget {
+  const _Upcoming({required this.groups});
+
+  final List<List<DoseEventView>> groups;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _SectionTitle('خلال ٤٨ ساعة'),
+          const SizedBox(height: F.s8),
+          FCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final (i, g) in groups.indexed) ...[
+                  if (i > 0) const Divider(height: 1, color: F.lineSoft),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s12),
+                    child: Row(
+                      children: [
+                        Text(
+                          'بكرة ${arabicTime(g.first.scheduledAt)}',
+                          style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                        ),
+                        const SizedBox(width: F.s12),
+                        Expanded(
+                          child: Text(
+                            g.map((d) => d.medicationName).join(' + '),
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.right,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: F.minTextSize,
+                              color: F.muted,
+                              fontFamily: F.monoFamily,
+                              fontFamilyFallback: F.monoFallback,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       );
 }
 

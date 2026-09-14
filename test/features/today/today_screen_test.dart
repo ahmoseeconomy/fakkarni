@@ -14,7 +14,10 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
+import 'package:fakkarni/domain/patient/sex.dart';
+import 'package:fakkarni/features/today/widgets/now_card.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
@@ -42,9 +45,10 @@ final morning = DateTime(2026, 8, 31, 8);
 
 class RecordingSink implements ReminderSink {
   final List<int> cancelled = [];
+  final List<PlannedNotification> scheduled = [];
 
   @override
-  Future<void> schedule(PlannedNotification notification) async {}
+  Future<void> schedule(PlannedNotification notification) async => scheduled.add(notification);
   @override
   Future<void> cancel(int id) async => cancelled.add(id);
   @override
@@ -128,7 +132,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> pumpToday(WidgetTester tester, {DateTime? now}) async {
+  Future<void> pumpToday(WidgetTester tester, {DateTime? now, Sex? sex}) async {
+    // الرئيسية (D3.2) فوق السكة — الشاشة أطول من ٦٠٠ بكسل الافتراضية
+    tester.view.physicalSize = const Size(1000, 4000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -136,7 +145,10 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: TodayScreen(routine: normalDay, now: now ?? morning),
+            child: PatientVoice(
+              say: Say(sex),
+              child: TodayScreen(routine: normalDay, now: now ?? morning),
+            ),
           ),
         ),
       ),
@@ -144,7 +156,7 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('الجرعة الجاية فوق، وزرار «أخدته» ارتفاعه ٦٤', (tester) async {
+  screenTest('«الآن»: الجرعة الجاية فوق، و«تأكيد الجرعة» ارتفاعه ٦٤', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
@@ -170,13 +182,13 @@ void main() {
     expect(next.dy, lessThan(rail.dy));
   });
 
-  screenTest('بعد «أخدته» الجرعة بتبقى سطر هادي وما بتختفيش', (tester) async {
+  screenTest('بعد «تأكيد الجرعة» الجرعة بتبقى سطر هادي وما بتختفيش', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
     expect(find.textContaining('Antodine'), findsWidgets);
 
-    await tester.tap(find.text('أخدته').first);
+    await tester.tap(find.text('تأكيد الجرعة'));
     await settle(tester);
 
     // لسه موجودة على السكة — بعلامة صح وبهدوء
@@ -196,19 +208,19 @@ void main() {
     expect(find.text('نسيتها؟'), findsOneWidget);
     expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
     expect(find.text('الجاية'), findsNothing);
-    expect(find.text('أخدته'), findsWidgets, reason: 'نسي — لسه يقدر يقول أخدته');
+    expect(find.text('تأكيد الجرعة'), findsOneWidget, reason: 'نسي — لسه يقدر يأكّد');
 
-    await tester.tap(find.text('أخدته').first);
+    await tester.tap(find.text('تأكيد الجرعة'));
     await settle(tester);
     expect(find.text('نسيتها؟'), findsNothing);
     expect(find.textContaining('أخدته ', skipOffstage: false), findsWidgets);
   });
 
-  screenTest('«أخدته» بيلغي تذكير الخانة دي', (tester) async {
+  screenTest('«تأكيد الجرعة» بيلغي تذكير الخانة دي', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
-    await tester.tap(find.text('أخدته').first);
+    await tester.tap(find.text('تأكيد الجرعة'));
     await settle(tester);
 
     // التذكير والتأجيل والسلّم بتوع نفس الخانة — لو كان قال «فكّرني بعدين»
@@ -246,7 +258,7 @@ void main() {
     // الساعة ٩ الصبح، وجرعة ٧:٠٠ فاتت
     await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
 
-    expect(find.textContaining('فات معاده'), findsWidgets);
+    expect(find.textContaining('كان معادها'), findsOneWidget);
 
     for (final text in tester.widgetList<Text>(find.byType(Text))) {
       final colour = text.style?.color;
@@ -291,8 +303,8 @@ void main() {
     expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
     // Telfast منتظرة — نفس الحافة
     expect(edgeOf('Telfast'), F.gold);
-    // Antodine لسه على السكة، سطر هادي
-    expect(find.text('Antodine'), findsOneWidget);
+    // Antodine لسه على السكة، سطر هادي — وكمان تحت «خلال ٤٨ ساعة» بتاع بكرة
+    expect(find.text('Antodine'), findsWidgets);
     expect(find.byIcon(Icons.check), findsOneWidget);
     // زرار أساسي واحد بس — مفيش «أخدته» على كل كارت
     expect(find.byType(FilledButton), findsOneWidget);
@@ -364,6 +376,79 @@ void main() {
         expect(size, greaterThanOrEqualTo(F.minTextSize), reason: text.data);
       }
     }
+  });
+
+  group('الرئيسية (D3.2)', () {
+    screenTest('الترحيب بالاسم والسن، والعنوان بجنس المريض — مش فصحى', (tester) async {
+      await services.routines.saveProfile(services.patientId, name: 'فاطمة', sex: Sex.f, age: 68);
+      await pumpToday(tester, sex: Sex.f);
+
+      expect(find.text('يومك'), findsOneWidget);
+      expect(find.text('صباح الخير يا فاطمة'), findsOneWidget);
+      expect(find.text('فاطمة · ٦٨ سنة'), findsOneWidget);
+      expect(find.text('تعملي إيه دلوقتي؟'), findsOneWidget);
+      expect(find.text('ماذا أفعل الآن؟'), findsNothing);
+    });
+
+    screenTest('راجل بالليل من غير سن → «مساء الخير يا محمد» ومفيش سطر سن', (tester) async {
+      await services.routines.saveProfile(services.patientId, name: 'محمد', sex: Sex.m);
+      await pumpToday(tester, now: DateTime(2026, 8, 31, 21), sex: Sex.m);
+
+      expect(find.text('مساء الخير يا محمد'), findsOneWidget);
+      expect(find.textContaining('سنة'), findsNothing);
+      expect(find.text('تعمل إيه دلوقتي؟'), findsOneWidget);
+    });
+
+    screenTest('«الآن»: الفايتة قبل الجاية، ذهبي من غير أحمر، وزرار أساسي واحد', (tester) async {
+      await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — فاتت
+      await addDose('LINEX', DayAnchor.lunch, offset: -30); // ٢:٠٠ م — الجاية
+      await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
+
+      final cards = find.byType(NowCard);
+      expect(cards, findsNWidgets(2));
+      final missed = tester.getCenter(find.descendant(of: cards.first, matching: find.text('Antodine')));
+      final next = tester.getCenter(find.descendant(of: cards.last, matching: find.text('LINEX')));
+      expect(missed.dy, lessThan(next.dy));
+      expect(find.text('لسه ما اتأكدتش · كان معادها ٧:٠٠ ص'), findsOneWidget);
+      for (final card in tester.widgetList<FCard>(find.descendant(of: cards, matching: find.byType(FCard)))) {
+        expect(card.tone, FCardTone.attention);
+      }
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.text('افتح'), findsOneWidget, reason: 'الكارت التاني بيفتح شاشة التذكير');
+      expectNoRed(tester);
+    });
+
+    screenTest('«لاحقًا» تأجيل حقيقي ربع ساعة وبيقول كده', (tester) async {
+      await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠
+      await pumpToday(tester);
+
+      await tester.tap(find.text('لاحقًا').first);
+      await settle(tester);
+
+      expect(sink.scheduled.map((n) => n.id), contains(snoozeIdFor(DateTime(2026, 8, 31, 7))));
+      expect(find.text('هنفكّرك تاني بعد ربع ساعة'), findsOneWidget);
+    });
+
+    screenTest('«خلال ٤٨ ساعة» فيها جرعات بكرة، ومفيش سكر ولا تحاليل', (tester) async {
+      await addDose('Telfast', DayAnchor.dinner, offset: 0);
+      await pumpToday(tester);
+
+      final section = tester.getCenter(find.text('خلال ٤٨ ساعة'));
+      final tomorrow = tester.getCenter(find.text('بكرة ٨:٠٠ م'));
+      expect(tomorrow.dy, greaterThan(section.dy));
+      for (final gone in ['السكر', 'سكر', 'التحاليل', 'تحليل']) {
+        expect(find.textContaining(gone), findsNothing, reason: gone);
+      }
+    });
+
+    screenTest('الرئيسية فوق «جدول النهاردة»', (tester) async {
+      await addDose('Antodine', DayAnchor.lunch, offset: -30);
+      await pumpToday(tester);
+
+      expect(tester.getCenter(find.text('الآن')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
+      expect(tester.getCenter(find.text('المية')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
+      expectNoRedAndMinSize(tester);
+    });
   });
 
   group('ضيف دوا → محرّر الجرعة', () {

@@ -51,6 +51,8 @@ dependencies:
   firebase_core: ^4.14.0
   firebase_messaging: ^16.6.0
   sqlite3: ^3.5.2
+  # عدّاد المية (D3.2) — تلات أرقام محلية. كانت متحمّلة أصلاً من supabase_flutter.
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
