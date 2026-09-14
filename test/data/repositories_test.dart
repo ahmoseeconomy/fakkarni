@@ -200,6 +200,20 @@ void main() {
       expect(await db.select(db.fixedTimings).get(), isEmpty, reason: 'الساعة الثابتة اتشالت');
     });
 
+    test('watchAllSummaries بيرجّع الموقوف كمان — والنشط بس في watchActiveSummaries', () async {
+      final a = await meds.addMedication(
+        patientId: patientId, name: 'A', timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);
+      await meds.addMedication(
+        patientId: patientId, name: 'B', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: aug31);
+      await meds.stopMedication(a);
+
+      final all = await meds.watchAllSummaries(patientId).first;
+      final active = await meds.watchActiveSummaries(patientId).first;
+      expect(all.map((m) => m.medication.name).toSet(), {'A', 'B'});
+      expect(all.firstWhere((m) => m.medication.name == 'A').medication.stoppedAt, isNotNull);
+      expect(active.map((m) => m.medication.name).toList(), ['B']);
+    });
+
     test('تعديل الروتين ما بيلمسش صف الجرعة', () async {
       await routines.saveRoutine(patientId, normalDay);
       await meds.addMedication(

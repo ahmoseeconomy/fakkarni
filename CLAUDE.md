@@ -889,6 +889,13 @@ Consequences to handle:
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
 **Deferred by decision (not by oversight):**
+- **Mockup 33's rows with no backend are not built:** نمط كبار السن,
+  التنبيهات, الاسم والسن, بطاقة الطوارئ, تصدير البيانات. A settings row that
+  opens onto nothing is worse than a row that is not there. Each returns
+  with the feature behind it. «اللغة: عربي» is shown disabled — no English
+  in this version, and the row says so instead of pretending.
+- **Mockup 09's voice-add button is not built** — no speech input exists.
+  Adding goes through the shell's «ضيف».
 - **Mockup 15's per-member permissions (checkboxes per caregiver) are not
   built.** There is no permissions table in the backend; a permissions UI
   that changes nothing is worse than none. Ships with the schema that

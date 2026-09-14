@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,8 @@ import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/core/widgets/f_sheet.dart';
+import 'package:fakkarni/data/auth/auth_service.dart';
+import 'package:fakkarni/data/push/push_tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
@@ -169,4 +173,88 @@ void main() {
     expect(shape.side.color, F.gold);
     expect(tester.widget<Text>(find.text('شغّال')).style?.color, F.gold);
   });
+
+  group('الإعدادات (المخطط 33)', () {
+    screenTest('من غير جلسة: كارت الحساب «مش مربوط»، الصفوف التلاتة، اللغة معطّلة، ومفيش خروج', (tester) async {
+      await pumpShell(tester);
+      await tester.tap(find.text('الإعدادات').last);
+      await settle(tester);
+
+      expect(find.text('مش مربوط'), findsWidgets);
+      expect(find.text('حساب تجريبي'), findsNothing);
+      for (final row in ['مواعيد يومك', 'وضع رمضان', 'دائرة الرعاية', 'اللغة']) {
+        expect(find.text(row), findsOneWidget, reason: row);
+      }
+      expect(find.text('عربي'), findsOneWidget);
+      expect(find.text('تسجيل الخروج'), findsNothing, reason: 'مفيش جلسة تخرج منها');
+      // المؤجَّل مش موجود — ولا صف بيفتح على فراغ
+      for (final gone in ['نمط كبار السن', 'التنبيهات', 'الاسم والسن', 'بطاقة الطوارئ', 'تصدير']) {
+        expect(find.textContaining(gone), findsNothing, reason: gone);
+      }
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('جلسة مجهولة: «حساب تجريبي» بالحقيقة، والخروج بيمسح التوكن قبل الجلسة', (tester) async {
+      final auth = _FakeAuth()..user = const FakkarniUser(id: 'u1', isAnonymous: true);
+      final push = _FakePush(auth);
+      services = AppServices(
+        db: services.db,
+        routines: services.routines,
+        medications: services.medications,
+        events: services.events,
+        scheduler: services.scheduler,
+        patientId: services.patientId,
+        auth: auth,
+        push: push,
+      );
+      await pumpShell(tester);
+      await tester.tap(find.text('الإعدادات').last);
+      await settle(tester);
+
+      expect(find.text('حساب تجريبي'), findsOneWidget);
+      expect(find.text('حساب شخصي'), findsNothing, reason: 'قول الحقيقة');
+
+      await tester.tap(find.text('تسجيل الخروج'));
+      await settle(tester);
+      expect(push.clearedBeforeSignOut, isTrue, reason: 'التوكن قبل الجلسة — مش بعدها');
+      expect(auth.user, isNull);
+      expect(find.text('مش مربوط'), findsWidgets);
+    });
+  });
+}
+
+class _FakeAuth implements AuthService {
+  FakkarniUser? user;
+  final _c = StreamController<FakkarniUser?>.broadcast();
+  bool signedOut = false;
+  @override
+  Stream<FakkarniUser?> get authState async* {
+    yield user;
+    yield* _c.stream;
+  }
+
+  @override
+  FakkarniUser? get currentUser => user;
+  @override
+  Future<void> signInToLink() async {}
+  @override
+  Future<void> signOut() async {
+    signedOut = true;
+    user = null;
+    _c.add(null);
+  }
+}
+
+class _FakePush implements PushTokens {
+  _FakePush(this.auth);
+  final _FakeAuth auth;
+  bool? clearedBeforeSignOut;
+  @override
+  void start() {}
+  @override
+  Future<void> registerNow() async {}
+  @override
+  Future<void> clear() async => clearedBeforeSignOut ??= !auth.signedOut;
+  @override
+  Future<void> dispose() async {}
 }

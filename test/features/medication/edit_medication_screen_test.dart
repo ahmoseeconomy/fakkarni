@@ -160,13 +160,14 @@ void main() {
 
   // قايمة «أدويتك» اتنقلت من «جدول النهاردة» لتبويب «الأدوية» (D2.1)
   group('من تبويب «الأدوية»', () {
-    Future<void> pumpMeds(WidgetTester tester) => h.pump(tester, const MedicationsScreen());
+    Future<void> pumpMeds(WidgetTester tester) => h.pump(tester, MedicationsScreen(today: aug31));
 
-    screenTest('قايمة «أدويتك»: الاسم والجرعة · القاعدة، والدوسة بتعدّل', (tester) async {
+    screenTest('«جدول الأدوية»: مجمّع بالمرساة، الاسم والجرعة · القاعدة، و«عدّل» بيفتح التعديل', (tester) async {
       await seedTelfast(unknown: false);
       await pumpMeds(tester);
 
-      expect(find.text('أدويتك'), findsOneWidget);
+      expect(find.text('جدول الأدوية'), findsOneWidget);
+      expect(find.text('العشا · ٨:٠٠ م'), findsOneWidget, reason: 'عنوان المجموعة بالمرساة والوقت');
       expect(find.text('قرص واحد · العشا'), findsOneWidget);
 
       await tester.tap(find.text('عدّل'));
@@ -174,13 +175,15 @@ void main() {
       expect(find.byType(EditMedicationScreen), findsOneWidget);
     });
 
-    screenTest('الدوا الموقوف بيختفي من «أدويتك»', (tester) async {
+    screenTest('الدوا الموقوف بيفضل باين تحت «موقوفة» — ما يختفيش', (tester) async {
       final id = await seedTelfast(unknown: false);
       await h.meds.stopMedication(id);
       await pumpMeds(tester);
 
-      expect(find.text('أدويتك'), findsNothing);
-      expect(find.text('Telfast 180 mg'), findsNothing);
+      expect(find.text('موقوفة'), findsOneWidget);
+      expect(find.text('Telfast 180 mg'), findsOneWidget);
+      expect(find.text('موقوف — التذكيرات واقفة'), findsOneWidget);
+      expect(find.textContaining('العشا · '), findsNothing, reason: 'مش في مجموعة مرساة');
     });
 
     screenTest('«جدول النهاردة» مابقاش فيه قايمة «أدويتك»', (tester) async {

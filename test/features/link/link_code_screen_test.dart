@@ -36,15 +36,16 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('صف المريض بيترفع الأول وبعده الكود — بأرقام عربي ٣-٣، والشرح بالبساطة', (tester) async {
+  screenTest('صف المريض بيترفع الأول وبعده الكود — ستة أرقام عربي في سطر واحد، والشرح بالبساطة', (tester) async {
     await pumpCode(tester);
 
     expect(care.upserts, [(uuid: 'p-uuid-1', name: 'الحاج أحمد')]);
     expect(care.createdFor, ['p-uuid-1']);
 
-    // «١٢٣ ٤٥١» — عربي زي باقي التطبيق، ومجمّعة ٣-٣
-    expect(find.text('١٢٣ ٤٥١'), findsOneWidget);
-    final code = tester.widget<Text>(find.text('١٢٣ ٤٥١'));
+    // «١٢٣٤٥١» — عربي زي باقي التطبيق، ستة أرقام في تتابع واحد من غير مسافة
+    expect(find.text('١٢٣٤٥١'), findsOneWidget);
+    final code = tester.widget<Text>(find.text('١٢٣٤٥١'));
+    expect(code.style?.letterSpacing, greaterThan(0), reason: 'أرقام — التباعد مسموح');
     expect(code.style?.fontSize, greaterThanOrEqualTo(48), reason: 'بيتقري عبر أوضة');
     expect(find.text('دائرة الرعاية'), findsOneWidget);
     expect(find.textContaining('يشوف أدويتك ومواعيدك'), findsOneWidget);
@@ -112,8 +113,8 @@ void main() {
     await tester.tap(find.text('كود جديد'));
     await settle(tester);
 
-    expect(find.text('١٢٣ ٤٥٢'), findsOneWidget);
-    expect(find.text('١٢٣ ٤٥١'), findsNothing);
+    expect(find.text('١٢٣٤٥٢'), findsOneWidget);
+    expect(find.text('١٢٣٤٥١'), findsNothing);
     expect(care.createdFor.length, 2);
   });
 

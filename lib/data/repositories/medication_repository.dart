@@ -19,6 +19,18 @@ class MedicationRepository {
   final AppDatabase _db;
 
   JoinedSelectStatement<HasResultSet, dynamic> _activeQuery(int patientId) =>
+      _joined(patientId)
+        ..where(
+          _db.medications.patientId.equals(patientId) &
+              _db.medications.stoppedAt.isNull(),
+        );
+
+  /// نفس الـjoin من غير فلتر الإيقاف — لقايمة «الأدوية» اللي بتعرض الموقوف
+  /// في قسم لوحده بدل ما يختفي.
+  JoinedSelectStatement<HasResultSet, dynamic> _allQuery(int patientId) =>
+      _joined(patientId)..where(_db.medications.patientId.equals(patientId));
+
+  JoinedSelectStatement<HasResultSet, dynamic> _joined(int patientId) =>
       _db.select(_db.doseSchedules).join([
         innerJoin(
           _db.medications,
@@ -29,11 +41,7 @@ class MedicationRepository {
           _db.fixedTimings,
           _db.fixedTimings.doseScheduleId.equalsExp(_db.doseSchedules.id),
         ),
-      ])
-        ..where(
-          _db.medications.patientId.equals(patientId) &
-              _db.medications.stoppedAt.isNull(),
-        );
+      ]);
 
   List<DoseSchedule> _map(List<TypedResult> rows) => [
         for (final row in rows)
@@ -170,19 +178,26 @@ class MedicationRepository {
 
   /// الأدوية الشغّالة، كل واحد بجداوله — لقايمة «أدويتك».
   Stream<List<MedicationSummary>> watchActiveSummaries(int patientId) =>
-      _activeQuery(patientId).watch().map((rows) {
-        final byMed = <int, MedicationSummary>{};
-        for (final row in rows) {
-          final med = row.readTable(_db.medications);
-          final schedule = doseScheduleFromRow(
-            row.readTable(_db.doseSchedules),
-            med,
-            fixed: row.readTableOrNull(_db.fixedTimings),
-          );
-          byMed.putIfAbsent(med.id, () => MedicationSummary(med, [])).schedules.add(schedule);
-        }
-        return byMed.values.toList();
-      });
+      _activeQuery(patientId).watch().map(_summaries);
+
+  /// كل الأدوية — الشغّالة والموقوفة — كل واحد بجداوله. الموقوف بيتعرف من
+  /// `medication.stoppedAt`؛ الشاشة هي اللي بتفصله في قسم «موقوفة».
+  Stream<List<MedicationSummary>> watchAllSummaries(int patientId) =>
+      _allQuery(patientId).watch().map(_summaries);
+
+  List<MedicationSummary> _summaries(List<TypedResult> rows) {
+    final byMed = <int, MedicationSummary>{};
+    for (final row in rows) {
+      final med = row.readTable(_db.medications);
+      final schedule = doseScheduleFromRow(
+        row.readTable(_db.doseSchedules),
+        med,
+        fixed: row.readTableOrNull(_db.fixedTimings),
+      );
+      byMed.putIfAbsent(med.id, () => MedicationSummary(med, [])).schedules.add(schedule);
+    }
+    return byMed.values.toList();
+  }
 
   /// تغيير توقيت جرعة موجودة — بإيد إنسان من محرّر الجرعة.
   ///
