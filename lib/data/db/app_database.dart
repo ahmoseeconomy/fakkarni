@@ -35,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -277,6 +277,18 @@ class AppDatabase extends _$AppDatabase {
                 '"value" REAL NOT NULL, '
                 '"unit" TEXT NULL)',
               );
+            }
+            if (from < 13) {
+              // دورة الفحص: المرحلة ولحظة تذكير الصيام — nullable، والسجلات
+              // القديمة مش دورات. ADD COLUMN بحماية وجود (درس «الخطوات المجمّدة»).
+              for (final column in ['checkup_stage', 'fasting_reminder_at']) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('records') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE records ADD COLUMN $column INTEGER NULL');
+                }
+              }
             }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل

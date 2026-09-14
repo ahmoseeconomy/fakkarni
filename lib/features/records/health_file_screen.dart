@@ -9,6 +9,9 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/records_repository.dart';
 import '../health/scan_lab_screen.dart';
+import '../../domain/health/checkup.dart';
+import 'calendar_screen.dart';
+import 'checkup_screen.dart';
 import 'deleted_row.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
@@ -54,12 +57,33 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
     super.dispose();
   }
 
+  void _openCheckup(int id) => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => CheckupScreen(recordId: id)),
+      );
+
+  /// اسم الفحص (والدكتور لو معروف) → مرحلة ١ «طلب الطبيب».
+  Future<void> _startCheckup() async {
+    final services = AppScope.of(context);
+    final result = await showDialog<({String title, String doctor})>(
+      context: context,
+      builder: (_) => const _StartCheckupDialog(),
+    );
+    if (result == null || result.title.trim().isEmpty || !mounted) return;
+    final id = await services.checkups.start(
+      patientId: services.patientId,
+      title: result.title,
+      doctor: result.doctor,
+      today: widget.today ?? DateTime.now(),
+    );
+    if (mounted) _openCheckup(id);
+  }
+
   void _add() => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(today: widget.today)),
       );
 
   Future<void> _options(RecordRow record) async {
-    final repo = _repo;
+    final checkups = AppScope.of(context).checkups;
     await FSheet.show<void>(
       context,
       title: record.title,
@@ -102,7 +126,8 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 ],
               ),
             );
-            if (yes ?? false) await repo.softDelete(record.id);
+            // عن طريق دورة الفحص: لو السجل ده عليه تذكير صيام بيتلغي معاه
+            if (yes ?? false) await checkups.softDelete(record.id);
           },
         ),
       ],
@@ -153,6 +178,21 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 ],
               ),
               const SizedBox(height: F.s10),
+              Row(
+                children: [
+                  Expanded(
+                    child: FSecondaryButton(
+                      label: 'التقويم',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => CalendarScreen(today: widget.today)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: F.s10),
+                  Expanded(child: FSecondaryButton(label: 'ابدأ دورة فحص', onPressed: _startCheckup)),
+                ],
+              ),
+              const SizedBox(height: F.s10),
               FSecondaryButton(
                 label: 'صوّر تقرير تحليل',
                 onPressed: () => Navigator.of(context).push(
@@ -182,7 +222,15 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                       child: r.deletedAt == null
                           ? Row(
                               children: [
-                                Expanded(child: RecordSummary(record: r)),
+                                Expanded(
+                                  child: r.checkupStage == null
+                                      ? RecordSummary(record: r)
+                                      : InkWell(
+                                          key: ValueKey('checkup-open-${r.id}'),
+                                          onTap: () => _openCheckup(r.id),
+                                          child: RecordSummary(record: r),
+                                        ),
+                                ),
                                 const SizedBox(width: F.s8),
                                 SizedBox(
                                   height: F.minTapTarget,
@@ -240,7 +288,65 @@ class RecordSummary extends StatelessWidget {
         ),
         const SizedBox(height: F.s4),
         Text(meta, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+        if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
+          Text(
+            'دورة فحص · ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
+            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
+          ),
       ],
     );
   }
+}
+
+class _StartCheckupDialog extends StatefulWidget {
+  const _StartCheckupDialog();
+
+  @override
+  State<_StartCheckupDialog> createState() => _StartCheckupDialogState();
+}
+
+class _StartCheckupDialogState extends State<_StartCheckupDialog> {
+  final _title = TextEditingController();
+  final _doctor = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _doctor.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('دورة فحص جديدة', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const ValueKey('checkup-title'),
+              controller: _title,
+              style: const TextStyle(fontSize: F.minBodySize),
+              decoration: const InputDecoration(labelText: 'اسم الفحص', hintText: 'مثلاً: صورة دم كاملة'),
+            ),
+            TextField(
+              controller: _doctor,
+              style: const TextStyle(fontSize: F.minBodySize),
+              decoration: const InputDecoration(labelText: 'الدكتور اللي طلبه'),
+            ),
+          ],
+        ),
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FPrimaryButton(
+                key: const ValueKey('checkup-start'),
+                label: 'ابدأ',
+                onPressed: () => Navigator.of(context).pop((title: _title.text, doctor: _doctor.text)),
+              ),
+            ],
+          ),
+        ],
+      );
 }

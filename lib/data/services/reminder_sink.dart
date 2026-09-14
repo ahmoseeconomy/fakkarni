@@ -20,15 +20,23 @@ class NotificationReminderSink implements ReminderSink {
   const NotificationReminderSink();
 
   @override
-  Future<void> schedule(PlannedNotification notification) =>
-      NotificationService.scheduleDose(
-        id: notification.id,
-        title: notification.title,
-        body: notification.body,
-        at: notification.at,
-        payload: notification.payload,
-        escalation: notification.kind == NotificationKind.escalation,
-      );
+  Future<void> schedule(PlannedNotification notification) => switch (notification.kind) {
+        // تذكير الصيام طريقه لوحده: من غير أزرار الجرعة ومن غير payload
+        NotificationKind.fasting => NotificationService.scheduleCheckup(
+            id: notification.id,
+            title: notification.title,
+            body: notification.body,
+            at: notification.at,
+          ),
+        _ => NotificationService.scheduleDose(
+            id: notification.id,
+            title: notification.title,
+            body: notification.body,
+            at: notification.at,
+            payload: notification.payload,
+            escalation: notification.kind == NotificationKind.escalation,
+          ),
+      };
 
   @override
   Future<void> cancel(int id) => NotificationService.cancel(id);

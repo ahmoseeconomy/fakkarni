@@ -61,13 +61,38 @@ const int escalationSecondIdBase = 30000000;
 /// التأجيل كان هيبقى رقم ٦٥ وiOS يرميه في صمت — أو يرمي حاجة تانية.
 const int snoozePendingSlack = 2;
 
+/// مكان محجوز لتذكيرات الصيام (D3.7) تحت سقف iOS — أقصى ٢ في نفس الوقت.
+///
+/// من غيره كان أول تذكير صيام هو الإشعار رقم ٦٥ (٤٨ + ١٤ + ٢)، وiOS كان
+/// هيرميه — أو يرمي حاجة تانية — في صمت. التمن متشاف: نافذة الجرعات ٤٦
+/// بدل ٤٨، وبتتجدد مع كل فتحة وكل تأكيد زي ما هي.
+const int fastingPendingSlack = 2;
+
+/// نطاق تذكير الصيام — **مستقل عن كل نطاقات الجرعات**. لو اتقاطع، تذكير
+/// صيام كان هيلغي تذكير دوا بنفس الرقم في صمت، وده أسوأ باج ممكن. الرقم
+/// مشتق من id صف `records`، مش مخزّن. إعادة جدولة الجرعات ما بتلمسوش
+/// ([isRescheduledId] مش بتشمله)، وتأكيد جرعة ما بيلمسوش.
+const int fastingIdBase = 40000000;
+const int fastingIdLimit = fastingIdBase + maxPatients * patientIdSpan;
+
+/// رقم تذكير الصيام لسجل الفحص [recordId]. برّه النطاق بيرمي — اللفّ هو
+/// بالظبط التصادم اللي النطاق موجود عشان يمنعه.
+int fastingIdFor(int recordId) {
+  if (recordId < 0 || fastingIdBase + recordId >= fastingIdLimit) {
+    throw RangeError.range(recordId, 0, fastingIdLimit - fastingIdBase - 1, 'recordId');
+  }
+  return fastingIdBase + recordId;
+}
+
+bool isFastingId(int id) => id >= fastingIdBase && id < fastingIdLimit;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
-/// ومكان التأجيل: ٦٤ − ٤٨ − ٢ = ١٤.
+/// ومكان التأجيل والصيام: ٦٤ − ٤٦ − ٢ − ٢ = ١٤.
 ///
 /// ١٤ ÷ درجتين = أقرب ٧ تذكيرات بس هي اللي بياخدوا سلّم. النافذة دي
 /// بتتجدد مع كل تأكيد وكل فتحة زي نافذة الجرعات، فاللي بعدهم بيلحقوا.
 const int maxPendingEscalations =
-    iosPendingLimit - maxPendingReminders - snoozePendingSlack;
+    iosPendingLimit - maxPendingReminders - snoozePendingSlack - fastingPendingSlack;
 
 /// نافذة الجدولة الافتراضية.
 const int reminderWindowDays = 7;
@@ -81,7 +106,9 @@ const int iosPendingLimit = 64;
 /// بنسيب ١٦ خانة فاضية تحت سقف iOS لتصعيد المرحلة الرابعة وأي حاجة جاية.
 /// السقف بيتطبّق على أندرويد كمان عن قصد: نفس السلوك على الجهازين أسهل في
 /// التفكير من «شغال عندي على أندرويد».
-const int maxPendingReminders = 48;
+///
+/// كان ٤٨؛ بقى ٤٦ في D3.7 عشان تذكيرين صيام يلاقوا مكان.
+const int maxPendingReminders = 46;
 
 /// رقم الإشعار مشتق من (المريض، اليوم، الدقيقة).
 ///
@@ -169,7 +196,13 @@ String doneKey(String scheduleId, DateTime routineDay) =>
     '$scheduleId|${routineDay.year}-${routineDay.month}-${routineDay.day}';
 
 /// نوع الإشعار — بيحدد القناة على الجهاز (التصعيد بيهزّ وبيعلّي).
-enum NotificationKind { dose, escalation }
+enum NotificationKind {
+  dose,
+  escalation,
+
+  /// تذكير صيام قبل سحب عينة (D3.7) — قناة لوحدها ومن غير أزرار «أخدته».
+  fasting,
+}
 
 /// تذكير جاهز للجدولة على الجهاز.
 class PlannedNotification {

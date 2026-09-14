@@ -30,10 +30,14 @@ final aug31 = DateTime(2026, 8, 31);
 
 class RecordingSink implements ReminderSink {
   final Map<int, PlannedNotification> scheduled = {};
+  final List<int> cancelled = [];
   @override
   Future<void> schedule(PlannedNotification n) async => scheduled[n.id] = n;
   @override
-  Future<void> cancel(int id) async => scheduled.remove(id);
+  Future<void> cancel(int id) async {
+    cancelled.add(id);
+    scheduled.remove(id);
+  }
   @override
   Future<Set<int>> pendingIds() async => scheduled.keys.toSet();
   @override

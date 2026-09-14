@@ -74,7 +74,17 @@ class DoseEventRepository {
 
   Stream<List<DoseEventView>> watchDay(DateTime routineDay) {
     final day = DateTime(routineDay.year, routineDay.month, routineDay.day);
+    return _watch(_db.doseEvents.routineDay.equalsValue(day));
+  }
 
+  /// «التقويم» (D3.7): كل الأحداث اللي معادها في [from, to). بيقرا اللي
+  /// اتنزّل فعلاً بس — الأيام اللي لسه ما اتنزّلتش مالهاش صفوف، والشاشة
+  /// بتقول كده بدل ما تحسبها بالمحرك.
+  Stream<List<DoseEventView>> watchBetween(DateTime from, DateTime to) => _watch(
+        _db.doseEvents.scheduledAt.isBiggerOrEqualValue(from) & _db.doseEvents.scheduledAt.isSmallerThanValue(to),
+      );
+
+  Stream<List<DoseEventView>> _watch(Expression<bool> where) {
     final query = _db.select(_db.doseEvents).join([
       innerJoin(
         _db.doseSchedules,
@@ -85,7 +95,7 @@ class DoseEventRepository {
         _db.medications.id.equalsExp(_db.doseSchedules.medicationId),
       ),
     ])
-      ..where(_db.doseEvents.routineDay.equalsValue(day))
+      ..where(where)
       ..orderBy([OrderingTerm.asc(_db.doseEvents.scheduledAt)]);
 
     return query.watch().map((rows) {

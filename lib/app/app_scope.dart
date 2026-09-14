@@ -13,6 +13,7 @@ import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../data/repositories/routine_repository.dart';
+import '../data/services/checkup_service.dart';
 import '../data/services/reminder_scheduler.dart';
 
 /// كل خدمات التطبيق في مكان واحد.
@@ -49,6 +50,9 @@ class AppServices {
   /// بيلاقيها من غير سطر زيادة. الجدولة بتقراها من نسخة بتاعتها في
   /// `buildServices`.
   PreferencesRepository get preferences => PreferencesRepository(db);
+
+  /// دورة الفحص وتذكير الصيام (D3.7) — نفس جهاز الإشعارات بتاع الجدولة.
+  CheckupService get checkups => CheckupService(db, scheduler.sink);
 
   /// آخر إشعار المستخدم دَس عليه — بيجي من [NotificationService.lastPayload].
   ///

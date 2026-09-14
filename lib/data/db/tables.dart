@@ -186,9 +186,17 @@ class Records extends Table with SyncIdentity {
   TextColumn get place => text().nullable()();
   TextColumn get notes => text().nullable()();
 
-  /// محجوز للمرفقات (D3.6) — مفيش واجهة بتكتبه لسه.
+  /// صورة التقرير (D3.6) — مسار نسبي جوّه فولدر التطبيق.
   TextColumn get attachmentPath => text().nullable()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  /// نسخة ١٣ — مرحلة دورة الفحص (١..٧) على صف `lab`. null = سجل عادي مش
+  /// دورة (كل تحاليل D3.5 وD3.6). المستخدم بس اللي بيحرّكها.
+  IntColumn get checkupStage => integer().nullable()();
+
+  /// نسخة ١٣ — لحظة تذكير الصيام المتجدول، أو null. رقم الإشعار نفسه
+  /// **مش متخزّن**: مشتق من id الصف في نطاق الصيام (`fastingIdFor`).
+  DateTimeColumn get fastingReminderAt => dateTime().nullable()();
 }
 
 /// سياق قياس السكر — الاتنين بس.

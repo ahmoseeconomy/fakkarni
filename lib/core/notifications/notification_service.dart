@@ -57,6 +57,14 @@ class NotificationService {
     importance: Importance.max,
   );
 
+  /// قناة تذكير الصيام (D3.7) — لوحدها عشان تتسكّت من غير ما الجرعات تتسكّت.
+  static const _checkupChannel = AndroidNotificationChannel(
+    'fakkarni_checkup',
+    'تذكير الصيام قبل التحليل',
+    description: 'تذكير بيتظبط بإيدك قبل ميعاد سحب العينة',
+    importance: Importance.high,
+  );
+
   /// قناة التصعيد — نفس الأولوية، بس بتهزّ بنمط أطول.
   ///
   /// «نغمة أعلى» على أندرويد معناها قناة تانية: مستوى الصوت بتاع القناة
@@ -148,6 +156,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_caregiverChannel);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_checkupChannel);
 
     // لو التطبيق كان مقفول خالص واتفتح من الإشعار نفسه، الدوسة دي مش بتعدّي
     // على _onTap — لازم نسألوا عليها بإيدنا.
@@ -270,6 +282,38 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: payload,
+    );
+  }
+
+  /// تذكير صيام (D3.7). **مفيش أزرار «أخدته»/«فكّرني بعدين» ومفيش فئة
+  /// الجرعة ومفيش payload**: الأزرار دي بتسجّل جرعات، وتذكير الصيام مش جرعة.
+  /// الدوسة عليه بتفتح التطبيق وبس.
+  static Future<void> scheduleCheckup({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime at,
+  }) async {
+    await init();
+    final when = tz.TZDateTime.from(at, tz.local);
+    if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _checkupChannel.id,
+          _checkupChannel.name,
+          channelDescription: _checkupChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.reminder,
+        ),
+        iOS: const DarwinNotificationDetails(interruptionLevel: InterruptionLevel.active),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
