@@ -13,6 +13,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
 import 'package:fakkarni/features/routine/edit_routine_screen.dart';
 
@@ -220,5 +221,27 @@ void main() {
         expect(size, greaterThanOrEqualTo(F.minTextSize), reason: text.data);
       }
     }
+  });
+
+  screenTest('رمضان شغّال → سطر ذهبي والحفظ مقفول — التعديل من هنا كان هيضيع',
+      (tester) async {
+    await routines.enterRamadan(services.patientId, RamadanTimes.cairoDefaults);
+    final before = await routines.getRoutine(services.patientId);
+    await pumpEdit(tester);
+
+    final line = tester.widget<Text>(find.text('وضع رمضان شغّال — عدّل من شاشة رمضان'));
+    expect(line.style?.color, F.gold);
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+
+    await tester.tap(find.text('احفظ يومك'), warnIfMissed: false);
+    await settle(tester);
+    expect(await routines.getRoutine(services.patientId), before);
+    expect(await routines.ramadanTimes(services.patientId), isNotNull);
+  });
+
+  screenTest('رمضان مقفول → مفيش سطر والحفظ شغّال', (tester) async {
+    await pumpEdit(tester);
+    expect(find.textContaining('وضع رمضان شغّال'), findsNothing);
+    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNotNull);
   });
 }

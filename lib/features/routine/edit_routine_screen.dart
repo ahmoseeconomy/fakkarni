@@ -31,6 +31,24 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
   DayAnchor? _wheelFor;
   bool _saving = false;
 
+  /// رمضان شغّال → الحفظ هنا مقفول. تعديل من هنا كان بيتحفظ فوق روتين
+  /// رمضان، وقفل رمضان بعدها بيرجّع الأصل المحفوظ ويرمي التعديل في صمت.
+  /// الحل الكامل (تعديل الأصل من ورا رمضان) مش دلوقتي — بس الوقوع فيه
+  /// بالغلط لازم يبقى مستحيل.
+  bool _ramadanOn = false;
+  bool _checked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_checked) return;
+    _checked = true;
+    final services = AppScope.of(context);
+    services.routines.ramadanTimes(services.patientId).then((times) {
+      if (mounted) setState(() => _ramadanOn = times != null);
+    });
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -63,6 +81,19 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(F.gap),
                 children: [
+                  if (_ramadanOn) ...[
+                    // الذهبي = «إنت هنا»: الحالة اللي الجهاز عليها دلوقتي
+                    const Text(
+                      'وضع رمضان شغّال — عدّل من شاشة رمضان',
+                      style: TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: FontWeight.w700,
+                        color: F.gold,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: F.gap),
+                  ],
                   const Text(
                     'غيّر أي معاد — الجرعات المربوطة بيه بتتحرك معاه، '
                     'والساعات الثابتة بتفضل زي ما هي.',
@@ -97,7 +128,7 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                 width: double.infinity,
                 height: F.primaryButtonHeight,
                 child: FilledButton(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _ramadanOn ? null : _save,
                   child: const Text('احفظ يومك'),
                 ),
               ),
