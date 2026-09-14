@@ -117,10 +117,14 @@ class _CaregiverScreenState extends State<CaregiverScreen>
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
               else if (snapshot != null) ...[
-                // سجل اللي السيرفر عمله — فوق كل حاجة، الأحدث الأول، ومن
-                // غير أي بطاقة «مفيش تنبيهات»: السكوت هنا خبر كويس.
+                // سجل اللي السيرفر عمله — فوق كل حاجة، ومن غير أي بطاقة
+                // «مفيش تنبيهات»: السكوت هنا خبر كويس. اللي لسه مفتوح
+                // (ذهبي) فوق، واللي اتحلّ تحته — بصّة واحدة تقول إيه
+                // اللي لسه محتاجه. جوّه كل مجموعة الأحدث الأول.
                 for (final alert in snapshot.alerts)
-                  _AlertCard(alert: alert, when: _when),
+                  if (!alert.takenLater) _AlertCard(alert: alert, when: _when),
+                for (final alert in snapshot.alerts)
+                  if (alert.takenLater) _AlertCard(alert: alert, when: _when),
                 _WeekStrip(events: snapshot.events, now: _now),
                 const SizedBox(height: F.gap),
                 const Text(
@@ -361,13 +365,12 @@ class _AlertCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: F.gap),
       padding: const EdgeInsets.all(F.gap),
+      // المحلولة بتتراجع: عاجي من غير إطار، عنوان رمادي — نفس المقاسات،
+      // لأن الحد الأدنى للخط حد، مش اقتراح. الذهبي هو الوحيد اللي بيبرز.
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: attention ? Colors.white : F.ivory,
         borderRadius: BorderRadius.circular(F.radius),
-        border: Border.all(
-          color: attention ? F.gold : F.line,
-          width: attention ? 2 : 1,
-        ),
+        border: attention ? Border.all(color: F.gold, width: 2) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,8 +380,8 @@ class _AlertCard extends StatelessWidget {
             'الساعة ${arabicTime(alert.scheduledAt)}',
             style: TextStyle(
               fontSize: F.minBodySize,
-              fontWeight: FontWeight.w700,
-              color: attention ? F.gold : F.ink,
+              fontWeight: attention ? FontWeight.w700 : FontWeight.w500,
+              color: attention ? F.gold : F.muted,
               height: 1.5,
             ),
           ),

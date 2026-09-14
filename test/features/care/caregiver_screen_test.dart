@@ -237,6 +237,36 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
+    screenTest('مفتوح ومحلول مع بعض → الذهبي فوق حتى لو أقدم، والمحلول رمادي',
+        (tester) async {
+      // المحلول أحدث (١٢ الضهر) — لكن المفتوح (٨ الصبح) هو اللي لسه محتاجه
+      final resolved = CaregiverAlert(
+        uuid: 'esc-2',
+        medicationName: 'Telfast',
+        scheduledAt: DateTime(2026, 8, 31, 12),
+        doseState: 'taken',
+        deliveryStatus: 'sent',
+        createdAt: DateTime(2026, 8, 31, 13),
+        sentAt: DateTime(2026, 8, 31, 13),
+      );
+      remote.next = snapshot(
+        [
+          event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed'),
+          event('Telfast', DateTime(2026, 8, 31, 12), 'taken'),
+        ],
+        alerts: [resolved, alert()], // الأحدث الأول زي ما السيرفر بيرجّع
+      );
+      await pumpScreen(tester);
+
+      final open = find.textContaining('جرعة Concor');
+      final done = find.textContaining('جرعة Telfast');
+      expect(tester.getTopLeft(open).dy, lessThan(tester.getTopLeft(done).dy),
+          reason: 'بصّة واحدة تقول إيه اللي لسه محتاجه');
+      expect(tester.widget<Text>(open).style?.color, F.gold);
+      expect(tester.widget<Text>(done).style?.color, F.muted);
+      expectNoRedAndMinSize(tester);
+    });
+
     screenTest('«مش هاخده» بعد التنبيه مش ✓ — ما خدهاش', (tester) async {
       remote.next = snapshot(
         [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'skipped')],
