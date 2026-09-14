@@ -22,7 +22,8 @@ class AnchorMark {
 /// رمادي للفايتة ومفيش أحمر. المأخوذة بتنطوي لسطر ✓ هادي وما بتتشالش.
 ///
 /// الكروت مفيهاش زرار «أخدته» — الزرار الأساسي الوحيد هو اللي في الكارت
-/// المثبّت فوق. الدوسة على كارت بتفتح شاشة التذكير بتاعته.
+/// المثبّت فوق. الدوسة على كارت بتفتح شاشة التذكير بتاعته — والكارت
+/// موصوف بالكلام (الاسم والوقت والقاعدة)، فمش محتاج كلمة «افتح».
 class DayRail extends StatelessWidget {
   const DayRail({
     required this.anchors,
@@ -231,15 +232,6 @@ class DayRail extends StatelessWidget {
                       ),
                     ],
                   ],
-                ),
-              ),
-              const SizedBox(width: F.s8),
-              const Text(
-                'افتح',
-                style: TextStyle(
-                  fontSize: F.minTextSize,
-                  fontWeight: FontWeight.w600,
-                  color: F.green,
                 ),
               ),
             ],

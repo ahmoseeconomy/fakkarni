@@ -4,18 +4,29 @@ import 'package:flutter/material.dart';
 import '../../ai/prescription_reading.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
+import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/dose_schedule.dart';
+import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
 import 'debug_panel.dart';
 
 enum ReviewResult { confirmed, retake }
 
-/// «فهمت الروشتة كده» — الذكاء يقترح، وإنت تؤكّد.
+/// «الذكاء يقترح، وأنت تؤكّد» (المخطط 06) — أهم شاشة في التطبيق.
 ///
-/// ولا سطر بيتحفظ قبل دوسة. اللي ثقته قليلة بيتعلّم بالذهبي «محتاج تحديد»
-/// و«تمام» بتفضل مقفولة لحد ما يتحدد من «أعدّل». و«أعدّل» بنفس حجم «تمام»
-/// عن قصد — محدش بيتدفع يأكّد جدول دوا ما قراهوش.
+/// ولا سطر بيتحفظ قبل دوسة. صف لكل **دوا**: الاسم، الوقت المحسوب للعرض
+/// بس (عمره ما بيتخزّن)، وشريحة بتعرض **القاعدة** مش الساعة.
+///
+/// الصف اللي الذكاء مش متأكد منه بياخد حافة ذهبية على الجنب وسطر «مش
+/// متأكد من دي — راجعها» وتحته الحقل وملاحظته. ده اعتراف بالشك — ميزة،
+/// فبيتصمّم مدروس، مش مكسور.
+///
+/// المجهول نوعين (القاعدة ٤): اسم أو توقيت مش واضح بيقفل «تمام، ظبّطهم»؛
+/// جرعة مش معروفة ما بتقفلش. و«أعدّل» بنفس الوزن البصري بالظبط — زرار
+/// مليان بنفس المقاس والخط — محدش بيتدفع يأكّد جدول دوا ما قراهوش.
 class ReviewPrescriptionScreen extends StatefulWidget {
   const ReviewPrescriptionScreen({
     required this.reading,
@@ -35,7 +46,12 @@ class ReviewPrescriptionScreen extends StatefulWidget {
 class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// السطور اللي اتحفظت من شاشة التعديل — بتفضل معروضة بس هادية.
   final Set<int> _saved = {};
+
+  /// أدوية ضافها بإيده من «أضف دوا ما اتعرفش عليه».
+  int _addedByHand = 0;
   bool _busy = false;
+
+  DateTime get _today => widget.today ?? DateTime.now();
 
   List<int> get _remaining => [
         for (var i = 0; i < widget.reading.lines.length; i++)
@@ -77,14 +93,23 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     if (saved == true && mounted) setState(() => _saved.add(index));
   }
 
-  /// «تمام»: بيحفظ السطور الواضحة المتبقية — وبس. الدوسة دي هي التأكيد.
+  /// سطر ما اتقراش خالص — بيتكتب بإيد إنسان، فمفيش حاجة للتأكيد بعدها.
+  Future<void> _addUnread() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
+      ),
+    );
+    if (saved == true && mounted) setState(() => _addedByHand++);
+  }
+
+  /// «تمام، ظبّطهم»: بيحفظ السطور الواضحة المتبقية — وبس. الدوسة دي هي التأكيد.
   Future<void> _confirm() async {
     if (_busy || _hasBlocking) return;
     setState(() => _busy = true);
 
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
-    final today = widget.today ?? DateTime.now();
 
     for (final i in _remaining) {
       final line = widget.reading.lines[i];
@@ -97,14 +122,14 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
         amountLabel: amountUnknown ? null : line.amount.value,
         amountUnknown: amountUnknown,
         timing: timings.first,
-        startDate: today,
+        startDate: _today,
         durationDays: line.duration.value, // null = مفتوحة، زي ما الورقة سابتها
       );
       for (final timing in timings.skip(1)) {
         await services.medications.addDoseSchedule(
           id,
           timing: timing,
-          startDate: today,
+          startDate: _today,
           durationDays: line.duration.value,
         );
       }
@@ -117,48 +142,84 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final reading = widget.reading;
+    final engine = ScheduleEngine(widget.routine);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'فهمت الروشتة كده',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(F.gap),
+                padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
                 children: [
+                  const Kicker('مراجعة وتأكيد'),
+                  const SizedBox(height: F.s4),
                   const Text(
-                    'راجع كل سطر — اللي بالذهبي محتاج تحديد منك.',
-                    style: TextStyle(fontSize: F.minBodySize, color: F.muted, height: 1.6),
+                    'الذكاء يقترح، وأنت تؤكّد',
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.screenTitleSize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                      height: 1.3,
+                    ),
                   ),
-                  if (kDebugMode && reading.modelWarning != null) ...[
-                    const SizedBox(height: 8),
-                    DebugPanel(reading.modelWarning!),
-                  ],
+                  const SizedBox(height: F.s6),
+                  const Text(
+                    'راجع كل دوا قبل ما يتحفظ. اللي عليه علامة ذهبية الذكاء مش متأكد منه.',
+                    style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                  ),
                   if (reading.doctor.value != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: F.s4),
                     Text(
                       'د. ${reading.doctor.value}',
                       style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
                     ),
+                  ],
+                  if (kDebugMode && reading.modelWarning != null) ...[
+                    const SizedBox(height: F.s8),
+                    DebugPanel(reading.modelWarning!),
                   ],
                   const SizedBox(height: F.gap),
                   if (reading.isEmpty)
                     const _EmptyReading()
                   else
                     for (final (i, line) in reading.lines.indexed) ...[
-                      _LineCard(
+                      _MedicineRow(
                         line: line,
                         saved: _saved.contains(i),
+                        timeFor: (t) => arabicTime(switch (t) {
+                          AnchorTiming(:final anchor, :final offsetMinutes) =>
+                            engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today),
+                          FixedTiming(:final minuteOfDay) =>
+                            engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today),
+                        }),
                         onEdit: () => _edit(i),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: F.s12),
                     ],
+                  _AddUnreadRow(onTap: _busy ? null : _addUnread),
+                  if (_addedByHand > 0) ...[
+                    const SizedBox(height: F.s8),
+                    Row(
+                      children: [
+                        const Icon(Icons.check, color: F.greenOk, size: 24),
+                        const SizedBox(width: F.s6),
+                        Text(
+                          _addedByHand == 1
+                              ? 'اتضاف دوا بإيدك'
+                              : 'اتضاف ${arabicNumber(_addedByHand)} أدوية بإيدك',
+                          style: const TextStyle(
+                            fontSize: F.minTextSize,
+                            fontWeight: FontWeight.w600,
+                            color: F.greenOk,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -169,16 +230,16 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                 children: [
                   if (_hasBlocking)
                     const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
-                        'في سطر اسمه أو توقيته مش واضح — دوس «أعدّل» وحدده الأول.',
+                        'في دوا اسمه أو توقيته مش واضح — دوس «أعدّل» وحدده الأول.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
                       ),
                     )
                   else if (_hasUnknownAmount)
                     const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
                         'هتتحفظ من غير الجرعة — تقدر تضيفها بعدين',
                         textAlign: TextAlign.center,
@@ -200,32 +261,23 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: F.s4),
+                  // الزرارين نفس الوزن بالظبط: مليانين، نفس المقاس والخط.
                   Row(
                     children: [
                       Expanded(
-                        child: SizedBox(
-                          height: F.primaryButtonHeight,
-                          child: FilledButton(
-                            onPressed: _busy || _firstToEdit == null
-                                ? null
-                                : () => _edit(_firstToEdit!),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: F.ivory,
-                              foregroundColor: F.ink,
-                            ),
-                            child: const Text('أعدّل'),
-                          ),
+                        child: _EqualButton(
+                          label: 'أعدّل',
+                          fill: F.ink,
+                          onPressed: _busy || _firstToEdit == null ? null : () => _edit(_firstToEdit!),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: F.s10),
                       Expanded(
-                        child: SizedBox(
-                          height: F.primaryButtonHeight,
-                          child: FilledButton(
-                            onPressed: _busy || _hasBlocking ? null : _confirm,
-                            child: const Text('تمام'),
-                          ),
+                        child: _EqualButton(
+                          label: 'تمام، ظبّطهم',
+                          fill: F.green,
+                          onPressed: _busy || _hasBlocking ? null : _confirm,
                         ),
                       ),
                     ],
@@ -240,143 +292,309 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   }
 }
 
-class _LineCard extends StatelessWidget {
-  const _LineCard({required this.line, required this.saved, required this.onEdit});
+/// زرار من الاتنين — كل الفرق بينهم لون التعبئة، والاتنين غامقين.
+class _EqualButton extends StatelessWidget {
+  const _EqualButton({required this.label, required this.fill, required this.onPressed});
+
+  final String label;
+  final Color fill;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.primaryButtonHeight,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: fill,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: F.ivoryWarm,
+            disabledForegroundColor: F.mutedDark,
+            textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+            padding: const EdgeInsets.symmetric(horizontal: F.s8),
+          ),
+          child: Text(label, maxLines: 1),
+        ),
+      );
+}
+
+/// صف دوا واحد.
+class _MedicineRow extends StatelessWidget {
+  const _MedicineRow({
+    required this.line,
+    required this.saved,
+    required this.timeFor,
+    required this.onEdit,
+  });
 
   final ReadLine line;
   final bool saved;
+  final String Function(DoseTiming) timeFor;
   final VoidCallback onEdit;
+
+  /// أقل ثقة في الحقول اللي بتتحفظ — الرقم اللي بيتعرض على الصف الواضح.
+  double get _confidence => [
+        line.name.confidence,
+        line.amount.confidence,
+        line.timings.confidence,
+      ].reduce((a, b) => a < b ? a : b);
 
   @override
   Widget build(BuildContext context) {
-    final durationText = switch (line.duration.value) {
-      null => 'مفتوحة — لحد ما توقفه',
-      final d => '${arabicNumber(d)} يوم',
-    };
+    final unsure = line.needsReview && !saved;
+    final name = line.name.value;
+    final timings = line.timings.value;
 
-    return Opacity(
-      opacity: saved ? 0.55 : 1,
-      child: Container(
-        padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(
-            color: line.needsReview && !saved ? F.gold : F.line,
-            width: line.needsReview && !saved ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _FieldRow(label: 'الدوا', field: line.name, text: line.name.value, mono: true),
-            _FieldRow(label: 'الجرعة', field: line.amount, text: line.amount.value),
-            _FieldRow(
-              label: 'التوقيت',
-              field: line.timings,
-              text: line.timings.value == null ? null : line.timingLabel,
-            ),
-            _FieldRow(label: 'المدة', field: line.duration, text: durationText, last: true),
-            const SizedBox(height: 12),
-            if (saved)
-              const Row(
-                children: [
-                  Icon(Icons.check, color: F.green, size: 26),
-                  SizedBox(width: 6),
-                  Text(
-                    'اتضاف',
-                    style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.greenDeep),
-                  ),
-                ],
-              )
-            else
-              SizedBox(
-                height: F.minTapTarget,
-                child: OutlinedButton(
-                  onPressed: onEdit,
-                  child: const Text(
-                    'أعدّل السطر ده',
-                    style: TextStyle(fontSize: F.minTextSize + 1, fontWeight: FontWeight.w600),
-                  ),
+    final unsureFields = [
+      if (line.name.needsReview) ('الاسم', line.name.note),
+      if (line.timings.needsReview) ('التوقيت', line.timings.note),
+      if (line.amount.needsReview) ('الجرعة', line.amount.note),
+    ];
+
+    final body = Padding(
+      padding: const EdgeInsets.all(F.s14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        name ?? 'الاسم مش واضح',
+                        textDirection: name == null ? null : nameDirection(name),
+                        style: TextStyle(
+                          fontSize: name == null ? F.minBodySize : F.medicationNameSize,
+                          fontWeight: FontWeight.w700,
+                          color: F.ink,
+                          fontFamily: name == null ? null : F.monoFamily,
+                          fontFamilyFallback: name == null ? null : F.monoFallback,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: F.s4),
+                    Text(
+                      [
+                        line.amount.needsReview
+                            ? 'الجرعة مش معروفة'
+                            : (line.amount.value ?? 'الجرعة مش معروفة'),
+                        switch (line.duration.value) {
+                          null => 'مفتوحة — لحد ما توقفه',
+                          final d => '${arabicNumber(d)} يوم',
+                        },
+                      ].join(' · '),
+                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: F.s8),
+              if (saved)
+                const Padding(
+                  padding: EdgeInsets.only(top: F.s8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check, color: F.greenOk, size: 24),
+                      SizedBox(width: F.s4),
+                      Text(
+                        'اتضاف',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenOk),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  height: F.minTapTarget,
+                  child: OutlinedButton.icon(
+                    onPressed: onEdit,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: F.ink,
+                      minimumSize: const Size(0, F.minTapTarget),
+                      padding: const EdgeInsets.symmetric(horizontal: F.s12),
+                      side: const BorderSide(color: F.line, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 22),
+                    label: const Text(
+                      'عدّل',
+                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: F.s10),
+          // الوقت المحسوب + شريحة القاعدة — لكل توقيت. القاعدة هي اللي
+          // بتتحفظ؛ الساعة للعرض بس.
+          if (timings == null || timings.isEmpty)
+            const Text(
+              'التوقيت مش واضح',
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+            )
+          else
+            Wrap(
+              spacing: F.s12,
+              runSpacing: F.s8,
+              children: [
+                for (final t in timings)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        timeFor(t),
+                        style: const TextStyle(
+                          fontSize: F.minBodySize,
+                          fontWeight: FontWeight.w700,
+                          color: F.ink,
+                        ),
+                      ),
+                      const SizedBox(width: F.s6),
+                      StatusChip(label: t.ruleLabel),
+                    ],
+                  ),
+              ],
+            ),
+          if (!unsure && !saved) ...[
+            const SizedBox(height: F.s8),
+            Text(
+              'ثقة ${arabicNumber((_confidence * 100).round())}٪',
+              style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+            ),
           ],
+          if (unsure) ...[
+            const SizedBox(height: F.s12),
+            // الشك مكتوب بهدوء: عنوان، وكل حقل مش متأكد منه بملاحظته.
+            Container(
+              padding: const EdgeInsets.all(F.s12),
+              decoration: BoxDecoration(
+                color: F.ivoryPale,
+                borderRadius: BorderRadius.circular(F.radiusTile),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'مش متأكد من دي — راجعها',
+                    style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                  ),
+                  for (final (label, note) in unsureFields) ...[
+                    const SizedBox(height: F.s4),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$label: ',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(text: note ?? 'مش واضح في الصورة'),
+                        ],
+                      ),
+                      style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return Opacity(
+      opacity: saved ? 0.6 : 1,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          border: Border.all(color: unsure ? F.gold : F.line, width: unsure ? 1.5 : 1),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: body),
+              // حافة ذهبية على جنب واحد — آخر ابن في RTL = الشمال، زي README
+              if (unsure) Container(key: const ValueKey('unsure-edge'), width: 6, color: F.gold),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// حقل واحد: القيمة، ونسبة الثقة — أو «محتاج تحديد» بالذهبي.
-///
-/// الذهبي هنا بنفس معناه في التطبيق كله: «ده محتاج انتباهك».
-class _FieldRow extends StatelessWidget {
-  const _FieldRow({
-    required this.label,
-    required this.field,
-    required this.text,
-    this.mono = false,
-    this.last = false,
-  });
+/// «أضف دوا ما اتعرفش عليه» — حد متقطع، زرار بكلمة وأيقونة.
+class _AddUnreadRow extends StatelessWidget {
+  const _AddUnreadRow({required this.onTap});
 
-  final String label;
-  final ReadField<Object?> field;
-  final String? text;
-  final bool mono;
-  final bool last;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final review = field.needsReview;
-    return Padding(
-      padding: EdgeInsets.only(bottom: last ? 0 : 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
-                ),
-              ),
-              if (review)
-                const Text(
-                  'محتاج تحديد',
-                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.gold),
-                )
-              else
-                Text(
-                  'ثقة ${arabicNumber((field.confidence * 100).round())}٪',
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
-                ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            text ?? 'غير واضح',
-            style: TextStyle(
-              fontSize: mono ? F.screenTitleSize : F.minBodySize + 2,
-              fontWeight: FontWeight.w700,
-              color: review ? F.gold : F.ink,
-              fontFamily: mono ? F.monoFamily : null,
-              fontFamilyFallback: mono ? F.monoFallback : null,
-              height: 1.4,
-            ),
-          ),
-          if (review && field.note != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                field.note!,
-                style: const TextStyle(fontSize: F.minTextSize, color: F.gold, height: 1.5),
+  Widget build(BuildContext context) => CustomPaint(
+        painter: const _DashedBorder(color: F.mutedLight, radius: F.radiusCard),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: F.minTapTarget + F.s8),
+              padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s12),
+              child: const Row(
+                children: [
+                  Icon(Icons.add, color: F.green, size: 26),
+                  SizedBox(width: F.s8),
+                  Expanded(
+                    child: Text(
+                      'أضف دوا ما اتعرفش عليه',
+                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.green),
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
-    );
+          ),
+        ),
+      );
+}
+
+class _DashedBorder extends CustomPainter {
+  const _DashedBorder({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
+        Radius.circular(radius),
+      ));
+    const dash = 7.0, gap = 5.0;
+    for (final metric in path.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += dash + gap) {
+        canvas.drawPath(metric.extractPath(d, d + dash), paint);
+      }
+    }
   }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) => old.color != color || old.radius != radius;
 }
 
 class _EmptyReading extends StatelessWidget {
@@ -384,10 +602,11 @@ class _EmptyReading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: F.s12),
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: F.ivory,
-          borderRadius: BorderRadius.circular(F.radius),
+          color: F.ivoryWarm,
+          borderRadius: BorderRadius.circular(F.radiusCard),
         ),
         child: const Text(
           'مقدرتش ألاقي أدوية في الصورة دي. صوّر تاني والنور يكون كويس.',

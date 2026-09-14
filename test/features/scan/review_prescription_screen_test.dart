@@ -54,23 +54,57 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('اللي ثقته قليلة بالذهبي و«محتاج تحديد» وملاحظته «اسأل الصيدلي»',
+  screenTest('صف الثقة القليلة: حافة ذهبية + «مش متأكد من دي — راجعها» + الحقل وملاحظته',
       (tester) async {
     await pumpReview(tester, [unclearLine]);
     await open(tester);
 
-    expect(find.text('فهمت الروشتة كده'), findsOneWidget);
-    expect(find.text('محتاج تحديد'), findsOneWidget);
-    expect(find.text(unclearTimingNote), findsOneWidget);
-
-    final flag = tester.widget<Text>(find.text('محتاج تحديد'));
-    expect(flag.style?.color, F.gold);
-    final note = tester.widget<Text>(find.text(unclearTimingNote));
-    expect(note.style?.color, F.gold);
-    // الحقول الواضحة مش ذهبية
+    expect(find.text('الذكاء يقترح، وأنت تؤكّد'), findsOneWidget);
+    expect(find.text('مش متأكد من دي — راجعها'), findsOneWidget);
+    expect(find.byKey(const ValueKey('unsure-edge')), findsOneWidget);
+    final edge = tester.widget<Container>(find.byKey(const ValueKey('unsure-edge')));
+    expect(edge.color, F.gold);
+    // الحقل بالاسم وملاحظته «اسأل الصيدلي» — مقروءة، مش ذهبي باهت
+    expect(find.textContaining(unclearTimingNote, findRichText: true), findsOneWidget);
+    expect(find.textContaining('التوقيت: ', findRichText: true), findsOneWidget);
+    // الاسم نفسه واضح ومش ذهبي
     final name = tester.widget<Text>(find.text('Cataflam'));
     expect(name.style?.color, F.ink);
     expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('صف لكل دوا: الاسم mono ٢٤+، الوقت المحسوب بأرقام عربي، والشريحة بالقاعدة', (tester) async {
+    final line = ReadLine(
+      name: ok('Antodine 40 mg'),
+      amount: ok('قرص واحد'),
+      timings: ok([const AnchorTiming(DayAnchor.breakfast, -30)]),
+      duration: const ReadField(value: null, confidence: 1),
+    );
+    await pumpReview(tester, [line]);
+    await open(tester);
+
+    final name = tester.widget<Text>(find.text('Antodine 40 mg'));
+    expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
+    expect(name.style?.fontFamily, F.monoFamily);
+    expect(name.textDirection, TextDirection.ltr);
+    // الفطار ٧:٣٠ − ٣٠ = ٧:٠٠ ص — للعرض بس
+    expect(find.text('٧:٠٠ ص'), findsOneWidget);
+    expect(find.text('الفطار − ٣٠ د'), findsOneWidget, reason: 'القاعدة، مش الساعة');
+    expect(find.widgetWithText(OutlinedButton, 'عدّل'), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsOneWidget, reason: 'أيقونة وكلمة');
+    // الصف الواضح مفيهوش حافة شك
+    expect(find.byKey(const ValueKey('unsure-edge')), findsNothing);
+    expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('«أضف دوا ما اتعرفش عليه» بتفتح المحرر فاضي', (tester) async {
+    await pumpReview(tester, [clearLine]);
+    await open(tester);
+
+    await tester.tap(find.text('أضف دوا ما اتعرفش عليه'));
+    await settle(tester);
+    expect(find.byType(AddMedicationScreen), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Concor 5mg'), findsNothing);
   });
 
   screenTest('ولا حاجة بتتحفظ قبل الدوسة', (tester) async {
@@ -87,13 +121,13 @@ void main() {
     await open(tester);
 
     FilledButton confirm() => tester.widget<FilledButton>(
-          find.ancestor(of: find.text('تمام'), matching: find.byType(FilledButton)),
+          find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
         );
     expect(confirm().onPressed, isNull);
     expect(find.textContaining('مش واضح — دوس'), findsOneWidget);
   });
 
-  screenTest('«أعدّل» و«تمام» بنفس الحجم بالظبط', (tester) async {
+  screenTest('«أعدّل» و«تمام، ظبّطهم» بنفس الوزن بالظبط — نفس المقاس، مليانين، نفس الخط', (tester) async {
     await pumpReview(tester, [clearLine]);
     await open(tester);
 
@@ -101,10 +135,21 @@ void main() {
       find.ancestor(of: find.text('أعدّل'), matching: find.byType(FilledButton)),
     );
     final confirm = tester.getSize(
-      find.ancestor(of: find.text('تمام'), matching: find.byType(FilledButton)),
+      find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
     );
     expect(edit, confirm);
     expect(edit.height, F.primaryButtonHeight);
+
+    // مش لينك باهت: الاتنين FilledButton بتعبئة غامقة ونفس الخط
+    FilledButton button(String label) => tester.widget<FilledButton>(
+          find.ancestor(of: find.text(label), matching: find.byType(FilledButton)),
+        );
+    final e = button('أعدّل').style!, c = button('تمام، ظبّطهم').style!;
+    Color bg(ButtonStyle st) => st.backgroundColor!.resolve({})!;
+    expect(bg(e).computeLuminance(), lessThan(0.2), reason: '«أعدّل» مليان وغامق');
+    expect(bg(c).computeLuminance(), lessThan(0.2));
+    expect(e.textStyle!.resolve({}), c.textStyle!.resolve({}));
+    expect(e.foregroundColor!.resolve({}), c.foregroundColor!.resolve({}));
   });
 
   screenTest('«تمام» بتحفظ السطور الواضحة — كل توقيت جدول — وبتعيد الجدولة',
@@ -122,7 +167,7 @@ void main() {
     final result = await pumpReview(tester, [clearLine, thrice]);
     await open(tester);
 
-    await tester.tap(find.text('تمام'));
+    await tester.tap(find.text('تمام، ظبّطهم'));
     await settle(tester);
 
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -139,12 +184,12 @@ void main() {
     expect(await result(), ReviewResult.confirmed);
   });
 
-  screenTest('«أعدّل السطر ده» بتفتح المحرر متعبّي، والحفظ منه بيعلّم السطر «اتضاف»',
+  screenTest('«عدّل» في الصف بتفتح المحرر متعبّي، والحفظ منه بيعلّم الصف «اتضاف»',
       (tester) async {
     await pumpReview(tester, [unclearLine]);
     await open(tester);
 
-    await tester.tap(find.text('أعدّل السطر ده'));
+    await tester.tap(find.text('عدّل'));
     await settle(tester);
 
     expect(find.byType(AddMedicationScreen), findsOneWidget);
@@ -157,7 +202,7 @@ void main() {
     expect(find.text('اتضاف'), findsOneWidget);
     // دلوقتي مفيش سطر معلّق → «تمام» مفتوحة
     final confirm = tester.widget<FilledButton>(
-      find.ancestor(of: find.text('تمام'), matching: find.byType(FilledButton)),
+      find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
     );
     expect(confirm.onPressed, isNotNull);
     expect((await h.meds.activeSchedules(h.services.patientId)).single.medicationName, 'Cataflam');
@@ -187,21 +232,21 @@ void main() {
       await open(tester);
 
       final confirm = tester.widget<FilledButton>(
-        find.ancestor(of: find.text('تمام'), matching: find.byType(FilledButton)),
+        find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
       );
       expect(confirm.onPressed, isNotNull);
       expect(find.text('هتتحفظ من غير الجرعة — تقدر تضيفها بعدين'), findsOneWidget);
       expect(find.textContaining('مش واضح — دوس'), findsNothing);
-      // لسه ذهبية بملاحظتها
-      expect(find.text('محتاج تحديد'), findsOneWidget);
-      expect(find.text('الورقة مش كاتبة الجرعة'), findsOneWidget);
+      // لسه معلّمة بملاحظتها — ما اتنستش في صمت
+      expect(find.text('مش متأكد من دي — راجعها'), findsOneWidget);
+      expect(find.textContaining('الجرعة: الورقة مش كاتبة الجرعة', findRichText: true), findsOneWidget);
     });
 
     screenTest('«تمام» بتحفظها من غير جرعة ومعلّمة «مش معروفة» — مفيش قيمة مخترعة', (tester) async {
       await pumpReview(tester, [unknownAmount]);
       await open(tester);
 
-      await tester.tap(find.text('تمام'));
+      await tester.tap(find.text('تمام، ظبّطهم'));
       await settle(tester);
 
       final saved = (await h.meds.activeSchedules(h.services.patientId)).single;
@@ -216,7 +261,7 @@ void main() {
       await open(tester);
 
       final confirm = tester.widget<FilledButton>(
-        find.ancestor(of: find.text('تمام'), matching: find.byType(FilledButton)),
+        find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
       );
       expect(confirm.onPressed, isNull);
       expect(find.text('هتتحفظ من غير الجرعة — تقدر تضيفها بعدين'), findsNothing);

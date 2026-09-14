@@ -92,7 +92,8 @@ These are product decisions, already settled. Do not "improve" them without aski
   fail.
 - **Gold (`F.gold`) means one thing: "this needs your attention now."** A
   dose that needs taking now, the state you are currently on, and a field the
-  AI is unsure about («محتاج تحديد») — all three are that one meaning. Do not
+  AI is unsure about (the review row's gold edge, «مش متأكد من دي — راجعها»)
+  — all three are that one meaning. Do not
   add a fourth use that isn't; a list of exceptions grows until the colour
   means nothing, a principle does not. The mockups show a coral FAB in the
   bottom bar — build that FAB in green, not coral. Gold must be the only
@@ -154,7 +155,7 @@ lib/
                               supabase_push_tokens (claim_device_token)
   features/scan/              ScanPrescriptionScreen (advice → «صوّر الروشتة» /
                               «اختار من الصور», one image_picker path for both)
-                              + ReviewPrescriptionScreen «فهمت الروشتة كده»
+                              + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen — أخدته / فكّرني بعد ربع ساعة / مش هاخده
 test/                         334 passing
 ```
@@ -880,6 +881,13 @@ Consequences to handle:
 4. **Huawei / no-GMS devices cannot use Google Sign-In** — a real segment
    in Egypt. May require adding an email provider later; `AuthService`
    must stay open to it (which is why the interface is provider-neutral).
+5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
+   normal text at 17px** (AA needs 4.5:1). README's token table was
+   followed as-is for the demo (design fidelity «high»). For a
+   72-year-old with reading glasses this is the wrong side of the line.
+   The fix is one line: secondary *text* uses `F.mutedDark` (`#43544C`,
+   ≈ 7:1) and `F.muted` stays for icons and dividers. Do it before any
+   real patient uses the app, not after a complaint.
 
 ---
 
@@ -939,13 +947,18 @@ with the app fully closed, offline, and across a reboot.
 
 **Phase 2 — read a paper prescription (built, needs a real-photo pass)**
 - `lib/ai/`: config, reading model with per-field confidence, Gemini REST
-  reader. Threshold 0.8; below it a field is gold «محتاج تحديد».
+  reader. Threshold 0.8; below it the medicine's row gets a gold side edge
+  and «مش متأكد من دي — راجعها», listing each unsure field with its note.
 - Scan screen (framing advice → «صوّر الروشتة» 64px / «اختار من الصور» 56px,
-  same size constraints for both) and review screen with per-line
-  «أعدّل السطر ده», equal-weight «أعدّل»/«تمام», «صوّر تاني» — which returns
+  same size constraints for both) and review screen (D2.2, mockup 06): one
+  row per medicine — mono name, resolved time shown in Arabic digits (never
+  stored), a chip with the rule not the time, «عدّل» with icon + word — a
+  dashed «أضف دوا ما اتعرفش عليه» row, and «أعدّل» / «تمام، ظبّطهم» as two
+  solid dark buttons of identical size and type (the test compares style,
+  not just size), plus «صوّر تاني» — which returns
   to the scan screen so both sources are offered again, never auto-opening
   the camera.
-  «تمام» writes each clear line (one schedule per timing) then `rescheduleAll`.
+  «تمام، ظبّطهم» writes each clear line (one schedule per timing) then `rescheduleAll`.
 - Editor accepts prefilled values and now has an optional amount field;
   the offset stepper follows the chip (30 before meals, 15 before sleep).
 - Unknown amount is non-blocking: saved as `amountUnknown`, surfaced on

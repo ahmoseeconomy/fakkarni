@@ -1,3 +1,5 @@
+// arabic_time دارت نقية (من غير Flutter) — القاعدة ٢ سليمة.
+import '../../core/format/arabic_time.dart';
 import 'day_routine.dart';
 
 /// تكرار الجرعة.
@@ -39,7 +41,7 @@ final class AnchorTiming extends DoseTiming {
   String get ruleLabel {
     if (offsetMinutes == 0) return anchor.label;
     final sign = offsetMinutes < 0 ? '−' : '+';
-    return '${anchor.label} $sign ${offsetMinutes.abs()} د';
+    return '${anchor.label} $sign ${arabicNumber(offsetMinutes.abs())} د';
   }
 
   @override

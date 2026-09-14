@@ -171,7 +171,7 @@ void main() {
       expect(loaded.timing, const AnchorTiming(DayAnchor.breakfast, -30));
       expect(loaded.medicationName, 'Antodine');
       expect(loaded.amountLabel, 'قرص واحد');
-      expect(loaded.ruleLabel, 'الفطار − 30 د');
+      expect(loaded.ruleLabel, 'الفطار − ٣٠ د');
     });
 
     test('تعديل الروتين ما بيلمسش صف الجرعة', () async {
