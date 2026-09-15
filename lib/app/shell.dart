@@ -259,7 +259,13 @@ class _CaregiverShellState extends State<CaregiverShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          CaregiverScreen(remote: remote, now: widget.now, onNotLinked: widget.onNotLinked),
+          CaregiverScreen(
+            remote: remote,
+            now: widget.now,
+            onNotLinked: widget.onNotLinked,
+            // السؤال كل ١٠ ثواني بس وهو على التبويب ده — مش وهو على الإعدادات
+            active: _tab == 0,
+          ),
           const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
         ],
       ),

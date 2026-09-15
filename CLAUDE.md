@@ -707,7 +707,7 @@ line per `delivery_status`. Three decisions live there:
   «بلّغك» must not point at the wrong person. RLS is still the only
   scoping of what the circle may see.
 No empty-state card, no sound, no animation; refresh is the existing
-open/foreground/pull path. `alertFromRow` is pure so the nested embed
+open/foreground/pull path (plus the visible-tab poll). `alertFromRow` is pure so the nested embed
 (`dose_events → dose_schedules → medications`) is unit-tested without
 Supabase — but the `!inner` embed filter on `patient_uuid` has **never
 run against the live project**; if a card fails to appear on a device it
@@ -727,8 +727,23 @@ footer is «آخر تحديث من موبايل والدك» from the max server
 deliberately not "last seen"; data changing proves nothing about the phone
 being alive. The linked patient is identified via the caregiver's own
 `care_relationships` rows, never by filtering `owner_id` client-side —
-RLS is the only scoping. Refresh: open, foreground, pull. No realtime, no
-timers; offline keeps the last snapshot visible under the agreed sentence.
+RLS is the only scoping. When a son follows more than one parent,
+`linkedPatient` orders by `created_at desc` and takes one — without a
+deterministic order Postgres may return the title from one parent and the
+medicines from another, and the screen looks empty with no error.
+**Refresh: open, foreground, pull, plus a 10-second poll (`refreshEvery`)
+that runs only while the «متابعة» tab is visible and the app is in the
+foreground.** The rule used to be «no realtime, no timers», and it left the
+son looking at a frozen screen: the father confirmed, his phone had already
+pushed, and the son's view stayed stale until he killed and reopened the
+app. `CaregiverShell` keeps both tabs alive in an `IndexedStack`, so the
+poll is gated by `CaregiverScreen.active` (`_tab == 0`) and cancelled on
+`paused`/`inactive`; it restarts — with an immediate refresh — on resume or
+on returning to the tab. `caregiver_poll_test` proves it stays silent on
+«الإعدادات» and in the background, and fires on the tab (mutation-checked
+both ways). No realtime yet: a Supabase Realtime subscription is the
+intended **replacement** for the poll, not an addition to it. Offline keeps
+the last snapshot visible under the agreed sentence.
 
 **The cloud schema's only wall is RLS** (`supabase/` — SQL only, run by
 hand in the SQL editor, order: 0001 → 0005 → tests). The publishable key

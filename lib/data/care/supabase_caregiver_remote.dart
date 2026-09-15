@@ -65,11 +65,17 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
 
   @override
   Future<CaregiverPatient?> linkedPatient() => _guard(() async {
+        // **ترتيب حتمي إجباري.** موبايل واحد ممكن يكون متربط بأكتر من أب
+        // (اختبارات، أو ابن بيتابع أبوه وأمه). من غير order بيرجّع Postgres
+        // أي صف — فالعنوان ييجي من أب والأدوية من أب تاني، والشاشة تبان
+        // فاضية من غير أي خطأ. الأحدث هو المقصود: آخر كود اتفكّ.
         final links = await _supabase
             .from('care_relationships')
             .select('patient_uuid')
             .eq('status', 'accepted')
-            .eq('caregiver_id', _supabase.auth.currentUser?.id ?? '');
+            .eq('caregiver_id', _supabase.auth.currentUser?.id ?? '')
+            .order('created_at', ascending: false)
+            .limit(1);
         if (links.isEmpty) return null;
 
         final rows = await _supabase

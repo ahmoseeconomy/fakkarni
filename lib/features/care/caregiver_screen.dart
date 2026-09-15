@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
@@ -14,11 +16,22 @@ import '../../data/care/caregiver_remote.dart';
 /// قبل ما التغطية تخلص، مش بعدها.
 const Duration staleAfter = Duration(hours: 24);
 
+/// كل قد إيه الشاشة بتسأل السحابة وهي مفتوحة قدامه.
+///
+/// الشاشة دي بتتفرّج على موبايل تاني — لو ما بتحدّثش لوحدها، الابن بيبص
+/// عليها ويشوف بيانات قديمة من غير ما حاجة تقوله.
+///
+/// عشرة ثواني مش رقم عشوائي: ده الفرق بين «الأب أكّد والابن شاف» وبين
+/// وقفة محرجة قدام حد بيتفرّج. والشاشة دي ما بتفضلش مفتوحة طول اليوم —
+/// بتتفتح عشان يطمّن، فالتكلفة محدودة بالدقايق اللي هو فيها فعلاً.
+/// البديل الصح على المدى الطويل اشتراك Realtime بدل السؤال المتكرر.
+const Duration refreshEvery = Duration(seconds: 10);
+
 /// «لسه ما اتأكدتش» بالذهبي — مش «فاتت» ولا أحمر. قرار «فاتت» بتاع
 /// المرحلة الرابعة بمهلتها. ومفيش هنا ولا سطر جدولة — الأوقات كلها من
 /// اللي جهاز الأب كتبه.
 class CaregiverScreen extends StatefulWidget {
-  const CaregiverScreen({required this.remote, this.now, this.onNotLinked, super.key});
+  const CaregiverScreen({required this.remote, this.now, this.onNotLinked, this.active = true, super.key});
 
   final CaregiverRemote remote;
 
@@ -31,6 +44,11 @@ class CaregiverScreen extends StatefulWidget {
   /// للاختبارات.
   final DateTime? now;
 
+  /// التبويب ده قدام عينه؟ `CaregiverShell` بيحتفظ بالتبويبين حيين في
+  /// `IndexedStack`، فالشاشة بتفضل mounted وهو على «الإعدادات». السؤال كل
+  /// [refreshEvery] بيشتغل بس وهي ظاهرة **و**التطبيق في المقدمة.
+  final bool active;
+
   @override
   State<CaregiverScreen> createState() => _CaregiverScreenState();
 }
@@ -40,26 +58,65 @@ class _CaregiverScreenState extends State<CaregiverScreen>
   CaregiverSnapshot? _snapshot;
   String? _error;
   bool _loading = true;
+  Timer? _timer;
 
   DateTime get _now => widget.now ?? DateTime.now();
+
+  /// null في الاختبارات قبل أي حدث دورة حياة — بيتعامل كمقدمة.
+  bool get _foreground {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null || state == AppLifecycleState.resumed;
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
+    _syncTimer();
+  }
+
+  @override
+  void didUpdateWidget(CaregiverScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active == widget.active) return;
+    // رجع للتبويب → صورة طازة على طول، مش بعد عشر ثواني
+    if (widget.active) _refresh();
+    _syncTimer();
+  }
+
+  /// السؤال الدوري شغّال ⇔ التبويب ظاهر والتطبيق في المقدمة. غير كده مقفول.
+  void _syncTimer() {
+    final shouldRun = widget.active && _foreground;
+    if (shouldRun && _timer == null) {
+      _timer = Timer.periodic(refreshEvery, (_) => _refresh());
+    } else if (!shouldRun) {
+      _timer?.cancel();
+      _timer = null;
+    }
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// رجوع للمقدمة = تحديث — زي ما هو بيعمل لما بيفتح يطمّن.
+  /// رجوع للمقدمة = تحديث — زي ما هو بيعمل لما بيفتح يطمّن — والسؤال
+  /// الدوري بيرجع. في الخلفية أو وهو بيقفل بيتقفل.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (widget.active) _refresh();
+        _syncTimer();
+      case AppLifecycleState.paused || AppLifecycleState.inactive:
+        _timer?.cancel();
+        _timer = null;
+      default:
+        break;
+    }
   }
 
   Future<void> _refresh() async {
