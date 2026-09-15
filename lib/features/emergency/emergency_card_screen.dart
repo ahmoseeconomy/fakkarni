@@ -75,9 +75,12 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen>
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: F.s8),
+                      // Flexible مش Spacer: على ٣٩٠ وبخط أكبر، الزرارين كانوا بيفيضوا يمين
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          SizedBox(
+                          Flexible(
+                            child: SizedBox(
                             height: F.minTapTarget,
                             child: TextButton(
                               onPressed: () => Navigator.of(context).push(
@@ -95,8 +98,9 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen>
                               child: const Text('كل المعلومات'),
                             ),
                           ),
-                          const Spacer(),
-                          SizedBox(
+                          ),
+                          Flexible(
+                            child: SizedBox(
                             height: F.minTapTarget,
                             child: TextButton(
                               onPressed: () => Navigator.of(context).maybePop(),
@@ -109,6 +113,7 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen>
                               ),
                               child: const Text('إغلاق'),
                             ),
+                          ),
                           ),
                         ],
                       ),

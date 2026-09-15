@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/care/care_circle_service.dart';
 import 'package:fakkarni/features/link/redeem_code_screen.dart';
 
@@ -83,7 +84,9 @@ void main() {
     await settle(tester);
 
     final error = tester.widget<Text>(find.text('الكود مش مضبوط أو خلّص وقته'));
-    expect(error.style?.color, F.gold);
+    // ذهبي على الحافة، والنص غامق يتقري (الذهبي كنص ≈ ١.٩:١)
+    expect(error.style?.color, F.ink);
+    expect(find.ancestor(of: find.text('الكود مش مضبوط أو خلّص وقته'), matching: find.byType(GoldNote)), findsOneWidget);
     expectNoRedAndMinSize(tester);
   });
 

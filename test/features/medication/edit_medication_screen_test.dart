@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -36,7 +37,9 @@ void main() {
     expect(find.text('Telfast 180 mg'), findsOneWidget);
     expect(find.textContaining('العشا'), findsOneWidget);
     final gold = tester.widget<Text>(find.textContaining('اسأل الصيدلي واكتبها هنا'));
-    expect(gold.style?.color, F.gold);
+    // ذهبي على الحافة، والنص غامق يتقري (الذهبي كنص ≈ ١.٩:١)
+    expect(gold.style?.color, F.ink);
+    expect(find.ancestor(of: find.textContaining('اسأل الصيدلي واكتبها هنا'), matching: find.byType(GoldNote)), findsOneWidget);
     expectNoRedAndMinSize(tester);
   });
 

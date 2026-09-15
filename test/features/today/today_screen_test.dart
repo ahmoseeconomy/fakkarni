@@ -538,7 +538,7 @@ void main() {
 
     screenTest('الحقول الأول، ومفيش منتقي ساعة ولا مراسي قبل «كمّل»', (tester) async {
       await pumpAdd(tester);
-      expect(find.text('أضف دواءً وجرعته'), findsOneWidget);
+      expect(find.text('ضيف دوا وجرعته'), findsOneWidget);
       expect(find.text('كام مرة في اليوم؟'), findsOneWidget);
       expect(find.text('مع الأكل؟'), findsOneWidget);
       expect(find.text('مفتوحة'), findsOneWidget);

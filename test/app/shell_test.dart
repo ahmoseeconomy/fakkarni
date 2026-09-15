@@ -180,7 +180,7 @@ void main() {
     );
     final shape = card.shape as RoundedRectangleBorder;
     expect(shape.side.color, F.gold);
-    expect(tester.widget<Text>(find.text('شغّال')).style?.color, F.gold);
+    expect(tester.widget<Text>(find.text('شغّال')).style?.color, F.ink, reason: 'الحافة ذهبي، الكلمة تتقري');
   });
 
   group('الإعدادات (المخطط 33)', () {

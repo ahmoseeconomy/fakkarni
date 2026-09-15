@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
@@ -162,10 +163,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                       const SizedBox(height: 8),
                       if (med.amountUnknown) ...[
                         // الذهبي هنا بمعناه الواحد: ده محتاج انتباهك.
-                        const Text(
-                          'الورقة ما قالتش الجرعة — اسأل الصيدلي واكتبها هنا.',
-                          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.gold, height: 1.5),
-                        ),
+                        const GoldNote('الورقة ما قالتش الجرعة — اسأل الصيدلي واكتبها هنا.'),
                         const SizedBox(height: 8),
                       ],
                       TextField(

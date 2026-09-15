@@ -366,7 +366,8 @@ class _Row extends StatelessWidget {
                     style: TextStyle(
                       fontSize: F.minTextSize,
                       fontWeight: FontWeight.w700,
-                      color: attention ? F.gold : (disabled ? F.mutedDark : F.green),
+                      // الحافة الذهبي هي المعنى؛ الكلمة غامقة تتقري (ذهبي على أبيض ≈ ٢:١)
+                      color: attention ? F.ink : (disabled ? F.mutedDark : F.green),
                     ),
                   ),
                 ],

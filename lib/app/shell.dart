@@ -325,13 +325,19 @@ class _TabBar extends StatelessWidget {
                       children: [
                         Icon(icons[i], size: 26, color: i == current ? F.green : F.mutedLight),
                         const SizedBox(height: F.s4),
-                        Text(
+                        // خط النظام الكبير كان بيلف «الإعدادات» سطرين ويفيض من
+                        // الشريط — سطر واحد بيصغر بس لو ما دخلش
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
                           labels[i],
+                          maxLines: 1,
                           style: TextStyle(
                             fontSize: labelSize,
                             fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
                             color: i == current ? F.green : F.muted,
                           ),
+                        ),
                         ),
                       ],
                     ),

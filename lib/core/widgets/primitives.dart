@@ -322,3 +322,25 @@ class SectionHead extends StatelessWidget {
         ),
       );
 }
+
+/// ملاحظة «محتاجة انتباهك»: نص غامق جنب حافة ذهبي.
+///
+/// **مش نص ذهبي**: الذهبي على العاجي تباينه ≈ ١.٩:١ — راجل عنده ٧٢ سنة
+/// بنضارة القراية مش هيقراه. الذهبي بيفضل هو المعنى، على الحافة.
+class GoldNote extends StatelessWidget {
+  const GoldNote(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsetsDirectional.only(start: F.s10, top: F.s4, bottom: F.s4),
+        decoration: const BoxDecoration(
+          border: BorderDirectional(start: BorderSide(color: F.gold, width: 4)),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+        ),
+      );
+}

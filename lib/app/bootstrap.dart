@@ -127,17 +127,13 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   // تشخيص: أول سطر في الـisolate — لو ما ظهرش، الضغطة عمرها ما وصلت دارت.
   debugPrint('Isolate: دخلنا المعالج — action=${response.actionId} payload=${response.payload}');
 
-  debugPrint('Isolate: ١- بنفتح القاعدة');
   final db = AppDatabase(openConnection());
-  debugPrint('Isolate: ٢- القاعدة اتفتحت');
   IsolateCloud? cloud;
   try {
     await NotificationService.init();
-    debugPrint('Isolate: ٣- الإشعارات اتهيّأت');
     // تهيئة محلية بتقرا الجلسة المحفوظة — من غير جلسة أو من غير إعداد
     // بترجع null والصحوة بتفضل أوفلاين بالكامل.
     cloud = await initSupabaseForIsolate();
-    debugPrint('Isolate: ٤- السحابة ${cloud == null ? "مش متاحة" : "جاهزة"}');
     final services = await buildServices(
       db,
       sync: cloud == null
@@ -150,14 +146,11 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
               hasSession: cloud.hasSession,
             ),
     );
-    debugPrint('Isolate: ٥- الخدمات جاهزة، بنعالج');
     await actionHandlerFor(services).handle(response.actionId, response.payload);
-    debugPrint('Isolate: ٦- المعالجة خلصت');
   } catch (error, stack) {
     debugPrint('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {
     await cloud?.shutdown();
     await db.close();
-    debugPrint('Isolate: ٧- قفلنا وخلصنا');
   }
 }

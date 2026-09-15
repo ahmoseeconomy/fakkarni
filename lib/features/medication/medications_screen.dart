@@ -171,13 +171,15 @@ class _GroupHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         children: [
-          Text(
+          Flexible(
+            child: Text(
             time == null ? label : '$label · ${arabicTime(time!)}',
             style: TextStyle(
               fontSize: F.sectionHeadSize,
               fontWeight: FontWeight.w700,
               color: muted ? F.muted : F.green,
             ),
+          ),
           ),
           const SizedBox(width: F.s10),
           Expanded(child: Container(height: 1, color: F.line)),

@@ -200,15 +200,8 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     // ذهبي مش أحمر: محتاج انتباهك، مش غلطة تتلام عليها
-                    Text(
-                      _error!,
-                      style: const TextStyle(
-                        fontSize: F.minBodySize,
-                        fontWeight: FontWeight.w600,
-                        color: F.gold,
-                        height: 1.5,
-                      ),
-                    ),
+                    // نص غامق جنب حافة ذهبي — الذهبي كنص على العاجي ≈ ١.٩:١، ما بيتقراش
+                    GoldNote(_error!),
                   ],
                   const SizedBox(height: F.gap),
                   FPrimaryButton(

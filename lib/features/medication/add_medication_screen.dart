@@ -183,7 +183,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                   const Kicker('إضافة يدوية'),
                   const SizedBox(height: F.s4),
                   const Text(
-                    'أضف دواءً وجرعته',
+                    'ضيف دوا وجرعته',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
                       fontSize: F.screenTitleSize,

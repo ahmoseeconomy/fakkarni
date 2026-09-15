@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
@@ -230,7 +231,9 @@ void main() {
     await pumpEdit(tester);
 
     final line = tester.widget<Text>(find.text('وضع رمضان شغّال — عدّل من شاشة رمضان'));
-    expect(line.style?.color, F.gold);
+    // ذهبي على الحافة، والنص غامق يتقري (الذهبي كنص ≈ ١.٩:١)
+    expect(line.style?.color, F.ink);
+    expect(find.ancestor(of: find.text('وضع رمضان شغّال — عدّل من شاشة رمضان'), matching: find.byType(GoldNote)), findsOneWidget);
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
 
     await tester.tap(find.text('احفظ يومك'), warnIfMissed: false);

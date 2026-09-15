@@ -179,7 +179,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         334 passing
+test/                         646 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1564,6 +1564,27 @@ device-verified)**
   (dormant sibling); `SignInScreen` behind «اربط ابني»; guard tests prove
   auth is not a gate. Real-device check: tap «اربط ابني» with
   SUPABASE_URL/SUPABASE_ANON_KEY set → user appears in Supabase Auth.
+
+**Demo prep (chore, no features)**
+- Step-trace `debugPrint`s removed from `bootstrap.dart` and
+  `notification_actions.dart`. Kept: the isolate-entry and `_onTap` lines
+  (see the second-engine note above) and every log inside a `catch` —
+  `Handle: ⚠`, `Auth:`, `Care:` — they are the only record of a real
+  failure on a path no test reaches.
+- `test/app/phone_width_smoke_test.dart`: ~25 screens at 390 wide, text
+  ×1.0 and ×1.3, empty and seeded, with the real fonts loaded (the test
+  font's 1em glyphs give false overflows). It found and fixed: the
+  emergency card's top row, the tab labels, the medication group head.
+- `GoldNote` (ink text, gold start edge) replaces gold *text* on ivory
+  (≈1.9:1) in redeem / edit routine / edit medication; settings values are
+  ink, not gold.
+- **Known, not fixed (decisions):** a medication added today materialises
+  today's earlier doses, so a 7:00 dose added at 11:17 appears at once as
+  «نسيتها؟» (and would sweep to `missed` and reach the cloud); the water
+  counter's «٠» reads as a bullet; the empty home shows water above
+  «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
+  notification permission has no in-app lead-in; the caregiver screen
+  still uses gold text.
 
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune

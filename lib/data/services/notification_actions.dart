@@ -37,28 +37,17 @@ class NotificationActionHandler {
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
   Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
-    debugPrint('Handle: ٠- دخلنا — action=$actionId payload=$payload');
-    if (!NotificationActions.isAction(actionId)) {
-      debugPrint('Handle: خرجنا — actionId مش معروف');
-      return;
-    }
+    if (!NotificationActions.isAction(actionId)) return;
     final decoded = decodePayload(payload);
-    if (decoded == null) {
-      debugPrint('Handle: خرجنا — الـpayload مش اتفكّ');
-      return;
-    }
-    debugPrint('Handle: ٠.٥- الـpayload اتفكّ');
+    if (decoded == null) return;
 
-    debugPrint('Handle: أ- بنجيب الروتين');
     final routine = await routines.getRoutine(patientId) ?? DayRoutine.fallback;
-    debugPrint('Handle: ب- الروتين جه');
     final engine = ScheduleEngine(routine);
     final day = decoded.routineDay;
     final reminders = engine.remindersForDay(
       await medications.activeSchedules(patientId),
       day,
     );
-    debugPrint('Handle: ج- التذكيرات اتحسبت (${reminders.length})');
 
     // الجرعات اللي الإشعار ده كان عشانها — الساعة بنحسبها من الروتين
     // الحالي، مش من الإشعار: الـpayload فيه اليوم والجداول بس.
@@ -80,7 +69,6 @@ class NotificationActionHandler {
         // لو الكتابة دي وقعت، بنرمي. **تأكيد فشل عمره ما يشبه تأكيد
         // نجح**: الإشعار بيختفي من شاشة القفل في الحالتين، فلو بلعنا
         // الخطأ المريض بيفتكر إنه أكّد والجرعة مش مسجّلة.
-        debugPrint('Handle: د- بنسجّل التأكيد');
         for (final dose in doses) {
           await events.confirmDose(
             doseScheduleId: int.parse(dose.id),
@@ -89,12 +77,10 @@ class NotificationActionHandler {
             state: DoseState.taken,
           );
         }
-        debugPrint('Handle: هـ- التأكيد اتسجّل');
 
         // القاعدة الخامسة — وعد كمان: التأكيد بيسكّت كل درجات السلّم
         // للخانة دي في نفس اللحظة.
         await scheduler.cancelReminderAt(at);
-        debugPrint('Handle: و- الخانة اتسكّتت');
 
         // -------------------------------------------------- المجاملات
         // مدّ النافذة ورفع السحابة. الاتنين مهمين — من غير مدّ النافذة
@@ -123,9 +109,7 @@ class NotificationActionHandler {
     //
     // [SyncService.pushOnce] عمرها ما بترمي، فمفيش حاجة فوق ممكن تتلغي
     // بسببها — وهي كمان آخر سطر، فمفيش حاجة بعدها تتأثر.
-    debugPrint('Handle: ح- بنرفع للسحابة');
     await _courtesy('الرفع للسحابة', () async => sync?.pushOnce());
-    debugPrint('Handle: ط- الرفع خلص');
   }
 
   /// خطوة مسموح لها تفشل — بس مش مسموح لها تفشل في صمت.

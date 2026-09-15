@@ -86,15 +86,7 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                 children: [
                   if (_ramadanOn) ...[
                     // الذهبي = «إنت هنا»: الحالة اللي الجهاز عليها دلوقتي
-                    const Text(
-                      'وضع رمضان شغّال — عدّل من شاشة رمضان',
-                      style: TextStyle(
-                        fontSize: F.minBodySize,
-                        fontWeight: FontWeight.w700,
-                        color: F.gold,
-                        height: 1.5,
-                      ),
-                    ),
+                    const GoldNote('وضع رمضان شغّال — عدّل من شاشة رمضان'),
                     const SizedBox(height: F.gap),
                   ],
                   const Text(
