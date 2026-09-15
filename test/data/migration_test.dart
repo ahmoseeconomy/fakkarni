@@ -87,7 +87,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 13);
+    expect(version.read<int>('user_version'), 14);
 
     final loaded = await MedicationRepository(db).activeSchedules(1);
     expect(loaded.length, 2);
@@ -134,6 +134,9 @@ void main() {
     // v12: السكر ونتايج التحاليل موجودين وفاضيين
     expect(await db.select(db.readings).get(), isEmpty);
     expect(await db.select(db.labResults).get(), isEmpty);
+
+    // v14: أسئلة الزيارة موجودة وفاضية
+    expect(await db.select(db.visitQuestions).get(), isEmpty);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

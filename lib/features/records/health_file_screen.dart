@@ -10,6 +10,8 @@ import '../../data/db/app_database.dart';
 import '../../data/repositories/records_repository.dart';
 import '../health/scan_lab_screen.dart';
 import '../../domain/health/checkup.dart';
+import '../doctor/doctor_page_screen.dart';
+import '../export/export_screen.dart';
 import 'calendar_screen.dart';
 import 'checkup_screen.dart';
 import 'deleted_row.dart';
@@ -190,6 +192,28 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                   ),
                   const SizedBox(width: F.s10),
                   Expanded(child: FSecondaryButton(label: 'ابدأ دورة فحص', onPressed: _startCheckup)),
+                ],
+              ),
+              const SizedBox(height: F.s10),
+              Row(
+                children: [
+                  Expanded(
+                    child: FSecondaryButton(
+                      label: 'صفحة الطبيب',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const DoctorPageScreen()),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: F.s10),
+                  Expanded(
+                    child: FSecondaryButton(
+                      label: 'استخراج الملف',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const ExportScreen()),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: F.s10),

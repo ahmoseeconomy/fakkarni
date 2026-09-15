@@ -136,6 +136,7 @@ lib/
                               (v10, local: SyncIdentity columns but never
                               pushed), records (v11, local, soft delete),
                               readings + lab_results (v12, local),
+                              visit_questions (v14, local),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -998,6 +999,13 @@ Consequences to handle:
   the hours the lab gave.
 - **The calendar shows doses only where `dose_events` rows exist** (up to
   tomorrow). It does not recompute future days with the engine, and says so.
+- **The son adding visit questions from his own phone is not built** — it
+  needs the cloud; questions are written on the patient's phone only.
+- **Mockup 16's trend arrow («↑ عن الشهر السابق»), the red lab arrows and
+  the medication stop reason are not built** — a judgment, a colour we do
+  not spend, and a field nobody stores.
+- **Mockup 30's second per-section control is not built:** a switch and «👁
+  مرئي» meant the same thing; there is one 👁 «هيظهر» / 🙈 «مخفي» chip.
 - **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
   hours silence everything **except** a missed dose and emergency — and
   those are the only alerts we have, so the switch would do nothing. A
@@ -1318,6 +1326,43 @@ device-verified)**
   Entry: «التقويم» on «الملف الصحي». Day cells are 64 tall but ≈53 wide on
   a 402pt phone — seven columns do not fit 56 each; the whole cell is the
   target.
+
+**D3.8 — doctor page + export (built)**
+- Schema v14 `visit_questions` (body, created_at, asked; local,
+  SyncIdentity + trigger, no-sync guard). Written red first.
+- «ملخص زيارة الطبيب» (16): current medications with their rules, glucose
+  for the last 30 days per context (count · lowest · highest · average),
+  the latest value of each lab test with «كان X في {date}», the nearest
+  booking, and family questions («اتسأل ✓»). **Numbers and facts only** —
+  the D3.6 banned-words test now also reads this screen and every string
+  literal in `features/doctor/` and `features/export/`, plus «يبدو»،
+  «نستنتج»، «غالباً».
+- «استخراج الملف» (30): period + one 👁/🙈 chip per section. **Hiding is
+  enforced at generation:** `collectExport` never queries a hidden section,
+  so it is not in the PDF at all. `test/features/export/export_pdf_test.dart`
+  builds an uncompressed PDF, decodes its ToUnicode maps, and asserts a
+  hidden section's Latin tokens are absent — after a positive control that
+  finds every token with all sections visible (mutation-checked: ignoring
+  the hidden flag fails three tests). Emergency is hidden by default;
+  contact phone numbers never enter the file.
+- «معاينة الملف» (31): the actual PDF bytes rasterized (`printing`), and
+  those same bytes are what gets saved and shared (test asserts identity).
+  «احفظ وشارك» saves to `Documents/exports/` (visible in Files via
+  `UIFileSharingEnabled`), states that location, then opens the share
+  sheet; if the sheet does not open the location stays on screen. «طباعة»
+  opens the system print dialog.
+- **Arabic in the PDF was verified by looking at a generated file, and it
+  was broken first.** `pdf` shapes letters correctly but measures a word by
+  its ink, not its advance, so words ending in a long-tailed letter ran into
+  the next («سكرصايم»), and mixed Arabic/Latin lines came out reordered.
+  `arabicLine` in `export_pdf.dart` fixes both: one `Text` per Arabic word
+  padded with ink-less NBSPs (the box then follows the advance), Latin runs
+  grouped into one LTR `Text`, all in an RTL `Wrap`; diacritics are stripped
+  in the PDF only (a shadda landed off its letter). Re-check with a real
+  render (`qlmanage -t`) after touching it — the code saying `rtl` proves
+  nothing.
+- Entry: «صفحة الطبيب» and «استخراج الملف» on «الملف الصحي». New
+  dependencies: `pdf`, `printing` (no `share_plus`).
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults

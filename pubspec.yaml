@@ -54,6 +54,8 @@ dependencies:
   # عدّاد المية (D3.2) — تلات أرقام محلية. كانت متحمّلة أصلاً من supabase_flutter.
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
+  pdf: ^3.13.0
+  printing: ^5.15.0
 
 dev_dependencies:
   flutter_test:

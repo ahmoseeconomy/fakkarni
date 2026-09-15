@@ -234,6 +234,20 @@ class LabResults extends Table with SyncIdentity {
   TextColumn get unit => text().nullable()();
 }
 
+/// أسئلة العيلة للدكتور (D3.8، المخطط ١٦) — بتتكتب على الموبايل ده.
+///
+/// محلي بأعمدة SyncIdentity من الأول، وSyncService ما بيقراهوش. الابن يضيف
+/// أسئلة من موبايله محتاج سحابة — مؤجَّل.
+@DataClassName('VisitQuestionRow')
+class VisitQuestions extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
+  TextColumn get body => text().withLength(min: 1, max: 500)();
+  DateTimeColumn get createdAt => dateTime()();
+  BoolColumn get asked => boolean().withDefault(const Constant(false))();
+}
+
 @DataClassName('MedicationRow')
 class Medications extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();

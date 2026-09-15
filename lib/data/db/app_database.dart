@@ -29,13 +29,14 @@ part 'app_database.g.dart';
     Records,
     Readings,
     LabResults,
+    VisitQuestions,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -290,6 +291,20 @@ class AppDatabase extends _$AppDatabase {
                 }
               }
             }
+            if (from < 14) {
+              // أسئلة العيلة للدكتور — SQL مجمّد بالحرف.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "visit_questions" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"patient_id" INTEGER NOT NULL REFERENCES patients (id) ON DELETE CASCADE, '
+                '"body" TEXT NOT NULL, '
+                '"created_at" INTEGER NOT NULL, '
+                '"asked" INTEGER NOT NULL DEFAULT 0 CHECK ("asked" IN (0, 1)))',
+              );
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -331,6 +346,7 @@ class AppDatabase extends _$AppDatabase {
             'records',
             'readings',
             'lab_results',
+            'visit_questions',
           ]) {
             await customStatement('''
 CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at
