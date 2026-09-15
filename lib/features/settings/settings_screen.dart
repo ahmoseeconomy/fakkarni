@@ -12,6 +12,7 @@ import '../routine/ramadan_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
 import '../records/health_file_screen.dart';
+import '../nearby/nearby_screen.dart';
 import '../../data/repositories/preferences_repository.dart';
 
 /// «الإعدادات» (المخطط 33) — بس الصفوف اللي وراها حاجة حقيقية.
@@ -128,6 +129,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: 'الملف الصحي',
               hint: 'الزيارات والتحاليل والأشعة والروشتات',
               onTap: () => _open(const HealthFileScreen()),
+            ),
+            _Row(
+              icon: Icons.local_pharmacy_outlined,
+              label: 'قريب منك',
+              hint: 'صيدليات ودكاترة من OpenStreetMap',
+              onTap: () => _open(const NearbyScreen()),
             ),
             _Row(
               icon: Icons.medical_information_outlined,

@@ -8,6 +8,8 @@ import '../../data/repositories/medication_repository.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../../core/widgets/primitives.dart';
+import '../nearby/nearby_screen.dart';
 import 'edit_medication_screen.dart';
 
 /// تبويب «الأدوية» (المخطط 09): الأدوية مجمّعة بالمرساة.
@@ -78,6 +80,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                       ? 'لسه مفيش أدوية. دوس «ضيف» تحت.'
                       : '${_count(active.length)} · مرتّبة على مواعيد يومك',
                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                ),
+                const SizedBox(height: F.s10),
+                FSecondaryButton(
+                  label: 'صيدليات ودكاترة قريب منك',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const NearbyScreen()),
+                  ),
                 ),
                 for (final group in groups) ...[
                   const SizedBox(height: F.gap),

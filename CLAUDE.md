@@ -1006,6 +1006,11 @@ Consequences to handle:
   not spend, and a field nobody stores.
 - **Mockup 30's second per-section control is not built:** a switch and «👁
   مرئي» meant the same thing; there is one 👁 «هيظهر» / 🙈 «مخفي» chip.
+- **Mockup 17's star ratings are not built, and never will be from OSM.**
+  OpenStreetMap has no ratings; a made-up star on a real pharmacy is a lie
+  told to people, not a UI detail. «Concor 5mg متوفر», «توصيل ٤٥ د» and
+  «بيقبل تأمينك» are not built either — no source holds them. Its «معامل»
+  filter is left out (not in the brief).
 - **Mockup 26's «ساعات الهدوء» is not built.** README's rule is that quiet
   hours silence everything **except** a missed dose and emergency — and
   those are the only alerts we have, so the switch would do nothing. A
@@ -1014,6 +1019,15 @@ Consequences to handle:
   lands with D3.4 (a locked row would promise an alert nobody sends),
   «قراءة سكر غير معتادة» with D3.6, and «عضو أكّد جرعة» / «انضمام عضو
   بالرابط» / «رفع تقرير أو تحليل» when a notification exists behind them.
+
+4b. **«قريب منك» runs on public OpenStreetMap services — fine for a demo,
+   not for a store launch at scale.** Overpass's policy says an app for
+   regular users on the public instance "requires your own instance"
+   (~10k requests/day guideline); the tile policy allows small apps
+   (distinct User-Agent, attribution, ≥7-day caching, no offline bulk) but
+   access "may be withdrawn at any point". Before launch: our own Overpass
+   instance or a paid provider, and a tile provider that allows commercial
+   use. Doctors' coverage in Egypt on OSM is thin and is shown as-is.
 
 5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
    normal text at 17px** (AA needs 4.5:1). README's token table was
@@ -1363,6 +1377,36 @@ device-verified)**
   nothing.
 - Entry: «صفحة الطبيب» and «استخراج الملف» on «الملف الصحي». New
   dependencies: `pdf`, `printing` (no `share_plus`).
+
+**D3.9 — nearby (built) — the 33rd screen**
+- PHASE_D3 said this needed billed Google Places. It does not: verified
+  with a live Overpass query around central Cairo (no key, no account)
+  and a live OSM tile; both usage policies read and quoted in the
+  corrected PHASE_D3 line and in debt 4b.
+- `lib/data/places/places.dart`: one Overpass query per search (pharmacy +
+  `amenity=doctors` + `healthcare=doctor` in 2 km), the location rounded
+  to 3 decimals (~110 m) **before** it leaves the phone — and the screen
+  says it leaves («بنبعت مكانك التقريبي لـOpenStreetMap»); app User-Agent;
+  24-hour cache keyed by the rounded point (shared_preferences). Offline
+  with a cache shows those results with their date; without one, a plain
+  message. Re-search only from «دوّر من مكاني تاني», never on map drag.
+- `domain/places/opening_hours.dart` (pure) answers «فاتحة/قافلة» **only
+  when it understands the whole tag** (24/7, day ranges incl. wrap, several
+  spans, overnight, off); anything else → no verdict, the tag is shown
+  verbatim. A wrong «فاتحة» walks a 72-year-old to a closed door.
+- `NearbyScreen`: OSM tiles via `flutter_map` (built-in cache honours
+  Cache-Control/Expires; `userAgentPackageName` set), our own «© مساهمو
+  OpenStreetMap» label on the map (flutter_map's widget doubled the © and
+  reordered the Arabic), `KeyboardOptions.disabled()` (the map's autofocus
+  scrolled the privacy line off screen). Cards: name (or «صيدلية من غير
+  اسم على الخريطة»), distance, open state only as above, «اتصل» only with
+  a phone tag, «الطريق» → Apple Maps / `geo:`. Both are secondary buttons —
+  a primary per card would break the two-primaries rule.
+- Location permission is requested when the screen opens and nowhere else
+  (`geolocator`; `NSLocationWhenInUseUsageDescription`, Android coarse/fine);
+  denied, denied-forever («افتح الإعدادات») and service-off each get words.
+- Entry: «صيدليات ودكاترة قريب منك» on «الأدوية», and «قريب منك» in
+  settings. New dependencies: `flutter_map`, `latlong2`, `geolocator`.
 
 **Ramadan mode (built, screen restyled in D2.7)**
 - `domain/scheduling/ramadan.dart` (pure): `RamadanTimes` (Cairo defaults
