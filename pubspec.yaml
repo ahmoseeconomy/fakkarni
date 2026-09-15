@@ -74,6 +74,24 @@ dev_dependencies:
   build_runner: ^2.16.0
   image_picker_platform_interface: ^2.11.1
   plugin_platform_interface: ^2.1.8
+  flutter_launcher_icons: ^0.14.4
+  yaml: ^3.1.4
+
+# الأيقونة على المنصتين — `dart run flutter_launcher_icons`. الملفين مرسومين
+# من مسارات SVG بتاعة العلامة (design/handoff/README.md): المِعلَم ٦٨٪ على
+# #0A4638، والـforeground مصغّر لـ٤٥.٥٪ عشان يفضل جوه منطقة أمان أندرويد.
+# test/app/branding_test.dart بيقع لو مسار هنا اتغيّر لملف مش موجود.
+flutter_launcher_icons:
+  image_path: assets/branding/icon-1024.png
+  android: true
+  ios: true
+  adaptive_icon_background: "#0A4638"
+  adaptive_icon_foreground: assets/branding/icon-foreground.png
+  # الـforeground مصغّر لمنطقة الأمان في الملف نفسه (٤٥.٥٪) — الـinset
+  # الافتراضي (١٦٪) كان هيصغّره تاني لحوالي ٣١٪ من الطبقة.
+  adaptive_icon_foreground_inset: 0
+  # App Store بيرفض أي شفافية في الأيقونة
+  remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1502,10 +1502,11 @@ NOT device-verified)**
 - `firebase_core` ^4.14.0 + `firebase_messaging` ^16.6.0; google-services
   Gradle plugin 4.5.0; **no firebase-bom** (the Flutter plugins carry their
   own versions).
-- **Unverified:** there is no Android SDK on this machine, so
-  `flutter build apk` has never run with the google-services plugin
-  applied. The first real build is the first test of the Gradle wiring —
-  and the first proof that `handled 1 / sent` replaces `no_token`.
+- **Gradle wiring verified 2026-09-15:** `flutter build apk --debug` with
+  the google-services plugin applied builds and runs on the Pixel_8
+  emulator (API 34) — the Android SDK now exists on this machine. Still
+  unverified: a real device token, i.e. `handled 1 / sent` replacing
+  `no_token`.
 
 **Rounds 4.2b parts 2–3 — the cloud half is live**
 - `0006`–`0009` all applied to the real project, `ALL ESCALATION TESTS
@@ -1624,6 +1625,24 @@ device-verified)**
   «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
   notification permission has no in-app lead-in; the caregiver screen
   still uses gold text.
+
+**App icon + Android launch screen (chore)**
+- `flutter_launcher_icons` config lives in `pubspec.yaml`, fed by
+  `assets/branding/icon-1024.png` (opaque, iOS + legacy Android) and
+  `icon-foreground.png` (transparent, mark already at 45.5% for the
+  adaptive safe zone — hence `adaptive_icon_foreground_inset: 0`; the
+  default 16% would shrink it to ~31%). Re-run with
+  `dart run flutter_launcher_icons`, **then `git checkout
+  ios/Runner.xcodeproj/project.pbxproj`**: 0.14.4 rewrites
+  `ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES` to
+  `AppIcon` (a boolean setting); the icon name is already set on the target.
+  `test/app/branding_test.dart` fails if either path stops existing.
+- Android launch screen is flat `#0A4638` with no mark, like iOS since D1:
+  `drawable*/launch_background.xml` for ≤ API 30, and `values-v31` /
+  `values-night-v31` (`windowSplashScreenBackground` + a transparent
+  `windowSplashScreenAnimatedIcon`) because Android 12+ draws its own
+  splash and never reads that drawable. Home-screen name «فكرني» on both
+  (`android:label`, `CFBundleDisplayName`).
 
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune

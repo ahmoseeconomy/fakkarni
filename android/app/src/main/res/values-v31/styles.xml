@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- أندرويد ١٢+ بيرسم شاشة الإقلاع بنفسه (الأيقونة في النص فوق لون)
+         ومش بيقرا launch_background.xml. هنا بنخليها لون مسطّح #0A4638 من
+         غير علامة، زي الإصدارات الأقدم وزي iOS — عشان القطع لأنيميشن
+         البداية ما يبانش. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/launch_icon_none</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
