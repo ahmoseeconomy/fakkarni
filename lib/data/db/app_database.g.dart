@@ -2078,6 +2078,17 @@ class $DoseSchedulesTable extends DoseSchedules
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _activeFromMeta = const VerificationMeta(
+    'activeFrom',
+  );
+  @override
+  late final GeneratedColumn<DateTime> activeFrom = GeneratedColumn<DateTime>(
+    'active_from',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -2091,6 +2102,7 @@ class $DoseSchedulesTable extends DoseSchedules
     repeat,
     startDate,
     durationDays,
+    activeFrom,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2160,6 +2172,12 @@ class $DoseSchedulesTable extends DoseSchedules
         ),
       );
     }
+    if (data.containsKey('active_from')) {
+      context.handle(
+        _activeFromMeta,
+        activeFrom.isAcceptableOrUnknown(data['active_from']!, _activeFromMeta),
+      );
+    }
     return context;
   }
 
@@ -2221,6 +2239,10 @@ class $DoseSchedulesTable extends DoseSchedules
         DriftSqlType.int,
         data['${effectivePrefix}duration_days'],
       ),
+      activeFrom: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}active_from'],
+      ),
     );
   }
 
@@ -2268,6 +2290,14 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
 
   /// null = مدة مفتوحة. ما بيتحطّش تخميناً أبداً.
   final int? durationDays;
+
+  /// اللحظة اللي القاعدة دي بقت سارية فيها — **مش ميعاد جرعة**.
+  ///
+  /// بتتكتب لما القاعدة تتعمل ولما توقيتها يتعدّل، ومفيش جرعة معادها قبلها
+  /// بيتعمل لها صف: دوا اتضاف ١١:١٧ ما يبانش «نسيتها؟» على جرعة ٧:٠٠ ما
+  /// كانتش موجودة. null = صف من قبل النسخة ١٥، ساري من الأول (ما بنخترعش له
+  /// وقت). مش `updatedAtMs` — دي ماكينة المزامنة، والجدولة ما تتعلّقش بيها.
+  final DateTime? activeFrom;
   const DoseScheduleRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -2280,6 +2310,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     required this.repeat,
     required this.startDate,
     this.durationDays,
+    this.activeFrom,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2317,6 +2348,9 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     if (!nullToAbsent || durationDays != null) {
       map['duration_days'] = Variable<int>(durationDays);
     }
+    if (!nullToAbsent || activeFrom != null) {
+      map['active_from'] = Variable<DateTime>(activeFrom);
+    }
     return map;
   }
 
@@ -2341,6 +2375,9 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       durationDays: durationDays == null && nullToAbsent
           ? const Value.absent()
           : Value(durationDays),
+      activeFrom: activeFrom == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activeFrom),
     );
   }
 
@@ -2367,6 +2404,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       ),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       durationDays: serializer.fromJson<int?>(json['durationDays']),
+      activeFrom: serializer.fromJson<DateTime?>(json['activeFrom']),
     );
   }
   @override
@@ -2390,6 +2428,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       ),
       'startDate': serializer.toJson<DateTime>(startDate),
       'durationDays': serializer.toJson<int?>(durationDays),
+      'activeFrom': serializer.toJson<DateTime?>(activeFrom),
     };
   }
 
@@ -2405,6 +2444,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     DoseRepeat? repeat,
     DateTime? startDate,
     Value<int?> durationDays = const Value.absent(),
+    Value<DateTime?> activeFrom = const Value.absent(),
   }) => DoseScheduleRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -2419,6 +2459,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     repeat: repeat ?? this.repeat,
     startDate: startDate ?? this.startDate,
     durationDays: durationDays.present ? durationDays.value : this.durationDays,
+    activeFrom: activeFrom.present ? activeFrom.value : this.activeFrom,
   );
   DoseScheduleRow copyWithCompanion(DoseSchedulesCompanion data) {
     return DoseScheduleRow(
@@ -2445,6 +2486,9 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       durationDays: data.durationDays.present
           ? data.durationDays.value
           : this.durationDays,
+      activeFrom: data.activeFrom.present
+          ? data.activeFrom.value
+          : this.activeFrom,
     );
   }
 
@@ -2461,7 +2505,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           ..write('offsetMinutes: $offsetMinutes, ')
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
-          ..write('durationDays: $durationDays')
+          ..write('durationDays: $durationDays, ')
+          ..write('activeFrom: $activeFrom')
           ..write(')'))
         .toString();
   }
@@ -2479,6 +2524,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     repeat,
     startDate,
     durationDays,
+    activeFrom,
   );
   @override
   bool operator ==(Object other) =>
@@ -2494,7 +2540,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           other.offsetMinutes == this.offsetMinutes &&
           other.repeat == this.repeat &&
           other.startDate == this.startDate &&
-          other.durationDays == this.durationDays);
+          other.durationDays == this.durationDays &&
+          other.activeFrom == this.activeFrom);
 }
 
 class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
@@ -2509,6 +2556,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   final Value<DoseRepeat> repeat;
   final Value<DateTime> startDate;
   final Value<int?> durationDays;
+  final Value<DateTime?> activeFrom;
   const DoseSchedulesCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -2521,6 +2569,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.repeat = const Value.absent(),
     this.startDate = const Value.absent(),
     this.durationDays = const Value.absent(),
+    this.activeFrom = const Value.absent(),
   });
   DoseSchedulesCompanion.insert({
     this.uuid = const Value.absent(),
@@ -2534,6 +2583,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     required DoseRepeat repeat,
     required DateTime startDate,
     this.durationDays = const Value.absent(),
+    this.activeFrom = const Value.absent(),
   }) : medicationId = Value(medicationId),
        repeat = Value(repeat),
        startDate = Value(startDate);
@@ -2549,6 +2599,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Expression<String>? repeat,
     Expression<String>? startDate,
     Expression<int>? durationDays,
+    Expression<DateTime>? activeFrom,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -2562,6 +2613,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       if (repeat != null) 'repeat': repeat,
       if (startDate != null) 'start_date': startDate,
       if (durationDays != null) 'duration_days': durationDays,
+      if (activeFrom != null) 'active_from': activeFrom,
     });
   }
 
@@ -2577,6 +2629,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Value<DoseRepeat>? repeat,
     Value<DateTime>? startDate,
     Value<int?>? durationDays,
+    Value<DateTime?>? activeFrom,
   }) {
     return DoseSchedulesCompanion(
       uuid: uuid ?? this.uuid,
@@ -2590,6 +2643,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       repeat: repeat ?? this.repeat,
       startDate: startDate ?? this.startDate,
       durationDays: durationDays ?? this.durationDays,
+      activeFrom: activeFrom ?? this.activeFrom,
     );
   }
 
@@ -2637,6 +2691,9 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     if (durationDays.present) {
       map['duration_days'] = Variable<int>(durationDays.value);
     }
+    if (activeFrom.present) {
+      map['active_from'] = Variable<DateTime>(activeFrom.value);
+    }
     return map;
   }
 
@@ -2653,7 +2710,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
           ..write('offsetMinutes: $offsetMinutes, ')
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
-          ..write('durationDays: $durationDays')
+          ..write('durationDays: $durationDays, ')
+          ..write('activeFrom: $activeFrom')
           ..write(')'))
         .toString();
   }
@@ -9565,6 +9623,7 @@ typedef $$DoseSchedulesTableCreateCompanionBuilder =
       required DoseRepeat repeat,
       required DateTime startDate,
       Value<int?> durationDays,
+      Value<DateTime?> activeFrom,
     });
 typedef $$DoseSchedulesTableUpdateCompanionBuilder =
     DoseSchedulesCompanion Function({
@@ -9579,6 +9638,7 @@ typedef $$DoseSchedulesTableUpdateCompanionBuilder =
       Value<DoseRepeat> repeat,
       Value<DateTime> startDate,
       Value<int?> durationDays,
+      Value<DateTime?> activeFrom,
     });
 
 final class $$DoseSchedulesTableReferences
@@ -9705,6 +9765,11 @@ class $$DoseSchedulesTableFilterComposer
 
   ColumnFilters<int> get durationDays => $composableBuilder(
     column: $table.durationDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get activeFrom => $composableBuilder(
+    column: $table.activeFrom,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9841,6 +9906,11 @@ class $$DoseSchedulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get activeFrom => $composableBuilder(
+    column: $table.activeFrom,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MedicationsTableOrderingComposer get medicationId {
     final $$MedicationsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9912,6 +9982,11 @@ class $$DoseSchedulesTableAnnotationComposer
 
   GeneratedColumn<int> get durationDays => $composableBuilder(
     column: $table.durationDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get activeFrom => $composableBuilder(
+    column: $table.activeFrom,
     builder: (column) => column,
   );
 
@@ -10032,6 +10107,7 @@ class $$DoseSchedulesTableTableManager
                 Value<DoseRepeat> repeat = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
                 Value<int?> durationDays = const Value.absent(),
+                Value<DateTime?> activeFrom = const Value.absent(),
               }) => DoseSchedulesCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -10044,6 +10120,7 @@ class $$DoseSchedulesTableTableManager
                 repeat: repeat,
                 startDate: startDate,
                 durationDays: durationDays,
+                activeFrom: activeFrom,
               ),
           createCompanionCallback:
               ({
@@ -10058,6 +10135,7 @@ class $$DoseSchedulesTableTableManager
                 required DoseRepeat repeat,
                 required DateTime startDate,
                 Value<int?> durationDays = const Value.absent(),
+                Value<DateTime?> activeFrom = const Value.absent(),
               }) => DoseSchedulesCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -10070,6 +10148,7 @@ class $$DoseSchedulesTableTableManager
                 repeat: repeat,
                 startDate: startDate,
                 durationDays: durationDays,
+                activeFrom: activeFrom,
               ),
           withReferenceMapper: (p0) => p0
               .map(

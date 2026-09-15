@@ -14,9 +14,13 @@ class MedicationSummary {
 
 /// الأدوية وجرعاتها.
 class MedicationRepository {
-  MedicationRepository(this._db);
+  MedicationRepository(this._db, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   final AppDatabase _db;
+
+  /// لحظة سريان القاعدة ([DoseSchedules.activeFrom]) بتتاخد من هنا — عند
+  /// الإنشاء وعند تعديل التوقيت. متحقنة عشان الاختبارات تثبّت «دلوقتي».
+  final DateTime Function() _clock;
 
   JoinedSelectStatement<HasResultSet, dynamic> _activeQuery(int patientId) =>
       _joined(patientId)
@@ -120,6 +124,8 @@ class MedicationRepository {
     required int? durationDays,
   }) async {
     final day = DateTime(startDate.year, startDate.month, startDate.day);
+    // القاعدة سارية من دلوقتي — جرعة معادها قبل كده ما كانتش موجودة.
+    final activeFrom = _clock();
 
     final id = await _db.into(_db.doseSchedules).insert(
           switch (timing) {
@@ -133,6 +139,7 @@ class MedicationRepository {
                 startDate: day,
                 // null = مدة مفتوحة. ما بنخمّنش مدة أبداً.
                 durationDays: Value(durationDays),
+                activeFrom: Value(activeFrom),
               ),
             FixedTiming() => DoseSchedulesCompanion.insert(
                 medicationId: medicationId,
@@ -140,6 +147,7 @@ class MedicationRepository {
                 repeat: repeat,
                 startDate: day,
                 durationDays: Value(durationDays),
+                activeFrom: Value(activeFrom),
               ),
           },
         );
@@ -213,11 +221,14 @@ class MedicationRepository {
                 timingKind: const Value(DoseTimingKind.anchor),
                 anchor: Value(anchor),
                 offsetMinutes: Value(offsetMinutes),
+                // التوقيت الجديد ساري من لحظة التعديل
+                activeFrom: Value(_clock()),
               ),
-            FixedTiming() => const DoseSchedulesCompanion(
-                timingKind: Value(DoseTimingKind.fixed),
-                anchor: Value(null),
-                offsetMinutes: Value(null),
+            FixedTiming() => DoseSchedulesCompanion(
+                timingKind: const Value(DoseTimingKind.fixed),
+                anchor: const Value(null),
+                offsetMinutes: const Value(null),
+                activeFrom: Value(_clock()),
               ),
           },
         );

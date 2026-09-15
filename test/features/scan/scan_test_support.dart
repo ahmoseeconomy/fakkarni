@@ -17,6 +17,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import '../../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -84,7 +85,7 @@ class Harness {
   Future<void> setUp() async {
     db = AppDatabase(NativeDatabase.memory());
     final routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     sink = RecordingSink();
     final patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);

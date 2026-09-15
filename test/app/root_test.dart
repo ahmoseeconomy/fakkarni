@@ -18,6 +18,7 @@ import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
+import '../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -57,7 +58,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     tap = ValueNotifier<String?>(null);
     final patientId = await routines.ensurePatient();
     services = AppServices(

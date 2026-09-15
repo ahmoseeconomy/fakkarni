@@ -29,6 +29,7 @@ import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
+import '../../support/seeded_clock.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
 final normalDay = DayRoutine(
@@ -95,7 +96,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     final routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     sink = RecordingSink();
     final patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);
@@ -368,6 +369,19 @@ void main() {
 
     expect(find.textContaining('مفيش أدوية لسه'), findsOneWidget);
     expect(find.text('الجاية'), findsNothing);
+  });
+
+  screenTest('فيه دوا بس مفيش جرعة النهارده → ما بتقولش «مفيش أدوية»', (tester) async {
+    await meds.addMedication(
+      patientId: services.patientId,
+      name: 'Concor 5mg',
+      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      startDate: DateTime(2026, 9, 1),
+    );
+    await pumpToday(tester);
+
+    expect(find.textContaining('مفيش أدوية لسه'), findsNothing);
+    expect(find.textContaining('مفيش جرعات فاضلة النهارده'), findsOneWidget);
   });
 
   screenTest('كل نص في الشاشة مش أقل من ١٧', (tester) async {

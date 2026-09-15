@@ -21,6 +21,7 @@ import 'package:fakkarni/features/emergency/emergency_card_screen.dart';
 import 'package:fakkarni/features/emergency/emergency_edit_screen.dart';
 import 'package:fakkarni/features/emergency/emergency_info_screen.dart';
 import 'package:fakkarni/features/emergency/emergency_widgets.dart';
+import '../../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -58,7 +59,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     final routines = RoutineRepository(db);
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
     final patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);
     services = AppServices(

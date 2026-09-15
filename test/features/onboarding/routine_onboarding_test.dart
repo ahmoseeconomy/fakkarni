@@ -17,6 +17,7 @@ import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
+import '../../support/seeded_clock.dart';
 
 /// النص المطلوب بالظبط وبالترتيب.
 const expectedQuestions = [
@@ -48,7 +49,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     routines = RoutineRepository(db);
-    final medications = MedicationRepository(db);
+    final medications = MedicationRepository(db, clock: seededLongAgo);
     final patientId = await routines.ensurePatient();
     finished = false;
     services = AppServices(

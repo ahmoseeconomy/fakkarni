@@ -43,7 +43,13 @@
     (`claim_escalation_for_service`). **الدالة السحابية لازم تتلصق من
     جديد بعده** — النسخة القديمة بتحجز بـ`insert` وبتعتبر التعارض
     «اتنبّه خلاص»، فالإصلاح ما بيبانش أثره من غيرها.
-11. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+11. `migrations/0010_dose_superseded.sql` — حالة `superseded` («اتغيّرت
+    القاعدة») على `dose_events`. **قبل** ما نسخة التطبيق v15 توصل موبايل
+    مربوط — من غيره الـcheck القديم بيرفض الصف ودفعة المزامنة كلها بتفشل.
+12. `migrations/0011_escalate_missed.sql` — الاختيار بياخد `missed` زي
+    `pending` (الاتنين «ما اتأخدتش»). بيطبع `0011 OK` في الآخر، وبعده
+    شغّل `tests/escalation_test.sql`.
+13. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /

@@ -17,6 +17,7 @@ import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
+import '../support/seeded_clock.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
 final normalDay = DayRoutine(
@@ -722,7 +723,7 @@ void main() {
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       routines = RoutineRepository(db);
-      meds = MedicationRepository(db);
+      meds = MedicationRepository(db, clock: seededLongAgo);
       sink = FakeReminderSink();
       patientId = await routines.ensurePatient();
       await routines.saveRoutine(patientId, normalDay);
@@ -978,7 +979,7 @@ void main() {
         () async {
       final fresh = AppDatabase(NativeDatabase.memory());
       final freshRoutines = RoutineRepository(fresh);
-      final freshMeds = MedicationRepository(fresh);
+      final freshMeds = MedicationRepository(fresh, clock: seededLongAgo);
       final freshPatient = await freshRoutines.ensurePatient();
       await freshMeds.addMedication(
         patientId: freshPatient,
@@ -1197,7 +1198,7 @@ void main() {
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       final routines = RoutineRepository(db);
-      meds = MedicationRepository(db);
+      meds = MedicationRepository(db, clock: seededLongAgo);
       prefs = PreferencesRepository(db);
       sink = FakeReminderSink();
       final patientId = await routines.ensurePatient();

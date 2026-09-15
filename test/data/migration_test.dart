@@ -10,6 +10,7 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import '../support/seeded_clock.dart';
 
 /// قاعدة بيانات نسخة ٢ زي ما drift كان بيعملها بالظبط — من `sqlite_master`
 /// قبل ما نوع التوقيت يتضاف. لو حد عدّل الجداول القديمة هنا الاختبار بيبقى
@@ -87,9 +88,9 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 14);
+    expect(version.read<int>('user_version'), 15);
 
-    final loaded = await MedicationRepository(db).activeSchedules(1);
+    final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
 
     final concor = loaded.singleWhere((s) => s.medicationName == 'Concor 5mg');
@@ -137,6 +138,11 @@ void main() {
 
     // v14: أسئلة الزيارة موجودة وفاضية
     expect(await db.select(db.visitQuestions).get(), isEmpty);
+
+    // v15: الجرعات القديمة سارية من الأول — ما اتخترعلهاش وقت سريان
+    final scheduleRows = await db.select(db.doseSchedules).get();
+    expect(scheduleRows.length, 2);
+    expect(scheduleRows.every((s) => s.activeFrom == null), isTrue);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {
@@ -171,7 +177,7 @@ void main() {
   test('بعد الترحيل، ساعة ثابتة جديدة بتتكتب وبتتقرا جنب القديم', () async {
     final db = openLegacy();
     addTearDown(db.close);
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
 
     await meds.addMedication(
       patientId: 1,

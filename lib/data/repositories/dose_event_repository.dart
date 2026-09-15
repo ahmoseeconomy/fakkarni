@@ -45,9 +45,27 @@ class DoseEventRepository {
     final day = DateTime(routineDay.year, routineDay.month, routineDay.day);
 
     await _db.transaction(() async {
+      final activeFrom = await activeFromOf({
+        for (final reminder in reminders)
+          for (final dose in reminder.doses) int.parse(dose.id),
+      });
       for (final reminder in reminders) {
         for (final dose in reminder.doses) {
           final scheduleId = int.parse(dose.id);
+
+          Expression<bool> thisDose($DoseEventsTable t) =>
+              t.doseScheduleId.equals(scheduleId) & t.routineDay.equalsValue(day);
+
+          // جرعة معادها قبل ما القاعدة تبقى سارية ما كانتش موجودة — ما
+          // يتعملّهاش صف، فمفيش «نسيتها؟» ولا «اتنست» ولا تنبيه لابنه.
+          // ولو كان ليها صف «لسه» من قبل تعديل التوقيت، بيتعلّم «اتغيّرت
+          // القاعدة» بدل ما يتمسح: السحابة مفيهاش مسح (دين ١).
+          if (reminder.at.isBefore(activeFrom[scheduleId] ?? reminder.at)) {
+            await (_db.update(_db.doseEvents)
+                  ..where((t) => thisDose(t) & t.state.equalsValue(DoseState.pending)))
+                .write(const DoseEventsCompanion(state: Value(DoseState.superseded)));
+            continue;
+          }
 
           await _db.into(_db.doseEvents).insert(
                 DoseEventsCompanion.insert(
@@ -59,17 +77,27 @@ class DoseEventRepository {
                 mode: InsertMode.insertOrIgnore,
               );
 
+          // «اتغيّرت القاعدة» اللي ميعادها الجديد لسه ساري بترجع «لسه» —
+          // الحالة دي ما بتتكتبش غير من فوق، فالرجوع ما بيلغيش قرار حد.
           await (_db.update(_db.doseEvents)
                 ..where(
-                  (t) =>
-                      t.doseScheduleId.equals(scheduleId) &
-                      t.routineDay.equalsValue(day) &
-                      t.state.equalsValue(DoseState.pending),
+                  (t) => thisDose(t) & t.state.isInValues([DoseState.pending, DoseState.superseded]),
                 ))
-              .write(DoseEventsCompanion(scheduledAt: Value(reminder.at)));
+              .write(DoseEventsCompanion(scheduledAt: Value(reminder.at), state: const Value(DoseState.pending)));
         }
       }
     });
+  }
+
+  /// لحظة سريان كل قاعدة ([DoseSchedules.activeFrom]) — القواعد اللي من
+  /// قبل النسخة ١٥ مش في الخريطة (سارية من الأول).
+  Future<Map<int, DateTime>> activeFromOf(Set<int> scheduleIds) async {
+    if (scheduleIds.isEmpty) return const {};
+    final rows = await (_db.select(_db.doseSchedules)..where((t) => t.id.isIn(scheduleIds))).get();
+    return {
+      for (final row in rows)
+        if (row.activeFrom != null) row.id: row.activeFrom!,
+    };
   }
 
   Stream<List<DoseEventView>> watchDay(DateTime routineDay) {
@@ -95,7 +123,8 @@ class DoseEventRepository {
         _db.medications.id.equalsExp(_db.doseSchedules.medicationId),
       ),
     ])
-      ..where(where)
+      // «اتغيّرت القاعدة» مش جرعة — ما بتتعرضش في أي شاشة
+      ..where(where & _db.doseEvents.state.equalsValue(DoseState.superseded).not())
       ..orderBy([OrderingTerm.asc(_db.doseEvents.scheduledAt)]);
 
     return query.watch().map((rows) {

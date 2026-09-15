@@ -21,6 +21,7 @@ import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
+import '../../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -69,7 +70,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     final routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     events = DoseEventRepository(db);
     sink = RecordingSink();
     final patientId = await routines.ensurePatient();

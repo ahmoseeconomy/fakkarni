@@ -15,6 +15,7 @@ import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
+import '../../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -79,7 +80,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     remote = FakeSyncRemote();
     signedIn = true;
     sync = SyncService(

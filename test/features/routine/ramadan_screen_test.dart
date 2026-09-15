@@ -18,6 +18,7 @@ import 'package:fakkarni/features/onboarding/time_wheel.dart';
 import 'package:fakkarni/features/routine/ramadan_screen.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
+import '../../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -66,7 +67,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     sink = RecordingSink();
     final patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);

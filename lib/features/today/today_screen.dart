@@ -256,7 +256,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
               const SizedBox(height: F.s12),
               if (events.isEmpty)
-                const _EmptyPanel()
+                _EmptyPanel(hasMedications: _schedules.isNotEmpty)
               else
                 DayRail(
                   anchors: _anchors,
@@ -482,7 +482,11 @@ class _AllDonePanel extends StatelessWidget {
 }
 
 class _EmptyPanel extends StatelessWidget {
-  const _EmptyPanel();
+  const _EmptyPanel({required this.hasMedications});
+
+  /// فيه دوا بس مفيش جرعة النهارده — اتضاف بعد ميعادها (`active_from`) أو
+  /// بيبدأ بكرة. «مفيش أدوية» ساعتها كانت هتبقى كدب.
+  final bool hasMedications;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -492,9 +496,11 @@ class _EmptyPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
-        child: const Text(
-          'مفيش أدوية لسه. دوس «ضيف» تحت وإحنا نفكّرك بيه.',
-          style: TextStyle(
+        child: Text(
+          hasMedications
+              ? 'مفيش جرعات فاضلة النهارده. الجرعة الجاية مكتوبة فوق في «خلال ٤٨ ساعة».'
+              : 'مفيش أدوية لسه. دوس «ضيف» تحت وإحنا نفكّرك بيه.',
+          style: const TextStyle(
             fontSize: F.minBodySize,
             color: F.ink,
             height: 1.6,

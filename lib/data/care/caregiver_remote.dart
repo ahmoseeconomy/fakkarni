@@ -44,7 +44,8 @@ class CaregiverDoseEvent {
   /// اللحظة اللي محرّك الأب حسبها — محلية الجهاز ده للعرض.
   final DateTime scheduledAt;
 
-  /// 'pending' | 'taken' | 'skipped' | 'missed' — بالحرف من السحابة.
+  /// 'pending' | 'taken' | 'skipped' | 'missed' — بالحرف من السحابة
+  /// ('superseded' بيتفلتر في الاستعلام وما بيوصلش هنا).
   final String state;
   final DateTime? actedAt;
 

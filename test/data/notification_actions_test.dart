@@ -16,6 +16,7 @@ import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import '../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -88,7 +89,7 @@ void main() {
   /// من غير أي widget — زي الـisolate اللي النظام بيصحّيه.
   NotificationActionHandler wake({Duration? pushTimeout}) {
     final routines = RoutineRepository(db);
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
     final events = DoseEventRepository(db);
     return NotificationActionHandler(
       routines: routines,
@@ -132,7 +133,7 @@ void main() {
     await routines.saveRoutine(patientId, normalDay);
 
     // مريض تقيل: ٤ أدوية × ٣ جرعات = ١٢ في اليوم → السقف بيتملا في ٤ أيام
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
     for (var i = 0; i < 4; i++) {
       final id = await meds.addMedication(
         patientId: patientId,
@@ -193,7 +194,7 @@ void main() {
         events: handler.events,
         scheduler: _ThrowingScheduler(
           routines: RoutineRepository(db),
-          medications: MedicationRepository(db),
+          medications: MedicationRepository(db, clock: seededLongAgo),
           events: DoseEventRepository(db),
           patientId: patientId,
           sink: device,
@@ -324,7 +325,7 @@ void main() {
 
   test('إشعار لدوا اتوقف بعد الجدولة → بيتجاهل بهدوء', () async {
     final first = firstReminder();
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
     for (final m in await meds.watchMedications(patientId).first) {
       await meds.stopMedication(m.id);
     }

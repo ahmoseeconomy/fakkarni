@@ -19,6 +19,7 @@ import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/export/export_pdf.dart';
 import 'package:fakkarni/features/records/record_kinds.dart';
+import '../../support/seeded_clock.dart';
 
 /// النص اللي في الملف فعلاً: بيفك كل سلاسل `<hex>` بكل خريطة ToUnicode
 /// موجودة في الملف (كل خط ليه خريطة). محتاج ملف مش مضغوط.
@@ -61,7 +62,7 @@ void main() {
     patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, DayRoutine.fallback);
     await routines.saveProfile(patientId, name: 'أحمد محمود', sex: Sex.m, age: 72);
-    await MedicationRepository(db).addMedication(
+    await MedicationRepository(db, clock: seededLongAgo).addMedication(
       patientId: patientId,
       name: 'Xatral 10mg',
       amountLabel: 'قرص واحد',

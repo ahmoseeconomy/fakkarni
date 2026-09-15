@@ -12,6 +12,7 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
+import '../support/seeded_clock.dart';
 
 final normalDay = DayRoutine(
   wake: MinuteOfDay.hm(7),
@@ -157,7 +158,7 @@ void main() {
 
   test('التذكيرات: جرعة المرساة اتحركت والثابتة رجعت بنفس رقمها — وبالعكس',
       () async {
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: seededLongAgo);
     final sink = RecordingSink();
     final scheduler = ReminderScheduler(
       routines: routines,

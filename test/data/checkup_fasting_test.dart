@@ -15,6 +15,7 @@ import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import 'reminder_plan_test.dart' show FakeReminderSink, normalDay;
+import '../support/seeded_clock.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -77,7 +78,7 @@ void main() {
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       final routines = RoutineRepository(db);
-      final meds = MedicationRepository(db);
+      final meds = MedicationRepository(db, clock: seededLongAgo);
       patientId = await routines.ensurePatient();
       await routines.saveRoutine(patientId, normalDay);
       sink = FakeReminderSink();

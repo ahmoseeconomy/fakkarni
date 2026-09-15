@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -304,6 +304,16 @@ class AppDatabase extends _$AppDatabase {
                 '"created_at" INTEGER NOT NULL, '
                 '"asked" INTEGER NOT NULL DEFAULT 0 CHECK ("asked" IN (0, 1)))',
               );
+            }
+            if (from < 15) {
+              // لحظة سريان قاعدة الجرعة — nullable: الصفوف القديمة سارية من
+              // الأول، ما بنخترعش لها وقت. بحماية وجود زي v13.
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('dose_schedules') WHERE name = 'active_from'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement('ALTER TABLE dose_schedules ADD COLUMN active_from INTEGER NULL');
+              }
             }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل

@@ -9,6 +9,7 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
+import '../support/seeded_clock.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
 final normalDay = DayRoutine(
@@ -31,7 +32,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     routines = RoutineRepository(db);
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: seededLongAgo);
     events = DoseEventRepository(db);
     patientId = await routines.ensurePatient();
   });
@@ -89,6 +90,8 @@ void main() {
         'repeat',
         'start_date',
         'duration_days',
+        // لحظة سريان القاعدة (v15) — مش ميعاد جرعة. مسموح بالاسم ده بس.
+        'active_from',
       });
       // لو حد ضاف عمود وقت هنا، السطر ده بيقع — وده المقصود بالظبط.
       // عمود الساعة بيخص نوع «ثابتة» لوحده، وعايش في جدوله.

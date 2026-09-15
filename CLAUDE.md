@@ -129,7 +129,7 @@ lib/
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v9: patients (sex, age — local),
+  data/db/                    drift (SQLite) v15: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -137,6 +137,7 @@ lib/
                               pushed), records (v11, local, soft delete),
                               readings + lab_results (v12, local),
                               visit_questions (v14, local),
+                              dose_schedules.active_from (v15, local),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -179,7 +180,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         646 passing
+test/                         655 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -381,6 +382,32 @@ show no UI: the OS wakes the app in a background isolate and
 re-emits the window. `NotificationActionHandler` is the testable core;
 `test/data/notification_actions_test.dart` drives a week of lock-screen
 confirmations with no widget pumped and asserts coverage keeps moving.
+
+**A dose that falls before its rule existed was never a dose.**
+`dose_schedules.active_from` is the instant a rule took effect — written by
+`MedicationRepository` (injectable `clock`) when the rule is created **and**
+when `updateTiming` changes it; null on rows from before v15 (active since
+forever — no invented time). It is **not** a dose time (the ban on a time
+column on `dose_schedules` is about resolved dose times; the column test
+allows this one name) and it is **not** `updatedAtMs`, which belongs to sync.
+`materializeDay` — the one place every caller goes through — makes no row
+for a dose whose instant is before `active_from`, and `rescheduleAll` adds
+those doses to `done` so no escalation rung rings for them. A medicine added
+at 11:17 therefore shows no «نسيتها؟» for its 7:00 dose, and tomorrow's 7:00
+is materialised as usual. **A timing edited to an earlier time never deletes
+the existing `pending` row**: that row may already be in the cloud, sync has
+no deletes (debt 1), and a ghost `pending` there would alert the son. The
+device writes `DoseState.superseded` («القاعدة اتغيّرت») instead; it is
+pushed like any state, `due_escalations` ignores it (only `pending` is
+chosen), `watchDay`/`watchBetween` and the caregiver query hide it, and an
+edit back to a time still ahead revives it to `pending`. Cloud:
+`0010_dose_superseded.sql` widens the state check — **it must run before a
+v15 build reaches a linked phone**, or the old check rejects the row and the
+whole `dose_events` batch fails silently. Tests: `test/data/active_from_test.dart`
+(new medicine, new dose on an old medicine, earlier edit, the ladder, the
+reverse case, pre-v15 null) — mutation-checked three ways. Test fixtures
+seed medicines with `seededLongAgo` (`test/support/seeded_clock.dart`);
+tests about `active_from` inject their own clock.
 
 **A dose confirmed early must not be re-scheduled.** 2:00 PM taken at 1:50 is
 still "in the future" by the clock. `planWindow` takes the set of done
@@ -587,6 +614,20 @@ primary; tapping a rail card opens its `ReminderScreen`. A taken dose
 collapses to a ✓ line and never leaves the rail. The son's screen renders `missed` verbatim as
 «اتنست — لسه ما اتأكدتش» in gold — reporting the father's device's
 decision, still not judging.
+
+**`pending` and `missed` both mean «ما اتأخدتش».** The difference is who
+marked the row — nobody yet, or the device after its 45-minute grace — not
+a different medical state, and never a reason to stay silent. So the
+server escalates on both (`0011_escalate_missed.sql`). Until 0011 it chose
+`pending` only, on the theory that «اتنست» was "a decision already taken";
+but the device writes it at +45 on any wake-up (opening the app, tapping
+another dose's notification) and sync lifts it within seconds, so at +60
+the scan found nothing and the son was never told — in the **common** case,
+because the phone is in its owner's hand. `taken` (rule 5), `skipped` (a
+human's decision, not forgetting) and `superseded` (0010) never escalate.
+A row flipping `pending` → `missed` keeps its uuid (sync upserts on it), so
+the `escalations` unique and the claim's stale-`claimed`-only condition
+already prevent a second alert — `escalation_test.sql` §٢ب proves it.
 
 **Snooze is not a confirmation, so it does not clear the ladder — but it
 removes the rungs it overtakes.** «فكّرني بعدين» at 8:10 means "leave me
@@ -1486,7 +1527,7 @@ NOT device-verified)**
   for it, `service_role` only, because `private` is not exposed to
   PostgREST.
 - `tests/escalation_test.sql` proved the selection **before** any sending
-  code existed: chosen once, second run empty, confirmed/missed/stopped/
+  code existed: chosen once, second run empty, confirmed/missed (until 0011)/stopped/
   unlinked/pending-link never chosen, +50 no and +60 exactly yes, the
   unique catching a racing second claim, and a second brother still
   alerted after the first.
@@ -1578,9 +1619,7 @@ device-verified)**
 - `GoldNote` (ink text, gold start edge) replaces gold *text* on ivory
   (≈1.9:1) in redeem / edit routine / edit medication; settings values are
   ink, not gold.
-- **Known, not fixed (decisions):** a medication added today materialises
-  today's earlier doses, so a 7:00 dose added at 11:17 appears at once as
-  «نسيتها؟» (and would sweep to `missed` and reach the cloud); the water
+- **Known, not fixed (decisions):** the water
   counter's «٠» reads as a bullet; the empty home shows water above
   «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
   notification permission has no in-app lead-in; the caregiver screen
@@ -1615,7 +1654,8 @@ device-verified)**
 
 - Add a dependency to `lib/domain/`
 - Persist a resolved clock time for an anchor dose, make `FixedTiming` the
-  default, or put a time column on `dose_schedules`
+  default, or put a dose-time column on `dose_schedules` (`active_from` is
+  the rule's start instant, not a dose time — the one allowed exception)
 - Wipe or recreate the database to change the schema — write a migration and
   a case in `migration_test.dart`
 - Schedule a notification straight from an unconfirmed AI result

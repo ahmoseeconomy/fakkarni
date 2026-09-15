@@ -70,6 +70,8 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
             .select('uuid, scheduled_at, state, acted_at, updated_at, '
                 'dose_schedules(medications(name, amount_label))')
             .gte('scheduled_at', since.toIso8601String())
+            // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
+            .neq('state', 'superseded')
             .order('scheduled_at', ascending: true);
 
         final alertsSince =

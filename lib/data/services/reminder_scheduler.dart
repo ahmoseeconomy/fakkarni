@@ -68,18 +68,31 @@ class ReminderScheduler {
     // وبعدها السحابة بتقدم — والابن بيشوف ده في تذييل شاشته بالذهبي.
     final engine = ScheduleEngine(routine);
     final today = currentRoutineDay(routine, from);
+    final activeFrom = await events.activeFromOf({for (final s in schedules) int.parse(s.id)});
+    // جرعات معادها قبل ما قاعدتها تبقى سارية — مالهاش صف، وما ينفعش يترن
+    // لها سلّم: دوا اتضاف ١١:١٧ وجرعته ١١:٠٠ كانت هتاخد درجة +٣٠ على حاجة
+    // مش موجودة.
+    final notYetActive = <String>{};
     for (final day in [
       DateTime(today.year, today.month, today.day - 1),
       today,
       DateTime(today.year, today.month, today.day + 1),
     ]) {
-      await events.materializeDay(day, engine.remindersForDay(schedules, day));
+      final reminders = engine.remindersForDay(schedules, day);
+      await events.materializeDay(day, reminders);
+      for (final reminder in reminders) {
+        for (final dose in reminder.doses) {
+          if (activeFrom[int.parse(dose.id)] case final start? when reminder.at.isBefore(start)) {
+            notYetActive.add(doneKey(dose.id, day));
+          }
+        }
+      }
     }
     await events.sweepMissed(now: from);
 
     // جرعة اتأكدت بدري لسه «قدام» بالساعة — من غير السطر ده كانت
     // هتتجدول تاني وترن على حاجة اتعملت.
-    final done = await events.doneKeys(from: from);
+    final done = {...await events.doneKeys(from: from), ...notYetActive};
 
     final planned = planWindow(
       routine: routine,
