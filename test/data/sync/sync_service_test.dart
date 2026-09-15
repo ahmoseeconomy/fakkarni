@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
+import 'package:fakkarni/data/db/tables.dart' show RecordKind, GlucoseContext;
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
@@ -157,6 +158,150 @@ void main() {
     );
     await sync.push();
     expect(remote.tables['patients']!.values.map((r) => r['name']), contains('اسم $empty'));
+  });
+
+  group('الملف الصحي (D5.1)', () {
+    final at = DateTime(2026, 8, 31, 9, 30);
+    late int recordId;
+
+    Future<void> seedHealthFile() async {
+      recordId = await db.into(db.records).insert(RecordsCompanion.insert(
+            patientId: patientId,
+            kind: RecordKind.lab,
+            title: 'تحليل سكر تراكمي',
+            happenedAt: at,
+            doctor: const Value('د. سامي'),
+            attachmentPath: const Value('attachments/x.jpg'),
+          ));
+      await db.into(db.labResults).insert(LabResultsCompanion.insert(
+            recordId: recordId,
+            testName: 'HbA1c',
+            value: 7.1,
+            unit: const Value('%'),
+          ));
+      await db.into(db.readings).insert(ReadingsCompanion.insert(
+            patientId: patientId,
+            valueMgDl: 128,
+            measuredAt: at,
+            context: GlucoseContext.fasting,
+          ));
+      await db.into(db.visitQuestions).insert(VisitQuestionsCompanion.insert(
+            patientId: patientId,
+            body: 'ينفع أوقف الملح؟',
+            createdAt: at,
+          ));
+      await db.into(db.emergencyProfile).insert(EmergencyProfileCompanion.insert(
+            patientId: patientId,
+            bloodType: const Value('O+'),
+            allergies: const Value('بنسلين'),
+            contactsJson: const Value('[{"name":"محمد","phone":"01000000000","relation":"ابنه"}]'),
+          ));
+    }
+
+    Future<Map<String, bool>> dirtyByTable() async {
+      bool dirty(int? synced, int updated) => synced == null || synced < updated;
+      return {
+        'records': (await db.select(db.records).get()).any((r) => dirty(r.syncedAtMs, r.updatedAtMs)),
+        'lab_results': (await db.select(db.labResults).get()).any((r) => dirty(r.syncedAtMs, r.updatedAtMs)),
+        'readings': (await db.select(db.readings).get()).any((r) => dirty(r.syncedAtMs, r.updatedAtMs)),
+        'visit_questions': (await db.select(db.visitQuestions).get()).any((r) => dirty(r.syncedAtMs, r.updatedAtMs)),
+        'emergency_profile':
+            (await db.select(db.emergencyProfile).get()).any((r) => dirty(r.syncedAtMs, r.updatedAtMs)),
+      };
+    }
+
+    test('صف متوسّخ من كل جدول بيطلع، وبعدها بيتعلّم نضيف', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      expect((await dirtyByTable()).values, everyElement(isTrue));
+
+      await sync.push();
+
+      for (final table in ['records', 'lab_results', 'readings', 'visit_questions', 'emergency_profile']) {
+        expect(remote.rowCount(table), 1, reason: table);
+      }
+      expect((await dirtyByTable()).values, everyElement(isFalse));
+
+      final patientUuid = (await db.select(db.patients).getSingle()).uuid;
+      final record = remote.tables['records']!.values.single;
+      expect(record['patient_uuid'], patientUuid);
+      expect(record['kind'], 'lab', reason: 'الـenum بيطلع بالاسم المخزّن');
+      expect(record['happened_at'], utcIso(at));
+      expect(record['deleted_at'], isNull);
+      expect(record.containsKey('attachment_path'), isFalse, reason: 'مسار ملف محلي');
+
+      expect(remote.tables['readings']!.values.single['context'], 'fasting');
+      expect(remote.tables['visit_questions']!.values.single['written_at'], utcIso(at));
+
+      final emergency = remote.tables['emergency_profile']!.values.single;
+      expect(emergency['blood_type'], 'O+');
+      expect(emergency.keys.any((k) => k.contains('contact')), isFalse, reason: 'ولا رقم تليفون في السحابة');
+      expect(emergency.values.any((v) => '$v'.contains('01000000000')), isFalse);
+    });
+
+    test('النضيف ما بيتبعتش تاني', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      await sync.push();
+      final calls = remote.calls;
+
+      await sync.push();
+
+      expect(remote.calls, calls, reason: 'مفيش حاجة متوسّخة → صفر نداءات');
+    });
+
+    test('سجل اتمسح ناعم بيطلع برضه، شايل deleted_at', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      await sync.push();
+
+      final deletedAt = DateTime(2026, 9, 2, 18);
+      await (db.update(db.records)..where((t) => t.id.equals(recordId)))
+          .write(RecordsCompanion(deletedAt: Value(deletedAt)));
+      expect((await dirtyByTable())['records'], isTrue);
+
+      await sync.push();
+
+      expect(remote.tables['records']!.values.single['deleted_at'], utcIso(deletedAt));
+      expect((await dirtyByTable())['records'], isFalse);
+    });
+
+    test('سطر التحليل شايل record_uuid — مش record_id المحلي', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      await sync.push();
+
+      final recordUuid = (await db.select(db.records).getSingle()).uuid;
+      final lab = remote.tables['lab_results']!.values.single;
+      expect(lab['record_uuid'], recordUuid);
+      expect(lab.containsKey('record_id'), isFalse);
+      expect(lab.values, isNot(contains(recordId)));
+    });
+
+    test('جدول وقع في النص → صفوفه واللي بعده بيفضلوا متوسّخين، وبيطلعوا المرة الجاية', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      remote.failOnTable = 'lab_results';
+
+      await sync.push();
+
+      final afterFailure = await dirtyByTable();
+      // records وreadings قبل lab_results في الترتيب، واتعلّموا بعد upsert نجح فعلاً
+      expect(afterFailure['records'], isFalse);
+      expect(afterFailure['readings'], isFalse);
+      for (final table in ['lab_results', 'visit_questions', 'emergency_profile']) {
+        expect(afterFailure[table], isTrue, reason: '$table ما يتعلّمش من غير upsert نجح');
+        expect(remote.rowCount(table), 0, reason: table);
+      }
+
+      remote.failOnTable = null;
+      await sync.push();
+
+      expect((await dirtyByTable()).values, everyElement(isFalse));
+      for (final table in ['lab_results', 'visit_questions', 'emergency_profile']) {
+        expect(remote.rowCount(table), 1, reason: table);
+      }
+    });
   });
 
   test('بعد الربط: المتوسّخ بيتدفع أب-قبل-ابن، والعلامة بتتحط، والنضيف مش بيتبعت تاني',

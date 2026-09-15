@@ -133,10 +133,10 @@ lib/
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
-                              (v10, local: SyncIdentity columns but never
-                              pushed), records (v11, local, soft delete),
-                              readings + lab_results (v12, local),
-                              visit_questions (v14, local),
+                              (v10; pushed since D5.1 without contacts),
+                              records (v11, soft delete), readings +
+                              lab_results (v12), visit_questions (v14) —
+                              the health file, pushed since D5.1,
                               dose_schedules.active_from (v15, local),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
@@ -1300,9 +1300,10 @@ device-verified)**
   from day one (PHASE_D3 rule 2), one row per patient: `blood_type`,
   `allergies`, `chronic_conditions`, `contacts_json` (`[{name, phone,
   relation}]`). Written red first; frozen SQL above the `from < 6` block.
-  **Not synced**: SyncService never reads it, and
-  `test/data/sync/emergency_not_synced_test.dart` fails if that changes
-  silently. Current medications are read from `medications`, never copied.
+  **Pushed since D5.1, without `contacts_json`** — names and phone numbers
+  stay on the father's phone; the cloud table has no column for them and
+  `health_file_sync_guard_test` fails if the sync code mentions it.
+  Current medications are read from `medications`, never copied.
 - **No field is ever filled or guessed.** null renders «لسه ما اتملاش», and
   nothing else — no «لا يوجد», no default blood type. Blank input saves
   as null; «مفيش حساسية» has to be typed by a person. A blood type outside
@@ -1321,8 +1322,8 @@ device-verified)**
   tried on hardware — the simulator cannot place a call.
 
 **D3.5 — records (built)**
-- Schema v11 `records` (local, SyncIdentity columns + trigger, not synced —
-  `test/data/sync/records_not_synced_test.dart`): kind (imaging | visit |
+- Schema v11 `records` (SyncIdentity columns + trigger; pushed since D5.1,
+  without the local attachment path): kind (imaging | visit |
   lab | prescription | booking), title, happened_at, doctor, **place** (added
   beyond PHASE_D3's list: the imaging centre, lab and clinic fields of
   mockup 28 had no column), notes, attachment_path, deleted_at. Written red
@@ -1355,8 +1356,7 @@ device-verified)**
   (`value_mg_dl`, `measured_at`, `context` صايم | بعد الأكل); no pressure,
   pulse or weight exist in this product. `lab_results` — one row per
   confirmed test (record_id → `records` lab row, test name as printed,
-  value, unit). Both local with SyncIdentity columns + triggers, and the
-  no-sync guard test covers them.
+  value, unit). Both with SyncIdentity columns + triggers; pushed since D5.1.
 - **The dangerous screen follows two rules that do not bend.**
   (a) Number, range, difference — stop. No advice, no diagnosis, no
   «يُفضّل», no «راجع دكتورك», no «ممكن يكون». `GeminiLabReader.systemInstruction`
@@ -1416,8 +1416,8 @@ device-verified)**
   target.
 
 **D3.8 — doctor page + export (built)**
-- Schema v14 `visit_questions` (body, created_at, asked; local,
-  SyncIdentity + trigger, no-sync guard). Written red first.
+- Schema v14 `visit_questions` (body, created_at, asked; SyncIdentity +
+  trigger; pushed since D5.1). Written red first.
 - «ملخص زيارة الطبيب» (16): current medications with their rules, glucose
   for the last 30 days per context (count · lowest · highest · average),
   the latest value of each lab test with «كان X في {date}», the nearest
@@ -1658,6 +1658,39 @@ device-verified)**
   «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
   notification permission has no in-app lead-in; the caregiver screen
   still uses gold text.
+
+**D5.1 — the health file reaches the cloud (built; 0012 must run first)**
+- `supabase/migrations/0012_health_file.sql`: `records`, `readings`,
+  `lab_results`, `visit_questions`, `emergency_profile` — uuid PKs,
+  `patient_uuid` (or `record_uuid` for lab lines) with cascade, server
+  `updated_at` via moddatetime, RLS on, `anon`/`public` stripped. One
+  SELECT policy per table through `private.can_access_patient` (lab lines
+  via the new `private.patient_of_record`); INSERT/UPDATE/DELETE for the
+  owner only. `records` policies read their own `patient_uuid` — the 0005
+  rule. The son has no write path. It ends with a self-check that runs as
+  the son (reads, cannot update), as a stranger (reads nothing), and
+  exercises the purge — all rolled back.
+- **Decided out loud, and pinned by `health_file_sync_guard_test`:** the
+  cloud holds **no phone number** (`contacts_json` is not pushed and has no
+  column) and **no local file path** (`attachment_path`; images are D5.3).
+  The two old no-sync guards were removed — this round is the decision they
+  were waiting for.
+- **The 30-day promise holds in the cloud too.** A local purge never
+  reaches the cloud (sync has no deletes), so the soft-deleted row would
+  have lived there forever and «هيتمسح نهائي بعد ٣٠ يوم» would be false for
+  a linked patient. `private.purge_deleted_records()` runs daily
+  (`fakkarni-purge-records`, pg_cron) against `private.record_retention()`,
+  a mirror of `RecordsRepository.retentionDays` held by
+  `record_retention_sql_test`.
+- `SyncService` pushes records → readings → lab_results → visit_questions →
+  emergency_profile after the existing tables, each shaped like
+  `_pushMedications`. Wire names that differ from local: the question's
+  local `created_at` goes as `written_at` (the cloud `created_at` is the
+  server's). A failed table leaves its rows and every later table's rows
+  dirty; earlier tables were marked only after their upsert succeeded.
+- **Before a build with this code reaches a linked phone, run 0012** —
+  otherwise every push after dose_events fails (no table), silently, on
+  every trigger; the dose rows before it are unaffected.
 
 **D4 — entry screen + caregiver account (built)**
 - **The root decides from data, never from a role column** (`AppRoot`):

@@ -143,6 +143,12 @@ class SyncService {
       await _pushDoseSchedules();
       await _pushFixedTimings();
       await _pushDoseEvents();
+      // الملف الصحي (D5.1) — بعد المريض، والسجلات قبل سطور تحاليلها
+      await _pushRecords();
+      await _pushReadings();
+      await _pushLabResults();
+      await _pushVisitQuestions();
+      await _pushEmergencyProfile();
     } catch (error, stack) {
       // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز.
       debugPrint('Sync: push فشلت وهتتعاد: $error\n$stack');
@@ -376,6 +382,185 @@ class SyncService {
       (uuid, ms) =>
           (_db.update(_db.doseEvents)..where((t) => t.uuid.equals(uuid)))
               .write(DoseEventsCompanion(syncedAtMs: Value(ms))),
+    );
+  }
+
+  // ------------------------------------------------ الملف الصحي (D5.1)
+  // الابن هيقراه في D5.2. كل جدول بنفس شكل _pushMedications بالظبط: join
+  // عشان الـuuid، شرط الوسخ المشتق، وعلامة بعد الـupsert بس.
+
+  /// السجلات — **من غير مسار الصورة**: مسار ملف على موبايل الأب مالوش
+  /// معنى في السحابة (الصور في D5.3). الحذف الناعم بيطلع زي أي عمود:
+  /// `deleted_at` بيوصل، والسحابة بتمسح بعد ٣٠ يوم (0012).
+  Future<void> _pushRecords() async {
+    final query = _db.select(_db.records).join([
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.records.patientId)),
+    ])
+      ..where(_db.records.syncedAtMs.isNull() |
+          _db.records.syncedAtMs.isSmallerThan(_db.records.updatedAtMs));
+    final rows = await query.get();
+    await _upsertAndMark(
+      'records',
+      [
+        for (final row in rows)
+          () {
+            final r = row.readTable(_db.records);
+            final p = row.readTable(_db.patients);
+            return (
+              uuid: r.uuid,
+              updatedAtMs: r.updatedAtMs,
+              json: {
+                'uuid': r.uuid,
+                'patient_uuid': p.uuid,
+                'kind': r.kind.name,
+                'title': r.title,
+                'happened_at': utcIso(r.happenedAt),
+                'doctor': r.doctor,
+                'place': r.place,
+                'notes': r.notes,
+                'deleted_at': r.deletedAt == null ? null : utcIso(r.deletedAt!),
+                'checkup_stage': r.checkupStage,
+                'fasting_reminder_at':
+                    r.fastingReminderAt == null ? null : utcIso(r.fastingReminderAt!),
+              }
+            );
+          }(),
+      ],
+      (uuid, ms) => (_db.update(_db.records)..where((t) => t.uuid.equals(uuid)))
+          .write(RecordsCompanion(syncedAtMs: Value(ms))),
+    );
+  }
+
+  Future<void> _pushReadings() async {
+    final query = _db.select(_db.readings).join([
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.readings.patientId)),
+    ])
+      ..where(_db.readings.syncedAtMs.isNull() |
+          _db.readings.syncedAtMs.isSmallerThan(_db.readings.updatedAtMs));
+    final rows = await query.get();
+    await _upsertAndMark(
+      'readings',
+      [
+        for (final row in rows)
+          () {
+            final r = row.readTable(_db.readings);
+            final p = row.readTable(_db.patients);
+            return (
+              uuid: r.uuid,
+              updatedAtMs: r.updatedAtMs,
+              json: {
+                'uuid': r.uuid,
+                'patient_uuid': p.uuid,
+                'value_mg_dl': r.valueMgDl,
+                'measured_at': utcIso(r.measuredAt),
+                'context': r.context.name,
+              }
+            );
+          }(),
+      ],
+      (uuid, ms) => (_db.update(_db.readings)..where((t) => t.uuid.equals(uuid)))
+          .write(ReadingsCompanion(syncedAtMs: Value(ms))),
+    );
+  }
+
+  /// سطور التحليل بتتربط بسجلها بالـuuid — الـid المحلي عمره ما يطلع.
+  Future<void> _pushLabResults() async {
+    final query = _db.select(_db.labResults).join([
+      innerJoin(_db.records, _db.records.id.equalsExp(_db.labResults.recordId)),
+    ])
+      ..where(_db.labResults.syncedAtMs.isNull() |
+          _db.labResults.syncedAtMs.isSmallerThan(_db.labResults.updatedAtMs));
+    final rows = await query.get();
+    await _upsertAndMark(
+      'lab_results',
+      [
+        for (final row in rows)
+          () {
+            final l = row.readTable(_db.labResults);
+            final r = row.readTable(_db.records);
+            return (
+              uuid: l.uuid,
+              updatedAtMs: l.updatedAtMs,
+              json: {
+                'uuid': l.uuid,
+                'record_uuid': r.uuid,
+                'test_name': l.testName,
+                'value': l.value,
+                'unit': l.unit,
+              }
+            );
+          }(),
+      ],
+      (uuid, ms) => (_db.update(_db.labResults)..where((t) => t.uuid.equals(uuid)))
+          .write(LabResultsCompanion(syncedAtMs: Value(ms))),
+    );
+  }
+
+  Future<void> _pushVisitQuestions() async {
+    final query = _db.select(_db.visitQuestions).join([
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.visitQuestions.patientId)),
+    ])
+      ..where(_db.visitQuestions.syncedAtMs.isNull() |
+          _db.visitQuestions.syncedAtMs.isSmallerThan(_db.visitQuestions.updatedAtMs));
+    final rows = await query.get();
+    await _upsertAndMark(
+      'visit_questions',
+      [
+        for (final row in rows)
+          () {
+            final q = row.readTable(_db.visitQuestions);
+            final p = row.readTable(_db.patients);
+            return (
+              uuid: q.uuid,
+              updatedAtMs: q.updatedAtMs,
+              json: {
+                'uuid': q.uuid,
+                'patient_uuid': p.uuid,
+                'body': q.body,
+                // `created_at` في السحابة بتاع السيرفر — لحظة الكتابة اسمها written_at
+                'written_at': utcIso(q.createdAt),
+                'asked': q.asked,
+              }
+            );
+          }(),
+      ],
+      (uuid, ms) => (_db.update(_db.visitQuestions)..where((t) => t.uuid.equals(uuid)))
+          .write(VisitQuestionsCompanion(syncedAtMs: Value(ms))),
+    );
+  }
+
+  /// فصيلة الدم والحساسية والأمراض — **من غير جهات الاتصال**. أسماء وأرقام
+  /// التليفونات بتفضل على موبايل الأب: السيرفر ما بيشيلش ولا رقم تليفون،
+  /// والعمود مش موجود في السحابة أصلاً (0012). رفعها قرار خصوصية لوحده.
+  Future<void> _pushEmergencyProfile() async {
+    final query = _db.select(_db.emergencyProfile).join([
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.emergencyProfile.patientId)),
+    ])
+      ..where(_db.emergencyProfile.syncedAtMs.isNull() |
+          _db.emergencyProfile.syncedAtMs.isSmallerThan(_db.emergencyProfile.updatedAtMs));
+    final rows = await query.get();
+    await _upsertAndMark(
+      'emergency_profile',
+      [
+        for (final row in rows)
+          () {
+            final e = row.readTable(_db.emergencyProfile);
+            final p = row.readTable(_db.patients);
+            return (
+              uuid: e.uuid,
+              updatedAtMs: e.updatedAtMs,
+              json: {
+                'uuid': e.uuid,
+                'patient_uuid': p.uuid,
+                'blood_type': e.bloodType,
+                'allergies': e.allergies,
+                'chronic_conditions': e.chronicConditions,
+              }
+            );
+          }(),
+      ],
+      (uuid, ms) => (_db.update(_db.emergencyProfile)..where((t) => t.uuid.equals(uuid)))
+          .write(EmergencyProfileCompanion(syncedAtMs: Value(ms))),
     );
   }
 }

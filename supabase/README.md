@@ -49,7 +49,12 @@
 12. `migrations/0011_escalate_missed.sql` — الاختيار بياخد `missed` زي
     `pending` (الاتنين «ما اتأخدتش»). بيطبع `0011 OK` في الآخر، وبعده
     شغّل `tests/escalation_test.sql`.
-13. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+13. `migrations/0012_health_file.sql` — الملف الصحي (records, readings,
+    lab_results, visit_questions, emergency_profile) + RLS +
+    `patient_of_record` + مسح يومي للمحذوف من ٣٠ يوم. بيطبع `0012 OK` في
+    الآخر. **قبل** ما نسخة D5.1 توصل موبايل مربوط — من غيره الدفع بيقع عند
+    `records` في كل مرة.
+14. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /
