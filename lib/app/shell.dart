@@ -6,6 +6,8 @@ import '../core/widgets/f_sheet.dart';
 import '../core/widgets/primitives.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
+import '../features/care/caregiver_screen.dart';
+import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
 import '../features/emergency/emergency_card_screen.dart';
 import '../features/link/sign_in_screen.dart';
@@ -214,6 +216,57 @@ class _AppShellState extends State<AppShell> {
           Icons.settings_outlined,
         ],
         gapForAdd: true,
+        current: _tab,
+        onSelect: (i) => setState(() => _tab = i),
+      ),
+    );
+  }
+}
+
+/// هيكل تطبيق الابن (D4): تبويبين بس — «متابعة» و«الإعدادات».
+///
+/// **الابن مش مريض**: مفيش «يومك» ولا «ضيف» ولا محرر جرعة ولا رمضان ولا
+/// اختصار «طوارئ» (بيانات طوارئ الأب محلية على موبايل الأب، وهنا كانت هتفتح
+/// على شاشة فاضية). المتابعة للقراية بس — أي زرار بيغيّر بيانات الأب مش
+/// موجود هنا خالص (`caregiver_shell_test` بيمشي على الشجرة ويثبت ده).
+class CaregiverShell extends StatefulWidget {
+  const CaregiverShell({required this.onNotLinked, this.now, super.key});
+
+  /// السحابة قالت «مفيش مريض مربوط» → الجذر يرجّع لشاشة البداية.
+  final VoidCallback onNotLinked;
+
+  /// للاختبارات.
+  final DateTime? now;
+
+  static const tabs = ['متابعة', 'الإعدادات'];
+
+  @override
+  State<CaregiverShell> createState() => _CaregiverShellState();
+}
+
+class _CaregiverShellState extends State<CaregiverShell> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final remote = AppScope.of(context).caregiver;
+    if (remote == null) {
+      // جلسة من غير سحابة مش ممكنة عملياً — بس لو حصلت، مفيش حاجة تتتابع
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onNotLinked());
+      return const Scaffold();
+    }
+    return Scaffold(
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          CaregiverScreen(remote: remote, now: widget.now, onNotLinked: widget.onNotLinked),
+          const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
+        ],
+      ),
+      bottomNavigationBar: _TabBar(
+        labels: CaregiverShell.tabs,
+        icons: const [Icons.visibility_outlined, Icons.settings_outlined],
+        gapForAdd: false,
         current: _tab,
         onSelect: (i) => setState(() => _tab = i),
       ),

@@ -165,8 +165,13 @@ lib/
   features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/settings/          SettingsScreen + NotificationsScreen (rung switches)
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
+  features/entry/             EntryScreen «مين ماسك التليفون؟» (D4) — routes only
   features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
-                              read-only window, straight from Supabase
+                              read-only home (CaregiverShell: «متابعة» +
+                              «الإعدادات»), straight from Supabase
+  domain/wording/             rule_wording — «الفطار − ٣٠ د» text shared by
+                              the scheduler and the son's side (no scheduling
+                              import there)
   data/auth/                  AuthService interface + GoogleAuthService +
                               supabase_init (initSupabaseAuth for the app,
                               initSupabaseForIsolate for the background wake-up)
@@ -433,9 +438,12 @@ must claim a band and filter cancellations by it the same way.
 
 The app is complete with no account: onboarding → scan → reminders all work
 offline forever. Identity exists only because escalation needs the son's
-phone. Its single door is «اربط ابني» on «يومك». If a sign-in screen ever
-appears at startup, that is a bug by definition —
-`test/app/root_test.dart` has a loudly-named guard test for it.
+phone. It has two doors, both behind a tap: «اربط ابني» on the patient's
+«العائلة» tab, and «ابني أو والدي بعتلي كود» on the D4 entry screen — which
+is a **question, not a sign-in** (no session, no call until that card is
+tapped, and then only through SignInScreen's button). If a sign-in screen
+ever appears at startup, that is a bug by definition —
+`test/app/root_test.dart` has loudly-named guard tests for it.
 
 - **An SDK import lives in a `supabase_*` / `firebase_*` file behind an
   interface, and nowhere else.** `lib/data/auth/` was once the only place
@@ -958,9 +966,8 @@ Consequences to handle:
   built.** Its third option («افترض من غير ما تسأل») lets an AI reading
   become a scheduled dose without a tap — rule 4 forbids exactly that.
 - **`accountType` is not stored.** «Roles emerge from data… there is no
-  role column» (3.3). Mockup 2's option-card style is used for the path
-  choice after sign-in («اعرض كود الربط» / «عندي كود من والدي»), not as
-  a startup screen; the root guard still finds no sign-in at launch.
+  role column» (3.3). Mockup 2's cards are the D4 entry screen — it only
+  routes; the choice lives in memory and is gone once setup ends (see D4).
 - **Google and Apple sign-in are shown disabled on mockup 3, each with its
   own real reason** — Google «قريباً», Apple «محتاج حساب Apple Developer».
   They are not buttons (no InkWell, a lock, a muted fill), a test taps them
@@ -1070,6 +1077,17 @@ Consequences to handle:
    instance or a paid provider, and a tile provider that allows commercial
    use. Doctors' coverage in Egypt on OSM is thin and is shown as-is.
 
+4c. **Every install still gets an empty «أنا» patient row at boot** (D4
+   took option A2). `buildServices` calls `ensurePatient()` and
+   `AppServices.patientId` is a non-null int that the scheduler, every
+   screen and the lock-screen isolate rely on — so "has a patient" is
+   *derived*: a saved routine **or** a non-null `sex`
+   (`RoutineRepository.watchHasPatient`). The son's phone therefore holds a
+   row that is not a patient; `SyncService` never pushes a patient with no
+   routine and no medications, so it cannot reach the cloud and make him
+   one. **The correct long-term shape is A1:** create the row only when
+   «نتعرّف عليك» saves, and build the patient-bound services after that.
+   It is a refactor of everything that reads `patientId`, not a tweak.
 5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
    normal text at 17px** (AA needs 4.5:1). README's token table was
    followed as-is for the demo (design fidelity «high»). For a
@@ -1625,6 +1643,52 @@ device-verified)**
   «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
   notification permission has no in-app lead-in; the caregiver screen
   still uses gold text.
+
+**D4 — entry screen + caregiver account (built)**
+- **The root decides from data, never from a role column** (`AppRoot`):
+  a local patient (routine saved or sex asked) → the patient app, exactly
+  as before; no patient but a locally restored session → `CaregiverShell`;
+  neither → `EntryScreen`. Once either a patient or a care link exists,
+  the entry screen never appears again. `watchHasPatient` + the auth state
+  stream drive it; nothing is written to decide it.
+- **Entry screen** (mockup 02's cards, each card is the action, no
+  continue button): «التليفون ده ليا» → «نتعرّف عليك» → «ظبّط يومك» →
+  «يومك», unchanged. «بظبّط لحد تاني» → the same screens worded about
+  the patient: `Say(sex, aboutSomeoneElse: true)` — the first question is
+  neutral («اسم والدك أو والدتك إيه؟»), third person after the sex is
+  chosen («بيصحى / بتصحى», «يومها», «سنّها كام؟ (لو تعرف)»); the setter's
+  own «مش متأكد» stays generic. The choice is held in `AppRoot` memory
+  only; after setup the app addresses the patient directly. A «رجوع»
+  returns to the entry screen until a patient exists.
+- **«ابني أو والدي بعتلي كود»** → `SignInScreen(onCaregiverLinked:)`, which
+  explains that this is the only place an account is asked for and offers
+  no «اعرض كود الربط» → `RedeemCodeScreen` → «افتح المتابعة» pops `true`
+  to the root → `CaregiverShell`. No patient question, no routine, no
+  patient met. `signInToLink()` is still called from exactly one line.
+  After linking the notification permission is requested once (without it
+  the escalation push cannot show on Android 13+) — outside the redeem
+  `try`, so a failed permission request never turns a successful link
+  into «مقدرناش نكمّل».
+- **The son is not a patient.** `CaregiverShell`: two tabs, «متابعة» and
+  «الإعدادات»; no «يومك», «ضيف», dose editor, Ramadan, or «طوارئ»
+  shortcut (the father's emergency data lives on the father's phone).
+  «متابعة» shows the alert cards, the week strip, today's doses and — new —
+  the father's medicines with their rules, read from `dose_schedules` /
+  `fixed_timings` in the cloud and worded by `domain/wording/rule_wording`
+  (the same text the patient sees; the son's side still never resolves an
+  anchor). «الإعدادات» is the account (sign-out clears the push token
+  first) and «اللغة: عربي». `caregiver_shell_test` walks every tappable
+  widget on both tabs and allows only the two tabs and «تسجيل الخروج» —
+  mutation-checked with a planted button.
+- **Not linked vs offline:** `snapshot()` returning null means "no linked
+  patient" → back to the entry screen (a son whose code failed and who
+  closed the app); a thrown `CareCircleException` is offline → the existing
+  offline sentence stays on the son's home.
+- **Unverified live:** the medicines embed
+  (`dose_schedules(…, fixed_timings(minute_of_day))`) has never run against
+  the real project; RLS should allow it through `can_access_patient`.
+  Devices linked as a son **before** D4 went through onboarding, so they
+  hold a routine and stay "patient" — reinstall them.
 
 **App icon + Android launch screen (chore)**
 - `flutter_launcher_icons` config lives in `pubspec.yaml`, fed by

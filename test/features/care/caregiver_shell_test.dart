@@ -1,0 +1,157 @@
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/app/app_scope.dart';
+import 'package:fakkarni/app/shell.dart';
+import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/data/care/caregiver_remote.dart';
+import 'package:fakkarni/data/care/supabase_caregiver_remote.dart' show medicationFromRow;
+import 'package:fakkarni/data/db/app_database.dart';
+import 'package:fakkarni/data/repositories/dose_event_repository.dart';
+import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/services/reminder_scheduler.dart';
+
+import '../../app/root_test.dart' show SilentSink;
+import '../scan/scan_test_support.dart' show settle, screenTest;
+import 'caregiver_screen_test.dart' show FakeCaregiverRemote, event, now;
+
+/// D4: الابن بيتابع، ما بيكتبش. أي زرار ممكن يغيّر بيانات الأب **مش موجود
+/// خالص** — مش متعطّل. الاختبار بيمشي على كل حاجة بتتداس في الشجرة (على
+/// التبويبين) وبيقرا الكلام اللي جواها: المسموح بس التنقّل والخروج من الحساب.
+void main() {
+  late AppDatabase db;
+
+  setUp(() => db = AppDatabase(NativeDatabase.memory()));
+  tearDown(() => db.close());
+
+  const allowedTaps = {'متابعة', 'الإعدادات', 'تسجيل الخروج'};
+
+  Set<String> tappableTexts(WidgetTester tester) {
+    final texts = <String>{};
+    final tappables = [
+      ...tester.widgetList<InkWell>(find.byType(InkWell)).map((w) => (w, w.onTap != null)),
+      ...tester.widgetList<GestureDetector>(find.byType(GestureDetector)).map((w) => (w, w.onTap != null)),
+    ];
+    for (final (widget, live) in tappables) {
+      if (!live) continue;
+      for (final t in tester.widgetList<Text>(find.descendant(of: find.byWidget(widget), matching: find.byType(Text)))) {
+        texts.add((t.data ?? t.textSpan?.toPlainText() ?? '').trim());
+      }
+    }
+    return texts..remove('');
+  }
+
+  screenTest('تطبيق الابن: تبويبين، ولا زرار بيكتب في بيانات الأب — على التبويبين', (tester) async {
+    tester.view.physicalSize = const Size(1000, 4000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final routines = RoutineRepository(db);
+    final meds = MedicationRepository(db);
+    final events = DoseEventRepository(db);
+    final patientId = await routines.ensurePatient();
+    final remote = FakeCaregiverRemote()
+      ..next = CaregiverSnapshot(
+        patient: const CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد'),
+        medications: const [
+          CaregiverMedication(uuid: 'm1', name: 'Concor 5mg', amountLabel: 'قرص واحد', rules: ['الفطار − ٣٠ د']),
+        ],
+        events: [
+          event('Concor 5mg', DateTime(2026, 8, 31, 7), 'taken', actedAt: DateTime(2026, 8, 31, 7, 5)),
+          event('Glucophage', DateTime(2026, 8, 31, 9), 'missed'),
+          event('Glucophage', DateTime(2026, 8, 31, 12), 'pending'),
+          event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending'),
+        ],
+        alerts: [
+          CaregiverAlert(
+            uuid: 'a1',
+            medicationName: 'Glucophage',
+            scheduledAt: DateTime(2026, 8, 31, 9),
+            doseState: 'missed',
+            deliveryStatus: 'no_token',
+            createdAt: DateTime(2026, 8, 31, 10),
+          ),
+        ],
+        lastUpdated: DateTime(2026, 8, 31, 13),
+      );
+
+    await tester.pumpWidget(
+      AppScope(
+        services: AppServices(
+          db: db,
+          routines: routines,
+          medications: meds,
+          events: events,
+          scheduler: ReminderScheduler(
+            routines: routines,
+            medications: meds,
+            events: events,
+            patientId: patientId,
+            sink: SilentSink(),
+          ),
+          patientId: patientId,
+          caregiver: remote,
+        ),
+        child: MaterialApp(
+          theme: F.light,
+          builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+          home: CaregiverShell(onNotLinked: () {}, now: now),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    // اللي بيتابعه ظاهر: يومه، أدويته بقواعدها، التنبيه
+    expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
+    expect(find.text('قرص واحد · الفطار − ٣٠ د'), findsOneWidget);
+    expect(find.textContaining('والدك ما أكّدش جرعة Glucophage'), findsOneWidget);
+
+    // ومفيش حاجة بتتكتب
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(Switch), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    for (final word in ['ضيف', 'عدّل', 'وقّف', 'أخدته', 'تأكيد الجرعة', 'مش هاخده', 'احفظ', 'طوارئ', 'يومك']) {
+      expect(find.textContaining(word), findsNothing, reason: '«$word» مالوش مكان عند الابن');
+    }
+    expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
+
+    await tester.tap(find.text('الإعدادات'));
+    await settle(tester);
+    expect(find.text('حسابك'), findsOneWidget);
+    for (final word in ['مواعيد يومك', 'رمضان', 'نمط كبار السن', 'التنبيهات', 'الملف الصحي', 'معلومات الطوارئ']) {
+      expect(find.textContaining(word), findsNothing, reason: '«$word» بيخص مريض على الموبايل ده');
+    }
+    expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
+  });
+
+  group('قواعد أدوية الأب من صف السحابة — نص، مش ساعة محسوبة', () {
+    test('مرساة بإزاحة، مرساة من غير إزاحة، وساعة ثابتة بساعتها المكتوبة', () {
+      final med = medicationFromRow({
+        'uuid': 'm1',
+        'name': 'Concor 5mg',
+        'amount_label': 'قرص واحد',
+        'dose_schedules': [
+          {'timing_kind': 'anchor', 'anchor': 'breakfast', 'offset_minutes': -30, 'fixed_timings': null},
+          {'timing_kind': 'anchor', 'anchor': 'dinner', 'offset_minutes': 0, 'fixed_timings': null},
+          {
+            'timing_kind': 'fixed',
+            'anchor': null,
+            'offset_minutes': null,
+            'fixed_timings': {'minute_of_day': 8 * 60},
+          },
+        ],
+      });
+
+      expect(med.rules, ['الفطار − ٣٠ د', 'العشا', 'ساعة ثابتة · ٨:٠٠ ص']);
+      expect(med.amountLabel, 'قرص واحد');
+    });
+
+    test('من غير جداول → من غير قواعد (ما بنخمّنش)', () {
+      final med = medicationFromRow({'uuid': 'm1', 'name': 'X', 'amount_label': null});
+      expect(med.rules, isEmpty);
+    });
+  });
+}

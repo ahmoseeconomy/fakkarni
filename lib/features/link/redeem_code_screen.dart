@@ -12,12 +12,17 @@ import '../care/caregiver_screen.dart';
 /// الحقل بيقبل الأرقام العربي والغربي — كيبورد الآيفون العربي بيكتب
 /// ٠-٩، والسيرفر عايز 0-9 — فبنطبّع قبل الإرسال.
 class RedeemCodeScreen extends StatefulWidget {
-  const RedeemCodeScreen({required this.care, this.caregiver, super.key});
+  const RedeemCodeScreen({required this.care, this.caregiver, this.onLinked, super.key});
 
   final CareCircleService care;
 
   /// بعد الربط الناجح: «افتح المتابعة» بيوصّل للنافذة على طول.
   final CaregiverRemote? caregiver;
+
+  /// D4 طريق الابن من شاشة البداية: بيتندَه بعد الربط (طلب إذن الإشعارات —
+  /// من غيره تنبيه التصعيد ما بيظهرش على أندرويد ١٣+)، و«افتح المتابعة»
+  /// بترجع `true` للجذر بدل ما تفتح شاشة فوق. null = الطريق القديم.
+  final Future<void> Function()? onLinked;
 
   @override
   State<RedeemCodeScreen> createState() => _RedeemCodeScreenState();
@@ -70,6 +75,14 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    // برّه الـtry عن قصد: الربط نجح خلاص — طلب إذن فشل ما يقلبهوش لـ«مقدرناش».
+    if (_linkedName != null) {
+      try {
+        await widget.onLinked?.call();
+      } catch (error) {
+        debugPrint('Care: طلب إذن الإشعارات بعد الربط فشل: $error');
+      }
+    }
   }
 
   @override
@@ -98,13 +111,21 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'هتقدر تشوف أدويته ومواعيده — والتنبيهات جاية في الخطوة الجاية.',
+                  Text(
+                    widget.onLinked != null
+                        ? 'هتقدر تشوف أدويته ومواعيده. عشان نبلّغك لو نسي جرعة، '
+                            'الموبايل هيسألك تسمح بالإشعارات.'
+                        : 'هتقدر تشوف أدويته ومواعيده — والتنبيهات جاية في الخطوة الجاية.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: F.minBodySize, color: F.muted, height: 1.6),
                   ),
                   const SizedBox(height: F.gap),
-                  if (widget.caregiver != null) ...[
+                  if (widget.onLinked != null)
+                    FPrimaryButton(
+                      label: 'افتح المتابعة',
+                      onPressed: () => Navigator.of(context).pop(true),
+                    )
+                  else if (widget.caregiver != null) ...[
                     FPrimaryButton(
                       label: 'افتح المتابعة',
                       onPressed: () => Navigator.of(context).pushReplacement(
@@ -115,6 +136,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     ),
                     const SizedBox(height: F.s4),
                   ],
+                  if (widget.onLinked == null)
                   SizedBox(
                     height: widget.caregiver != null
                         ? F.minTapTarget

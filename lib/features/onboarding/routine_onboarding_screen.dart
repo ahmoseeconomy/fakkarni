@@ -15,7 +15,13 @@ import 'routine_question_page.dart';
 /// سؤال واحد في المرة عن قصد: المستخدم عنده ٧٢ سنة وبيقرا بنضارة، وشاشة
 /// فيها خمس أسئلة مع بعض بتبقى حيطة.
 class RoutineOnboardingScreen extends StatefulWidget {
-  const RoutineOnboardingScreen({this.onDone, this.askProfile = true, super.key});
+  const RoutineOnboardingScreen({
+    this.onDone,
+    this.askProfile = true,
+    this.forSomeoneElse = false,
+    this.onBack,
+    super.key,
+  });
 
   /// بيتندَه بعد ما الروتين يتحفظ وتتعاد جدولة التذكيرات.
   final VoidCallback? onDone;
@@ -23,6 +29,13 @@ class RoutineOnboardingScreen extends StatefulWidget {
   /// «نتعرّف عليك» قبل الأسئلة لو الجنس لسه ما اتسألش. false = الأسئلة على
   /// طول (اختبارات الأسئلة نفسها).
   final bool askProfile;
+
+  /// D4 «بظبّط لحد تاني» — الأسئلة بالغايب. مش متخزّن.
+  final bool forSomeoneElse;
+
+  /// الرجوع لشاشة البداية — موجود بس قبل ما يبقى فيه مريض (اختيار غلط
+  /// ما يحبسش حد في مسار مش بتاعه).
+  final VoidCallback? onBack;
 
   @override
   State<RoutineOnboardingScreen> createState() =>
@@ -118,7 +131,7 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
             ? const SizedBox.shrink()
             // الأسئلة بتتكتب بجنس المريض اللي لسه مختاره — مش مستنية القاعدة
             : PatientVoice(
-                say: Say(_sex),
+                say: Say(_sex, aboutSomeoneElse: widget.forSomeoneElse),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -127,10 +140,29 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (widget.onBack != null)
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: SizedBox(
+                                height: F.minTapTarget,
+                                child: TextButton.icon(
+                                  onPressed: widget.onBack,
+                                  icon: const Icon(Icons.arrow_back, size: 22),
+                                  label: const Text('رجوع'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: F.green,
+                                    minimumSize: const Size(0, F.minTapTarget),
+                                    textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                            ),
                           Kicker(profile ? 'أول خطوة' : 'مرة واحدة بس'),
                           const SizedBox(height: F.s4),
                           Text(
-                            profile ? 'نتعرّف عليك' : 'خلينا نعرف يومك',
+                            profile
+                                ? (widget.forSomeoneElse ? 'نتعرّف على والدك أو والدتك' : 'نتعرّف عليك')
+                                : Say(_sex, aboutSomeoneElse: widget.forSomeoneElse).routineTitle,
                             style: const TextStyle(
                               fontFamily: F.displayFamily,
                               fontSize: F.screenTitleSize,
@@ -140,8 +172,8 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                           ),
                           if (!profile) ...[
                             const SizedBox(height: F.s4),
-                            const Text(
-                              'خمس أسئلة — وبعدها أي روشتة هتتظبط لوحدها على مواعيدك.',
+                            Text(
+                              Say(_sex, aboutSomeoneElse: widget.forSomeoneElse).routineSubtitle,
                               style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                             ),
                           ],
@@ -150,7 +182,11 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                     ),
                     Expanded(
                       child: profile
-                          ? ProfilePage(initialName: _name, onDone: _saveProfile)
+                          ? ProfilePage(
+                              initialName: _name,
+                              onDone: _saveProfile,
+                              forSomeoneElse: widget.forSomeoneElse,
+                            )
                           : PageView.builder(
                               controller: _controller,
                               // مفيش سحب بالإيد: كل سؤال بيتقفل بـ«تمام» أو «مش متأكد»،

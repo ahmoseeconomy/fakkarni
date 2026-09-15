@@ -1,5 +1,4 @@
-// arabic_time دارت نقية (من غير Flutter) — القاعدة ٢ سليمة.
-import '../../core/format/arabic_time.dart';
+import '../wording/rule_wording.dart';
 import 'day_routine.dart';
 
 /// تكرار الجرعة.
@@ -38,11 +37,7 @@ final class AnchorTiming extends DoseTiming {
   final int offsetMinutes;
 
   @override
-  String get ruleLabel {
-    if (offsetMinutes == 0) return anchor.label;
-    final sign = offsetMinutes < 0 ? '−' : '+';
-    return '${anchor.label} $sign ${arabicNumber(offsetMinutes.abs())} د';
-  }
+  String get ruleLabel => anchorRuleWording(anchor.label, offsetMinutes);
 
   @override
   bool operator ==(Object other) =>
@@ -68,7 +63,7 @@ final class FixedTiming extends DoseTiming {
 
   /// الساعة نفسها بتتعرض جنبه من وقت الجرعة — الوصف هنا بيقول النوع بس.
   @override
-  String get ruleLabel => 'ساعة ثابتة';
+  String get ruleLabel => fixedRuleWording;
 
   @override
   bool operator ==(Object other) =>

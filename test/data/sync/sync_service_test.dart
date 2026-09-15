@@ -128,6 +128,37 @@ void main() {
     expect(remote.calls, 0, reason: 'اربط ابني هو اللي بيفتح المزامنة');
   });
 
+  test('D4: مريض لسه ما اتعرّفناش عليه (من غير روتين ولا أدوية) ما بيطلعش السحابة', () async {
+    // صف «أنا» الفاضي بتاع ensurePatient — زي اللي على موبايل ابن
+    final empty = await db.into(db.patients).insert(
+          PatientsCompanion.insert(name: 'أنا', notificationSlot: const Value(1)),
+        );
+    await sync.confirmLinked();
+    // الاتنين اتعدّلوا بعد الربط → الاتنين متوسّخين
+    for (final id in [patientId, empty]) {
+      await (db.update(db.patients)..where((t) => t.id.equals(id)))
+          .write(PatientsCompanion(name: Value('اسم $id')));
+    }
+
+    await sync.push();
+
+    final pushed = remote.tables['patients']?.values.map((r) => r['name']).toSet() ?? {};
+    expect(pushed, {'اسم $patientId'}, reason: 'اللي ليه روتين بس');
+    final emptyRow = await (db.select(db.patients)..where((t) => t.id.equals(empty))).getSingle();
+    expect(emptyRow.syncedAtMs == null || emptyRow.syncedAtMs! < emptyRow.updatedAtMs, isTrue,
+        reason: 'بيفضل متوسّخ ويطلع أول ما يبقى ليه روتين أو دوا');
+
+    // أول دوا → بيطلع
+    await meds.addMedication(
+      patientId: empty,
+      name: 'Concor 5mg',
+      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      startDate: aug31,
+    );
+    await sync.push();
+    expect(remote.tables['patients']!.values.map((r) => r['name']), contains('اسم $empty'));
+  });
+
   test('بعد الربط: المتوسّخ بيتدفع أب-قبل-ابن، والعلامة بتتحط، والنضيف مش بيتبعت تاني',
       () async {
     await addConcor();

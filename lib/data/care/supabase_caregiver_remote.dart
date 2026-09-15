@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/format/arabic_time.dart';
+import '../../domain/wording/rule_wording.dart';
 import 'caregiver_remote.dart';
 
 /// تنبيهات السيرفر اللي بتظهر فوق الشاشة.
@@ -22,6 +24,34 @@ CaregiverAlert alertFromRow(Map<String, dynamic> row) {
     deliveryStatus: row['delivery_status'] as String,
     createdAt: time(row['created_at'])!,
     sentAt: time(row['sent_at']),
+  );
+}
+
+/// صف medications بجداوله المضمّنة → [CaregiverMedication]. قواعد الجرعات
+/// **نص** من نفس صياغة المريض — مفيش حساب ساعة لمرساة هنا أبداً. الساعة
+/// الثابتة بتتعرض لأنها مكتوبة كده في الصف، مش محسوبة. منفصلة عشان تتختبر
+/// من غير Supabase.
+CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
+  final schedules = (row['dose_schedules'] as List?) ?? const [];
+  String? rule(Map s) {
+    if (s['timing_kind'] == 'fixed') {
+      final fixed = s['fixed_timings'];
+      final minute = (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
+      final m = minute?['minute_of_day'] as int?;
+      return m == null ? fixedRuleWording : '$fixedRuleWording · ${arabicTime(DateTime(2026, 1, 1, 0, m))}';
+    }
+    final word = anchorWords[s['anchor']];
+    if (word == null) return null;
+    return anchorRuleWording(word, (s['offset_minutes'] as int?) ?? 0);
+  }
+
+  return CaregiverMedication(
+    uuid: row['uuid'] as String,
+    name: row['name'] as String,
+    amountLabel: row['amount_label'] as String?,
+    rules: [
+      for (final s in schedules) ?rule(s as Map),
+    ],
   );
 }
 
@@ -61,7 +91,8 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
 
         final meds = await _supabase
             .from('medications')
-            .select('uuid, name, amount_label, stopped_at, updated_at')
+            .select('uuid, name, amount_label, stopped_at, updated_at, '
+                'dose_schedules(timing_kind, anchor, offset_minutes, fixed_timings(minute_of_day))')
             .eq('patient_uuid', patient.uuid);
 
         final since = DateTime.now().toUtc().subtract(const Duration(days: 7));
@@ -106,12 +137,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
           patient: patient,
           medications: [
             for (final m in meds)
-              if (m['stopped_at'] == null)
-                CaregiverMedication(
-                  uuid: m['uuid'] as String,
-                  name: m['name'] as String,
-                  amountLabel: m['amount_label'] as String?,
-                ),
+              if (m['stopped_at'] == null) medicationFromRow(m),
           ],
           events: [
             for (final e in events)

@@ -14,9 +14,13 @@ import '../medication/dose_editor.dart' show MinuteStepper;
 /// الجزء التاني في التصميم («الروشتة لو مش مكتوب فيها ميعاد؟») مش هنا:
 /// اختياره التالت «افترض من غير ما تسأل» بيكسر القاعدة ٤.
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({required this.onDone, this.initialName, super.key});
+  const ProfilePage({required this.onDone, this.initialName, this.forSomeoneElse = false, super.key});
 
   final String? initialName;
+
+  /// D4 «بظبّط لحد تاني»: الأسئلة عن المريض مش عن اللي ماسك التليفون. أول
+  /// سؤال محايد (الجنس لسه ما اتختارش)، والباقي بالغايب بعد اختياره.
+  final bool forSomeoneElse;
   final Future<void> Function({required String name, required Sex sex, int? age}) onDone;
 
   @override
@@ -60,7 +64,8 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     // الكلام بيتبع الجنس أول ما يتختار — حتى على الشاشة دي نفسها
-    final say = Say(_sex);
+    final say = Say(_sex, aboutSomeoneElse: widget.forSomeoneElse);
+    final other = widget.forSomeoneElse;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -68,19 +73,21 @@ class _ProfilePageState extends State<ProfilePage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
             children: [
-              const Text(
-                'تلات حاجات بس عشان نكلّمك صح. لو بتظبط الموبايل لحد تاني، اكتب بياناته هو.',
+              Text(
+                other
+                    ? 'تلات حاجات بس عشان التطبيق يكلّم والدك أو والدتك صح.'
+                    : 'تلات حاجات بس عشان نكلّمك صح. لو بتظبط الموبايل لحد تاني، اكتب بياناته هو.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
               ),
               const SizedBox(height: F.gap),
-              const _Label('اسمك إيه؟'),
+              _Label(other ? 'اسم والدك أو والدتك إيه؟' : 'اسمك إيه؟'),
               TextField(
                 controller: _name,
                 onChanged: (_) => setState(() {}),
                 textCapitalization: TextCapitalization.words,
                 style: const TextStyle(fontSize: F.minBodySize, color: F.ink),
                 decoration: InputDecoration(
-                  hintText: 'اكتب اسمك — زي «الحاج أحمد»',
+                  hintText: other ? 'زي «الحاج أحمد» أو «الحاجة فاطمة»' : 'اكتب اسمك — زي «الحاج أحمد»',
                   hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.placeholder),
                   filled: true,
                   fillColor: Colors.white,
@@ -117,7 +124,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
               const SizedBox(height: F.gap),
-              _Label(say.pick('سنّك كام؟ (لو حابب)', 'سنّك كام؟ (لو حابّة)')),
+              _Label(switch ((other, _sex)) {
+                (false, _) => say.pick('سنّك كام؟ (لو حابب)', 'سنّك كام؟ (لو حابّة)'),
+                (true, null) => 'السن كام؟ (لو تعرف)',
+                (true, _) => say.pick('سنّه كام؟ (لو تعرف)', 'سنّها كام؟ (لو تعرف)'),
+              }),
               Wrap(
                 spacing: F.s8,
                 runSpacing: F.s8,

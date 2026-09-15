@@ -80,3 +80,12 @@ String questionTextFor(RoutineQuestion question, Say say) => switch (question.an
       DayAnchor.dinner => say.dinnerQuestion,
       DayAnchor.sleep => say.sleepQuestion,
     };
+
+/// الشرح تحت السؤال — بالغايب في مسار «لحد تاني» (D4). الأسئلة اللي
+/// شرحها بيكلّم اللي بيظبط (الفطار والغدا) زي ما هي.
+String questionHintFor(RoutineQuestion question, Say say) => switch (question.anchor) {
+      DayAnchor.wake => say.wakeHint,
+      DayAnchor.dinner => say.dinnerHint,
+      DayAnchor.sleep => say.sleepHint,
+      _ => question.hint,
+    };

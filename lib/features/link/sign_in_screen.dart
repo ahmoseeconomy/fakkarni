@@ -23,8 +23,18 @@ class SignInScreen extends StatefulWidget {
     required this.auth,
     this.caregiver,
     this.push,
+    this.onCaregiverLinked,
     super.key,
   });
+
+  /// D4 المسار «ابني أو والدي بعتلي كود»: الشاشة بتشرح ليه الحساب لازم هنا
+  /// **وبس**، وبعد الدخول بتروح لإدخال الكود على طول — مفيش «اعرض كود الربط»
+  /// (ده طريق المريض). بيتندَه بعد ربط ناجح (طلب إذن الإشعارات)، والشاشة
+  /// بترجع `true` للجذر اللي بيفتح المتابعة. null = الطريق القديم من
+  /// «اربط ابني».
+  final Future<void> Function()? onCaregiverLinked;
+
+  bool get forCaregiver => onCaregiverLinked != null;
 
   /// null = إعداد Supabase مش موجود، والشاشة بتقول ده بوضوح.
   final AuthService? auth;
@@ -87,6 +97,9 @@ class _SignInScreenState extends State<SignInScreen> {
       // بس الابن ممكن يقفل التطبيق على طول بعد الربط — وأول جرعة
       // فايتة ممكن تكون بعدها بساعة.
       await widget.push?.registerNow();
+      if (widget.forCaregiver && mounted && auth.currentUser != null) {
+        await _openRedeem();
+      }
     } on SignInException catch (e) {
       // الإلغاء بإيده مش خطأ — ولا رسالة.
       if (mounted && e.message != null) setState(() => _error = e.message);
@@ -97,6 +110,23 @@ class _SignInScreenState extends State<SignInScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// طريق الابن من شاشة البداية: الكود، ولو اتربط نرجع للجذر بـtrue.
+  Future<void> _openRedeem() async {
+    final care = AppScope.of(context).care;
+    if (care == null) return;
+    final navigator = Navigator.of(context);
+    final linked = await navigator.push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => RedeemCodeScreen(
+          care: care,
+          caregiver: widget.caregiver,
+          onLinked: widget.onCaregiverLinked,
+        ),
+      ),
+    );
+    if (linked == true && mounted) navigator.pop(true);
   }
 
   /// طريق الأب: صف المريض المحلي (uuid + اسم) → شاشة الكود.
@@ -154,8 +184,8 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             ),
             const SizedBox(height: F.s12),
-            const Text(
-              'سجّل الدخول للربط',
+            Text(
+              widget.forCaregiver ? 'حساب عشان تتابع' : 'سجّل الدخول للربط',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: F.displayFamily,
@@ -165,10 +195,13 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             ),
             const SizedBox(height: F.s8),
-            const Text(
-              'عشان لو جرعة مهمة فاتت، نعرف نكلّم ابنك على موبايله هو. '
-              'الربط ده محتاج حساب يعرّفنا مين أنت — والتطبيق من غيره '
-              'شغّال بكل حاجة تانية عادي.',
+            Text(
+              widget.forCaregiver
+                  ? 'عشان تشوف أدوية والدك ومواعيده، ونبلّغك لو نسي جرعة، لازم حساب '
+                      'يعرّفنا مين أنت. ده المكان الوحيد في التطبيق اللي بنطلب فيه حساب.'
+                  : 'عشان لو جرعة مهمة فاتت، نعرف نكلّم ابنك على موبايله هو. '
+                      'الربط ده محتاج حساب يعرّفنا مين أنت — والتطبيق من غيره '
+                      'شغّال بكل حاجة تانية عادي.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
             ),
@@ -179,7 +212,14 @@ class _SignInScreenState extends State<SignInScreen> {
             const SizedBox(height: F.gap),
             if (widget.auth == null)
               const _Panel(text: SupabaseAuthConfig.missingConfigMessage)
-            else if (_user != null) ...[
+            else if (_user != null && widget.forCaregiver) ...[
+              _PathCard(
+                icon: Icons.link,
+                title: 'اكتب الكود',
+                hint: 'الكود اللي والدك أو والدتك قالهولك — ٦ أرقام',
+                onTap: _busy ? null : _openRedeem,
+              ),
+            ] else if (_user != null) ...[
               // الدورين من البيانات مش من الحساب: الأب بيطلع كوداً،
               // والابن بيكتب كوداً — نفس الحساب، نفس الشاشة (بشكل المخطط ٢).
               _PathCard(

@@ -56,7 +56,7 @@ class RoutineQuestionPage extends StatelessWidget {
                 ),
                 const SizedBox(height: F.s6),
                 Text(
-                  question.hint,
+                  questionHintFor(question, PatientVoice.of(context)),
                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                 ),
                 const SizedBox(height: F.gap),

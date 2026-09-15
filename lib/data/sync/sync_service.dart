@@ -174,8 +174,15 @@ class SyncService {
   }
 
   Future<void> _pushPatients() async {
+    // مريض لسه ما اتعرّفناش عليه (صف «أنا» الفاضي اللي ensurePatient بيعمله
+    // عند الإقلاع — D4) مالوش مكان في السحابة: من غير روتين ومن غير أدوية
+    // مفيش حاجة تتتابع، وعلى موبايل ابن الصف ده مش مريض أصلاً. بيفضل متوسّخ
+    // ويطلع أول ما يبقى ليه روتين أو دوا.
     final rows = await (_db.select(_db.patients)
-          ..where((t) => _dirty(_cols(t.syncedAtMs, t.updatedAtMs))))
+          ..where((t) =>
+              _dirty(_cols(t.syncedAtMs, t.updatedAtMs)) &
+              (existsQuery(_db.select(_db.dayRoutines)..where((r) => r.patientId.equalsExp(t.id))) |
+                  existsQuery(_db.select(_db.medications)..where((m) => m.patientId.equalsExp(t.id))))))
         .get();
     await _upsertAndMark(
       'patients',

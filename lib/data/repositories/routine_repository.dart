@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 
 import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -160,6 +160,20 @@ class RoutineRepository {
         dinnerMinutes: Value(routine.dinner.minutes),
         sleepMinutes: Value(routine.sleep.minutes),
       ));
+
+  /// «فيه مريض على الموبايل ده؟» (D4) — مشتقة من البيانات، مفيش عمود دور:
+  /// روتين محفوظ **أو** جنس اتسأل. صف «أنا» الفاضي اللي [ensurePatient]
+  /// بيعمله عند الإقلاع لوحده مش مريض. الشكل الصح على المدى الطويل إن الصف
+  /// ما يتعملش غير لما «نتعرّف عليك» تتحفظ (دين تقني في CLAUDE.md).
+  Stream<bool> watchHasPatient(int patientId) => _db
+      .customSelect(
+        'SELECT EXISTS(SELECT 1 FROM day_routines WHERE patient_id = ?1) '
+        'OR EXISTS(SELECT 1 FROM patients WHERE id = ?1 AND sex IS NOT NULL) AS has_patient',
+        variables: [Variable.withInt(patientId)],
+        readsFrom: {_db.dayRoutines, _db.patients},
+      )
+      .watchSingle()
+      .map((row) => row.read<bool>('has_patient'));
 
   /// صف المريض — بيتحدّث مع أي تعديل (الاسم أو الجنس أو السن).
   Stream<PatientRow?> watchPatient(int patientId) =>

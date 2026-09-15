@@ -20,10 +20,15 @@ class CaregiverMedication {
     required this.uuid,
     required this.name,
     this.amountLabel,
+    this.rules = const [],
   });
   final String uuid;
   final String name;
   final String? amountLabel;
+
+  /// قاعدة كل جرعة زي ما اتسجلت — «الفطار − ٣٠ د» أو «ساعة ثابتة · ٨:٠٠ ص».
+  /// نص من `domain/wording`، مش ساعة محسوبة: جانب الابن ما بيحلّش مراسي.
+  final List<String> rules;
 }
 
 /// حدث جرعة زي ما جهاز الأب كتبه — الحالة بالحرف، والوقت اللي هو حسبه.

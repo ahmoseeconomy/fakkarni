@@ -18,9 +18,15 @@ const Duration staleAfter = Duration(hours: 24);
 /// المرحلة الرابعة بمهلتها. ومفيش هنا ولا سطر جدولة — الأوقات كلها من
 /// اللي جهاز الأب كتبه.
 class CaregiverScreen extends StatefulWidget {
-  const CaregiverScreen({required this.remote, this.now, super.key});
+  const CaregiverScreen({required this.remote, this.now, this.onNotLinked, super.key});
 
   final CaregiverRemote remote;
+
+  /// D4: الشاشة دي بقت الصفحة الرئيسية للابن. لو السحابة ردّت «مفيش مريض
+  /// مربوط» (ربط فشل وقفل التطبيق)، الجذر بيرجّعه لشاشة البداية بدل ما يفضل
+  /// واقف على شاشة فاضية. أوفلاين **مش** «مش مربوط» — ده بيطلع استثناء
+  /// والجملة الموجودة بتتقال.
+  final VoidCallback? onNotLinked;
 
   /// للاختبارات.
   final DateTime? now;
@@ -63,6 +69,10 @@ class _CaregiverScreenState extends State<CaregiverScreen>
     });
     try {
       final snapshot = await widget.remote.snapshot();
+      if (snapshot == null && widget.onNotLinked != null) {
+        if (mounted) widget.onNotLinked!();
+        return;
+      }
       if (mounted) {
         setState(() {
           _snapshot = snapshot ?? _snapshot;
@@ -134,6 +144,18 @@ class _CaregiverScreenState extends State<CaregiverScreen>
                 ),
                 const SizedBox(height: 8),
                 ..._todayList(snapshot),
+                const SizedBox(height: F.gap),
+                // أدويته وقواعدها — للقراية بس. مفيش «عدّل» ولا «وقّف»: أي
+                // زرار بيغيّر بيانات الأب مش موجود هنا خالص، مش متعطّل.
+                const Text(
+                  'أدويته',
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                ),
+                const SizedBox(height: 8),
+                if (snapshot.medications.isEmpty)
+                  const _Panel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
+                else
+                  for (final m in snapshot.medications) _MedicationRow(medication: m),
                 const SizedBox(height: F.gap),
                 if (snapshot.lastUpdated != null)
                   () {
@@ -241,13 +263,19 @@ class _WeekStrip extends StatelessWidget {
 
     return Column(
       children: [
-        Text(
-          _dayNames[day.weekday - 1],
-          style: TextStyle(
-            fontSize: F.minTextSize,
-            fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-            // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
-            color: isToday ? F.gold : F.muted,
+        // سبع خانات في عرض موبايل: «الخميس» كانت بتتكسر سطرين — سطر واحد
+        // بيصغر بس لو ما دخلش، زي شريط التبويبات
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _dayNames[day.weekday - 1],
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: F.minTextSize,
+              fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+              // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
+              color: isToday ? F.gold : F.muted,
+            ),
           ),
         ),
         const SizedBox(height: 4),
@@ -264,6 +292,44 @@ class _WeekStrip extends StatelessWidget {
       ],
     );
   }
+}
+
+class _MedicationRow extends StatelessWidget {
+  const _MedicationRow({required this.medication});
+
+  final CaregiverMedication medication;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(F.gap),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(F.radius),
+          border: Border.all(color: F.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              medication.name,
+              style: const TextStyle(
+                fontSize: F.minBodySize,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+                fontFamily: F.monoFamily,
+                fontFamilyFallback: F.monoFallback,
+                height: 1.4,
+              ),
+            ),
+            if (medication.amountLabel != null || medication.rules.isNotEmpty)
+              Text(
+                [?medication.amountLabel, ...medication.rules].join(' · '),
+                style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              ),
+          ],
+        ),
+      );
 }
 
 class _DoseRow extends StatelessWidget {

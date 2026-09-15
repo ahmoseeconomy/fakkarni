@@ -152,7 +152,7 @@ void main() {
       event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken'),
     ]);
     await pumpScreen(tester);
-    expect(find.textContaining('Concor'), findsOneWidget);
+    expect(find.textContaining('Concor'), findsWidgets);
 
     // السحب-للتحديث موصول (الودجت موجودة وonRefresh بتاعنا)
     expect(
@@ -170,7 +170,7 @@ void main() {
       find.text('مفيش نت. التطبيق شغّال عادي، بس الربط محتاج اتصال.'),
       findsOneWidget,
     );
-    expect(find.textContaining('Concor'), findsOneWidget, reason: 'القديم بيفضل');
+    expect(find.textContaining('Concor'), findsWidgets, reason: 'القديم بيفضل');
   });
 
   screenTest('أوفلاين من غير أي بيانات → الجملة والشاشة مش بتقع', (tester) async {
