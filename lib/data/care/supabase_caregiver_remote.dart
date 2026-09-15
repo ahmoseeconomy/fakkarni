@@ -9,6 +9,12 @@ import 'caregiver_remote.dart';
 /// تنبيهات السيرفر اللي بتظهر فوق الشاشة.
 const Duration alertWindow = Duration(hours: 48);
 
+/// حدود الملف الصحي (D5.2) — كل استعلام محدود لحد ما السحب بالفرق ييجي.
+const recordsLimit = 50;
+const readingsWindow = Duration(days: 30);
+const readingsLimit = 200;
+const questionsLimit = 50;
+
 /// صف escalations بالـembed بتاعه → [CaregiverAlert]. منفصلة عشان تتختبر
 /// من غير Supabase.
 CaregiverAlert alertFromRow(Map<String, dynamic> row) {
@@ -54,6 +60,66 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     ],
   );
 }
+
+DateTime _local(Object? iso) => DateTime.parse(iso! as String).toLocal();
+
+/// صف records بسطور تحاليله المضمّنة → [CaregiverRecord]. سجل ممسوح ناعم
+/// بيرجع null — الاستعلام بيفلتره، وده خط دفاع تاني: الأب مسحه، يبقى ما
+/// يتعرضش عند الابن أبداً.
+CaregiverRecord? recordFromRow(Map<String, dynamic> row) {
+  if (row['deleted_at'] != null) return null;
+  final lines = (row['lab_results'] as List?) ?? const [];
+  return CaregiverRecord(
+    uuid: row['uuid'] as String,
+    kind: row['kind'] as String,
+    title: row['title'] as String,
+    happenedAt: _local(row['happened_at']),
+    updatedAt: _local(row['updated_at']),
+    doctor: row['doctor'] as String?,
+    place: row['place'] as String?,
+    notes: row['notes'] as String?,
+    labLines: [
+      for (final l in lines)
+        CaregiverLabLine(
+          testName: (l as Map)['test_name'] as String,
+          value: (l['value'] as num).toDouble(),
+          unit: l['unit'] as String?,
+        ),
+    ],
+  );
+}
+
+CaregiverReading readingFromRow(Map<String, dynamic> row) => CaregiverReading(
+      uuid: row['uuid'] as String,
+      valueMgDl: row['value_mg_dl'] as int,
+      measuredAt: _local(row['measured_at']),
+      context: row['context'] as String,
+      updatedAt: _local(row['updated_at']),
+    );
+
+/// صف فاضي كله (الأب فتح الشاشة وما كتبش) = null، زي «مفيش حاجة».
+CaregiverEmergency? emergencyFromRow(Map<String, dynamic>? row) {
+  if (row == null) return null;
+  String? text(String key) {
+    final v = (row[key] as String?)?.trim();
+    return v == null || v.isEmpty ? null : v;
+  }
+
+  final e = CaregiverEmergency(
+    bloodType: text('blood_type'),
+    allergies: text('allergies'),
+    chronicConditions: text('chronic_conditions'),
+  );
+  return e.bloodType == null && e.allergies == null && e.chronicConditions == null ? null : e;
+}
+
+CaregiverQuestion questionFromRow(Map<String, dynamic> row) => CaregiverQuestion(
+      uuid: row['uuid'] as String,
+      body: row['body'] as String,
+      writtenAt: _local(row['written_at']),
+      asked: row['asked'] as bool? ?? false,
+      updatedAt: _local(row['updated_at']),
+    );
 
 /// القراءة الحقيقية. العلاقات بتيجي من care_relationships (RLS بتوريني
 /// صفوفي أنا)، والمريض بيتحدّد منها — مش من فلترة owner_id على العميل:
@@ -139,6 +205,45 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
           bump(e['updated_at']);
         }
 
+        // ---- الملف الصحي (D5.2). **كل استعلام محدود** لحد ما السحب بالفرق
+        // (delta) ييجي — مفيش select من غير حد.
+        final records = await _supabase
+            .from('records')
+            .select('uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
+                'lab_results(test_name, value, unit)')
+            .eq('patient_uuid', patient.uuid)
+            .isFilter('deleted_at', null)
+            .order('updated_at', ascending: false)
+            .limit(recordsLimit);
+
+        final readingsSince = DateTime.now().toUtc().subtract(readingsWindow).toIso8601String();
+        final readings = await _supabase
+            .from('readings')
+            .select('uuid, value_mg_dl, measured_at, context, updated_at')
+            .eq('patient_uuid', patient.uuid)
+            .gte('measured_at', readingsSince)
+            .order('measured_at', ascending: false)
+            .limit(readingsLimit);
+
+        final emergency = await _supabase
+            .from('emergency_profile')
+            .select('blood_type, allergies, chronic_conditions, updated_at')
+            .eq('patient_uuid', patient.uuid)
+            .limit(1);
+
+        final questions = await _supabase
+            .from('visit_questions')
+            .select('uuid, body, written_at, asked, updated_at')
+            .eq('patient_uuid', patient.uuid)
+            .order('updated_at', ascending: false)
+            .limit(questionsLimit);
+
+        for (final rows in [records, readings, emergency, questions]) {
+          for (final r in rows) {
+            bump(r['updated_at']);
+          }
+        }
+
         return CaregiverSnapshot(
           patient: patient,
           medications: [
@@ -164,6 +269,10 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
           ],
           alerts: [for (final a in alerts) alertFromRow(a)],
           lastUpdated: last?.toLocal(),
+          records: [for (final r in records) ?recordFromRow(r)],
+          readings: [for (final r in readings) readingFromRow(r)],
+          emergency: emergencyFromRow(emergency.isEmpty ? null : emergency.first),
+          questions: [for (final q in questions) questionFromRow(q)],
         );
       });
 

@@ -26,7 +26,7 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  const allowedTaps = {'متابعة', 'الإعدادات', 'تسجيل الخروج'};
+  const allowedTaps = {'متابعة', 'الملف الصحي', 'الإعدادات', 'تسجيل الخروج'};
 
   Set<String> tappableTexts(WidgetTester tester) {
     final texts = <String>{};
@@ -43,7 +43,7 @@ void main() {
     return texts..remove('');
   }
 
-  screenTest('تطبيق الابن: تبويبين، ولا زرار بيكتب في بيانات الأب — على التبويبين', (tester) async {
+  screenTest('تطبيق الابن: تلات تبويبات، ولا زرار بيكتب في بيانات الأب — على التلاتة', (tester) async {
     tester.view.physicalSize = const Size(1000, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -76,6 +76,36 @@ void main() {
           ),
         ],
         lastUpdated: DateTime(2026, 8, 31, 13),
+        records: [
+          CaregiverRecord(
+            uuid: 'r1',
+            kind: 'lab',
+            title: 'تحليل سكر تراكمي',
+            happenedAt: DateTime(2026, 8, 20),
+            updatedAt: DateTime(2026, 8, 31, 12),
+            doctor: 'د. سامي',
+            labLines: const [CaregiverLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
+          ),
+        ],
+        readings: [
+          CaregiverReading(
+            uuid: 'g1',
+            valueMgDl: 128,
+            measuredAt: DateTime(2026, 8, 31, 8),
+            context: 'fasting',
+            updatedAt: DateTime(2026, 8, 31, 8, 5),
+          ),
+        ],
+        emergency: const CaregiverEmergency(bloodType: 'O+', allergies: 'بنسلين'),
+        questions: [
+          CaregiverQuestion(
+            uuid: 'q1',
+            body: 'ينفع أوقف الملح؟',
+            writtenAt: DateTime(2026, 8, 30),
+            asked: false,
+            updatedAt: DateTime(2026, 8, 30, 9),
+          ),
+        ],
       );
 
     await tester.pumpWidget(
@@ -113,7 +143,19 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.byType(Switch), findsNothing);
     expect(find.byType(FloatingActionButton), findsNothing);
-    for (final word in ['ضيف', 'عدّل', 'وقّف', 'أخدته', 'تأكيد الجرعة', 'مش هاخده', 'احفظ', 'طوارئ', 'يومك']) {
+    for (final word in ['ضيف', 'عدّل', 'وقّف', 'امسح', 'رجّعه', 'أخدته', 'تأكيد الجرعة', 'مش هاخده', 'احفظ', 'طوارئ', 'يومك']) {
+      expect(find.textContaining(word), findsNothing, reason: '«$word» مالوش مكان عند الابن');
+    }
+    expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
+
+    await tester.tap(find.text('الملف الصحي'));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('emergency-facts')), findsOneWidget);
+    expect(find.textContaining('HbA1c'), findsOneWidget);
+    expect(find.text('ينفع أوقف الملح؟'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byType(Image), findsNothing, reason: 'الصور في D5.3 — ولا مكان فاضي ولا صورة مكسورة');
+    for (final word in ['ضيف', 'عدّل', 'امسح', 'رجّعه', 'اتصال', 'الإسعاف', 'احفظ', 'خيارات']) {
       expect(find.textContaining(word), findsNothing, reason: '«$word» مالوش مكان عند الابن');
     }
     expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
@@ -121,7 +163,8 @@ void main() {
     await tester.tap(find.text('الإعدادات'));
     await settle(tester);
     expect(find.text('حسابك'), findsOneWidget);
-    for (final word in ['مواعيد يومك', 'رمضان', 'نمط كبار السن', 'التنبيهات', 'الملف الصحي', 'معلومات الطوارئ']) {
+    // «الملف الصحي» هنا اسم تبويب الابن نفسه — الصفوف اللي بتخص مريض على الموبايل ده هي الممنوعة
+    for (final word in ['مواعيد يومك', 'رمضان', 'نمط كبار السن', 'التنبيهات', 'معلومات الطوارئ', 'قريب منك']) {
       expect(find.textContaining(word), findsNothing, reason: '«$word» بيخص مريض على الموبايل ده');
     }
     expect(tappableTexts(tester).difference(allowedTaps), isEmpty);

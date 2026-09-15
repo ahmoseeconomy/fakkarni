@@ -1,10 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/care/caregiver_remote.dart';
+import 'caregiver_snapshot_holder.dart';
+import 'caregiver_words.dart';
+
+// السؤال الدوري وشرطه عايشين في CaregiverSnapshotHolder (صورة واحدة للتبويبين).
+export 'caregiver_snapshot_holder.dart' show refreshEvery;
 
 /// «متابعة {الاسم}» — نافذة الابن (المخطط 04 + شريط أسبوع 12).
 ///
@@ -16,22 +19,20 @@ import '../../data/care/caregiver_remote.dart';
 /// قبل ما التغطية تخلص، مش بعدها.
 const Duration staleAfter = Duration(hours: 24);
 
-/// كل قد إيه الشاشة بتسأل السحابة وهي مفتوحة قدامه.
-///
-/// الشاشة دي بتتفرّج على موبايل تاني — لو ما بتحدّثش لوحدها، الابن بيبص
-/// عليها ويشوف بيانات قديمة من غير ما حاجة تقوله.
-///
-/// عشرة ثواني مش رقم عشوائي: ده الفرق بين «الأب أكّد والابن شاف» وبين
-/// وقفة محرجة قدام حد بيتفرّج. والشاشة دي ما بتفضلش مفتوحة طول اليوم —
-/// بتتفتح عشان يطمّن، فالتكلفة محدودة بالدقايق اللي هو فيها فعلاً.
-/// البديل الصح على المدى الطويل اشتراك Realtime بدل السؤال المتكرر.
-const Duration refreshEvery = Duration(seconds: 10);
+
 
 /// «لسه ما اتأكدتش» بالذهبي — مش «فاتت» ولا أحمر. قرار «فاتت» بتاع
 /// المرحلة الرابعة بمهلتها. ومفيش هنا ولا سطر جدولة — الأوقات كلها من
 /// اللي جهاز الأب كتبه.
 class CaregiverScreen extends StatefulWidget {
-  const CaregiverScreen({required this.remote, this.now, this.onNotLinked, this.active = true, super.key});
+  const CaregiverScreen({
+    required this.remote,
+    this.now,
+    this.onNotLinked,
+    this.active = true,
+    this.holder,
+    super.key,
+  });
 
   final CaregiverRemote remote;
 
@@ -44,120 +45,58 @@ class CaregiverScreen extends StatefulWidget {
   /// للاختبارات.
   final DateTime? now;
 
-  /// التبويب ده قدام عينه؟ `CaregiverShell` بيحتفظ بالتبويبين حيين في
-  /// `IndexedStack`، فالشاشة بتفضل mounted وهو على «الإعدادات». السؤال كل
-  /// [refreshEvery] بيشتغل بس وهي ظاهرة **و**التطبيق في المقدمة.
+  /// التبويب ده قدام عينه؟ بيتقرا بس لما الشاشة ماسكة صورتها لوحدها (من
+  /// شاشة الربط). في `CaregiverShell` الشِل هو اللي بيقرر من [holder].
   final bool active;
+
+  /// صورة الشِل المشتركة (D5.2). null = الشاشة بتعمل صورتها بنفسها.
+  final CaregiverSnapshotHolder? holder;
 
   @override
   State<CaregiverScreen> createState() => _CaregiverScreenState();
 }
 
-class _CaregiverScreenState extends State<CaregiverScreen>
-    with WidgetsBindingObserver {
-  CaregiverSnapshot? _snapshot;
-  String? _error;
-  bool _loading = true;
-  Timer? _timer;
+class _CaregiverScreenState extends State<CaregiverScreen> {
+  CaregiverSnapshotHolder? _own;
+
+  CaregiverSnapshotHolder get _holder => widget.holder ?? _own!;
 
   DateTime get _now => widget.now ?? DateTime.now();
-
-  /// null في الاختبارات قبل أي حدث دورة حياة — بيتعامل كمقدمة.
-  bool get _foreground {
-    final state = WidgetsBinding.instance.lifecycleState;
-    return state == null || state == AppLifecycleState.resumed;
-  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _refresh();
-    _syncTimer();
+    if (widget.holder == null) {
+      _own = CaregiverSnapshotHolder(widget.remote, onNotLinked: widget.onNotLinked)..setActive(widget.active);
+    }
+    _holder.addListener(_changed);
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
   }
 
   @override
   void didUpdateWidget(CaregiverScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.active == widget.active) return;
-    // رجع للتبويب → صورة طازة على طول، مش بعد عشر ثواني
-    if (widget.active) _refresh();
-    _syncTimer();
-  }
-
-  /// السؤال الدوري شغّال ⇔ التبويب ظاهر والتطبيق في المقدمة. غير كده مقفول.
-  void _syncTimer() {
-    final shouldRun = widget.active && _foreground;
-    if (shouldRun && _timer == null) {
-      _timer = Timer.periodic(refreshEvery, (_) => _refresh());
-    } else if (!shouldRun) {
-      _timer?.cancel();
-      _timer = null;
+    if (oldWidget.holder != widget.holder) {
+      (oldWidget.holder ?? _own)?.removeListener(_changed);
+      _holder.addListener(_changed);
     }
+    if (widget.holder == null && oldWidget.active != widget.active) _own!.setActive(widget.active);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
+    _holder.removeListener(_changed);
+    _own?.dispose();
     super.dispose();
-  }
-
-  /// رجوع للمقدمة = تحديث — زي ما هو بيعمل لما بيفتح يطمّن — والسؤال
-  /// الدوري بيرجع. في الخلفية أو وهو بيقفل بيتقفل.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.resumed:
-        if (widget.active) _refresh();
-        _syncTimer();
-      case AppLifecycleState.paused || AppLifecycleState.inactive:
-        _timer?.cancel();
-        _timer = null;
-      default:
-        break;
-    }
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _loading = _snapshot == null;
-      _error = null;
-    });
-    try {
-      final snapshot = await widget.remote.snapshot();
-      if (snapshot == null && widget.onNotLinked != null) {
-        if (mounted) widget.onNotLinked!();
-        return;
-      }
-      if (mounted) {
-        setState(() {
-          _snapshot = snapshot ?? _snapshot;
-          _loading = false;
-          if (snapshot == null) _error = 'مفيش ربط شغّال دلوقتي.';
-        });
-      }
-    } on CareCircleException catch (e) {
-      // البيانات القديمة بتفضل معروضة — الجملة فوقها بتقول إنها قديمة
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = e.message;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = 'مقدرناش نكمّل. جرّب تاني.';
-        });
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = _snapshot;
+    final snapshot = _holder.snapshot;
+    final error = _holder.error;
 
     return Scaffold(
       appBar: AppBar(
@@ -166,16 +105,16 @@ class _CaregiverScreenState extends State<CaregiverScreen>
       body: SafeArea(
         child: RefreshIndicator(
           color: F.green,
-          onRefresh: _refresh,
+          onRefresh: _holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(F.gap),
             children: [
-              if (_error != null) ...[
-                _Panel(text: _error!),
+              if (error != null) ...[
+                _Panel(text: error),
                 const SizedBox(height: F.gap),
               ],
-              if (_loading)
+              if (_holder.loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(child: CircularProgressIndicator(color: F.green)),
@@ -187,6 +126,9 @@ class _CaregiverScreenState extends State<CaregiverScreen>
                 // اللي لسه محتاجه. جوّه كل مجموعة الأحدث الأول.
                 for (final alert in snapshot.alerts)
                   if (!alert.takenLater) _AlertCard(alert: alert, when: _when),
+                // «الجديد» (D5.2): تحت التنبيهات المفتوحة — جرعة فاتت أهم من
+                // تحليل اتضاف — وفوق الباقي. مترتب بالوصول، وكل سطر بتاريخه.
+                ..._newest(snapshot),
                 for (final alert in snapshot.alerts)
                   if (alert.takenLater) _AlertCard(alert: alert, when: _when),
                 _WeekStrip(events: snapshot.events, now: _now),
@@ -250,6 +192,52 @@ class _CaregiverScreenState extends State<CaregiverScreen>
     );
   }
 
+  List<Widget> _newest(CaregiverSnapshot snapshot) {
+    final items = newestArrivals(snapshot);
+    if (items.isEmpty) return const [];
+    return [
+      const Text(
+        'الجديد',
+        style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        key: const ValueKey('newest'),
+        margin: const EdgeInsets.only(bottom: F.gap),
+        padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(F.radius),
+          border: Border.all(color: F.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, item) in items.indexed) ...[
+              if (i > 0) const Divider(height: F.s12, color: F.lineSoft),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: F.s4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      newItemTitle(item),
+                      style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.4),
+                    ),
+                    Text(
+                      arabicDate(item.happenedAt),
+                      style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _todayList(CaregiverSnapshot snapshot) {
     final today = DateTime(_now.year, _now.month, _now.day);
     final todays = [
@@ -258,12 +246,27 @@ class _CaregiverScreenState extends State<CaregiverScreen>
             today)
           e,
     ];
-    if (todays.isEmpty) {
-      return const [
-        _Panel(text: 'مفيش جرعات متسجّلة النهارده لسه.'),
-      ];
+    if (todays.isNotEmpty) return [for (final e in todays) _DoseRow(event: e, now: _now)];
+
+    // أب ظبّط أدويته بالليل: النهارده فاضي وبكرة مليان. «مفيش حاجة» كانت
+    // هتبقى صح بالحرف وغلط في المعنى — نقول اللي جاي. جهاز الأب بينزّل بكرة
+    // مقدماً (rescheduleAll)، فالصفوف دي في الصورة أصلاً؛ مفيش سحبة زيادة.
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    final tomorrows = [
+      for (final e in snapshot.events)
+        if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == tomorrow) e,
+    ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    if (tomorrows.isEmpty) {
+      return const [_Panel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
     }
-    return [for (final e in todays) _DoseRow(event: e, now: _now)];
+    return [
+      _Panel(
+        key: const ValueKey('tomorrow-first'),
+        text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة ${spokenTime(tomorrows.first.scheduledAt)}',
+      ),
+      const SizedBox(height: 8),
+      for (final e in tomorrows) _DoseRow(event: e, now: _now, tomorrow: true),
+    ];
   }
 
   String _when(DateTime t) {
@@ -289,7 +292,29 @@ class _WeekStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime(now.year, now.month, now.day);
-    final days = [for (var i = 6; i >= 0; i--) today.subtract(Duration(days: i))];
+    final days = [for (var i = 6; i >= 0; i--) DateTime(today.year, today.month, today.day - i)];
+
+    // سبع شَرطات بتتقري تطبيق بايظ حتى لو هي الحقيقة — جملة واحدة بتقول ليه.
+    final anything = events.any((e) {
+      final d = DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day);
+      return !d.isBefore(days.first) && !d.isAfter(today);
+    });
+    if (!anything) {
+      return Container(
+        key: const ValueKey('week-empty'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(F.gap),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          border: Border.all(color: F.line),
+        ),
+        child: const Text(
+          'لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل',
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -390,7 +415,10 @@ class _MedicationRow extends StatelessWidget {
 }
 
 class _DoseRow extends StatelessWidget {
-  const _DoseRow({required this.event, required this.now});
+  const _DoseRow({required this.event, required this.now, this.tomorrow = false});
+
+  /// جرعة بكرة — الوقت بيتكتب «بكرة …» عشان محدش يفتكرها النهارده.
+  final bool tomorrow;
 
   final CaregiverDoseEvent event;
   final DateTime now;
@@ -439,7 +467,7 @@ class _DoseRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  arabicTime(event.scheduledAt),
+                  tomorrow ? 'بكرة ${arabicTime(event.scheduledAt)}' : arabicTime(event.scheduledAt),
                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
                 ),
               ],
@@ -533,7 +561,7 @@ class _AlertCard extends StatelessWidget {
 }
 
 class _Panel extends StatelessWidget {
-  const _Panel({required this.text});
+  const _Panel({required this.text, super.key});
 
   final String text;
 

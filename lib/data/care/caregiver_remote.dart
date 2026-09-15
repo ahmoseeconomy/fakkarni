@@ -105,6 +105,10 @@ class CaregiverSnapshot {
     required this.events,
     this.alerts = const [],
     this.lastUpdated,
+    this.records = const [],
+    this.readings = const [],
+    this.emergency,
+    this.questions = const [],
   });
 
   final CaregiverPatient patient;
@@ -121,6 +125,135 @@ class CaregiverSnapshot {
   /// أكبر updated_at **من السيرفر** عبر صفوفه. تحديث بيانات — مش «آخر
   /// ظهور»: مفيش حاجة هنا بتثبت إن الموبايل عايش، بس إن بيانات اتغيّرت.
   final DateTime? lastUpdated;
+
+  // ---- الملف الصحي (D5.2) — كله محدود في الاستعلام، وكله قراية بس.
+
+  /// السجلات اللي **مش** ممسوحة، الأحدث وصولاً الأول، بسطور تحاليلها.
+  final List<CaregiverRecord> records;
+
+  /// قياسات السكر في آخر ٣٠ يوم، الأحدث الأول.
+  final List<CaregiverReading> readings;
+
+  /// فصيلة الدم والحساسية والأمراض المزمنة. null = الأب ما ملاش حاجة.
+  /// **مفيش أرقام تليفونات** — مش في السحابة أصلاً (0012).
+  final CaregiverEmergency? emergency;
+
+  /// أسئلة الدكتور، الأحدث الأول.
+  final List<CaregiverQuestion> questions;
+}
+
+/// نوع السجل بالحرف المخزّن: imaging | visit | lab | prescription | booking.
+class CaregiverRecord {
+  const CaregiverRecord({
+    required this.uuid,
+    required this.kind,
+    required this.title,
+    required this.happenedAt,
+    required this.updatedAt,
+    this.doctor,
+    this.place,
+    this.notes,
+    this.labLines = const [],
+  });
+
+  final String uuid;
+  final String kind;
+  final String title;
+
+  /// تاريخ الحدث نفسه — اللي بيتعرض.
+  final DateTime happenedAt;
+
+  /// لحظة الوصول للسحابة — اللي «الجديد» بيترتّب بيه.
+  final DateTime updatedAt;
+  final String? doctor;
+  final String? place;
+  final String? notes;
+  final List<CaregiverLabLine> labLines;
+}
+
+class CaregiverLabLine {
+  const CaregiverLabLine({required this.testName, required this.value, this.unit});
+  final String testName;
+  final double value;
+  final String? unit;
+}
+
+/// قياس سكر — `context` بالحرف: fasting | afterMeal.
+class CaregiverReading {
+  const CaregiverReading({
+    required this.uuid,
+    required this.valueMgDl,
+    required this.measuredAt,
+    required this.context,
+    required this.updatedAt,
+  });
+  final String uuid;
+  final int valueMgDl;
+  final DateTime measuredAt;
+  final String context;
+  final DateTime updatedAt;
+}
+
+class CaregiverEmergency {
+  const CaregiverEmergency({this.bloodType, this.allergies, this.chronicConditions});
+  final String? bloodType;
+  final String? allergies;
+  final String? chronicConditions;
+}
+
+class CaregiverQuestion {
+  const CaregiverQuestion({
+    required this.uuid,
+    required this.body,
+    required this.writtenAt,
+    required this.asked,
+    required this.updatedAt,
+  });
+  final String uuid;
+  final String body;
+  final DateTime writtenAt;
+  final bool asked;
+  final DateTime updatedAt;
+}
+
+/// حاجة واحدة في «الجديد» — أي نوع.
+enum NewItemType { record, reading, question }
+
+class CaregiverNewItem {
+  const CaregiverNewItem({
+    required this.type,
+    required this.arrivedAt,
+    required this.happenedAt,
+    this.record,
+    this.reading,
+    this.question,
+  });
+  final NewItemType type;
+
+  /// الترتيب — لحظة الوصول.
+  final DateTime arrivedAt;
+
+  /// التاريخ اللي بيتعرض — تاريخ الحدث نفسه.
+  final DateTime happenedAt;
+  final CaregiverRecord? record;
+  final CaregiverReading? reading;
+  final CaregiverQuestion? question;
+}
+
+/// «الجديد» (PHASE_D5 قاعدة ٤): آخر [limit] حاجات **وصلت**، من أي نوع،
+/// مترتبة بـ`updated_at` مش بتاريخ الحدث — تحليل من ٢٠١٩ اتسجّل النهارده جديد
+/// بالنسبة للابن. أحداث الجرعات مش هنا: `updated_at` بتاعها بيتغيّر مع كل
+/// تأكيد، وليها «النهارده» والأسبوع.
+List<CaregiverNewItem> newestArrivals(CaregiverSnapshot snapshot, {int limit = 10}) {
+  final items = [
+    for (final r in snapshot.records)
+      CaregiverNewItem(type: NewItemType.record, arrivedAt: r.updatedAt, happenedAt: r.happenedAt, record: r),
+    for (final r in snapshot.readings)
+      CaregiverNewItem(type: NewItemType.reading, arrivedAt: r.updatedAt, happenedAt: r.measuredAt, reading: r),
+    for (final q in snapshot.questions)
+      CaregiverNewItem(type: NewItemType.question, arrivedAt: q.updatedAt, happenedAt: q.writtenAt, question: q),
+  ]..sort((a, b) => b.arrivedAt.compareTo(a.arrivedAt));
+  return items.take(limit).toList();
 }
 
 /// RLS هي اللي بتحدّد المدى — مفيش فلترة عميل بالمالك أبداً.

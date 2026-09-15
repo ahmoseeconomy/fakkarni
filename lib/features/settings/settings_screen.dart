@@ -25,6 +25,14 @@ import '../../data/repositories/preferences_repository.dart';
 ///
 /// الخروج بيمسح توكن الإشعارات **قبل** الجلسة — نفس ترتيب شاشة الربط:
 /// مسح الصف محتاج الجلسة اللي بتملكه.
+/// اللي الابن المربوط بيشوفه بالظبط (D5.2) — سطر واحد صادق تحت «دائرة
+/// الرعاية». لو السحابة بقت بتشيل حاجة جديدة، السطر ده بيتغيّر معاها في نفس
+/// الجولة. مش بيقول «مش مربوط» ولا «مربوط» — الموبايل ده ما يعرفش ده بيقين.
+const caregiverCanSee =
+    'لو ربطت ابنك أو بنتك، هيشوفوا: أدويتك ومواعيدها، جرعاتك، قياسات السكر، '
+    'الملف الصحي والتحاليل، أسئلة الدكتور، وفصيلة الدم والحساسية والأمراض المزمنة. '
+    'مش هيشوفوا أرقام الطوارئ ولا الصور، ومش هيقدروا يغيّروا أي حاجة.';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -152,6 +160,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 caregiver: services.caregiver,
                 push: services.push,
               )),
+            ),
+            // D5.2: الوصول اتوسّع — الأب يعرفه مننا، مش بالصدفة.
+            Padding(
+              key: const ValueKey('caregiver-sees'),
+              padding: const EdgeInsets.fromLTRB(F.s4, 0, F.s4, F.s12),
+              child: Text(
+                caregiverCanSee,
+                style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+              ),
             ),
             const _Row(
               icon: Icons.translate_outlined,

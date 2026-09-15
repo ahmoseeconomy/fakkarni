@@ -196,6 +196,14 @@ void main() {
         expect(find.text(row), findsOneWidget, reason: row);
       }
       expect(find.text('عربي'), findsOneWidget);
+      // D5.2: الأب بيعرف بالظبط الابن بيشوف إيه — ومفيش حاجة من سحابة 0012 ناقصة من السطر
+      final sees = tester.widget<Text>(find.descendant(
+        of: find.byKey(const ValueKey('caregiver-sees')),
+        matching: find.byType(Text),
+      ));
+      for (final part in ['أدويتك', 'جرعاتك', 'قياسات السكر', 'الملف الصحي والتحاليل', 'أسئلة الدكتور', 'فصيلة الدم', 'الحساسية', 'الأمراض المزمنة', 'مش هيشوفوا أرقام الطوارئ ولا الصور']) {
+        expect(sees.data, contains(part), reason: part);
+      }
       expect(find.text('تسجيل الخروج'), findsNothing, reason: 'مفيش جلسة تخرج منها');
       // المؤجَّل مش موجود — ولا صف بيفتح على فراغ
       for (final gone in ['الاسم والسن', 'بطاقة الطوارئ', 'تصدير']) {

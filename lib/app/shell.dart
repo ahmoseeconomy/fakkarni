@@ -6,7 +6,9 @@ import '../core/widgets/f_sheet.dart';
 import '../core/widgets/primitives.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
+import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
+import '../features/care/caregiver_snapshot_holder.dart';
 import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
 import '../features/emergency/emergency_card_screen.dart';
@@ -238,7 +240,10 @@ class CaregiverShell extends StatefulWidget {
   /// للاختبارات.
   final DateTime? now;
 
-  static const tabs = ['متابعة', 'الإعدادات'];
+  static const tabs = ['متابعة', 'الملف الصحي', 'الإعدادات'];
+
+  /// تبويبات البيانات — السؤال الدوري شغّال وواحد منهم ظاهر.
+  static const dataTabs = {0, 1};
 
   @override
   State<CaregiverShell> createState() => _CaregiverShellState();
@@ -247,34 +252,63 @@ class CaregiverShell extends StatefulWidget {
 class _CaregiverShellState extends State<CaregiverShell> {
   int _tab = 0;
 
+  /// صورة واحدة للتبويبين (D5.2): سحبة واحدة لكل تحديث، مش سحبة لكل تبويب.
+  CaregiverSnapshotHolder? _holder;
+
   @override
-  Widget build(BuildContext context) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_holder != null) return;
     final remote = AppScope.of(context).caregiver;
     if (remote == null) {
       // جلسة من غير سحابة مش ممكنة عملياً — بس لو حصلت، مفيش حاجة تتتابع
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.onNotLinked());
-      return const Scaffold();
+      return;
     }
+    _holder = CaregiverSnapshotHolder(remote, onNotLinked: widget.onNotLinked)
+      ..setActive(CaregiverShell.dataTabs.contains(_tab));
+  }
+
+  void _select(int i) {
+    setState(() => _tab = i);
+    final holder = _holder;
+    if (holder == null) return;
+    final data = CaregiverShell.dataTabs.contains(i);
+    // دخول تبويب بيانات = صورة طازة على طول، حتى لو جاي من التبويب التاني
+    if (data && holder.active) holder.refresh();
+    holder.setActive(data);
+  }
+
+  @override
+  void dispose() {
+    _holder?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final holder = _holder;
+    if (holder == null) return const Scaffold();
     return Scaffold(
       body: IndexedStack(
         index: _tab,
         children: [
           CaregiverScreen(
-            remote: remote,
+            remote: holder.remote,
             now: widget.now,
             onNotLinked: widget.onNotLinked,
-            // السؤال كل ١٠ ثواني بس وهو على التبويب ده — مش وهو على الإعدادات
-            active: _tab == 0,
+            holder: holder,
           ),
+          CaregiverHealthScreen(holder: holder),
           const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
         ],
       ),
       bottomNavigationBar: _TabBar(
         labels: CaregiverShell.tabs,
-        icons: const [Icons.visibility_outlined, Icons.settings_outlined],
+        icons: const [Icons.visibility_outlined, Icons.folder_outlined, Icons.settings_outlined],
         gapForAdd: false,
         current: _tab,
-        onSelect: (i) => setState(() => _tab = i),
+        onSelect: _select,
       ),
     );
   }

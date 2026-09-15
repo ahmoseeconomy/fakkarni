@@ -335,7 +335,8 @@ void main() {
   test('كود شاشات السكر والتحاليل: ولا كلمة نصيحة أو حكم في أي نص للمستخدم', () {
     final literal = RegExp(r"'((?:[^'\\]|\\.)*)'");
     final offenders = <String>[];
-    for (final entity in Directory('lib/features/health').listSync()) {
+    // D5.2: الابن بيشوف نفس الأرقام — نفس القاعدة على شاشاته
+    for (final entity in [...Directory('lib/features/health').listSync(), ...Directory('lib/features/care').listSync()]) {
       if (entity is! File || entity.path.endsWith('usual_words.dart')) continue;
       for (final raw in entity.readAsLinesSync()) {
         final line = raw.trimLeft();

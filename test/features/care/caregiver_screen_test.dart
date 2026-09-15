@@ -94,6 +94,67 @@ void main() {
     await settle(tester);
   }
 
+  screenTest('أب ظبّط أدويته بالليل: كل الجرعات بكرة → الجملة اللي بتقول اللي جاي، وقايمة بكرة، مش شاشة فاضية',
+      (tester) async {
+    // «دلوقتي» ٢ الضهر ٣١ أغسطس — ولا جرعة النهارده ولا في الأسبوع اللي فات
+    remote.next = snapshot([
+      event('Glucophage 500', DateTime(2026, 9, 1, 21), 'pending'),
+      event('Concor 5mg', DateTime(2026, 9, 1, 7), 'pending'),
+    ]);
+    await pumpScreen(tester);
+
+    expect(find.text('مفيش جرعات النهارده — أول جرعة بكرة الساعة ٧:٠٠ الصبح'), findsOneWidget,
+        reason: 'الأول بالوقت، حتى لو الصفوف جات بترتيب تاني');
+    expect(find.text('مفيش جرعات متسجّلة النهارده لسه.'), findsNothing);
+
+    // قايمة بكرة — متعلّمة بكرة، ومرتبة بالوقت
+    expect(find.text('بكرة ٧:٠٠ ص'), findsOneWidget);
+    expect(find.text('بكرة ٩:٠٠ م'), findsOneWidget);
+    final concorTop = tester.getTopLeft(find.text('بكرة ٧:٠٠ ص')).dy;
+    final glucophageTop = tester.getTopLeft(find.text('بكرة ٩:٠٠ م')).dy;
+    expect(concorTop, lessThan(glucophageTop));
+    expect(find.text('لسه ما اتأكدتش'), findsNothing, reason: 'بكرة مش متأخرة');
+
+    // الشريط: جملة واحدة بدل سبع شَرطات
+    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsOneWidget);
+    expect(find.text('—'), findsNothing);
+
+    // قراية بس
+    expect(find.byType(TextField), findsNothing);
+    expect(find.textContaining('عدّل'), findsNothing);
+    expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('«بكرة» يعني تاريخ بكرة بالظبط: جرعات بعد بكرة ما بتدخلش القايمة', (tester) async {
+    // جهاز الأب بيدفع حوالي يومين قدام — فلتر «بعد دلوقتي» كان هيجيب بعد بكرة
+    // تحت عنوان «بكرة». الفلتر على تاريخ بكرة نفسه.
+    remote.next = snapshot([
+      event('Concor 5mg', DateTime(2026, 9, 1, 7), 'pending'),
+      event('Glucophage 500', DateTime(2026, 9, 2, 6), 'pending'),
+      event('Telfast', DateTime(2026, 9, 2, 22), 'pending'),
+    ]);
+    await pumpScreen(tester);
+
+    expect(find.text('مفيش جرعات النهارده — أول جرعة بكرة الساعة ٧:٠٠ الصبح'), findsOneWidget,
+        reason: 'أول جرعة بكرة — مش ٦ الصبح بتاعة بعد بكرة');
+    expect(find.text('بكرة ٧:٠٠ ص'), findsOneWidget);
+    expect(find.textContaining('Glucophage'), findsNothing);
+    expect(find.textContaining('Telfast'), findsNothing);
+  });
+
+  screenTest('فيه جرعات الأسبوع ده → الشريط بأيامه زي ما هو، مش الجملة', (tester) async {
+    remote.next = snapshot([
+      event('Concor 5mg', DateTime(2026, 8, 29, 8), 'taken', actedAt: DateTime(2026, 8, 29, 8, 2)),
+      event('Concor 5mg', DateTime(2026, 9, 1, 8), 'pending'),
+    ]);
+    await pumpScreen(tester);
+
+    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsNothing);
+    expect(find.text('١/١'), findsOneWidget);
+    expect(find.textContaining('أول جرعة بكرة الساعة ٨:٠٠ الصبح'), findsOneWidget,
+        reason: 'النهارده فاضي — بكرة فيها');
+  });
+
   screenTest('كله متأكد → أخضر هادي، ومفيش ذهبي ولا أحمر', (tester) async {
     remote.next = snapshot([
       event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken',
@@ -142,8 +203,11 @@ void main() {
     remote.next = snapshot(const []);
     await pumpScreen(tester);
 
-    expect(find.textContaining('مفيش جرعات متسجّلة النهارده'), findsOneWidget);
-    expect(find.text('—'), findsNWidgets(7), reason: 'شريط الأسبوع من غير عدّ');
+    expect(find.textContaining('مفيش جرعات متسجّلة النهارده'), findsOneWidget,
+        reason: 'مفيش حاجة النهارده ولا بكرة — الجملة القديمة هي الحقيقة');
+    // سبع شَرطات بتتقري تطبيق بايظ — جملة واحدة مكانهم
+    expect(find.text('—'), findsNothing);
+    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsOneWidget);
   });
 
   screenTest('أوفلاين وفيه بيانات محمّلة → الجملة فوق والبيانات القديمة لسه ظاهرة',

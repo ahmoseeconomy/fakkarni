@@ -36,6 +36,19 @@ String arabicTime(DateTime time) {
       '${isMorning ? 'ص' : 'م'}';
 }
 
+/// «٧:٠٠ الصبح» / «٢:٣٠ الضهر» / «٨:١٥ بالليل» — الساعة زي ما بتتقال
+/// في الكلام، مش «ص/م». الضهر من ١٢ لـ٥، وبالليل من ٥ العصر لحد نص الليل.
+String spokenTime(DateTime time) {
+  final hour12 = time.hour % 12 == 0 ? 12 : time.hour % 12;
+  final minutes = time.minute.toString().padLeft(2, '0');
+  final part = time.hour < 12
+      ? 'الصبح'
+      : time.hour < 17
+          ? 'الضهر'
+          : 'بالليل';
+  return '${arabicNumber(hour12)}:${arabicDigits(minutes)} $part';
+}
+
 /// «كمان ٢٥ دقيقة» / «كمان ساعتين» / «فات معاده بنص ساعة».
 ///
 /// مفيش لوم في أي صيغة هنا: هو نسي، مش غلط.

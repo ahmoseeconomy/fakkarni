@@ -85,9 +85,11 @@ These are product decisions, already settled. Do not "improve" them without aski
 - The mockups render small and their type and targets read below these minimums.
   **Take every size from `class F`, never from measuring the image.** Where a
   mockup is tighter than the minimums, the minimums win — and say so.
-- **Red belongs to the two emergency screens and to nothing else** —
-  «معلومات الطوارئ» (`F.redDeep` ground) and «بطاقة الطوارئ», both in
-  `lib/features/emergency/`, with `F.red` on the ambulance button. The
+- **Red belongs to emergency and to nothing else** — «معلومات الطوارئ»
+  (`F.redDeep` ground), «بطاقة الطوارئ», and since D5.2 the son's
+  `EmergencyFactsCard` on «الملف الصحي», all living in
+  `lib/features/emergency/`, with `F.red` on the ambulance button. Other
+  screens *use* those widgets; they never paint red themselves. The
   mockups also spend red on the `طوارئ` shortcut in the top bar; ours is
   ink-outlined, because red on any other screen is wrong — including the
   door to the emergency screens. Never use red for an error, a warning, a
@@ -166,9 +168,10 @@ lib/
   features/settings/          SettingsScreen + NotificationsScreen (rung switches)
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
   features/entry/             EntryScreen «مين ماسك التليفون؟» (D4) — routes only
-  features/care/              CaregiverScreen «متابعة {الاسم}» — the son's
-                              read-only home (CaregiverShell: «متابعة» +
-                              «الإعدادات»), straight from Supabase
+  features/care/              CaregiverShell «متابعة» · «الملف الصحي» ·
+                              «الإعدادات» — the son's read-only app, one
+                              CaregiverSnapshotHolder (fetch + gated poll)
+                              read by both data tabs, straight from Supabase
   domain/wording/             rule_wording — «الفطار − ٣٠ د» text shared by
                               the scheduler and the son's side (no scheduling
                               import there)
@@ -1658,6 +1661,50 @@ device-verified)**
   «جدول النهاردة» and the «ضيف» FAB covers the empty-state line; the
   notification permission has no in-app lead-in; the caregiver screen
   still uses gold text.
+
+**D5.2 — the son sees the whole health file (built)**
+- `CaregiverSnapshot` carries `records` (with lab lines embedded under their
+  report), `readings`, `emergency` and `questions`. Row → model mapping is
+  pure (`recordFromRow`, `readingFromRow`, `emergencyFromRow`,
+  `questionFromRow` beside `medicationFromRow`); `recordFromRow` returns null
+  for a soft-deleted row as a second line behind the `deleted_at is null`
+  filter. Every query is bounded until a delta fetch exists: records 50
+  (newest arrival first), readings 30 days / 200, questions 50, emergency 1.
+- **One snapshot, one fetch per refresh.** `CaregiverSnapshotHolder` owns
+  the fetch, the not-linked callback and the 10-second poll; both data tabs
+  read it. "Visible" now means either data tab — the poll stops on
+  «الإعدادات» and in the background, and entering a data tab (even from the
+  other one) refreshes at once. `CaregiverScreen` still builds its own
+  holder when opened on its own from the link screens.
+- **«الجديد»** (`newestArrivals`, cap 10) sits under the open escalation
+  cards — a missed dose outranks a new lab — and above everything else.
+  It mixes records, readings and questions ordered by cloud `updated_at`,
+  and each row shows the event's own date: a 2019 lab entered today is new
+  to the son. Dose events are left out (their `updated_at` moves on every
+  confirmation) and so are medications.
+- **«الملف الصحي»**: the red emergency card (blood type, allergies, chronic
+  conditions; «لسه ما اتملاش» for empty; no contacts, no call buttons),
+  glucose readings as number + context + date only (D3.6 — the advice-word
+  scan now reads `lib/features/care/` too), records grouped by kind with
+  lab lines under their report, and the family's questions («اتسأل ✓»).
+  Kind and context words come from the patient's own wording files, not a
+  copy. No image and no empty box for attachments (D5.3).
+- **What is coming, not only what happened.** A father who set his
+  medicines up tonight has an empty today and a full tomorrow. When today
+  has no dose events, «متابعة» says «مفيش جرعات النهارده — أول جرعة
+  بكرة الساعة ٧:٠٠ الصبح» (`spokenTime`: الصبح / الضهر / بالليل) and lists
+  tomorrow's doses marked «بكرة», read-only — the rows are already in the
+  snapshot because the father's device materialises tomorrow. With nothing
+  tomorrow either, the old «مفيش جرعات متسجّلة النهارده لسه.» stays. A week
+  strip with seven empty days is one sentence instead of seven dashes:
+  «لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل».
+- `caregiver_shell_test` walks every tappable widget on all three tabs and
+  still allows only the tab labels and «تسجيل الخروج».
+- **The father is told.** A line under «دائرة الرعاية» (`caregiverCanSee`)
+  lists exactly what a linked son sees and what he does not (emergency
+  numbers, images, any change). It is conditional («لو ربطت…») because the
+  father's phone cannot know for sure that a son is linked. When the cloud
+  gains a new kind of data, this line changes in the same round.
 
 **D5.1 — the health file reaches the cloud (built; 0012 must run first)**
 - `supabase/migrations/0012_health_file.sql`: `records`, `readings`,
