@@ -26,6 +26,9 @@ abstract final class F {
   static const ivoryPale = Color(0xFFF7F5EC);
   static const ivoryDim = Color(0xFFEFEDE3);
 
+  /// أرضية الاختيار المتحدّد (المخطط ٢): أخضر فاتح جداً على الأبيض.
+  static const greenTint = Color(0xFFEAF3F0);
+
   static const line = Color(0xFFDFDACB);
   static const lineSoft = Color(0xFFE9E5D8);
 

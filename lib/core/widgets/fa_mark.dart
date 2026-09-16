@@ -109,6 +109,8 @@ class FaMarkPainter extends CustomPainter {
     this.tailProgress = 1,
     this.dotOpacity = 1,
     this.dotDrop = 0,
+    this.dotSlide = 0,
+    this.dotFlash = 0,
     this.halo = 0,
   });
 
@@ -124,6 +126,13 @@ class FaMarkPainter extends CustomPainter {
   final double tailProgress;
   final double dotOpacity;
   final double dotDrop;
+
+  /// إزاحة أفقية للنقطة (وحدات الرسم ١٢٠) — شاشة البداية بتجيبها من بره
+  /// الشاشة لحد مكانها. صفر = مكانها الطبيعي.
+  final double dotSlide;
+
+  /// وميض النقطة 0→1: بتفتح ناحية الأبيض وبتكبر شوية وقت الوصول.
+  final double dotFlash;
 
   /// هالة واحدة 0→1: بتكبر من ٠.٥ لـ٢.٦ وبتختفي.
   final double halo;
@@ -162,8 +171,11 @@ class FaMarkPainter extends CustomPainter {
     _drawPartial(canvas, tail, tailProgress, stroke);
 
     // النقطة — والدقّة: ١ → ١.١٨ → ١ بين ٧٢٪ و٨٦.٨٪ من الدورة
-    final dotCenter = Offset(76, 18 + dotDrop);
-    final beatScale = _dotBeatScale(beat);
+    final dotCenter = Offset(76 + dotSlide, 18 + dotDrop);
+    final beatScale = _dotBeatScale(beat) * (1 + 0.22 * dotFlash);
+    final dotPaintColor = dotFlash > 0
+        ? Color.lerp(dotColor, const Color(0xFFFFFFFF), 0.85 * dotFlash)!
+        : dotColor;
     final haloT = halo > 0 ? halo : _haloFromBeat(beat);
     if (haloT > 0) {
       final scale = 0.5 + (2.6 - 0.5) * haloT;
@@ -171,13 +183,13 @@ class FaMarkPainter extends CustomPainter {
       canvas.drawCircle(
         dotCenter,
         8 * scale,
-        Paint()..color = dotColor.withValues(alpha: opacity * dotOpacity),
+        Paint()..color = dotPaintColor.withValues(alpha: opacity * dotOpacity),
       );
     }
     canvas.drawCircle(
       dotCenter,
       8 * beatScale,
-      Paint()..color = dotColor.withValues(alpha: dotOpacity),
+      Paint()..color = dotPaintColor.withValues(alpha: dotOpacity),
     );
 
     canvas.restore();
@@ -231,5 +243,7 @@ class FaMarkPainter extends CustomPainter {
       old.tailProgress != tailProgress ||
       old.dotOpacity != dotOpacity ||
       old.dotDrop != dotDrop ||
+      old.dotSlide != dotSlide ||
+      old.dotFlash != dotFlash ||
       old.halo != halo;
 }

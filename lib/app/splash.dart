@@ -1,23 +1,26 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
 
-/// شاشة البداية — ١.٦ ث مؤلّفة، وعمرها ما بتوقف التطبيق.
+/// شاشة البداية — ٣ ثواني مؤلّفة، وعمرها ما بتوقف التطبيق.
 ///
 /// الشاشة الأولى بتتبني **تحتها** من أول فريم؛ دي طبقة فوقها بتتلاشى.
 /// أرضيتها هي هي أرضية `LaunchScreen.storyboard` (`greenDeep` مسطّحة)،
-/// فالقطع من شاشة النظام مش بيبان. جدول التوقيت من README:
-///   0.10 رسم الحلقة ثم الذيل (0.55 ث) · 0.65 النقطة تظهر وتنزل ٤px ·
-///   0.85 هالة واحدة · 0.95 «فكرني» تطلع ٨px · 1.60 تكبير ١.٠٤ وتلاشي ٠.٣ ث.
+/// فالقطع من شاشة النظام مش بيبان. الحكاية:
+///   0.15 الحلقة، 0.60 الذيل، 1.20 النقطة الدهبي بتيجي **من بره الشاشة**
+///   على قوس وبتنطّ لحد مكانها، 2.00 نطّة صغيرة وميض، 2.30 «فكرني» تطلع
+///   ٨px، 3.00 تكبير ١.٠٤ وتلاشي ٠.٣٥ ث.
 /// مع «تقليل الحركة» بتظهر الحالة النهائية على طول وتختفي بسرعة.
 class SplashOverlay extends StatefulWidget {
   const SplashOverlay({required this.child, super.key});
 
   final Widget child;
 
-  /// إجمالي الطبقة: ١.٦ ث + ٠.٣ ث تلاشي.
-  static const Duration total = Duration(milliseconds: 1900);
+  /// إجمالي الطبقة: ٣ ث + ٠.٣٥ ث تلاشي.
+  static const Duration total = Duration(milliseconds: 3350);
 
   @override
   State<SplashOverlay> createState() => _SplashOverlayState();
@@ -32,32 +35,46 @@ class _SplashOverlayState extends State<SplashOverlay>
   bool _done = false;
   bool _started = false;
 
-  // كل الفترات نسبة من ١.٩ ث
-  static double _at(int ms) => ms / 1900;
+  // كل الفترات نسبة من ٣.٣٥ ث
+  static double _at(int ms) => ms / 3350;
 
   late final _bowl = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(100), _at(400), curve: Curves.easeOut),
+    curve: Interval(_at(150), _at(700), curve: Curves.easeOut),
   );
   late final _tail = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(350), _at(650), curve: Curves.easeOut),
+    curve: Interval(_at(600), _at(1150), curve: Curves.easeOut),
   );
-  late final _dot = CurvedAnimation(
+
+  /// الرحلة: النقطة داخلة من بره الشاشة لحد مكانها.
+  late final _fly = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(650), _at(900), curve: Curves.easeOut),
+    curve: Interval(_at(1200), _at(1950), curve: Curves.easeInOutCubic),
+  );
+
+  /// النطّة بعد ما توصل — مرتدّة صغيرة فوق وتحت.
+  late final _land = CurvedAnimation(
+    parent: _c,
+    curve: Interval(_at(1950), _at(2350), curve: Curves.elasticOut),
+  );
+
+  /// الوميض — بيولّع مع الوصول ويهدى.
+  late final _flash = CurvedAnimation(
+    parent: _c,
+    curve: Interval(_at(1900), _at(2400), curve: Curves.easeOut),
   );
   late final _halo = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(850), _at(1450), curve: Curves.easeOut),
+    curve: Interval(_at(1950), _at(2700), curve: Curves.easeOut),
   );
   late final _word = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(950), _at(1300), curve: Curves.easeOut),
+    curve: Interval(_at(2300), _at(2750), curve: Curves.easeOut),
   );
   late final _exit = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1600), _at(1900), curve: Curves.easeIn),
+    curve: Interval(_at(3000), _at(3350), curve: Curves.easeIn),
   );
 
   @override
@@ -67,7 +84,7 @@ class _SplashOverlayState extends State<SplashOverlay>
     _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
       // الحالة النهائية على طول، وتلاشي قصير
-      _c.value = _at(1600);
+      _c.value = _at(3000);
     }
     // الساعة بتبدأ مع أول فريم **مرسوم**، مش مع أول build: في أول فتحة
     // الـUI thread مشغول بالتحميل، ولو الساعة بدأت قبل ما يرسم، الحركة
@@ -84,6 +101,19 @@ class _SplashOverlayState extends State<SplashOverlay>
   void dispose() {
     _c.dispose();
     super.dispose();
+  }
+
+  /// قوس الطيران: بترتفع في النص وبترجع لمكانها — نطّة، مش خط.
+  static double _hop(double t) {
+    if (t <= 0 || t >= 1) return 0;
+    return math.sin(math.pi * t);
+  }
+
+  /// وميضة واحدة: بتولّع لحد النص وبتهدى.
+  double get _flashValue {
+    final t = _flash.value;
+    if (t <= 0 || t >= 1) return 0;
+    return t < 0.35 ? t / 0.35 : 1 - (t - 0.35) / 0.65;
   }
 
   @override
@@ -121,8 +151,13 @@ class _SplashOverlayState extends State<SplashOverlay>
                                 dotColor: F.gold,
                                 bowlProgress: _bowl.value,
                                 tailProgress: _tail.value,
-                                dotOpacity: _dot.value,
-                                dotDrop: -4 + 4 * _dot.value,
+                                // بتبان أول ما تبدأ تطير — قبلها مش موجودة
+                                dotOpacity: _fly.value == 0 ? 0 : 1,
+                                // القوس: داخلة من بره على اليمين (٩٠ وحدة رسم)
+                                // وبتنزل على مكانها، والنطّة بعدها ٦px لفوق
+                                dotSlide: 90 * (1 - _fly.value),
+                                dotDrop: -14 * _hop(_fly.value) - 6 * (1 - _land.value).clamp(0.0, 1.0),
+                                dotFlash: _flashValue,
                                 halo: _halo.value,
                               ),
                             ),

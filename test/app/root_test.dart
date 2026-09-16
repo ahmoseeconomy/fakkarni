@@ -18,6 +18,7 @@ import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/data/care/care_circle_service.dart';
 import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
@@ -233,7 +234,13 @@ void main() {
     screenTest('«التليفون ده ليا» → «نتعرّف عليك» بالمخاطب، زي ما كانت', (tester) async {
       await tallView(tester);
       await pumpRoot(tester);
+      // المخطط ٢: بيختار، وبعدين «يلا نبدأ»
+      expect(tester.widget<FPrimaryButton>(find.byKey(const ValueKey('entry-start'))).onPressed, isNull,
+          reason: 'من غير اختيار مفيش بداية');
       await tester.tap(find.byKey(const ValueKey('entry-self')));
+      await settle(tester);
+      expect(find.byType(RoutineOnboardingScreen), findsNothing, reason: 'الاختيار لوحده ما بيمشيش');
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
 
       expect(find.byType(RoutineOnboardingScreen), findsOneWidget);
@@ -245,6 +252,8 @@ void main() {
       await tallView(tester);
       await pumpRoot(tester);
       await tester.tap(find.byKey(const ValueKey('entry-other')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
 
       expect(find.text('اسم والدك أو والدتك إيه؟'), findsOneWidget);
@@ -266,6 +275,8 @@ void main() {
       await tallView(tester);
       await pumpRoot(tester);
       await tester.tap(find.byKey(const ValueKey('entry-self')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
       await tester.tap(find.text('رجوع'));
       await settle(tester);
@@ -279,6 +290,8 @@ void main() {
       await pumpRoot(tester);
 
       await tester.tap(find.byKey(const ValueKey('entry-code')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
       expect(find.text('حساب عشان تتابع'), findsOneWidget);
       expect(find.text('اعرض كود الربط'), findsNothing, reason: 'ده طريق المريض');

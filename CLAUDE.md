@@ -1669,6 +1669,30 @@ device-verified)**
   notification permission has no in-app lead-in; the caregiver screen
   still uses gold text.
 
+**Front-door visuals (مطابقة المخططات ١ و٢ و٣)**
+- **Splash is 3s + 0.35s fade** (was 1.9s): ring, tail, then the gold dot
+  **flies in from off-screen right on an arc**, hops as it lands, flashes
+  once (the dot lightens toward white and its halo expands), then «فكرني»
+  rises and the layer fades. `FaMarkPainter` gained `dotSlide` and
+  `dotFlash`; reduced-motion still jumps to the final state.
+- **Entry screen follows mockup 02**: white ground, the ink mark with its
+  gold dot, three cards, and a «يلا نبدأ» primary. **This replaces D4's
+  "each card is the action"** — the owner asked for the mockup's two-step
+  select-then-start; the card now only selects (green tint, green edge,
+  check), and the button carries the move.
+- **Sign-in follows mockup 03** as far as the truth allows: white ground,
+  centred mark, title, subtitle, the «حساب تجريبي» chip where the mockup
+  puts its role chip, a white Google row and a dark Apple row, an «أو»
+  divider, then the one working control. **Not built, and not because of
+  time**: real Google/Apple sign-in (debts 2 and 3 — the rows stay locked
+  with their own reasons), the email field (Email OTP was removed from the
+  product), and the mockup's «بياناتك الطبية مشفّرة» line — nothing is
+  encrypted beyond the platform default, so the entry screen says what is
+  actually true: the data stays on this phone until he links someone.
+- The white ground is on these two screens only; the rest of the app keeps
+  `F.ivory`. Flipping the whole app to the mockups' white is a brand-token
+  change and a separate decision.
+
 **D5.2 — the son sees the whole health file (built)**
 - `CaregiverSnapshot` carries `records` (with lab lines embedded under their
   report), `readings`, `emergency` and `questions`. Row → model mapping is
