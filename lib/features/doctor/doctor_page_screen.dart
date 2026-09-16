@@ -142,7 +142,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
         children: [
           if (_nextBooking case final b?)
             Text(
-              'الميعاد الجاي: ${[b.title, ?b.doctor].join(' · ')} — ${arabicDate(b.happenedAt)}',
+              'الميعاد الجاي: ${[b.title, ?b.doctor].join(' — ')} — ${arabicDate(b.happenedAt)}',
               key: const ValueKey('next-booking'),
               style: sub,
             ),
@@ -167,7 +167,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                               [
                                 if (m.medication.amountLabel != null) m.medication.amountLabel!,
                                 for (final sc in m.schedules) sc.ruleLabel,
-                              ].join(' · '),
+                              ].join(' — '),
                               style: sub,
                             ),
                           ],
@@ -176,7 +176,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                   ],
           ),
           _Section(
-            title: 'القياسات · آخر ${arabicNumber(30)} يوم',
+            title: 'القياسات — آخر ${arabicNumber(30)} يوم',
             children: [
               if (recent.isEmpty) const Text('مفيش قياسات سكر في آخر ٣٠ يوم', style: sub),
               for (final c in GlucoseContext.values)
@@ -188,9 +188,9 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('سكر ${c.label} · ${arabicNumber(st.count)} قياس', style: body.copyWith(fontWeight: FontWeight.w700)),
+                        Text('سكر ${c.label} — ${arabicNumber(st.count)} قياس', style: body.copyWith(fontWeight: FontWeight.w700)),
                         Text(
-                          'متوسط ${arabicNumber(st.average)} · أقل ${arabicNumber(st.lowest)} · أعلى ${arabicNumber(st.highest)} ملّيجرام/ديسيلتر',
+                          'متوسط ${arabicNumber(st.average)} — أقل ${arabicNumber(st.lowest)} — أعلى ${arabicNumber(st.highest)} ملّيجرام/ديسيلتر',
                           style: body,
                         ),
                       ],
@@ -219,7 +219,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                               [
                                 arabicDate(l.at),
                                 if (l.previous case (final v, final at)) 'كان ${arabicDecimal(v)} في ${arabicDate(at)}',
-                              ].join(' · '),
+                              ].join(' — '),
                               style: sub,
                             ),
                           ],

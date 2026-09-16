@@ -109,6 +109,13 @@ These are product decisions, already settled. Do not "improve" them without aski
   time exists only as a small secondary link.
 - **Copy is warm Egyptian colloquial**, the way a family speaks:
   "بتفطر الساعة كام؟" — not "يرجى تحديد موعد وجبة الإفطار".
+- **Never use «·» in a string the user reads.** The Arabic-Indic zero «٠»
+  *is* a dot, so beside Arabic digits a middle dot and a zero are the same
+  glyph: «الحاج عاشور · ٦٢ سنة» reads as «٦٢٠ سنة», and «كمان ١٠ ساعات ·
+  ٧:٣٠ م» as «٧:٣٠٠ م». The separator is « — » (or a second line where that
+  reads better); comments and docstrings may keep «·».
+  `test/app/no_middle_dot_test.dart` reads every string literal under
+  `lib/` and fails if one comes back.
 - **Any monospace font needs an Arabic fallback in the stack.** IBM Plex Mono
   has no Arabic glyphs; without a fallback Arabic letters render disconnected.
 

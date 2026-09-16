@@ -269,7 +269,7 @@ void main() {
         );
         await tester.pageBack();
         await settle(tester);
-        expect(find.textContaining('دورة فحص · ١ من ٧'), findsOneWidget);
+        expect(find.textContaining('دورة فحص — ١ من ٧'), findsOneWidget);
 
         await tester.tap(find.byKey(ValueKey('record-options-$id')));
         await settle(tester);

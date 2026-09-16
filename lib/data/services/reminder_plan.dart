@@ -349,7 +349,7 @@ String escalationBody(EscalationRung rung, String reminderBody) {
     EscalationRung.first => 'فات ربع ساعة',
     EscalationRung.second => 'فات نص ساعة',
   };
-  return '$reminderBody · $elapsed';
+  return '$reminderBody — $elapsed';
 }
 
 /// لحد إمتى التذكيرات مغطية فعلاً — آخر تذكير اتجدول، أو null لو مفيش.

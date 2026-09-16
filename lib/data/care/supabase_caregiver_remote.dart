@@ -44,7 +44,7 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
       final fixed = s['fixed_timings'];
       final minute = (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
       final m = minute?['minute_of_day'] as int?;
-      return m == null ? fixedRuleWording : '$fixedRuleWording · ${arabicTime(DateTime(2026, 1, 1, 0, m))}';
+      return m == null ? fixedRuleWording : '$fixedRuleWording — ${arabicTime(DateTime(2026, 1, 1, 0, m))}';
     }
     final word = anchorWords[s['anchor']];
     if (word == null) return null;

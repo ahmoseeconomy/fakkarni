@@ -236,7 +236,7 @@ void main() {
       final r = rows.single;
       expect(r.kind, RecordKind.prescription);
       expect(r.title, 'روشتة — دواءين');
-      expect(r.notes, 'Concor 5mg · Antodine 40 mg');
+      expect(r.notes, 'Concor 5mg — Antodine 40 mg');
       expect(r.doctor, 'د. هشام مام');
       expect(r.happenedAt, DateTime(2026, 8, 31));
     });

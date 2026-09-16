@@ -151,7 +151,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           title: prescriptionRecordTitle(names.length),
           happenedAt: DateTime(_today.year, _today.month, _today.day),
           doctor: doctor.needsReview ? null : doctor.value,
-          notes: names.join(' · '),
+          notes: names.join(' — '),
         );
       } catch (error, stack) {
         debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');
@@ -411,7 +411,7 @@ class _MedicineRow extends StatelessWidget {
                           null => 'مفتوحة — لحد ما توقفه',
                           final d => '${arabicNumber(d)} يوم',
                         },
-                      ].join(' · '),
+                      ].join(' — '),
                       style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                     ),
                   ],

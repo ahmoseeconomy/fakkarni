@@ -162,7 +162,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                   else if (invite == null)
                     // فشل الطلب — مكان الكود فاضي بهدوء، والرسالة فوق بتقول ليه
                     const Text(
-                      '· · ·',
+                      '— — —',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 56, fontWeight: FontWeight.w700, color: F.line, height: 1.2),
                     )

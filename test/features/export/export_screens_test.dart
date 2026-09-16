@@ -110,10 +110,10 @@ void main() {
       await settle(tester);
 
       expect(find.text('Concor 5mg'), findsOneWidget);
-      expect(find.text('سكر صايم · ٣ قياس'), findsOneWidget, reason: 'قياس يوليو برّه آخر ٣٠ يوم');
-      expect(find.text('متوسط ١٣٤ · أقل ١١٨ · أعلى ١٥٢ ملّيجرام/ديسيلتر'), findsOneWidget);
+      expect(find.text('سكر صايم — ٣ قياس'), findsOneWidget, reason: 'قياس يوليو برّه آخر ٣٠ يوم');
+      expect(find.text('متوسط ١٣٤ — أقل ١١٨ — أعلى ١٥٢ ملّيجرام/ديسيلتر'), findsOneWidget);
       expect(find.text('HbA1c ٧.٦ %'), findsOneWidget);
-      expect(find.text('١٢ سبتمبر ٢٠٢٦ · كان ٧.٤ في ١ يونيو ٢٠٢٦'), findsOneWidget);
+      expect(find.text('١٢ سبتمبر ٢٠٢٦ — كان ٧.٤ في ١ يونيو ٢٠٢٦'), findsOneWidget);
       expect(find.byKey(const ValueKey('next-booking')), findsOneWidget);
       expect(find.textContaining('↑'), findsNothing);
       expect(find.textContaining('↓'), findsNothing);

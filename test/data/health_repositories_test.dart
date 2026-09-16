@@ -76,7 +76,7 @@ void main() {
       final records = await RecordsRepository(db).all(patientId);
       expect(records.first.kind, RecordKind.lab);
       expect(records.first.title, 'تقرير تحليل — نتيجتين');
-      expect(records.first.notes, 'hba1c 7.4 % · Creatinine 1.2 mg/dL');
+      expect(records.first.notes, 'hba1c 7.4 % — Creatinine 1.2 mg/dL');
     });
 
     test('تقرير ممسوح (ناعم) ما بيدخلش في المعتاد', () async {

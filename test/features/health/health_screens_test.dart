@@ -200,12 +200,12 @@ void main() {
       ));
       await tester.pump();
       await tester.pump();
-      expect(find.text('بيقرا · ٠/٢ سطور'), findsOneWidget);
+      expect(find.text('بيقرا — ٠/٢ سطور'), findsOneWidget);
       expect(find.text('HbA1c — ٧.٦ %'), findsOneWidget);
 
       await tester.pump(ScanLabScreen.revealPerLine);
       await tester.pump(ScanLabScreen.revealPerLine);
-      expect(find.text('بيقرا · ٢/٢ سطور'), findsOneWidget);
+      expect(find.text('بيقرا — ٢/٢ سطور'), findsOneWidget);
       await tester.pump(ScanLabScreen.revealHold);
       await settle(tester);
       expect(find.byType(LabReportScreen), findsOneWidget);
@@ -235,7 +235,7 @@ void main() {
       for (final card in tester.widgetList<FCard>(find.byType(FCard))) {
         expect(card.tone, FCardTone.plain, reason: 'مفيش حكم على الرقم');
       }
-      expect(find.text('معمل البرج · ١٢ سبتمبر ٢٠٢٦'), findsOneWidget);
+      expect(find.text('معمل البرج — ١٢ سبتمبر ٢٠٢٦'), findsOneWidget);
       expectNoAdvice(tester);
       expectNoRedAndMinSize(tester);
     });

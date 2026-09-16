@@ -366,7 +366,7 @@ class _HomeHeader extends StatelessWidget {
         ),
         if (hasName && patient?.age != null)
           Text(
-            '$name · ${arabicNumber(patient!.age!)} سنة',
+            '$name — ${arabicNumber(patient!.age!)} سنة',
             style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
           ),
         const SizedBox(height: F.s6),

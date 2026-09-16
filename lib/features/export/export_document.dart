@@ -110,7 +110,7 @@ Future<ExportDocument> collectExport(
     patientLine: [
       hasName ? name : 'ملف صحي',
       if (age != null) '${arabicNumber(age)} سنة',
-    ].join(' · '),
+    ].join(' — '),
     rangeLine: from == null ? 'الفترة: كل التاريخ' : 'الفترة: من ${arabicDate(from)} لـ ${arabicDate(now)}',
     generatedLine: 'اتعمل من تطبيق فكرني في ${arabicDate(now)}',
     blocks: blocks,
@@ -129,7 +129,7 @@ Future<List<String>> _medications(AppDatabase db, int patientId) async {
       m.name,
       if (m.amountLabel != null) m.amountLabel!,
       '${arabicNumber(schedules.length)}× في اليوم',
-    ].join(' · '));
+    ].join(' — '));
   }
   return lines;
 }
@@ -146,7 +146,7 @@ Future<List<String>> _labs(AppDatabase db, int patientId, bool Function(DateTime
         () {
           final r = row.readTable(db.labResults);
           final unit = r.unit == null ? '' : ' ${r.unit}';
-          return '${r.testName} ${arabicDecimal(r.value)}$unit · ${arabicDate(row.readTable(db.records).happenedAt)}';
+          return '${r.testName} ${arabicDecimal(r.value)}$unit — ${arabicDate(row.readTable(db.records).happenedAt)}';
         }(),
   ];
 }
@@ -159,7 +159,7 @@ Future<List<String>> _records(AppDatabase db, int patientId, RecordKind kind, bo
   return [
     for (final r in rows)
       if (inRange(r.happenedAt)) ...[
-        [r.title, ?r.doctor, ?r.place, arabicDate(r.happenedAt)].join(' · '),
+        [r.title, ?r.doctor, ?r.place, arabicDate(r.happenedAt)].join(' — '),
         if (r.notes != null) r.notes!,
       ],
   ];
@@ -174,9 +174,9 @@ Future<List<String>> _glucose(AppDatabase db, int patientId, bool Function(DateT
   return [
     for (final c in GlucoseContext.values)
       if (GlucoseStats.of([for (final r in shown) if (r.context == c) r.valueMgDl]) case final s?)
-        '${c.label}: ${arabicNumber(s.count)} قياس · أقل ${arabicNumber(s.lowest)} · أعلى ${arabicNumber(s.highest)} · متوسط ${arabicNumber(s.average)} ملّيجرام/ديسيلتر',
+        '${c.label}: ${arabicNumber(s.count)} قياس — أقل ${arabicNumber(s.lowest)} — أعلى ${arabicNumber(s.highest)} — متوسط ${arabicNumber(s.average)} ملّيجرام/ديسيلتر',
     for (final r in shown.take(30))
-      '${arabicNumber(r.valueMgDl)} ${r.context.label} · ${arabicDate(r.measuredAt)} ${arabicTime(r.measuredAt)}',
+      '${arabicNumber(r.valueMgDl)} ${r.context.label} — ${arabicDate(r.measuredAt)} ${arabicTime(r.measuredAt)}',
   ];
 }
 

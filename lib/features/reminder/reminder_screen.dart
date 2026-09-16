@@ -181,7 +181,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     child: Kicker(
                       pending.isEmpty
                           ? 'تنبيه'
-                          : 'تنبيه · المرحلة ${arabicNumber(stage + 1)}',
+                          : 'تنبيه — المرحلة ${arabicNumber(stage + 1)}',
                       color: F.gold,
                     ),
                   ),
@@ -278,7 +278,7 @@ class _DoseRow extends StatelessWidget {
       ?dose.amountLabel,
       ?ruleLabel,
       arabicTime(dose.scheduledAt),
-    ].join(' · ');
+    ].join(' — ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

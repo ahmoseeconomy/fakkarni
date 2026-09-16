@@ -54,7 +54,7 @@ class LabResultsRepository {
               place: Value(place),
               notes: Value([
                 for (final l in lines) '${l.testName.trim()} ${_number(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
-              ].join(' · ')),
+              ].join(' — ')),
               attachmentPath: Value(attachmentPath),
             ));
         for (final l in lines) {

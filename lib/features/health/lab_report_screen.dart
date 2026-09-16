@@ -143,7 +143,7 @@ class _LabReportScreenState extends State<LabReportScreen> {
     final meta = [
       if (!reading.lab.needsReview && reading.lab.value != null) reading.lab.value!,
       if (!reading.date.needsReview && reading.date.value != null) arabicDate(reading.date.value!),
-    ].join(' · ');
+    ].join(' — ');
 
     return Scaffold(
       appBar: AppBar(title: const Text('قراءة التقرير')),

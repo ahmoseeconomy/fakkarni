@@ -58,7 +58,7 @@ class MedicationList extends StatelessWidget {
                                   [
                                     item.medication.amountLabel ?? 'الجرعة مش معروفة',
                                     item.schedules.map((s) => s.ruleLabel).join(' + '),
-                                  ].join(' · '),
+                                  ].join(' — '),
                                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                                 ),
                               ],

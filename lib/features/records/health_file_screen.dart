@@ -293,7 +293,7 @@ class RecordSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = record;
-    final meta = [r.kind.label, ?r.doctor, arabicDate(r.happenedAt)].join(' · ');
+    final meta = [r.kind.label, ?r.doctor, arabicDate(r.happenedAt)].join(' — ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -314,7 +314,7 @@ class RecordSummary extends StatelessWidget {
         Text(meta, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
         if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
           Text(
-            'دورة فحص · ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
+            'دورة فحص — ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
             style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
           ),
       ],

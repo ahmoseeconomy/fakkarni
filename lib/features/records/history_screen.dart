@@ -134,7 +134,7 @@ class _TimelineEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = record;
-    final lines = [?r.doctor, ?r.place].join(' · ');
+    final lines = [?r.doctor, ?r.place].join(' — ');
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

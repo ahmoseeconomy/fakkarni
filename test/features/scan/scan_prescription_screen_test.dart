@@ -97,14 +97,14 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('بيقرا · ٠/٢ سطور'), findsOneWidget);
+    expect(find.text('بيقرا — ٠/٢ سطور'), findsOneWidget);
     expect(find.textContaining('Concor 5mg'), findsOneWidget);
     expect(find.textContaining('Amaryl 2mg'), findsOneWidget);
 
     await tester.pump(ScanPrescriptionScreen.revealPerLine);
-    expect(find.text('بيقرا · ١/٢ سطور'), findsOneWidget);
+    expect(find.text('بيقرا — ١/٢ سطور'), findsOneWidget);
     await tester.pump(ScanPrescriptionScreen.revealPerLine);
-    expect(find.text('بيقرا · ٢/٢ سطور'), findsOneWidget);
+    expect(find.text('بيقرا — ٢/٢ سطور'), findsOneWidget);
 
     await tester.pump(ScanPrescriptionScreen.revealHold);
     await settle(tester);

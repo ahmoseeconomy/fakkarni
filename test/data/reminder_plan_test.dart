@@ -676,8 +676,8 @@ void main() {
     test('النص سؤال مش لوم، وفيه اسم الدوا وقد إيه فات', () {
       final ladder = planEscalations(reminders(days: 1), from: aug31at6);
       expect(ladder[0].title, 'لسه ما أخدتش الدوا؟');
-      expect(ladder[0].body, 'Concor · فات ربع ساعة');
-      expect(ladder[1].body, 'Concor · فات نص ساعة');
+      expect(ladder[0].body, 'Concor — فات ربع ساعة');
+      expect(ladder[1].body, 'Concor — فات نص ساعة');
     });
 
     test('أقرب ٧ تذكيرات بس هي اللي بتاخد سلّم — ١٤ إشعار', () {

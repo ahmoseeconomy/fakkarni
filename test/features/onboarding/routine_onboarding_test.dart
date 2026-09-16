@@ -196,7 +196,7 @@ void main() {
     expect(dot(2), F.gold);
   });
 
-  testWidgets('«مش متأكد» بتدي افتراضيات README: ٦:٣٠ · ٧:٣٠ · ٢:٠٠ · ٨:٠٠ · ١١:٣٠', (tester) async {
+  testWidgets('«مش متأكد» بتدي افتراضيات README: ٦:٣٠ — ٧:٣٠ — ٢:٠٠ — ٨:٠٠ — ١١:٣٠', (tester) async {
     await pumpOnboarding(tester);
     for (var i = 0; i < expectedQuestions.length; i++) {
       await tapAndSettle(tester, 'مش متأكد');

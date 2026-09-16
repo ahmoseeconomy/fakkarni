@@ -30,7 +30,7 @@ void main() {
       patientId,
       const EmergencyInfo(
         bloodType: 'O+',
-        allergies: ' بنسلين · سلفا ',
+        allergies: ' بنسلين — سلفا ',
         chronicConditions: '   ',
         contacts: [
           EmergencyContact(name: 'محمد', phone: '01001234567', relation: 'ابني'),
@@ -40,7 +40,7 @@ void main() {
     );
     final info = await repo.get(patientId);
     expect(info.bloodType, 'O+');
-    expect(info.allergies, 'بنسلين · سلفا');
+    expect(info.allergies, 'بنسلين — سلفا');
     expect(info.chronicConditions, isNull);
     expect(info.contacts, [const EmergencyContact(name: 'محمد', phone: '01001234567', relation: 'ابني')]);
     expect(await db.select(db.emergencyProfile).get(), hasLength(1));

@@ -173,7 +173,7 @@ void main() {
   for (final scale in [1.0, 1.3]) {
     for (final filled in [false, true]) {
       for (final MapEntry(key: name, value: build) in screens.entries) {
-        screenTest('عرض ٣٩٠ · خط ×$scale · ${filled ? 'مليانة' : 'فاضية'} · $name', (tester) async {
+        screenTest('عرض ٣٩٠ — خط ×$scale — ${filled ? 'مليانة' : 'فاضية'} — $name', (tester) async {
           if (filled) await seed();
           tester.view.physicalSize = const Size(390, 2400);
           tester.view.devicePixelRatio = 1.0;

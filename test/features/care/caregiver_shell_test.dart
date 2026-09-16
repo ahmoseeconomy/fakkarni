@@ -136,7 +136,7 @@ void main() {
 
     // اللي بيتابعه ظاهر: يومه، أدويته بقواعدها، التنبيه
     expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
-    expect(find.text('قرص واحد · الفطار − ٣٠ د'), findsOneWidget);
+    expect(find.text('قرص واحد — الفطار − ٣٠ د'), findsOneWidget);
     expect(find.textContaining('والدك ما أكّدش جرعة Glucophage'), findsOneWidget);
 
     // ومفيش حاجة بتتكتب
@@ -188,7 +188,7 @@ void main() {
         ],
       });
 
-      expect(med.rules, ['الفطار − ٣٠ د', 'العشا', 'ساعة ثابتة · ٨:٠٠ ص']);
+      expect(med.rules, ['الفطار − ٣٠ د', 'العشا', 'ساعة ثابتة — ٨:٠٠ ص']);
       expect(med.amountLabel, 'قرص واحد');
     });
 

@@ -83,14 +83,14 @@ List<CalendarEntry> calendarEntries({
           kind: recordKind(r.kind)!,
           at: r.happenedAt,
           title: r.title,
-          detail: [?r.doctor, ?r.place].join(' · '),
+          detail: [?r.doctor, ?r.place].join(' — '),
         ),
     for (final g in readings)
       CalendarEntry(
         kind: CalendarKind.glucose,
         at: g.measuredAt,
         title: 'سكر ${arabicNumber(g.valueMgDl)}',
-        detail: '${g.context.label} · ${arabicTime(g.measuredAt)}',
+        detail: '${g.context.label} — ${arabicTime(g.measuredAt)}',
       ),
   ]..sort((a, b) => a.at.compareTo(b.at));
 }

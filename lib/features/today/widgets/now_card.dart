@@ -76,8 +76,8 @@ class NowCard extends StatelessWidget {
           const SizedBox(height: F.s4),
           Text(
             overdue
-                ? 'لسه ما اتأكدتش · كان معادها ${arabicTime(at)}'
-                : '${arabicCountdown(at.difference(now))} · ${arabicTime(at)}',
+                ? 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}'
+                : '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
             style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
           ),
           if (snoozed) ...[

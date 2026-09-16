@@ -78,7 +78,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 Text(
                   active.isEmpty
                       ? 'لسه مفيش أدوية. دوس «ضيف» تحت.'
-                      : '${_count(active.length)} · مرتّبة على مواعيد يومك',
+                      : '${_count(active.length)} — مرتّبة على مواعيد يومك',
                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                 ),
                 const SizedBox(height: F.s10),
@@ -173,7 +173,7 @@ class _GroupHead extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-            time == null ? label : '$label · ${arabicTime(time!)}',
+            time == null ? label : '$label — ${arabicTime(time!)}',
             style: TextStyle(
               fontSize: F.sectionHeadSize,
               fontWeight: FontWeight.w700,
@@ -238,7 +238,7 @@ class _MedCard extends StatelessWidget {
                 const SizedBox(height: F.s4),
                 Text(
                   // الجرعة مش معروفة — بهدوء، من غير لوم: سؤال للصيدلي مش غلطة
-                  '${med.amountLabel ?? 'الجرعة مش معروفة'} · $rule',
+                  '${med.amountLabel ?? 'الجرعة مش معروفة'} — $rule',
                   style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
                 ),
                 if (stopped)

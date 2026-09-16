@@ -117,7 +117,7 @@ class ScanStage extends StatelessWidget {
                   child: _ReadingBadge(
                     text: lines == null
                         ? waitingText
-                        : 'بيقرا · ${arabicNumber(revealed)}/${arabicNumber(lines.length)} سطور',
+                        : 'بيقرا — ${arabicNumber(revealed)}/${arabicNumber(lines.length)} سطور',
                   ),
                 ),
               ),

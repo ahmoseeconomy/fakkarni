@@ -326,7 +326,7 @@ class _TimingRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${schedule.ruleLabel} · $time',
+                  '${schedule.ruleLabel} — $time',
                   style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
                 ),
               ),

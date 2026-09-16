@@ -105,7 +105,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         chronicConditions: emergency?.chronicConditions,
       ),
       const SizedBox(height: F.gap),
-      const _Head('قياسات السكر · آخر ٣٠ يوم'),
+      const _Head('قياسات السكر — آخر ٣٠ يوم'),
       if (snapshot.readings.isEmpty)
         const _Panel(text: 'لسه مفيش حاجة هنا.')
       else
@@ -190,7 +190,7 @@ class _ReadingRow extends StatelessWidget {
               style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
             ),
             Text(
-              '${glucoseContextLabel(reading.context)} · ${arabicDate(reading.measuredAt)} ${arabicTime(reading.measuredAt)}',
+              '${glucoseContextLabel(reading.context)} — ${arabicDate(reading.measuredAt)} ${arabicTime(reading.measuredAt)}',
               style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
@@ -216,7 +216,7 @@ class _RecordCard extends StatelessWidget {
           children: [
             Text(record.title, style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
             Text(
-              [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' · '),
+              [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' — '),
               style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
             ),
             if (record.notes != null && record.notes!.trim().isNotEmpty)

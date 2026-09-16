@@ -127,7 +127,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   current: stage,
                   last: s == CheckupStage.values.last,
                   detail: s == CheckupStage.sampleDraw && reminder != null
-                      ? '${arabicDate(row.happenedAt)} · ${arabicTime(row.happenedAt)}'
+                      ? '${arabicDate(row.happenedAt)} — ${arabicTime(row.happenedAt)}'
                       : null,
                   children: s != stage
                       ? const []
@@ -155,7 +155,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                               )
                             else ...[
                               Text(
-                                'تذكير الصيام متظبط: ${arabicDate(reminder)} · ${arabicTime(reminder)}',
+                                'تذكير الصيام متظبط: ${arabicDate(reminder)} — ${arabicTime(reminder)}',
                                 key: const ValueKey('fasting-set-line'),
                                 style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                               ),

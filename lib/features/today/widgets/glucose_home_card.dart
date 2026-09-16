@@ -45,7 +45,7 @@ class GlucoseHomeCard extends StatelessWidget {
             style: const TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink),
           ),
           Text(
-            '${arabicDate(latest.measuredAt)} · ${arabicTime(latest.measuredAt)}',
+            '${arabicDate(latest.measuredAt)} — ${arabicTime(latest.measuredAt)}',
             style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
           const SizedBox(height: F.s4),

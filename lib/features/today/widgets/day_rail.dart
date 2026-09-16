@@ -127,7 +127,7 @@ class DayRail extends StatelessWidget {
           child: Align(
             alignment: AlignmentDirectional.centerStart,
             child: Text(
-              '${mark.anchor.label} · ${arabicTime(mark.at)}',
+              '${mark.anchor.label} — ${arabicTime(mark.at)}',
               style: const TextStyle(
                 fontSize: F.minTextSize,
                 fontWeight: FontWeight.w700,
@@ -219,7 +219,7 @@ class DayRail extends StatelessWidget {
                       [
                         arabicTime(at),
                         ruleLabelFor(group.first.doseScheduleId),
-                      ].nonNulls.join(' · '),
+                      ].nonNulls.join(' — '),
                       style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
                     ),
                     if (unconfirmed) ...[

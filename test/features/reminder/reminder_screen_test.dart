@@ -154,7 +154,7 @@ void main() {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
-    expect(find.text('تنبيه · المرحلة ٢'), findsOneWidget);
+    expect(find.text('تنبيه — المرحلة ٢'), findsOneWidget);
     expect(find.text('Antodine'), findsOneWidget);
     expect(find.textContaining('قرص واحد'), findsOneWidget);
     expect(find.textContaining('الغدا'), findsOneWidget);
@@ -166,7 +166,7 @@ void main() {
     await pumpReminder(tester, ids);
 
     expect(find.text('مرّت ١٥ دقيقة على موعد الجرعة'), findsOneWidget);
-    expect(find.text('تنبيه · المرحلة ٢'), findsOneWidget);
+    expect(find.text('تنبيه — المرحلة ٢'), findsOneWidget);
     expect(tester.widget<Text>(find.text('+١٥ د')).style?.color, F.amber);
     expect(tester.widget<Text>(find.text('في الموعد')).style?.color, isNot(F.amber));
 
@@ -183,7 +183,7 @@ void main() {
     await pumpReminder(tester, ids, now: lunchDose);
 
     expect(find.text('وقت الدوا'), findsOneWidget);
-    expect(find.text('تنبيه · المرحلة ١'), findsOneWidget);
+    expect(find.text('تنبيه — المرحلة ١'), findsOneWidget);
     expect(tester.widget<Text>(find.text('في الموعد')).style?.color, F.amber);
   });
 
@@ -248,7 +248,7 @@ void main() {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 15, 5));
 
-    expect(find.text('تنبيه · المرحلة ٤'), findsOneWidget);
+    expect(find.text('تنبيه — المرحلة ٤'), findsOneWidget);
     expect(find.text('مرّت ٦٠ دقيقة على موعد الجرعة'), findsOneWidget);
     expect(tester.widget<Text>(find.text('+٦٠ د — إشعار لابنك')).style?.color, F.amber);
     expect(ladderSteps.length, 4, reason: 'الدرجة الخامسة مش مبنية');

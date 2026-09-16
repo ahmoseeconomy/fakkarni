@@ -120,8 +120,8 @@ void main() {
       services.patientId,
       const EmergencyInfo(
         bloodType: 'O+',
-        allergies: 'بنسلين · سلفا',
-        chronicConditions: 'سكر نوع ٢ · ضغط',
+        allergies: 'بنسلين — سلفا',
+        chronicConditions: 'سكر نوع ٢ — ضغط',
         contacts: [EmergencyContact(name: 'محمد', phone: '01001234567', relation: 'ابني')],
       ),
     );
@@ -159,9 +159,9 @@ void main() {
       await pump(tester, const EmergencyInfoScreen());
 
       expect(find.text('O+'), findsOneWidget);
-      expect(find.text('بنسلين · سلفا'), findsOneWidget);
-      expect(find.text('سكر نوع ٢ · ضغط'), findsOneWidget);
-      expect(find.text('أحمد محمود · ٧٢ سنة'), findsOneWidget);
+      expect(find.text('بنسلين — سلفا'), findsOneWidget);
+      expect(find.text('سكر نوع ٢ — ضغط'), findsOneWidget);
+      expect(find.text('أحمد محمود — ٧٢ سنة'), findsOneWidget);
       expect(find.text('Concor\u00A05mg'), findsOneWidget);
       expect(find.textContaining('Xatral'), findsNothing, reason: 'اتوقف');
       expect(find.text(notFilled), findsNothing);
@@ -241,9 +241,9 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(tester.widget<Text>(find.byKey(const ValueKey('emergency-clock'))).data, '٩:٤٢');
 
-      expect(find.text('أحمد محمود · ٧٢ سنة'), findsOneWidget);
+      expect(find.text('أحمد محمود — ٧٢ سنة'), findsOneWidget);
       expect(find.text('O+'), findsOneWidget);
-      expect(find.text('بنسلين · سلفا'), findsOneWidget);
+      expect(find.text('بنسلين — سلفا'), findsOneWidget);
       expect(find.text('Concor\u00A05mg'), findsOneWidget);
       expect(find.text('محمد (ابني)'), findsOneWidget);
       expect(find.byKey(const ValueKey('ambulance')), findsOneWidget);

@@ -38,12 +38,12 @@ void main() {
     await pump(tester);
 
     // الفطار ٧:٣٠ قبل العشا ٨:٠٠ م
-    final breakfast = tester.getCenter(find.text('الفطار · ٧:٣٠ ص'));
-    final dinner = tester.getCenter(find.text('العشا · ٨:٠٠ م'));
+    final breakfast = tester.getCenter(find.text('الفطار — ٧:٣٠ ص'));
+    final dinner = tester.getCenter(find.text('العشا — ٨:٠٠ م'));
     expect(breakfast.dy, lessThan(dinner.dy));
     expect(find.text('Augmentin'), findsNWidgets(2), reason: 'جرعتين = كارتين');
     expect(find.text('Concor 5mg'), findsOneWidget);
-    expect(find.text('دواءين · مرتّبة على مواعيد يومك'), findsOneWidget, reason: 'العدّ بالدوا مش بالجرعة');
+    expect(find.text('دواءين — مرتّبة على مواعيد يومك'), findsOneWidget, reason: 'العدّ بالدوا مش بالجرعة');
     // الاسم mono ٢٤+
     final name = tester.widget<Text>(find.text('Concor 5mg'));
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
@@ -69,7 +69,7 @@ void main() {
 
     expect(find.text('ساعة ثابتة'), findsOneWidget);
     expect(tester.getCenter(find.text('ساعة ثابتة')).dy,
-        greaterThan(tester.getCenter(find.text('الفطار · ٧:٣٠ ص')).dy));
+        greaterThan(tester.getCenter(find.text('الفطار — ٧:٣٠ ص')).dy));
   });
 
   screenTest('فاضي → سطر هادي بيشاور على «ضيف»', (tester) async {

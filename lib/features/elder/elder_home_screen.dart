@@ -206,7 +206,7 @@ class _DoseCard extends StatelessWidget {
           ],
           if (rule != null) Text(rule!, style: body),
           Text(
-            overdue ? 'لسه ما اتأكدتش · كان معادها ${arabicTime(at)}' : 'الساعة ${arabicTime(at)}',
+            overdue ? 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}' : 'الساعة ${arabicTime(at)}',
             style: body.copyWith(color: F.ink),
           ),
           if (snoozed)

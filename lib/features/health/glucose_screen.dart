@@ -203,7 +203,7 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                         Text(r.context.label, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
                         const Spacer(),
                         Text(
-                          '${arabicDate(r.measuredAt)} · ${arabicTime(r.measuredAt)}',
+                          '${arabicDate(r.measuredAt)} — ${arabicTime(r.measuredAt)}',
                           style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                         ),
                       ],
@@ -257,7 +257,7 @@ class _LatestCard extends StatelessWidget {
             ],
           ),
           Text(
-            '${latest.context.label} · ${arabicDate(latest.measuredAt)} · ${arabicTime(latest.measuredAt)}',
+            '${latest.context.label} — ${arabicDate(latest.measuredAt)} — ${arabicTime(latest.measuredAt)}',
             style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
           const SizedBox(height: F.s8),

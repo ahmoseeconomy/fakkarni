@@ -167,7 +167,7 @@ void main() {
 
     expect(find.text('جدول النهاردة'), findsOneWidget);
     expect(find.text('الجاية'), findsOneWidget);
-    expect(find.text('كمان ٦ ساعات · ٢:٠٠ م'), findsOneWidget);
+    expect(find.text('كمان ٦ ساعات — ٢:٠٠ م'), findsOneWidget);
 
     final button = tester.getSize(find.byType(FilledButton).first);
     expect(button.height, F.primaryButtonHeight);
@@ -183,7 +183,7 @@ void main() {
     await pumpToday(tester);
 
     final next = tester.getCenter(find.text('الجاية'));
-    final rail = tester.getCenter(find.textContaining('الغدا · ٢:٣٠'));
+    final rail = tester.getCenter(find.textContaining('الغدا — ٢:٣٠'));
     expect(next.dy, lessThan(rail.dy));
   });
 
@@ -253,8 +253,8 @@ void main() {
     await addDose('LINEX', DayAnchor.dinner, offset: 30);
     await pumpToday(tester);
 
-    final breakfast = tester.getCenter(find.textContaining('الفطار · ٧:٣٠'));
-    final dinner = tester.getCenter(find.textContaining('العشا · ٨:٠٠'));
+    final breakfast = tester.getCenter(find.textContaining('الفطار — ٧:٣٠'));
+    final dinner = tester.getCenter(find.textContaining('العشا — ٨:٠٠'));
     expect(breakfast.dy, lessThan(dinner.dy));
   });
 
@@ -403,7 +403,7 @@ void main() {
 
       expect(find.text('يومك'), findsOneWidget);
       expect(find.text('صباح الخير يا فاطمة'), findsOneWidget);
-      expect(find.text('فاطمة · ٦٨ سنة'), findsOneWidget);
+      expect(find.text('فاطمة — ٦٨ سنة'), findsOneWidget);
       expect(find.text('تعملي إيه دلوقتي؟'), findsOneWidget);
       expect(find.text('ماذا أفعل الآن؟'), findsNothing);
     });
@@ -427,7 +427,7 @@ void main() {
       final missed = tester.getCenter(find.descendant(of: cards.first, matching: find.text('Antodine')));
       final next = tester.getCenter(find.descendant(of: cards.last, matching: find.text('LINEX')));
       expect(missed.dy, lessThan(next.dy));
-      expect(find.text('لسه ما اتأكدتش · كان معادها ٧:٠٠ ص'), findsOneWidget);
+      expect(find.text('لسه ما اتأكدتش — كان معادها ٧:٠٠ ص'), findsOneWidget);
       for (final card in tester.widgetList<FCard>(find.descendant(of: cards, matching: find.byType(FCard)))) {
         expect(card.tone, FCardTone.attention);
       }

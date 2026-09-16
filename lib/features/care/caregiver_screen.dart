@@ -406,7 +406,7 @@ class _MedicationRow extends StatelessWidget {
             ),
             if (medication.amountLabel != null || medication.rules.isNotEmpty)
               Text(
-                [?medication.amountLabel, ...medication.rules].join(' · '),
+                [?medication.amountLabel, ...medication.rules].join(' — '),
                 style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
           ],

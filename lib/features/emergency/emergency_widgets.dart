@@ -40,17 +40,18 @@ class EmergencySnapshot {
   /// أسماء الأدوية الشغّالة — من medications مباشرة، مش نسخة متخزّنة.
   final List<String> medications;
 
-  /// «Concor 5mg · Amaryl 2mg» — الاسم ما بيتقسمش على سطرين، والنقطة
-  /// بتفضل في آخر السطر مش أوله.
+  /// «Concor 5mg — Amaryl 2mg» — الاسم ما بيتقسمش على سطرين، والفاصل
+  /// بيفضل في آخر السطر مش أوله. الفاصل شرطة مش نقطة: «·» جنب الأرقام
+  /// العربي بتتقري صفراً.
   String get medicationsLine =>
       [for (final m in medications) m.replaceAll(' ', '\u00A0')]
-          .join('\u00A0· ');
+          .join('\u00A0— ');
 
   String? get nameAndAge {
     final name = patient?.name;
     if (name == null || name.isEmpty || name == 'أنا') return null;
     final age = patient?.age;
-    return age == null ? name : '$name · ${arabicNumber(age)} سنة';
+    return age == null ? name : '$name — ${arabicNumber(age)} سنة';
   }
 }
 
