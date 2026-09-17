@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintThrottled;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -34,6 +35,37 @@ void main() {
     final parts = ((sent['contents'] as List).first as Map)['parts'] as List;
     return (parts[1] as Map)['inline_data'] as Map<String, dynamic>;
   }
+
+  group('اللوج بيطلع من generate على العزلة الرئيسية — سطر واحد لكل نداء', () {
+    final log = <String>[];
+    setUp(() {
+      log.clear();
+      debugPrint = (String? message, {int? wrapWidth}) => log.add(message ?? '');
+    });
+    tearDown(() => debugPrint = debugPrintThrottled);
+
+    test('صورة كبيرة (مسار العزلة): الأبعاد والحجمين قبل وبعد', () async {
+      final jpg = Uint8List.fromList(img.encodeJpg(img.Image(width: 2560, height: 1920)));
+
+      await inlineDataFor(jpg, 'image/jpeg');
+
+      final lines = log.where((l) => l.contains('shrinkForAi')).toList();
+      expect(lines, hasLength(1));
+      expect(lines.single, startsWith('Gemini: shrinkForAi: 2560×1920 → 1600×1200 — '));
+      expect(lines.single, matches(RegExp(r'\d+KB → \d+KB \(\d+%\)$')));
+    });
+
+    test('صورة صغيرة (من غير عزلة): برضه سطر واحد، وبيقول إنها ما اتغيّرتش', () async {
+      final jpg = Uint8List.fromList(img.encodeJpg(img.Image(width: 640, height: 480)));
+
+      await inlineDataFor(jpg, 'image/jpeg');
+
+      final lines = log.where((l) => l.contains('shrinkForAi')).toList();
+      expect(lines, hasLength(1));
+      expect(lines.single, contains('640×480 — أصغر من الحد'));
+      expect(lines.single, endsWith('(100%)'));
+    });
+  });
 
   test('صورة ٢٥٦٠×١٩٢٠ بتطلع على السلك ١٦٠٠ وبنوع jpeg — حتى لو دخلت PNG', () async {
     final png = Uint8List.fromList(img.encodePng(img.Image(width: 2560, height: 1920)));

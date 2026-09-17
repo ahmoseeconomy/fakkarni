@@ -85,9 +85,15 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     // (علامة SOF / IHDR) — `startDecode` بتاع الحزمة اتقاس ١٦٩ مللي، يعني
     // ١٠ فريمات واقعة في كل تصويرة. العزلة بترجّع null لو ما غيّرتش حاجة،
     // لأن `identical` عبر عزلتين دايماً false والنوع كان هيتغلّط.
-    final resized = mayNeedShrinkForAi(image) ? await compute(shrinkForAiOrNull, image) : null;
-    final shrunk = resized ?? image;
-    final wireType = resized == null ? mimeType : 'image/jpeg';
+    //
+    // واللوج بيتطبع **هنا**، مش جوّه العزلة: `debugPrint` هناك ما بيوصلش
+    // ترمنال `flutter run`. العزلة بترجّع التقرير مع البايتات.
+    final report = mayNeedShrinkForAi(image)
+        ? await compute(shrinkForAiOrNull, image)
+        : unchangedShrinkReport(image);
+    debugPrint('Gemini: ${describeShrink(report)}');
+    final shrunk = report.bytes ?? image;
+    final wireType = report.bytes == null ? mimeType : 'image/jpeg';
     final body = jsonEncode(_request(shrunk, wireType, prompt, schema, systemInstruction));
 
     var response = await _post(config.model, body);

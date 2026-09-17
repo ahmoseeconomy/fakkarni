@@ -59,7 +59,9 @@ void main() {
     setUp(() {
       log = [];
       debugPrint = (String? message, {int? wrapWidth}) {
-        if (message != null) log.add(message);
+        // سطر حجم الصورة (C1) بيطلع في كل نداء وله اختباره في
+        // shrink_on_the_wire_test — هنا بنعدّ سطور الأعطال والتحذير بس.
+        if (message != null && !message.contains('shrinkForAi')) log.add(message);
       };
     });
 
@@ -142,7 +144,9 @@ void main() {
     setUp(() {
       log = [];
       debugPrint = (String? message, {int? wrapWidth}) {
-        if (message != null) log.add(message);
+        // سطر حجم الصورة (C1) بيطلع في كل نداء وله اختباره في
+        // shrink_on_the_wire_test — هنا بنعدّ سطور الأعطال والتحذير بس.
+        if (message != null && !message.contains('shrinkForAi')) log.add(message);
       };
     });
     tearDown(() => debugPrint = debugPrintThrottled);

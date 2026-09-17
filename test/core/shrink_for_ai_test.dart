@@ -113,11 +113,19 @@ void main() {
       expect(mayNeedShrinkForAi(Uint8List(0)), isFalse);
     });
 
-    test('غلاف العزلة: null لما مفيش تغيير، بايتات لما فيه', () {
+    test('تقرير العزلة: bytes = null لما مفيش تغيير، والحجمين والوصف دايماً', () {
       final small = Uint8List.fromList(img.encodeJpg(img.Image(width: 800, height: 600)));
       final big = Uint8List.fromList(img.encodeJpg(img.Image(width: 2000, height: 1000)));
-      expect(shrinkForAiOrNull(small), isNull);
-      expect(shrinkForAiOrNull(big), isNotNull);
+      final untouched = shrinkForAiOrNull(small);
+      expect(untouched.bytes, isNull);
+      expect(untouched.afterBytes, small.length);
+      expect(describeShrink(untouched), contains('800×600'));
+
+      final shrunk = shrinkForAiOrNull(big);
+      expect(shrunk.bytes, isNotNull);
+      expect(shrunk.beforeBytes, big.length);
+      expect(shrunk.afterBytes, shrunk.bytes!.length);
+      expect(describeShrink(shrunk), contains('2000×1000 → 1600×800'));
     });
   });
 

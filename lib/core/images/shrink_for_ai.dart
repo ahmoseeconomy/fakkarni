@@ -9,7 +9,6 @@
 /// ثانية زي `domain/`.
 library;
 
-import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -92,13 +91,36 @@ bool mayNeedShrinkForAi(Uint8List source) {
   return (size.width > size.height ? size.width : size.height) > aiMaxSide;
 }
 
-/// غلاف العزلة: null = «ما اتغيّرش». البايتات اللي بتعدّي بين عزلتين بتتنسخ،
-/// فـ`identical` على الناحية التانية دايماً false — ومن غير الـnull ده صورة
-/// PNG رجعت زي ما هي كانت هتتبعت بنوع `image/jpeg`.
-Uint8List? shrinkForAiOrNull(Uint8List source) {
-  final out = shrinkForAi(source);
-  return identical(out, source) ? null : out;
+/// اللي حصل للصورة: البايتات الجديدة (null = «ما اتغيّرش») + وصف وحجمين
+/// للّوج. **الملف ده ما بيطبعش حاجة بنفسه**: الشغل بيتعمل جوّه عزلة
+/// `compute`، واللي بيتطبع هناك ما بيوصلش ترمنال `flutter run`. فالتقرير
+/// بيرجع مع البايتات، و`generate` هو اللي بيطبعه بـ`debugPrint` على العزلة
+/// الرئيسية — نفس قناة باقي سطور Gemini.
+///
+/// الـnull في [bytes] مش تفصيلة: البايتات اللي بتعدّي بين عزلتين بتتنسخ،
+/// فـ`identical` على الناحية التانية دايماً false — ومن غيره صورة PNG رجعت
+/// زي ما هي كانت هتتبعت بنوع `image/jpeg`.
+typedef ShrinkReport = ({Uint8List? bytes, String what, int beforeBytes, int afterBytes});
+
+/// سطر اللوج الواحد: «٢٥٦٠×١٩٢٠ → ١٦٠٠×١٢٠٠ — 584KB → 418KB (72%)».
+String describeShrink(ShrinkReport r) {
+  final before = (r.beforeBytes / 1024).round();
+  final after = (r.afterBytes / 1024).round();
+  final ratio = r.beforeBytes == 0 ? 100 : (r.afterBytes / r.beforeBytes * 100).round();
+  return 'shrinkForAi: ${r.what} — ${before}KB → ${after}KB ($ratio%)';
 }
+
+/// تقرير الصورة اللي البوّابة قالت إنها مش محتاجة عزلة — من الترويسة، رخيص.
+ShrinkReport unchangedShrinkReport(Uint8List source) {
+  final size = quickImageSizeOf(source);
+  return _unchanged(
+    source,
+    size == null ? 'فاضية — بتتبعت زي ما هي' : '${size.width}×${size.height} — أصغر من الحد، ما اتغيّرتش',
+  );
+}
+
+ShrinkReport _unchanged(Uint8List source, String what) =>
+    (bytes: null, what: what, beforeBytes: source.length, afterBytes: source.length);
 
 /// بترجّع الصورة مصغّرة لـ[aiMaxSide] على ضلعها الأطول، أو **هي بنفسها**
 /// لو مش محتاجة تصغير أو مقدرناش نفكّها.
@@ -113,24 +135,19 @@ Uint8List? shrinkForAiOrNull(Uint8List source) {
 /// * **ما بترميش أبداً.** ده طريق بين مريض ودواه: بايتات معطوبة، صيغة مش
 ///   معروفة، أي استثناء — بترجع الأصل زي ما هو والنداء بيكمل. أسوأ حالة
 ///   إننا دفعنا تمن صورة كبيرة، مش إن الروشتة ما اتقرتش.
-Uint8List shrinkForAi(Uint8List source) {
+Uint8List shrinkForAi(Uint8List source) => shrinkForAiOrNull(source).bytes ?? source;
+
+/// الشغل نفسه — ودي اللي `compute` بتناديها. نفس قواعد [shrinkForAi].
+ShrinkReport shrinkForAiOrNull(Uint8List source) {
   try {
     final size = imageSizeOf(source);
-    if (size == null) {
-      _log('مقدرناش نقرا أبعاد الصورة — بتتبعت زي ما هي', source.length, source.length);
-      return source;
-    }
+    if (size == null) return _unchanged(source, 'مقدرناش نقرا أبعاد الصورة — بتتبعت زي ما هي');
     if ((size.width > size.height ? size.width : size.height) <= aiMaxSide) {
-      _log('${size.width}×${size.height} — أصغر من الحد، ما اتغيّرتش',
-          source.length, source.length);
-      return source;
+      return _unchanged(source, '${size.width}×${size.height} — أصغر من الحد، ما اتغيّرتش');
     }
 
     final decoded = img.decodeImage(source);
-    if (decoded == null) {
-      _log('الترويسة قريت والصورة لأ — بتتبعت زي ما هي', source.length, source.length);
-      return source;
-    }
+    if (decoded == null) return _unchanged(source, 'الترويسة قريت والصورة لأ — بتتبعت زي ما هي');
 
     // الاتجاه الأول، بعدين التصغير — الترتيب ده هو اللي المواصفة بتقوله،
     // والناتج بيبقى صورة واقفة صح من غير ما تعتمد على وسم إحنا هنرميه.
@@ -140,22 +157,14 @@ Uint8List shrinkForAi(Uint8List source) {
         : img.copyResize(upright, height: aiMaxSide, interpolation: img.Interpolation.average);
 
     final bytes = Uint8List.fromList(img.encodeJpg(resized, quality: aiJpegQuality));
-    _log('${decoded.width}×${decoded.height} → ${resized.width}×${resized.height}',
-        source.length, bytes.length);
-    return bytes;
+    return (
+      bytes: bytes,
+      what: '${decoded.width}×${decoded.height} → ${resized.width}×${resized.height}',
+      beforeBytes: source.length,
+      afterBytes: bytes.length,
+    );
   } catch (e) {
-    // مش بنطبع الاستثناء كتحذير مفزع: النداء كمّل، والتكلفة بس هي اللي زادت.
-    _log('التصغير وقع ($e) — بتتبعت زي ما هي', source.length, source.length);
-    return source;
+    // النداء بيكمّل، والتكلفة بس هي اللي زادت — والسبب بيوصل اللوج.
+    return _unchanged(source, 'التصغير وقع ($e) — بتتبعت زي ما هي');
   }
-}
-
-void _log(String what, int beforeBytes, int afterBytes) {
-  final before = (beforeBytes / 1024).round();
-  final after = (afterBytes / 1024).round();
-  final ratio = beforeBytes == 0 ? 1.0 : afterBytes / beforeBytes;
-  developer.log(
-    'shrinkForAi: $what — ${before}KB → ${after}KB (${(ratio * 100).round()}%)',
-    name: 'fakkarni.ai',
-  );
 }

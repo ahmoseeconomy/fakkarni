@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         713 passing
+test/                         715 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -287,6 +287,16 @@ Three things there are load-bearing:
 - **It never throws.** This is the path between a patient and his medicine:
   corrupt bytes, an unknown format, any exception — the original goes out
   and the read continues. The worst case is a bill, not a missed dose.
+- **The size line is printed by `generate`, never by the shrinker.**
+  `Gemini: shrinkForAi: 2560×1920 → 1600×1200 — 584KB → 418KB (72%)`,
+  once per call, through `debugPrint` like every other Gemini line. The
+  first version logged with `developer.log` from inside the `compute`
+  isolate, and nothing printed there reaches the `flutter run` terminal —
+  the one number this round existed to show was invisible. So the isolate
+  returns a `ShrinkReport` (bytes-or-null, a description, both sizes) and
+  the main isolate prints it; `shrink_for_ai.dart` prints nothing and
+  stays Flutter-free. Anything that runs under `compute` follows the same
+  shape: return the facts, log them on the main isolate.
 - **The resize runs in `compute()`, and the question "is it even big?" is
   answered on the UI isolate from the real file header.** Decoding a
   2560×1920 photo costs seconds, so `generate` calls
