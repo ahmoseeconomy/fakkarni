@@ -161,6 +161,8 @@ lib/
                               prescription_reading (pure model + responseSchema),
                               prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
+  core/images/                shrink_for_ai — PURE DART, no Flutter: the
+                              one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
   data/db/                    drift (SQLite) v15: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
@@ -219,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         699 passing
+test/                         705 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -265,6 +267,39 @@ imageQuality 92`; settle those numbers on a real handwritten prescription,
 not on a screen. The system camera is used deliberately (familiar to a
 72-year-old, handles focus/exposure/retake); build a custom viewfinder only
 if real testing shows framing is what breaks the read.
+
+**Gemini bills an image by its dimensions, so it is shrunk once, in the
+transport** (C1). `shrinkForAi` in `lib/core/images/` — pure Dart, no
+Flutter import — takes the longest side to `aiMaxSide` (1600) at JPEG
+quality 80, **never upscales**, and returns the *same instance* when it
+would not help, so an already-small file keeps its own bytes and its own
+EXIF tag. It lives in `GeminiPrescriptionReader.generate`, the single
+`base64Encode`, which both the prescription and the lab reader go through —
+so no call site, present or future, can forget. The mime type on the wire
+switches to `image/jpeg` whenever the bytes were re-encoded; sending
+`image/png` with JPEG bytes is a 400.
+Three things there are load-bearing:
+- **EXIF orientation is baked before the resize.** Our output JPEG does not
+  carry the tag, so a landscape prescription whose tag says «rotate» would
+  arrive on its side and read badly. Tested on **pixels** — a marker in one
+  corner must move — not on the tag, because the tag can be right while the
+  image is wrong.
+- **It never throws.** This is the path between a patient and his medicine:
+  corrupt bytes, an unknown format, any exception — the original goes out
+  and the read continues. The worst case is a bill, not a missed dose.
+- **The size question is answered from the file header, and the work runs
+  off the UI isolate.** Decoding a 2560×1920 photo costs seconds; asking
+  `imageSizeOf` costs microseconds. So `generate` checks
+  `needsShrinkForAi` on the spot and only then pays for `compute` — and the
+  «بيقرا الروشتة…» screen never freezes. Measured on this machine (Dart VM,
+  synthetic images): 4032×3024 → 1600×1200 is 24 Gemini tiles → 6 in ~11 s
+  of CPU; 2560×1920 (what `pickWithSystemCamera` actually hands us) → 12
+  tiles → 6 in ~5 s. **The real saving is therefore 2×, not the 4–8× in
+  PHASE_C.md** — that document assumed a raw 12MP file and the picker
+  already caps at 2560. Dropping that cap to 1600 would make the platform
+  do the resize in native code and turn this into a cheap safety net, but
+  it is exactly the number the paragraph above says to settle on a real
+  handwritten prescription, so it stays until someone does that.
 
 **The uuid is identity for sync; the int id is plumbing for SQLite.**
 Every synced-someday table mixes in `SyncIdentity`: `uuid TEXT NOT NULL

@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:http/http.dart' as http;
 
+import '../core/images/shrink_for_ai.dart';
 import 'gemini_config.dart';
 import 'prescription_reading.dart';
 
@@ -72,7 +73,19 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     required String failure,
     String? systemInstruction,
   }) async {
-    final body = jsonEncode(_request(image, mimeType, prompt, schema, systemInstruction));
+    // التصغير هنا وبس (C1). النقل ده هو الطريق الوحيد لـGemini — الروشتة
+    // والتحليل الاتنين بيعدّوا منه — فمفيش نقطة نداء تقدر تنسى تصغّر،
+    // ولا واحدة جديدة هتفتكر لوحدها. الناتج JPEG دايماً، فالنوع بيتصحّح
+    // معاه: بعت `image/png` مع بايتات JPEG بيرجّع ٤٠٠ من Gemini.
+    //
+    // وبيتنفّذ في **عزلة تانية**، مش على خيط الواجهة: التصغير شغل CPU تقيل
+    // — قياس على ٢٥٦٠×١٩٢٠ (اللي الكاميرا بتدّينا إياها فعلاً) طلع ثواني،
+    // والشاشة اللي بتقول «بيقرا الروشتة…» كانت هتتجمّد فيها بالظبط.
+    // والسؤال «محتاجة تصغير؟» بيتجاوب من ترويسة الملف على الخيط ده — رخيص
+    // — عشان صورة صغيرة ما تدفعش تمن فتح عزلة على الفاضي.
+    final shrunk = needsShrinkForAi(image) ? await compute(shrinkForAi, image) : image;
+    final wireType = identical(shrunk, image) ? mimeType : 'image/jpeg';
+    final body = jsonEncode(_request(shrunk, wireType, prompt, schema, systemInstruction));
 
     var response = await _post(config.model, body);
     var raw = utf8.decode(response.bodyBytes, allowMalformed: true);

@@ -44,6 +44,10 @@ dependencies:
     sdk: flutter
   http: ^1.6.0
   image_picker: ^1.2.3
+  # دارت خالص — بنصغّر بيها الصورة قبل ما تتبعت لـGemini (C1). كانت جاية
+  # أصلاً مع image_picker، وبقت مثبّتة بالاسم عشان تصغير الصورة مش تفصيلة
+  # تابعة لحزمة تانية تقدر تشيلها.
+  image: ^4.10.1
   supabase_flutter: ^2.17.2
   google_sign_in: ^7.2.0
   uuid: ^4.6.0
