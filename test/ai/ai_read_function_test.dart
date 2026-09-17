@@ -63,6 +63,57 @@ void main() {
     }
   });
 
+  group('قاعدة البديل — مرة واحدة، ولأسباب مسمّاة', () {
+    // الكود نفسه من غير تعليقات: التعليق بيذكر ٤٠٠ عشان يقول «مش هنا».
+    String rule() => block('fallback-rule')
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('//'))
+        .join('\n');
+
+    test('٤٠٤ + NOT_FOUND → retired (زي قبل كده)', () {
+      expect(rule(), contains("if (status === 404 && raw.includes('NOT_FOUND')) return 'retired';"));
+    });
+
+    test('٥٠٣ → overloaded: زحمة على المثبّت وسط عرض ما تتقريش «مقدرتش أقرا»', () {
+      expect(rule(), contains('status === 503'));
+      expect(rule(), contains("return 'overloaded';"));
+    });
+
+    test('٤٢٩ → overloaded: حصة المثبّت خلصت دلوقتي', () {
+      expect(rule(), contains('status === 429'));
+      expect(
+        rule(),
+        contains("if (status === 503 || status === 429) return 'overloaded';"),
+        reason: 'الحالتين في شرط واحد بيرجّع نفس السبب',
+      );
+    });
+
+    test('٤٠٠ مش في القاعدة — رفض الـschema لازم يبان، مش يتخبّى ببديل', () {
+      expect(rule().contains('400'), isFalse);
+      // ومفيش «أي ٥xx» ولا «أي خطأ»: الأسباب معدودة بالاسم
+      expect(rule().contains('>= 500'), isFalse);
+      expect(rule().contains('!== 200'), isFalse);
+    });
+
+    test('البديل بيتنادى في مكان واحد بس — لو وقع هو كمان: ٥٠٢ gemini_failed، مفيش محاولة تالتة', () {
+      expect('callGemini(fallback'.allMatches(source), hasLength(1));
+      expect('callGemini(pinned'.allMatches(source), hasLength(1));
+      // قسم جوجل بس (فيه حلقة `for` بريئة فوقه بتفحص الأسرار)
+      final gemini = source.substring(
+        source.indexOf('const started = Date.now();'),
+        source.indexOf('const ok = status === 200;'),
+      );
+      expect(RegExp(r'\b(for|while)\s*\(').hasMatch(gemini), isFalse, reason: 'مفيش حلقة إعادة محاولة');
+      expect(source, contains("return json({ error: 'gemini_failed', detail }, 502);"));
+      expect(source, contains('(after fallback'), reason: 'الـdetail بيقول إن الفشل بعد البديل');
+    });
+
+    test('التحذير بيرجع في نفس الـheader، ومعاه السبب — ASCII بس', () {
+      expect(source, contains(r'warning = `${pinned};${fallback};${reason}`;'));
+      expect(source, contains("...(warning ? { 'x-model-warning': warning } : {})"));
+    });
+  });
+
   test('الحدّين ثوابت مسمّاة فوق، والجملة اللي التطبيق بيعرضها بالحرف', () {
     expect(source, contains('const DAILY_CAP_PER_USER = 20;'));
     expect(source, matches(RegExp(r'const DAILY_CAP_GLOBAL = \d+;')));

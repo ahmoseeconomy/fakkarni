@@ -183,6 +183,30 @@ void main() {
     });
   });
 
+  group('سبب التحذير بيغيّر الجملة — لأنه بيغيّر اللي المطوّر يعمله', () {
+    Future<String?> warningFor(String header) async => (await GeminiPrescriptionReader(
+          FakeAiSession(),
+          client: MockClient((_) async => ok(headers: {'x-model-warning': header})),
+        ).read(image))
+            .modelWarning;
+
+    test('overloaded (٥٠٣/٤٢٩ من المثبّت) → «تحت ضغط»، ومن غير «ثبّت تاني»', () async {
+      final warning = await warningFor('gemini-3.6-flash;gemini-flash-latest;overloaded');
+      expect(warning, contains('gemini-3.6-flash'));
+      expect(warning, contains('gemini-flash-latest'));
+      expect(warning, contains('تحت ضغط'));
+      expect(warning, isNot(contains('ثبّت تاني بإيدك')), reason: 'الموديل سليم — مفيش حاجة تتثبّت');
+    });
+
+    test('retired صريحة، أو header قديم من جزئين → «اتقفل — ثبّت تاني بإيدك»', () async {
+      for (final header in ['gemini-3.6-flash;gemini-flash-latest;retired', 'gemini-3.6-flash;gemini-flash-latest']) {
+        final warning = await warningFor(header);
+        expect(warning, contains('اتقفل'), reason: header);
+        expect(warning, contains('ثبّت تاني بإيدك'), reason: header);
+      }
+    });
+  });
+
   group('اللوج بيقول السبب الحقيقي', () {
     late List<String> log;
 

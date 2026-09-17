@@ -49,8 +49,8 @@
 //
 //   200  رد Gemini **زي ما هو** — التطبيق هو اللي بيفكّه وبيحكم على الثقة،
 //        زي قبل C2 بالظبط. لو القراية جت من الموديل البديل:
-//        `x-model-warning: <المثبّت>;<البديل>` (ASCII بس — الـheader ما
-//        بيشيلش عربي؛ التطبيق هو اللي بيبني الجملة).
+//        `x-model-warning: <المثبّت>;<البديل>;<retired|overloaded>` (ASCII
+//        بس — الـheader ما بيشيلش عربي؛ التطبيق هو اللي بيبني الجملة).
 //   400  bad_json / bad_kind / bad_mime / bad_image / image_too_large
 //   401  session_required — مفيش جلسة مستخدم
 //   405  method_not_allowed
@@ -60,9 +60,10 @@
 //   503  cap_check_failed — **الحد بيقفل لما مايقدرش يعدّ**: حد بيفتح لما
 //        القاعدة تقع مش حد. الإدخال بالإيد في التطبيق مش محتاج الدالة دي.
 //
-// الموديل المثبّت لما يتقاعد (٤٠٤ + NOT_FOUND) → مرة واحدة على البديل،
-// وبصوت عالي في اللوج. ٤٠٠ **ما بيعملش** ده — إخفاء رفض الـschema هو بالظبط
-// تغيّر السلوك الصامت اللي التثبيت موجود عشان يمنعه.
+// المثبّت لما يتقاعد (٤٠٤ + NOT_FOUND) **أو يبقى تحت ضغط (٥٠٣ / ٤٢٩)** → مرة
+// واحدة على البديل، وبصوت عالي في اللوج. ٤٠٠ **ما بيعملش** ده — إخفاء رفض
+// الـschema هو بالظبط تغيّر السلوك الصامت اللي التثبيت موجود عشان يمنعه.
+// القاعدة كلها في `fallbackReason` تحت.
 
 /// حد القرايات الناجحة لكل مستخدم في يوم القاهرة الواحد.
 const DAILY_CAP_PER_USER = 20;
@@ -277,6 +278,25 @@ async function callGemini(model: string, key: string, body: string): Promise<Res
   );
 }
 
+// <fallback-rule>
+/// إمتى المثبّت يسيب مكانه للبديل — **مرة واحدة**، وبصوت عالي. بترجّع السبب
+/// (ASCII، بيروح في `x-model-warning`) أو null = مفيش بديل.
+///
+///   retired     ٤٠٤ + NOT_FOUND — جوجل قفلت الموديل. لازم تثبيت جديد بالإيد.
+///   overloaded  ٥٠٣ أو ٤٢٩ — المثبّت تحت ضغط أو حصته خلصت **دلوقتي**. زحمة
+///               على موديل واحد وسط عرض ما ينفعش تتقري «مقدرتش أقرا». مفيش
+///               حاجة تتثبّت من جديد؛ لو اتكرر كتير دي مسألة حصة.
+///
+/// ٤٠٠ **مش هنا، وما تتضافش**: رفض الـschema لازم يبان، وإخفاؤه ببديل هو
+/// بالظبط تغيّر السلوك الصامت اللي التثبيت موجود عشان يمنعه. و٤٠٤ من غير
+/// NOT_FOUND مش تقاعد. البديل نفسه ما بيتبدّلش: لو وقع → ٥٠٢ gemini_failed.
+function fallbackReason(status: number, raw: string): 'retired' | 'overloaded' | null {
+  if (status === 404 && raw.includes('NOT_FOUND')) return 'retired';
+  if (status === 503 || status === 429) return 'overloaded';
+  return null;
+}
+// </fallback-rule>
+
 Deno.serve(async (req: Request): Promise<Response> => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -382,11 +402,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   try {
     let res = await callGemini(pinned, geminiKey!, body);
     raw = await res.text();
-    if (res.status === 404 && raw.includes('NOT_FOUND')) {
+    const reason = fallbackReason(res.status, raw);
+    if (reason) {
       console.error(
-        `Gemini: WARNING pinned model ${pinned} retired: ${excerpt(raw, 200)} — retrying once with ${fallback}`,
+        `Gemini: WARNING pinned model ${pinned} ${reason} (HTTP ${res.status}): ${excerpt(raw, 200)} — retrying once with ${fallback}`,
       );
-      warning = `${pinned};${fallback}`;
+      warning = `${pinned};${fallback};${reason}`;
       model = fallback;
       res = await callGemini(fallback, geminiKey!, body);
       raw = await res.text();

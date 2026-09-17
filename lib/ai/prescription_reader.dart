@@ -132,15 +132,25 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     return (json: _parse(raw), warning: _warningFrom(response.headers['x-model-warning']));
   }
 
-  /// `x-model-warning: <المثبّت>;<البديل>` — الـheader ASCII بس، فالجملة
-  /// بتتبني هنا. نص رد جوجل نفسه في لوج الدالة.
+  /// `x-model-warning: <المثبّت>;<البديل>;<retired|overloaded>` — الـheader
+  /// ASCII بس، فالجملة بتتبني هنا. نص رد جوجل نفسه في لوج الدالة.
+  ///
+  /// السبب بيفرق في **اللي المطوّر يعمله**: موديل اتقفل لازم يتثبّت غيره
+  /// بالإيد؛ موديل تحت ضغط مفيش حاجة تتثبّت — وجملة «ثبّت تاني» هناك كانت
+  /// هتبعته يغيّر موديل سليم. من غير جزء تالت = `retired` (الدالة قبل كده
+  /// كانت بتبعت جزئين بس).
   static String? _warningFrom(String? header) {
     if (header == null || header.trim().isEmpty) return null;
-    final parts = header.split(';');
-    final pinned = parts.first.trim();
-    final fallback = parts.length > 1 ? parts[1].trim() : '';
-    debugPrint('Gemini: WARNING pinned model $pinned retired — read came from $fallback');
-    return 'الموديل المثبّت $pinned اتقفل — القراءة جت من $fallback. ثبّت تاني بإيدك.';
+    final parts = [for (final part in header.split(';')) part.trim()];
+    final pinned = parts.first;
+    final fallback = parts.length > 1 ? parts[1] : '';
+    final overloaded = parts.length > 2 && parts[2] == 'overloaded';
+    debugPrint('Gemini: WARNING pinned model $pinned ${overloaded ? 'overloaded' : 'retired'} '
+        '— read came from $fallback');
+    return overloaded
+        ? 'الموديل المثبّت $pinned تحت ضغط دلوقتي — القراءة جت من $fallback. '
+            'مفيش حاجة تتثبّت؛ لو اتكرر كتير راجع الحصة.'
+        : 'الموديل المثبّت $pinned اتقفل — القراءة جت من $fallback. ثبّت تاني بإيدك.';
   }
 
   static String? _serverMessage(String raw) {

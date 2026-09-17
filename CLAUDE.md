@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         727 passing
+test/                         735 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -301,15 +301,30 @@ before touching the request shape; our memory of which model exists is not.
 
 **Pinned, with a loud fallback.** A medication reader must not change its
 extraction behaviour silently, so the model stays pinned. But a 404 mid-demo
-is worse than a behaviour shift: on `404` + `NOT_FOUND` the function retries
-**once** against `FALLBACK_MODEL` (`gemini-flash-latest`, optional secret
-`GEMINI_FALLBACK_MODEL`), logs `Gemini: WARNING pinned model … retired`,
-and answers with `x-model-warning: <pinned>;<fallback>` — ASCII only,
-because a header cannot carry Arabic; the client builds the sentence and
-tags the reading with `modelWarning`, which the review screen shows in
-debug builds. That warning is the signal to re-pin deliberately. A `400`
-never triggers the fallback — masking a schema rejection is exactly the
-silent shift being guarded against.
+is worse than a behaviour shift, and so is a load spike on one model: the
+function retries **once** against `FALLBACK_MODEL` (`gemini-flash-latest`,
+optional secret `GEMINI_FALLBACK_MODEL`) for exactly two named reasons,
+both in `fallbackReason`:
+- `retired` — `404` + `NOT_FOUND`. Google closed the model; re-pin by hand.
+- `overloaded` — `503` or `429` from the pinned model. It is busy or its
+  quota is spent *right now*; a spike mid-demo must not read as «مقدرتش
+  أقرا». Nothing needs re-pinning; if it recurs, it is a quota question.
+It logs `Gemini: WARNING pinned model … <reason>` and answers with
+`x-model-warning: <pinned>;<fallback>;<reason>` — ASCII only, because a
+header cannot carry Arabic; the client builds the sentence and tags the
+reading with `modelWarning`, which the review screen shows in debug builds.
+**The reason travels because it changes what the developer does**: one
+sentence for both would tell him to re-pin a healthy model after a spike.
+A two-part header (the function before this change) reads as `retired`.
+If the fallback fails too the answer is the ordinary `502 gemini_failed`
+(`detail` says "after fallback") — never a third attempt, and a Google
+`429` never reaches the client as our own cap's `429`.
+**A `400` never triggers the fallback, and neither does a bare `500`** —
+masking a schema rejection is exactly the silent shift being guarded
+against, and the reasons are a named list, not "any error".
+`ai_read_function_test` pins the rule's text; the section was also executed
+once under node with a stubbed Google (nine cases) — the suite itself can
+only read the `.ts` file.
 
 **Image quality beats prompt tuning.** Handwriting dies first under
 downscaling. `pickWithSystemCamera` uses `maxWidth/maxHeight 2560,
