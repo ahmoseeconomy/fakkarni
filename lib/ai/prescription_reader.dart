@@ -81,10 +81,13 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     // وبيتنفّذ في **عزلة تانية**، مش على خيط الواجهة: التصغير شغل CPU تقيل
     // — قياس على ٢٥٦٠×١٩٢٠ (اللي الكاميرا بتدّينا إياها فعلاً) طلع ثواني،
     // والشاشة اللي بتقول «بيقرا الروشتة…» كانت هتتجمّد فيها بالظبط.
-    // والسؤال «محتاجة تصغير؟» بيتجاوب من ترويسة الملف على الخيط ده — رخيص
-    // — عشان صورة صغيرة ما تدفعش تمن فتح عزلة على الفاضي.
-    final shrunk = needsShrinkForAi(image) ? await compute(shrinkForAi, image) : image;
-    final wireType = identical(shrunk, image) ? mimeType : 'image/jpeg';
+    // والسؤال «نفتح عزلة؟» بيتجاوب على الخيط ده من ترويسة الملف **فعلاً**
+    // (علامة SOF / IHDR) — `startDecode` بتاع الحزمة اتقاس ١٦٩ مللي، يعني
+    // ١٠ فريمات واقعة في كل تصويرة. العزلة بترجّع null لو ما غيّرتش حاجة،
+    // لأن `identical` عبر عزلتين دايماً false والنوع كان هيتغلّط.
+    final resized = mayNeedShrinkForAi(image) ? await compute(shrinkForAiOrNull, image) : null;
+    final shrunk = resized ?? image;
+    final wireType = resized == null ? mimeType : 'image/jpeg';
     final body = jsonEncode(_request(shrunk, wireType, prompt, schema, systemInstruction));
 
     var response = await _post(config.model, body);

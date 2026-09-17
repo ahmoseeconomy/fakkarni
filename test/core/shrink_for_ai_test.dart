@@ -82,6 +82,45 @@ void main() {
     expect(identical(out, rubbish), isTrue);
   });
 
+  group('سؤال خيط الواجهة — ترويسة بس، من غير فك', () {
+    test('JPEG: الأبعاد من علامة SOF، حتى لو قبلها APP1 فيه EXIF', () {
+      final plain = Uint8List.fromList(img.encodeJpg(img.Image(width: 2000, height: 1000)));
+      final withExif = Uint8List.fromList(
+        img.encodeJpg(img.Image(width: 1234, height: 567)..exif.imageIfd.orientation = 6),
+      );
+
+      expect(quickImageSizeOf(plain), (width: 2000, height: 1000));
+      // أبعاد الملف نفسه — الاتجاه ما بيغيّرش الضلع الأطول
+      expect(quickImageSizeOf(withExif), (width: 1234, height: 567));
+    });
+
+    test('PNG: الأبعاد من IHDR', () {
+      final png = Uint8List.fromList(img.encodePng(img.Image(width: 1700, height: 300)));
+      expect(quickImageSizeOf(png), (width: 1700, height: 300));
+    });
+
+    test('بايتات معطوبة أو JPEG مقطوع → null، ومفيش رمي ولا قراية برّه الحدود', () {
+      expect(quickImageSizeOf(Uint8List.fromList(List<int>.generate(5000, (i) => i % 251))), isNull);
+      expect(quickImageSizeOf(Uint8List.fromList([0xFF, 0xD8, 0xFF])), isNull);
+      // علامة بطول بيشاور برّه الملف
+      expect(quickImageSizeOf(Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE1, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0])), isNull);
+    });
+
+    test('البوّابة: صغيرة لأ، كبيرة آه، صيغة مش معروفة آه (العزلة تقرر)، فاضية لأ', () {
+      expect(mayNeedShrinkForAi(Uint8List.fromList(img.encodeJpg(img.Image(width: 800, height: 600)))), isFalse);
+      expect(mayNeedShrinkForAi(Uint8List.fromList(img.encodeJpg(img.Image(width: 2560, height: 1920)))), isTrue);
+      expect(mayNeedShrinkForAi(Uint8List.fromList(List<int>.generate(5000, (i) => i % 251))), isTrue);
+      expect(mayNeedShrinkForAi(Uint8List(0)), isFalse);
+    });
+
+    test('غلاف العزلة: null لما مفيش تغيير، بايتات لما فيه', () {
+      final small = Uint8List.fromList(img.encodeJpg(img.Image(width: 800, height: 600)));
+      final big = Uint8List.fromList(img.encodeJpg(img.Image(width: 2000, height: 1000)));
+      expect(shrinkForAiOrNull(small), isNull);
+      expect(shrinkForAiOrNull(big), isNotNull);
+    });
+  });
+
   test('بايتات فاضية بترجع زي ما هي', () {
     final empty = Uint8List(0);
     expect(identical(shrinkForAi(empty), empty), isTrue);

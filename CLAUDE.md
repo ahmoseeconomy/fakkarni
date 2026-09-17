@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         705 passing
+test/                         713 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -287,10 +287,20 @@ Three things there are load-bearing:
 - **It never throws.** This is the path between a patient and his medicine:
   corrupt bytes, an unknown format, any exception — the original goes out
   and the read continues. The worst case is a bill, not a missed dose.
-- **The size question is answered from the file header, and the work runs
-  off the UI isolate.** Decoding a 2560×1920 photo costs seconds; asking
-  `imageSizeOf` costs microseconds. So `generate` checks
-  `needsShrinkForAi` on the spot and only then pays for `compute` — and the
+- **The resize runs in `compute()`, and the question "is it even big?" is
+  answered on the UI isolate from the real file header.** Decoding a
+  2560×1920 photo costs seconds, so `generate` calls
+  `compute(shrinkForAiOrNull, image)` — never the main isolate. The gate in
+  front of it, `mayNeedShrinkForAi`, walks JPEG markers to SOF (or reads
+  PNG's IHDR) and nothing else: **4 µs**. The first version used the
+  `image` package's `startDecode` and was documented as "microseconds"
+  without being measured — it was **169 ms**, ten dropped frames on every
+  scan. Measure before writing a number down. An unknown format answers
+  "maybe" and lets the isolate try. The isolate returns **null for
+  "unchanged"**, because bytes that cross an isolate are copied and
+  `identical` is always false on the far side — without the null, an
+  untouched PNG went out labelled `image/jpeg`
+  (`test/ai/shrink_on_the_wire_test.dart`, mutation-checked). So the
   «بيقرا الروشتة…» screen never freezes. Measured on this machine (Dart VM,
   synthetic images): 4032×3024 → 1600×1200 is 24 Gemini tiles → 6 in ~11 s
   of CPU; 2560×1920 (what `pickWithSystemCamera` actually hands us) → 12
