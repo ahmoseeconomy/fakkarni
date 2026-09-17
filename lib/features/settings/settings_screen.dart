@@ -96,7 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, snap) {
         final user = snap.data;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s30 * 2),
+          padding: EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
           children: [
             Text(
               'الإعدادات',

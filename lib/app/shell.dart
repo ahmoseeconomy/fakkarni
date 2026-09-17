@@ -165,6 +165,9 @@ class _AppShellState extends State<AppShell> {
       );
 
   Widget _buildElder(BuildContext context) => Scaffold(
+        // الشاشة بتعدّي من تحت الدوك — من غير كده الزجاج مالوش حاجة يشفّ
+        // عليها غير أرضية الصفحة، فبيبان مصمت.
+        extendBody: true,
         appBar: _appBar(),
         body: IndexedStack(
           index: _elderTab,
@@ -192,6 +195,7 @@ class _AppShellState extends State<AppShell> {
     ];
 
     return Scaffold(
+      extendBody: true,
       appBar: _appBar(),
       body: IndexedStack(index: _tab, children: pages),
       floatingActionButton: _AddButton(onPressed: _openAdd),
@@ -277,6 +281,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
     final holder = _holder;
     if (holder == null) return const Scaffold();
     return Scaffold(
+      extendBody: true,
       body: IndexedStack(
         index: _tab,
         children: [
@@ -381,7 +386,7 @@ class _TabBar extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
             child: Container(
               decoration: BoxDecoration(
-                color: F.pageGround.withValues(alpha: 0.55),
+                color: F.pageGround.withValues(alpha: 0.35),
                 borderRadius: radius,
                 // حافة فاتحة من فوق زي حرف الزجاج في الماك
                 border: Border.all(color: F.onDark.withValues(alpha: 0.35)),

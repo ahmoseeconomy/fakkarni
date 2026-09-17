@@ -63,7 +63,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             final groups = _groupByAnchor(active, routine, widget.today ?? DateTime.now());
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s30 * 2),
+              padding: EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
               children: [
                 Text(
                   'جدول الأدوية',

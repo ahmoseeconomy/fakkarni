@@ -63,7 +63,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           onRefresh: holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(F.gap),
+            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               if (holder.error != null) ...[
                 _Panel(text: holder.error!),

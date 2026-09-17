@@ -32,7 +32,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
 
   @override
   Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(F.gap),
+        padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
         children: [
           Text(
             'الإعدادات',

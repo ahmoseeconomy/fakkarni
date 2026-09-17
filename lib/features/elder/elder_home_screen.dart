@@ -97,7 +97,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
           final group = now.isEmpty ? null : now.first;
 
           return ListView(
-            padding: const EdgeInsets.all(F.gap),
+            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               StreamBuilder<PatientRow?>(
                 stream: _patient,

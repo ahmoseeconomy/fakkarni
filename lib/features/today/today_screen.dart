@@ -204,7 +204,7 @@ class _TodayScreenState extends State<TodayScreen> {
       // أساسي: الأساسي الوحيد على الشاشة دي «تأكيد الجرعة».
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: F.s30 * 2),
+        padding: EdgeInsets.only(bottom: F.s10 + MediaQuery.of(context).padding.bottom),
         child: _NearbyPill(onTap: _openNearby),
       ),
       body: StreamBuilder<List<DoseEventView>>(
@@ -217,7 +217,15 @@ class _TodayScreenState extends State<TodayScreen> {
           final glucoseNow = latestOutsideUsual(_readings);
 
           return ListView(
-            padding: const EdgeInsets.all(F.gap),
+            // مساحة تحت عشان آخر كارت يعدّي من تحت الدوك من غير ما يتخبّى
+            // تحته. `padding.bottom` جوّه جسم الـScaffold المفرود بيساوي
+            // طول الدوك — Flutter بيحطه هناك بالظبط للسبب ده.
+            padding: EdgeInsets.fromLTRB(
+              F.gap,
+              F.gap,
+              F.gap,
+              F.gap + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
               StreamBuilder<PatientRow?>(
                 stream: _patient,

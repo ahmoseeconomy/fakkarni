@@ -146,7 +146,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
           final all = snap.data;
           final shown = [for (final r in all ?? const <RecordRow>[]) if (matchesQuery(r, _query.text)) r];
           return ListView(
-            padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
+            padding: EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               TextField(
                 key: const ValueKey('records-search'),

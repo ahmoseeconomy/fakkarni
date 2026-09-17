@@ -1316,7 +1316,18 @@ device-verified)**
   icon. «العائلة» left the bar: linking now lives in Settings
   («دائرة الرعاية») and in the home screen's «مين بيتابعك» row, so the door
   is still there twice. The top bar is the app mark, the night-mode toggle,
-  and «طوارئ». Two things that must not be hardcoded again: the bar's
+  and «طوارئ».
+  **Transparency needs `extendBody: true`, not a lower alpha.** A
+  `bottomNavigationBar` sits *beside* the body, not over it, so the body is
+  inset above it and nothing ever passes underneath — the blur then has
+  only the page ground to blur and the bar reads solid however low the
+  opacity goes. All three shells (patient, elder, caregiver) set
+  `extendBody: true`, the glass is at 35%, and every tab's list adds
+  `MediaQuery.of(context).padding.bottom` to its bottom padding: inside an
+  extended body Flutter puts the bar's own height there, which is exactly
+  the clearance the last card needs. Add that padding to any new tab list,
+  or its last row hides under the dock forever.
+  Two more things that must not be hardcoded again: the bar's
   **height is computed** from the tile plus `MediaQuery.textScalerOf(…)`
   applied to the label — the two fixed numbers (78/96) overflowed by 6px at
   ×1.3 the moment the tile grew; and the quiet tile's fill is
