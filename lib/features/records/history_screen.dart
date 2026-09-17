@@ -55,7 +55,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
             children: [
-              const Text(
+              Text(
                 'كل اللي حصل — بالتاريخ والدكتور والنتيجة.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               ),
@@ -138,15 +138,15 @@ class _TimelineEntry extends StatelessWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(arabicDate(r.happenedAt), style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+        Text(arabicDate(r.happenedAt), style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
         Text(
           r.title,
           textDirection: nameDirection(r.title),
           textAlign: TextAlign.right,
-          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
         ),
         if (lines.isNotEmpty)
-          Text(lines, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+          Text(lines, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
         if (r.notes != null)
           Text(
             r.notes!,
@@ -170,7 +170,7 @@ class _TimelineEntry extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: F.cardGround,
                     border: Border.all(color: F.line),
                     borderRadius: BorderRadius.circular(F.radiusTile),
                   ),

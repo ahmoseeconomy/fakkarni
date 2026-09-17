@@ -126,11 +126,16 @@ class Harness {
   }
 }
 
+/// ضخّ **محدود**، مش `pumpAndSettle`.
+///
+/// كارت المية فيه نقطة بتلمع على طول، و`pumpAndSettle` بتفضل مستنية إطار
+/// مفيهوش حركة — يعني بتعلّق لحد ما المهلة تخلص على أي شاشة الكارت ده
+/// عليها. ٦٠ × ٢٥ مللي = ثانية ونص: أكتر من انتقال شاشة (٣٠٠ مللي) وأكتر
+/// من أطول انتقال عندنا.
 Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 25; i++) {
-    await tester.pump(const Duration(milliseconds: 20));
+  for (var i = 0; i < 60; i++) {
+    await tester.pump(const Duration(milliseconds: 25));
   }
-  await tester.pumpAndSettle();
 }
 
 void screenTest(String name, Future<void> Function(WidgetTester) body) {

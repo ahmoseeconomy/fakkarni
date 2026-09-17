@@ -98,12 +98,12 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
           children: linked != null
               ? [
                   const SizedBox(height: F.gap),
-                  const Icon(Icons.check_circle_outline, size: 56, color: F.green),
+                  Icon(Icons.check_circle_outline, size: 56, color: F.green),
                   const SizedBox(height: 12),
                   Text(
                     'اتربطت بـ$linked',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: F.questionSize,
                       fontWeight: FontWeight.w700,
                       color: F.ink,
@@ -117,7 +117,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                             'الموبايل هيسألك تسمح بالإشعارات.'
                         : 'هتقدر تشوف أدويته ومواعيده — والتنبيهات جاية في الخطوة الجاية.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: F.minBodySize, color: F.muted, height: 1.6),
+                    style: TextStyle(fontSize: F.minBodySize, color: F.mutedDark, height: 1.6),
                   ),
                   const SizedBox(height: F.gap),
                   if (widget.onLinked != null)
@@ -144,7 +144,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     child: widget.caregiver != null
                         ? TextButton(
                             onPressed: () => Navigator.of(context).maybePop(),
-                            child: const Text(
+                            child: Text(
                               'تمام',
                               style: TextStyle(
                                 fontSize: F.minBodySize,
@@ -160,7 +160,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                   ),
                 ]
               : [
-                  const Text(
+                  Text(
                     'عندي كود',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -170,7 +170,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s6),
-                  const Text(
+                  Text(
                     'اكتب الكود اللي والدك قالهولك — ٦ أرقام. بعدها هتشوف أدويته ومواعيده.',
                     style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
                   ),
@@ -203,19 +203,19 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                         fontFamilyFallback: F.monoFallback,
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: F.fieldGround,
                       contentPadding: const EdgeInsets.symmetric(vertical: F.s18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: const BorderSide(color: F.line),
+                        borderSide: BorderSide(color: F.line),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: const BorderSide(color: F.line),
+                        borderSide: BorderSide(color: F.line),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: const BorderSide(color: F.green, width: 2),
+                        borderSide: BorderSide(color: F.green, width: 2),
                       ),
                     ),
                   ),
@@ -235,7 +235,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                     height: F.minTapTarget,
                     child: TextButton(
                       onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text(
+                      child: Text(
                         'رجوع',
                         style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.green),
                       ),

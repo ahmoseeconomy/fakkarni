@@ -152,17 +152,17 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   InputDecoration _decoration(String label, {String? hint}) => InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-        hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+        labelStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+        hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: F.fieldGround,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
       );
 
   @override
   Widget build(BuildContext context) {
     final f = _fields[_kind]!;
-    const body = TextStyle(fontSize: F.minBodySize, color: F.ink);
+    final body = TextStyle(fontSize: F.minBodySize, color: F.ink);
     final name = _patientName;
     final yesterday = DateTime(_today.year, _today.month, _today.day - 1);
     final tomorrow = DateTime(_today.year, _today.month, _today.day + 1);
@@ -207,7 +207,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               const SizedBox(width: F.s8),
               Text(
                 _kind.label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: F.displayFamily,
                   fontSize: F.screenTitleSize,
                   fontWeight: FontWeight.w700,
@@ -218,7 +218,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           ),
           if (f.honesty != null) ...[
             const SizedBox(height: F.s4),
-            Text(f.honesty!, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
+            Text(f.honesty!, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
           ],
           const SizedBox(height: F.gap),
           field(_title, f.title, hint: f.titleHint, key: const ValueKey('record-title')),

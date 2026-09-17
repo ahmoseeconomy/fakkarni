@@ -115,7 +115,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 const SizedBox(height: F.gap),
               ],
               if (_holder.loading)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
@@ -133,7 +133,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   if (alert.takenLater) _AlertCard(alert: alert, when: _when),
                 _WeekStrip(events: snapshot.events, now: _now),
                 const SizedBox(height: F.gap),
-                const Text(
+                Text(
                   'النهارده',
                   style: TextStyle(
                     fontSize: F.minBodySize,
@@ -146,7 +146,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 const SizedBox(height: F.gap),
                 // أدويته وقواعدها — للقراية بس. مفيش «عدّل» ولا «وقّف»: أي
                 // زرار بيغيّر بيانات الأب مش موجود هنا خالص، مش متعطّل.
-                const Text(
+                Text(
                   'أدويته',
                   style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                 ),
@@ -174,7 +174,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                           : 'آخر تحديث من موبايل والدك: ${_when(snapshot.lastUpdated!)}',
                       style: TextStyle(
                         fontSize: F.minTextSize,
-                        color: stale ? F.gold : F.muted,
+                        color: stale ? F.gold : F.mutedDark,
                         fontWeight: stale ? FontWeight.w600 : FontWeight.w400,
                         height: 1.6,
                       ),
@@ -196,7 +196,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final items = newestArrivals(snapshot);
     if (items.isEmpty) return const [];
     return [
-      const Text(
+      Text(
         'الجديد',
         style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
       ),
@@ -206,7 +206,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
         margin: const EdgeInsets.only(bottom: F.gap),
         padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
@@ -214,7 +214,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, item) in items.indexed) ...[
-              if (i > 0) const Divider(height: F.s12, color: F.lineSoft),
+              if (i > 0) Divider(height: F.s12, color: F.lineSoft),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: F.s4),
                 child: Column(
@@ -222,11 +222,11 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   children: [
                     Text(
                       newItemTitle(item),
-                      style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.4),
+                      style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.4),
                     ),
                     Text(
                       arabicDate(item.happenedAt),
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                     ),
                   ],
                 ),
@@ -305,11 +305,11 @@ class _WeekStrip extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
           border: Border.all(color: F.line),
         ),
-        child: const Text(
+        child: Text(
           'لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل',
           style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
         ),
@@ -319,7 +319,7 @@ class _WeekStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: F.cardGround,
         borderRadius: BorderRadius.circular(F.radiusCard),
         border: Border.all(color: F.line),
       ),
@@ -356,7 +356,7 @@ class _WeekStrip extends StatelessWidget {
               fontSize: F.minTextSize,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
               // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
-              color: isToday ? F.gold : F.muted,
+              color: isToday ? F.gold : F.mutedDark,
             ),
           ),
         ),
@@ -386,7 +386,7 @@ class _MedicationRow extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
@@ -395,7 +395,7 @@ class _MedicationRow extends StatelessWidget {
           children: [
             Text(
               medication.name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: F.minBodySize,
                 fontWeight: FontWeight.w700,
                 color: F.ink,
@@ -407,7 +407,7 @@ class _MedicationRow extends StatelessWidget {
             if (medication.amountLabel != null || medication.rules.isNotEmpty)
               Text(
                 [?medication.amountLabel, ...medication.rules].join(' — '),
-                style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
           ],
         ),
@@ -428,18 +428,18 @@ class _DoseRow extends StatelessWidget {
     // الحالة بالحرف زي ما جهاز الأب كتبها — بنترجم للعربي، مش بنحكم
     final (label, colour) = switch (event.state) {
       'taken' => ('اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}', F.greenDeep),
-      'skipped' => ('قال مش هياخده', F.muted),
+      'skipped' => ('قال مش هياخده', F.mutedDark),
       // جهاز الأب هو اللي قال «اتنست» بعد المهلة — إحنا بننقل، مش بنحكم
       'missed' => ('اتنست — لسه ما اتأكدتش', F.gold),
       _ when event.scheduledAt.isBefore(now) => ('لسه ما اتأكدتش', F.gold),
-      _ => ('جاي ${arabicTime(event.scheduledAt)}', F.muted),
+      _ => ('جاي ${arabicTime(event.scheduledAt)}', F.mutedDark),
     };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(F.gap),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: F.cardGround,
         borderRadius: BorderRadius.circular(F.radius),
         border: Border.all(
           color: colour == F.gold ? F.gold : F.line,
@@ -456,7 +456,7 @@ class _DoseRow extends StatelessWidget {
                   event.amountLabel == null
                       ? event.medicationName
                       : '${event.medicationName} — ${event.amountLabel}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,
@@ -468,7 +468,7 @@ class _DoseRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   tomorrow ? 'بكرة ${arabicTime(event.scheduledAt)}' : arabicTime(event.scheduledAt),
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                 ),
               ],
             ),
@@ -516,7 +516,7 @@ class _AlertCard extends StatelessWidget {
       // المحلولة بتتراجع: عاجي من غير إطار، عنوان رمادي — نفس المقاسات،
       // لأن الحد الأدنى للخط حد، مش اقتراح. الذهبي هو الوحيد اللي بيبرز.
       decoration: BoxDecoration(
-        color: attention ? Colors.white : F.ivory,
+        color: attention ? F.cardGround : F.railGround,
         borderRadius: BorderRadius.circular(F.radius),
         border: attention ? Border.all(color: F.gold, width: 2) : null,
       ),
@@ -529,16 +529,16 @@ class _AlertCard extends StatelessWidget {
             style: TextStyle(
               fontSize: F.minBodySize,
               fontWeight: attention ? FontWeight.w700 : FontWeight.w500,
-              color: attention ? F.gold : F.muted,
+              color: attention ? F.gold : F.mutedDark,
               height: 1.5,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             line,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: F.minTextSize,
-              color: F.muted,
+              color: F.mutedDark,
               height: 1.5,
             ),
           ),
@@ -569,12 +569,12 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.s14),
         decoration: BoxDecoration(
-          color: F.ivoryWarm,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
       );
 }

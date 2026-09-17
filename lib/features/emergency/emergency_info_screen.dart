@@ -96,7 +96,7 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           'فصيلة الدم',
                           style: TextStyle(
                             fontSize: F.minTextSize,
@@ -112,7 +112,7 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen>
                             fontFamily: F.monoFamily,
                             fontFamilyFallback: F.monoFallback,
                           ),
-                          emptyStyle: const TextStyle(
+                          emptyStyle: TextStyle(
                             fontSize: F.minTextSize,
                             color: F.mutedDark,
                             height: 1.3,

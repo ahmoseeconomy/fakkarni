@@ -46,7 +46,7 @@ class RoutineQuestionPage extends StatelessWidget {
               children: [
                 Text(
                   questionTextFor(question, PatientVoice.of(context)),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: F.displayFamily,
                     fontSize: F.questionSize,
                     fontWeight: FontWeight.w700,
@@ -57,7 +57,7 @@ class RoutineQuestionPage extends StatelessWidget {
                 const SizedBox(height: F.s6),
                 Text(
                   questionHintFor(question, PatientVoice.of(context)),
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 const SizedBox(height: F.gap),
                 PresetRow(presets: question.presets, value: value, onChanged: onChanged),
@@ -97,7 +97,7 @@ class RoutineQuestionPage extends StatelessWidget {
                   onPressed: onNotSure,
                   child: Text(
                     PatientVoice.of(context).notSure,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: F.minBodySize,
                       fontWeight: FontWeight.w600,
                       color: F.green,

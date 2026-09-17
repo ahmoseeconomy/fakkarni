@@ -92,10 +92,10 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
   InputDecoration _field(String label, {String? hint}) => InputDecoration(
     labelText: label,
     hintText: hint,
-    labelStyle: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-    hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+    labelStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+    hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
     filled: true,
-    fillColor: Colors.white,
+    fillColor: F.fieldGround,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(F.radiusCard),
     ),
@@ -103,13 +103,13 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const body = TextStyle(fontSize: F.minBodySize, color: F.ink);
+    final body = TextStyle(fontSize: F.minBodySize, color: F.ink);
     return Scaffold(
       appBar: AppBar(title: const Text('بيانات الطوارئ')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.s30),
         children: [
-          const Text(
+          Text(
             'اكتبها زي ما الدكتور أو التحليل قالها. اللي تسيبه فاضي هيبان «لسه ما اتملاش».',
             style: TextStyle(
               fontSize: F.minTextSize,
@@ -159,7 +159,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
           const SizedBox(height: F.gap),
           const SectionHead('جهات الاتصال'),
           const SizedBox(height: F.s4),
-          const Text(
+          Text(
             'الأرقام دي على الموبايل ده بس — مش بتتبعت لأي حد.',
             style: TextStyle(
               fontSize: F.minTextSize,

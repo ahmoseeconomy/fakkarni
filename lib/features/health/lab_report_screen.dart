@@ -150,13 +150,13 @@ class _LabReportScreenState extends State<LabReportScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
-          const Text(
+          Text(
             'النتايج زي ما اتقرت',
             style: TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize, fontWeight: FontWeight.w700, color: F.ink),
           ),
-          if (meta.isNotEmpty) Text(meta, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+          if (meta.isNotEmpty) Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
           const SizedBox(height: F.s8),
-          const Text(
+          Text(
             'بنكتب الرقم، ونقارنه بتحاليلك إنت اللي فاتت — وبس.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
@@ -164,8 +164,8 @@ class _LabReportScreenState extends State<LabReportScreen> {
           if (_lines.isEmpty)
             Container(
               padding: const EdgeInsets.all(F.gap),
-              decoration: BoxDecoration(color: F.ivoryPale, borderRadius: BorderRadius.circular(F.radiusCard)),
-              child: const Text(
+              decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+              child: Text(
                 'مفيش نتايج اتقرت من الصورة دي. صوّر تاني في نور أحسن، أو اكتب التحليل بإيدك من «الملف الصحي».',
                 style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
               ),
@@ -230,7 +230,7 @@ class _ResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (l.unsure)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: F.s6),
               child: Text(
                 'مش متأكد من دي — راجعها',
@@ -244,7 +244,7 @@ class _ResultCard extends StatelessWidget {
                   l.name.isEmpty ? 'اسم مش واضح' : l.name,
                   textDirection: TextDirection.ltr,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,
@@ -270,7 +270,7 @@ class _ResultCard extends StatelessWidget {
               ),
               if (l.unit != null) ...[
                 const SizedBox(width: F.s8),
-                Text(l.unit!, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                Text(l.unit!, textDirection: TextDirection.ltr, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
               ],
             ],
           ),
@@ -293,20 +293,20 @@ class _ResultCard extends StatelessWidget {
 
   /// المعتاد ليه هو: من قيم نفس التحليل **بنفس الوحدة** في تقاريره اللي فاتت.
   static List<Widget> _usual(double value, List<PastLabValue> history, String? unit) {
-    const style = TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5);
+    final style = TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5);
     String norm(String? u) => (u ?? '').trim().toLowerCase();
     final sameUnit = [for (final h in history) if (norm(h.unit) == norm(unit)) h];
     if (history.isNotEmpty && sameUnit.isEmpty) {
-      return const [Text('الوحدة مختلفة عن المرات اللي فاتت — مش هنقارن', style: style)];
+      return [Text('الوحدة مختلفة عن المرات اللي فاتت — مش هنقارن', style: style)];
     }
     final range = usualRangeOf([for (final h in sameUnit) h.value], minimum: minLabValues);
-    if (range == null) return const [Text(notEnoughForUsual, key: ValueKey('lab-not-enough'), style: style)];
+    if (range == null) return [Text(notEnoughForUsual, key: ValueKey('lab-not-enough'), style: style)];
     final last = sameUnit.first;
     return [
       Text(comparisonText(compareToUsual(value, range), range), style: style),
       Text(
         'آخر مرة كان ${arabicDecimal(last.value)} في ${arabicDate(last.at)}',
-        style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
       ),
     ];
   }
@@ -326,8 +326,8 @@ class _Equal extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: fill,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: F.ivoryWarm,
+            foregroundColor: F.onDark,
+            disabledBackgroundColor: F.railGround,
             disabledForegroundColor: F.mutedDark,
             textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
@@ -372,7 +372,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: F.dialogGround,
         title: const Text('عدّل السطر ده', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,

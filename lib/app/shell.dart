@@ -1,7 +1,10 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
+import '../core/widgets/dark_mode_toggle.dart';
 import '../core/widgets/f_sheet.dart';
 import '../core/widgets/primitives.dart';
 import '../data/repositories/preferences_repository.dart';
@@ -11,14 +14,14 @@ import '../features/care/caregiver_screen.dart';
 import '../features/care/caregiver_snapshot_holder.dart';
 import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
-import '../features/emergency/emergency_card_screen.dart';
-import '../features/link/sign_in_screen.dart';
+import '../features/emergency/emergency_pill.dart';
 import '../features/medication/add_medication_screen.dart';
 import '../features/medication/medications_screen.dart';
 import '../features/health/glucose_screen.dart';
 import '../features/health/scan_lab_screen.dart';
 import '../features/records/manual_entry_screen.dart';
 import '../features/scan/scan_prescription_screen.dart';
+import '../features/records/health_file_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/today/today_screen.dart';
 import 'app_scope.dart';
@@ -43,7 +46,9 @@ class AppShell extends StatefulWidget {
   /// للاختبارات.
   final DateTime? now;
 
-  static const tabs = ['اليوم', 'الأدوية', 'العائلة', 'الإعدادات'];
+  /// المخطط ٤: «الملف» مكان «الإعدادات». الإعدادات ما اختفتش — بقت أيقونة
+  /// الشخص في الشريط العلوي (نفس اسمها، ومفيش صف بيضيع).
+  static const tabs = ['اليوم', 'الأدوية', 'الملف', 'الإعدادات'];
   static const elderTabs = ['الرئيسية', 'الإعدادات'];
 
   @override
@@ -134,29 +139,11 @@ class _AppShellState extends State<AppShell> {
         automaticallyImplyLeading: false,
         titleSpacing: F.gap,
         actions: [
-          // بطاقة الطوارئ بلمسة واحدة من أي تبويب — بحدّ حبر، **مش أحمر**:
-          // الأحمر جوّه شاشتين الطوارئ بس.
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: F.gap),
-            child: SizedBox(
-              height: F.minTapTarget,
-              child: OutlinedButton.icon(
-                key: const ValueKey('emergency-shortcut'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const EmergencyCardScreen()),
-                ),
-                icon: const Icon(Icons.medical_information_outlined, size: 24),
-                label: const Text('طوارئ'),
-                style: OutlinedButton.styleFrom(
-                  // الثيم بيدّي الزراير عرض كامل — في الشريط العلوي لأ
-                  minimumSize: const Size(0, F.minTapTarget),
-                  foregroundColor: F.ink,
-                  side: const BorderSide(color: F.ink, width: 1.5),
-                  textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-                ),
-              ),
-            ),
+          // الفولدر سابه للدوك («الملف»)، ومكان الشخص بقى مفتاح الوضع الليلي.
+          const DarkModeToggle(),
+          const Padding(
+            padding: EdgeInsetsDirectional.only(end: F.gap),
+            child: EmergencyPill(),
           ),
         ],
         // علامة ف بس. «الإعدادات» تبويب تحت — زرار فوق كان تكرار.
@@ -200,7 +187,7 @@ class _AppShellState extends State<AppShell> {
     final pages = [
       TodayScreen(routine: widget.routine, now: widget.now),
       const MedicationsScreen(),
-      const _FamilyTab(),
+      const HealthFileScreen(),
       const SettingsScreen(),
     ];
 
@@ -214,7 +201,7 @@ class _AppShellState extends State<AppShell> {
         icons: const [
           Icons.today_outlined,
           Icons.medication_outlined,
-          Icons.people_outline,
+          Icons.folder_outlined,
           Icons.settings_outlined,
         ],
         gapForAdd: true,
@@ -314,61 +301,45 @@ class _CaregiverShellState extends State<CaregiverShell> {
   }
 }
 
-/// تبويب «العائلة» — باب الهوية الوحيد لسه «اربط ابني». شاشة الدخول
-/// ما بتتركّبش هنا عند الفتح (حارس root_test): بتتفتح بالدوسة وبس.
-class _FamilyTab extends StatelessWidget {
-  const _FamilyTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final services = AppScope.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(F.gap),
-      children: [
-        const SectionHead('العائلة'),
-        const SizedBox(height: F.s8),
-        const Text(
-          'اربط ابنك أو بنتك عشان لو نسيت جرعة، التطبيق يبلّغهم.',
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
-        ),
-        const SizedBox(height: F.gap),
-        FPrimaryButton(
-          label: 'اربط ابني',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => SignInScreen(
-                auth: services.auth,
-                caregiver: services.caregiver,
-                push: services.push,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// «+ ضيف» — أخضر، مش كورال. الذهبي هو الوحيد اللي بيبرز.
+/// «ضيف» — دايرة زيتي بحد دهبي وعلامة + دهبي، **والكلمة تحتها**.
+///
+/// الشكل من طلب المالك؛ الكلمة باقية لأن «مفيش زرار أيقونة من غير كلمة»
+/// اتكتبت لراجل عنده ٧٢ سنة. الكورال بتاع التصميم (`#F58A8E`) مش مستعمل:
+/// بيقع بين الدهبي والأحمر وبياخد انتباه «دي لسه عايزاك».
 class _AddButton extends StatelessWidget {
   const _AddButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: F.primaryButtonHeight,
-        child: FloatingActionButton.extended(
-          onPressed: onPressed,
-          backgroundColor: F.green,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusLarge)),
-          icon: const Icon(Icons.add, size: 28),
-          label: const Text(
-            'ضيف',
-            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
-          ),
+  Widget build(BuildContext context) => Semantics(
+        label: 'ضيف',
+        button: true,
+        excludeSemantics: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 62,
+              height: 62,
+              child: FloatingActionButton(
+                onPressed: onPressed,
+                backgroundColor: F.greenDeep,
+                foregroundColor: F.gold,
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(31),
+                  side: BorderSide(color: F.gold, width: 2.5),
+                ),
+                child: const Icon(Icons.add, size: 32),
+              ),
+            ),
+            const SizedBox(height: F.s4),
+            Text(
+              'ضيف',
+              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+            ),
+          ],
         ),
       );
 }
@@ -396,48 +367,97 @@ class _TabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: F.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 72,
-          child: Row(
-            children: [
-              for (var i = 0; i < labels.length; i++) ...[
-                // فجوة في النص لزرار «ضيف»
-                if (gapForAdd && i == 2) const SizedBox(width: 108),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => onSelect(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(icons[i], size: 26, color: i == current ? F.green : F.mutedLight),
-                        const SizedBox(height: F.s4),
-                        // خط النظام الكبير كان بيلف «الإعدادات» سطرين ويفيض من
-                        // الشريط — سطر واحد بيصغر بس لو ما دخلش
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                          labels[i],
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: labelSize,
-                            fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
-                            color: i == current ? F.green : F.muted,
+    // دوك زي الماك: عايم، حوافه مستديرة بالكامل، زجاج شفّاف — والشاشة
+    // بتعدّي من تحته وبتبان. كل أيقونة قاعدة على بلاطة مربعة مستديرة
+    // (زي أيقونات الدوك)، واللي إنت فيه بلاطته خضرا.
+    final radius = BorderRadius.circular(F.s30);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(F.s12, 0, F.s12, F.s10),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Container(
+              decoration: BoxDecoration(
+                color: F.pageGround.withValues(alpha: 0.55),
+                borderRadius: radius,
+                // حافة فاتحة من فوق زي حرف الزجاج في الماك
+                border: Border.all(color: F.onDark.withValues(alpha: 0.35)),
+                boxShadow: [
+                  BoxShadow(color: F.ink.withValues(alpha: 0.14), blurRadius: 26, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: SizedBox(
+                // الطول بيتحسب من البلاطة + الكلمة بمقاسها الحقيقي (نمط كبار
+                // السن ٢٤، وخط النظام ممكن يكبّرها كمان) — رقمين ثابتين كانوا
+                // بيفيضوا ٦ بكسل أول ما البلاطة كبرت.
+                height: 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * 1.3 + F.s10,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < labels.length; i++) ...[
+                      // فجوة في النص لزرار «ضيف»
+                      if (gapForAdd && i == 2) const SizedBox(width: 96),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => onSelect(i),
+                          borderRadius: BorderRadius.circular(F.radiusCard),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // بلاطة أيقونة الدوك: مربع مستدير ٤٢، بتدرّج
+                              // خفيف — اللي إنت فيه أخضر مصمت وأيقونته بيضا.
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 160),
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    // البلاطة الهادية بأسطح دلالية عشان
+                                    // تقلب مع الوضع الليلي — لون فاتح ثابت
+                                    // كان هيبقى بلاطة بيضا بأيقونة فاتحة
+                                    // عليها في الليل.
+                                    colors: i == current
+                                        ? [F.green, F.greenDeep]
+                                        : [
+                                            F.railGround.withValues(alpha: 0.75),
+                                            F.cardGround.withValues(alpha: 0.75),
+                                          ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(F.s12),
+                                  border: Border.all(
+                                    color: i == current ? F.greenDeep : F.line.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                child: Icon(icons[i], size: 24, color: i == current ? F.onDark : F.mutedDark),
+                              ),
+                              const SizedBox(height: F.s4),
+                              // خط النظام الكبير كان بيلف «الإعدادات» سطرين ويفيض من
+                              // الشريط — سطر واحد بيصغر بس لو ما دخلش
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  labels[i],
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: labelSize,
+                                    fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
+                                    color: i == current ? F.green : F.mutedDark,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),

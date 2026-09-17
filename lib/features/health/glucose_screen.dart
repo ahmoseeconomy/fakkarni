@@ -105,7 +105,7 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
             children: [
-              const Text(
+              Text(
                 'سكر الدم بس — بالملّيجرام/ديسيلتر زي ما الجهاز بيقول.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               ),
@@ -126,7 +126,7 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9٠-٩]'))],
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: F.displayFamily,
                         fontSize: F.display3,
                         fontWeight: FontWeight.w700,
@@ -134,11 +134,11 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                       ),
                       decoration: InputDecoration(
                         hintText: 'الرقم',
-                        hintStyle: const TextStyle(fontSize: F.minBodySize, color: F.muted),
+                        hintStyle: TextStyle(fontSize: F.minBodySize, color: F.mutedDark),
                         suffixText: 'ملّيجرام/ديسيلتر',
-                        suffixStyle: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                        suffixStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: F.fieldGround,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
                       ),
                     ),
@@ -147,11 +147,11 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                       Text(
                         'الرقم ده برّه اللي أجهزة القياس بتقراه '
                         '(${arabicNumber(ReadingsRepository.minMgDl)}–${arabicNumber(ReadingsRepository.maxMgDl)}) — اتأكد منه.',
-                        style: const TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+                        style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
                       ),
                     ],
                     const SizedBox(height: F.s12),
-                    const Text('كنت…', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                    Text('كنت…', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
                     const SizedBox(height: F.s6),
                     Row(
                       children: [
@@ -179,8 +179,8 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
               else if (rows.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(F.gap),
-                  decoration: BoxDecoration(color: F.ivoryPale, borderRadius: BorderRadius.circular(F.radiusCard)),
-                  child: const Text(
+                  decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+                  child: Text(
                     'لسه مفيش قياسات. اكتب الرقم اللي الجهاز قاله، واختار كنت صايم ولا بعد الأكل.',
                     style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                   ),
@@ -192,19 +192,19 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                   Container(
                     constraints: const BoxConstraints(minHeight: F.minTapTarget),
                     padding: const EdgeInsets.symmetric(vertical: F.s6),
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: F.lineSoft))),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: F.lineSoft))),
                     child: Row(
                       children: [
                         Text(
                           arabicNumber(r.valueMgDl),
-                          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                         ),
                         const SizedBox(width: F.s8),
-                        Text(r.context.label, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                        Text(r.context.label, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
                         const Spacer(),
                         Text(
                           '${arabicDate(r.measuredAt)} — ${arabicTime(r.measuredAt)}',
-                          style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                         ),
                       ],
                     ),
@@ -237,7 +237,7 @@ class _LatestCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('آخر قراءة', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+          Text('آخر قراءة', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -245,7 +245,7 @@ class _LatestCard extends StatelessWidget {
               Text(
                 arabicNumber(latest.valueMgDl),
                 key: const ValueKey('glucose-latest'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: F.displayFamily,
                   fontSize: F.display2,
                   fontWeight: FontWeight.w700,
@@ -253,18 +253,18 @@ class _LatestCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: F.s8),
-              const Text('ملّيجرام/ديسيلتر', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+              Text('ملّيجرام/ديسيلتر', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
             ],
           ),
           Text(
             '${latest.context.label} — ${arabicDate(latest.measuredAt)} — ${arabicTime(latest.measuredAt)}',
-            style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
           const SizedBox(height: F.s8),
           Text(
             judged.range == null ? notEnoughForUsual : comparisonText(judged.comparison!, judged.range!),
             key: const ValueKey('glucose-usual'),
-            style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
           ),
           if (sameContext.length >= 2) ...[
             const SizedBox(height: F.s12),
@@ -275,7 +275,7 @@ class _LatestCard extends StatelessWidget {
             ),
             Text(
               'آخر ${arabicNumber(sameContext.length)} قياسات وإنت ${latest.context.label}',
-              style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
         ],

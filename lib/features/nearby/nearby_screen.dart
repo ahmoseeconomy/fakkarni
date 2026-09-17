@@ -113,11 +113,11 @@ class _NearbyScreenState extends State<NearbyScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
-          const Text(
+          Text(
             'صيدليات ودكاترة متسجّلين على OpenStreetMap في ٢ كم حواليك.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
-          const Text(
+          Text(
             'بنبعت مكانك التقريبي لـOpenStreetMap عشان يدوّر — مش مكانك بالظبط.',
             key: ValueKey('nearby-privacy'),
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
@@ -131,7 +131,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
 
   List<Widget> _body() {
     if (_loading) {
-      return const [
+      return [
         Padding(
           padding: EdgeInsets.all(F.gap),
           child: Text('بيدوّر…', textAlign: TextAlign.center, style: TextStyle(fontSize: F.minBodySize, color: F.mutedDark)),
@@ -232,7 +232,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                       decoration: BoxDecoration(
                         color: F.green,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
+                        border: Border.all(color: F.onDark, width: 3),
                       ),
                     ),
                   ),
@@ -247,7 +247,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                   margin: const EdgeInsets.all(F.s6),
                   padding: const EdgeInsets.symmetric(horizontal: F.s8, vertical: F.s4),
                   decoration: BoxDecoration(color: const Color(0xE6FFFFFF), borderRadius: BorderRadius.circular(F.radiusChip)),
-                  child: const Text(
+                  child: Text(
                     '© مساهمو OpenStreetMap',
                     textDirection: TextDirection.rtl,
                     style: TextStyle(fontSize: F.minTextSize, color: F.ink),
@@ -318,10 +318,10 @@ class _PlaceCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(distanceText(meters), style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+              Text(distanceText(meters), style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
             ],
           ),
-          Text(kindWord, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+          Text(kindWord, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
           if (state != null)
             Text(
               state == OpenState.open ? 'فاتحة دلوقتي' : 'قافلة دلوقتي',
@@ -332,7 +332,7 @@ class _PlaceCard extends StatelessWidget {
             Text(
               'مواعيدها على الخريطة: $hours',
               textDirection: TextDirection.rtl,
-              style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           const SizedBox(height: F.s10),
           Row(
@@ -359,7 +359,7 @@ class _Notice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
         margin: const EdgeInsets.only(bottom: F.s8),
-        decoration: BoxDecoration(color: F.ivoryWarm, borderRadius: BorderRadius.circular(F.radiusCard)),
-        child: Text(text, style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+        child: Text(text, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
       );
 }

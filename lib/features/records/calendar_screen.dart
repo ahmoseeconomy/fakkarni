@@ -250,7 +250,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Text(
             _month ? '${arabicMonths[_selected.month - 1]} ${arabicNumber(_selected.year)}' : 'أسبوع ${arabicDate(start)}',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink),
+            style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink),
           ),
           const SizedBox(height: F.s8),
           Row(
@@ -260,7 +260,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Text(
                     name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                   ),
                 ),
             ],
@@ -287,7 +287,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           const SizedBox(height: F.s6),
-          const Text(
+          Text(
             'الجرعات بتبان لحد بكرة بس — اللي بعد كده بيظهر لما ييجي وقته.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
@@ -301,14 +301,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(
                   arabicDate(_selected),
                   key: const ValueKey('day-title'),
-                  style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                 ),
                 const SizedBox(height: F.s8),
                 if (selectedEntries.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(F.gap),
-                    decoration: BoxDecoration(color: F.ivoryPale, borderRadius: BorderRadius.circular(F.radiusCard)),
-                    child: const Text(
+                    decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+                    child: Text(
                       'مفيش حاجة في اليوم ده. الزيارات والتحاليل بتتضاف من «الملف الصحي».',
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
@@ -328,14 +328,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   Text(
                                     e.title,
                                     textDirection: nameDirection(e.title),
-                                    style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                                   ),
                                   if (e.detail.isNotEmpty)
-                                    Text(e.detail, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                                    Text(e.detail, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
                                 ],
                               ),
                             ),
-                            Text(e.kind.label, style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green)),
+                            Text(e.kind.label, style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green)),
                           ],
                         ),
                       ),
@@ -370,13 +370,13 @@ class _DayCell extends StatelessWidget {
         padding: const EdgeInsets.all(1.5),
         child: Material(
           key: ValueKey('day-${day.year}-${day.month}-${day.day}'),
-          color: selected ? F.ivoryWarm : Colors.transparent,
+          color: selected ? F.railGround : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(F.radiusTile),
             side: attention
                 ? const BorderSide(color: F.gold, width: 2)
                 : selected
-                    ? const BorderSide(color: F.ink, width: 1.5)
+                    ? BorderSide(color: F.ink, width: 1.5)
                     : BorderSide.none,
           ),
           child: InkWell(
@@ -407,7 +407,7 @@ class _DayCell extends StatelessWidget {
                             width: 6,
                             height: 6,
                             margin: const EdgeInsets.symmetric(horizontal: 1),
-                            decoration: const BoxDecoration(color: F.green, shape: BoxShape.circle),
+                            decoration: BoxDecoration(color: F.green, shape: BoxShape.circle),
                           ),
                       ],
                     ),

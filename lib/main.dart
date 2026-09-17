@@ -13,12 +13,16 @@ import 'app/root.dart';
 import 'app/splash.dart';
 import 'core/widgets/patient_voice.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/theme/theme_mode_store.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
 import 'data/db/connection.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // تفضيل العرض الأول — قبل أول فريم، عشان الشاشة ما تلمعش أبيض في الليل
+  await ThemeModeStore.load();
 
   final db = AppDatabase(openConnection());
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
@@ -97,6 +101,17 @@ class FakkarniApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // الوضع بيغيّر كل لون في التطبيق — الشجرة كلها بتتبني من جديد لما يتقلب
+    // **مفتاح على الوضع**: أي شجرة `const` (زي `const SettingsScreen()`) ما
+    // بتتبنيش تاني لما متغيّر عام يتقلب — الويدجت هي هي، فـFlutter بيعدّيها.
+    // المفتاح بيجبر بناء كامل، فالتطبيق كله بيقلب مرة واحدة.
+    return ValueListenableBuilder<bool>(
+      valueListenable: F.darkMode,
+      builder: (context, dark, _) => KeyedSubtree(key: ValueKey(dark), child: _app()),
+    );
+  }
+
+  Widget _app() {
     return AppScope(
       services: services,
       child: MaterialApp(

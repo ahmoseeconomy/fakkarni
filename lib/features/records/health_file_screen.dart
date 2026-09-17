@@ -98,10 +98,10 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
             final yes = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                backgroundColor: Colors.white,
+                backgroundColor: F.dialogGround,
                 title: Text(
                   'تمسح «${record.title}»؟',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: F.displayFamily,
                     fontSize: F.subtitleSize,
                     fontWeight: FontWeight.w700,
@@ -110,7 +110,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 ),
                 content: Text(
                   'هيفضل باين مشطوب وتقدر ترجّعه. بعد ${arabicNumber(RecordsRepository.retentionDays)} يوم بيتمسح نهائي.',
-                  style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+                  style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
                 ),
                 actions: [
                   Column(
@@ -151,13 +151,13 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               TextField(
                 key: const ValueKey('records-search'),
                 controller: _query,
-                style: const TextStyle(fontSize: F.minBodySize, color: F.ink),
+                style: TextStyle(fontSize: F.minBodySize, color: F.ink),
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: F.mutedDark),
+                  prefixIcon: Icon(Icons.search, color: F.mutedDark),
                   hintText: 'دوّر بالاسم أو الدكتور أو التاريخ',
-                  hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                   filled: true,
-                  fillColor: F.ivoryWarm,
+                  fillColor: F.railGround,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(F.radiusCard),
                     borderSide: BorderSide.none,
@@ -305,13 +305,13 @@ class RecordSummary extends StatelessWidget {
               child: Text(
                 r.title,
                 textDirection: nameDirection(r.title),
-                style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
               ),
             ),
           ],
         ),
         const SizedBox(height: F.s4),
-        Text(meta, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+        Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
         if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
           Text(
             'دورة فحص — ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
@@ -342,7 +342,7 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: F.dialogGround,
         title: const Text('دورة فحص جديدة', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,

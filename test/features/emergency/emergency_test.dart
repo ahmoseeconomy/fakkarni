@@ -265,12 +265,15 @@ void main() {
     Future<void> pumpShell(WidgetTester tester) =>
         pump(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
 
-    screenTest('«طوارئ» فوق → البطاقة بلمسة — والزرار نفسه مش أحمر', (tester) async {
+    // المخطط ٤: البيل ده أحمر مصمت — وده المكان الوحيد برّه شاشتي الطوارئ.
+    // الأحمر بيفضل معناه لأن مفيش حاجة تانية بتاخده: الجرعة الفايتة ذهبي.
+    screenTest('«طوارئ» فوق → البطاقة بلمسة — والبيل أحمر مصمت', (tester) async {
       await pumpShell(tester);
       final shortcut = find.byKey(const ValueKey('emergency-shortcut'));
       expect(tester.getSize(shortcut).height, greaterThanOrEqualTo(F.minTapTarget));
       final style = tester.widget<ButtonStyleButton>(shortcut).style!;
-      expect(style.foregroundColor!.resolve({}), F.ink);
+      expect(style.backgroundColor!.resolve({}), F.red);
+      expect(style.foregroundColor!.resolve({}), F.onRed);
 
       await tester.tap(shortcut);
       await settle(tester);

@@ -34,7 +34,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(F.gap),
         children: [
-          const Text(
+          Text(
             'الإعدادات',
             style: TextStyle(
               fontFamily: F.displayFamily,
@@ -48,7 +48,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
                     Expanded(
                       child: Text('حسابك',
@@ -58,7 +58,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: F.s8),
-                const Text(
+                Text(
                   'بتتابع من الموبايل ده. مفيش أدوية ولا مواعيد بتتسجّل هنا — كل حاجة جاية من موبايل والدك.',
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                 ),
@@ -68,7 +68,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             ),
           ),
           const SizedBox(height: F.s12),
-          const FCard(
+          FCard(
             child: Row(
               children: [
                 Expanded(

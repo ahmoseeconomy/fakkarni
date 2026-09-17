@@ -63,6 +63,16 @@ void screenTest(String name, Future<void> Function(WidgetTester) body) {
   });
 }
 
+/// «الإعدادات» تبويب في الدوك (مكان «العائلة»)، و«العائلة» سابت الشريط —
+/// الربط بقى من الإعدادات ومن صف «مين بيتابعك» في الرئيسية.
+Future<void> openSettings(WidgetTester tester) async {
+  await tester.tap(find.text('الإعدادات').last);
+  // ضخّ محدود: نقطة المية بتلمع على طول، فـpumpAndSettle عمرها ما هتهدا
+  for (var i = 0; i < 60; i++) {
+    await tester.pump(const Duration(milliseconds: 25));
+  }
+}
+
 void main() {
   late AppDatabase db;
   late AppServices services;
@@ -127,26 +137,29 @@ void main() {
       expect(find.text(tab), findsWidgets, reason: tab);
     }
     expect(find.text('ضيف'), findsOneWidget, reason: 'الـ+ مش لوحده');
-    expect(find.text('الإعدادات'), findsOneWidget, reason: 'تبويب بس — مش زرار فوق كمان');
+    // المخطط ٤ + طلب المالك: «الملف» و«الإعدادات» في الدوك، ومفتاح الوضع فوق
+    expect(find.text('الملف'), findsOneWidget);
+    expect(find.text('الإعدادات'), findsOneWidget);
+    expect(find.text('العائلة'), findsNothing, reason: 'الربط من الإعدادات وصف الدايرة');
+    expect(find.byKey(const ValueKey('dark-mode-toggle')), findsOneWidget);
     expect(find.descendant(of: find.byType(AppBar), matching: find.byType(TextButton)), findsNothing);
     expect(find.byType(TodayScreen), findsOneWidget);
     expect(find.byType(SignInScreen), findsNothing, reason: 'الهوية مش بوابة');
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('التبويبات بتوصّل: الأدوية → العائلة → الإعدادات', (tester) async {
+  screenTest('التبويبات بتوصّل: الأدوية → الملف → الإعدادات', (tester) async {
     await pumpShell(tester);
 
     await tester.tap(find.text('الأدوية').last);
     await settle(tester);
     expect(find.text('لسه مفيش أدوية. دوس «ضيف» تحت.'), findsOneWidget);
 
-    await tester.tap(find.text('العائلة').last);
+    await tester.tap(find.text('الملف').last);
     await settle(tester);
-    expect(find.text('اربط ابني'), findsOneWidget);
+    expect(find.text('الملف الصحي'), findsWidgets, reason: 'التبويب التالت بقى الملف');
 
-    await tester.tap(find.text('الإعدادات').last);
-    await settle(tester);
+    await openSettings(tester);
     expect(find.text('وضع رمضان'), findsOneWidget);
     expect(find.text('مواعيد يومك'), findsOneWidget);
     expect(find.byType(SettingsScreen), findsOneWidget);
@@ -158,7 +171,7 @@ void main() {
   screenTest('«ضيف» بيفتح شيت فيه «صوّر روشتة» و«أكتبها بإيدي»', (tester) async {
     await pumpShell(tester);
 
-    await tester.tap(find.text('ضيف'));
+    await tester.tap(find.byType(FloatingActionButton));
     await tester.pump();
     await tester.pump(F.sheetDuration);
     await tester.pump(const Duration(milliseconds: 50));
@@ -172,7 +185,7 @@ void main() {
   screenTest('كارت رمضان في الإعدادات: حده ذهبي وهو شغّال والسطر بيقرا الحالة', (tester) async {
     await services.routines.enterRamadan(services.patientId, RamadanTimes.cairoDefaults);
     await pumpShell(tester);
-    await tester.tap(find.text('الإعدادات').last);
+    await openSettings(tester);
     await settle(tester);
 
     expect(find.text('شغّال'), findsOneWidget);
@@ -187,7 +200,7 @@ void main() {
   group('الإعدادات (المخطط 33)', () {
     screenTest('من غير جلسة: كارت الحساب «مش مربوط»، الصفوف، اللغة معطّلة، ومفيش خروج', (tester) async {
       await pumpShell(tester);
-      await tester.tap(find.text('الإعدادات').last);
+      await openSettings(tester);
       await settle(tester);
 
       expect(find.text('مش مربوط'), findsWidgets);
@@ -226,7 +239,7 @@ void main() {
         push: push,
       );
       await pumpShell(tester);
-      await tester.tap(find.text('الإعدادات').last);
+      await openSettings(tester);
       await settle(tester);
 
       expect(find.text('حساب تجريبي'), findsOneWidget);
@@ -252,7 +265,7 @@ void main() {
 
     screenTest('المفتاح في الإعدادات → تبويبتين بس ومن غير «ضيف»، وتاني دوسة بترجّع العادي', (tester) async {
       await pumpShell(tester);
-      await tester.tap(find.text('الإعدادات').last);
+      await openSettings(tester);
       await settle(tester);
 
       await tester.tap(find.byKey(const ValueKey('elder-mode')));
@@ -268,8 +281,7 @@ void main() {
       expect(find.byType(ElderHomeScreen), findsOneWidget);
 
       // الخروج من نفس التبويب التاني
-      await tester.tap(find.text('الإعدادات').last);
-      await settle(tester);
+      await openSettings(tester);
       await tester.tap(find.byKey(const ValueKey('elder-mode')));
       await settle(tester);
       for (final tab in AppShell.tabs) {
@@ -288,7 +300,11 @@ void main() {
       expect(find.text('يا فاطمة'), findsOneWidget);
       expect(find.text('Concor'), findsOneWidget);
       expect(find.text('Telfast'), findsNothing, reason: 'كارت واحد — الجاية بس');
-      expect(find.byType(FilledButton), findsOneWidget);
+      // بيل «طوارئ» فوق FilledButton كمان — بنعدّ اللي جوّه الشاشة نفسها
+      expect(
+        find.descendant(of: find.byType(ElderHomeScreen), matching: find.byType(FilledButton)),
+        findsOneWidget,
+      );
       expect(tester.getSize(find.widgetWithText(FilledButton, 'تم ✅')).height, F.elderPrimaryButtonHeight);
 
       final home = find.byType(ElderHomeScreen);
@@ -325,7 +341,7 @@ void main() {
   group('التنبيهات (D3.3، المخطط 26)', () {
     Future<void> openNotifications(WidgetTester tester) async {
       await pumpShell(tester);
-      await tester.tap(find.text('الإعدادات').last);
+      await openSettings(tester);
       await settle(tester);
       await tester.tap(find.text('التنبيهات'));
       await settle(tester);

@@ -145,8 +145,18 @@ class _WaterWidgetState extends State<WaterWidget> {
     final due = started && remaining == Duration.zero;
     final progress = started ? remaining.inSeconds / total.inSeconds : 0.0;
 
-    return FCard(
-      child: Column(
+    return Container(
+      // المية بلون المية — أزرق **محجوز ليها وبس** في التوكنز
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(
+        color: F.waterGround,
+        borderRadius: BorderRadius.circular(F.radiusLarge),
+        border: Border.all(color: F.waterDrop.withValues(alpha: 0.35), width: 1.5),
+      ),
+      child: Stack(
+        children: [
+          const PositionedDirectional(top: 0, end: 0, child: _FlashingDrop()),
+          Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -175,14 +185,14 @@ class _WaterWidgetState extends State<WaterWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'المية',
                       style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.ink),
                     ),
                     Text(
                       '${arabicNumber(_cups)} من ${arabicNumber(WaterWidget.maxCups)} كوبايات النهارده',
                       key: const ValueKey('water-cups'),
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                     Text(
                       !started
@@ -193,7 +203,7 @@ class _WaterWidgetState extends State<WaterWidget> {
                       style: TextStyle(
                         fontSize: F.minTextSize,
                         fontWeight: due ? FontWeight.w700 : FontWeight.w400,
-                        color: due ? F.ink : F.muted,
+                        color: due ? F.ink : F.mutedDark,
                         height: 1.5,
                       ),
                     ),
@@ -219,7 +229,7 @@ class _WaterWidgetState extends State<WaterWidget> {
           ),
           const SizedBox(height: F.s12),
           // «كل» مرة واحدة فوق — «كل ساعتين» جوّه شريحة من تلاتة كانت بتلف وتتقص
-          const Text(
+          Text(
             'كوباية كل:',
             style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
           ),
@@ -238,8 +248,69 @@ class _WaterWidgetState extends State<WaterWidget> {
               ],
             ],
           ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// نقطة مية بتلمع في ركن الكارت — بتنوّر وتكبر وحواليها هالة، على طول.
+///
+/// دي **أنيميشن دائم**، وده بيخلي `pumpAndSettle` ما تنتهيش أبداً لأنها
+/// بتفضل مستنية إطار جديد. علشان كده `settle` في الاختبارات بقت ضخّ محدود
+/// بعدد إطارات، مش `pumpAndSettle` — الشاشة اللي فيها حاجة بتتحرك على طول
+/// ما ينفعش تتسنّى. التحرّك بيقف لوحده تحت «تقليل الحركة».
+class _FlashingDrop extends StatefulWidget {
+  const _FlashingDrop();
+
+  @override
+  State<_FlashingDrop> createState() => _FlashingDropState();
+}
+
+class _FlashingDropState extends State<_FlashingDrop> with SingleTickerProviderStateMixin {
+  late final AnimationController _flash = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _flash.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      return Icon(Icons.water_drop, size: 26, color: F.waterDrop);
+    }
+    return AnimatedBuilder(
+      animation: _flash,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_flash.value);
+        return Container(
+          padding: const EdgeInsets.all(F.s6),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: F.waterDrop.withValues(alpha: 0.35 * t), blurRadius: 14 + 10 * t),
+            ],
+          ),
+          child: Opacity(
+            opacity: 0.45 + 0.55 * t,
+            child: Transform.scale(scale: 0.88 + 0.24 * t, child: child),
+          ),
+        );
+      },
+      child: Icon(Icons.water_drop, size: 26, color: F.waterDrop),
     );
   }
 }

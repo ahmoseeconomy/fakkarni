@@ -119,12 +119,12 @@ class _TimeWheelState extends State<TimeWheel> {
                     ],
                   ),
                 ),
-                const Text(
+                Text(
                   ':',
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w600,
-                    color: F.muted,
+                    color: F.mutedDark,
                   ),
                 ),
                 Expanded(
@@ -160,7 +160,7 @@ class _TimeWheelState extends State<TimeWheel> {
             Center(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w600,
                   color: F.ink,
@@ -201,7 +201,7 @@ class _PeriodToggle extends StatelessWidget {
       width: F.minTapTarget,
       height: F.minTapTarget,
       child: Material(
-        color: selected ? F.green : Colors.white,
+        color: selected ? F.green : F.cardGround,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(F.radius),
           side: BorderSide(color: selected ? F.green : F.line, width: 1.5),
@@ -215,7 +215,7 @@ class _PeriodToggle extends StatelessWidget {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : F.ink,
+                color: selected ? F.onDark : F.ink,
               ),
             ),
           ),

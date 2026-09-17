@@ -127,14 +127,14 @@ void main() {
         amountLabel: 'قرص واحد',
       );
 
-  /// `pumpAndSettle` بيرجع أول ما يبقى مفيش فريم متجدول — من غير ما يستنى
-  /// كتابة قاعدة البيانات اللي لسه شغالة. بنلف على `pump` عشان الـmicrotasks
-  /// بتاعة drift تخلص قبل ما نبص على الشاشة.
+  /// ضخّ محدود — مش `pumpAndSettle`.
+  ///
+  /// سببين: كتابة drift لسه شغالة لما الفريم يهدا، ونقطة المية في كارت
+  /// المية بتلمع على طول فـ`pumpAndSettle` عمرها ما هتلاقي فريم ساكن.
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 25; i++) {
-      await tester.pump(const Duration(milliseconds: 20));
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 25));
     }
-    await tester.pumpAndSettle();
   }
 
   Future<void> pumpToday(WidgetTester tester, {DateTime? now, Sex? sex}) async {
@@ -361,7 +361,7 @@ void main() {
 
     expect(find.text('اسأل الصيدلي عن جرعة Telfast 180 mg'), findsOneWidget);
     final text = tester.widget<Text>(find.text('اسأل الصيدلي عن جرعة Telfast 180 mg'));
-    expect(text.style?.color, F.muted, reason: 'هادي، مش تنبيه');
+    expect(text.style?.color, F.mutedDark, reason: 'هادي، مش تنبيه');
   });
 
   screenTest('مفيش أدوية → الحالة الفاضية بتشاور على «ضيف»', (tester) async {
@@ -404,7 +404,9 @@ void main() {
       expect(find.text('يومك'), findsOneWidget);
       expect(find.text('صباح الخير يا فاطمة'), findsOneWidget);
       expect(find.text('فاطمة — ٦٨ سنة'), findsOneWidget);
-      expect(find.text('تعملي إيه دلوقتي؟'), findsOneWidget);
+      // المخطط ٤: مفيش عنوان كبير — التحية بتوصّل للأقسام على طول
+      expect(find.text('تعملي إيه دلوقتي؟'), findsNothing);
+      expect(find.textContaining('ماذا أفعل'), findsNothing);
       expect(find.text('ماذا أفعل الآن؟'), findsNothing);
     });
 
@@ -414,7 +416,7 @@ void main() {
 
       expect(find.text('مساء الخير يا محمد'), findsOneWidget);
       expect(find.textContaining('سنة'), findsNothing);
-      expect(find.text('تعمل إيه دلوقتي؟'), findsOneWidget);
+      expect(find.text('تعمل إيه دلوقتي؟'), findsNothing);
     });
 
     screenTest('«الآن»: الفايتة قبل الجاية، ذهبي من غير أحمر، وزرار أساسي واحد', (tester) async {
@@ -544,7 +546,7 @@ void main() {
     Future<void> pumpEditor(WidgetTester tester, {String name = 'Concor 5mg'}) async {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, name);
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.tap(find.text('كمّل — إمتى؟'));
       await settle(tester);
       expect(find.byType(DoseEditor), findsOneWidget);
@@ -594,11 +596,11 @@ void main() {
       expect(find.text('يعني حوالي ٧:٠٠ ص'), findsOneWidget);
 
       await tester.tap(find.text('بعد العشا'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('يعني حوالي ٨:٣٠ م'), findsOneWidget);
 
       await tester.tap(find.text('أكتر'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('يعني حوالي ٨:٣٥ م'), findsOneWidget);
     });
 
@@ -607,13 +609,13 @@ void main() {
       expect(find.text('٣٠ دقيقة'), findsOneWidget); // قبل الفطار
 
       await tester.tap(find.text('قبل النوم'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('١٥ دقيقة'), findsOneWidget);
       // نوم ١١:٣٠ م − ١٥ = ١١:١٥ م
       expect(find.text('يعني حوالي ١١:١٥ م'), findsOneWidget);
 
       await tester.tap(find.text('قبل الغدا'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('٣٠ دقيقة'), findsOneWidget);
     });
 
@@ -640,7 +642,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Augmentin');
       await tester.tap(find.text('٣ مرات'));
       await tester.tap(find.text('مع الأكل'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.tap(find.text('كمّل — إمتى؟'));
       await settle(tester);
 
@@ -675,7 +677,7 @@ void main() {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, 'Augmentin');
       await tester.tap(find.text('مرتين'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.tap(find.text('كمّل — إمتى؟'));
       await settle(tester);
       await tester.tap(find.text('الجرعة اللي بعدها'));
@@ -707,7 +709,7 @@ void main() {
       await pumpEditor(tester);
 
       await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
-      await tester.pumpAndSettle();
+      await settle(tester);
 
       expect(find.text('ساعة ثابتة — مش هتتحرك مع روتين يومك'), findsOneWidget);
       expect(find.byType(TimeWheel), findsOneWidget);
@@ -717,7 +719,7 @@ void main() {
 
       // والرجوع للمراسي متاح
       await tester.tap(find.text('ارجع للمراسي'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       expect(find.text('قبل الفطار'), findsOneWidget);
       expect(find.text('ساعة ثابتة — مش هتتحرك مع روتين يومك'), findsNothing);
     });
@@ -725,7 +727,7 @@ void main() {
     screenTest('الحفظ في وضع الساعة الثابتة بيخزّن FixedTiming', (tester) async {
       await pumpEditor(tester, name: 'Eltroxin');
       await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
-      await tester.pumpAndSettle();
+      await settle(tester);
       await tester.tap(find.text('احفظ الجرعة'));
       await settle(tester);
 

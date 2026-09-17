@@ -138,7 +138,7 @@ class _Greeting extends StatelessWidget {
       children: [
         Text(
           now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير',
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: F.displayFamily,
             fontSize: F.elderTitleSize,
             fontWeight: FontWeight.w700,
@@ -148,7 +148,7 @@ class _Greeting extends StatelessWidget {
         if (hasName)
           Text(
             'يا $name',
-            style: const TextStyle(fontSize: F.elderTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+            style: TextStyle(fontSize: F.elderTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
           ),
       ],
     );
@@ -177,7 +177,7 @@ class _DoseCard extends StatelessWidget {
     final say = PatientVoice.of(context);
     final at = doses.first.scheduledAt;
     final overdue = at.isBefore(now) || doses.any((d) => d.state == DoseState.missed);
-    const body = TextStyle(fontSize: F.elderTextSize, color: F.mutedDark, height: 1.45);
+    final body = TextStyle(fontSize: F.elderTextSize, color: F.mutedDark, height: 1.45);
 
     return FCard(
       tone: FCardTone.attention,
@@ -192,7 +192,7 @@ class _DoseCard extends StatelessWidget {
               child: Text(
                 dose.medicationName,
                 textDirection: nameDirection(dose.medicationName),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.elderNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
@@ -242,7 +242,7 @@ class _Quiet extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(color: F.ivory, borderRadius: BorderRadius.circular(F.radius)),
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radius)),
         child: Text(
           text,
           style: const TextStyle(fontSize: F.elderTextSize, fontWeight: FontWeight.w600, color: F.greenDeep, height: 1.5),

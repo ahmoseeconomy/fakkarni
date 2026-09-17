@@ -15,15 +15,15 @@ class DebugPanel extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: F.ivory,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radius),
         ),
         child: SelectableText(
           text,
           textDirection: TextDirection.ltr,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: F.minTextSize,
-            color: F.muted,
+            color: F.mutedDark,
             fontFamily: F.monoFamily,
             fontFamilyFallback: F.monoFallback,
             height: 1.5,

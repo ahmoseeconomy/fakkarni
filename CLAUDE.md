@@ -86,9 +86,11 @@ These are product decisions, already settled. Do not "improve" them without aski
   **Take every size from `class F`, never from measuring the image.** Where a
   mockup is tighter than the minimums, the minimums win — and say so.
 - **Red belongs to emergency and to nothing else** — «معلومات الطوارئ»
-  (`F.redDeep` ground), «بطاقة الطوارئ», and since D5.2 the son's
-  `EmergencyFactsCard` on «الملف الصحي», all living in
-  `lib/features/emergency/`, with `F.red` on the ambulance button. Other
+  (`F.redDeep` ground), «بطاقة الطوارئ», the son's `EmergencyFactsCard`,
+  and the top bar's filled `EmergencyPill` (mockup 04), all living in
+  `lib/features/emergency/`, with `F.red` on the ambulance button. The pill
+  is the only red outside those screens, and it holds its meaning **because
+  nothing else takes it**: the mockup's red card buttons are gold here. Other
   screens *use* those widgets; they never paint red themselves. The
   mockups also spend red on the `طوارئ` shortcut in the top bar; ours is
   ink-outlined, because red on any other screen is wrong — including the
@@ -109,6 +111,28 @@ These are product decisions, already settled. Do not "improve" them without aski
   time exists only as a small secondary link.
 - **Copy is warm Egyptian colloquial**, the way a family speaks:
   "بتفطر الساعة كام؟" — not "يرجى تحديد موعد وجبة الإفطار".
+- **The app has a night mode, and every colour flips from one place.**
+  The semantic surfaces and the text colours are **getters** on `F`, not
+  constants: `F.pageGround` gives the current mode's value and the root
+  rebuilds when `F.darkMode` changes. The preference lives in
+  `shared_preferences` (`ui.dark`) like the water counter — **not** in the
+  schema; it is a display choice on this phone. Two traps, both paid for
+  once: a `const` widget subtree (`const SettingsScreen()`) does **not**
+  rebuild when a global flips, so `main` keys the whole app on the mode;
+  and the splash would replay on every toggle, so it now runs once per
+  launch. `dark_mode_test` computes the contrast of the real tokens and
+  fails if a colour drops under AA in either mode.
+- **A screen never names a surface colour; it names the surface's job.**
+  `F.pageGround` (white), `F.cardGround` (`#EFEFEF`, the mockups' card
+  grey), `F.railGround` (`#F6F6F6`, a quiet panel inside a card, a chip, a
+  disabled row), `F.fieldGround`, `F.dialogGround`, and `F.onDark` /
+  `F.onDarkMuted` for text on green or on a photo. The raw palette
+  (`white`, `ivory*`, `cardGrey`, `quietGrey`) lives in `tokens.dart` and
+  is not written anywhere else — `test/app/no_raw_surface_test.dart` fails
+  if it is. This is what made the ground flip two lines instead of 133:
+  before it, 69 `F.ivory` and 64 `Colors.white` each chose for themselves.
+  **The app's ground is the mockups' white since that round**; ivory stays
+  in the palette because `onDarkMuted` and a few tints are derived from it.
 - **Never use «·» in a string the user reads.** The Arabic-Indic zero «٠»
   *is* a dot, so beside Arabic digits a middle dot and a zero are the same
   glyph: «الحاج عاشور · ٦٢ سنة» reads as «٦٢٠ سنة», and «كمان ١٠ ساعات ·
@@ -195,7 +219,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         655 passing
+test/                         699 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1113,13 +1137,13 @@ Consequences to handle:
    one. **The correct long-term shape is A1:** create the row only when
    «نتعرّف عليك» saves, and build the patient-bound services after that.
    It is a refactor of everything that reads `patientId`, not a tweak.
-5. **`F.muted` (`#6E7F76`) on ivory is ≈ 4:1 — it fails WCAG AA for
-   normal text at 17px** (AA needs 4.5:1). README's token table was
-   followed as-is for the demo (design fidelity «high»). For a
-   72-year-old with reading glasses this is the wrong side of the line.
-   The fix is one line: secondary *text* uses `F.mutedDark` (`#43544C`,
-   ≈ 7:1) and `F.muted` stays for icons and dividers. Do it before any
-   real patient uses the app, not after a complaint.
+5. **PAID (with the white-ground round).** `F.muted` (`#6E7F76`) was the
+   secondary text colour and measured 3.68:1 on ivory — under the 4.5:1 AA
+   needs at this size. All 65 text uses moved to `F.mutedDark` (`#43544C`):
+   8.04:1 on the page, 6.99:1 on a card. `F.muted` survives on three
+   controls only — a switch's inactive thumb and two chevron icons — where
+   AA's text rule does not apply. **It is still 3.68:1 on a card, so it must
+   never come back as text.**
 
 ---
 
@@ -1252,7 +1276,7 @@ device-verified)**
 - Mockup 3 restyled on `SignInScreen` (see deferred list for the honest
   Google/Apple rows); mockup 2's cards for the post-sign-in path choice.
 
-**D3.2 — the home (built)**
+**D3.2 — the home (built; matched to mockup 04 later)**
 - The home (mockup 04) sits **at the top of the «اليوم» tab** and replaces
   the pinned next-dose card; «جدول النهاردة» stays below it. Tabs unchanged.
   Why: a separate home tab would show the same next dose twice, with two
@@ -1274,6 +1298,59 @@ device-verified)**
   and is cancelled in `dispose` (mutation-checked: removing the cancel
   fails the test).
 - **No sugar or lab cards until D3.6** — they get added to «الآن» then.
+- **Mockup-04 pass (later round):** the big title is gone — neither
+  «ماذا أفعل الآن؟» (MSA) nor «تعمل إيه دلوقتي؟»; the greeting runs
+  straight into the sections. «الآن» takes a **gold** dot (the mockup's red
+  one would say "danger" about a man who simply forgot) and «خلال ٤٨ ساعة»
+  a quiet green one. Every card carries its type icon (`CardTypeIcon`), the
+  water card sits **below both sections** (a nudge, not a task), and
+  «القريب مني» floats bottom-start as a secondary pill. Under the greeting,
+  `CareCircleRow` says who is watching — an invitation when nobody is
+  linked; the transparency the father was owed, on his first screen.
+  Every line addresses the account owner: the mockup's «ملف والدك» is the
+  son's screen, and that is a separate round.
+- **The dock is «اليوم · الأدوية · الملف · الإعدادات»**, floating,
+  fully rounded and translucent glass (blur 30, the ground at 55%, a light
+  rim on top) — and **every** tab sits on its own 40px rounded-square tile
+  the way macOS dock icons do, the current one filled green with a white
+  icon. «العائلة» left the bar: linking now lives in Settings
+  («دائرة الرعاية») and in the home screen's «مين بيتابعك» row, so the door
+  is still there twice. The top bar is the app mark, the night-mode toggle,
+  and «طوارئ». Two things that must not be hardcoded again: the bar's
+  **height is computed** from the tile plus `MediaQuery.textScalerOf(…)`
+  applied to the label — the two fixed numbers (78/96) overflowed by 6px at
+  ×1.3 the moment the tile grew; and the quiet tile's fill is
+  `railGround`→`cardGround`, semantic surfaces, because a fixed light colour
+  becomes a white tile under a pale icon in night mode.
+- **«ضيف» is a circle — with its word under it.** Olive fill, gold ring,
+  gold «+», exactly as asked; the label sits beneath the circle because
+  «no icon-only buttons» was written for a 72-year-old and the owner chose
+  to keep it. «القريب مني» is a small gold pill with an olive ring,
+  floating **bottom-end** (the far side of the line — bottom-left in RTL)
+  on the home screen only.
+- **«طوارئ» is smaller in look, not in target**: padding, icon and text
+  shrank; the height stays 56 because the tap-target minimum is a rule and
+  this is the button pressed in a panic.
+- **The water card is blue** (`F.waterGround` / `F.waterInk` /
+  `F.waterDrop`), with a drop in its far corner that **flashes
+  continuously** — brightening, growing and glowing on a 1.1s controller
+  that repeats in reverse (still under «تقليل الحركة»). **Blue is reserved
+  for water** and appears nowhere else.
+- **A screen that always animates cannot be `pumpAndSettle`d, and that is
+  the API's fault, not the animation's.** `pumpAndSettle` returns when no
+  frame is scheduled; the flashing drop schedules one forever, so it hangs
+  until its timeout on *every* screen the water card is on. The drop was
+  first driven off the counter's own one-second tick to dodge this — which
+  meant it only moved after the day's first cup, i.e. not at all on the
+  screen anyone looks at. The fix is the right one: `settle()` in
+  `scan_test_support` and its twins in `today_screen_test` / `shell_test` /
+  `root_test` are now **bounded pumps** (60 × 25ms = 1.5s, more than any
+  transition we have), and no test on a patient screen calls
+  `pumpAndSettle` any more. Reach for a bounded pump first when a new
+  screen animates; do not remove the animation to please the test.
+- **The coral FAB stays green** (`#F58A8E` read off the PNG). It sits
+  between our gold and our red, and a colour that close to «دي لسه
+  عايزاك» must not be spent on «ضيف».
 
 **D3.3 — elder mode + notifications (built)**
 - Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —
@@ -1777,14 +1854,26 @@ device-verified)**
   neither → `EntryScreen`. Once either a patient or a care link exists,
   the entry screen never appears again. `watchHasPatient` + the auth state
   stream drive it; nothing is written to decide it.
-- **Entry screen** (mockup 02's cards, each card is the action, no
-  continue button): «التليفون ده ليا» → «نتعرّف عليك» → «ظبّط يومك» →
-  «يومك», unchanged. «بظبّط لحد تاني» → the same screens worded about
-  the patient: `Say(sex, aboutSomeoneElse: true)` — the first question is
-  neutral («اسم والدك أو والدتك إيه؟»), third person after the sex is
-  chosen («بيصحى / بتصحى», «يومها», «سنّها كام؟ (لو تعرف)»); the setter's
-  own «مش متأكد» stays generic. The choice is held in `AppRoot` memory
-  only; after setup the app addresses the patient directly. A «رجوع»
+- **Entry screen: two doors** (mockup 02's cards; select, then «يلا نبدأ»).
+  «التليفون ده ليا» → `SignInScreen` → «نتعرّف عليك» → «ظبّط يومك» →
+  «يومك». «ابني أو والدي بعتلي كود» → the same screen in caregiver mode.
+- **The third card is gone** («بظبّط لحد تاني»). All it ever did was flip
+  the setup wording to the third person («نتعرّف على والدك أو والدتك»,
+  «بيصحى», «يومها») — a choice nothing was stored from and nothing else
+  depended on. `forSomeoneElse` and `Say.aboutSomeoneElse` went with it,
+  so every patient now hears the second person. The cost is named: a son
+  setting the phone up for his father sees «اسمك إيه؟» and types his
+  father's name. It is in git if it should come back.
+- **Sign-in is shown on the patient path, and it is skippable.** The
+  screen is the real one — the working «حساب تجريبي», the locked
+  Google/Apple rows with their own reasons — and its exit says what it
+  does here: «كمّل من غير حساب» continues to the questions rather than
+  going back. **The local-first guarantee is unchanged**: he reaches
+  «يومك» with no account and no network, and `root_test`'s guard still
+  proves no session and no sign-in call at launch, because this screen
+  appears after a tap. `AppRoot._patientPath` keeps him on the patient
+  path if he does sign in mid-setup — otherwise a session with no patient
+  yet would read as "son" and send him to the caregiver screen. A «رجوع»
   returns to the entry screen until a patient exists.
 - **«ابني أو والدي بعتلي كود»** → `SignInScreen(onCaregiverLinked:)`, which
   explains that this is the only place an account is asked for and offers

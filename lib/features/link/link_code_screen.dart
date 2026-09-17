@@ -119,7 +119,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
           children: [
-            const Text(
+            Text(
               'دائرة الرعاية',
               style: TextStyle(
                 fontFamily: F.displayFamily,
@@ -129,7 +129,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               ),
             ),
             const SizedBox(height: F.s6),
-            const Text(
+            Text(
               'الكود ده بيربط موبايل ابنك بموبايلك: يشوف أدويتك ومواعيدك، '
               'ولو جرعة اتنست يوصله تنبيه. قوله في التليفون أو ابعته.',
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
@@ -140,7 +140,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                 tone: FCardTone.warm,
                 child: Text(
                   _error!,
-                  style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+                  style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
                 ),
               ),
               const SizedBox(height: F.gap),
@@ -155,13 +155,13 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                   const Kicker('كود الربط'),
                   const SizedBox(height: F.s8),
                   if (invite == null && _busy)
-                    const SizedBox(
+                    SizedBox(
                       height: 72,
                       child: Center(child: CircularProgressIndicator(color: F.green)),
                     )
                   else if (invite == null)
                     // فشل الطلب — مكان الكود فاضي بهدوء، والرسالة فوق بتقول ليه
-                    const Text(
+                    Text(
                       '— — —',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 56, fontWeight: FontWeight.w700, color: F.line, height: 1.2),
@@ -191,7 +191,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                         ? 'الكود صالح ١٥ دقيقة'
                         : 'صالح ١٥ دقيقة — لحد ${arabicTime(invite.expiresAt)}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                   ),
                   const SizedBox(height: F.gap),
                   Row(
@@ -217,12 +217,12 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                     const SizedBox(height: F.s10),
                     Row(
                       children: [
-                        const Icon(Icons.check, size: 22, color: F.greenOk),
+                        Icon(Icons.check, size: 22, color: F.greenOk),
                         const SizedBox(width: F.s6),
                         Expanded(
                           child: Text(
                             _notice!,
-                            style: const TextStyle(fontSize: F.minTextSize, color: F.greenOk, height: 1.5),
+                            style: TextStyle(fontSize: F.minTextSize, color: F.greenOk, height: 1.5),
                           ),
                         ),
                       ],
@@ -232,9 +232,9 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               ),
             ),
             const SizedBox(height: F.s12),
-            const Text(
+            Text(
               'ابنك بيفتح التطبيق عنده ويدوس «عندي كود» ويكتبه. الكود بيشتغل مرة واحدة.',
-              style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
             ),
             const SizedBox(height: F.gap),
             FPrimaryButton(label: _busy ? 'ثواني…' : 'كود جديد', onPressed: _busy ? null : _refresh),
@@ -243,7 +243,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               height: F.minTapTarget,
               child: TextButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text(
+                child: Text(
                   'رجوع',
                   style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.green),
                 ),
@@ -271,7 +271,7 @@ class _WordButton extends StatelessWidget {
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: F.ink,
-            side: const BorderSide(color: F.line, width: 1.5),
+            side: BorderSide(color: F.line, width: 1.5),
             padding: const EdgeInsets.symmetric(horizontal: F.s8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
           ),

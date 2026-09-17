@@ -52,9 +52,18 @@ class NowCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            overdue ? say.forgotIt : 'الجاية',
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+          // أيقونة النوع على اليمين زي التصميم — الكارت بيتعرف من بصّة
+          Row(
+            children: [
+              const CardTypeIcon(icon: Icons.medication_outlined),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: Text(
+                  overdue ? say.forgotIt : 'الجاية',
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: F.s4),
           for (final dose in doses)
@@ -63,7 +72,7 @@ class NowCard extends StatelessWidget {
               child: Text(
                 dose.medicationName,
                 textDirection: nameDirection(dose.medicationName),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.medicationNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
@@ -78,11 +87,11 @@ class NowCard extends StatelessWidget {
             overdue
                 ? 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}'
                 : '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
-            style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
           ),
           if (snoozed) ...[
             const SizedBox(height: F.s4),
-            const Text(
+            Text(
               'هنفكّرك تاني بعد ربع ساعة',
               style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.greenOk),
             ),
@@ -108,4 +117,20 @@ class NowCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// أيقونة نوع الكارت (المخطط ٤): جرعة، قياس سكر، تقرير تحليل، مرحلة فحص.
+/// مربّع هادي على يمين الكارت — بيقول نوعه من غير ما ياخد انتباه من الذهبي.
+class CardTypeIcon extends StatelessWidget {
+  const CardTypeIcon({required this.icon, super.key});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusTile)),
+        child: Icon(icon, size: 22, color: F.green),
+      );
 }

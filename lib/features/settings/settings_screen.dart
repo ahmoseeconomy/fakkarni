@@ -98,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s30 * 2),
           children: [
-            const Text(
+            Text(
               'الإعدادات',
               style: TextStyle(
                 fontFamily: F.displayFamily,
@@ -167,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(F.s4, 0, F.s4, F.s12),
               child: Text(
                 caregiverCanSee,
-                style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
               ),
             ),
             const _Row(
@@ -184,9 +184,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _busy ? null : () => _signOut(services),
               ),
               const SizedBox(height: F.s8),
-              const Text(
+              Text(
                 'الأدوية والتذكيرات بتفضل على الموبايل زي ما هي — الخروج بيفكّ الربط بس.',
-                style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
             ],
           ],
@@ -229,7 +229,7 @@ class _ElderModeRowState extends State<_ElderModeRow> {
           return Padding(
             padding: const EdgeInsets.only(bottom: F.s10),
             child: Material(
-              color: Colors.white,
+              color: F.cardGround,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(F.radiusCard),
                 side: BorderSide(color: on ? F.gold : F.line, width: on ? 2 : 1),
@@ -284,7 +284,7 @@ class _AccountCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,
@@ -297,7 +297,7 @@ class _AccountCard extends StatelessWidget {
                       : user!.isAnonymous
                           ? 'دخول تجريبي على الجهاز ده'
                           : (user!.email ?? ''),
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.4),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                 ),
               ],
             ),
@@ -334,7 +334,7 @@ class _Row extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: F.s10),
       child: Material(
-        color: disabled ? F.ivoryPale : Colors.white,
+        color: disabled ? F.railGround : F.cardGround,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(F.radiusCard),
           side: BorderSide(color: attention ? F.gold : F.line, width: attention ? 2 : 1),
@@ -351,7 +351,7 @@ class _Row extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: attention ? F.gold : F.ivoryWarm,
+                    color: attention ? F.gold : F.railGround,
                     borderRadius: BorderRadius.circular(F.radiusTile),
                   ),
                   child: Icon(icon, size: 24, color: disabled ? F.mutedLight : F.ink),
@@ -371,7 +371,7 @@ class _Row extends StatelessWidget {
                       ),
                       Text(
                         hint,
-                        style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.4),
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                       ),
                     ],
                   ),

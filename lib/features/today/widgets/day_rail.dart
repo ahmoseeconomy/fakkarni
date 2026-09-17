@@ -105,7 +105,7 @@ class DayRail extends StatelessWidget {
                       child: Container(
                         width: _node,
                         height: _node,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: F.green,
                           shape: BoxShape.circle,
                         ),
@@ -128,7 +128,7 @@ class DayRail extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             child: Text(
               '${mark.anchor.label} — ${arabicTime(mark.at)}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: F.minTextSize,
                 fontWeight: FontWeight.w700,
                 color: F.ink,
@@ -149,16 +149,16 @@ class DayRail extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: F.s8),
         child: Row(
           children: [
-            const Icon(Icons.check, size: 22, color: F.greenOk),
+            Icon(Icons.check, size: 22, color: F.greenOk),
             const SizedBox(width: F.s8),
             Expanded(
               child: Text(
                 group.map((d) => d.medicationName).join(' + '),
                 textDirection: nameDirection(group.first.medicationName),
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.minTextSize,
-                  color: F.muted,
+                  color: F.mutedDark,
                   fontFamily: F.monoFamily,
                   fontFamilyFallback: F.monoFallback,
                 ),
@@ -169,7 +169,7 @@ class DayRail extends StatelessWidget {
               group.first.state == DoseState.skipped
                   ? 'اتأجّل'
                   : say.takenAt(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
-              style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
         ),
@@ -183,7 +183,7 @@ class DayRail extends StatelessWidget {
         at.isBefore(now) || group.any((d) => d.state == DoseState.missed);
 
     return Material(
-      color: Colors.white,
+      color: F.cardGround,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(F.radiusCard),
         side: const BorderSide(color: F.gold, width: 2),
@@ -205,7 +205,7 @@ class DayRail extends StatelessWidget {
                         dose.medicationName,
                         textDirection: nameDirection(dose.medicationName),
                         textAlign: TextAlign.start,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: F.minBodySize,
                           fontWeight: FontWeight.w600,
                           color: F.ink,
@@ -220,11 +220,11 @@ class DayRail extends StatelessWidget {
                         arabicTime(at),
                         ruleLabelFor(group.first.doseScheduleId),
                       ].nonNulls.join(' — '),
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                     ),
                     if (unconfirmed) ...[
                       const SizedBox(height: F.s4),
-                      const Text(
+                      Text(
                         'لسه ما اتأكدتش',
                         style: TextStyle(
                           fontSize: F.minTextSize,

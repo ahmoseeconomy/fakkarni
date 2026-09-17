@@ -119,7 +119,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
           builder: (context, snapshot) {
             final med = snapshot.data;
             if (med == null) {
-              return const Center(child: CircularProgressIndicator(color: F.green));
+              return Center(child: CircularProgressIndicator(color: F.green));
             }
             if (!_seeded) {
               _seeded = true;
@@ -134,7 +134,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                     children: [
                       Text(
                         med.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: F.questionSize,
                           fontWeight: FontWeight.w700,
                           color: F.ink,
@@ -144,9 +144,9 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         ),
                       ),
                       const SizedBox(height: F.gap),
-                      const Text(
+                      Text(
                         'إمتى؟',
-                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
                       ),
                       const SizedBox(height: F.s8),
                       for (final schedule in _schedules)
@@ -156,9 +156,9 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           onEdit: _busy ? null : () => _editTiming(schedule, med.name),
                         ),
                       const SizedBox(height: F.gap),
-                      const Text(
+                      Text(
                         'الجرعة',
-                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
                       ),
                       const SizedBox(height: 8),
                       if (med.amountUnknown) ...[
@@ -171,13 +171,13 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         style: const TextStyle(fontSize: F.minBodySize),
                         decoration: InputDecoration(
                           hintText: 'زي: قرص واحد',
-                          hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                          hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: F.fieldGround,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(F.radius),
-                            borderSide: const BorderSide(color: F.line),
+                            borderSide: BorderSide(color: F.line),
                           ),
                         ),
                       ),
@@ -194,7 +194,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                             onPressed: _busy ? null : () => setState(() => _confirmingStop = true),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: F.ink,
-                              side: const BorderSide(color: F.ink, width: 1.5),
+                              side: BorderSide(color: F.ink, width: 1.5),
                             ),
                             child: const Text(
                               'وقّف الدوا ده',
@@ -207,7 +207,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         'ملحوظة: خلّصت العلبة أو الدكتور غيّر الدوا؟ وقّفه من هنا. '
                         'التطبيق عمره ما بيوقف دوا لوحده'
                         '${_durationNote(med)}',
-                        style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                       ),
                     ],
                   ),
@@ -256,7 +256,7 @@ class _StopConfirm extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.ink, width: 1.5),
         ),
@@ -265,7 +265,7 @@ class _StopConfirm extends StatelessWidget {
           children: [
             Text(
               'توقّف $name؟ التذكيرات هتقف لحد ما تضيفه تاني.',
-              style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
             ),
             const SizedBox(height: 12),
             Row(
@@ -277,7 +277,7 @@ class _StopConfirm extends StatelessWidget {
                       onPressed: busy ? null : onStop,
                       style: FilledButton.styleFrom(
                         backgroundColor: F.ink,
-                        foregroundColor: F.ivory,
+                        foregroundColor: F.onDark,
                         minimumSize: const Size.fromHeight(F.minTapTarget),
                       ),
                       child: const Text('أيوه، وقّفه'),
@@ -318,7 +318,7 @@ class _TimingRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: F.cardGround,
             borderRadius: BorderRadius.circular(F.radiusCard),
             border: Border.all(color: F.line),
           ),
@@ -327,7 +327,7 @@ class _TimingRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${schedule.ruleLabel} — $time',
-                  style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
                 ),
               ),
               SizedBox(
@@ -338,7 +338,7 @@ class _TimingRow extends StatelessWidget {
                     foregroundColor: F.ink,
                     minimumSize: const Size(0, F.minTapTarget),
                     padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                    side: const BorderSide(color: F.line, width: 1.5),
+                    side: BorderSide(color: F.line, width: 1.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
                   ),
                   icon: const Icon(Icons.edit_outlined, size: 22),

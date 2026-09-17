@@ -137,10 +137,10 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
       backgroundColor: F.inkDeep,
       appBar: AppBar(
         backgroundColor: F.inkDeep,
-        foregroundColor: F.ivory,
+        foregroundColor: F.onDark,
         title: const Text(
           'تقرير تحليل',
-          style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ivory),
+          style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.onDark),
         ),
       ),
       body: SafeArea(
@@ -166,7 +166,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
               const Text(
                 'بيقرا الأرقام بس — ومفيش حاجة بتتحفظ من غير ما تدوس «تمام» بنفسك.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: F.minTextSize, color: F.ivoryWarm, height: 1.6),
+                style: TextStyle(fontSize: F.minTextSize, color: F.onDarkMuted, height: 1.6),
               ),
               if (_phase == _Phase.failed && _error != null) ...[
                 const SizedBox(height: F.gap),
@@ -187,7 +187,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                   onPressed: _busy ? null : () => _capture(ImageSource.camera),
                   style: FilledButton.styleFrom(
                     backgroundColor: F.green,
-                    foregroundColor: Colors.white,
+                    foregroundColor: F.onDark,
                     disabledBackgroundColor: F.greenDark,
                     disabledForegroundColor: F.mutedLight,
                     textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),

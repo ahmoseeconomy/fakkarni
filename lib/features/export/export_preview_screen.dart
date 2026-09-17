@@ -87,7 +87,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
-          const Text(
+          Text(
             'ده بالظبط اللي هيوصل للي هتشاركه معاه.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
@@ -95,37 +95,37 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           Text(
             'فيه: ${[for (final b in doc.blocks) b.section.label].join('، ')}',
             key: const ValueKey('preview-sections'),
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
           ),
           const SizedBox(height: F.s12),
           for (final (i, page) in _pages.indexed) ...[
             DecoratedBox(
               // الصفحة شفافة — ورقة بيضا وراها زي ما هتتفتح عند اللي هيستلمها
-              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: F.line), boxShadow: F.shadowCard),
+              decoration: BoxDecoration(color: F.pageGround, border: Border.all(color: F.line), boxShadow: F.shadowCard),
               child: Image.memory(page, key: ValueKey('preview-page-$i'), gaplessPlayback: true),
             ),
             const SizedBox(height: F.s12),
           ],
           if (_rendering)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(F.gap),
               child: Text('بيجهّز الصفحات…', textAlign: TextAlign.center, style: TextStyle(fontSize: F.minBodySize, color: F.mutedDark)),
             ),
           if (_problem != null)
             Padding(
               padding: const EdgeInsets.only(bottom: F.s8),
-              child: Text(_problem!, style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+              child: Text(_problem!, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
             ),
           if (_savedPath != null)
             Container(
               key: const ValueKey('saved-path'),
               padding: const EdgeInsets.all(F.s12),
               margin: const EdgeInsets.only(bottom: F.s8),
-              decoration: BoxDecoration(color: F.ivoryWarm, borderRadius: BorderRadius.circular(F.radiusCard)),
+              decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'اتحفظ على الموبايل: تطبيق «الملفات» ← على الآيفون ← فكرني ← exports',
                     style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                   ),
@@ -133,7 +133,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                     widget.filename,
                     textDirection: TextDirection.ltr,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, fontFamily: F.monoFamily, fontFamilyFallback: F.monoFallback),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, fontFamily: F.monoFamily, fontFamilyFallback: F.monoFallback),
                   ),
                 ],
               ),

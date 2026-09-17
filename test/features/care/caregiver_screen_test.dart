@@ -327,7 +327,7 @@ void main() {
       expect(tester.getTopLeft(open).dy, lessThan(tester.getTopLeft(done).dy),
           reason: 'بصّة واحدة تقول إيه اللي لسه محتاجه');
       expect(tester.widget<Text>(open).style?.color, F.gold);
-      expect(tester.widget<Text>(done).style?.color, F.muted);
+      expect(tester.widget<Text>(done).style?.color, F.mutedDark);
       expectNoRedAndMinSize(tester);
     });
 
@@ -393,7 +393,7 @@ void main() {
       final footer = tester.widget<Text>(
         find.textContaining('آخر تحديث من موبايل والدك'),
       );
-      expect(footer.style?.color, F.muted);
+      expect(footer.style?.color, F.mutedDark);
       expect(find.textContaining('عدّى يوم'), findsNothing);
       expectNoRedAndMinSize(tester);
     });
@@ -427,7 +427,7 @@ void main() {
       final footer = tester.widget<Text>(
         find.textContaining('آخر تحديث من موبايل والدك'),
       );
-      expect(footer.style?.color, F.muted);
+      expect(footer.style?.color, F.mutedDark);
     });
   });
 

@@ -38,9 +38,12 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   ValueNotifier<String?>? _tapPayload;
   bool _routineReady = false;
 
-  /// اختيار شاشة البداية لمسار المريض — في الذاكرة بس، مش متخزّن. null =
-  /// لسه ما اختارش. true = «بظبّط لحد تاني».
-  bool? _forSomeoneElse;
+  /// «التليفون ده ليا» اتضغط — في الذاكرة بس، مش متخزّن ومش دور.
+  ///
+  /// بيفضّل مسار المريض على مسار الابن: لو دخل بحساب من شاشة الدخول وقفل
+  /// التطبيق قبل ما يخلّص «نتعرّف عليك»، عنده جلسة ومفيش مريض — ومن غير
+  /// السطر ده الجذر كان هيقراه «ابن» ويوديه للمتابعة.
+  bool _patientPath = false;
 
   /// السحابة قالت «الجلسة دي مالهاش مريض مربوط» — نرجع لشاشة البداية بدل ما
   /// نفضل على متابعة فاضية. بيتصفّر بعد ربط ناجح.
@@ -111,6 +114,25 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     );
   }
 
+  /// «التليفون ده ليا»: شاشة الدخول الحقيقية الأول — **بتتخطى**. الحساب
+  /// للربط بس؛ «كمّل من غير حساب» بتكمّل للأسئلة، والمريض بيوصل «يومك»
+  /// من غير جلسة ولا نت زي ما هو. الشاشة بتتعرض بعد دوسة، مش عند الفتح —
+  /// حارس `root_test` لسه واقف.
+  Future<void> _startPatient() async {
+    final services = AppScope.of(context);
+    setState(() => _patientPath = true);
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => SignInScreen(
+          auth: services.auth,
+          caregiver: services.caregiver,
+          push: services.push,
+          skipLabel: 'كمّل من غير حساب',
+        ),
+      ),
+    );
+  }
+
   /// «ابني أو والدي بعتلي كود»: الدخول (النداء الوحيد، من زرار الشاشة دي)
   /// ← الكود ← لو اتربط، المتابعة. فشل أو رجوع = شاشة البداية تاني.
   Future<void> _haveCode() async {
@@ -135,16 +157,15 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       stream: _hasPatient,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
             body: Center(child: CircularProgressIndicator(color: F.green)),
           );
         }
         if (snapshot.data == true) return _patientApp(context);
 
-        if (_forSomeoneElse != null) {
+        if (_patientPath) {
           return RoutineOnboardingScreen(
-            forSomeoneElse: _forSomeoneElse!,
-            onBack: () => setState(() => _forSomeoneElse = null),
+            onBack: () => setState(() => _patientPath = false),
           );
         }
         final services = AppScope.of(context);
@@ -153,11 +174,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             if (mounted) setState(() => _notLinked = true);
           });
         }
-        return EntryScreen(
-          onSelf: () => setState(() => _forSomeoneElse = false),
-          onForSomeoneElse: () => setState(() => _forSomeoneElse = true),
-          onHaveCode: _haveCode,
-        );
+        return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode);
       },
     );
   }
@@ -167,13 +184,12 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       stream: _routine,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
             body: Center(child: CircularProgressIndicator(color: F.green)),
           );
         }
         if (snapshot.data == null) {
-          // الصوت بيفضل زي ما اختار في شاشة البداية لحد ما الأسئلة تخلص
-          return RoutineOnboardingScreen(forSomeoneElse: _forSomeoneElse ?? false);
+          return const RoutineOnboardingScreen();
         }
         if (!_routineReady) {
           _routineReady = true;

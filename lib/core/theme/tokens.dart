@@ -6,9 +6,31 @@ import 'package:flutter/material.dart';
 /// للتذكير والحالة النشطة فقط؛ الأحمر للطوارئ فقط — شاشتين الطوارئ
 /// (`features/emergency/`) وبس.
 abstract final class F {
+  // ------------------------------------------------------------- الوضع
+  /// الوضع الليلي — مفتاح واحد في الشريط العلوي، ومتخزّن محلياً
+  /// (`shared_preferences`، زي عدّاد المية — مش في السكيما).
+  ///
+  /// الأسطح والنصوص تحت **getters** مش ثوابت عشان الشاشات ما تتغيّرش:
+  /// نفس الاسم بيدي لون الوضع الحالي، والجذر بيعيد البناء مع [darkMode].
+  static final ValueNotifier<bool> darkMode = ValueNotifier<bool>(false);
+
+  static bool get isDark => darkMode.value;
+
+  static void setDark({required bool on}) => darkMode.value = on;
+
+  static Color _mode(Color light, Color dark) => isDark ? dark : light;
+
   // ------------------------------------------------------------- الألوان
-  static const ink = Color(0xFF122E28);
-  static const green = Color(0xFF10715E);
+  static const inkLight = Color(0xFF122E28);
+  static const inkDark = Color(0xFFECF1EF);
+
+  /// نص المتن — بيقلب مع الوضع.
+  static Color get ink => _mode(inkLight, inkDark);
+  static const greenLight = Color(0xFF10715E);
+  static const greenOnDark = Color(0xFF4FBFA5);
+
+  /// الأخضر اللي بيتكتب بيه ويترسم — بيفتح في الليل عشان يفضل مقروء.
+  static Color get green => _mode(greenLight, greenOnDark);
   static const greenDeep = Color(0xFF0A4638);
   static const inkDeep = Color(0xFF071A16);
   static const greenDark = Color(0xFF0F3A31);
@@ -20,22 +42,65 @@ abstract final class F {
   /// نص ذهبي على أرضية غامقة.
   static const goldText = Color(0xFFF0D3A0);
 
-  /// أرضية الصفحة، والنص على الغامق.
+  /// اللوحة الخام — **ما تتكتبش في شاشة**. الشاشات بتاخد الأسطح الدلالية
+  /// تحت (`pageGround` / `cardGround` / …)، عشان تغيير أرضية التطبيق كله
+  /// يبقى سطرين هنا مش ١٣٠ موضع.
+  /// `no_raw_surface_test` بيقع لو `Colors.white` أو `F.ivory*` ظهرت
+  /// برّه الملف ده.
+  static const white = Color(0xFFFFFFFF);
   static const ivory = Color(0xFFF1EFE6);
   static const ivoryWarm = Color(0xFFEAE7DB);
   static const ivoryPale = Color(0xFFF7F5EC);
   static const ivoryDim = Color(0xFFEFEDE3);
 
+  /// رمادي الكروت من المخططات (٠٤-home) — الكارت بيبان على الأبيض من غير حد.
+  static const cardGrey = Color(0xFFEFEFEF);
+
+  /// السطح الأهدى (٠٢ و٠٣) — لوح جوّه كارت، أو صف معطّل.
+  static const quietGrey = Color(0xFFF6F6F6);
+
+  // ------------------------------------------------------- الأسطح الدلالية
+  /// أرضية الشاشة — أبيض المخططات في النهار، أخضر شبه أسود في الليل.
+  /// **تغيير أرضية التطبيق كله من السطر ده.**
+  static Color get pageGround => _mode(white, const Color(0xFF0E1513));
+
+  /// الكارت اللي فوق أرضية الشاشة — رمادي المخططات، بيبان من غير حد.
+  static Color get cardGround => _mode(cardGrey, const Color(0xFF182220));
+
+  /// لوح هادي: جوّه كارت، شريحة، صف معطّل، خلفية شريط.
+  static Color get railGround => _mode(quietGrey, const Color(0xFF1F2A27));
+
+  /// حقل إدخال — أوضح سطح في وضعه، وله حد.
+  static Color get fieldGround => _mode(white, const Color(0xFF131B19));
+
+  /// أرضية الديالوج — أوضح سطح فوق أي شاشة.
+  static Color get dialogGround => _mode(white, const Color(0xFF1B2421));
+
+  /// المية (D3.2): أزرق **محجوز للمية وبس** — مش لون عام في الهوية.
+  static Color get waterGround => _mode(const Color(0xFFE3F1F8), const Color(0xFF12303E));
+  static Color get waterInk => _mode(const Color(0xFF17627F), const Color(0xFFBFE3F5));
+  static const waterDrop = Color(0xFF3FA3D6);
+
+  /// نص وأيقونات على أرضية غامقة (أخضر، أو صورة الكاميرا).
+  static const onDark = white;
+
+  /// نفس ده، بس ثانوي — لسه فوق ٤.٥:١ على الأخضر الغامق.
+  static const onDarkMuted = ivoryWarm;
+
   /// أرضية الاختيار المتحدّد (المخطط ٢): أخضر فاتح جداً على الأبيض.
-  static const greenTint = Color(0xFFEAF3F0);
+  static Color get greenTint => _mode(const Color(0xFFEAF3F0), const Color(0xFF1E3A33));
 
-  static const line = Color(0xFFDFDACB);
-  static const lineSoft = Color(0xFFE9E5D8);
+  static Color get line => _mode(const Color(0xFFDFDACB), const Color(0xFF2C3A36));
+  static Color get lineSoft => _mode(const Color(0xFFE9E5D8), const Color(0xFF243029));
 
-  static const muted = Color(0xFF6E7F76);
-  static const mutedDark = Color(0xFF43544C);
-  static const mutedLight = Color(0xFF8B9C93);
-  static const placeholder = Color(0xFFA5AFA5);
+  /// أيقونات وفواصل — **مش نص** (٣.٦٨:١ على الكارت الفاتح).
+  static Color get muted => _mode(const Color(0xFF6E7F76), const Color(0xFF90A09A));
+
+  /// النص الثانوي — ٨:١ على الفاتح، ٩:١ على الغامق.
+  static Color get mutedDark => _mode(const Color(0xFF43544C), const Color(0xFFB7C4BF));
+
+  static Color get mutedLight => _mode(const Color(0xFF8B9C93), const Color(0xFF6E7F76));
+  static Color get placeholder => _mode(const Color(0xFFA5AFA5), const Color(0xFF7E8C86));
 
   /// درجات السلّم ٣ و٤ — للتنبيه المتصاعد (D2)، مش لأي حاجة تانية.
   static const amber = Color(0xFFD3A21C);
@@ -54,8 +119,8 @@ abstract final class F {
   static const onRedMuted = Color(0xE6FFFFFF);
 
   /// اتأكدت / اتاخدت.
-  static const greenOk = Color(0xFF175E39);
-  static const greenOkSoft = Color(0xFFEAF5EE);
+  static Color get greenOk => _mode(const Color(0xFF175E39), const Color(0xFF6BD39A));
+  static Color get greenOkSoft => _mode(const Color(0xFFEAF5EE), const Color(0xFF17322A));
 
   /// الحجاب ورا الشيت السفلي.
   static const scrim = Color(0x8C0B2A33); // rgba(11,42,51,.55)
@@ -159,18 +224,22 @@ abstract final class F {
   static const monoFamily = 'IBM Plex Mono';
   static const monoFallback = <String>[bodyFamily, 'Noto Sans Arabic', 'Arial'];
 
+  /// الثيم بيتبني من قيم **الوضع الحالي** — نفس الاسم في النهار والليل،
+  /// والجذر بيعيد البناء لما [darkMode] تتغيّر.
   static ThemeData get light => ThemeData(
         useMaterial3: true,
+        brightness: isDark ? Brightness.dark : Brightness.light,
         fontFamily: bodyFamily,
-        scaffoldBackgroundColor: ivory,
+        scaffoldBackgroundColor: pageGround,
         colorScheme: ColorScheme.fromSeed(
           seedColor: green,
+          brightness: isDark ? Brightness.dark : Brightness.light,
           primary: green,
           secondary: gold,
-          surface: Colors.white,
+          surface: cardGround,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: ivory,
+        appBarTheme: AppBarTheme(
+          backgroundColor: pageGround,
           foregroundColor: ink,
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -200,7 +269,7 @@ abstract final class F {
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(minTapTarget),
             textStyle: const TextStyle(fontSize: minTextSize),
-            side: const BorderSide(color: line),
+            side: BorderSide(color: line),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard)),
           ),
         ),

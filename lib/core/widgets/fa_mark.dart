@@ -18,7 +18,7 @@ import '../theme/tokens.dart';
 class FaMark extends StatefulWidget {
   const FaMark({
     required this.size,
-    this.letterColor = F.ivory,
+    this.letterColor = F.onDark,
     this.dotColor = F.gold,
     this.breathing = false,
     super.key,

@@ -16,7 +16,7 @@ class MedicationList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text(
                 'أدويتك',
@@ -27,10 +27,10 @@ class MedicationList extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
-                  color: Colors.white,
+                  color: F.cardGround,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(F.radius),
-                    side: const BorderSide(color: F.line),
+                    side: BorderSide(color: F.line),
                   ),
                   child: InkWell(
                     onTap: () => onTap(item),
@@ -46,7 +46,7 @@ class MedicationList extends StatelessWidget {
                               children: [
                                 Text(
                                   item.medication.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: F.minBodySize,
                                     fontWeight: FontWeight.w700,
                                     color: F.ink,
@@ -59,13 +59,13 @@ class MedicationList extends StatelessWidget {
                                     item.medication.amountLabel ?? 'الجرعة مش معروفة',
                                     item.schedules.map((s) => s.ruleLabel).join(' + '),
                                   ].join(' — '),
-                                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'عدّل',
                             style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green),
                           ),

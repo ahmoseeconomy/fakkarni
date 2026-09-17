@@ -89,10 +89,10 @@ void main() {
   tearDown(() => db.close());
 
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 25; i++) {
-      await tester.pump(const Duration(milliseconds: 20));
+    // ضخّ محدود: نقطة المية بتلمع على طول، فـpumpAndSettle عمرها ما هتهدا
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 25));
     }
-    await tester.pumpAndSettle();
   }
 
   Future<void> pumpRoot(WidgetTester tester) async {
@@ -141,6 +141,11 @@ void main() {
     expect(fakeAuth.signInCalls, 0, reason: 'signInToLink من الزرار وبس');
     expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
     // وكل حاجة أساسية موجودة وشغّالة — «ضيف» في الهيكل بيفتح الروشتة والإدخال
+    await tester.dragUntilVisible(
+      find.text('جدول النهاردة'),
+      find.byType(Scrollable).first,
+      const Offset(0, -120),
+    );
     expect(find.text('جدول النهاردة'), findsOneWidget);
     expect(find.text('ضيف'), findsOneWidget);
   });
@@ -153,10 +158,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await pumpRoot(tester);
 
-    // «اربط ابني» بقى في تبويب «العائلة» — والباب لسه بالدوسة وبس
-    await tester.tap(find.text('العائلة'));
-    await settle(tester);
-    await tester.tap(find.text('اربط ابني'));
+    // «العائلة» سابت الدوك — الربط بقى من صف «مين بيتابعك» في الرئيسية،
+    // والباب لسه بالدوسة وبس
+    await tester.tap(find.byKey(const ValueKey('care-circle-row')));
     await settle(tester);
     expect(find.byType(SignInScreen), findsOneWidget);
 
@@ -167,6 +171,11 @@ void main() {
     await tester.tap(find.text('اليوم'));
     await settle(tester);
     expect(find.byType(TodayScreen), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('جدول النهاردة'),
+      find.byType(Scrollable).first,
+      const Offset(0, -120),
+    );
     expect(find.text('جدول النهاردة'), findsOneWidget);
     expect(find.text('ضيف'), findsOneWidget);
   });
@@ -231,7 +240,8 @@ void main() {
       expect(auth.currentUser, isNull);
     });
 
-    screenTest('«التليفون ده ليا» → «نتعرّف عليك» بالمخاطب، زي ما كانت', (tester) async {
+    screenTest('«التليفون ده ليا» → شاشة الدخول (محطة تتخطى) → «نتعرّف عليك»', (tester) async {
+      useCloud();
       await tallView(tester);
       await pumpRoot(tester);
       // المخطط ٢: بيختار، وبعدين «يلا نبدأ»
@@ -239,44 +249,53 @@ void main() {
           reason: 'من غير اختيار مفيش بداية');
       await tester.tap(find.byKey(const ValueKey('entry-self')));
       await settle(tester);
-      expect(find.byType(RoutineOnboardingScreen), findsNothing, reason: 'الاختيار لوحده ما بيمشيش');
+      expect(find.byType(SignInScreen), findsNothing, reason: 'الاختيار لوحده ما بيمشيش');
       await tester.tap(find.byKey(const ValueKey('entry-start')));
+      await settle(tester);
+
+      // الحساب للربط بس — الشاشة محطة في الطريق، والكلمة بتقول كده
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(find.text('كمّل من غير حساب'), findsOneWidget);
+      expect(auth.signInCalls, 0, reason: 'مجرد عرض الشاشة مش دخول');
+
+      await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
 
       expect(find.byType(RoutineOnboardingScreen), findsOneWidget);
       expect(find.text('نتعرّف عليك'), findsOneWidget);
       expect(find.text('اسمك إيه؟'), findsOneWidget);
+      expect(auth.currentUser, isNull, reason: 'وصل الأسئلة من غير جلسة');
     });
 
-    screenTest('«بظبّط لحد تاني» → الأسئلة عن المريض: أول سؤال محايد، والباقي بالغايب', (tester) async {
+    screenTest('مسار المريض بيفضل مسار مريض حتى لو سجّل دخول في النص', (tester) async {
+      useCloud();
       await tallView(tester);
       await pumpRoot(tester);
-      await tester.tap(find.byKey(const ValueKey('entry-other')));
-      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('entry-self')));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
 
-      expect(find.text('اسم والدك أو والدتك إيه؟'), findsOneWidget);
-      expect(find.text('اسمك إيه؟'), findsNothing);
-
-      await tester.enterText(find.byType(TextField), 'الحاجة فاطمة');
-      await tester.tap(find.text('ست'));
+      // دخل بحساب (عشان يعرض كود الربط لابنه) وبعدين كمّل
+      await tester.tap(find.text('كمّل بحساب تجريبي'));
       await settle(tester);
-      expect(find.text('سنّها كام؟ (لو تعرف)'), findsOneWidget);
-      await tester.tap(find.text('كمّل'));
+      expect(auth.currentUser, isNotNull);
+      await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
 
-      expect(find.text('بتصحى الساعة كام؟'), findsOneWidget, reason: 'هي بتصحى — مش «بتصحي» (إنتي)');
-      expect(find.text('يومها بيبدأ من هنا — كل المواعيد بتترتب عليه.'), findsOneWidget);
-      expect(find.text('خلينا نعرف يومها'), findsOneWidget);
+      expect(find.byType(RoutineOnboardingScreen), findsOneWidget,
+          reason: 'جلسة من غير مريض مش معناها إنه ابن — هو في نص الإعداد');
+      expect(find.byType(CaregiverShell), findsNothing);
     });
 
     screenTest('«رجوع» من «نتعرّف عليك» بترجّع لشاشة البداية — اختيار غلط ما يحبسش حد', (tester) async {
       await tallView(tester);
       await pumpRoot(tester);
       await tester.tap(find.byKey(const ValueKey('entry-self')));
-      await tester.pump();
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('entry-start')));
+      await settle(tester);
+      await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
       await tester.tap(find.text('رجوع'));
       await settle(tester);

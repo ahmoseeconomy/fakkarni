@@ -56,7 +56,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.s30 * 2),
             children: [
-              const Text(
+              Text(
                 'إيه اللي بيرن على الموبايل ده، وإمتى ابنك بيتبلّغ.',
                 style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
               ),
@@ -64,10 +64,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               Container(
                 padding: const EdgeInsets.all(F.s12),
                 decoration: BoxDecoration(
-                  color: F.ivoryWarm,
+                  color: F.railGround,
                   borderRadius: BorderRadius.circular(F.radiusCard),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.phone_iphone, size: 24, color: F.mutedDark),
                     SizedBox(width: F.s8),
@@ -97,7 +97,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: Column(
                   children: [
                     const _LockedRow(label: 'في الموعد', hint: 'التذكير نفسه'),
-                    const Divider(color: F.lineSoft, height: F.s16),
+                    Divider(color: F.lineSoft, height: F.s16),
                     FSwitch(
                       key: const ValueKey('rung-first'),
                       label: minutes(EscalationRung.first.delay),
@@ -105,7 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       value: settings.rungFirstOn,
                       onChanged: (on) => _set(EscalationRung.first, on),
                     ),
-                    const Divider(color: F.lineSoft, height: F.s16),
+                    Divider(color: F.lineSoft, height: F.s16),
                     FSwitch(
                       key: const ValueKey('rung-second'),
                       label: minutes(EscalationRung.second.delay),
@@ -113,7 +113,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       value: settings.rungSecondOn,
                       onChanged: (on) => _set(EscalationRung.second, on),
                     ),
-                    const Divider(color: F.lineSoft, height: F.s16),
+                    Divider(color: F.lineSoft, height: F.s16),
                     _LockedRow(
                       label: '${minutes(serverGraceWindow)} — إشعار لابنك',
                       hint: 'من السيرفر، لو الموبايل مربوط بابنك',
@@ -124,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               const SizedBox(height: F.s10),
               Text(
                 '${say.pick('لو قفلت', 'لو قفلتي')} +١٥ و+٣٠، التذكير في الموعد وإشعار ابنك بيفضلوا زي ما هم.',
-                style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
             ],
           );
@@ -153,16 +153,16 @@ class _LockedRow extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                   ),
-                  Text(hint, style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5)),
+                  Text(hint, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
                 ],
               ),
             ),
             const SizedBox(width: F.s8),
-            const Icon(Icons.lock_outline, size: 22, color: F.mutedDark),
+            Icon(Icons.lock_outline, size: 22, color: F.mutedDark),
             const SizedBox(width: F.s4),
-            const Text(
+            Text(
               'دائمًا',
               style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
             ),

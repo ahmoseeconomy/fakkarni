@@ -74,7 +74,7 @@ class _ExportScreenState extends State<ExportScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
-          const Text(
+          Text(
             'اختار الفترة، واخفي اللي مش عايز تشاركه. المخفي مش بيتكتب في الملف أصلاً.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
@@ -107,8 +107,8 @@ class _ExportScreenState extends State<ExportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(s.label, style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
-                            Text(_hints[s]!, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+                            Text(s.label, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                            Text(_hints[s]!, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
                           ],
                         ),
                       ),
@@ -121,7 +121,7 @@ class _ExportScreenState extends State<ExportScreen> {
                       ),
                     ],
                   ),
-                  if (s != ExportSection.values.last) const Divider(color: F.lineSoft, height: F.s18),
+                  if (s != ExportSection.values.last) Divider(color: F.lineSoft, height: F.s18),
                 ],
               ],
             ),
@@ -133,7 +133,7 @@ class _ExportScreenState extends State<ExportScreen> {
             onPressed: _busy || _visible.isEmpty ? null : _preview,
           ),
           if (_visible.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: F.s6),
               child: Text('كل الأقسام مخفية — مفيش حاجة تتكتب.', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
             ),

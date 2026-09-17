@@ -14,7 +14,9 @@ import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../link/sign_in_screen.dart';
 import '../medication/edit_medication_screen.dart';
+import '../nearby/nearby_screen.dart';
 import '../health/glucose_screen.dart';
 import '../reminder/reminder_screen.dart';
 import 'dose_actions.dart';
@@ -158,6 +160,24 @@ class _TodayScreenState extends State<TodayScreen> {
     ];
   }
 
+  /// صف الدايرة بيفتح باب الربط الموجود — نفس الشاشة، نفس النداء الوحيد.
+  void _openCircle() {
+    final services = AppScope.of(context);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SignInScreen(
+          auth: services.auth,
+          caregiver: services.caregiver,
+          push: services.push,
+        ),
+      ),
+    );
+  }
+
+  void _openNearby() => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const NearbyScreen()),
+      );
+
   void _openGlucose() => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()),
       );
@@ -180,6 +200,13 @@ class _TodayScreenState extends State<TodayScreen> {
     // Scaffold جوّه تبويب الهيكل: الأرضية، وMaterial للـInkWell لما الشاشة
     // تتبني لوحدها في الاختبار.
     return Scaffold(
+      // «القريب مني» عايم في آخر السطر (ناحية الشمال في RTL) — ثانوي، مش
+      // أساسي: الأساسي الوحيد على الشاشة دي «تأكيد الجرعة».
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: F.s30 * 2),
+        child: _NearbyPill(onTap: _openNearby),
+      ),
       body: StreamBuilder<List<DoseEventView>>(
         stream: _events,
         builder: (context, snapshot) {
@@ -194,11 +221,15 @@ class _TodayScreenState extends State<TodayScreen> {
             children: [
               StreamBuilder<PatientRow?>(
                 stream: _patient,
-                builder: (context, snap) => _HomeHeader(patient: snap.data, now: _now),
+                builder: (context, snap) => _HomeHeader(
+                  patient: snap.data,
+                  now: _now,
+                  onOpenCircle: _openCircle,
+                ),
               ),
               const SizedBox(height: F.gap),
               if (nowCards.isNotEmpty || glucoseNow) ...[
-                const _SectionTitle('الآن'),
+                const _SectionTitle('الآن', attention: true),
                 const SizedBox(height: F.s8),
                 for (final (i, group) in nowCards.indexed) ...[
                   NowCard(
@@ -240,7 +271,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ],
               const WaterWidget(),
               const SizedBox(height: F.gap),
-              const Text(
+              Text(
                 'جدول النهاردة',
                 style: TextStyle(
                   fontFamily: F.displayFamily,
@@ -250,9 +281,9 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
               ),
               const SizedBox(height: F.s4),
-              const Text(
+              Text(
                 'المراسي ثابتة، والجرعات معلّقة عليها.',
-                style: TextStyle(fontSize: F.minTextSize, color: F.muted),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               ),
               const SizedBox(height: F.s12),
               if (events.isEmpty)
@@ -303,7 +334,7 @@ class _FollowUpPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: F.ivory,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radius),
         ),
         child: Column(
@@ -323,10 +354,10 @@ class _FollowUpPanel extends StatelessWidget {
                       Expanded(
                         child: Text(
                           item.label,
-                          style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                         ),
                       ),
-                      const Text(
+                      Text(
                         'اكتبها',
                         style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.green),
                       ),
@@ -339,56 +370,136 @@ class _FollowUpPanel extends StatelessWidget {
       );
 }
 
-/// الترحيب (المخطط 4): kicker، «صباح الخير يا محمد» بجنسه، والعنوان.
+/// الترحيب (المخطط 4): kicker، «صباح الخير يا محمد» بجنسه، وصف الدايرة.
 ///
-/// العنوان في التصميم «ماذا أفعل الآن؟» فصحى — والفصحى ممنوعة في الواجهة؛
-/// «تعمل/تعملي إيه دلوقتي؟». سطر «الاسم · السن» بيظهر لو السن متسجّل.
+/// **مفيش عنوان كبير**: لا «ماذا أفعل الآن؟» (فصحى) ولا «تعمل إيه دلوقتي؟» —
+/// التحية بتوصّل للأقسام على طول. الشاشة دي بتاعة صاحب الموبايل، فالكلام
+/// كله بيخاطبه هو («مين بيتابعك»)، مش «ملف والدك» بتاع التصميم.
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.patient, required this.now});
+  const _HomeHeader({required this.patient, required this.now, required this.onOpenCircle});
 
   final PatientRow? patient;
   final DateTime now;
+  final VoidCallback onOpenCircle;
 
   @override
   Widget build(BuildContext context) {
-    final say = PatientVoice.of(context);
     final name = patient?.name;
     final hasName = name != null && name.isNotEmpty && name != 'أنا';
     final greeting = now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Kicker('يومك'),
+        // «يومك» بحجم العنوان — هي عنوان الشاشة، مش سطر فوقها.
+        // `height` مش زينة: خط العناوين طالع فوق السطر، وبالارتفاع
+        // الافتراضي كان نص «يومك» الأعلى بيتقص.
+        Text(
+          'يومك',
+          style: TextStyle(
+            fontFamily: F.displayFamily,
+            fontSize: F.screenTitleSize,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+            color: F.green,
+          ),
+        ),
         const SizedBox(height: F.s4),
         Text(
           hasName ? '$greeting يا $name' : greeting,
-          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
         ),
         if (hasName && patient?.age != null)
           Text(
             '$name — ${arabicNumber(patient!.age!)} سنة',
-            style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
-        const SizedBox(height: F.s6),
-        Text(
-          say.whatNow,
-          style: const TextStyle(
-            fontFamily: F.displayFamily,
-            fontSize: F.screenTitleSize,
-            fontWeight: FontWeight.w700,
-            color: F.ink,
-          ),
-        ),
+        const SizedBox(height: F.s12),
+        CareCircleRow(onOpen: onOpenCircle),
       ],
     );
   }
 }
 
-/// عنوان قسم بنقطة صغيرة — «الآن» / «خلال ٤٨ ساعة». النقطة خضرا، مش حمرا
-/// زي التصميم.
+/// «مين بيتابعك» (المخطط ٤ — صف الصور تحت التحية).
+///
+/// دي الشفافية اللي الأب يستاهلها: مين شايف بياناته، على شاشته الأولى، من
+/// غير ما يدوّر في الإعدادات. من غير حد مربوط بتبقى **دعوة** مش صف فاضي.
+/// اللمسة بتفتح القايمة. الشارة اللي في التصميم جنب الصور مش مبنية — مش
+/// واضح بتعدّ إيه.
+class CareCircleRow extends StatelessWidget {
+  const CareCircleRow({required this.onOpen, this.names = const [], super.key});
+
+  /// أسماء اللي بيتابعوا — فاضية لحد ما الربط يحصل.
+  final List<String> names;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: F.cardGround,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          side: BorderSide(color: F.line),
+        ),
+        child: InkWell(
+          key: const ValueKey('care-circle-row'),
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: F.minTapTarget),
+            padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s8),
+            child: Row(
+              children: [
+                if (names.isEmpty)
+                  Icon(Icons.person_add_alt, size: 26, color: F.green)
+                else
+                  for (final (i, name) in names.indexed)
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(start: i == 0 ? 0 : F.s4),
+                      child: _Avatar(name: name),
+                    ),
+                const SizedBox(width: F.s10),
+                Expanded(
+                  child: Text(
+                    names.isEmpty
+                        ? 'محدش بيتابعك لسه — اربط ابنك أو بنتك'
+                        : 'بيتابعوك: ${names.join('، ')}',
+                    style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
+                  ),
+                ),
+                Icon(Icons.chevron_left, size: 24, color: F.mutedDark),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: F.greenDeep, shape: BoxShape.circle),
+        child: Text(
+          name.characters.first,
+          style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.onDark),
+        ),
+      );
+}
+
+/// عنوان قسم بنقطة صغيرة — «الآن» / «خلال ٤٨ ساعة».
+///
+/// التصميم بيحط نقطة **حمرا** على «الآن». عندنا الأحمر للطوارئ بس، وجرعة
+/// فايتة مش خطر — هو نسي، ما فشلش. فالنقطة ذهبي: «دي لسه عايزاك». والقسم
+/// اللي جاي نقطته خضرا هادية.
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
+  const _SectionTitle(this.text, {this.attention = false});
   final String text;
+  final bool attention;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -396,12 +507,13 @@ class _SectionTitle extends StatelessWidget {
           Container(
             width: 10,
             height: 10,
-            decoration: const BoxDecoration(color: F.green, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: attention ? F.gold : F.green, shape: BoxShape.circle),
           ),
           const SizedBox(width: F.s8),
           Text(
             text,
-            style: const TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green),
+            style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green),
+            key: ValueKey('section-$text'),
           ),
         ],
       );
@@ -425,14 +537,14 @@ class _Upcoming extends StatelessWidget {
             child: Column(
               children: [
                 for (final (i, g) in groups.indexed) ...[
-                  if (i > 0) const Divider(height: 1, color: F.lineSoft),
+                  if (i > 0) Divider(height: 1, color: F.lineSoft),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s12),
                     child: Row(
                       children: [
                         Text(
                           'بكرة ${arabicTime(g.first.scheduledAt)}',
-                          style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
                         ),
                         const SizedBox(width: F.s12),
                         Expanded(
@@ -441,9 +553,9 @@ class _Upcoming extends StatelessWidget {
                             textDirection: TextDirection.ltr,
                             textAlign: TextAlign.right,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: F.minTextSize,
-                              color: F.muted,
+                              color: F.mutedDark,
                               fontFamily: F.monoFamily,
                               fontFamilyFallback: F.monoFallback,
                             ),
@@ -467,7 +579,7 @@ class _AllDonePanel extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: F.ivory,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radius),
         ),
         child: Text(
@@ -492,7 +604,7 @@ class _EmptyPanel extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
@@ -500,10 +612,52 @@ class _EmptyPanel extends StatelessWidget {
           hasMedications
               ? 'مفيش جرعات فاضلة النهارده. الجرعة الجاية مكتوبة فوق في «خلال ٤٨ ساعة».'
               : 'مفيش أدوية لسه. دوس «ضيف» تحت وإحنا نفكّرك بيه.',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: F.minBodySize,
             color: F.ink,
             height: 1.6,
+          ),
+        ),
+      );
+}
+
+/// «القريب مني» — بيل عايم صغير تحت الشمال، **في الرئيسية وبس**.
+///
+/// دهبي مليان بحد زيتي زي ما المالك طلب. الدهبي هنا حالة «تقدر تروح
+/// دلوقتي» مش تنبيه، وهو الزرار الوحيد بالشكل ده على الشاشة.
+class _NearbyPill extends StatelessWidget {
+  const _NearbyPill({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: F.gold,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(F.radiusChip),
+          side: BorderSide(color: F.greenDeep, width: 1.5),
+        ),
+        child: InkWell(
+          key: const ValueKey('nearby-pill'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(F.radiusChip),
+          // من غير `alignment` — Container بـalignment بياخد كل العرض المتاح،
+          // والبيل كان بيتمدّ على الشاشة كلها
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: F.s12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.location_on_outlined, size: 20, color: F.greenDeep),
+                const SizedBox(width: F.s6),
+                Text(
+                  'القريب مني',
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep),
+                ),
+              ],
+            ),
           ),
         ),
       );

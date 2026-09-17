@@ -31,13 +31,13 @@ class DeletedRecord extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'اتمسح',
                       style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                     ),
                     Text(
                       'هيتمسح نهائي بعد ${arabicNumber(RecordsRepository.retentionDays)} يوم — تقدر ترجّعه لحد كده',
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                     ),
                   ],
                 ),
@@ -52,7 +52,7 @@ class DeletedRecord extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, F.minTapTarget),
                     foregroundColor: F.ink,
-                    side: const BorderSide(color: F.ink, width: 1.5),
+                    side: BorderSide(color: F.ink, width: 1.5),
                     textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
                   ),
@@ -74,13 +74,13 @@ class RecordsEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(color: F.ivoryPale, borderRadius: BorderRadius.circular(F.radiusCard)),
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+            Text(title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
             const SizedBox(height: F.s4),
-            Text(how, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
+            Text(how, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
           ],
         ),
       );

@@ -29,9 +29,9 @@ class FCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (fill, border, width) = switch (tone) {
-      FCardTone.plain => (Colors.white, F.line, 1.0),
-      FCardTone.warm => (F.ivoryWarm, F.lineSoft, 1.0),
-      FCardTone.attention => (Colors.white, F.gold, 2.0),
+      FCardTone.plain => (F.cardGround, F.line, 1.0),
+      FCardTone.warm => (F.railGround, F.lineSoft, 1.0),
+      FCardTone.attention => (F.cardGround, F.gold, 2.0),
       FCardTone.dark => (F.greenDeep, F.greenDeep, 1.0),
     };
     return Container(
@@ -77,11 +77,15 @@ class FPrimaryButton extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: gold ? F.gold : F.green,
-            foregroundColor: gold ? F.ink : Colors.white,
-            disabledBackgroundColor: F.ivoryWarm,
+            foregroundColor: gold ? F.ink : F.onDark,
+            disabledBackgroundColor: F.railGround,
             disabledForegroundColor: F.mutedDark,
             textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+            // كل زرار مستدير بحد زيتي — شكل واحد في التطبيق كله
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(F.radiusCard),
+              side: BorderSide(color: F.greenDeep, width: 1.5),
+            ),
           ),
           child: Text(label),
         ),
@@ -111,12 +115,13 @@ class FSecondaryButton extends StatelessWidget {
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: F.ink,
-            side: const BorderSide(color: F.line, width: 1.5),
+            // نفس الحد الزيتي بتاع الأساسي — الشكل واحد، والوزن مختلف
+            side: BorderSide(color: F.greenDeep, width: 1.5),
             textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
             // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠
-            padding: const EdgeInsets.symmetric(horizontal: F.s8),
+            padding: EdgeInsets.symmetric(horizontal: F.s8),
           ),
           child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
         ),
@@ -124,7 +129,7 @@ class FSecondaryButton extends StatelessWidget {
 }
 
 /// المراسي التمانية لمحرّر الجرعة — بالترتيب بتاع التصميم.
-const List<String> anchorChipLabels = [
+List<String> anchorChipLabels = [
   'قبل الفطار',
   'بعد الفطار',
   'قبل الغدا',
@@ -152,7 +157,7 @@ class AnchorChip extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         height: F.minTapTarget,
         child: Material(
-          color: selected ? F.gold : F.ivoryPale,
+          color: selected ? F.gold : F.railGround,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(F.radiusChip),
             side: BorderSide(color: selected ? F.gold : F.line, width: 1.5),
@@ -161,14 +166,14 @@ class AnchorChip extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(F.radiusChip),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: F.s14),
+              padding: EdgeInsets.symmetric(horizontal: F.s14),
               // widthFactor: الشريحة على قد كلمتها جوّه Wrap — من غير كده
               // Center بيتمدّد على عرض السطر كله وكل شريحة تبقى في سطر لوحدها
               child: Center(
                 widthFactor: 1,
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,
@@ -191,12 +196,12 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (fill, text) = switch (tone) {
-      StatusTone.neutral => (F.ivoryWarm, F.mutedDark),
+      StatusTone.neutral => (F.railGround, F.mutedDark),
       StatusTone.attention => (F.gold, F.ink),
       StatusTone.ok => (F.greenOkSoft, F.greenOk),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s6),
+      padding: EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s6),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(F.radiusChip),
@@ -232,7 +237,7 @@ class FSwitch extends StatelessWidget {
         onTap: () => onChanged(!value),
         borderRadius: BorderRadius.circular(F.radiusCard),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: F.minTapTarget),
+          constraints: BoxConstraints(minHeight: F.minTapTarget),
           child: Row(
             children: [
               Expanded(
@@ -242,7 +247,7 @@ class FSwitch extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: F.minBodySize,
                         fontWeight: FontWeight.w700,
                         color: F.ink,
@@ -251,7 +256,7 @@ class FSwitch extends StatelessWidget {
                     if (subtitle != null)
                       Text(
                         subtitle!,
-                        style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                       ),
                   ],
                 ),
@@ -260,8 +265,8 @@ class FSwitch extends StatelessWidget {
                 value: value,
                 onChanged: onChanged,
                 activeTrackColor: F.gold,
-                activeThumbColor: Colors.white,
-                inactiveTrackColor: F.ivoryWarm,
+                activeThumbColor: F.onDark,
+                inactiveTrackColor: F.railGround,
                 inactiveThumbColor: F.muted,
               ),
             ],
@@ -276,10 +281,13 @@ class FSwitch extends StatelessWidget {
 /// التصميم بيرسمه ١٠؛ إحنا **١٧** — الحد الأدنى بتاعنا قاعدة، وده نص
 /// ثانوي فعلاً، فمش بيخسر حاجة لما يكبر شوية.
 class Kicker extends StatelessWidget {
-  const Kicker(this.text, {this.color = F.green, super.key});
+  const Kicker(this.text, {this.color, super.key});
 
   final String text;
-  final Color color;
+
+  /// null = الأخضر بتاع الوضع الحالي (الرمز دلوقتي getter، فما ينفعش يبقى
+  /// قيمة افتراضية ثابتة).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +296,7 @@ class Kicker extends StatelessWidget {
     if (hasArabic(text)) {
       return Text(
         text,
-        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: color),
+        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: color ?? F.green),
       );
     }
     return Text(
@@ -296,7 +304,7 @@ class Kicker extends StatelessWidget {
       style: TextStyle(
         fontSize: F.minTextSize,
         fontWeight: FontWeight.w600,
-        color: color,
+        color: color ?? F.green,
         letterSpacing: F.minTextSize * F.kickerTracking,
         fontFamily: F.monoFamily,
         fontFamilyFallback: F.monoFallback,
@@ -314,7 +322,7 @@ class SectionHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: F.sectionHeadSize,
           fontWeight: FontWeight.w700,
           color: F.ink,
@@ -340,7 +348,7 @@ class GoldNote extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
         ),
       );
 }

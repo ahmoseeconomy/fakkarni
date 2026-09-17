@@ -50,7 +50,7 @@ void main() {
 
   group('التوكنز', () {
     test('أرضية الصفحة عاجي، ومفيش نص في البدائيات أقل من ١٧', () {
-      expect(F.light.scaffoldBackgroundColor, F.ivory);
+      expect(F.light.scaffoldBackgroundColor, F.pageGround);
       expect(F.minTextSize, 17.0);
       expect(F.kicker1, lessThan(F.minTextSize), reason: 'سلّم التصميم مسجّل...');
     });
@@ -72,7 +72,7 @@ void main() {
                 FSecondaryButton(label: 'رجوع', onPressed: () {}),
                 AnchorChip(label: 'قبل الفطار', selected: true, onTap: () {}),
                 AnchorChip(label: 'بعد الفطار', selected: false, onTap: () {}),
-                const StatusChip(label: 'اتاخد', tone: StatusTone.ok),
+                StatusChip(label: 'اتاخد', tone: StatusTone.ok),
                 FSwitch(label: 'وضع رمضان', value: true, onChanged: (_) {}),
               ],
             ),

@@ -24,8 +24,13 @@ class SignInScreen extends StatefulWidget {
     this.caregiver,
     this.push,
     this.onCaregiverLinked,
+    this.skipLabel = 'مش دلوقتي',
     super.key,
   });
+
+  /// كلمة الخروج من الشاشة. في طريق المريض (D4: «التليفون ده ليا») الشاشة
+  /// دي محطة في الطريق مش رجوع، فالكلمة بتقول كده: «كمّل من غير حساب».
+  final String skipLabel;
 
   /// D4 المسار «ابني أو والدي بعتلي كود»: الشاشة بتشرح ليه الحساب لازم هنا
   /// **وبس**، وبعد الدخول بتروح لإدخال الكود على طول — مفيش «اعرض كود الربط»
@@ -166,8 +171,8 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       // أرضية بيضا زي المخطط ٣
-      backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, surfaceTintColor: Colors.white),
+      backgroundColor: F.pageGround,
+      appBar: AppBar(backgroundColor: F.pageGround, surfaceTintColor: F.pageGround),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -200,7 +205,7 @@ class _SignInScreenState extends State<SignInScreen> {
             // الحقيقة: الدخول دلوقتي مجهول (دين تقني ٢) — بنسمّيه باسمه. رمادي مش
             // ذهبي: ده وصف، مش حاجة محتاجة انتباهه دلوقتي. مكانه في المخطط
             // شريحة الدور تحت السطر — نفس المكان، بكلمة صادقة.
-            const Center(child: StatusChip(label: 'حساب تجريبي')),
+            Center(child: StatusChip(label: 'حساب تجريبي')),
             const SizedBox(height: F.gap),
             if (widget.auth == null)
               const _Panel(text: SupabaseAuthConfig.missingConfigMessage)
@@ -275,7 +280,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               const SizedBox(height: F.gap),
               // فاصل «أو» زي المخطط — تحته الطريق الشغّال الوحيد
-              const Row(
+              Row(
                 children: [
                   Expanded(child: Divider(color: F.line)),
                   Padding(
@@ -297,8 +302,8 @@ class _SignInScreenState extends State<SignInScreen> {
               height: F.minTapTarget,
               child: TextButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                child: const Text(
-                  'مش دلوقتي',
+                child: Text(
+                  widget.skipLabel,
                   style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w600,
@@ -334,13 +339,13 @@ class _UnavailableRow extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: F.primaryButtonHeight),
           padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s10),
           decoration: BoxDecoration(
-            color: dark ? F.greenDeep.withValues(alpha: 0.55) : Colors.white,
+            color: dark ? F.greenDeep.withValues(alpha: 0.55) : F.cardGround,
             borderRadius: BorderRadius.circular(F.radiusCard),
             border: Border.all(color: dark ? Colors.transparent : F.line, width: 1.5),
           ),
           child: Row(
             children: [
-              Icon(Icons.lock_outline, size: 22, color: dark ? F.ivoryWarm : F.mutedLight),
+              Icon(Icons.lock_outline, size: 22, color: dark ? F.onDarkMuted : F.mutedLight),
               const SizedBox(width: F.s10),
               Expanded(
                 child: Text(
@@ -348,7 +353,7 @@ class _UnavailableRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
-                    color: dark ? F.ivoryWarm : F.mutedDark,
+                    color: dark ? F.onDarkMuted : F.mutedDark,
                   ),
                 ),
               ),
@@ -357,7 +362,7 @@ class _UnavailableRow extends StatelessWidget {
                 child: Text(
                   reason,
                   textAlign: TextAlign.end,
-                  style: TextStyle(fontSize: F.minTextSize, color: dark ? F.ivoryWarm : F.muted),
+                  style: TextStyle(fontSize: F.minTextSize, color: dark ? F.onDarkMuted : F.mutedDark),
                 ),
               ),
             ],
@@ -377,10 +382,10 @@ class _PathCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Colors.white,
+        color: F.cardGround,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(F.radiusCard),
-          side: const BorderSide(color: F.line, width: 1.5),
+          side: BorderSide(color: F.line, width: 1.5),
         ),
         child: InkWell(
           onTap: onTap,
@@ -394,7 +399,7 @@ class _PathCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: F.ivoryWarm,
+                    color: F.railGround,
                     borderRadius: BorderRadius.circular(F.radiusTile),
                   ),
                   child: Icon(icon, size: 24, color: F.ink),
@@ -405,12 +410,12 @@ class _PathCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
-                      Text(hint, style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.4)),
+                          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      Text(hint, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_left, size: 26, color: F.muted),
+                Icon(Icons.chevron_left, size: 26, color: F.muted),
               ],
             ),
           ),
@@ -427,12 +432,12 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: F.ivory,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radius),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
       );
 }

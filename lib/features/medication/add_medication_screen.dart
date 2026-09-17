@@ -182,7 +182,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                 children: [
                   const Kicker('إضافة يدوية'),
                   const SizedBox(height: F.s4),
-                  const Text(
+                  Text(
                     'ضيف دوا وجرعته',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -251,9 +251,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             ],
                           ),
                           const SizedBox(height: F.s10),
-                          const Text(
+                          Text(
                             'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.',
-                            style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                           ),
                         ],
                       ),
@@ -294,9 +294,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             onChanged: (value) => setState(() => _days = value),
                           )
                         else
-                          const Text(
+                          Text(
                             'التذكير هيفضل شغال لحد ما توقفه بنفسك.',
-                            style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                           ),
                       ],
                     ),
@@ -327,7 +327,7 @@ class _FieldLabel extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: F.s8),
         child: Text(
           text,
-          style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
+          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
         ),
       );
 }
@@ -351,17 +351,17 @@ class _Field extends StatelessWidget {
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.placeholder),
+          hintStyle: TextStyle(fontSize: F.minTextSize, color: F.placeholder),
           filled: true,
-          fillColor: F.ivoryPale,
+          fillColor: F.fieldGround,
           contentPadding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s18),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(F.radiusTile),
-            borderSide: const BorderSide(color: F.line),
+            borderSide: BorderSide(color: F.line),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(F.radiusTile),
-            borderSide: const BorderSide(color: F.line),
+            borderSide: BorderSide(color: F.line),
           ),
         ),
       );

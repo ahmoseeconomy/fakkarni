@@ -74,7 +74,7 @@ class ScanStage extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: F.subtitleSize,
                         fontWeight: FontWeight.w700,
-                        color: F.ivory,
+                        color: F.onDark,
                         height: 1.4,
                       ),
                     ),
@@ -84,7 +84,7 @@ class ScanStage extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: F.minTextSize,
-                        color: F.ivoryWarm,
+                        color: F.onDarkMuted,
                         height: 1.6,
                       ),
                     ),
@@ -137,7 +137,7 @@ class _LineBox extends StatelessWidget {
 
   /// rgba(255,255,255,.28) و rgba(234,231,219,.18) — من README.
   static const _unreadStroke = Color(0x47FFFFFF);
-  static final _readFill = F.ivoryWarm.withValues(alpha: 0.18);
+  static final _readFill = F.onDarkMuted.withValues(alpha: 0.18);
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +149,7 @@ class _LineBox extends StatelessWidget {
           ? BoxDecoration(
               color: _readFill,
               borderRadius: BorderRadius.circular(F.radiusChip),
-              border: Border.all(color: F.ivoryWarm, width: 1.5),
+              border: Border.all(color: F.onDarkMuted, width: 1.5),
             )
           : null,
       child: Text(
@@ -160,7 +160,7 @@ class _LineBox extends StatelessWidget {
         style: TextStyle(
           fontSize: F.minTextSize,
           fontWeight: FontWeight.w600,
-          color: read ? F.ivory : F.ivory.withValues(alpha: 0.5),
+          color: read ? F.onDark : F.onDark.withValues(alpha: 0.5),
           fontFamily: F.monoFamily,
           fontFamilyFallback: F.monoFallback,
         ),
@@ -185,7 +185,7 @@ class _ReadingBadge extends StatelessWidget {
     decoration: BoxDecoration(
       color: F.inkDeep.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(F.radiusTile),
-      border: Border.all(color: F.ivory.withValues(alpha: 0.28)),
+      border: Border.all(color: F.onDark.withValues(alpha: 0.28)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -197,7 +197,7 @@ class _ReadingBadge extends StatelessWidget {
           style: const TextStyle(
             fontSize: F.minTextSize,
             fontWeight: FontWeight.w600,
-            color: F.ivory,
+            color: F.onDark,
           ),
         ),
       ],
@@ -243,7 +243,7 @@ class _PulseDotState extends State<_PulseDot>
     child: Container(
       width: 10,
       height: 10,
-      decoration: const BoxDecoration(color: F.ivory, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: F.onDark, shape: BoxShape.circle),
     ),
   );
 }
@@ -255,7 +255,7 @@ class _CornerFrame extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = F.ivory
+      ..color = F.onDark
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -325,9 +325,9 @@ class SecondaryOnDark extends StatelessWidget {
     child: OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: F.ivory,
+        foregroundColor: F.onDark,
         disabledForegroundColor: F.mutedLight,
-        side: BorderSide(color: F.ivory.withValues(alpha: 0.4), width: 1.5),
+        side: BorderSide(color: F.onDark.withValues(alpha: 0.4), width: 1.5),
         padding: const EdgeInsets.symmetric(horizontal: F.s8),
       ),
       child: Text(
@@ -352,12 +352,12 @@ class PanelOnDark extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(F.s14),
     decoration: BoxDecoration(
-      color: F.ivoryWarm,
+      color: F.railGround,
       borderRadius: BorderRadius.circular(F.radiusCard),
     ),
     child: Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: F.minBodySize,
         color: F.ink,
         height: 1.6,

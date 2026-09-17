@@ -212,7 +212,7 @@ void main() {
       await h.pump(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
       await settle(tester);
 
-      await tester.tap(find.text('ضيف'));
+      await tester.tap(find.byType(FloatingActionButton));
       await settle(tester);
       await tester.tap(find.text('سجّل زيارة أو تحليل أو أشعة'));
       await settle(tester);

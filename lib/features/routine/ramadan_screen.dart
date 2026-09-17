@@ -121,7 +121,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
                 children: [
-                  const Text(
+                  Text(
                     'يومك في رمضان',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -131,10 +131,10 @@ class _RamadanScreenState extends State<RamadanScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s6),
-                  const Text(
+                  Text(
                     'في رمضان يومك بيترسي على السحور والفطار (المغرب) والنوم — '
                     'بدل الخمس مراسي العادية. كل جرعة مربوطة بالأكل هتتحرك معاها لوحدها.',
-                    style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                   ),
                   const SizedBox(height: F.gap),
                   // الحالة الحالية — بوضوح، والذهبي وهو شغّال (إنت هنا)
@@ -144,7 +144,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                       _on
                           ? 'وضع رمضان شغّال دلوقتي — جدولك على السحور والمغرب.'
                           : 'وضع رمضان مقفول — جدولك العادي شغّال.',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: F.minBodySize,
                         fontWeight: FontWeight.w700,
                         color: F.ink,
@@ -166,7 +166,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                           ),
                           onChanged: (v) => setState(() => _times = _times.copyWith(suhoor: v)),
                         ),
-                        const Divider(height: 1, color: F.lineSoft),
+                        Divider(height: 1, color: F.lineSoft),
                         _TimeRow(
                           label: 'الفطار (المغرب)',
                           value: _times.iftar,
@@ -176,7 +176,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                           ),
                           onChanged: (v) => setState(() => _times = _times.copyWith(iftar: v)),
                         ),
-                        const Divider(height: 1, color: F.lineSoft),
+                        Divider(height: 1, color: F.lineSoft),
                         // النوم بيتحسب: بعد السحور بساعة — مش بيتظبط لوحده
                         _TimeRow(label: 'النوم', value: _after.sleep, derived: true),
                       ],
@@ -188,7 +188,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                     moving.isEmpty
                         ? 'مفيش أدوية مربوطة بالأكل لسه — مفيش حاجة هتتحرك.'
                         : _countLine(moving.length, on: _on),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: F.minBodySize,
                       fontWeight: FontWeight.w700,
                       color: F.green,
@@ -201,7 +201,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                       child: Column(
                         children: [
                           for (final (i, s) in moving.indexed) ...[
-                            if (i > 0) const Divider(height: 1, color: F.lineSoft),
+                            if (i > 0) Divider(height: 1, color: F.lineSoft),
                             _MoveRow(
                               name: s.medicationName,
                               before: engine.resolve(s, _today),
@@ -216,7 +216,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                     const SizedBox(height: F.s12),
                     Text(
                       '${fixed.map((s) => s.medicationName).join('، ')} — ساعة ثابتة، ما بتتحركش.',
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                   ],
                   const SizedBox(height: F.s12),
@@ -224,7 +224,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                     _on
                         ? 'لما تقفله يومك بيرجع زي ما كان قبل رمضان بالظبط.'
                         : 'مفيش حاجة بتتغيّر قبل ما تدوس «فعّل وضع رمضان».',
-                    style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                   ),
                 ],
               ),
@@ -284,7 +284,7 @@ class _TimeRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: F.minBodySize,
                       fontWeight: FontWeight.w700,
                       color: F.ink,
@@ -296,7 +296,7 @@ class _TimeRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.subtitleSize,
                     fontWeight: FontWeight.w700,
-                    color: derived ? F.muted : F.greenDeep,
+                    color: derived ? F.mutedDark : F.greenDeep,
                   ),
                 ),
                 if (!derived) ...[
@@ -309,7 +309,7 @@ class _TimeRow extends StatelessWidget {
                         foregroundColor: F.ink,
                         minimumSize: const Size(0, F.minTapTarget),
                         padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                        side: const BorderSide(color: F.line, width: 1.5),
+                        side: BorderSide(color: F.line, width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
                       ),
                       child: Text(
@@ -323,13 +323,13 @@ class _TimeRow extends StatelessWidget {
             ),
           ),
           if (derived)
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s8),
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   'بعد السحور بساعة',
-                  style: TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                 ),
               ),
             ),
@@ -362,7 +362,7 @@ class _MoveRow extends StatelessWidget {
               child: Text(
                 name,
                 textDirection: nameDirection(name),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.minBodySize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
@@ -376,15 +376,15 @@ class _MoveRow extends StatelessWidget {
               children: [
                 Text(
                   arabicTime(before),
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: F.s8),
                   child: Icon(Icons.arrow_forward, size: 20, color: F.muted),
                 ),
                 Text(
                   arabicTime(after),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,

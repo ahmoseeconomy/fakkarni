@@ -65,7 +65,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s30 * 2),
               children: [
-                const Text(
+                Text(
                   'جدول الأدوية',
                   style: TextStyle(
                     fontFamily: F.displayFamily,
@@ -79,7 +79,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   active.isEmpty
                       ? 'لسه مفيش أدوية. دوس «ضيف» تحت.'
                       : '${_count(active.length)} — مرتّبة على مواعيد يومك',
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 const SizedBox(height: F.s10),
                 FSecondaryButton(
@@ -177,7 +177,7 @@ class _GroupHead extends StatelessWidget {
             style: TextStyle(
               fontSize: F.sectionHeadSize,
               fontWeight: FontWeight.w700,
-              color: muted ? F.muted : F.green,
+              color: muted ? F.mutedDark : F.green,
             ),
           ),
           ),
@@ -210,7 +210,7 @@ class _MedCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(F.s14),
       decoration: BoxDecoration(
-        color: stopped ? F.ivoryPale : Colors.white,
+        color: stopped ? F.railGround : F.cardGround,
         borderRadius: BorderRadius.circular(F.radiusCard),
         border: Border.all(color: F.line),
       ),
@@ -228,7 +228,7 @@ class _MedCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: F.medicationNameSize,
                       fontWeight: FontWeight.w700,
-                      color: stopped ? F.muted : F.ink,
+                      color: stopped ? F.mutedDark : F.ink,
                       fontFamily: F.monoFamily,
                       fontFamilyFallback: F.monoFallback,
                       height: 1.3,
@@ -239,10 +239,10 @@ class _MedCard extends StatelessWidget {
                 Text(
                   // الجرعة مش معروفة — بهدوء، من غير لوم: سؤال للصيدلي مش غلطة
                   '${med.amountLabel ?? 'الجرعة مش معروفة'} — $rule',
-                  style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 if (stopped)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: F.s4),
                     child: Text(
                       'موقوف — التذكيرات واقفة',
@@ -261,7 +261,7 @@ class _MedCard extends StatelessWidget {
                 foregroundColor: F.ink,
                 minimumSize: const Size(0, F.minTapTarget),
                 padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                side: const BorderSide(color: F.line, width: 1.5),
+                side: BorderSide(color: F.line, width: 1.5),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
               ),
               icon: const Icon(Icons.edit_outlined, size: 22),

@@ -5,7 +5,12 @@ import '../../core/widgets/fa_mark.dart';
 import '../../core/widgets/primitives.dart';
 
 /// «مين ماسك التليفون؟» (D4، بأسلوب كروت المخطط ٢) — أول شاشة في تنزيلة
-/// جديدة.
+/// جديدة، **بابين بس**.
+///
+/// كان فيه كارت تالت «بظبّط لحد تاني»، وكل اللي كان بيعمله إنه يقلب كلام
+/// الإعداد للغايب — اختيار ما بيتخزّنش ومفيش حاجة بتترتب عليه. اتشال:
+/// اللي بيظبّط لحد تاني بيكتب بيانات المريض في نفس الشاشة، والتطبيق بيكلّم
+/// المريض نفسه لأنه هو اللي هيمسك التليفون.
 ///
 /// **سؤال مش تسجيل دخول**: مفيش جلسة ولا نداء دخول هنا (حارس `root_test`).
 /// كل كارت هو الفعل نفسه — مفيش «اختار وبعدين يلا نبدأ» زي المخطط، خطوة
@@ -13,18 +18,10 @@ import '../../core/widgets/primitives.dart';
 /// متخزّن (مفيش عمود دور — ٣.٣). بتختفي للأبد أول ما يبقى فيه مريض محلي أو
 /// علاقة رعاية، والجذر هو اللي بيقرر ده من البيانات.
 class EntryScreen extends StatefulWidget {
-  const EntryScreen({
-    required this.onSelf,
-    required this.onForSomeoneElse,
-    required this.onHaveCode,
-    super.key,
-  });
+  const EntryScreen({required this.onSelf, required this.onHaveCode, super.key});
 
-  /// «التليفون ده ليا» → نتعرّف عليك → ظبّط يومك → يومك.
+  /// «التليفون ده ليا» → شاشة الدخول (تتخطى) → نتعرّف عليك → ظبّط يومك.
   final VoidCallback onSelf;
-
-  /// «بظبّط لحد تاني» → نفس الشاشات بالغايب.
-  final VoidCallback onForSomeoneElse;
 
   /// «ابني أو والدي بعتلي كود» → الدخول → الكود → المتابعة.
   final VoidCallback onHaveCode;
@@ -33,7 +30,7 @@ class EntryScreen extends StatefulWidget {
   State<EntryScreen> createState() => _EntryScreenState();
 }
 
-enum _Choice { self, other, code }
+enum _Choice { self, code }
 
 class _EntryScreenState extends State<EntryScreen> {
   _Choice? _choice;
@@ -42,8 +39,6 @@ class _EntryScreenState extends State<EntryScreen> {
     switch (_choice) {
       case _Choice.self:
         widget.onSelf();
-      case _Choice.other:
-        widget.onForSomeoneElse();
       case _Choice.code:
         widget.onHaveCode();
       case null:
@@ -54,7 +49,7 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         // أرضية بيضا زي المخطط — الكروت هي اللي بتبان عليها
-        backgroundColor: Colors.white,
+        backgroundColor: F.pageGround,
         body: SafeArea(
           child: Column(
             children: [
@@ -64,7 +59,7 @@ class _EntryScreenState extends State<EntryScreen> {
                   children: [
                     const Center(child: FaMark(size: 76, letterColor: F.greenDeep)),
                     const SizedBox(height: F.gap),
-                    const Text(
+                    Text(
                       'أهلاً بيك في فكّرني',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -75,7 +70,7 @@ class _EntryScreenState extends State<EntryScreen> {
                       ),
                     ),
                     const SizedBox(height: F.s6),
-                    const Text(
+                    Text(
                       'مين ماسك التليفون ده؟ تقدر تغيّر أو تضيف حد تاني في أي وقت.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
@@ -88,15 +83,6 @@ class _EntryScreenState extends State<EntryScreen> {
                       hint: 'أنا اللي باخد الدوا',
                       selected: _choice == _Choice.self,
                       onTap: () => setState(() => _choice = _Choice.self),
-                    ),
-                    const SizedBox(height: F.s12),
-                    _EntryCard(
-                      itemKey: const ValueKey('entry-other'),
-                      icon: Icons.people_outline,
-                      title: 'بظبّط لحد تاني',
-                      hint: 'والدي أو والدتي — وهو اللي هيمسك التليفون',
-                      selected: _choice == _Choice.other,
-                      onTap: () => setState(() => _choice = _Choice.other),
                     ),
                     const SizedBox(height: F.s12),
                     _EntryCard(
@@ -119,10 +105,10 @@ class _EntryScreenState extends State<EntryScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s10),
                       decoration: BoxDecoration(
-                        color: F.ivoryWarm,
+                        color: F.railGround,
                         borderRadius: BorderRadius.circular(F.radiusCard),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.lock_outline, size: 20, color: F.mutedDark),
                           SizedBox(width: F.s8),
@@ -171,7 +157,7 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) => Material(
         key: itemKey,
         // المختار بيتعلّم بحد أخضر وعلامة — الأخضر معناه «ده اللي اخترته»
-        color: selected ? F.greenTint : Colors.white,
+        color: selected ? F.greenTint : F.cardGround,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(F.radiusCard),
           side: BorderSide(color: selected ? F.green : F.line, width: selected ? 2 : 1.5),
@@ -191,15 +177,15 @@ class _EntryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.3)),
                       const SizedBox(height: F.s4),
-                      Text(hint, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+                      Text(hint, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
                     ],
                   ),
                 ),
                 if (selected)
-                  const Icon(Icons.check_circle, size: 28, color: F.green)
+                  Icon(Icons.check_circle, size: 28, color: F.green)
                 else
                   const SizedBox(width: 28),
               ],

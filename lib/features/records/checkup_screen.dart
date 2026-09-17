@@ -49,7 +49,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
     final input = await showModalBottomSheet<({DateTime draw, int hours})>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: F.ivory,
+      backgroundColor: F.pageGround,
       builder: (_) => _FastingSheet(now: _now),
     );
     if (input == null) return;
@@ -71,7 +71,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: F.dialogGround,
         title: Text('توقّف دورة «${row.title}»؟', style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: const Text(
           'هتتمسح من الملف مشطوبة وتقدر ترجّعها، وتذكير الصيام بتاعها — لو فيه — بيتلغي.',
@@ -112,10 +112,10 @@ class _CheckupScreenState extends State<CheckupScreen> {
               Text(
                 '${row.title} — ${arabicNumber(CheckupStage.values.length)} مراحل',
                 textDirection: nameDirection(row.title),
-                style: const TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize, fontWeight: FontWeight.w700, color: F.ink),
+                style: TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize, fontWeight: FontWeight.w700, color: F.ink),
               ),
               const SizedBox(height: F.s4),
-              const Text(
+              Text(
                 'الفحص مش ميعاد واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين.',
                 key: ValueKey('checkup-why'),
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
@@ -157,7 +157,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                               Text(
                                 'تذكير الصيام متظبط: ${arabicDate(reminder)} — ${arabicTime(reminder)}',
                                 key: const ValueKey('fasting-set-line'),
-                                style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+                                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                               ),
                               const SizedBox(height: F.s6),
                               FSecondaryButton(label: 'شيل تذكير الصيام', onPressed: () => _checkups.cancelFasting(row.id)),
@@ -211,11 +211,11 @@ class _StageRow extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: done ? F.green : (isCurrent ? F.gold : Colors.white),
+        color: done ? F.green : (isCurrent ? F.gold : F.pageGround),
         border: later ? Border.all(color: F.line, width: 1.5) : null,
       ),
       child: done
-          ? const Icon(Icons.check, size: 24, color: Colors.white)
+          ? const Icon(Icons.check, size: 24, color: F.onDark)
           : Text(
               arabicNumber(stage.number),
               style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: later ? F.mutedLight : F.ink),
@@ -252,7 +252,7 @@ class _StageRow extends StatelessWidget {
                         color: F.ink,
                       ),
                     ),
-                    if (detail != null) Text(detail!, style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                    if (detail != null) Text(detail!, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
                     ...children,
                   ],
                 ),
@@ -355,15 +355,15 @@ class _FastingSheetState extends State<_FastingSheet> {
                 style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   hintText: 'زي ما المعمل قال',
-                  hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                   suffixText: 'ساعة',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: F.fieldGround,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
                 ),
               ),
               const SizedBox(height: F.s6),
-              const Text(
+              Text(
                 'التطبيق مش بيحدد مدة الصيام — المعمل أو الدكتور هو اللي بيقولها.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),

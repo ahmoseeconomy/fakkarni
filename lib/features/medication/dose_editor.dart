@@ -143,7 +143,7 @@ class _DoseEditorState extends State<DoseEditor> {
                     child: Text(
                       widget.name,
                       textDirection: nameDirection(widget.name),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: F.minBodySize,
                         fontWeight: FontWeight.w600,
                         color: F.mutedDark,
@@ -153,7 +153,7 @@ class _DoseEditorState extends State<DoseEditor> {
                     ),
                   ),
                   const SizedBox(height: F.s4),
-                  const Text(
+                  Text(
                     'إمتى؟',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -175,7 +175,7 @@ class _DoseEditorState extends State<DoseEditor> {
                       height: F.minTapTarget,
                       child: TextButton(
                         onPressed: () => setState(() => _fixed = false),
-                        child: const Text(
+                        child: Text(
                           'ارجع للمراسي',
                           style: TextStyle(
                             fontSize: F.minTextSize,
@@ -186,9 +186,9 @@ class _DoseEditorState extends State<DoseEditor> {
                       ),
                     ),
                   ] else ...[
-                    const Text(
+                    Text(
                       'اختار المرساة الأول — الساعة بتتحسب لوحدها.',
-                      style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                     const SizedBox(height: F.s12),
                     Wrap(
@@ -218,7 +218,7 @@ class _DoseEditorState extends State<DoseEditor> {
                   Container(
                     padding: const EdgeInsets.all(F.s14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: F.cardGround,
                       borderRadius: BorderRadius.circular(F.radiusCard),
                       border: Border.all(color: F.gold, width: 1.5),
                     ),
@@ -233,7 +233,7 @@ class _DoseEditorState extends State<DoseEditor> {
                         Expanded(
                           child: Text(
                             'يعني حوالي ${arabicTime(_preview)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: F.minBodySize,
                               fontWeight: FontWeight.w700,
                               color: F.ink,
@@ -259,11 +259,11 @@ class _DoseEditorState extends State<DoseEditor> {
                       height: F.minTapTarget,
                       child: TextButton(
                         onPressed: () => setState(() => _fixed = true),
-                        child: const Text(
+                        child: Text(
                           'أحدد ساعة ثابتة بدل كده',
                           style: TextStyle(
                             fontSize: F.minTextSize,
-                            color: F.muted,
+                            color: F.mutedDark,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -293,9 +293,9 @@ class _GapCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'بكام؟',
-              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.muted),
+              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
             ),
             const SizedBox(height: F.s8),
             MinuteStepper(value: value, onChanged: onChanged),
@@ -338,12 +338,12 @@ class MinuteStepper extends StatelessWidget {
               alignment: Alignment.center,
               margin: const EdgeInsets.symmetric(horizontal: F.s8),
               decoration: BoxDecoration(
-                color: F.ivoryWarm,
+                color: F.railGround,
                 borderRadius: BorderRadius.circular(F.radiusTile),
               ),
               child: Text(
                 '${arabicNumber(value)} $unit',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.minBodySize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
@@ -383,7 +383,7 @@ class _StepButton extends StatelessWidget {
             foregroundColor: F.ink,
             minimumSize: const Size(F.minTapTarget, F.minTapTarget),
             padding: const EdgeInsets.symmetric(horizontal: F.s10),
-            side: const BorderSide(color: F.line, width: 1.5),
+            side: BorderSide(color: F.line, width: 1.5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
           ),
           icon: Icon(icon, size: 26),
@@ -405,10 +405,10 @@ class _FixedNotice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.s14),
         decoration: BoxDecoration(
-          color: F.ivoryWarm,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
         ),
-        child: const Text(
+        child: Text(
           'ساعة ثابتة — مش هتتحرك مع روتين يومك',
           style: TextStyle(
             fontSize: F.minBodySize,

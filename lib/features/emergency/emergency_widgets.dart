@@ -119,17 +119,17 @@ Future<void> confirmAmbulance(BuildContext context) async {
   final yes = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      backgroundColor: Colors.white,
+      backgroundColor: F.dialogGround,
       title: Text(
         'تتصل بالإسعاف ${arabicNumber(int.parse(ambulanceNumber))}؟',
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: F.displayFamily,
           fontSize: F.subtitleSize,
           fontWeight: FontWeight.w700,
           color: F.ink,
         ),
       ),
-      content: const Text(
+      content: Text(
         'هيفتح الاتصال على الإسعاف دلوقتي.',
         style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
       ),
@@ -164,7 +164,7 @@ Future<void> confirmAmbulance(BuildContext context) async {
                 onPressed: () => Navigator.of(context).pop(false),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: F.ink,
-                  side: const BorderSide(color: F.line, width: 1.5),
+                  side: BorderSide(color: F.line, width: 1.5),
                   textStyle: const TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w600,

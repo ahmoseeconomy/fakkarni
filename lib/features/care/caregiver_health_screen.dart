@@ -70,7 +70,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
                 const SizedBox(height: F.gap),
               ],
               if (holder.loading)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
@@ -136,7 +136,7 @@ class _Head extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: F.s8),
-        child: Text(text, style: const TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.ink)),
+        child: Text(text, style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.ink)),
       );
 }
 
@@ -147,7 +147,7 @@ class _SubHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: F.s4, bottom: F.s6),
-        child: Text(text, style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.green)),
+        child: Text(text, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.green)),
       );
 }
 
@@ -159,7 +159,7 @@ class _Box extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
@@ -167,7 +167,7 @@ class _Box extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, child) in children.indexed) ...[
-              if (i > 0) const Divider(height: F.s12, color: F.lineSoft),
+              if (i > 0) Divider(height: F.s12, color: F.lineSoft),
               child,
             ],
           ],
@@ -187,11 +187,11 @@ class _ReadingRow extends StatelessWidget {
           children: [
             Text(
               glucoseValue(reading.valueMgDl),
-              style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
             ),
             Text(
               '${glucoseContextLabel(reading.context)} — ${arabicDate(reading.measuredAt)} ${arabicTime(reading.measuredAt)}',
-              style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
         ),
@@ -207,22 +207,22 @@ class _RecordCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: F.s8),
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radius),
           border: Border.all(color: F.line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(record.title, style: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+            Text(record.title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
             Text(
               [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' — '),
-              style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
             ),
             if (record.notes != null && record.notes!.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: F.s4),
-                child: Text(record.notes!, style: const TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
+                child: Text(record.notes!, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
               ),
             if (record.labLines.isNotEmpty) ...[
               const SizedBox(height: F.s8),
@@ -230,12 +230,12 @@ class _RecordCard extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(top: F.s4),
                   padding: const EdgeInsetsDirectional.only(start: F.s12),
-                  decoration: const BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.line, width: 3))),
+                  decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.line, width: 3))),
                   child: Text(
                     labLineText(line),
                     textDirection: TextDirection.ltr,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(fontSize: F.minBodySize, color: F.ink),
+                    style: TextStyle(fontSize: F.minBodySize, color: F.ink),
                   ),
                 ),
             ],
@@ -254,7 +254,7 @@ class _QuestionRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(question.body, style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+            Text(question.body, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
             Text(
               question.asked ? 'اتسأل ✓' : 'لسه ما اتسألش',
               style: TextStyle(
@@ -275,7 +275,7 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(F.s14),
-        decoration: BoxDecoration(color: F.ivoryWarm, borderRadius: BorderRadius.circular(F.radiusCard)),
-        child: Text(text, style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6)),
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+        child: Text(text, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6)),
       );
 }

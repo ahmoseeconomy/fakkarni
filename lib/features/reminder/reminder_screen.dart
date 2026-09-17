@@ -192,7 +192,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     style: const TextStyle(
                       fontSize: F.subtitleSize,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: F.onDark,
                       height: 1.3,
                     ),
                   ),
@@ -247,7 +247,7 @@ class _DoseCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(F.gap),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: F.pageGround,
         borderRadius: BorderRadius.circular(F.radiusLarge),
         boxShadow: F.shadowModalDark,
       ),
@@ -255,10 +255,10 @@ class _DoseCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (i, dose) in doses.indexed) ...[
-            if (i > 0) const Divider(color: F.lineSoft, height: F.gap * 2),
+            if (i > 0) Divider(color: F.lineSoft, height: F.gap * 2),
             _DoseRow(dose: dose, ruleLabel: ruleLabelFor(dose.doseScheduleId)),
           ],
-          const Divider(color: F.lineSoft, height: F.gap * 2),
+          Divider(color: F.lineSoft, height: F.gap * 2),
           actions,
         ],
       ),
@@ -290,7 +290,7 @@ class _DoseRow extends StatelessWidget {
                 dose.medicationName,
                 textDirection: nameDirection(dose.medicationName),
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: F.medicationNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
@@ -302,7 +302,7 @@ class _DoseRow extends StatelessWidget {
             ),
             if (dose.isDone) ...[
               const SizedBox(width: F.s8),
-              const Icon(Icons.check, color: F.greenOk, size: 28),
+              Icon(Icons.check, color: F.greenOk, size: 28),
             ],
           ],
         ),
@@ -311,9 +311,9 @@ class _DoseRow extends StatelessWidget {
           dose.isDone && dose.actedAt != null
               ? PatientVoice.of(context).takenAt(arabicTime(dose.actedAt!))
               : details,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: F.minTextSize,
-            color: F.muted,
+            color: F.mutedDark,
             height: 1.5,
           ),
         ),
@@ -374,16 +374,16 @@ class _Ladder extends StatelessWidget {
   final int current;
 
   /// رامب README من غير درجته الخامسة: رمادي → أخضر → أمبر → برتقالي.
-  static const _ramp = [F.line, F.green, F.amber, F.orange];
+  static List<Color> get _ramp => [F.line, F.green, F.amber, F.orange];
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(F.gap),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: F.onDark.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(F.radiusSection),
-        border: Border.all(color: F.ivory.withValues(alpha: 0.12)),
+        border: Border.all(color: F.onDark.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +393,7 @@ class _Ladder extends StatelessWidget {
             style: TextStyle(
               fontSize: F.minTextSize,
               fontWeight: FontWeight.w700,
-              color: F.ivory.withValues(alpha: 0.85),
+              color: F.onDark.withValues(alpha: 0.85),
             ),
           ),
           const SizedBox(height: F.s8),
@@ -431,8 +431,8 @@ class _LadderRow extends StatelessWidget {
     final textColour = isCurrent
         ? F.amber
         : isPast
-            ? F.ivory.withValues(alpha: 0.8)
-            : F.ivory.withValues(alpha: 0.45);
+            ? F.onDark.withValues(alpha: 0.8)
+            : F.onDark.withValues(alpha: 0.45);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: F.s6),
       child: Row(
@@ -450,7 +450,7 @@ class _LadderRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: F.minTextSize,
                 fontWeight: FontWeight.w700,
-                color: isCurrent || index == 0 ? F.ink : Colors.white,
+                color: isCurrent || index == 0 ? F.ink : F.onDark,
               ),
             ),
           ),
@@ -485,7 +485,7 @@ class _DoneActions extends StatelessWidget {
         Text(
           '${PatientVoice.of(context).thanks} مفيش حاجة مطلوبة منك دلوقتي.',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
         const SizedBox(height: F.gap),
         FPrimaryButton(label: PatientVoice.of(context).backToDay, onPressed: onBack),
@@ -512,7 +512,7 @@ class _GonePanel extends StatelessWidget {
             style: TextStyle(
               fontSize: F.questionSize,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: F.onDark,
               height: 1.3,
             ),
           ),
@@ -522,7 +522,7 @@ class _GonePanel extends StatelessWidget {
             child: FilledButton(
               onPressed: () => Navigator.of(context).maybePop(),
               style: FilledButton.styleFrom(
-                backgroundColor: F.ivory,
+                backgroundColor: F.pageGround,
                 foregroundColor: F.ink,
               ),
               child: Text(PatientVoice.of(context).backToDay),

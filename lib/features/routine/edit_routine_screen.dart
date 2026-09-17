@@ -89,12 +89,12 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                     const GoldNote('وضع رمضان شغّال — عدّل من شاشة رمضان'),
                     const SizedBox(height: F.gap),
                   ],
-                  const Text(
+                  Text(
                     'غيّر أي معاد — الجرعات المربوطة بيه بتتحرك معاه، '
                     'والساعات الثابتة بتفضل زي ما هي.',
                     style: TextStyle(
                       fontSize: F.minTextSize,
-                      color: F.muted,
+                      color: F.mutedDark,
                       height: 1.6,
                     ),
                   ),
@@ -164,7 +164,7 @@ class _AnchorCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   questionTextFor(question, PatientVoice.of(context)),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
                     color: F.ink,

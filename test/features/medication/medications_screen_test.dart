@@ -58,7 +58,7 @@ void main() {
     await pump(tester);
 
     final line = tester.widget<Text>(find.textContaining('الجرعة مش معروفة'));
-    expect(line.style?.color, F.muted);
+    expect(line.style?.color, F.mutedDark);
     expectNoRedAndMinSize(tester);
   });
 

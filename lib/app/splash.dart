@@ -26,13 +26,18 @@ class SplashOverlay extends StatefulWidget {
   State<SplashOverlay> createState() => _SplashOverlayState();
 }
 
+/// اتعرضت خلاص في التشغيلة دي؟ قلب الوضع الليلي بيعيد بناء الشجرة كلها
+/// (مفتاح على الوضع في `main`)، ومن غير السطر ده كانت البداية بتتعاد كل
+/// مرة يدوس على المفتاح.
+bool _splashShown = false;
+
 class _SplashOverlayState extends State<SplashOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: SplashOverlay.total,
   );
-  bool _done = false;
+  bool _done = _splashShown;
   bool _started = false;
 
   // كل الفترات نسبة من ٣.٣٥ ث
@@ -92,6 +97,7 @@ class _SplashOverlayState extends State<SplashOverlay>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _c.forward().whenComplete(() {
+        _splashShown = true;
         if (mounted) setState(() => _done = true);
       });
     });
@@ -147,7 +153,7 @@ class _SplashOverlayState extends State<SplashOverlay>
                             dimension: 132,
                             child: CustomPaint(
                               painter: FaMarkPainter(
-                                letterColor: F.ivory,
+                                letterColor: F.onDark,
                                 dotColor: F.gold,
                                 bowlProgress: _bowl.value,
                                 tailProgress: _tail.value,
@@ -173,7 +179,7 @@ class _SplashOverlayState extends State<SplashOverlay>
                                   fontFamily: F.displayFamily,
                                   fontSize: F.display3,
                                   fontWeight: FontWeight.w700,
-                                  color: F.ivory,
+                                  color: F.onDark,
                                 ),
                               ),
                             ),

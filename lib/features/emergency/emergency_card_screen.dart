@@ -207,14 +207,14 @@ class _WhiteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const label = TextStyle(fontSize: F.minTextSize, color: F.mutedDark);
-    const value = TextStyle(
+    final label = TextStyle(fontSize: F.minTextSize, color: F.mutedDark);
+    final value = TextStyle(
       fontSize: F.minBodySize,
       fontWeight: FontWeight.w700,
       color: F.ink,
       height: 1.4,
     );
-    const empty = TextStyle(
+    final empty = TextStyle(
       fontSize: F.minBodySize,
       color: F.mutedDark,
       height: 1.4,
@@ -246,7 +246,7 @@ class _WhiteCard extends StatelessWidget {
         children: [
           FieldValue(
             data.nameAndAge,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: F.displayFamily,
               fontSize: F.subtitleSize,
               fontWeight: FontWeight.w700,
@@ -276,7 +276,7 @@ class _WhiteCard extends StatelessWidget {
           field(
             'الأدوية الحالية',
             data.medications.isEmpty
-                ? const Text('مفيش أدوية متسجّلة', style: empty)
+                ? Text('مفيش أدوية متسجّلة', style: empty)
                 : Text(
                     data.medicationsLine,
                     textDirection: TextDirection.ltr,

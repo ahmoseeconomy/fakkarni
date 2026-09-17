@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
 import '../../../core/theme/tokens.dart';
+import 'now_card.dart' show CardTypeIcon;
 import '../../../core/widgets/primitives.dart';
 import '../../../data/db/app_database.dart';
 import '../../../domain/health/usual_range.dart';
@@ -39,19 +40,29 @@ class GlucoseHomeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('آخر قياس سكر', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark)),
+          // أيقونة النوع على اليمين زي التصميم
+          Row(
+            children: [
+              CardTypeIcon(icon: Icons.water_drop_outlined),
+              SizedBox(width: F.s8),
+              Expanded(
+                child: Text('آخر قياس سكر',
+                    style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark)),
+              ),
+            ],
+          ),
           Text(
             '${arabicNumber(latest.valueMgDl)} ${latest.context.label}',
-            style: const TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink),
+            style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink),
           ),
           Text(
             '${arabicDate(latest.measuredAt)} — ${arabicTime(latest.measuredAt)}',
-            style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
           const SizedBox(height: F.s4),
           Text(
             judged.range == null ? notEnoughForUsual : comparisonText(judged.comparison!, judged.range!),
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
           ),
           const SizedBox(height: F.s10),
           FSecondaryButton(label: 'افتح', onPressed: onOpen),

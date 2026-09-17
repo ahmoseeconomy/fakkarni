@@ -31,8 +31,8 @@ class FSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: F.ivory,
+      decoration: BoxDecoration(
+        color: F.pageGround,
         borderRadius: BorderRadius.vertical(top: Radius.circular(F.radiusSheet)),
         boxShadow: F.shadowSheet,
       ),
@@ -57,7 +57,7 @@ class FSheet extends StatelessWidget {
               const SizedBox(height: F.s14),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: F.displayFamily,
                   fontSize: F.subtitleSize,
                   fontWeight: FontWeight.w700,

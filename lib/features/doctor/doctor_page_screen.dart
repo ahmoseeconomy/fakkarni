@@ -132,8 +132,8 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
     final now = _now;
     final since = DateTime(now.year, now.month, now.day - 30);
     final recent = [for (final r in _readings) if (!r.measuredAt.isBefore(since)) r];
-    const body = TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5);
-    const sub = TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4);
+    final body = TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5);
+    final sub = TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4);
 
     return Scaffold(
       appBar: AppBar(title: const Text('ملخص زيارة الطبيب')),
@@ -150,7 +150,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           _Section(
             title: 'الأدوية الحالية',
             children: _meds.isEmpty
-                ? const [Text('مفيش أدوية متسجّلة', style: sub)]
+                ? [Text('مفيش أدوية متسجّلة', style: sub)]
                 : [
                     for (final m in _meds)
                       Padding(
@@ -178,13 +178,13 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           _Section(
             title: 'القياسات — آخر ${arabicNumber(30)} يوم',
             children: [
-              if (recent.isEmpty) const Text('مفيش قياسات سكر في آخر ٣٠ يوم', style: sub),
+              if (recent.isEmpty) Text('مفيش قياسات سكر في آخر ٣٠ يوم', style: sub),
               for (final c in GlucoseContext.values)
                 if (GlucoseStats.of([for (final r in recent) if (r.context == c) r.valueMgDl]) case final st?)
                   Container(
                     margin: const EdgeInsets.only(bottom: F.s8),
                     padding: const EdgeInsets.all(F.s12),
-                    decoration: BoxDecoration(color: F.ivoryWarm, borderRadius: BorderRadius.circular(F.radiusCard)),
+                    decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -201,7 +201,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           _Section(
             title: 'التحاليل الأخيرة',
             children: _labs.isEmpty
-                ? const [Text('مفيش تحاليل متسجّلة', style: sub)]
+                ? [Text('مفيش تحاليل متسجّلة', style: sub)]
                 : [
                     for (final l in _labs)
                       Padding(
@@ -231,7 +231,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
             title: 'أسئلة العيلة',
             children: [
               if (_questions.isEmpty)
-                const Text('لسه مفيش أسئلة. اكتب اللي عايزين تسألوا الدكتور فيه عشان ما يتنسيش.', style: sub),
+                Text('لسه مفيش أسئلة. اكتب اللي عايزين تسألوا الدكتور فيه عشان ما يتنسيش.', style: sub),
               for (final q in _questions)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: F.s4),
@@ -255,7 +255,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(0, F.minTapTarget),
                             foregroundColor: F.ink,
-                            side: const BorderSide(color: F.line, width: 1.5),
+                            side: BorderSide(color: F.line, width: 1.5),
                             textStyle: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
                           ),
                           child: Text(q.asked ? 'اتسأل ✓' : 'اتسأل؟'),
@@ -271,9 +271,9 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                 style: const TextStyle(fontSize: F.minBodySize),
                 decoration: InputDecoration(
                   hintText: 'سؤال للدكتور',
-                  hintStyle: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                  hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: F.fieldGround,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
                 ),
               ),
@@ -303,7 +303,7 @@ class _Section extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: const TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green)),
+              Text(title, style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green)),
               const SizedBox(height: F.s8),
               ...children,
             ],

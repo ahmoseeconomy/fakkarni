@@ -178,7 +178,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                 children: [
                   const Kicker('مراجعة وتأكيد'),
                   const SizedBox(height: F.s4),
-                  const Text(
+                  Text(
                     'الذكاء يقترح، وأنت تؤكّد',
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -189,15 +189,15 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s6),
-                  const Text(
+                  Text(
                     'راجع كل دوا قبل ما يتحفظ. اللي عليه علامة ذهبية الذكاء مش متأكد منه.',
-                    style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.6),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                   ),
                   if (reading.doctor.value != null) ...[
                     const SizedBox(height: F.s4),
                     Text(
                       'د. ${reading.doctor.value}',
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                     ),
                   ],
                   if (kDebugMode && reading.modelWarning != null) ...[
@@ -227,13 +227,13 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     const SizedBox(height: F.s8),
                     Row(
                       children: [
-                        const Icon(Icons.check, color: F.greenOk, size: 24),
+                        Icon(Icons.check, color: F.greenOk, size: 24),
                         const SizedBox(width: F.s6),
                         Text(
                           _addedByHand == 1
                               ? 'اتضاف دوا بإيدك'
                               : 'اتضاف ${arabicNumber(_addedByHand)} أدوية بإيدك',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: F.minTextSize,
                             fontWeight: FontWeight.w600,
                             color: F.greenOk,
@@ -251,7 +251,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (_hasBlocking)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
                         'في دوا اسمه أو توقيته مش واضح — دوس «أعدّل» وحدده الأول.',
@@ -260,12 +260,12 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                       ),
                     )
                   else if (_hasUnknownAmount)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
                         'هتتحفظ من غير الجرعة — تقدر تضيفها بعدين',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                       ),
                     ),
                   // القراءة الوحشة علاجها صورة أحسن، مش تعديل خمس حقول بالإيد.
@@ -273,7 +273,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     height: F.minTapTarget,
                     child: TextButton(
                       onPressed: _busy ? null : () => Navigator.of(context).pop(ReviewResult.retake),
-                      child: const Text(
+                      child: Text(
                         'صوّر تاني',
                         style: TextStyle(
                           fontSize: F.minBodySize,
@@ -329,8 +329,8 @@ class _EqualButton extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: fill,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: F.ivoryWarm,
+            foregroundColor: F.onDark,
+            disabledBackgroundColor: F.railGround,
             disabledForegroundColor: F.mutedDark,
             textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
@@ -412,14 +412,14 @@ class _MedicineRow extends StatelessWidget {
                           final d => '${arabicNumber(d)} يوم',
                         },
                       ].join(' — '),
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.muted, height: 1.5),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: F.s8),
               if (saved)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: F.s8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -442,7 +442,7 @@ class _MedicineRow extends StatelessWidget {
                       foregroundColor: F.ink,
                       minimumSize: const Size(0, F.minTapTarget),
                       padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                      side: const BorderSide(color: F.line, width: 1.5),
+                      side: BorderSide(color: F.line, width: 1.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
                     ),
                     icon: const Icon(Icons.edit_outlined, size: 22),
@@ -458,7 +458,7 @@ class _MedicineRow extends StatelessWidget {
           // الوقت المحسوب + شريحة القاعدة — لكل توقيت. القاعدة هي اللي
           // بتتحفظ؛ الساعة للعرض بس.
           if (timings == null || timings.isEmpty)
-            const Text(
+            Text(
               'التوقيت مش واضح',
               style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
             )
@@ -473,7 +473,7 @@ class _MedicineRow extends StatelessWidget {
                     children: [
                       Text(
                         timeFor(t),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: F.minBodySize,
                           fontWeight: FontWeight.w700,
                           color: F.ink,
@@ -489,7 +489,7 @@ class _MedicineRow extends StatelessWidget {
             const SizedBox(height: F.s8),
             Text(
               'ثقة ${arabicNumber((_confidence * 100).round())}٪',
-              style: const TextStyle(fontSize: F.minTextSize, color: F.muted),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
           if (unsure) ...[
@@ -498,13 +498,13 @@ class _MedicineRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(F.s12),
               decoration: BoxDecoration(
-                color: F.ivoryPale,
+                color: F.railGround,
                 borderRadius: BorderRadius.circular(F.radiusTile),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'مش متأكد من دي — راجعها',
                     style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
                   ),
@@ -520,7 +520,7 @@ class _MedicineRow extends StatelessWidget {
                           TextSpan(text: note ?? 'مش واضح في الصورة'),
                         ],
                       ),
-                      style: const TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                   ],
                 ],
@@ -536,7 +536,7 @@ class _MedicineRow extends StatelessWidget {
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
           border: Border.all(color: unsure ? F.gold : F.line, width: unsure ? 1.5 : 1),
         ),
@@ -563,7 +563,7 @@ class _AddUnreadRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-        painter: const _DashedBorder(color: F.mutedLight, radius: F.radiusCard),
+        painter: _DashedBorder(color: F.mutedLight, radius: F.radiusCard),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -572,7 +572,7 @@ class _AddUnreadRow extends StatelessWidget {
             child: Container(
               constraints: const BoxConstraints(minHeight: F.minTapTarget + F.s8),
               padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s12),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.add, color: F.green, size: 26),
                   SizedBox(width: F.s8),
@@ -627,10 +627,10 @@ class _EmptyReading extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: F.s12),
         padding: const EdgeInsets.all(F.gap),
         decoration: BoxDecoration(
-          color: F.ivoryWarm,
+          color: F.railGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
         ),
-        child: const Text(
+        child: Text(
           'مقدرتش ألاقي أدوية في الصورة دي. صوّر تاني والنور يكون كويس.',
           style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
