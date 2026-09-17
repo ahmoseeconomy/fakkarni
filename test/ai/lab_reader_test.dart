@@ -5,10 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:fakkarni/ai/gemini_config.dart';
 import 'package:fakkarni/ai/lab_reader.dart';
-import 'package:fakkarni/ai/lab_reading.dart';
 import 'package:fakkarni/ai/prescription_reader.dart';
+
+import '../support/fake_ai_session.dart';
 
 final image = Uint8List.fromList(List<int>.generate(32, (i) => i));
 
@@ -25,39 +25,24 @@ String geminiBody(Map<String, dynamic> json) => jsonEncode({
     });
 
 void main() {
-  const config = GeminiConfig(apiKey: 'test-key');
+  GeminiLabReader readerWith(http.Client client) {
+    final session = FakeAiSession();
+    return GeminiLabReader(session, transport: GeminiPrescriptionReader(session, client: client));
+  }
 
-  test('الـsystem instruction بيمنع النطاق والعلامات والتفسير والنصيحة صراحةً — ومتبعت في الطلب', () async {
+  // التعليمة اللي بتمنع النطاق والعلامات والتفسير، والـschema اللي مفيهوش
+  // مكان ليهم، بقوا في دالة السحابة من بعد C2 — `ai_read_function_test`
+  // بيقرا الملف ده وبيثبّتهم هناك. هنا: العميل بيطلب `lab` وبس.
+  test('الطلب: kind = lab وصورة ونوع ملف — ومفيش برومبت ولا تعليمة ولا schema من العميل', () async {
     Map<String, dynamic>? sent;
-    final client = MockClient((req) async {
+    final reader = readerWith(MockClient((req) async {
       sent = jsonDecode(req.body) as Map<String, dynamic>;
       return http.Response(geminiBody({'results': []}), 200);
-    });
-    final reader = GeminiLabReader(config, transport: GeminiPrescriptionReader(config, client: client));
+    }));
     await reader.read(image);
 
-    final instruction = GeminiLabReader.systemInstruction;
-    for (final phrase in [
-      'not a doctor',
-      'Do NOT return reference ranges',
-      'Do NOT return H/L',
-      'Do NOT interpret, diagnose, recommend, or advise',
-      'Never say a value is high, low, normal, abnormal',
-      'Never suggest seeing a doctor',
-      'Never guess a digit',
-    ]) {
-      expect(instruction, contains(phrase));
-    }
-    final parts = ((sent!['systemInstruction'] as Map)['parts'] as List).first as Map;
-    expect(parts['text'], instruction);
-    expect(sent!['generationConfig']['responseSchema'], labSchema);
-  });
-
-  test('الـschema مفيهوش مكان لنطاق مرجعي ولا علامة ولا تفسير', () {
-    final text = jsonEncode(labSchema).toLowerCase();
-    for (final forbidden in ['range', 'reference', 'flag', 'interpret', 'normal', 'comment', 'note']) {
-      expect(text.contains(forbidden), isFalse, reason: forbidden);
-    }
+    expect(sent!.keys.toSet(), {'kind', 'mime', 'image'});
+    expect(sent!['kind'], 'lab');
   });
 
   test('القراءة: الأرقام بثقتها، والرقم اللي مش واضح بيقفل «تمام»', () async {
@@ -81,7 +66,7 @@ void main() {
           200,
         ));
     final reading =
-        await GeminiLabReader(config, transport: GeminiPrescriptionReader(config, client: client)).read(image);
+        await readerWith(client).read(image);
 
     expect(reading.lab.value, 'معمل البرج');
     expect(reading.date.value, DateTime(2026, 9, 12));
@@ -93,7 +78,7 @@ void main() {
 
   test('فشل الشبكة → رسالة التقرير مش رسالة الروشتة', () async {
     final client = MockClient((_) async => http.Response('{"error":"boom"}', 500));
-    final reader = GeminiLabReader(config, transport: GeminiPrescriptionReader(config, client: client));
+    final reader = readerWith(client);
     expect(
       () => reader.read(image),
       throwsA(isA<PrescriptionReadException>().having((e) => e.message, 'message', contains('التقرير'))),

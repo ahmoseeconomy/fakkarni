@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../ai/ai_session.dart';
 import '../care/care_circle_service.dart';
 import '../care/caregiver_remote.dart';
 import '../care/supabase_care_circle_service.dart';
@@ -13,6 +14,7 @@ import '../sync/supabase_sync_remote.dart';
 import '../sync/sync_service.dart';
 import 'anonymous_auth_service.dart';
 import 'auth_service.dart';
+import 'supabase_ai_session.dart';
 
 /// إعداد Supabase وGoogle — من `--dart-define` وبس، زي مفتاح Gemini بالظبط.
 ///
@@ -127,6 +129,7 @@ typedef CloudServices = ({
   CaregiverRemote caregiver,
   SyncRemote syncRemote,
   PushTokenRemote pushTokens,
+  AiSession aiSession,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -155,6 +158,8 @@ Future<CloudServices?> initSupabaseAuth() async {
       caregiver: SupabaseCaregiverRemote(supabase.client),
       syncRemote: SupabaseSyncRemote(supabase.client),
       pushTokens: SupabasePushTokenRemote(supabase.client),
+      // قراية الصور (C2): دالة `ai-read` بجلسة المستخدم — التطبيق مالوش مفتاح.
+      aiSession: SupabaseAiSession(supabase.client, url: config.url, publishableKey: config.key),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

@@ -7,9 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image/image.dart' as img;
 
-import 'package:fakkarni/ai/gemini_config.dart';
 import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/core/images/shrink_for_ai.dart';
+
+import '../support/fake_ai_session.dart';
 
 /// C1 عند نقطة النداء نفسها: اللي بيطلع على السلك هو اللي بيتحاسب عليه.
 ///
@@ -24,16 +25,10 @@ void main() {
       sent = jsonDecode(request.body) as Map<String, dynamic>;
       return http.Response(okBody, 200, headers: {'content-type': 'application/json; charset=utf-8'});
     });
-    final reader = GeminiPrescriptionReader(const GeminiConfig(apiKey: 'AQ.k'), client: client);
-    await reader.generate(
-      image: image,
-      mimeType: mimeType,
-      prompt: 'p',
-      schema: const {'type': 'object'},
-      failure: 'f',
-    );
-    final parts = ((sent['contents'] as List).first as Map)['parts'] as List;
-    return (parts[1] as Map)['inline_data'] as Map<String, dynamic>;
+    final reader = GeminiPrescriptionReader(FakeAiSession(), client: client);
+    await reader.generate(image: image, mimeType: mimeType, kind: 'prescription', failure: 'f');
+    // الجسم من بعد C2: {kind, mime, image} — نفس المعلومتين بأسامي دالتنا.
+    return {'mime_type': sent['mime'], 'data': sent['image']};
   }
 
   group('اللوج بيطلع من generate على العزلة الرئيسية — سطر واحد لكل نداء', () {

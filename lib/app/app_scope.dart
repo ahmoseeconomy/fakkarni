@@ -104,6 +104,10 @@ class AppScope extends InheritedWidget {
     return scope!.services;
   }
 
+  /// للشاشات اللي بتتبني لوحدها في اختبار من غير هيكل فوقها.
+  static AppServices? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()?.services;
+
   @override
   bool updateShouldNotify(AppScope oldWidget) => services != oldWidget.services;
 }

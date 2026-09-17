@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../ai/gemini_config.dart';
 import '../../ai/lab_reader.dart';
+import '../../app/app_scope.dart';
 import '../../ai/lab_reading.dart';
 import '../../ai/prescription_reader.dart' show PrescriptionReadException;
 import '../../core/theme/tokens.dart';
@@ -14,6 +14,7 @@ import '../records/manual_entry_screen.dart';
 import '../scan/debug_panel.dart';
 import '../scan/review_prescription_screen.dart' show ReviewResult;
 import '../scan/scan_prescription_screen.dart' show PickImage, pickWithSystemCamera;
+import '../scan/ai_read_gate.dart';
 import '../scan/scan_stage.dart';
 import 'lab_report_screen.dart';
 import 'usual_words.dart';
@@ -45,6 +46,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
   List<String>? _labels;
   int _revealed = 0;
   String? _error;
+
+  /// القارئ ما لقاش جلسة، أو السحابة ردّت ٤٠١ — [AiReadGate] بيقفل الكاميرا.
+  bool _needsSignIn = false;
   String? _cause;
 
   bool get _busy => _phase == _Phase.reading || _phase == _Phase.revealing;
@@ -112,6 +116,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
+        _needsSignIn = e.needsSignIn;
         _error = e.message;
         _cause = e.cause?.toString();
         _labels = null;
@@ -148,11 +153,17 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
           children: [
-            if (widget.reader == null) ...[
-              const PanelOnDark(text: GeminiConfig.missingKeyMessage),
-              const SizedBox(height: F.gap),
-              SecondaryOnDark(label: 'أكتبه بإيدي', onPressed: _byHand),
-            ] else ...[
+            AiReadGate(
+              hasReader: widget.reader != null,
+              auth: AppScope.maybeOf(context)?.auth,
+              needsSignIn: _needsSignIn,
+              signInLine: 'سجّل دخول عشان نقرا التقرير',
+              byHandLabel: 'أكتبه بإيدي',
+              onByHand: _byHand,
+              onSignInClosed: () {
+                if (mounted) setState(() { _needsSignIn = false; _phase = _Phase.idle; _error = null; });
+              },
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               ScanStage(
                 image: _image,
                 busy: _busy,
@@ -208,7 +219,8 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                   Expanded(child: SecondaryOnDark(label: 'أكتبه بإيدي', onPressed: _busy ? null : _byHand)),
                 ],
               ),
-            ],
+              ]),
+            ),
           ],
         ),
       ),

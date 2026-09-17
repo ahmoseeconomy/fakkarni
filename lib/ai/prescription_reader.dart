@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:http/http.dart' as http;
 
 import '../core/images/shrink_for_ai.dart';
-import 'gemini_config.dart';
+import 'ai_session.dart';
 import 'prescription_reading.dart';
 
 /// بيقرا صورة روشتة وبيرجّع اقتراح — واجهة عشان الشاشات تتختبر من غير شبكة.
@@ -15,37 +15,35 @@ abstract interface class PrescriptionReader {
 
 /// القراءة فشلت — رسالة جاهزة للمستخدم، والسبب التقني في [cause].
 class PrescriptionReadException implements Exception {
-  const PrescriptionReadException(this.message, [this.cause]);
+  const PrescriptionReadException(this.message, [this.cause, this.needsSignIn = false]);
+
+  /// مفيش جلسة (أو السحابة رفضتها ٤٠١) — الشاشة بتعرض باب الدخول بدل «صوّر تاني».
+  const PrescriptionReadException.signInRequired([Object? cause])
+      : this(signInLine, cause, true);
+
+  /// السطر الواحد الصريح — القراية بالصورة محتاجة حساب من بعد C2.
+  static const signInLine = 'سجّل دخول عشان نقرا الروشتة';
 
   final String message;
   final Object? cause;
+  final bool needsSignIn;
 
   @override
   String toString() => 'PrescriptionReadException($message${cause == null ? '' : '، $cause'})';
 }
 
-/// Gemini عن طريق REST مباشرة.
+/// القارئ: بينادي دالتنا `ai-read` بجلسة المستخدم — **من غير أي مفتاح**.
 ///
-/// من غير حزمة `google_generative_ai` — متوقّفة — ومن غير أي مفتاح في
-/// الكود: [GeminiConfig] هو المصدر الوحيد، والمُنشئ بيرمي لو المفتاح فاضي
-/// عشان مفيش ولا طلب يخرج من غير مفتاح.
+/// قبل C2 الملف ده كان بيكلّم جوجل مباشرة بمفتاح متترجم جوّه التطبيق. دلوقتي
+/// المفتاح، والبرومبت، والـschema، وتثبيت الموديل وبديله — كلهم في
+/// `supabase/functions/ai-read/index.ts`. اللي فضل هنا: تصغير الصورة (C1)،
+/// الطلب، وترجمة الرد لحالات الشاشة. **فك الرد والحكم على الثقة زي ما هم** —
+/// الدالة بترجّع رد الموديل بالحرف.
 class GeminiPrescriptionReader implements PrescriptionReader {
-  GeminiPrescriptionReader(this.config, {http.Client? client})
-      : _client = client ?? http.Client() {
-    if (config.apiKey.trim().isEmpty) {
-      throw StateError(GeminiConfig.missingKeyMessage);
-    }
-  }
+  GeminiPrescriptionReader(this.session, {http.Client? client}) : _client = client ?? http.Client();
 
-  final GeminiConfig config;
+  final AiSession session;
   final http.Client _client;
-
-  Uri get endpoint => endpointFor(config.model);
-
-  Uri endpointFor(String model) => Uri.https(
-        'generativelanguage.googleapis.com',
-        '/v1beta/models/$model:generateContent',
-      );
 
   @override
   Future<PrescriptionReading> read(
@@ -55,24 +53,26 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     final result = await generate(
       image: image,
       mimeType: mimeType,
-      prompt: prompt,
-      schema: prescriptionSchema,
+      kind: 'prescription',
       failure: 'مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.',
     );
     final reading = PrescriptionReading.fromJson(result.json);
     return result.warning == null ? reading : reading.withModelWarning(result.warning!);
   }
 
-  /// النقل المشترك (D3.6): الروشتة والتحليل نفس الطريق — نفس المفتاح، نفس
-  /// التثبيت والبديل، نفس الأخطاء — ببرومبت وschema مختلفين.
+  /// النقل المشترك (D3.6): الروشتة والتحليل نفس الطريق. [kind] هو كل اللي
+  /// بيختار البرومبت — العميل ما بيبعتش برومبت، فجلسة مسروقة ما تقدرش تحوّل
+  /// مفتاحنا لبروكسي عام.
   Future<({Map<String, dynamic> json, String? warning})> generate({
     required Uint8List image,
     required String mimeType,
-    required String prompt,
-    required Map<String, dynamic> schema,
+    required String kind,
     required String failure,
-    String? systemInstruction,
   }) async {
+    // مفيش جلسة → مفيش طلب. الصورة ما بتتصغّرش ولا بتطلع من الموبايل.
+    final token = await session.accessToken();
+    if (token == null) throw const PrescriptionReadException.signInRequired('no session');
+
     // التصغير هنا وبس (C1). النقل ده هو الطريق الوحيد لـGemini — الروشتة
     // والتحليل الاتنين بيعدّوا منه — فمفيش نقطة نداء تقدر تنسى تصغّر،
     // ولا واحدة جديدة هتفتكر لوحدها. الناتج JPEG دايماً، فالنوع بيتصحّح
@@ -94,43 +94,17 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     debugPrint('Gemini: ${describeShrink(report)}');
     final shrunk = report.bytes ?? image;
     final wireType = report.bytes == null ? mimeType : 'image/jpeg';
-    final body = jsonEncode(_request(shrunk, wireType, prompt, schema, systemInstruction));
 
-    var response = await _post(config.model, body);
-    var raw = utf8.decode(response.bodyBytes, allowMalformed: true);
-    String? warning;
+    final body = jsonEncode({'kind': kind, 'mime': wireType, 'image': base64Encode(shrunk)});
 
-    // الموديل المثبّت اتقفل؟ مرة واحدة على البديل، وبصوت عالي.
-    // ٤٠٠ (مشكلة schema) **ما بيعملش** ده — الإخفاء هنا هو بالظبط تغيّر
-    // السلوك اللي بنحمي منه.
-    if (_isRetired(response.statusCode, raw)) {
-      warning = 'الموديل المثبّت ${config.model} اتقفل — '
-          'القراءة جت من ${config.fallbackModel}. ثبّت تاني بإيدك. '
-          '(${_excerpt(raw, 200)})';
-      debugPrint('Gemini: WARNING pinned model ${config.model} retired: '
-          '${_excerpt(raw, 200)} — retrying once with ${config.fallbackModel}');
-      response = await _post(config.fallbackModel, body);
-      raw = utf8.decode(response.bodyBytes, allowMalformed: true);
-    }
-
-    if (response.statusCode != 200) {
-      // السبب الحقيقي بيتسجّل هنا — مش بنخمّن. المفتاح عمره ما بيتطبع.
-      final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}'
-          '${warning == null ? '' : ' (after fallback ${config.fallbackModel})'}';
-      debugPrint('Gemini: $cause');
-      throw PrescriptionReadException(failure, cause);
-    }
-
-    return (json: _parse(raw), warning: warning);
-  }
-
-  Future<http.Response> _post(String model, String body) async {
+    final http.Response response;
     try {
-      return await _client.post(
-        endpointFor(model),
+      response = await _client.post(
+        session.endpoint,
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': config.apiKey,
+          'apikey': session.publishableKey,
+          'Authorization': 'Bearer $token',
         },
         body: body,
       );
@@ -138,11 +112,45 @@ class GeminiPrescriptionReader implements PrescriptionReader {
       debugPrint('Gemini: transport: $error');
       throw PrescriptionReadException('مفيش نت دلوقتي — جرّب تاني بعد شوية.', error);
     }
+    final raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+
+    if (response.statusCode != 200) {
+      // السبب الحقيقي بيتسجّل — مش بنخمّن. التوكن عمره ما بيتطبع.
+      final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}';
+      debugPrint('Gemini: $cause');
+      switch (response.statusCode) {
+        case 401:
+          throw PrescriptionReadException.signInRequired(cause);
+        case 429:
+          // جملة السحابة زي ما هي — هي اللي عارفة أنهي حد اتقفل.
+          throw PrescriptionReadException(_serverMessage(raw) ?? failure, cause);
+        default:
+          throw PrescriptionReadException(failure, cause);
+      }
+    }
+
+    return (json: _parse(raw), warning: _warningFrom(response.headers['x-model-warning']));
   }
 
-  /// ٤٠٤ ونصه بيقول NOT_FOUND — ده تقاعد موديل، مش مسار غلط.
-  static bool _isRetired(int status, String body) =>
-      status == 404 && body.contains('NOT_FOUND');
+  /// `x-model-warning: <المثبّت>;<البديل>` — الـheader ASCII بس، فالجملة
+  /// بتتبني هنا. نص رد جوجل نفسه في لوج الدالة.
+  static String? _warningFrom(String? header) {
+    if (header == null || header.trim().isEmpty) return null;
+    final parts = header.split(';');
+    final pinned = parts.first.trim();
+    final fallback = parts.length > 1 ? parts[1].trim() : '';
+    debugPrint('Gemini: WARNING pinned model $pinned retired — read came from $fallback');
+    return 'الموديل المثبّت $pinned اتقفل — القراءة جت من $fallback. ثبّت تاني بإيدك.';
+  }
+
+  static String? _serverMessage(String raw) {
+    try {
+      final message = (jsonDecode(raw) as Map<String, dynamic>)['message'];
+      return message is String && message.trim().isNotEmpty ? message : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Map<String, dynamic> _parse(String raw) {
     try {
@@ -161,57 +169,4 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   /// أول ٨٠٠ حرف — كفاية عشان نقرا رسالة الخطأ من غير ما نغرق اللوج.
   static String _excerpt(String body, [int max = 800]) =>
       body.length <= max ? body : '${body.substring(0, max)}…';
-
-  Map<String, dynamic> _request(
-    Uint8List image,
-    String mimeType,
-    String prompt,
-    Map<String, dynamic> schema,
-    String? systemInstruction,
-  ) =>
-      {
-        if (systemInstruction != null)
-          'systemInstruction': {
-            'parts': [
-              {'text': systemInstruction},
-            ],
-          },
-        'contents': [
-          {
-            'parts': [
-              {'text': prompt},
-              {
-                'inline_data': {
-                  'mime_type': mimeType,
-                  'data': base64Encode(image),
-                }
-              },
-            ],
-          },
-        ],
-        'generationConfig': {
-          'temperature': 0,
-          'responseMimeType': 'application/json',
-          'responseSchema': schema,
-        },
-      };
-
-  /// التعليمات — القاعدة السادسة مكتوبة للموديل نفسه: ما تخمّنش.
-  static const prompt = '''
-You are reading a photo of a paper medical prescription from Egypt (Arabic and/or English, often handwritten).
-Extract ONLY what is literally written. Never guess, infer, or complete anything.
-
-For each medication line return: name (as written, keep Latin drug names in Latin), amount (e.g. "قرص واحد", "1 tablet", "5 ml"), timing, durationDays.
-
-Timing rules:
-- Prefer meal-relative timing: anchor ∈ {wake, breakfast, lunch, dinner, sleep}, relation ∈ {before, after, at}, offsetMinutes only if a number of minutes is written.
-- "1×3" / "3 times daily" style with no meal named: set timesPerDay and leave anchor null.
-- Set clockTime "HH:MM" (24h) ONLY if an explicit clock time is written on the paper.
-- If timing is unclear, illegible, or "when needed": leave anchor, clockTime and timesPerDay null, set a low confidence, and set note to "مش متأكد — اسأل الصيدلي".
-
-durationDays: ONLY if a duration is written. If not written, value must be null with confidence 1 — a missing duration is not an error.
-
-confidence is 0..1 for each field based on legibility. Below 0.8 means a human must check it.
-Do not add, remove, rename or substitute any medication. Do not give medical advice.
-''';
 }

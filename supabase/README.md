@@ -54,7 +54,14 @@
     `patient_of_record` + مسح يومي للمحذوف من ٣٠ يوم. بيطبع `0012 OK` في
     الآخر. **قبل** ما نسخة D5.1 توصل موبايل مربوط — من غيره الدفع بيقع عند
     `records` في كل مرة.
-14. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+14. `migrations/0013_ai_reads.sql` — سجل قرايات الذكاء (C2): جدول `ai_reads`
+    مقفول على العميل بالكامل (RLS من غير ولا policy) + عدّاد
+    `ai_reads_today_for_service` بيوم القاهرة، لـ`service_role` وبس. بيطبع
+    `0013 OK` في الآخر. **قبل** لصق دالة `ai-read` — من غيره الدالة بترد
+    `503 cap_check_failed` على كل قراية. (`0014` محجوز للفهرس والتنظيف.)
+    بعده، بالترتيب: سر `GEMINI_API_KEY` في Edge Functions → Secrets، وبعدين
+    الصق `functions/ai-read/index.ts` و`verify_jwt` **مفعّل**.
+15. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /
