@@ -2069,8 +2069,10 @@ device-verified)**
   three curl checks in the function's header pass (no session → 401, bad
   kind → 400, a real read → Gemini's body). Not yet seen: a read from the
   app itself on a device, and the cap actually tripping at 20.
-- A build older than C2 keeps working only while its compiled-in key
-  lives — rotate that key once this is live; it has been in binaries.
+- **The old key is dead** (rotated 2026-09-18, deleted from Google AI
+  Studio; the new one exists only as the `GEMINI_API_KEY` secret, and
+  `secrets.json` no longer carries a Gemini line). A build older than C2
+  therefore cannot read a photo at all — its compiled-in key answers 400.
 
 **Next**
 1. Photograph a real handwritten prescription with the key set; tune
