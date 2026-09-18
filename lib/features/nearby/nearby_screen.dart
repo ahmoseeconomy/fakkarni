@@ -26,7 +26,23 @@ String distanceText(double meters) => meters < 1000
     ? '${arabicNumber((meters / 10).round() * 10)} متر'
     : '${arabicDigits((meters / 1000).toStringAsFixed(1))} كم';
 
-enum _Filter { all, pharmacy, doctor }
+enum _Filter { all, pharmacy, doctor, hospital, lab }
+
+/// أيقونة كل نوع — من نفس المجموعة المستخدمة، ومن غير لون جديد.
+IconData _iconFor(PlaceKind kind) => switch (kind) {
+      PlaceKind.pharmacy => Icons.local_pharmacy,
+      PlaceKind.doctor => Icons.medical_services,
+      PlaceKind.hospital => Icons.local_hospital,
+      PlaceKind.lab => Icons.science,
+    };
+
+/// كلمة النوع في الكارت («… من غير اسم على الخريطة»).
+String _kindWord(PlaceKind kind) => switch (kind) {
+      PlaceKind.pharmacy => 'صيدلية',
+      PlaceKind.doctor => 'دكتور',
+      PlaceKind.hospital => 'مستشفى',
+      PlaceKind.lab => 'معمل تحاليل',
+    };
 
 /// «قريب منك» (المخطط ١٧) — صيدليات ودكاترة من OpenStreetMap.
 ///
@@ -67,6 +83,8 @@ class _NearbyScreenState extends State<NearbyScreen> {
   _Filter _filter = _Filter.all;
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
+
+  String _emptyText(PlaceKind? kind) => _emptyTextFor(kind, _places.sourceName);
 
   @override
   void initState() {
@@ -173,20 +191,27 @@ class _NearbyScreenState extends State<NearbyScreen> {
     final here = LatLng(fix.lat!, fix.lon!);
     final all = [...result.places]
       ..sort((a, b) => metersBetween(fix.lat!, fix.lon!, a.lat, a.lon).compareTo(metersBetween(fix.lat!, fix.lon!, b.lat, b.lon)));
-    final shown = [
-      for (final p in all)
-        if (_filter == _Filter.all ||
-            (_filter == _Filter.pharmacy && p.kind == PlaceKind.pharmacy) ||
-            (_filter == _Filter.doctor && p.kind == PlaceKind.doctor))
-          p,
-    ];
+    final wanted = switch (_filter) {
+      _Filter.all => null,
+      _Filter.pharmacy => PlaceKind.pharmacy,
+      _Filter.doctor => PlaceKind.doctor,
+      _Filter.hospital => PlaceKind.hospital,
+      _Filter.lab => PlaceKind.lab,
+    };
+    final shown = [for (final p in all) if (wanted == null || p.kind == wanted) p];
 
     return [
       Wrap(
         spacing: F.s8,
         runSpacing: F.s8,
         children: [
-          for (final (f, label) in [(_Filter.all, 'الكل'), (_Filter.pharmacy, 'صيدليات'), (_Filter.doctor, 'دكاترة')])
+          for (final (f, label) in [
+            (_Filter.all, 'الكل'),
+            (_Filter.pharmacy, 'صيدليات'),
+            (_Filter.doctor, 'دكاترة'),
+            (_Filter.hospital, 'مستشفيات'),
+            (_Filter.lab, 'معامل تحاليل'),
+          ])
             AnchorChip(
               key: ValueKey('nearby-filter-${f.name}'),
               label: label,
@@ -221,11 +246,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                       point: LatLng(p.lat, p.lon),
                       width: 30,
                       height: 30,
-                      child: Icon(
-                        p.kind == PlaceKind.pharmacy ? Icons.local_pharmacy : Icons.medical_services,
-                        color: F.greenDeep,
-                        size: 28,
-                      ),
+                      child: Icon(_iconFor(p.kind), color: F.greenDeep, size: 28),
                     ),
                   Marker(
                     point: here,
@@ -270,10 +291,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
       FSecondaryButton(label: 'دوّر من مكاني تاني', onPressed: _search),
       const SizedBox(height: F.s12),
       if (shown.isEmpty)
-        const _Notice(
-          key: ValueKey('nearby-empty'),
-          text: 'مفيش حاجة متسجّلة على OpenStreetMap في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
-        )
+        _Notice(key: const ValueKey('nearby-empty'), text: _emptyText(wanted))
       else
         for (final p in shown)
           Padding(
@@ -283,6 +301,16 @@ class _NearbyScreenState extends State<NearbyScreen> {
     ];
   }
 }
+
+/// الحالة الفاضية — جملة لكل نوع على نفس النمط. «الكل» زي ما كانت؛ الباقي
+/// بيسمّي المصدر من الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
+String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
+      null => 'مفيش حاجة متسجّلة على OpenStreetMap في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
+      PlaceKind.pharmacy => 'مفيش صيدليات متسجّلة على $source في ٢ كم حواليك.',
+      PlaceKind.doctor => 'مفيش دكاترة متسجّلين على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
+      PlaceKind.hospital => 'مفيش مستشفيات متسجّلة على $source في ٢ كم حواليك.',
+      PlaceKind.lab => 'مفيش معامل تحاليل متسجّلة على $source في ٢ كم حواليك.',
+    };
 
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({required this.place, required this.meters, required this.now});
@@ -294,7 +322,7 @@ class _PlaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = place;
-    final kindWord = p.kind == PlaceKind.pharmacy ? 'صيدلية' : 'دكتور';
+    final kindWord = _kindWord(p.kind);
     final name = p.name ?? '$kindWord من غير اسم على الخريطة';
     final hours = p.openingHours;
     final state = hours == null ? null : openStateAt(hours, now);
@@ -306,7 +334,7 @@ class _PlaceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(p.kind == PlaceKind.pharmacy ? Icons.local_pharmacy : Icons.medical_services, color: F.green, size: 26),
+              Icon(_iconFor(p.kind), color: F.green, size: 26),
               const SizedBox(width: F.s8),
               Expanded(
                 child: Text(

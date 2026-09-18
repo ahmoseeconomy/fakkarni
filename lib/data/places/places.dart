@@ -8,8 +8,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// نوع المكان — اللي OSM بيقوله، مش تخمين.
-enum PlaceKind { pharmacy, doctor }
+/// نوع المكان — اللي المصدر بيقوله، مش تخمين.
+enum PlaceKind { pharmacy, doctor, hospital, lab }
 
 /// مكان زي ما المصدر قاله. **مفيش تقييم** — لا OSM ولا MapKit عندهم تقييمات
 /// بنقدر نعرضها، ونجمة مخترعة على صيدلية حقيقية كذبة على ناس.
@@ -54,6 +54,17 @@ class Place {
         openingHours: json['openingHours'] as String?,
       );
 
+  /// وسوم OSM → نوع. `amenity=clinic` دكتور: في مصر OSM بيستخدمها أكتر
+  /// بكتير من `healthcare=doctor`.
+  static PlaceKind? _overpassKind(Map tags) {
+    final amenity = tags['amenity'], healthcare = tags['healthcare'];
+    if (amenity == 'pharmacy') return PlaceKind.pharmacy;
+    if (amenity == 'hospital') return PlaceKind.hospital;
+    if (healthcare == 'laboratory') return PlaceKind.lab;
+    if (amenity == 'doctors' || amenity == 'clinic' || healthcare == 'doctor') return PlaceKind.doctor;
+    return null;
+  }
+
   static List<Place> fromOverpass(Map<String, dynamic> json) {
     final elements = json['elements'];
     if (elements is! List) return const [];
@@ -65,11 +76,7 @@ class Place {
       final lat = (e['lat'] ?? (e['center'] is Map ? e['center']['lat'] : null));
       final lon = (e['lon'] ?? (e['center'] is Map ? e['center']['lon'] : null));
       if (lat is! num || lon is! num) continue;
-      final kind = tags['amenity'] == 'pharmacy'
-          ? PlaceKind.pharmacy
-          : (tags['amenity'] == 'doctors' || tags['healthcare'] == 'doctor')
-              ? PlaceKind.doctor
-              : null;
+      final kind = _overpassKind(tags);
       if (kind == null) continue;
       String? tag(String k) {
         final v = tags[k];
@@ -172,7 +179,9 @@ class NearbyPlaces {
   Future<PlacesResult> search(double latitude, double longitude, {DateTime? now}) async {
     final at = now ?? DateTime.now();
     final lat = round3(latitude), lon = round3(longitude);
-    final key = 'places:v2:${source.id}:$lat:$lon:$radiusMeters';
+    // مجموعة الأنواع في المفتاح: لما نوع يتضاف، صفوف قديمة ناقصاه ما تتقراش.
+    final kinds = PlaceKind.values.map((k) => k.name).join(',');
+    final key = 'places:v3:${source.id}:$kinds:$lat:$lon:$radiusMeters';
 
     ({DateTime at, List<Place> places})? cached;
     final raw = await cache.read(key);
@@ -230,12 +239,16 @@ class OverpassPlaces implements PlacesSource {
 
   static double round3(double v) => NearbyPlaces.round3(v);
 
+  /// **استعلام واحد** للأربع أنواع — اتحاد، مش أربع طلبات.
   static String query(double lat, double lon, [int radius = radiusMeters]) {
     final around = '(around:$radius,$lat,$lon)';
     return '[out:json][timeout:25];('
         'nwr["amenity"="pharmacy"]$around;'
         'nwr["amenity"="doctors"]$around;'
+        'nwr["amenity"="clinic"]$around;'
         'nwr["healthcare"="doctor"]$around;'
+        'nwr["amenity"="hospital"]$around;'
+        'nwr["healthcare"="laboratory"]$around;'
         ');out center tags;';
   }
 
@@ -266,6 +279,10 @@ class OverpassPlaces implements PlacesSource {
 /// `ios/Runner/PlacesChannel.swift`. **مفيش مفتاح، مفيش MapKit JS، ومفيش
 /// شبكة في Dart** — النظام هو اللي بيكلّم أبل، بنفس القواعد بتاعة تطبيق
 /// الخرايط نفسه.
+///
+/// المستشفيات بـ`MKLocalPointsOfInterestRequest` وفئة `.hospital` (فئة
+/// بالظبط، مش كلمة)، والمعامل بالاستعلام «معمل تحاليل»؛ الصيدليات والدكاترة
+/// كلمات لسه — المقارنة على الموبايل الأول.
 ///
 /// اللي بيرجع: الاسم، الإحداثيات، التليفون، ومعرّف MapKit.
 /// [Place.openingHours] **null دايماً** — MapKit ما بيدّيهاش، والشاشة بتعرف
@@ -304,6 +321,8 @@ class AppleMapKitPlaces implements PlacesSource {
       final kind = switch (row['kind']) {
         'pharmacy' => PlaceKind.pharmacy,
         'doctor' => PlaceKind.doctor,
+        'hospital' => PlaceKind.hospital,
+        'lab' => PlaceKind.lab,
         _ => null,
       };
       if (kind == null) continue;

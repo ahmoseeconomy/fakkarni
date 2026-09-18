@@ -33,6 +33,8 @@ final samplePlaces = [
   const Place(id: 'x/1', kind: PlaceKind.pharmacy, lat: 30.0472, lon: 31.2386, name: 'Al Azaby', phone: '+20 2 1234567'),
   const Place(id: 'x/2', kind: PlaceKind.doctor, lat: 30.046, lon: 31.240, name: 'عيادة د. سامي'),
   const Place(id: 'x/3', kind: PlaceKind.pharmacy, lat: 30.045, lon: 31.2465),
+  const Place(id: 'x/4', kind: PlaceKind.hospital, lat: 30.0450, lon: 31.2420, name: 'مستشفى القصر العيني'),
+  const Place(id: 'x/5', kind: PlaceKind.lab, lat: 30.0440, lon: 31.2440, name: 'معمل البرج'),
 ];
 
 /// صفوف زي ما `PlacesChannel.swift` بيبعتها.
@@ -40,20 +42,22 @@ const channelRows = <Object?>[
   {'id': 'mapkit/I1', 'kind': 'pharmacy', 'name': 'Al Azaby', 'lat': 30.0472, 'lon': 31.2386, 'phone': '+20 2 1234567'},
   {'id': 'mapkit/I2', 'kind': 'doctor', 'name': 'عيادة د. سامي', 'lat': 30.046, 'lon': 31.240},
   {'id': 'mapkit/I3', 'kind': 'pharmacy', 'lat': 30.045, 'lon': 31.2465},
+  {'id': 'mapkit/I4', 'kind': 'hospital', 'name': 'مستشفى القصر العيني', 'lat': 30.0450, 'lon': 31.2420},
+  {'id': 'mapkit/I5', 'kind': 'lab', 'name': 'معمل البرج', 'lat': 30.0440, 'lon': 31.2440},
 ];
 
 void runContract(String name, PlacesSource Function() make) {
   group('عقد المصدر — $name', () {
-    test('بيرجّع أماكن بمعرّف وإحداثيات ونوع من الاتنين، وبيقبل المجهول من غير اسم', () async {
+    test('بيرجّع أماكن بمعرّف وإحداثيات ونوع من الأربعة، وبيقبل المجهول من غير اسم', () async {
       final places = await make().nearby(cairo.lat, cairo.lon, 2000);
 
-      expect(places, hasLength(3));
+      expect(places, hasLength(5));
       for (final p in places) {
         expect(p.id, isNotEmpty);
         expect(p.lat, inInclusiveRange(-90, 90));
         expect(p.lon, inInclusiveRange(-180, 180));
       }
-      expect(places.map((p) => p.kind).toSet(), {PlaceKind.pharmacy, PlaceKind.doctor});
+      expect(places.map((p) => p.kind).toSet(), PlaceKind.values.toSet(), reason: 'الأربع أنواع');
       expect(places.where((p) => p.name == null), hasLength(1), reason: 'من غير اسم ≠ متشال');
       expect(places.first.phone, '+20 2 1234567');
     });
@@ -106,7 +110,7 @@ void main() {
     test('صف ناقص أو نوع غريب بيتعدّى من غير ما يرمي، والمعرّف الناقص بيتبني من الإحداثيات', () {
       final places = AppleMapKitPlaces.fromChannel([
         {'kind': 'pharmacy', 'lat': 30.0, 'lon': 31.0},
-        {'id': 'mapkit/x', 'kind': 'hospital', 'lat': 30.0, 'lon': 31.0},
+        {'id': 'mapkit/x', 'kind': 'dentist', 'lat': 30.0, 'lon': 31.0},
         {'id': 'mapkit/y', 'kind': 'doctor'},
         'not a map',
         null,
@@ -142,10 +146,11 @@ void main() {
       expect(second.places.map((p) => p.id), samplePlaces.map((p) => p.id));
     });
 
-    test('مفتاح الكاش فيه اسم المصدر — نتايج مصدر ما بتتقراش كنتايج التاني', () async {
+    test('مفتاح الكاش فيه اسم المصدر ومجموعة الأنواع — صفوف قديمة ناقصة نوع ما تتقراش', () async {
       final cache = MemoryCache();
       await NearbyPlaces(source: FakeSource(samplePlaces), cache: cache).search(30.044, 31.236);
       expect(cache.map.keys.single, contains(':fake:'));
+      expect(cache.map.keys.single, contains('pharmacy,doctor,hospital,lab'));
 
       final other = FakeSource(const [], id: 'other');
       final result = await NearbyPlaces(source: other, cache: cache).search(30.044, 31.236);
@@ -161,7 +166,7 @@ void main() {
           .search(30.044, 31.236, now: DateTime(2026, 9, 15));
       expect(stale.offline, isTrue);
       expect(stale.fetchedAt, DateTime(2026, 9, 10));
-      expect(stale.places, hasLength(3));
+      expect(stale.places, hasLength(5));
 
       expect(
         () => NearbyPlaces(source: FakeSource(const [], fail: true), cache: MemoryCache()).search(30.044, 31.236),

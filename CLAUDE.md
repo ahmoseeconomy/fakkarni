@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         752 passing
+test/                         756 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1700,6 +1700,26 @@ device-verified)**
   `flutter test`** — the contract test runs the same assertions against a
   fake source and against `AppleMapKitPlaces` on a mocked channel; the real
   `MKLocalSearch` is verified on the iPhone or not at all.
+  **Four kinds since the hospitals-and-labs round: pharmacy, doctor,
+  hospital, lab** — `PlaceKind` grew, `Place` did not. Overpass is still
+  **one** query (a union of six tag selectors), and `amenity=clinic` now
+  counts as a doctor because that is what OSM in Egypt actually uses far
+  more than `healthcare=doctor`. MapKit finds hospitals through
+  `MKLocalPointsOfInterestRequest` with the exact `.hospital` category —
+  a category, not a word that gets interpreted — and labs through the
+  natural-language query «معمل تحاليل»; pharmacies and doctors stay word
+  searches until the phone comparison says otherwise. The screen has five
+  chips in this order: «الكل / صيدليات / دكاترة / مستشفيات / معامل
+  تحاليل» (the second reads «دكاترة», not «أطباء» — colloquial rule; the
+  chip already existed with that word), each kind with its own icon from
+  the Material set already in use (`local_pharmacy`, `medical_services`,
+  `local_hospital`, `science`) and no new colour. The empty state is one
+  sentence per kind on the existing pattern, naming the source through
+  `sourceName`; «الكل» keeps its original sentence. The cache key carries
+  the full set of kind names, so rows written before a kind existed are
+  never reused. `overpass_query_test` pins the six tags; the contract test
+  runs all four kinds on both sources; the screen test taps each chip and
+  sees only that kind and only its icon.
   **The privacy line names where the location actually goes**, and the
   screen still never names a source: every `PlacesSource` carries a
   `displayName` («Apple» / «OpenStreetMap»), `NearbyPlaces.sourceName`

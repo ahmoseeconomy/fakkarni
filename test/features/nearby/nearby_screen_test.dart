@@ -151,6 +151,66 @@ void main() {
     expect(requests, 1);
   });
 
+  /// الأربع أنواع، واحد لكل نوع، بوسوم OSM اللي مصر بتستخدمها فعلاً.
+  const fourKinds = {
+    'elements': [
+      {'type': 'node', 'id': 11, 'lat': 30.0472, 'lon': 31.2386, 'tags': {'amenity': 'pharmacy', 'name': 'صيدلية العزبي'}},
+      {'type': 'node', 'id': 12, 'lat': 30.0460, 'lon': 31.2400, 'tags': {'amenity': 'clinic', 'name': 'عيادة د. سامي'}},
+      {'type': 'way', 'id': 13, 'center': {'lat': 30.0450, 'lon': 31.2420}, 'tags': {'amenity': 'hospital', 'name': 'مستشفى القصر العيني'}},
+      {'type': 'node', 'id': 14, 'lat': 30.0440, 'lon': 31.2440, 'tags': {'healthcare': 'laboratory', 'name': 'معمل البرج'}},
+    ],
+  };
+
+  screenTest('أربع شرايح بالترتيب بعد «الكل»، وكل واحدة بتعرض نوعها بس — بأيقونته', (tester) async {
+    await pumpNearby(tester, places: overpass(response: fourKinds));
+
+    // الترتيب زي ما اتطلب: الكل / صيدليات / دكاترة / مستشفيات / معامل تحاليل
+    final labels = ['الكل', 'صيدليات', 'دكاترة', 'مستشفيات', 'معامل تحاليل'];
+    final xs = [for (final l in labels) tester.getCenter(find.text(l)).dx];
+    for (var i = 1; i < xs.length; i++) {
+      expect(xs[i], lessThan(xs[i - 1]), reason: 'RTL: «${labels[i]}» على شمال «${labels[i - 1]}»');
+    }
+    for (final name in ['صيدلية العزبي', 'عيادة د. سامي', 'مستشفى القصر العيني', 'معمل البرج']) {
+      expect(find.text(name), findsOneWidget, reason: '«الكل» بيعرض الأربعة');
+    }
+
+    final cases = <(String, String, IconData)>[
+      ('pharmacy', 'صيدلية العزبي', Icons.local_pharmacy),
+      ('doctor', 'عيادة د. سامي', Icons.medical_services),
+      ('hospital', 'مستشفى القصر العيني', Icons.local_hospital),
+      ('lab', 'معمل البرج', Icons.science),
+    ];
+    for (final (filter, name, icon) in cases) {
+      await tester.tap(find.byKey(ValueKey('nearby-filter-$filter')));
+      await settle(tester);
+      for (final (_, other, _) in cases) {
+        expect(find.text(other), other == name ? findsOneWidget : findsNothing, reason: '$filter → $other');
+      }
+      // أيقونة النوع على الكارت وعلى الخريطة — ومفيش أيقونة نوع تاني
+      expect(find.byIcon(icon), findsWidgets, reason: filter);
+      for (final (_, _, otherIcon) in cases) {
+        if (otherIcon != icon) expect(find.byIcon(otherIcon), findsNothing, reason: '$filter shows $otherIcon');
+      }
+    }
+    expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('الحالة الفاضية لكل نوع — جملة على نفس النمط، بتسمّي المصدر', (tester) async {
+    await pumpNearby(tester, places: overpass(response: const {'elements': []}));
+    for (final (filter, sentence) in [
+      ('pharmacy', 'مفيش صيدليات متسجّلة على OpenStreetMap في ٢ كم حواليك.'),
+      ('hospital', 'مفيش مستشفيات متسجّلة على OpenStreetMap في ٢ كم حواليك.'),
+      ('lab', 'مفيش معامل تحاليل متسجّلة على OpenStreetMap في ٢ كم حواليك.'),
+    ]) {
+      await tester.tap(find.byKey(ValueKey('nearby-filter-$filter')));
+      await settle(tester);
+      expect(find.text(sentence), findsOneWidget, reason: filter);
+    }
+    await tester.tap(find.byKey(const ValueKey('nearby-filter-doctor')));
+    await settle(tester);
+    expect(find.textContaining('مفيش دكاترة متسجّلين على OpenStreetMap'), findsOneWidget);
+  });
+
   screenTest('إذن الموقع مرفوض → رسالة مفهومة و«جرّب تاني» — ومفيش طلب شبكة', (tester) async {
     await pumpNearby(tester, location: FakeLocation(const LocationFix(LocationStatus.denied)));
     expect(find.byKey(const ValueKey('nearby-no-location')), findsOneWidget);
