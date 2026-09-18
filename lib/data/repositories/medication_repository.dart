@@ -62,8 +62,54 @@ class MedicationRepository {
   Future<List<DoseSchedule>> activeSchedules(int patientId) async =>
       _map(await _activeQuery(patientId).get());
 
-  /// بيضيف دوا بجرعة واحدة. الجدول بيسمح بأكتر من جرعة للدوا الواحد،
-  /// وشاشة الإضافة في المرحلة دي بتعمل واحدة.
+  /// بيضيف دوا **بكل جرعاته**، في معاملة واحدة.
+  ///
+  /// الدوا اللي بياخده المريض مرتين أو تلاتة في اليوم هو الحالة العادية مش
+  /// الاستثناء، والطريق ده هو **الطريق الوحيد** اللي بيكتب «دوا بـN جرعة»:
+  /// شاشة «ضيف دوا» وشاشة مراجعة الروشتة الاتنين بينادوه.
+  ///
+  /// قبل كده كل شاشة كانت بتكتب بنفسها (`addMedication` وبعدها لفة على
+  /// `addDoseSchedule`)، وده اللي خبّى إن تعديل سطر من المراجعة كان بيوصّل
+  /// جرعة واحدة بس لشاشة الإضافة: الكتابة كانت مظبوطة، واللي بيتبعتلها لأ.
+  /// طريق واحد معناه إن نقص زي ده يبان في مكان واحد.
+  ///
+  /// ومعاملة واحدة كمان: جرعة وقعت في النص ما بتسيبش دوا ناقص جرعاته.
+  Future<int> addMedicationWithDoses({
+    required int patientId,
+    required String name,
+    required List<DoseTiming> timings,
+    required DateTime startDate,
+    String? amountLabel,
+    bool amountUnknown = false,
+    DoseRepeat repeat = DoseRepeat.daily,
+    int? durationDays,
+  }) {
+    if (timings.isEmpty) {
+      throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
+    }
+    return _db.transaction(() async {
+      final medicationId = await _db.into(_db.medications).insert(
+            MedicationsCompanion.insert(
+              patientId: patientId,
+              name: name,
+              amountLabel: Value(amountLabel),
+              amountUnknown: Value(amountUnknown),
+            ),
+          );
+      for (final timing in timings) {
+        await _insertSchedule(
+          medicationId,
+          timing: timing,
+          startDate: startDate,
+          repeat: repeat,
+          durationDays: durationDays,
+        );
+      }
+      return medicationId;
+    });
+  }
+
+  /// دوا بجرعة واحدة — غلاف على [addMedicationWithDoses].
   Future<int> addMedication({
     required int patientId,
     required String name,
@@ -74,24 +120,16 @@ class MedicationRepository {
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
   }) =>
-      _db.transaction(() async {
-        final medicationId = await _db.into(_db.medications).insert(
-              MedicationsCompanion.insert(
-                patientId: patientId,
-                name: name,
-                amountLabel: Value(amountLabel),
-                amountUnknown: Value(amountUnknown),
-              ),
-            );
-        await _insertSchedule(
-          medicationId,
-          timing: timing,
-          startDate: startDate,
-          repeat: repeat,
-          durationDays: durationDays,
-        );
-        return medicationId;
-      });
+      addMedicationWithDoses(
+        patientId: patientId,
+        name: name,
+        timings: [timing],
+        startDate: startDate,
+        amountLabel: amountLabel,
+        amountUnknown: amountUnknown,
+        repeat: repeat,
+        durationDays: durationDays,
+      );
 
   /// بيضيف جرعة تانية لدوا موجود.
   ///

@@ -49,6 +49,17 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// السطور اللي اتحفظت من شاشة التعديل — بتفضل معروضة بس هادية.
   final Set<int> _saved = {};
 
+  /// الجرعات اللي رجعت من شاشة التعديل لكل سطر.
+  ///
+  /// الكارت بيعرض دي مش اللي الورقة قالته: اللي اتحفظ فعلاً هو اللي المريض
+  /// المفروض يشوفه. من غيرها، حد يعدّل «مرتين» لـ«تلاتة» ويفضل الكارت
+  /// قايل مرتين.
+  final Map<int, List<DoseTiming>> _editedTimings = {};
+
+  /// جرعات السطر زي ما هتتحفظ: تعديل الإنسان لو موجود، وإلا اللي اتقرا.
+  List<DoseTiming> _timingsFor(int index) =>
+      _editedTimings[index] ?? widget.reading.lines[index].timings.value ?? const [];
+
   /// أدوية ضافها بإيده من «أضف دوا ما اتعرفش عليه».
   int _addedByHand = 0;
   bool _busy = false;
@@ -80,29 +91,35 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
   Future<void> _edit(int index) async {
     final line = widget.reading.lines[index];
-    final saved = await Navigator.of(context).push<bool>(
+    // **كل** جرعات السطر — مش أولها. دوا مرتين في اليوم بيتعدّل مرتين.
+    final saved = await Navigator.of(context).push<List<DoseTiming>>(
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
           routine: widget.routine,
           today: widget.today,
           initialName: line.name.value,
           initialAmount: line.amount.value,
-          initialTiming: line.timings.value?.firstOrNull,
+          initialTimings: _timingsFor(index),
           initialDurationDays: line.duration.value,
         ),
       ),
     );
-    if (saved == true && mounted) setState(() => _saved.add(index));
+    if (saved != null && mounted) {
+      setState(() {
+        _editedTimings[index] = saved;
+        _saved.add(index);
+      });
+    }
   }
 
   /// سطر ما اتقراش خالص — بيتكتب بإيد إنسان، فمفيش حاجة للتأكيد بعدها.
   Future<void> _addUnread() async {
-    final saved = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<List<DoseTiming>>(
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
       ),
     );
-    if (saved == true && mounted) setState(() => _addedByHand++);
+    if (saved != null && mounted) setState(() => _addedByHand++);
   }
 
   /// «تمام، ظبّطهم»: بيحفظ السطور الواضحة المتبقية — وبس. الدوسة دي هي التأكيد.
@@ -115,26 +132,18 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
     for (final i in _remaining) {
       final line = widget.reading.lines[i];
-      final timings = line.timings.value!;
       // جرعة مش واضحة → null + «مش معروفة». مش بنخترع قيمة عشان نكمّل.
       final amountUnknown = line.amount.needsReview;
-      final id = await services.medications.addMedication(
+      // طريق واحد لكتابة «دوا بـN جرعة» — نفس اللي شاشة الإضافة بتستعمله.
+      await services.medications.addMedicationWithDoses(
         patientId: services.patientId,
         name: line.name.value!,
         amountLabel: amountUnknown ? null : line.amount.value,
         amountUnknown: amountUnknown,
-        timing: timings.first,
+        timings: _timingsFor(i),
         startDate: _today,
         durationDays: line.duration.value, // null = مفتوحة، زي ما الورقة سابتها
       );
-      for (final timing in timings.skip(1)) {
-        await services.medications.addDoseSchedule(
-          id,
-          timing: timing,
-          startDate: _today,
-          durationDays: line.duration.value,
-        );
-      }
     }
     await services.scheduler.rescheduleAll();
 
@@ -211,6 +220,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     for (final (i, line) in reading.lines.indexed) ...[
                       _MedicineRow(
                         line: line,
+                        timings: _timingsFor(i),
                         saved: _saved.contains(i),
                         timeFor: (t) => arabicTime(switch (t) {
                           AnchorTiming(:final anchor, :final offsetMinutes) =>
@@ -345,12 +355,16 @@ class _EqualButton extends StatelessWidget {
 class _MedicineRow extends StatelessWidget {
   const _MedicineRow({
     required this.line,
+    required this.timings,
     required this.saved,
     required this.timeFor,
     required this.onEdit,
   });
 
   final ReadLine line;
+
+  /// اللي هيتحفظ فعلاً — تعديل الإنسان لو حصل، وإلا اللي الورقة قالته.
+  final List<DoseTiming> timings;
   final bool saved;
   final String Function(DoseTiming) timeFor;
   final VoidCallback onEdit;
@@ -366,7 +380,6 @@ class _MedicineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final unsure = line.needsReview && !saved;
     final name = line.name.value;
-    final timings = line.timings.value;
 
     final unsureFields = [
       if (line.name.needsReview) ('الاسم', line.name.note),
@@ -457,7 +470,7 @@ class _MedicineRow extends StatelessWidget {
           const SizedBox(height: F.s10),
           // الوقت المحسوب + شريحة القاعدة — لكل توقيت. القاعدة هي اللي
           // بتتحفظ؛ الساعة للعرض بس.
-          if (timings == null || timings.isEmpty)
+          if (timings.isEmpty)
             Text(
               'التوقيت مش واضح',
               style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
+import 'package:fakkarni/core/format/arabic_time.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
@@ -214,6 +215,114 @@ void main() {
     );
     expect(confirm.onPressed, isNotNull);
     expect((await h.meds.activeSchedules(h.services.patientId)).single.medicationName, 'Cataflam');
+  });
+
+  /// Augmentin مرتين في اليوم: الورقة قالت جرعتين، والمريض لازم يتنبّه مرتين.
+  ReadLine dosesLine(String name, List<DoseTiming> timings, {int? days = 7}) => ReadLine(
+        name: ok(name),
+        amount: ok('قرص'),
+        timings: ok(timings),
+        duration: ok<int?>(days),
+      );
+
+  const fourTimes = [
+    AnchorTiming(DayAnchor.wake, 0),
+    AnchorTiming(DayAnchor.breakfast, 0),
+    AnchorTiming(DayAnchor.lunch, 0),
+    AnchorTiming(DayAnchor.dinner, 0),
+  ];
+
+  /// بيمشي في محرّر الجرعة [count] مرة: «الجرعة اللي بعدها» لكل واحدة قبل
+  /// الأخيرة، و«احفظ الجرعة» في الآخر.
+  Future<void> walkDoseEditors(WidgetTester tester, int count) async {
+    for (var i = 1; i <= count; i++) {
+      expect(find.byType(DoseEditor), findsOneWidget, reason: 'محرّر الجرعة $i');
+      if (count > 1) {
+        expect(find.textContaining('من ${arabicNumber(count)}'), findsOneWidget,
+            reason: 'الكيكر بيقول الجرعة $i من $count');
+      }
+      await tester.tap(find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
+      await settle(tester);
+    }
+  }
+
+  screenTest(
+      'انحدار (ضياع بيانات): سطر بأربع جرعات بيعدّي من «عدّل» زي ما هو — وبيتحفظ بأربع جرعات، مش واحدة',
+      (tester) async {
+    // الباگ: `_edit` كانت بتبعت `timings.value?.firstOrNull` لشاشة الإضافة،
+    // فدوا أربع مرات في اليوم كان بيتحفظ بجرعة واحدة. الورقة قريت صح،
+    // وطريق التعديل هو اللي كان بيرمي الباقي.
+    await pumpReview(tester, [dosesLine('Augmentin', fourTimes)]);
+    await open(tester);
+
+    await tester.tap(find.text('عدّل'));
+    await settle(tester);
+    expect(find.byType(AddMedicationScreen), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Augmentin'), findsOneWidget);
+    // الورقة قالت الجرعات، فكارت «كام مرة في اليوم؟» مش بيظهر
+    expect(find.text('كام مرة في اليوم؟'), findsNothing);
+
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+    await walkDoseEditors(tester, 4);
+
+    expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(4), reason: 'أربع جرعات في الورقة = أربع صفوف في القاعدة');
+    expect(saved.map((s) => s.timing), containsAll(fourTimes));
+    expect(saved.every((s) => s.medicationName == 'Augmentin'), isTrue);
+    expect(saved.every((s) => s.durationDays == 7), isTrue);
+  });
+
+  screenTest('تعديل سطر بجرعتين بيحفظ جرعتين — مش واحدة، ومفيش جرعة بتتخلق من العدم', (tester) async {
+    const twice = [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)];
+    await pumpReview(tester, [dosesLine('Augmentin', twice)]);
+    await open(tester);
+
+    await tester.tap(find.text('عدّل'));
+    await settle(tester);
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+    await walkDoseEditors(tester, 2);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(2));
+    expect(saved.map((s) => s.timing), containsAll(twice));
+  });
+
+  screenTest('الكارت بيعرض الجرعات اللي اتحفظت فعلاً — مش اللي الورقة قالتها', (tester) async {
+    // التعديل بيغيّر الجرعة التانية من العشا للغدا؛ الكارت لازم يقول الغدا.
+    const fromPaper = [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)];
+    await pumpReview(tester, [dosesLine('Augmentin', fromPaper)]);
+    await open(tester);
+    expect(find.text('العشا'), findsOneWidget);
+
+    await tester.tap(find.text('عدّل'));
+    await settle(tester);
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+
+    // الجرعة الأولى زي ما هي
+    await tester.tap(find.text('الجرعة اللي بعدها'));
+    await settle(tester);
+    // التانية: من العشا للغدا — شريحة المرساة في المحرّر
+    await tester.dragUntilVisible(
+      find.text('بعد الغدا'),
+      find.byType(Scrollable).first,
+      const Offset(0, -80),
+    );
+    await tester.tap(find.text('بعد الغدا'));
+    await settle(tester);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(
+      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
+      containsAll([DayAnchor.breakfast, DayAnchor.lunch]),
+    );
+    expect(find.textContaining('الغدا'), findsOneWidget, reason: 'الكارت بيعرض اللي اتحفظ');
+    expect(find.text('العشا'), findsNothing, reason: 'الورقة قالت العشا، والإنسان غيّرها');
   });
 
   group('الملف الصحي (D3.5)', () {

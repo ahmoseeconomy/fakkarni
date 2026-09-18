@@ -23,7 +23,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.today,
     this.initialName,
     this.initialAmount,
-    this.initialTiming,
+    this.initialTimings = const [],
     this.initialDurationDays,
     super.key,
   });
@@ -34,7 +34,11 @@ class AddMedicationScreen extends StatefulWidget {
   /// قيم مبدئية — من قراءة الروشتة. بتتعرض للتعديل، ما بتتحفظش لوحدها.
   final String? initialName;
   final String? initialAmount;
-  final DoseTiming? initialTiming;
+  /// جرعات الروشتة **كلها** — فاضية يعني إدخال بإيد من الأول.
+  ///
+  /// كانت جرعة واحدة، وشاشة المراجعة كانت بتبعت أول وحدة بس: دوا مرتين في
+  /// اليوم يتعدّل = تذكير واحد. القايمة هي اللي بتقفل الباب ده.
+  final List<DoseTiming> initialTimings;
   final int? initialDurationDays;
 
   @override
@@ -61,7 +65,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _openEnded = false;
       _days = days.clamp(1, 90);
     }
-    if (widget.initialTiming case AnchorTiming(:final offsetMinutes)) {
+    if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
       _food = offsetMinutes == 0
           ? FoodRelation.with_
           : offsetMinutes < 0
@@ -77,10 +81,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     super.dispose();
   }
 
-  /// المراسي المبدئية من «كام مرة» و«مع الأكل» — لو فيه توقيت من الروشتة
-  /// هو اللي بيتاخد (جرعة واحدة).
+  /// المراسي المبدئية من «كام مرة» و«مع الأكل» — ولو الروشتة قالت جرعاتها،
+  /// هي اللي بتتاخد **كلها** (محرّر لكل واحدة، «الجرعة ٢ من ٤»).
   List<DoseTiming> get _initialTimings {
-    if (widget.initialTiming != null) return [widget.initialTiming!];
+    if (widget.initialTimings.isNotEmpty) return widget.initialTimings;
     final anchors = switch (_timesPerDay) {
       1 => [DayAnchor.breakfast],
       2 => [DayAnchor.breakfast, DayAnchor.dinner],
@@ -144,32 +148,26 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     final today = widget.today ?? DateTime.now();
     final amount = _amount.text.trim();
 
-    final id = await services.medications.addMedication(
+    // طريق واحد لكتابة «دوا بـN جرعة» — نفس اللي شاشة المراجعة بتستعمله.
+    await services.medications.addMedicationWithDoses(
       patientId: services.patientId,
       name: _name.text.trim(),
       amountLabel: amount.isEmpty ? null : amount,
-      timing: timings.first,
+      timings: timings,
       startDate: today,
       // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
       durationDays: _openEnded ? null : _days,
     );
-    for (final timing in timings.skip(1)) {
-      await services.medications.addDoseSchedule(
-        id,
-        timing: timing,
-        startDate: today,
-        durationDays: _openEnded ? null : _days,
-      );
-    }
     await services.scheduler.rescheduleAll();
 
-    // true = اتحفظ — شاشة مراجعة الروشتة بتفرّق بين الحفظ والرجوع.
-    if (mounted) navigator.pop(true);
+    // الجرعات اللي اتحفظت فعلاً بترجع للي نادانا: شاشة المراجعة بتعرض بيها
+    // الكارت (اللي هيتحفظ = اللي بيتعرض)، وغيرها بيقرا «مش null» كـ«اتحفظ».
+    if (mounted) navigator.pop(timings);
   }
 
   @override
   Widget build(BuildContext context) {
-    final fromPaper = widget.initialTiming != null;
+    final fromPaper = widget.initialTimings.isNotEmpty;
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(

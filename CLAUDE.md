@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         761 passing
+test/                         768 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1496,6 +1496,30 @@ groups and stays when the list is empty, where the sentence is now just
 «لسه مفيش أدوية.» — the card is the call to action, not a pointer at the
 dock. `add_sheet_test` reads `lib/` and fails if a sheet titled «ضيف
 دوا» is built anywhere else or if the callers are not exactly those two.
+
+**A medication with N doses is written in one place** — a bug, and the
+shape that prevented it being caught. `MedicationRepository
+.addMedicationWithDoses(timings: […])` inserts the medication and **all**
+its schedules in a single transaction, and both writers go through it:
+«ضيف دوا» and the prescription review's «تمام، ظبّطهم». `addMedication`
+is now a one-timing wrapper over it.
+Before this, each screen wrote for itself (`addMedication` then a loop of
+`addDoseSchedule`), and `AddMedicationScreen` took a **single**
+`initialTiming`. So the review screen's «عدّل» passed
+`timings.value?.firstOrNull` and a four-dose Augmentin was saved as one:
+the read was right, the edit path threw the rest away, and the patient
+was reminded once. The screen now takes `initialTimings` (a list) and
+pops the timings it actually saved, so the review card shows what was
+written rather than what the paper said. **A count that can silently drop
+to one is the failure mode here** — the regression test is named for it,
+and `multi_dose_read_test` asserts the count again on the *read* side
+(database, «جدول الأدوية», and the export's «٤× في اليوم»), because this
+class of loss should be visible from both ends.
+**Still missing, and it is a real gap:** there is no way to add or remove
+a dose while editing — the count comes from the paper and is walked one
+editor at a time. `EditMedicationScreen` has no «أضف جرعة»/remove control
+either (only per-dose «عدّل»), so there was no existing widget to reuse.
+Changing 4 doses to 2 from the review screen is not possible today.
 
 **D3.3 — elder mode + notifications (built)**
 - Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —
