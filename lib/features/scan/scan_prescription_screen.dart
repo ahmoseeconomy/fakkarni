@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../ai/gemini_config.dart';
 import '../../ai/prescription_reader.dart';
-import '../../app/app_scope.dart';
 import '../../ai/prescription_reading.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -13,7 +13,6 @@ import '../../domain/scheduling/dose_schedule.dart';
 import '../medication/add_medication_screen.dart';
 import 'debug_panel.dart';
 import 'review_prescription_screen.dart';
-import 'ai_read_gate.dart';
 import 'scan_stage.dart';
 
 /// بيجيب صورة من الكاميرا أو المعرض. مفصول عشان الشاشة تتختبر من غير جهاز.
@@ -61,7 +60,7 @@ class ScanPrescriptionScreen extends StatefulWidget {
 
   final DayRoutine routine;
 
-  /// null = السحابة مش متظبطة في النسخة دي. الشاشة بتقولها ومش بتفتح الكاميرا.
+  /// null = المفتاح مش متظبط. الشاشة بتقولها بوضوح ومش بتفتح الكاميرا.
   final PrescriptionReader? reader;
   final PickImage pickImage;
   final DateTime? today;
@@ -82,9 +81,6 @@ enum _Phase { idle, reading, revealing, failed, retake }
 class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   _Phase _phase = _Phase.idle;
   String? _error;
-
-  /// القارئ ما لقاش جلسة، أو السحابة ردّت ٤٠١ — [AiReadGate] بيقفل الكاميرا.
-  bool _needsSignIn = false;
 
   /// السبب التقني — بيتعرض في نسخة التطوير بس، عشان نشوف الرد على الجهاز
   /// نفسه بدل ما نخمّن. في الإصدار المريض بيشوف الجملة العربية وبس.
@@ -166,7 +162,6 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
-        _needsSignIn = e.needsSignIn;
         _error = e.message;
         _cause = e.cause?.toString();
         _lines = null;
@@ -218,17 +213,14 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
           children: [
-            AiReadGate(
-              hasReader: hasReader,
-              auth: AppScope.maybeOf(context)?.auth,
-              needsSignIn: _needsSignIn,
-              signInLine: PrescriptionReadException.signInLine,
-              byHandLabel: 'أكتبها بإيدي',
-              onByHand: _writeByHand,
-              onSignInClosed: () {
-                if (mounted) setState(() { _needsSignIn = false; _phase = _Phase.idle; _error = null; });
-              },
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!hasReader) ...[
+              const PanelOnDark(text: GeminiConfig.missingKeyMessage),
+              const SizedBox(height: F.gap),
+              SizedBox(
+                height: F.minTapTarget,
+                child: SecondaryOnDark(label: 'أكتبها بإيدي', onPressed: _writeByHand),
+              ),
+            ] else ...[
               ScanStage(
                 image: _image,
                 busy: _busy,
@@ -296,8 +288,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                   ),
                 ],
               ),
-              ]),
-            ),
+            ],
           ],
         ),
       ),

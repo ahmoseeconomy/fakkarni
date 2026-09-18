@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
 
-import '../ai/ai_session.dart';
+import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/notification_service.dart';
@@ -36,7 +36,6 @@ Future<AppServices> buildServices(
   CaregiverRemote? caregiver,
   SyncService? sync,
   PushTokens? push,
-  AiSession? aiSession,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -59,10 +58,8 @@ Future<AppServices> buildServices(
     ),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
-    // قراية الصور بتعدّي من دالتنا في السحابة بجلسة المستخدم (C2). من غير
-    // Supabase متظبط مفيش قارئ — والشاشة بتقولها، والإدخال بالإيد شغّال.
-    prescriptionReader: aiSession == null ? null : GeminiPrescriptionReader(aiSession),
-    labReader: aiSession == null ? null : GeminiLabReader(aiSession),
+    prescriptionReader: _readerFromEnvironment(),
+    labReader: _labReaderFromEnvironment(),
     auth: auth,
     care: care,
     caregiver: caregiver,
@@ -83,6 +80,23 @@ Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {
   } catch (error, stack) {
     debugPrint('تنظيف الملف الصحي ما اشتغلش: $error\n$stack');
   }
+}
+
+/// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.
+LabReportReader? _labReaderFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  return config == null ? null : GeminiLabReader(config);
+}
+
+/// المفتاح من `--dart-define` وبس. لو مش موجود بنرجّع null ونقولها في
+/// الشاشة — مش بنكسر فتح التطبيق، ومش بننده الـAPI بمفتاح فاضي أبداً.
+PrescriptionReader? _readerFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  if (config == null) {
+    debugPrint(GeminiConfig.missingKeyMessage);
+    return null;
+  }
+  return GeminiPrescriptionReader(config);
 }
 
 NotificationActionHandler actionHandlerFor(AppServices services) =>

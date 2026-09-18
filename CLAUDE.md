@@ -157,11 +157,9 @@ lib/
   domain/escalation/          PURE DART — escalation_ladder.dart: rungs
                               +15/+30, graceWindow 45, serverGraceWindow 60,
                               syncSlack 15, ladderFor, isPastGrace
-  ai/                         ai_session (interface: endpoint, publishable key,
-                              access token — NO Gemini key anywhere, C2),
-                              prescription_reading / lab_reading (pure models),
-                              prescription_reader (posts {kind,image,mime} to
-                              our `ai-read` Edge Function; http.Client injectable)
+  ai/                         Phase 2 — gemini_config (key from --dart-define),
+                              prescription_reading (pure model + responseSchema),
+                              prescription_reader (Gemini REST, http.Client injectable)
   core/theme/tokens.dart      brand colours + elderly-first sizing (class F)
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
@@ -223,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         780 passing
+test/                         782 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -234,97 +232,51 @@ calendar date), and otherwise never moves it. Both kinds resolve to the same
 minute-keyed map, so a fixed 2:00 PM and «قبل الغدا − ٣٠» at 2:00 PM merge
 into one `Reminder` like any other pair.
 
-**The app holds no Gemini key. It calls our own Edge Function with the
-user's session** (C2). Until C2 the key was `String.fromEnvironment`, i.e.
-compiled into every APK and IPA — ten minutes to extract.
-Now it is an **Edge Function secret named `GEMINI_API_KEY`** (dashboard →
-Edge Functions → Secrets; *not* Vault, which is the database side), read
-only by `supabase/functions/ai-read/index.ts`, sent to Google in a header,
-and never written to the repo, a response or a log line.
-`test/app/no_gemini_key_test.dart` reads every file under `lib/` and fails
-if the key's name, Google's host, or a `String.fromEnvironment('GEMINI…`
-comes back (mutation-checked). What the client sends is
-`{kind, image, mime}` with `Authorization: Bearer <session token>` and the
-project's publishable `apikey` — through `AiSession`, an interface whose
-Supabase implementation lives in `lib/data/auth/supabase_ai_session.dart`
-(it refreshes an expired token first, so a signed-in patient is never told
-to sign in). `lib/ai/` still imports no SDK.
-- **The prompts and schemas live in the function, keyed by `kind` — the
-  client never sends a prompt.** A stolen session therefore cannot turn our
-  key into a general-purpose Gemini proxy. They were moved from Dart
-  verbatim (checked by script against git: three strings and two schemas
-  identical — the check caught a `note` field that had crept into the lab
-  schema, which would have been a free-text channel from the model to the
-  screen). Their guards moved with them: `test/ai/ai_read_function_test.dart`
-  reads the `.ts` file like `push_channel_test` does, and fails if the
-  no-advice instruction loses a sentence, if the lab schema gains a range /
-  flag / interpretation / note, if the function reads a prompt from the
-  request, if the key reaches a log or a response, or if an `import`
-  appears (it is pasted into the dashboard editor, like `escalate`).
-- **Two caps, counted in Cairo days.** `DAILY_CAP_PER_USER = 20` and
-  `DAILY_CAP_GLOBAL = 500`, named constants at the top of the function.
-  The global one exists because sign-in is still anonymous (debt 2): an
-  anonymous user's JWT role is `authenticated`, and anyone holding the
-  publishable key can mint fresh ones, each with its own 20. Only the
-  global cap bounds the bill; when debt 2 is paid it becomes a backstop.
-  `public.ai_reads` (`0013_ai_reads.sql`) is written by the function with
-  the service role and has **no client access at all** — RLS on, no policy,
-  every privilege revoked — because a counter its subject can read or clear
-  is not a cap. "Today" has one definition, in SQL
-  (`public.ai_reads_today_for_service`, Cairo midnight, DST-aware). A failed
-  read is logged `ok = false` and does not count. **If the count cannot be
-  read the function answers 503 and refuses** — a cap that opens when the
-  database is down is not a cap; manual entry never needed the function.
-  The cap is soft under concurrency (two reads at 19 can both pass) — known.
-- **AI reads need a session; nothing else does.** Onboarding, manual entry
-  and reminders are untouched and still work with no account and no
-  network. The scan screens never fail silently: `AiReadGate` shows «سجّل
-  دخول عشان نقرا الروشتة» (or «…التقرير») with a button to the existing
-  `SignInScreen` — the gate itself never signs anyone in — and keeps
-  «أكتبها بإيدي» beside it. 401 → that line; 429 → the server's Arabic
-  sentence verbatim («وصلت لحد القراءات النهارده — جرّب بكرة»); anything
-  else → the old «مقدرتش أقرا…». No session → no request at all: the image
-  is neither shrunk nor sent.
-- **The function returns Gemini's body as-is**, so parsing and confidence
-  handling did not change. Run config is now only `SUPABASE_URL` and
-  `SUPABASE_ANON_KEY` (`--dart-define-from-file=secrets.json`, gitignored).
+**The Gemini key is compiled into the app again — a deliberate step back
+taken on 18 Sep 2026.** C2 had moved it to an Edge Function secret and made
+the app call `ai-read` with the user's session (`ca41dd3`); the owner
+reverted that the same day and the app talks to
+`generativelanguage.googleapis.com` directly once more. So the key ships
+inside every APK and IPA and is ten minutes' work to extract.
+**Shipping to any store in this state is forbidden**, exactly like
+anonymous auth (debt 2) — and for a harder reason: the key is on the
+internet the moment the binary is, your quota is spent by strangers, and
+you find out from the bill.
+Going back is one command: the C2 work is still in the tree and in the
+history — `supabase/functions/ai-read/index.ts`, `0013_ai_reads.sql` (still
+applied to the live project) and `ai_read_function_test` were kept, so
+`git revert` of the revert restores it. `test/app/no_gemini_key_test.dart`
+was **inverted rather than deleted**: it now pins the key to one file and
+the Google endpoint to one file, and flips back with the same command.
 
-**The model name is Google's to retire, not ours to assume** — and since C2
-it lives server-side: `PINNED_MODEL` in the function (currently
+**The key comes from `--dart-define` only.** `GeminiConfig` reads
+`String.fromEnvironment('GEMINI_API_KEY')`; `tryFromEnvironment()` returns
+null when missing and the scan screen says so in words, `fromEnvironment()`
+throws, and `GeminiPrescriptionReader`'s constructor throws on an empty key —
+so no request can ever leave with an empty key. `secrets.json` and `*.env`
+are gitignored for `--dart-define-from-file`. Run with
+`flutter run --dart-define=GEMINI_API_KEY=…`. Gemini is called over REST
+(`responseSchema` JSON) — the `google_generative_ai` package is deprecated,
+and a REST call is testable with `MockClient`.
+
+**The model name is Google's to retire, not ours to assume.**
+`GeminiConfig.defaultModel` is the single place it lives (currently
 `gemini-3.6-flash`; `gemini-2.5-flash` was closed to new users on
 2026-09-01 with the only notice being the 404 body: "no longer available to
-new users… use models/gemini-3.6-flash"). Override without re-pasting the
-function via the optional secret `GEMINI_MODEL`. When a scan fails, the
-function's logged `Gemini: HTTP <status>: <body>` line is the source of
-truth (the client logs the function's `detail`, which carries it) — read it
-before touching the request shape; our memory of which model exists is not.
+new users… use models/gemini-3.6-flash"). Override without a code change via
+`--dart-define=GEMINI_MODEL=…`. When a scan fails, the logged
+`Gemini: HTTP <status>: <body>` line is the source of truth — read it before
+touching the request shape; our memory of which model exists is not.
 
 **Pinned, with a loud fallback.** A medication reader must not change its
 extraction behaviour silently, so the model stays pinned. But a 404 mid-demo
-is worse than a behaviour shift, and so is a load spike on one model: the
-function retries **once** against `FALLBACK_MODEL` (`gemini-flash-latest`,
-optional secret `GEMINI_FALLBACK_MODEL`) for exactly two named reasons,
-both in `fallbackReason`:
-- `retired` — `404` + `NOT_FOUND`. Google closed the model; re-pin by hand.
-- `overloaded` — `503` or `429` from the pinned model. It is busy or its
-  quota is spent *right now*; a spike mid-demo must not read as «مقدرتش
-  أقرا». Nothing needs re-pinning; if it recurs, it is a quota question.
-It logs `Gemini: WARNING pinned model … <reason>` and answers with
-`x-model-warning: <pinned>;<fallback>;<reason>` — ASCII only, because a
-header cannot carry Arabic; the client builds the sentence and tags the
-reading with `modelWarning`, which the review screen shows in debug builds.
-**The reason travels because it changes what the developer does**: one
-sentence for both would tell him to re-pin a healthy model after a spike.
-A two-part header (the function before this change) reads as `retired`.
-If the fallback fails too the answer is the ordinary `502 gemini_failed`
-(`detail` says "after fallback") — never a third attempt, and a Google
-`429` never reaches the client as our own cap's `429`.
-**A `400` never triggers the fallback, and neither does a bare `500`** —
-masking a schema rejection is exactly the silent shift being guarded
-against, and the reasons are a named list, not "any error".
-`ai_read_function_test` pins the rule's text; the section was also executed
-once under node with a stubbed Google (nine cases) — the suite itself can
-only read the `.ts` file.
+is worse than a behaviour shift: on `404` + `NOT_FOUND` the reader retries
+**once** against `GeminiConfig.defaultFallbackModel` (`gemini-flash-latest`,
+override `--dart-define=GEMINI_FALLBACK_MODEL=…`), logs
+`Gemini: WARNING pinned model … retired`, and tags the reading with
+`modelWarning`, which the review screen shows in debug builds. That warning
+is the signal to re-pin deliberately. A `400` never triggers the fallback —
+masking a schema rejection is exactly the silent shift being guarded against.
 
 **Image quality beats prompt tuning.** Handwriting dies first under
 downscaling. `pickWithSystemCamera` uses `maxWidth/maxHeight 2560,
@@ -590,11 +542,9 @@ must claim a band and filter cancellations by it the same way.
 
 ## Phase 3 — identity (optional, NEVER a gate)
 
-The app is complete with no account: onboarding → manual entry → reminders
-all work offline forever. Identity exists because escalation needs the
-son's phone — and, since C2, because **reading a photo with AI** is billed
-to a session (the scan screens say so and offer the sign-in door; typing a
-medicine by hand never needs one). It has two doors, both behind a tap: «اربط ابني» on the patient's
+The app is complete with no account: onboarding → scan → reminders all work
+offline forever. Identity exists only because escalation needs the son's
+phone. It has two doors, both behind a tap: «اربط ابني» on the patient's
 «العائلة» tab, and «ابني أو والدي بعتلي كود» on the D4 entry screen — which
 is a **question, not a sign-in** (no session, no call until that card is
 tapped, and then only through SignInScreen's button). If a sign-in screen
@@ -623,7 +573,7 @@ ever appears at startup, that is a bug by definition —
   Supabase session. The guard test in `root_test.dart` runs with auth
   *configured* and asserts zero sign-in calls and no session at launch, so
   it cannot become trivially true.
-- Config via `--dart-define` only: `SUPABASE_URL`,
+- Config via `--dart-define` only, like `GEMINI_API_KEY`: `SUPABASE_URL`,
   `SUPABASE_ANON_KEY`, `GOOGLE_SERVER_CLIENT_ID` (the Web client ID —
   Supabase's audience), `GOOGLE_IOS_CLIENT_ID`. Missing → app runs fully,
   the sign-in screen names what's missing. `initSupabaseAuth()` never
@@ -1111,6 +1061,12 @@ Consequences to handle:
    them until they do. A dose confirmed from the lock screen stays dirty
    until the next app open/foreground (the background isolate builds no
    SyncService).
+2b. **The Gemini key is inside the binary (since the C2 revert,
+   18 Sep 2026). Shipping to any store in this state is forbidden.**
+   Same shelf as anonymous auth, same absolute rule. Paying it back is
+   reverting the revert — the function, its migration and its guard test
+   are all still in the tree for exactly that. Do not "improve" the
+   direct-call path in ways that make C2 harder to re-apply.
 2. **Anonymous sign-in is a development stand-in ONLY.** An anonymous user
    is bound to one device and is lost when app data is cleared. It must be
    upgraded via `linkIdentity` to Google before any store submission.
@@ -1640,9 +1596,8 @@ the live project — not a line in a UI round.
   value, unit). Both with SyncIdentity columns + triggers; pushed since D5.1.
 - **The dangerous screen follows two rules that do not bend.**
   (a) Number, range, difference — stop. No advice, no diagnosis, no
-  «يُفضّل», no «راجع دكتورك», no «ممكن يكون». `LAB_SYSTEM_INSTRUCTION` in the
-  `ai-read` function says so explicitly (pinned by
-  `ai_read_function_test`, which reads the `.ts` file); the schema carries only test,
+  «يُفضّل», no «راجع دكتورك», no «ممكن يكون». `GeminiLabReader.systemInstruction`
+  says so explicitly (pinned by a test); the schema carries only test,
   value, unit, lab and date, so no model free text ever renders.
   `adviceWords` in `features/health/usual_words.dart` is checked against
   the rendered text of 14, 8 and the home card **and** against every
@@ -2179,63 +2134,42 @@ device-verified)**
   splash and never reads that drawable. Home-screen name «فكرني» on both
   (`android:label`, `CFBundleDisplayName`).
 
-**C2 — the Gemini key left the binary (DONE — verified end to end)**
-- `supabase/functions/ai-read/index.ts` + `0013_ai_reads.sql`; client
-  transport, `AiSession`, `AiReadGate`, `no_gemini_key_test`,
-  `ai_read_function_test`. `GeminiConfig` is deleted — nothing
-  model-related is decided on the client any more.
-- **Order on the live project:** run `0013` (prints `0013 OK`) → set the
-  secret `GEMINI_API_KEY` → paste the function with `verify_jwt` ON. In any
-  other order the function answers 503 or 500 on every read.
-- **Verified live 2026-09-18 by the owner:** `0013 OK` printed, and the
-  three curl checks in the function's header pass (no session → 401, bad
-  kind → 400, a real read → Gemini's body). **Then end to end:** a real
-  scan from the iPhone succeeded on the pinned model, and the 503/429
-  fallback (`32dc5c1`) was deployed and exercised against a real Google
-  load spike — the read came back from the fallback with the warning
-  instead of «مقدرتش أقرا». Not yet seen: the cap actually tripping at 20.
-- **Latency round (after the owner hit >60 s hangs and «high demand»):**
-  - **Nothing called Google or the database with a timeout.** Not the
-    client's POST, not the function's `fetch`. So a slow or stuck model
-    left the app on «بيقرا الروشتة…» until a socket somewhere gave up —
-    minutes, with no sentence. Now: `GEMINI_TIMEOUT_MS` (25 s) per Gemini
-    attempt and `DB_TIMEOUT_MS` (10 s) on the cap query, both via
-    `AbortSignal.timeout`; `GeminiPrescriptionReader.readTimeout` (75 s)
-    on the client, sized above the function's two attempts. **Add a
-    timeout to any new outbound call here** — an unbounded one does not
-    fail, it hangs, and a hang has no message.
-  - **A timeout is now a fallback reason**, beside `retired` and
-    `overloaded`: the pinned model going quiet gets the same one retry on
-    the fallback model that a 503 does.
-  - **«زحمة» is no longer reported as «صوّر تاني».** Overload or timeout
-    after the fallback answers `503 gemini_busy` with
-    «الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.», and the client now shows
-    the server's `message` for **any** failure that carries one. Telling a
-    patient to re-photograph a prescription that read fine is bad advice
-    and wastes another read against his cap.
-  - **Thinking is off by default, and that was the big number.** Recent
-    Gemini models think before answering; transcribing a page does not
-    need it, and it was the likeliest cause of 15–20 s at Google
-    (`ai_reads.duration_ms` = 14803, 20598). The function sends
-    `thinkingConfig.thinkingBudget = 0` from `GEMINI_THINKING_BUDGET`
-    (default `0`; **empty = send nothing and let the model think**, which
-    is the lever to pull if read quality drops). If a model rejects the
-    field it answers 400 instantly, and only then — matched on the field
-    name, logged loudly, and remembered per function instance — the call
-    is repeated without it. That is the one narrow exception to «a 400
-    never triggers a retry»; a schema rejection still surfaces untouched.
-  - The client now logs `ai-read <status> في <ms>ms (رفع + موديل)`. The
-    function's own `ms=` covers Google alone, so **the gap between the two
-    numbers is the upload** — read both before deciding the next lever.
-  - Untouched on purpose: the image is still 1600px/q80 (~420 KB, ~560 KB
-    as base64 in JSON). Dropping the longest side or the quality, or
-    sending raw bytes instead of base64, are the next levers — and the
-    first two are exactly the numbers CLAUDE.md says to settle on a real
-    handwritten prescription, not on a hunch.
-- **The old key is dead** (rotated 2026-09-18, deleted from Google AI
-  Studio; the new one exists only as the `GEMINI_API_KEY` secret, and
-  `secrets.json` no longer carries a Gemini line). A build older than C2
-  therefore cannot read a photo at all — its compiled-in key answers 400.
+**C2 — reverted 18 Sep 2026 (the key is back in the app)**
+- C2 shipped and was verified end to end (`ca41dd3`, `32dc5c1`, `503979a`;
+  `0013 OK`, curl checks, a real iPhone scan, and the fallback exercised
+  against a real Google load spike). The owner then reverted it the same
+  day. **The reason was latency, not correctness:** reads went through our
+  function and the round trip made an already slow read slower.
+- Reverted with `git revert` so the history keeps both directions.
+  **Deliberately kept in the tree, unused:**
+  `supabase/functions/ai-read/index.ts`, `supabase/migrations/0013_ai_reads.sql`
+  (already applied to the live project — do not re-run it as if it were new),
+  its README entry, and `test/ai/ai_read_function_test.dart`. Re-applying C2
+  is reverting the revert.
+- **Kept from the C2 rounds because they are client-side and had nothing to
+  do with where the key lives** — losing them would have made today worse
+  than before C2:
+  - the request timeout (`attemptTimeout` 35 s per call, two calls at most,
+    under `readTimeout` 75 s — a test pins that arithmetic). Before C2 there
+    was **no timeout at all**;
+  - the fallback to the fallback model on `503`/`429`/**timeout**, not just
+    on a retired `404` — `_fallbackReason` now lives in the client;
+  - «الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.» instead of «صوّر تاني»
+    when the failure is overload or a timeout. Telling a patient to
+    re-photograph a page that read fine is wrong advice;
+  - `thinkingConfig.thinkingBudget = 0` (from `--dart-define=GEMINI_THINKING_BUDGET`,
+    `off` to send nothing). **This one was not on the owner's keep-list** —
+    it lived in the `.ts` file, so a literal revert would have dropped it and
+    handed back the 15–20 s reads he had just asked to have fixed. It is a
+    request field, client-expressible, and nothing to do with the key, so it
+    was ported under the same rule as the other three. Say so if that call
+    is wrong; it is one field to delete.
+- **Lost with the revert, because they were the server:** the per-user and
+  global daily caps, `ai_reads` attribution, and the rule that an AI read
+  needs a session. Any read is now unmetered and unattributed, and
+  `AiReadGate` is gone — the scan screens are back to «قراية الصور مش
+  متظبطة في النسخة دي» when the key is missing. A loop or a bad build can
+  empty the quota with nothing to stop it.
 
 **Next**
 0. AI reads take 15–20 s end to end (see C2) — find out where the time
@@ -2282,7 +2216,5 @@ device-verified)**
 - Write formal MSA in the UI
 - Invent a medication duration, dosage or timing — this applies to the
   Gemini prompt as much as to the code
-- Put a Gemini key — or any call to Google — back in the app. The key is an
-  Edge Function secret; the client sends `{kind, image, mime}` and a session
-- Let the client choose the prompt, the schema or the model
-- Hardcode an API key or put one in a tracked file
+- Hardcode an API key, put one in a tracked file, or call Gemini with an
+  empty key

@@ -64,7 +64,6 @@ Future<void> main() async {
     caregiver: cloud?.caregiver,
     sync: sync,
     push: push,
-    aiSession: cloud?.aiSession,
   );
 
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.

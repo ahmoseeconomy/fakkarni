@@ -75,3 +75,42 @@ class LabReading {
 
 /// ثقة الحد — نفس الروشتة.
 const double labConfidenceThreshold = confidenceThreshold;
+
+const Map<String, dynamic> _stringField = {
+  'type': 'OBJECT',
+  'properties': {
+    'value': {'type': 'STRING', 'nullable': true},
+    'confidence': {'type': 'NUMBER'},
+  },
+  'required': ['confidence'],
+};
+
+/// الـschema: اسم التحليل، الرقم، الوحدة — وبس. **مفيش** reference range،
+/// **مفيش** flag، **مفيش** interpretation.
+const Map<String, dynamic> labSchema = {
+  'type': 'OBJECT',
+  'properties': {
+    'lab': _stringField,
+    'reportDate': _stringField,
+    'results': {
+      'type': 'ARRAY',
+      'items': {
+        'type': 'OBJECT',
+        'properties': {
+          'test': _stringField,
+          'value': {
+            'type': 'OBJECT',
+            'properties': {
+              'value': {'type': 'NUMBER', 'nullable': true},
+              'confidence': {'type': 'NUMBER'},
+            },
+            'required': ['confidence'],
+          },
+          'unit': _stringField,
+        },
+        'required': ['test', 'value', 'unit'],
+      },
+    },
+  },
+  'required': ['results'],
+};

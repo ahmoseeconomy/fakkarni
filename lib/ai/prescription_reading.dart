@@ -87,7 +87,7 @@ class PrescriptionReading {
   PrescriptionReading withModelWarning(String warning) =>
       PrescriptionReading(doctor: doctor, lines: lines, modelWarning: warning);
 
-  /// بيفكّ JSON بالشكل اللي طلبناه من Gemini في `PRESCRIPTION_SCHEMA` (`supabase/functions/ai-read/index.ts` — الـschema هناك من بعد C2).
+  /// بيفكّ JSON بالشكل اللي طلبناه من Gemini في [prescriptionSchema].
   ///
   /// أي حاجة ناقصة أو غريبة بتبقى «محتاج تحديد» — مش خطأ ومش تخمين.
   factory PrescriptionReading.fromJson(Map<String, dynamic> json) {
@@ -223,3 +223,65 @@ class PrescriptionReading {
 const String unclearTimingNote = 'مش متأكد — اسأل الصيدلي';
 
 const String timesPerDayNote = 'الورقة كاتبة عدد المرات بس — أكّد الوجبات';
+
+/// شكل الـJSON اللي بنطلبه من Gemini (responseSchema).
+///
+/// كل قيمة معاها ثقة. المدة والساعة بالحرف بس لو مكتوبين.
+const Map<String, dynamic> prescriptionSchema = {
+  'type': 'OBJECT',
+  'properties': {
+    'doctor': _stringField,
+    'medications': {
+      'type': 'ARRAY',
+      'items': {
+        'type': 'OBJECT',
+        'properties': {
+          'name': _stringField,
+          'amount': _stringField,
+          'timing': {
+            'type': 'OBJECT',
+            'properties': {
+              'anchor': {
+                'type': 'STRING',
+                'nullable': true,
+                'enum': ['wake', 'breakfast', 'lunch', 'dinner', 'sleep'],
+              },
+              'relation': {
+                'type': 'STRING',
+                'nullable': true,
+                'enum': ['before', 'after', 'at'],
+              },
+              'offsetMinutes': {'type': 'INTEGER', 'nullable': true},
+              'clockTime': {'type': 'STRING', 'nullable': true},
+              'timesPerDay': {'type': 'INTEGER', 'nullable': true},
+              'confidence': {'type': 'NUMBER'},
+              'note': {'type': 'STRING', 'nullable': true},
+            },
+            'required': ['confidence'],
+          },
+          'durationDays': {
+            'type': 'OBJECT',
+            'properties': {
+              'value': {'type': 'INTEGER', 'nullable': true},
+              'confidence': {'type': 'NUMBER'},
+              'note': {'type': 'STRING', 'nullable': true},
+            },
+            'required': ['confidence'],
+          },
+        },
+        'required': ['name', 'amount', 'timing', 'durationDays'],
+      },
+    },
+  },
+  'required': ['medications'],
+};
+
+const Map<String, dynamic> _stringField = {
+  'type': 'OBJECT',
+  'properties': {
+    'value': {'type': 'STRING', 'nullable': true},
+    'confidence': {'type': 'NUMBER'},
+    'note': {'type': 'STRING', 'nullable': true},
+  },
+  'required': ['confidence'],
+};

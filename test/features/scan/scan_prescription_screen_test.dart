@@ -12,7 +12,6 @@ import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
-import 'package:fakkarni/features/scan/ai_read_gate.dart';
 import 'package:fakkarni/features/scan/scan_prescription_screen.dart';
 
 import 'scan_test_support.dart';
@@ -121,39 +120,11 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
   });
 
-  screenTest('السحابة مش متظبطة → سطر صريح ومفيش كاميرا — والتطبيق مالوش مفتاح يتقال عليه', (tester) async {
+  screenTest('مفيش مفتاح → رسالة --dart-define واضحة، ومفيش كاميرا', (tester) async {
     await pumpScan(tester, reader: null);
 
-    expect(find.text(AiReadGate.notConfiguredLine), findsOneWidget);
-    expect(find.textContaining('GEMINI'), findsNothing);
+    expect(find.textContaining('--dart-define=GEMINI_API_KEY'), findsOneWidget);
     expect(find.text('صوّر الروشتة'), findsNothing);
-    expect(find.text('أكتبها بإيدي'), findsOneWidget);
-  });
-
-  screenTest('القارئ ما لقاش جلسة → «سجّل دخول عشان نقرا الروشتة» وزرار، مش «صوّر تاني» في صمت', (tester) async {
-    final reader = FakeReader(() async => throw const PrescriptionReadException.signInRequired());
-    await pumpScan(tester, reader: reader);
-
-    await tester.tap(find.text('صوّر الروشتة'));
-    await settle(tester);
-
-    expect(find.text('سجّل دخول عشان نقرا الروشتة'), findsOneWidget);
-    expect(find.text('سجّل دخول'), findsOneWidget);
-    expect(find.text('صوّر تاني'), findsNothing);
-    expect(find.text('أكتبها بإيدي'), findsOneWidget, reason: 'الإدخال بالإيد عمره ما احتاج حساب');
-  });
-
-  screenTest('حد القراءات (٤٢٩) → جملة السحابة على الشاشة زي ما هي', (tester) async {
-    final reader = FakeReader(
-      () async => throw const PrescriptionReadException('وصلت لحد القراءات النهارده — جرّب بكرة', 'HTTP 429'),
-    );
-    await pumpScan(tester, reader: reader);
-
-    await tester.tap(find.text('صوّر الروشتة'));
-    await settle(tester);
-
-    expect(find.text('وصلت لحد القراءات النهارده — جرّب بكرة'), findsOneWidget);
-    expect(find.text('سجّل دخول'), findsNothing);
   });
 
   screenTest('صورة → قراءة → شاشة المراجعة', (tester) async {
