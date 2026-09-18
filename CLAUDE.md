@@ -2057,7 +2057,7 @@ device-verified)**
   splash and never reads that drawable. Home-screen name «فكرني» on both
   (`android:label`, `CFBundleDisplayName`).
 
-**C2 — the Gemini key left the binary (built; verified on the live project)**
+**C2 — the Gemini key left the binary (DONE — verified end to end)**
 - `supabase/functions/ai-read/index.ts` + `0013_ai_reads.sql`; client
   transport, `AiSession`, `AiReadGate`, `no_gemini_key_test`,
   `ai_read_function_test`. `GeminiConfig` is deleted — nothing
@@ -2067,15 +2067,27 @@ device-verified)**
   other order the function answers 503 or 500 on every read.
 - **Verified live 2026-09-18 by the owner:** `0013 OK` printed, and the
   three curl checks in the function's header pass (no session → 401, bad
-  kind → 400, a real read → Gemini's body). Not yet seen: a read from the
-  app itself on a device, and the cap actually tripping at 20.
+  kind → 400, a real read → Gemini's body). **Then end to end:** a real
+  scan from the iPhone succeeded on the pinned model, and the 503/429
+  fallback (`32dc5c1`) was deployed and exercised against a real Google
+  load spike — the read came back from the fallback with the warning
+  instead of «مقدرتش أقرا». Not yet seen: the cap actually tripping at 20.
+- **Open (later): the two successful reads took 15–20 s** (`ai_reads`
+  `duration_ms` = 14803 and 20598). That is Google's time for a 1600px
+  image plus the function's two round trips, not the app's — but a
+  72-year-old holding a phone for twenty seconds is a product problem, not
+  a network detail. Measure where it goes (Gemini vs. our cap RPC vs. the
+  upload) before touching anything; the «بيقرا الروشتة…» screen already
+  keeps him informed while it waits.
 - **The old key is dead** (rotated 2026-09-18, deleted from Google AI
   Studio; the new one exists only as the `GEMINI_API_KEY` secret, and
   `secrets.json` no longer carries a Gemini line). A build older than C2
   therefore cannot read a photo at all — its compiled-in key answers 400.
 
 **Next**
-1. Photograph a real handwritten prescription with the key set; tune
+0. AI reads take 15–20 s end to end (see C2) — find out where the time
+   goes before the next demo
+1. Photograph a real handwritten prescription; tune
    `maxWidth`/`imageQuality` and the prompt from what actually fails
 2. Re-run the `/device` checklist for the action buttons specifically: tap
    «أخدته» on the lock screen with the app terminated, then check
