@@ -33,5 +33,11 @@ import flutter_local_notifications
       GeneratedPluginRegistrant.register(with: registry)
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // «قريب منك» من خرايط أبل — قناة صغيرة، على المحرّك الرئيسي بس (صحوة
+    // الخلفية ما بتدوّرش على صيدليات).
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PlacesChannel") {
+      PlacesChannel.register(with: registrar.messenger())
+    }
   }
 }

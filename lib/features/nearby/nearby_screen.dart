@@ -48,7 +48,7 @@ class NearbyScreen extends StatefulWidget {
   });
 
   final LocationSource location;
-  final OverpassPlaces? places;
+  final NearbyPlaces? places;
 
   /// للاختبارات — التطبيق بيستخدم الشبكة (بكاش flutter_map المدمج).
   final TileProvider? tileProvider;
@@ -59,7 +59,7 @@ class NearbyScreen extends StatefulWidget {
 }
 
 class _NearbyScreenState extends State<NearbyScreen> {
-  late final OverpassPlaces _places = widget.places ?? OverpassPlaces();
+  late final NearbyPlaces _places = widget.places ?? NearbyPlaces.forPlatform();
   LocationFix? _fix;
   PlacesResult? _result;
   bool _loading = true;
@@ -117,9 +117,12 @@ class _NearbyScreenState extends State<NearbyScreen> {
             'صيدليات ودكاترة متسجّلين على OpenStreetMap في ٢ كم حواليك.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
+          // اسم اللي الموقع بيروح له **فعلاً** — من المصدر، مش من الشاشة:
+          // على iOS ده Apple، وعلى أندرويد OpenStreetMap. الخريطة نفسها OSM
+          // على الاتنين، وده سبب الـ© تحت.
           Text(
-            'بنبعت مكانك التقريبي لـOpenStreetMap عشان يدوّر — مش مكانك بالظبط.',
-            key: ValueKey('nearby-privacy'),
+            'مكانك بيتبعت لـ ${_places.sourceName} عشان يدوّر — التقريبي، مش مكانك بالظبط.',
+            key: const ValueKey('nearby-privacy'),
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
           const SizedBox(height: F.s12),

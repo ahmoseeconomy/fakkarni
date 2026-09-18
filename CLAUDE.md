@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         735 passing
+test/                         752 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1674,6 +1674,42 @@ device-verified)**
   dependencies: `pdf`, `printing` (no `share_plus`).
 
 **D3.9 — nearby (built) — the 33rd screen**
+- **Since the MapKit round: iOS asks Apple Maps, Android stays on
+  Overpass — and the screen cannot tell which.** `PlacesSource` is one
+  method, `nearby(lat, lon, radiusMeters) → List<Place>`, with two
+  implementations: `OverpassPlaces` (unchanged behaviour) and
+  `AppleMapKitPlaces`, a `MethodChannel('fakkarni/places')` to
+  `ios/Runner/PlacesChannel.swift`, which runs two `MKLocalSearch`
+  natural-language queries («صيدلية», «دكتور») inside the radius, filters
+  by distance (MapKit returns *around* a region, not inside it), de-dupes,
+  and returns name / lat / lon / phone / the MapKit identifier (iOS 18+;
+  coordinates before that). **No key, no MapKit JS, no network code in
+  Dart** — the OS talks to Apple under the same rules as the Maps app.
+  `openingHours` is always null from MapKit — it does not expose hours,
+  and the screen already stays silent without a tag. The choice happens in
+  **exactly one place**, `placesSourceForPlatform` (`Platform.isIOS`), and
+  `places_source_switch_test` reads `lib/` and fails if either source is
+  constructed anywhere else or the screen names a source.
+  `NearbyPlaces` is the façade the screen holds: the 24-hour cache, the
+  3-decimal rounding and the offline fallback moved there from
+  `OverpassPlaces` so both sources get them; the cache now stores
+  `Place.toJson` (our shape, not the source's) under a key that carries the
+  source id, so a device that changes source never reads the other's rows.
+  `OverpassPlaces.search` survives as a delegation so the Overpass tests
+  stayed byte-for-byte untouched. The Swift side **cannot be exercised by
+  `flutter test`** — the contract test runs the same assertions against a
+  fake source and against `AppleMapKitPlaces` on a mocked channel; the real
+  `MKLocalSearch` is verified on the iPhone or not at all.
+  **The privacy line names where the location actually goes**, and the
+  screen still never names a source: every `PlacesSource` carries a
+  `displayName` («Apple» / «OpenStreetMap»), `NearbyPlaces.sourceName`
+  hands it up, and the screen prints «مكانك بيتبعت لـ … عشان يدوّر —
+  التقريبي، مش مكانك بالظبط.» — Apple on iOS, OpenStreetMap on Android
+  (`nearby_screen_test` pumps both). The tiles are still OSM on both
+  platforms, so «© مساهمو OpenStreetMap» stays on both. Two other
+  sentences («صيدليات ودكاترة متسجّلين على OpenStreetMap…» and the empty
+  state) still say OpenStreetMap on iOS — a coverage claim, not a privacy
+  one, left as the owner asked.
 - PHASE_D3 said this needed billed Google Places. It does not: verified
   with a live Overpass query around central Cairo (no key, no account)
   and a live OSM tile; both usage policies read and quoted in the

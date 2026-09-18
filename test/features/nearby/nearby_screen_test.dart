@@ -51,13 +51,17 @@ void main() {
   late List<String> dialed;
   late List<String> routed;
 
-  OverpassPlaces overpass({Map<String, dynamic>? response, bool offline = false, MemoryCache? cache}) =>
-      OverpassPlaces(
-        client: MockClient((_) async {
-          requests++;
-          if (offline) throw http.ClientException('no network');
-          return http.Response.bytes(utf8.encode(jsonEncode(response ?? sample)), 200);
-        }),
+  // الشاشة بتاخد الواجهة المكيّشة؛ المصدر تحتها هنا Overpass على MockClient
+  // (على أندرويد ده هو المصدر فعلاً، وعلى iOS الشاشة نفسها ما بتفرقش).
+  NearbyPlaces overpass({Map<String, dynamic>? response, bool offline = false, MemoryCache? cache}) =>
+      NearbyPlaces(
+        source: OverpassPlaces(
+          client: MockClient((_) async {
+            requests++;
+            if (offline) throw http.ClientException('no network');
+            return http.Response.bytes(utf8.encode(jsonEncode(response ?? sample)), 200);
+          }),
+        ),
         cache: cache ?? MemoryCache(),
       );
 
@@ -69,7 +73,10 @@ void main() {
     openDirections = (p) async => routed.add(p.id);
   });
 
-  Future<void> pumpNearby(WidgetTester tester, {LocationSource? location, OverpassPlaces? places}) async {
+  /// مصدر «أبل» زي ما iOS هيشوفه — من غير قناة: الشاشة ما تفرقش، والجملة بس.
+  NearbyPlaces apple() => NearbyPlaces(source: _AppleLike(), cache: MemoryCache());
+
+  Future<void> pumpNearby(WidgetTester tester, {LocationSource? location, NearbyPlaces? places}) async {
     await h.pump(
       tester,
       NearbyScreen(
@@ -88,6 +95,21 @@ void main() {
     expect(requests, 1);
     expect(find.text('© مساهمو OpenStreetMap'), findsOneWidget, reason: 'شرط الرخصة');
     expect(find.byKey(const ValueKey('nearby-privacy')), findsOneWidget);
+  });
+
+  screenTest('جملة الخصوصية بتسمّي اللي الموقع بيروح له فعلاً — Apple على iOS وOpenStreetMap على أندرويد — والـ© على الاتنين', (tester) async {
+    await pumpNearby(tester, places: overpass());
+    expect(find.text('مكانك بيتبعت لـ OpenStreetMap عشان يدوّر — التقريبي، مش مكانك بالظبط.'), findsOneWidget);
+    expect(find.textContaining('Apple'), findsNothing);
+    expect(find.text('© مساهمو OpenStreetMap'), findsOneWidget);
+
+    // شجرة جديدة: الشاشة بتحتفظ بالواجهة في late final، وإعادة الضخ بنفس
+    // النوع كانت هتعيد استخدام الحالة القديمة.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpNearby(tester, places: apple());
+    expect(find.text('مكانك بيتبعت لـ Apple عشان يدوّر — التقريبي، مش مكانك بالظبط.'), findsOneWidget);
+    expect(find.textContaining('بيتبعت لـ OpenStreetMap'), findsNothing);
+    expect(find.text('© مساهمو OpenStreetMap'), findsOneWidget, reason: 'الخريطة لسه OSM على الاتنين');
 
     expect(find.text('Al Azaby'), findsOneWidget);
     expect(find.text('فضل'), findsOneWidget);
@@ -175,4 +197,14 @@ void main() {
     expect(distanceText(437), '٤٤٠ متر');
     expect(distanceText(1234), '١.٢ كم');
   });
+}
+
+/// مصدر بيقول «Apple» — نفس شكل نتايج MapKit، من غير قناة.
+class _AppleLike implements PlacesSource {
+  @override
+  String get id => 'mapkit';
+  @override
+  String get displayName => 'Apple';
+  @override
+  Future<List<Place>> nearby(double lat, double lon, int radiusMeters) async => Place.fromOverpass(sample);
 }
