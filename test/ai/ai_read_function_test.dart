@@ -97,14 +97,16 @@ void main() {
 
     test('البديل بيتنادى في مكان واحد بس — لو وقع هو كمان: ٥٠٢ gemini_failed، مفيش محاولة تالتة', () {
       expect('callGemini(fallback'.allMatches(source), hasLength(1));
-      expect('callGemini(pinned'.allMatches(source), hasLength(1));
+      // المثبّت بيتنادى مرتين: المحاولة العادية، وإعادة واحدة لو الموديل
+      // رفض `thinkingConfig` (٤٠٠ فوري، بيتفتكر لنسخة الدالة).
+      expect('callGemini(pinned'.allMatches(source), hasLength(2));
       // قسم جوجل بس (فيه حلقة `for` بريئة فوقه بتفحص الأسرار)
       final gemini = source.substring(
         source.indexOf('const started = Date.now();'),
         source.indexOf('const ok = status === 200;'),
       );
       expect(RegExp(r'\b(for|while)\s*\(').hasMatch(gemini), isFalse, reason: 'مفيش حلقة إعادة محاولة');
-      expect(source, contains("return json({ error: 'gemini_failed', detail }, 502);"));
+      expect(source, contains("json({ error: 'gemini_failed', detail }, 502)"));
       expect(source, contains('(after fallback'), reason: 'الـdetail بيقول إن الفشل بعد البديل');
     });
 
@@ -112,6 +114,38 @@ void main() {
       expect(source, contains(r'warning = `${pinned};${fallback};${reason}`;'));
       expect(source, contains("...(warning ? { 'x-model-warning': warning } : {})"));
     });
+  });
+
+  group('مفيش نداء من غير مهلة — ولا رسالة غلط للمريض', () {
+    test('كل نداء لجوجل وللقاعدة عليه AbortSignal', () {
+      expect(source, contains('signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)'));
+      expect(source, contains('signal: AbortSignal.timeout(DB_TIMEOUT_MS)'));
+      // محاولتين × ٢٥ث لازم يفضلوا تحت مهلة العميل (٧٥ث)
+      expect(source, contains('|| 25_000'));
+    });
+
+    test('المهلة سبب بديل — زي الزحمة بالظبط', () {
+      expect(source, contains('if (timedOut) return \'timeout\';'));
+    });
+
+    test('زحمة أو مهلة → ٥٠٣ بجملة عربي، مش ٥٠٢ «مقدرتش أقرا»', () {
+      expect(source, contains("json({ error: 'gemini_busy', message: BUSY_MESSAGE, detail }, 503)"));
+      expect(source, contains("const BUSY_MESSAGE = 'الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.';"));
+      // مفيش «صوّر» في جملة الزحمة: الصورة سليمة
+      expect(source.contains('BUSY_MESSAGE'), isTrue);
+      final busyLine = source.split('\n').firstWhere((l) => l.contains('const BUSY_MESSAGE'));
+      expect(busyLine.contains('صوّر'), isFalse);
+    });
+  });
+
+  test('التفكير مقفول افتراضياً — وده أكبر سبب في البطء', () {
+    expect(source, contains("Deno.env.get('GEMINI_THINKING_BUDGET') ?? '0'"));
+    expect(source, contains('thinkingConfig: { thinkingBudget: Number(THINKING_BUDGET_RAW) }'));
+    // ورفض الحقل بيتفتكر — مش محاولة زيادة في كل طلب
+    expect(source, contains('let thinkingRejected = false;'));
+    expect(source, contains('thinkingRejected = true;'));
+    // والرفض ده **بس** اللي بيعيد على ٤٠٠ — مربوط باسم الحقل
+    expect(source, contains("res.status === 400 && /thinking/i.test(res.raw)"));
   });
 
   test('الحدّين ثوابت مسمّاة فوق، والجملة اللي التطبيق بيعرضها بالحرف', () {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -132,6 +133,39 @@ void main() {
       expect(e.message, contains('صوّر تاني'));
     });
 
+    test('٥٠٣ زحمة/مهلة → جملة السحابة، **مش** «صوّر تاني» — الصورة سليمة', () async {
+      final e = await failureFor(
+        jsonResponse({'error': 'gemini_busy', 'message': 'الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.'}, 503),
+      );
+      expect(e.message, 'الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.');
+      expect(e.message, isNot(contains('صوّر')), reason: 'مفيش فايدة من إعادة التصوير');
+      expect(e.needsSignIn, isFalse);
+    });
+
+    test('المهلة بتنتهي بجملة — مش بتفضل معلّقة', () async {
+      // السحابة ما بتردّش خالص؛ المهلة هنا قصيرة عشان الاختبار، والحقيقية
+      // `readTimeout` (٧٥ث) فوق مهلتي الدالة الاتنين.
+      final reader = GeminiPrescriptionReader(
+        FakeAiSession(),
+        timeout: const Duration(milliseconds: 50),
+        client: MockClient((_) async {
+          await Completer<void>().future; // عمره ما بيكمّل
+          return ok();
+        }),
+      );
+
+      await expectLater(
+        reader.read(image),
+        throwsA(
+          isA<PrescriptionReadException>()
+              .having((e) => e.message, 'message', contains('طوّلت'))
+              .having((e) => e.message, 'message', isNot(contains('صوّر تاني')))
+              .having((e) => e.cause, 'cause', isA<TimeoutException>()),
+        ),
+      );
+      expect(GeminiPrescriptionReader.readTimeout, const Duration(seconds: 75));
+    });
+
     test('٤٠١ → حالة الدخول، مش «صوّر تاني»', () async {
       final e = await failureFor(jsonResponse({'error': 'session_required'}, 401));
       expect(e.needsSignIn, isTrue);
@@ -190,12 +224,14 @@ void main() {
         ).read(image))
             .modelWarning;
 
-    test('overloaded (٥٠٣/٤٢٩ من المثبّت) → «تحت ضغط»، ومن غير «ثبّت تاني»', () async {
-      final warning = await warningFor('gemini-3.6-flash;gemini-flash-latest;overloaded');
-      expect(warning, contains('gemini-3.6-flash'));
-      expect(warning, contains('gemini-flash-latest'));
-      expect(warning, contains('تحت ضغط'));
-      expect(warning, isNot(contains('ثبّت تاني بإيدك')), reason: 'الموديل سليم — مفيش حاجة تتثبّت');
+    test('overloaded أو timeout → «بطيء أو زحمة»، ومن غير «ثبّت تاني»', () async {
+      for (final reason in ['overloaded', 'timeout']) {
+        final warning = await warningFor('gemini-3.6-flash;gemini-flash-latest;$reason');
+        expect(warning, contains('gemini-3.6-flash'), reason: reason);
+        expect(warning, contains('gemini-flash-latest'), reason: reason);
+        expect(warning, contains('بطيء أو زحمة'), reason: reason);
+        expect(warning, isNot(contains('ثبّت تاني بإيدك')), reason: 'الموديل سليم — $reason');
+      }
     });
 
     test('retired صريحة، أو header قديم من جزئين → «اتقفل — ثبّت تاني بإيدك»', () async {
@@ -215,7 +251,11 @@ void main() {
       debugPrint = (String? message, {int? wrapWidth}) {
         // سطر حجم الصورة (C1) بيطلع في كل نداء وله اختباره في
         // shrink_on_the_wire_test — هنا بنعدّ سطور الأعطال بس.
-        if (message != null && !message.contains('shrinkForAi')) log.add(message);
+        // سطرين بيطلعوا في كل نداء وليهم اختباراتهم: حجم الصورة (C1) والوقت
+        // الكامل. هنا بنعدّ سطور الأعطال بس.
+        if (message != null && !message.contains('shrinkForAi') && !message.contains('ai-read ')) {
+          log.add(message);
+        }
       };
     });
 

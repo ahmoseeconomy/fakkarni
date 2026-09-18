@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         774 passing
+test/                         780 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -2194,13 +2194,44 @@ device-verified)**
   fallback (`32dc5c1`) was deployed and exercised against a real Google
   load spike — the read came back from the fallback with the warning
   instead of «مقدرتش أقرا». Not yet seen: the cap actually tripping at 20.
-- **Open (later): the two successful reads took 15–20 s** (`ai_reads`
-  `duration_ms` = 14803 and 20598). That is Google's time for a 1600px
-  image plus the function's two round trips, not the app's — but a
-  72-year-old holding a phone for twenty seconds is a product problem, not
-  a network detail. Measure where it goes (Gemini vs. our cap RPC vs. the
-  upload) before touching anything; the «بيقرا الروشتة…» screen already
-  keeps him informed while it waits.
+- **Latency round (after the owner hit >60 s hangs and «high demand»):**
+  - **Nothing called Google or the database with a timeout.** Not the
+    client's POST, not the function's `fetch`. So a slow or stuck model
+    left the app on «بيقرا الروشتة…» until a socket somewhere gave up —
+    minutes, with no sentence. Now: `GEMINI_TIMEOUT_MS` (25 s) per Gemini
+    attempt and `DB_TIMEOUT_MS` (10 s) on the cap query, both via
+    `AbortSignal.timeout`; `GeminiPrescriptionReader.readTimeout` (75 s)
+    on the client, sized above the function's two attempts. **Add a
+    timeout to any new outbound call here** — an unbounded one does not
+    fail, it hangs, and a hang has no message.
+  - **A timeout is now a fallback reason**, beside `retired` and
+    `overloaded`: the pinned model going quiet gets the same one retry on
+    the fallback model that a 503 does.
+  - **«زحمة» is no longer reported as «صوّر تاني».** Overload or timeout
+    after the fallback answers `503 gemini_busy` with
+    «الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.», and the client now shows
+    the server's `message` for **any** failure that carries one. Telling a
+    patient to re-photograph a prescription that read fine is bad advice
+    and wastes another read against his cap.
+  - **Thinking is off by default, and that was the big number.** Recent
+    Gemini models think before answering; transcribing a page does not
+    need it, and it was the likeliest cause of 15–20 s at Google
+    (`ai_reads.duration_ms` = 14803, 20598). The function sends
+    `thinkingConfig.thinkingBudget = 0` from `GEMINI_THINKING_BUDGET`
+    (default `0`; **empty = send nothing and let the model think**, which
+    is the lever to pull if read quality drops). If a model rejects the
+    field it answers 400 instantly, and only then — matched on the field
+    name, logged loudly, and remembered per function instance — the call
+    is repeated without it. That is the one narrow exception to «a 400
+    never triggers a retry»; a schema rejection still surfaces untouched.
+  - The client now logs `ai-read <status> في <ms>ms (رفع + موديل)`. The
+    function's own `ms=` covers Google alone, so **the gap between the two
+    numbers is the upload** — read both before deciding the next lever.
+  - Untouched on purpose: the image is still 1600px/q80 (~420 KB, ~560 KB
+    as base64 in JSON). Dropping the longest side or the quality, or
+    sending raw bytes instead of base64, are the next levers — and the
+    first two are exactly the numbers CLAUDE.md says to settle on a real
+    handwritten prescription, not on a hunch.
 - **The old key is dead** (rotated 2026-09-18, deleted from Google AI
   Studio; the new one exists only as the `GEMINI_API_KEY` secret, and
   `secrets.json` no longer carries a Gemini line). A build older than C2

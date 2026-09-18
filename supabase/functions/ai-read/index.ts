@@ -82,6 +82,23 @@ const MAX_IMAGE_BASE64_CHARS = 8 * 1024 * 1024;
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
+/// مهلة نداء جوجل الواحد. **مفيش نداء من غير مهلة**: من غيرها الدالة بتفضل
+/// مستنية لحد ما المنصة تقتلها، والتطبيق قاعد على «بيقرا الروشتة…» بالدقايق
+/// من غير ما يقول أي حاجة. المحاولتين (المثبّت والبديل) لازم يخلّصوا تحت
+/// مهلة العميل (٧٥ ثانية).
+const GEMINI_TIMEOUT_MS = Number(Deno.env.get('GEMINI_TIMEOUT_MS') ?? '') || 25_000;
+
+/// مهلة نداء القاعدة (عدّاد الحد) — لو اتعلّقت، بنقفل مش بنستنى.
+const DB_TIMEOUT_MS = 10_000;
+
+/// **التفكير مقفول افتراضياً.** الموديلات الحديثة بتفكّر قبل ما ترد، والتفكير
+/// وقت — ونقل أرقام وأسامي من ورقة مش محتاج تفكير. ده أكبر سبب في إن القراية
+/// كانت بتاخد ١٥–٢٠ ثانية عند جوجل. لو القراية بوظت، رجّعه من السر
+/// `GEMINI_THINKING_BUDGET` (فاضي = ما نبعتش الحقل أصلاً).
+const THINKING_BUDGET_RAW = (Deno.env.get('GEMINI_THINKING_BUDGET') ?? '0').trim();
+
+const BUSY_MESSAGE = 'الخدمة زحمة دلوقتي — استنى شوية وجرّب تاني.';
+
 const CAP_MESSAGE = 'وصلت لحد القراءات النهارده — جرّب بكرة';
 const GLOBAL_CAP_MESSAGE = 'القراية بالصورة واقفة النهارده — جرّب بكرة، أو اكتبها بإيدك';
 
@@ -254,9 +271,14 @@ function jwtClaims(token: string): { sub?: string; role?: string } | null {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/// الموديل ده رفض `thinkingConfig`؟ بيتفتكر لنسخة الدالة دي — فالثمن محاولة
+/// واحدة زيادة عند أول طلب، مش عند كل طلب.
+let thinkingRejected = false;
+
 async function db(url: string, serviceKey: string, path: string, init: RequestInit = {}): Promise<Response> {
   return await fetch(`${url}/rest/v1/${path}`, {
     ...init,
+    signal: AbortSignal.timeout(DB_TIMEOUT_MS),
     headers: {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
@@ -266,16 +288,28 @@ async function db(url: string, serviceKey: string, path: string, init: RequestIn
   });
 }
 
-async function callGemini(model: string, key: string, body: string): Promise<Response> {
-  return await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      // المفتاح في header — مش في الرابط — فما بيظهرش في أي لوج للروابط.
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body,
-    },
-  );
+/// محاولة واحدة عند جوجل: الحالة، نص الرد، وهل المهلة خلصت.
+/// `status = 0` معناها ما وصلناش لرد أصلاً (شبكة أو مهلة).
+type Attempt = { status: number; raw: string; timedOut: boolean };
+
+async function callGemini(model: string, key: string, body: string): Promise<Attempt> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: 'POST',
+        // المفتاح في header — مش في الرابط — فما بيظهرش في أي لوج للروابط.
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body,
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      },
+    );
+    return { status: res.status, raw: await res.text(), timedOut: false };
+  } catch (error) {
+    const name = (error as { name?: string })?.name ?? '';
+    const timedOut = name === 'TimeoutError' || name === 'AbortError';
+    return { status: 0, raw: `transport: ${error}`, timedOut };
+  }
 }
 
 // <fallback-rule>
@@ -286,11 +320,14 @@ async function callGemini(model: string, key: string, body: string): Promise<Res
 ///   overloaded  ٥٠٣ أو ٤٢٩ — المثبّت تحت ضغط أو حصته خلصت **دلوقتي**. زحمة
 ///               على موديل واحد وسط عرض ما ينفعش تتقري «مقدرتش أقرا». مفيش
 ///               حاجة تتثبّت من جديد؛ لو اتكرر كتير دي مسألة حصة.
+///   timeout     المهلة خلصت من غير رد. نفس المعنى عند المستخدم (الخدمة
+///               بطيئة دلوقتي)، بس بيتسجّل باسمه عشان يتفرّق في اللوج.
 ///
 /// ٤٠٠ **مش هنا، وما تتضافش**: رفض الـschema لازم يبان، وإخفاؤه ببديل هو
 /// بالظبط تغيّر السلوك الصامت اللي التثبيت موجود عشان يمنعه. و٤٠٤ من غير
 /// NOT_FOUND مش تقاعد. البديل نفسه ما بيتبدّلش: لو وقع → ٥٠٢ gemini_failed.
-function fallbackReason(status: number, raw: string): 'retired' | 'overloaded' | null {
+function fallbackReason(status: number, raw: string, timedOut = false): 'retired' | 'overloaded' | 'timeout' | null {
+  if (timedOut) return 'timeout';
   if (status === 404 && raw.includes('NOT_FOUND')) return 'retired';
   if (status === 503 || status === 429) return 'overloaded';
   return null;
@@ -378,44 +415,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: 'global_cap', message: GLOBAL_CAP_MESSAGE }, 429);
   }
 
-  // ---- ٤. جوجل. نفس الطلب اللي التطبيق كان بيبنيه قبل C2.
+  // ---- ٤. جوجل. نفس الطلب اللي التطبيق كان بيبنيه قبل C2، + قفل التفكير.
   const spec = KINDS[kind];
-  const body = JSON.stringify({
-    ...(spec.systemInstruction
-      ? { systemInstruction: { parts: [{ text: spec.systemInstruction }] } }
-      : {}),
-    contents: [
-      { parts: [{ text: spec.prompt }, { inline_data: { mime_type: mime, data: image } }] },
-    ],
-    generationConfig: {
-      temperature: 0,
-      responseMimeType: 'application/json',
-      responseSchema: spec.schema,
-    },
-  });
+  const bodyWith = (thinking: boolean) =>
+    JSON.stringify({
+      ...(spec.systemInstruction
+        ? { systemInstruction: { parts: [{ text: spec.systemInstruction }] } }
+        : {}),
+      contents: [
+        { parts: [{ text: spec.prompt }, { inline_data: { mime_type: mime, data: image } }] },
+      ],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json',
+        responseSchema: spec.schema,
+        ...(thinking ? { thinkingConfig: { thinkingBudget: Number(THINKING_BUDGET_RAW) } } : {}),
+      },
+    });
 
   const started = Date.now();
   let model = pinned;
   let warning: string | null = null;
-  let status = 0;
-  let raw = '';
-  try {
-    let res = await callGemini(pinned, geminiKey!, body);
-    raw = await res.text();
-    const reason = fallbackReason(res.status, raw);
-    if (reason) {
-      console.error(
-        `Gemini: WARNING pinned model ${pinned} ${reason} (HTTP ${res.status}): ${excerpt(raw, 200)} — retrying once with ${fallback}`,
-      );
-      warning = `${pinned};${fallback};${reason}`;
-      model = fallback;
-      res = await callGemini(fallback, geminiKey!, body);
-      raw = await res.text();
-    }
-    status = res.status;
-  } catch (error) {
-    raw = `transport: ${error}`;
+
+  // التفكير مقفول، **إلا لو الموديل ده رفض الحقل**. الرفض بيرجع ٤٠٠ فوري
+  // (من غير أي شغل موديل)، فبنعيد مرة من غيره وبنفتكر — نفس النسخة من
+  // الدالة مش هتحاول تاني. ده **مش** إخفاء ٤٠٠: مربوط باسم الحقل بالحرف،
+  // وبيتسجّل بصوت عالي، ورفض الـschema بيفضل بيطلع زي ما هو.
+  const sendThinking = THINKING_BUDGET_RAW !== '' && !thinkingRejected;
+  let res = await callGemini(pinned, geminiKey!, bodyWith(sendThinking));
+  if (sendThinking && res.status === 400 && /thinking/i.test(res.raw)) {
+    thinkingRejected = true;
+    console.error(`Gemini: WARNING ${pinned} رفض thinkingConfig — إعادة من غيره: ${excerpt(res.raw, 200)}`);
+    res = await callGemini(pinned, geminiKey!, bodyWith(false));
   }
+  const body = bodyWith(sendThinking && !thinkingRejected);
+
+  const reason = fallbackReason(res.status, res.raw, res.timedOut);
+  if (reason) {
+    console.error(
+      `Gemini: WARNING pinned model ${pinned} ${reason} (HTTP ${res.status}): ${excerpt(res.raw, 200)} — retrying once with ${fallback}`,
+    );
+    warning = `${pinned};${fallback};${reason}`;
+    model = fallback;
+    res = await callGemini(fallback, geminiKey!, body);
+  }
+  const { status, raw, timedOut } = res;
   const ok = status === 200;
   const durationMs = Date.now() - started;
 
@@ -435,8 +479,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!ok) {
     // الرد هو مصدر الحقيقة وقت العطل. المفتاح راح في header فمش جوّاه.
     const detail = `HTTP ${status}: ${excerpt(raw)}${warning ? ` (after fallback ${fallback})` : ''}`;
-    console.error(`Gemini: ${detail}`);
-    return json({ error: 'gemini_failed', detail }, 502);
+    console.error(`Gemini: ${detail} (${durationMs}ms)`);
+    // زحمة أو مهلة مش «صوّر تاني»: الصورة سليمة والمشكلة عندهم. الرسالة
+    // بتقول الحقيقة عشان المريض ما يفضلش يصوّر ورقته من أول وجديد.
+    const busy = timedOut || fallbackReason(status, raw) === 'overloaded';
+    return busy
+      ? json({ error: 'gemini_busy', message: BUSY_MESSAGE, detail }, 503)
+      : json({ error: 'gemini_failed', detail }, 502);
   }
 
   console.log(`ai-read: ok kind=${kind} model=${model} bytes=${bytes} ms=${durationMs} user=${userId}`);

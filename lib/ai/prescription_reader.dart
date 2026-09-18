@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -40,10 +41,19 @@ class PrescriptionReadException implements Exception {
 /// الطلب، وترجمة الرد لحالات الشاشة. **فك الرد والحكم على الثقة زي ما هم** —
 /// الدالة بترجّع رد الموديل بالحرف.
 class GeminiPrescriptionReader implements PrescriptionReader {
-  GeminiPrescriptionReader(this.session, {http.Client? client}) : _client = client ?? http.Client();
+  GeminiPrescriptionReader(this.session, {http.Client? client, Duration? timeout})
+      : _client = client ?? http.Client(),
+        _timeout = timeout ?? readTimeout;
 
   final AiSession session;
   final http.Client _client;
+
+  /// للاختبارات — المهلة الحقيقية [readTimeout].
+  final Duration _timeout;
+
+  /// مهلة الطلب كله. الدالة بتحط مهلة ٢٥ث لكل نداء عند جوجل (محاولتين على
+  /// الأكتر)، فده فوقهم بهامش — ومع ذلك بينتهي بجملة بدل ما يفضل معلّق.
+  static const readTimeout = Duration(seconds: 75);
 
   @override
   Future<PrescriptionReading> read(
@@ -98,35 +108,47 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     final body = jsonEncode({'kind': kind, 'mime': wireType, 'image': base64Encode(shrunk)});
 
     final http.Response response;
+    final started = DateTime.now();
     try {
-      response = await _client.post(
-        session.endpoint,
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': session.publishableKey,
-          'Authorization': 'Bearer $token',
-        },
-        body: body,
+      response = await _client
+          .post(
+            session.endpoint,
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': session.publishableKey,
+              'Authorization': 'Bearer $token',
+            },
+            body: body,
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      // **مهلة صريحة.** من غيرها الطلب بيفضل معلّق على الشبكة، والشاشة
+      // قاعدة على «بيقرا الروشتة…» بالدقايق من غير ما تقول حاجة.
+      debugPrint('Gemini: timeout بعد ${_timeout.inSeconds}ث');
+      throw PrescriptionReadException(
+        // مش «صوّر تاني»: الصورة سليمة، الخدمة هي اللي بطيئة.
+        'القراية طوّلت أكتر من اللازم — جرّب تاني بعد شوية.',
+        error,
       );
     } catch (error) {
       debugPrint('Gemini: transport: $error');
       throw PrescriptionReadException('مفيش نت دلوقتي — جرّب تاني بعد شوية.', error);
     }
+    final elapsed = DateTime.now().difference(started).inMilliseconds;
+    // الوقت الكامل (رفع + موديل + رجوع). لوج الدالة بيقول وقت جوجل لوحده،
+    // والفرق بين الرقمين هو الشبكة — ده اللي بيقول فين الوقت رايح فعلاً.
+    debugPrint('Gemini: ai-read ${response.statusCode} في ${elapsed}ms (رفع + موديل)');
     final raw = utf8.decode(response.bodyBytes, allowMalformed: true);
 
     if (response.statusCode != 200) {
       // السبب الحقيقي بيتسجّل — مش بنخمّن. التوكن عمره ما بيتطبع.
       final cause = 'HTTP ${response.statusCode}: ${_excerpt(raw)}';
       debugPrint('Gemini: $cause');
-      switch (response.statusCode) {
-        case 401:
-          throw PrescriptionReadException.signInRequired(cause);
-        case 429:
-          // جملة السحابة زي ما هي — هي اللي عارفة أنهي حد اتقفل.
-          throw PrescriptionReadException(_serverMessage(raw) ?? failure, cause);
-        default:
-          throw PrescriptionReadException(failure, cause);
-      }
+      if (response.statusCode == 401) throw PrescriptionReadException.signInRequired(cause);
+      // **أي رسالة من السحابة بتتعرض زي ما هي** — هي اللي عارفة إيه اللي
+      // حصل: الحد اليومي (٤٢٩)، أو زحمة/مهلة عند جوجل (٥٠٣). من غير كده
+      // المريض كان بيتقاله «صوّر تاني» وصورته مافيهاش أي غلط.
+      throw PrescriptionReadException(_serverMessage(raw) ?? failure, cause);
     }
 
     return (json: _parse(raw), warning: _warningFrom(response.headers['x-model-warning']));
@@ -144,11 +166,13 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     final parts = [for (final part in header.split(';')) part.trim()];
     final pinned = parts.first;
     final fallback = parts.length > 1 ? parts[1] : '';
-    final overloaded = parts.length > 2 && parts[2] == 'overloaded';
+    // 'retired' وبس معناها ثبّت موديل تاني. أي سبب تاني (زحمة، مهلة) معناه
+    // الخدمة كانت بطيئة — والموديل سليم، فمفيش حاجة تتثبّت.
+    final overloaded = parts.length > 2 && parts[2] != 'retired';
     debugPrint('Gemini: WARNING pinned model $pinned ${overloaded ? 'overloaded' : 'retired'} '
         '— read came from $fallback');
     return overloaded
-        ? 'الموديل المثبّت $pinned تحت ضغط دلوقتي — القراءة جت من $fallback. '
+        ? 'الموديل المثبّت $pinned كان بطيء أو زحمة — القراءة جت من $fallback. '
             'مفيش حاجة تتثبّت؛ لو اتكرر كتير راجع الحصة.'
         : 'الموديل المثبّت $pinned اتقفل — القراءة جت من $fallback. ثبّت تاني بإيدك.';
   }
