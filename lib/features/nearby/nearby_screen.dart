@@ -131,8 +131,10 @@ class _NearbyScreenState extends State<NearbyScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
+          // ولا جملة هنا بتسمّي مصدر بالحرف — الاسم من الواجهة (Apple على iOS،
+          // OpenStreetMap على أندرويد). الاستثناء الوحيد حقوق الخريطة تحت.
           Text(
-            'صيدليات ودكاترة متسجّلين على OpenStreetMap في ٢ كم حواليك.',
+            'صيدليات ودكاترة متسجّلين على ${_places.sourceName} في ٢ كم حواليك.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
           // اسم اللي الموقع بيروح له **فعلاً** — من المصدر، مش من الشاشة:
@@ -302,10 +304,10 @@ class _NearbyScreenState extends State<NearbyScreen> {
   }
 }
 
-/// الحالة الفاضية — جملة لكل نوع على نفس النمط. «الكل» زي ما كانت؛ الباقي
-/// بيسمّي المصدر من الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
+/// الحالة الفاضية — جملة لكل نوع على نفس النمط، وكلها بتسمّي المصدر من
+/// الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
 String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
-      null => 'مفيش حاجة متسجّلة على OpenStreetMap في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
+      null => 'مفيش حاجة متسجّلة على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
       PlaceKind.pharmacy => 'مفيش صيدليات متسجّلة على $source في ٢ كم حواليك.',
       PlaceKind.doctor => 'مفيش دكاترة متسجّلين على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
       PlaceKind.hospital => 'مفيش مستشفيات متسجّلة على $source في ٢ كم حواليك.',

@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         756 passing
+test/                         757 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1715,7 +1715,7 @@ device-verified)**
   the Material set already in use (`local_pharmacy`, `medical_services`,
   `local_hospital`, `science`) and no new colour. The empty state is one
   sentence per kind on the existing pattern, naming the source through
-  `sourceName`; «الكل» keeps its original sentence. The cache key carries
+  `sourceName` — «الكل» too. The cache key carries
   the full set of kind names, so rows written before a kind existed are
   never reused. `overpass_query_test` pins the six tags; the contract test
   runs all four kinds on both sources; the screen test taps each chip and
@@ -1725,11 +1725,14 @@ device-verified)**
   `displayName` («Apple» / «OpenStreetMap»), `NearbyPlaces.sourceName`
   hands it up, and the screen prints «مكانك بيتبعت لـ … عشان يدوّر —
   التقريبي، مش مكانك بالظبط.» — Apple on iOS, OpenStreetMap on Android
-  (`nearby_screen_test` pumps both). The tiles are still OSM on both
-  platforms, so «© مساهمو OpenStreetMap» stays on both. Two other
-  sentences («صيدليات ودكاترة متسجّلين على OpenStreetMap…» and the empty
-  state) still say OpenStreetMap on iOS — a coverage claim, not a privacy
-  one, left as the owner asked.
+  (`nearby_screen_test` pumps both). **No sentence on that screen names
+  a source literally any more** — the header line and every empty state
+  go through `sourceName` too; the one literal is «© مساهمو
+  OpenStreetMap», the tile credit, which stays on both platforms because
+  the tiles are OSM on both. A test pumps every filter under an
+  Apple-named source and asserts no text but the credit contains
+  "OpenStreetMap", then under Overpass and asserts none contains "Apple"
+  (mutation-checked: a literal put back in the header fails it).
 - PHASE_D3 said this needed billed Google Places. It does not: verified
   with a live Overpass query around central Cairo (no key, no account)
   and a live OSM tile; both usage policies read and quoted in the

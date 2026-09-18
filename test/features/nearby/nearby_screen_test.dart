@@ -209,6 +209,39 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nearby-filter-doctor')));
     await settle(tester);
     expect(find.textContaining('مفيش دكاترة متسجّلين على OpenStreetMap'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('nearby-filter-all')));
+    await settle(tester);
+    expect(find.textContaining('مفيش حاجة متسجّلة على OpenStreetMap في ٢ كم حواليك.'), findsOneWidget);
+  });
+
+  /// كل نص على الشاشة ما عدا حقوق الخريطة.
+  Iterable<String> textsExceptCredit(WidgetTester tester) => tester
+      .widgetList<Text>(find.byType(Text))
+      .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+      .where((t) => t != '© مساهمو OpenStreetMap');
+
+  screenTest('ولا جملة بتسمّي مصدر بالحرف — على مصدر Apple مفيش OpenStreetMap غير في حقوق الخريطة، والعكس', (tester) async {
+    // مليانة وفاضية، على المصدرين: أي «OpenStreetMap» مكتوبة بالحرف كانت
+    // هتبان تحت مصدر Apple، وأي «Apple» مكتوبة بالحرف تحت Overpass.
+    for (final (filter) in ['all', 'pharmacy', 'doctor', 'hospital', 'lab']) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await pumpNearby(tester, places: NearbyPlaces(source: _AppleLike(elements: const []), cache: MemoryCache()));
+      await tester.tap(find.byKey(ValueKey('nearby-filter-$filter')));
+      await settle(tester);
+      for (final t in textsExceptCredit(tester)) {
+        expect(t.contains('OpenStreetMap'), isFalse, reason: 'Apple/$filter: «$t»');
+      }
+      expect(find.text('© مساهمو OpenStreetMap'), findsOneWidget, reason: 'حقوق الخريطة ثابتة');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await pumpNearby(tester, places: overpass(response: const {'elements': []}));
+      await tester.tap(find.byKey(ValueKey('nearby-filter-$filter')));
+      await settle(tester);
+      for (final t in textsExceptCredit(tester)) {
+        expect(t.contains('Apple'), isFalse, reason: 'Overpass/$filter: «$t»');
+      }
+    }
   });
 
   screenTest('إذن الموقع مرفوض → رسالة مفهومة و«جرّب تاني» — ومفيش طلب شبكة', (tester) async {
@@ -261,10 +294,13 @@ void main() {
 
 /// مصدر بيقول «Apple» — نفس شكل نتايج MapKit، من غير قناة.
 class _AppleLike implements PlacesSource {
+  _AppleLike({this.elements});
+  final List<Object?>? elements;
   @override
   String get id => 'mapkit';
   @override
   String get displayName => 'Apple';
   @override
-  Future<List<Place>> nearby(double lat, double lon, int radiusMeters) async => Place.fromOverpass(sample);
+  Future<List<Place>> nearby(double lat, double lon, int radiusMeters) async =>
+      Place.fromOverpass(elements == null ? sample : {'elements': elements});
 }
