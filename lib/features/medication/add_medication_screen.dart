@@ -6,7 +6,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
+import '../../domain/scheduling/schedule_engine.dart';
 import 'dose_editor.dart';
+import 'dose_row.dart';
 
 /// «إضافة دواء» (المخطط 20) — الحقول الأول، وبعدها محرّر الجرعة.
 ///
@@ -53,6 +55,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   late final _amount = TextEditingController(text: widget.initialAmount ?? '');
   int _timesPerDay = 1;
   FoodRelation _food = FoodRelation.before;
+
+  /// جرعات اليوم قبل ما تتراجع واحدة واحدة — **في الذاكرة، ولسه ما اتحفظتش**.
+  ///
+  /// بتتعبّى من الورقة لو جاية منها، وإلا من «كام مرة» + «مع الأكل». و«شيل»
+  /// و«أضف جرعة» بيغيّروا العدد هنا: ده اللي كان ناقص، ومن غيره سطر روشتة
+  /// بأربع جرعات ما كانش ينفع يتعدّل لاتنين.
+  List<DoseTiming> _doses = const [];
   bool _openEnded = true;
   int _days = 7;
   bool _busy = false;
@@ -65,6 +74,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _openEnded = false;
       _days = days.clamp(1, 90);
     }
+    _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
     if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
       _food = offsetMinutes == 0
           ? FoodRelation.with_
@@ -81,26 +91,59 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     super.dispose();
   }
 
-  /// المراسي المبدئية من «كام مرة» و«مع الأكل» — ولو الروشتة قالت جرعاتها،
-  /// هي اللي بتتاخد **كلها** (محرّر لكل واحدة، «الجرعة ٢ من ٤»).
-  List<DoseTiming> get _initialTimings {
-    if (widget.initialTimings.isNotEmpty) return widget.initialTimings;
+  /// عُرف «كام مرة» + «مع الأكل» — مش الورقة.
+  List<DoseTiming> _fromConvention() {
     final anchors = switch (_timesPerDay) {
       1 => [DayAnchor.breakfast],
       2 => [DayAnchor.breakfast, DayAnchor.dinner],
       _ => [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner],
     };
-    return [
-      for (final anchor in anchors)
-        AnchorTiming(
-          anchor,
-          switch (_food) {
-            FoodRelation.before => -defaultOffsetBefore(anchor),
-            FoodRelation.with_ => 0,
-            FoodRelation.after => 30,
-          },
-        ),
-    ];
+    return [for (final anchor in anchors) _withFood(anchor)];
+  }
+
+  DoseTiming _withFood(DayAnchor anchor) => AnchorTiming(
+        anchor,
+        switch (_food) {
+          FoodRelation.before => -defaultOffsetBefore(anchor),
+          FoodRelation.with_ => 0,
+          FoodRelation.after => 30,
+        },
+      );
+
+  /// «كام مرة» و«مع الأكل» بيعيدوا بناء القايمة — الشرايح دي **إعداد مسبق**،
+  /// ولما المستخدم يغيّرها يبقى قصده يبدأ من جديد.
+  void _reseed(VoidCallback change) => setState(() {
+        change();
+        _doses = _fromConvention();
+      });
+
+  /// «أضف جرعة»: أول مرساة لسه مش مستعملة — والمستخدم بيراجعها في محرّرها
+  /// بعد «كمّل» زي أي جرعة تانية.
+  void _addDose() {
+    const order = [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.wake, DayAnchor.sleep];
+    final used = {
+      for (final t in _doses)
+        if (t case AnchorTiming(:final anchor)) anchor,
+    };
+    final next = order.firstWhere((a) => !used.contains(a), orElse: () => DayAnchor.dinner);
+    setState(() => _doses = [..._doses, _withFood(next)]);
+  }
+
+  /// الساعة المحسوبة على مواعيد اليوم — عرض بس، عمرها ما بتتخزّن.
+  DateTime _resolve(DoseTiming timing) {
+    final engine = ScheduleEngine(widget.routine);
+    final day = widget.today ?? DateTime.now();
+    return switch (timing) {
+      AnchorTiming(:final anchor, :final offsetMinutes) =>
+        engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day),
+      FixedTiming(:final minuteOfDay) => engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: day),
+    };
+  }
+
+  /// الأرضية: الدوا لازم له جرعة واحدة. آخر صف مالوش «شيل» أصلاً.
+  void _removeDose(int index) {
+    if (_doses.length <= 1) return;
+    setState(() => _doses = [..._doses]..removeAt(index));
   }
 
   /// «كمّل»: محرّر لكل جرعة بالترتيب، والحفظ بعد الأخيرة بس.
@@ -109,7 +152,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     setState(() => _busy = true);
     try {
       final navigator = Navigator.of(context);
-      final initial = _initialTimings;
+      final initial = _doses;
       final chosen = <DoseTiming>[];
 
       for (var i = 0; i < initial.length; i++) {
@@ -221,7 +264,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                                   child: AnchorChip(
                                     label: switch (n) { 1 => 'مرة', 2 => 'مرتين', _ => '٣ مرات' },
                                     selected: _timesPerDay == n,
-                                    onTap: () => setState(() => _timesPerDay = n),
+                                    onTap: () => _reseed(() => _timesPerDay = n),
                                   ),
                                 ),
                                 if (n != 3) const SizedBox(width: F.s8),
@@ -241,7 +284,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                                       FoodRelation.after => 'بعد الأكل',
                                     },
                                     selected: _food == f,
-                                    onTap: () => setState(() => _food = f),
+                                    onTap: () => _reseed(() => _food = f),
                                   ),
                                 ),
                                 if (f != FoodRelation.values.last) const SizedBox(width: F.s8),
@@ -256,7 +299,33 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ],
                       ),
                     ),
-                  if (!fromPaper) const SizedBox(height: F.s12),
+                  const SizedBox(height: F.s12),
+                  // قايمة الجرعات قبل «كمّل» — العدد بيتظبط هنا، والتوقيت
+                  // بيتراجع واحد واحد بعد كده. الساعة للعرض بس.
+                  FCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _FieldLabel(fromPaper ? 'جرعات الورقة' : 'جرعات اليوم'),
+                        const SizedBox(height: F.s8),
+                        for (final (i, timing) in _doses.indexed)
+                          DoseRow(
+                            key: ValueKey('dose-row-$i'),
+                            timing: timing,
+                            time: arabicTime(_resolve(timing)),
+                            onRemove: _doses.length > 1 && !_busy ? () => _removeDose(i) : null,
+                          ),
+                        SizedBox(
+                          height: F.minTapTarget,
+                          child: FSecondaryButton(
+                            label: 'أضف جرعة',
+                            onPressed: _busy ? null : _addDose,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: F.s12),
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         768 passing
+test/                         774 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1515,11 +1515,36 @@ to one is the failure mode here** — the regression test is named for it,
 and `multi_dose_read_test` asserts the count again on the *read* side
 (database, «جدول الأدوية», and the export's «٤× في اليوم»), because this
 class of loss should be visible from both ends.
-**Still missing, and it is a real gap:** there is no way to add or remove
-a dose while editing — the count comes from the paper and is walked one
-editor at a time. `EditMedicationScreen` has no «أضف جرعة»/remove control
-either (only per-dose «عدّل»), so there was no existing widget to reuse.
-Changing 4 doses to 2 from the review screen is not possible today.
+**The dose count is set before the medication is saved, and one dose is
+the floor.** `AddMedicationScreen` shows the day's doses as a list above
+«كمّل» — `DoseRow` (extracted from `EditMedicationScreen`'s `_TimingRow`,
+now shared and taking a `DoseTiming` rather than a saved row) — with
+«شيل» per row and «أضف جرعة» under it. «كام مرة» stays as a **preset**
+that seeds the list; add/remove refine it, and the editor walk after
+«كمّل» is still where each timing is confirmed, so there is one way to
+set a timing, not two. Rows in that list carry no «عدّل» for that reason
+(`DoseRow`'s buttons are both optional: null means the control is absent,
+not disabled). The floor is enforced twice — the last row has no «شيل»,
+and `_removeDose` refuses — because a medication with zero doses is not a
+medication. On an already-saved medication «أضف جرعة» writes a new
+schedule through `addDoseSchedule`, exactly the path a scan uses.
+
+**Removing a dose from a medication that is already saved is NOT built,
+and must not be until deletes exist.** A hard delete was asked for and is
+unsafe here, concretely: `dose_schedules` is a `SyncIdentity` table,
+`sync_service` only ever upserts (debt 1 — no deletes), and
+`dose_events` cascades on the local delete. So the father removes his
+2 PM dose, his phone forgets it, and the cloud keeps both the schedule
+and its `pending` events — which `due_escalations` still selects
+(`state in ('pending','missed')`, 0011). At 3 PM the son is told his
+father missed a 2 PM dose that no longer exists, and the father's phone
+can no longer correct the row because it deleted it. That is the exact
+alarm `superseded` was introduced to prevent. The safe shape is the one
+already used elsewhere: a soft stop on the schedule (a new column, schema
+v16 + a cloud migration), marking its future `pending` events
+`superseded` so the server drops them, and filtering stopped schedules
+out of the caregiver view. That is its own round, with SQL run against
+the live project — not a line in a UI round.
 
 **D3.3 — elder mode + notifications (built)**
 - Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —

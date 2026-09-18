@@ -9,6 +9,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import 'dose_editor.dart';
+import 'dose_row.dart';
 
 /// تعديل دوا موجود: الجرعة زي ما الصيدلي قالها، توقيت كل جرعة من
 /// [DoseEditor]، أو إيقافه.
@@ -53,6 +54,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
   /// «عدّل» على جرعة: محرّر الجرعة بتوقيتها الحالي، والحفظ بيغيّر الصف
   /// نفسه (نفس id) وبيعيد الجدولة.
   Future<void> _editTiming(DoseSchedule schedule, String name) async {
+    if (_busy) return;
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
     await navigator.push<void>(
@@ -63,6 +65,46 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
           initialTiming: schedule.timing,
           onSave: (timing) async {
             await services.medications.updateTiming(int.parse(schedule.id), timing);
+            await services.scheduler.rescheduleAll();
+            navigator.pop();
+          },
+        ),
+      ),
+    );
+    await _loadSchedules();
+  }
+
+  /// «أضف جرعة» لدوا موجود: محرّر الجرعة، والحفظ بيكتب **صف جديد** — نفس
+  /// طريق الروشتة بالظبط (`addDoseSchedule`)، وبيتزامن زي أي جرعة تانية.
+  ///
+  /// الافتراضي أول مرساة لسه مش مستعملة، والإنسان بيأكّدها في المحرّر قبل ما
+  /// تتكتب — مفيش جرعة بتتحفظ من غير دوسة. والمدة بتتاخد من جرعات الدوا
+  /// الموجودة، مش بتتخمّن.
+  Future<void> _addTiming(String name) async {
+    if (_busy) return;
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+    const order = [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.wake, DayAnchor.sleep];
+    final used = {
+      for (final s in _schedules)
+        if (s.timing case AnchorTiming(:final anchor)) anchor,
+    };
+    final next = order.firstWhere((a) => !used.contains(a), orElse: () => DayAnchor.dinner);
+    final days = _schedules.map((s) => s.durationDays).whereType<int>();
+
+    await navigator.push<void>(
+      MaterialPageRoute(
+        builder: (_) => DoseEditor(
+          name: name,
+          routine: _routine,
+          initialTiming: AnchorTiming(next, -defaultOffsetBefore(next)),
+          onSave: (timing) async {
+            await services.medications.addDoseSchedule(
+              widget.medicationId,
+              timing: timing,
+              startDate: DateTime.now(),
+              durationDays: days.isEmpty ? null : days.first,
+            );
             await services.scheduler.rescheduleAll();
             navigator.pop();
           },
@@ -150,11 +192,18 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                       ),
                       const SizedBox(height: F.s8),
                       for (final schedule in _schedules)
-                        _TimingRow(
-                          schedule: schedule,
+                        DoseRow(
+                          timing: schedule.timing,
                           time: arabicTime(ScheduleEngine(_routine).resolve(schedule, DateTime.now())),
-                          onEdit: _busy ? null : () => _editTiming(schedule, med.name),
+                          onEdit: () => _editTiming(schedule, med.name),
                         ),
+                      SizedBox(
+                        height: F.minTapTarget,
+                        child: FSecondaryButton(
+                          label: 'أضف جرعة',
+                          onPressed: _busy ? null : () => _addTiming(med.name),
+                        ),
+                      ),
                       const SizedBox(height: F.gap),
                       Text(
                         'الجرعة',
@@ -300,53 +349,6 @@ class _StopConfirm extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      );
-}
-
-/// جرعة واحدة: القاعدة والوقت المحسوب، و«عدّل» بأيقونة وكلمة.
-class _TimingRow extends StatelessWidget {
-  const _TimingRow({required this.schedule, required this.time, required this.onEdit});
-
-  final DoseSchedule schedule;
-  final String time;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s8),
-          decoration: BoxDecoration(
-            color: F.cardGround,
-            borderRadius: BorderRadius.circular(F.radiusCard),
-            border: Border.all(color: F.line),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${schedule.ruleLabel} — $time',
-                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
-                ),
-              ),
-              SizedBox(
-                height: F.minTapTarget,
-                child: OutlinedButton.icon(
-                  onPressed: onEdit,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: F.ink,
-                    minimumSize: const Size(0, F.minTapTarget),
-                    padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                    side: BorderSide(color: F.line, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
-                  ),
-                  icon: const Icon(Icons.edit_outlined, size: 22),
-                  label: const Text('عدّل', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
         ),
       );
 }

@@ -290,6 +290,34 @@ void main() {
     expect(saved.map((s) => s.timing), containsAll(twice));
   });
 
+  screenTest('من المراجعة: سطر بأربع جرعات بيتعدّل لاتنين — بيتحفظ باتنين، والكارت بيقولهم',
+      (tester) async {
+    await pumpReview(tester, [dosesLine('Augmentin', fourTimes)]);
+    await open(tester);
+
+    await tester.tap(find.text('عدّل'));
+    await settle(tester);
+    // شيل الصحيان والغدا — الفاضل الفطار والعشا
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-0')), matching: find.text('شيل')));
+    await settle(tester);
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-1')), matching: find.text('شيل')));
+    await settle(tester);
+
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+    await walkDoseEditors(tester, 2);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(2));
+    expect(
+      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
+      unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
+    );
+    // الكارت بيعرض اللي اتحفظ — مش أربع شرايح زي ما الورقة قالت
+    expect(find.text('الصحيان'), findsNothing);
+    expect(find.text('الغدا'), findsNothing);
+  });
+
   screenTest('الكارت بيعرض الجرعات اللي اتحفظت فعلاً — مش اللي الورقة قالتها', (tester) async {
     // التعديل بيغيّر الجرعة التانية من العشا للغدا؛ الكارت لازم يقول الغدا.
     const fromPaper = [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)];

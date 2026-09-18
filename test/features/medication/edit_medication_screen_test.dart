@@ -7,6 +7,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
+import 'package:fakkarni/features/medication/dose_row.dart';
 import 'package:fakkarni/features/medication/edit_medication_screen.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
@@ -94,6 +95,29 @@ void main() {
     final row = (await h.db.select(h.db.medications).get()).single;
     expect(row.amountLabel, isNull);
     expect(row.amountUnknown, isTrue);
+  });
+
+  screenTest('«أضف جرعة» لدوا موجود بتكتب صف جديد وبتجدول تذكيره — نفس طريق الروشتة', (tester) async {
+    final id = await seedTelfast(unknown: false);
+    await pumpEdit(tester, id);
+    expect(find.byType(DoseRow), findsOneWidget);
+
+    await tester.tap(find.text('أضف جرعة'));
+    await settle(tester);
+    expect(find.byType(DoseEditor), findsOneWidget);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
+
+    final saved = await h.meds.schedulesFor(id);
+    expect(saved, hasLength(2), reason: 'الجرعة الجديدة صف جديد، والقديمة زي ما هي');
+    expect(find.byType(DoseRow), findsNWidgets(2), reason: 'والقايمة بتتحدّث');
+
+    // التذكير الجديد اتجدول
+    final doseTimes = {
+      for (final e in h.sink.scheduled.entries)
+        if (isDoseId(e.key)) '${e.value.at.hour}:${e.value.at.minute.toString().padLeft(2, '0')}',
+    };
+    expect(doseTimes, hasLength(2));
   });
 
   screenTest('الإيقاف بخطوتين: سؤال واضح، «لا، سيبه» بترجّع من غير ما توقف', (tester) async {
