@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         782 passing
+test/                         785 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -248,6 +248,17 @@ applied to the live project) and `ai_read_function_test` were kept, so
 `git revert` of the revert restores it. `test/app/no_gemini_key_test.dart`
 was **inverted rather than deleted**: it now pins the key to one file and
 the Google endpoint to one file, and flips back with the same command.
+
+**The key goes in `x-goog-api-key`, never in `Authorization`, never in the
+URL.** Google answers `Authorization: Bearer <api key>` with a 401
+`ACCESS_TOKEN_TYPE_UNSUPPORTED` — that header is for an OAuth token, not an
+API key. This is a **revert hazard**, not a typo: under C2 the request went
+to our own function with `Authorization: Bearer <session>` plus `apikey`,
+so any half-finished move back to the direct call leaves that shape
+pointing at Google. `test/ai/gemini_key_header_test.dart` pins the header
+name, asserts no `Authorization` and no `apikey` header, and asserts the
+key never appears in the URI — on the prescription reader, the lab reader
+(same transport) and the fallback attempt. Mutation-checked both ways.
 
 **The key comes from `--dart-define` only.** `GeminiConfig` reads
 `String.fromEnvironment('GEMINI_API_KEY')`; `tryFromEnvironment()` returns
