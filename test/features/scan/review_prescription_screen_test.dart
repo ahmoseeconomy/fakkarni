@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
-import 'package:fakkarni/core/format/arabic_time.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
@@ -51,6 +50,17 @@ void main() {
     );
     await h.pump(tester, screen);
     return () async => result;
+  }
+
+  /// زرار التأكيد — بمفتاحه، فالعدد اللي على كلمته ما يكسرش الاختبارات.
+  Finder confirmFinder() =>
+      find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton));
+
+  FilledButton confirmButton(WidgetTester tester) => tester.widget<FilledButton>(confirmFinder());
+
+  Future<void> confirm(WidgetTester tester) async {
+    await tester.tap(confirmFinder());
+    await settle(tester);
   }
 
   Future<void> open(WidgetTester tester) async {
@@ -126,13 +136,13 @@ void main() {
     await open(tester);
 
     FilledButton confirm() => tester.widget<FilledButton>(
-          find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
+          find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
         );
     expect(confirm().onPressed, isNull);
     expect(find.textContaining('مش واضح — دوس'), findsOneWidget);
   });
 
-  screenTest('«أعدّل» و«تمام، ظبّطهم» بنفس الوزن بالظبط — نفس المقاس، مليانين، نفس الخط', (tester) async {
+  screenTest('«أعدّل» وزرار التأكيد بنفس الوزن بالظبط — نفس المقاس، مليانين، نفس الخط', (tester) async {
     await pumpReview(tester, [clearLine]);
     await open(tester);
 
@@ -140,7 +150,7 @@ void main() {
       find.ancestor(of: find.text('أعدّل'), matching: find.byType(FilledButton)),
     );
     final confirm = tester.getSize(
-      find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
+      find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
     );
     expect(edit, confirm);
     expect(edit.height, F.primaryButtonHeight);
@@ -149,7 +159,7 @@ void main() {
     FilledButton button(String label) => tester.widget<FilledButton>(
           find.ancestor(of: find.text(label), matching: find.byType(FilledButton)),
         );
-    final e = button('أعدّل').style!, c = button('تمام، ظبّطهم').style!;
+    final e = button('أعدّل').style!, c = confirmButton(tester).style!;
     Color bg(ButtonStyle st) => st.backgroundColor!.resolve({})!;
     expect(bg(e).computeLuminance(), lessThan(0.2), reason: '«أعدّل» مليان وغامق');
     expect(bg(c).computeLuminance(), lessThan(0.2));
@@ -172,8 +182,7 @@ void main() {
     final result = await pumpReview(tester, [clearLine, thrice]);
     await open(tester);
 
-    await tester.tap(find.text('تمام، ظبّطهم'));
-    await settle(tester);
+    await confirm(tester);
 
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved.length, 4);
@@ -189,7 +198,7 @@ void main() {
     expect(await result(), ReviewResult.confirmed);
   });
 
-  screenTest('«عدّل» في الصف بتفتح المحرر متعبّي، والحفظ منه بيعلّم الصف «اتضاف»',
+  screenTest('«عدّل» بتعدّل السطر في الذاكرة وبترجع — **ولا بايت بيتكتب** قبل التأكيد',
       (tester) async {
     await pumpReview(tester, [unclearLine]);
     await open(tester);
@@ -208,155 +217,83 @@ void main() {
     await settle(tester);
 
     expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
-    expect(find.text('اتضاف'), findsOneWidget);
-    // دلوقتي مفيش سطر معلّق → «تمام» مفتوحة
-    final confirm = tester.widget<FilledButton>(
-      find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
-    );
-    expect(confirm.onPressed, isNotNull);
+    expect(find.text('اتعدّل'), findsOneWidget, reason: 'اتعدّل — مش اتحفظ');
+    // **دي بيت القصيد**: الشاشة مسوّدة، فالقاعدة لسه فاضية
+    expect(await h.meds.activeSchedules(h.services.patientId), isEmpty);
+    expect(h.sink.scheduled, isEmpty, reason: 'ولا تذكير اتجدول قبل التأكيد');
+
+    // ودلوقتي بس، بعد «تمام»
+    expect(confirmButton(tester).onPressed, isNotNull);
+    await confirm(tester);
     expect((await h.meds.activeSchedules(h.services.patientId)).single.medicationName, 'Cataflam');
   });
 
-  /// Augmentin مرتين في اليوم: الورقة قالت جرعتين، والمريض لازم يتنبّه مرتين.
-  ReadLine dosesLine(String name, List<DoseTiming> timings, {int? days = 7}) => ReadLine(
-        name: ok(name),
-        amount: ok('قرص'),
-        timings: ok(timings),
-        duration: ok<int?>(days),
-      );
-
-  const fourTimes = [
-    AnchorTiming(DayAnchor.wake, 0),
-    AnchorTiming(DayAnchor.breakfast, 0),
-    AnchorTiming(DayAnchor.lunch, 0),
-    AnchorTiming(DayAnchor.dinner, 0),
-  ];
-
-  /// بيمشي في محرّر الجرعة [count] مرة: «الجرعة اللي بعدها» لكل واحدة قبل
-  /// الأخيرة، و«احفظ الجرعة» في الآخر.
-  Future<void> walkDoseEditors(WidgetTester tester, int count) async {
-    for (var i = 1; i <= count; i++) {
-      expect(find.byType(DoseEditor), findsOneWidget, reason: 'محرّر الجرعة $i');
-      if (count > 1) {
-        expect(find.textContaining('من ${arabicNumber(count)}'), findsOneWidget,
-            reason: 'الكيكر بيقول الجرعة $i من $count');
-      }
-      await tester.tap(find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
-      await settle(tester);
-    }
-  }
-
-  screenTest(
-      'انحدار (ضياع بيانات): سطر بأربع جرعات بيعدّي من «عدّل» زي ما هو — وبيتحفظ بأربع جرعات، مش واحدة',
-      (tester) async {
-    // الباگ: `_edit` كانت بتبعت `timings.value?.firstOrNull` لشاشة الإضافة،
-    // فدوا أربع مرات في اليوم كان بيتحفظ بجرعة واحدة. الورقة قريت صح،
-    // وطريق التعديل هو اللي كان بيرمي الباقي.
-    await pumpReview(tester, [dosesLine('Augmentin', fourTimes)]);
+  screenTest('«شيله» بيطلع السطر من المسوّدة — فعمره ما يتحفظ، و«رجّعه» بترجّعه', (tester) async {
+    final second = ReadLine(
+      name: ok('Antodine 40 mg'),
+      amount: ok('قرص واحد'),
+      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      duration: const ReadField(value: null, confidence: 1),
+    );
+    await pumpReview(tester, [clearLine, second]);
     await open(tester);
+    expect(find.text('تمام — دواءين'), findsOneWidget);
 
-    await tester.tap(find.text('عدّل'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
     await settle(tester);
-    expect(find.byType(AddMedicationScreen), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Augmentin'), findsOneWidget);
-    // الورقة قالت الجرعات، فكارت «كام مرة في اليوم؟» مش بيظهر
-    expect(find.text('كام مرة في اليوم؟'), findsNothing);
 
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-    await walkDoseEditors(tester, 4);
+    expect(find.text('Concor 5mg'), findsNothing, reason: 'طلع من المسوّدة');
+    expect(find.text('Antodine 40 mg'), findsOneWidget);
+    expect(find.text('تمام — دوا واحد'), findsOneWidget, reason: 'العدد على الزرار بيعدّ اللي فاضل');
+    // التراجع باسم السطر
+    expect(find.textContaining('اتشال Concor 5mg'), findsOneWidget);
 
-    expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+    await confirm(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(saved, hasLength(4), reason: 'أربع جرعات في الورقة = أربع صفوف في القاعدة');
-    expect(saved.map((s) => s.timing), containsAll(fourTimes));
-    expect(saved.every((s) => s.medicationName == 'Augmentin'), isTrue);
-    expect(saved.every((s) => s.durationDays == 7), isTrue);
+    expect(saved.map((s) => s.medicationName).toSet(), {'Antodine 40 mg'},
+        reason: 'اللي اتشال عمره ما وصل القاعدة');
   });
 
-  screenTest('تعديل سطر بجرعتين بيحفظ جرعتين — مش واحدة، ومفيش جرعة بتتخلق من العدم', (tester) async {
-    const twice = [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)];
-    await pumpReview(tester, [dosesLine('Augmentin', twice)]);
+  screenTest('«رجّعه» بترجّع السطر للمسوّدة وبيتحفظ معاهم', (tester) async {
+    final second = ReadLine(
+      name: ok('Antodine 40 mg'),
+      amount: ok('قرص واحد'),
+      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      duration: const ReadField(value: null, confidence: 1),
+    );
+    await pumpReview(tester, [clearLine, second]);
     await open(tester);
 
-    await tester.tap(find.text('عدّل'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
     await settle(tester);
-    await tester.tap(find.text('كمّل — إمتى؟'));
+    await tester.tap(find.text('رجّعه'));
     await settle(tester);
-    await walkDoseEditors(tester, 2);
 
+    expect(find.text('Concor 5mg'), findsOneWidget);
+    expect(find.text('تمام — دواءين'), findsOneWidget);
+
+    await confirm(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(saved, hasLength(2));
-    expect(saved.map((s) => s.timing), containsAll(twice));
+    expect(saved.map((s) => s.medicationName).toSet(), {'Concor 5mg', 'Antodine 40 mg'});
   });
 
-  screenTest('من المراجعة: سطر بأربع جرعات بيتعدّل لاتنين — بيتحفظ باتنين، والكارت بيقولهم',
-      (tester) async {
-    await pumpReview(tester, [dosesLine('Augmentin', fourTimes)]);
+  screenTest('شيل كل السطور → الزرار بيتقفل ومفيش حاجة تتأكّد', (tester) async {
+    await pumpReview(tester, [clearLine]);
     await open(tester);
 
-    await tester.tap(find.text('عدّل'));
-    await settle(tester);
-    // شيل الصحيان والغدا — الفاضل الفطار والعشا
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-0')), matching: find.text('شيل')));
-    await settle(tester);
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-1')), matching: find.text('شيل')));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
     await settle(tester);
 
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-    await walkDoseEditors(tester, 2);
-
-    final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(saved, hasLength(2));
-    expect(
-      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
-      unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
-    );
-    // الكارت بيعرض اللي اتحفظ — مش أربع شرايح زي ما الورقة قالت
-    expect(find.text('الصحيان'), findsNothing);
-    expect(find.text('الغدا'), findsNothing);
-  });
-
-  screenTest('الكارت بيعرض الجرعات اللي اتحفظت فعلاً — مش اللي الورقة قالتها', (tester) async {
-    // التعديل بيغيّر الجرعة التانية من العشا للغدا؛ الكارت لازم يقول الغدا.
-    const fromPaper = [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)];
-    await pumpReview(tester, [dosesLine('Augmentin', fromPaper)]);
-    await open(tester);
-    expect(find.text('العشا'), findsOneWidget);
-
-    await tester.tap(find.text('عدّل'));
-    await settle(tester);
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-
-    // الجرعة الأولى زي ما هي
-    await tester.tap(find.text('الجرعة اللي بعدها'));
-    await settle(tester);
-    // التانية: من العشا للغدا — شريحة المرساة في المحرّر
-    await tester.dragUntilVisible(
-      find.text('بعد الغدا'),
-      find.byType(Scrollable).first,
-      const Offset(0, -80),
-    );
-    await tester.tap(find.text('بعد الغدا'));
-    await settle(tester);
-    await tester.tap(find.text('احفظ الجرعة'));
-    await settle(tester);
-
-    final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(
-      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
-      containsAll([DayAnchor.breakfast, DayAnchor.lunch]),
-    );
-    expect(find.textContaining('الغدا'), findsOneWidget, reason: 'الكارت بيعرض اللي اتحفظ');
-    expect(find.text('العشا'), findsNothing, reason: 'الورقة قالت العشا، والإنسان غيّرها');
+    expect(confirmButton(tester).onPressed, isNull);
+    expect(find.text('تمام — مفيش أدوية'), findsOneWidget);
+    expect(find.byKey(const ValueKey('all-removed')), findsOneWidget);
+    expect(await h.meds.activeSchedules(h.services.patientId), isEmpty);
   });
 
   group('الملف الصحي (D3.5)', () {
     Future<List<dynamic>> records() => RecordsRepository(h.db).all(h.services.patientId);
 
-    screenTest('«تمام، ظبّطهم» بيكتب صف روشتة واحد بالتاريخ والأدوية — والدكتور الواثق منه بس', (tester) async {
+    screenTest('التأكيد بيكتب صف روشتة واحد بالتاريخ والأدوية — والدكتور الواثق منه بس', (tester) async {
       final second = ReadLine(
         name: ok('Antodine 40 mg'),
         amount: ok('قرص واحد'),
@@ -365,8 +302,7 @@ void main() {
       );
       await pumpReview(tester, [clearLine, second], doctor: ok('د. هشام مام'));
       await open(tester);
-      await tester.tap(find.text('تمام، ظبّطهم'));
-      await settle(tester);
+      await confirm(tester);
 
       final rows = await RecordsRepository(h.db).all(h.services.patientId);
       expect(rows, hasLength(1));
@@ -381,8 +317,7 @@ void main() {
     screenTest('دكتور القراءة مش واضح → العمود فاضي، مش تخمين', (tester) async {
       await pumpReview(tester, [clearLine], doctor: low('د. هشـ؟', 'الخط مش واضح'));
       await open(tester);
-      await tester.tap(find.text('تمام، ظبّطهم'));
-      await settle(tester);
+      await confirm(tester);
 
       final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
       expect(r.doctor, isNull);
@@ -428,7 +363,7 @@ void main() {
       await open(tester);
 
       final confirm = tester.widget<FilledButton>(
-        find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
+        find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
       );
       expect(confirm.onPressed, isNotNull);
       expect(find.text('هتتحفظ من غير الجرعة — تقدر تضيفها بعدين'), findsOneWidget);
@@ -442,8 +377,7 @@ void main() {
       await pumpReview(tester, [unknownAmount]);
       await open(tester);
 
-      await tester.tap(find.text('تمام، ظبّطهم'));
-      await settle(tester);
+      await confirm(tester);
 
       final saved = (await h.meds.activeSchedules(h.services.patientId)).single;
       expect(saved.medicationName, 'Telfast 180 mg');
@@ -457,7 +391,7 @@ void main() {
       await open(tester);
 
       final confirm = tester.widget<FilledButton>(
-        find.ancestor(of: find.text('تمام، ظبّطهم'), matching: find.byType(FilledButton)),
+        find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
       );
       expect(confirm.onPressed, isNull);
       expect(find.text('هتتحفظ من غير الجرعة — تقدر تضيفها بعدين'), findsNothing);

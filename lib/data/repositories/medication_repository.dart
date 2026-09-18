@@ -13,6 +13,15 @@ class MedicationSummary {
 }
 
 /// الأدوية وجرعاتها.
+/// دوا واحد زي ما هيتكتب — اسمه وجرعاته ومدته.
+typedef MedicationWrite = ({
+  String name,
+  List<DoseTiming> timings,
+  String? amountLabel,
+  bool amountUnknown,
+  int? durationDays,
+});
+
 class MedicationRepository {
   MedicationRepository(this._db, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
@@ -108,6 +117,37 @@ class MedicationRepository {
       return medicationId;
     });
   }
+
+  /// **كل أدوية الروشتة في معاملة واحدة: يا كلهم يا ولا واحد.**
+  ///
+  /// شاشة المراجعة مسوّدة لحد ما الإنسان يدوس «تمام» — والدوسة دي كتابة
+  /// واحدة. قبل كده كانت لفّة نداءات منفصلة، فنص روشتة كان ممكن يتحفظ
+  /// والنص التاني لأ (والشاشة تفضل مفتوحة بسطور «اتضافت» وسطور لأ).
+  ///
+  /// كل سطر بيعدّي من [addMedicationWithDoses] — معاملة متداخلة — فطريق
+  /// كتابة «دوا بـN جرعة» يفضل واحد.
+  Future<List<int>> addMedicationsWithDoses({
+    required int patientId,
+    required List<MedicationWrite> medications,
+    required DateTime startDate,
+  }) =>
+      _db.transaction(() async {
+        final ids = <int>[];
+        for (final m in medications) {
+          ids.add(
+            await addMedicationWithDoses(
+              patientId: patientId,
+              name: m.name,
+              timings: m.timings,
+              startDate: startDate,
+              amountLabel: m.amountLabel,
+              amountUnknown: m.amountUnknown,
+              durationDays: m.durationDays,
+            ),
+          );
+        }
+        return ids;
+      });
 
   /// دوا بجرعة واحدة — غلاف على [addMedicationWithDoses].
   Future<int> addMedication({

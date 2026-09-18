@@ -9,8 +9,8 @@ import '../../ai/prescription_reader.dart';
 import '../../ai/prescription_reading.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/scheduling/day_routine.dart';
-import '../../domain/scheduling/dose_schedule.dart';
 import '../medication/add_medication_screen.dart';
+import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
 import 'review_prescription_screen.dart';
 import 'scan_stage.dart';
@@ -181,7 +181,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   Future<void> _writeByHand() async {
     final navigator = Navigator.of(context);
     // بترجّع جرعات اللي اتحفظ — null يعني رجع من غير حفظ.
-    final saved = await navigator.push<List<DoseTiming>>(
+    final saved = await navigator.push<MedicationDraft>(
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
       ),

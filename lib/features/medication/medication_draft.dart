@@ -1,0 +1,29 @@
+import '../../domain/scheduling/dose_schedule.dart';
+
+/// دوا زي ما الإنسان ظبّطه — **ولسه ما اتحفظش**.
+///
+/// ده اللي [AddMedicationScreen] بترجّعه في وضع المسوّدة: شاشة مراجعة
+/// الروشتة بتعدّل سطورها في الذاكرة، والكتابة كلها بتحصل مرة واحدة عند
+/// «تمام، ظبّطهم». في وضع الحفظ العادي بترجّع نفس الشكل **بعد** ما تكتب،
+/// عشان اللي نادى يبقى عنده نوع واحد يتعامل معاه (null = رجع من غير حفظ).
+class MedicationDraft {
+  const MedicationDraft({
+    required this.name,
+    required this.timings,
+    this.amountLabel,
+    this.amountUnknown = false,
+    this.durationDays,
+  });
+
+  final String name;
+
+  /// جرعة واحدة على الأقل — الشاشة بتفرض الأرضية دي.
+  final List<DoseTiming> timings;
+
+  /// null + [amountUnknown] = الورقة ما قالتش الجرعة. **مش بنخترع قيمة.**
+  final String? amountLabel;
+  final bool amountUnknown;
+
+  /// null = مفتوحة، زي ما الورقة سابتها.
+  final int? durationDays;
+}

@@ -8,6 +8,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import 'dose_editor.dart';
+import 'medication_draft.dart';
 import 'dose_row.dart';
 
 /// «إضافة دواء» (المخطط 20) — الحقول الأول، وبعدها محرّر الجرعة.
@@ -27,6 +28,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialAmount,
     this.initialTimings = const [],
     this.initialDurationDays,
+    this.draft = false,
     super.key,
   });
 
@@ -36,6 +38,13 @@ class AddMedicationScreen extends StatefulWidget {
   /// قيم مبدئية — من قراءة الروشتة. بتتعرض للتعديل، ما بتتحفظش لوحدها.
   final String? initialName;
   final String? initialAmount;
+  /// **وضع المسوّدة**: بترجّع [MedicationDraft] من غير ما تكتب أي حاجة.
+  ///
+  /// شاشة مراجعة الروشتة بتستعملها كده: «عدّل» بتعدّل سطر في الذاكرة
+  /// وبترجع، والكتابة كلها مرة واحدة عند «تمام». قبل كده كانت بتحفظ فوراً،
+  /// فزرار كان بيحفظ شوية أدوية والتاني الباقي — ومن هنا جه ضياع الجرعات.
+  final bool draft;
+
   /// جرعات الروشتة **كلها** — فاضية يعني إدخال بإيد من الأول.
   ///
   /// كانت جرعة واحدة، وشاشة المراجعة كانت بتبعت أول وحدة بس: دوا مرتين في
@@ -190,22 +199,35 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     final navigator = Navigator.of(context);
     final today = widget.today ?? DateTime.now();
     final amount = _amount.text.trim();
+    final result = MedicationDraft(
+      name: _name.text.trim(),
+      amountLabel: amount.isEmpty ? null : amount,
+      amountUnknown: amount.isEmpty,
+      timings: timings,
+      // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
+      durationDays: _openEnded ? null : _days,
+    );
+
+    // مسوّدة: بنرجّع اللي اتظبط، **وما بنكتبش**. اللي نادانا هو اللي بيقرر
+    // إمتى يتحفظ — ومن غير كده الحفظ بيتفرّق على زرارين.
+    if (widget.draft) {
+      if (mounted) navigator.pop(result);
+      return;
+    }
 
     // طريق واحد لكتابة «دوا بـN جرعة» — نفس اللي شاشة المراجعة بتستعمله.
     await services.medications.addMedicationWithDoses(
       patientId: services.patientId,
-      name: _name.text.trim(),
-      amountLabel: amount.isEmpty ? null : amount,
-      timings: timings,
+      name: result.name,
+      amountLabel: result.amountLabel,
+      timings: result.timings,
       startDate: today,
-      // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
-      durationDays: _openEnded ? null : _days,
+      durationDays: result.durationDays,
     );
     await services.scheduler.rescheduleAll();
 
-    // الجرعات اللي اتحفظت فعلاً بترجع للي نادانا: شاشة المراجعة بتعرض بيها
-    // الكارت (اللي هيتحفظ = اللي بيتعرض)، وغيرها بيقرا «مش null» كـ«اتحفظ».
-    if (mounted) navigator.pop(timings);
+    // نفس النوع في الحالتين، عشان اللي نادى ما يفرقش: null = رجع من غير حفظ.
+    if (mounted) navigator.pop(result);
   }
 
   @override

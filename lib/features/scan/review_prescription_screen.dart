@@ -13,6 +13,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
+import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
 
 enum ReviewResult { confirmed, retake }
@@ -46,125 +47,126 @@ class ReviewPrescriptionScreen extends StatefulWidget {
 }
 
 class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
-  /// السطور اللي اتحفظت من شاشة التعديل — بتفضل معروضة بس هادية.
-  final Set<int> _saved = {};
-
-  /// الجرعات اللي رجعت من شاشة التعديل لكل سطر.
+  /// **الشاشة دي مسوّدة.** كل سطر هنا في الذاكرة لحد ما «تمام، ظبّطهم»
+  /// تتداس — وساعتها بس بيتكتبوا كلهم مرة واحدة.
   ///
-  /// الكارت بيعرض دي مش اللي الورقة قالته: اللي اتحفظ فعلاً هو اللي المريض
-  /// المفروض يشوفه. من غيرها، حد يعدّل «مرتين» لـ«تلاتة» ويفضل الكارت
-  /// قايل مرتين.
-  final Map<int, List<DoseTiming>> _editedTimings = {};
+  /// قبل كده «عدّل» كانت بتحفظ فوراً و«تمام» بتحفظ الباقي، فروشتة واحدة
+  /// كانت بتتكتب على مرتين من زرارين مختلفين — وده اللي خبّى ضياع الجرعات.
+  late final List<_DraftLine> _lines = [
+    for (final read in widget.reading.lines) _DraftLine.fromRead(read),
+  ];
 
-  /// جرعات السطر زي ما هتتحفظ: تعديل الإنسان لو موجود، وإلا اللي اتقرا.
-  List<DoseTiming> _timingsFor(int index) =>
-      _editedTimings[index] ?? widget.reading.lines[index].timings.value ?? const [];
-
-  /// أدوية ضافها بإيده من «أضف دوا ما اتعرفش عليه».
-  int _addedByHand = 0;
   bool _busy = false;
 
   DateTime get _today => widget.today ?? DateTime.now();
 
-  List<int> get _remaining => [
-        for (var i = 0; i < widget.reading.lines.length; i++)
-          if (!_saved.contains(i)) i,
-      ];
+  /// السطور اللي هتتحفظ فعلاً — اللي اتشال مش فيها.
+  List<_DraftLine> get _keep => [for (final l in _lines) if (!l.deleted) l];
 
-  /// اللي بيقفل «تمام» فعلاً: اسم أو توقيت مش واضح.
-  bool get _hasBlocking =>
-      _remaining.any((i) => widget.reading.lines[i].blocksConfirm);
+  /// اللي بيقفل «تمام» فعلاً: اسم أو توقيت ناقص — من غيرهم مفيش حاجة تتجدول.
+  bool get _hasBlocking => _keep.any((l) => l.blocks);
 
   /// جرعة مش معروفة بس — بتتحفظ «مش معروفة» ونسأل عنها بعدين.
-  bool get _hasUnknownAmount =>
-      _remaining.any((i) => widget.reading.lines[i].amount.needsReview);
+  bool get _hasUnknownAmount => _keep.any((l) => l.amountUnknown);
 
+  /// أول سطر «أعدّل» هيروح له: اللي بيقفل، وإلا اللي محتاج مراجعة، وإلا الأول.
   int? get _firstToEdit {
-    for (final i in _remaining) {
-      if (widget.reading.lines[i].blocksConfirm) return i;
+    for (final (i, l) in _lines.indexed) {
+      if (!l.deleted && l.blocks) return i;
     }
-    for (final i in _remaining) {
-      if (widget.reading.lines[i].needsReview) return i;
+    for (final (i, l) in _lines.indexed) {
+      if (!l.deleted && l.needsReview) return i;
     }
-    return _remaining.isEmpty ? null : _remaining.first;
+    for (final (i, l) in _lines.indexed) {
+      if (!l.deleted) return i;
+    }
+    return null;
   }
 
+  /// «عدّل»: بيعدّل السطر **في الذاكرة** وبيرجع — ولا بايت بيتكتب.
   Future<void> _edit(int index) async {
-    final line = widget.reading.lines[index];
+    final line = _lines[index];
     // **كل** جرعات السطر — مش أولها. دوا مرتين في اليوم بيتعدّل مرتين.
-    final saved = await Navigator.of(context).push<List<DoseTiming>>(
+    final draft = await Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
+          draft: true,
           routine: widget.routine,
           today: widget.today,
-          initialName: line.name.value,
-          initialAmount: line.amount.value,
-          initialTimings: _timingsFor(index),
-          initialDurationDays: line.duration.value,
+          initialName: line.name,
+          initialAmount: line.amountLabel,
+          initialTimings: line.timings,
+          initialDurationDays: line.durationDays,
         ),
       ),
     );
-    if (saved != null && mounted) {
-      setState(() {
-        _editedTimings[index] = saved;
-        _saved.add(index);
-      });
-    }
+    if (draft != null && mounted) setState(() => _lines[index].applyDraft(draft));
   }
 
-  /// سطر ما اتقراش خالص — بيتكتب بإيد إنسان، فمفيش حاجة للتأكيد بعدها.
+  /// سطر ما اتقراش خالص — بيتكتب بإيد إنسان، وبيدخل المسوّدة زي أي سطر.
   Future<void> _addUnread() async {
-    final saved = await Navigator.of(context).push<List<DoseTiming>>(
+    final draft = await Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
+        builder: (_) => AddMedicationScreen(draft: true, routine: widget.routine, today: widget.today),
       ),
     );
-    if (saved != null && mounted) setState(() => _addedByHand++);
+    if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));
   }
 
-  /// «تمام، ظبّطهم»: بيحفظ السطور الواضحة المتبقية — وبس. الدوسة دي هي التأكيد.
+  /// «شيله»: بيطلع من المسوّدة — والتراجع **مكانه في القايمة**، مش SnackBar.
+  ///
+  /// دوا الدكتور ما كتبهوش، أو تكرار الذكاء اخترعه، لازم ينشال من هنا — من
+  /// غير ما حد يسيب الشاشة ولا يمسح دوا اتحفظ بالغلط بعدين.
+  ///
+  /// والتراجع بيفضل ظاهر لحد ما يخلّص: شريط بيختفي بعد ٦ ثواني بيطلب من راجل
+  /// في السبعين إنه يسابق الوقت، وبيغطّي زرار «تمام» اللي تحته وهو ظاهر.
+  void _delete(int index) => setState(() => _lines[index].deleted = true);
+
+  void _undoDelete(int index) => setState(() => _lines[index].deleted = false);
+
+  /// «تمام، ظبّطهم»: **الكتابة الوحيدة في الشاشة دي** — كل السطور الباقية
+  /// في معاملة واحدة، وبعدها الجدولة. ولا حاجة بتوصل القاعدة قبل الدوسة دي.
   Future<void> _confirm() async {
-    if (_busy || _hasBlocking) return;
+    final keep = _keep;
+    if (_busy || _hasBlocking || keep.isEmpty) return;
     setState(() => _busy = true);
 
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
 
-    for (final i in _remaining) {
-      final line = widget.reading.lines[i];
-      // جرعة مش واضحة → null + «مش معروفة». مش بنخترع قيمة عشان نكمّل.
-      final amountUnknown = line.amount.needsReview;
-      // طريق واحد لكتابة «دوا بـN جرعة» — نفس اللي شاشة الإضافة بتستعمله.
-      await services.medications.addMedicationWithDoses(
-        patientId: services.patientId,
-        name: line.name.value!,
-        amountLabel: amountUnknown ? null : line.amount.value,
-        amountUnknown: amountUnknown,
-        timings: _timingsFor(i),
-        startDate: _today,
-        durationDays: line.duration.value, // null = مفتوحة، زي ما الورقة سابتها
-      );
-    }
+    await services.medications.addMedicationsWithDoses(
+      patientId: services.patientId,
+      startDate: _today,
+      medications: [
+        for (final l in keep)
+          (
+            name: l.name!,
+            timings: l.timings,
+            // جرعة مش واضحة → null + «مش معروفة». مش بنخترع قيمة عشان نكمّل.
+            amountLabel: l.amountUnknown ? null : l.amountLabel,
+            amountUnknown: l.amountUnknown,
+            durationDays: l.durationDays, // null = مفتوحة، زي ما الورقة سابتها
+          ),
+      ],
+    );
     await services.scheduler.rescheduleAll();
 
     // الملف الصحي (D3.5): الروشتة اللي اتأكدت بتتسجّل — بالتاريخ والأدوية.
     // بعد الأدوية والجدولة (دول الوعد)؛ لو السطر ده فشل التأكيد ما بيتلغيش.
     // الدكتور بس لو القراءة واثقة منه — مفيش تخمين في ملف حد.
-    final names = [for (final i in _remaining) widget.reading.lines[i].name.value!];
-    if (names.isNotEmpty) {
-      try {
-        final doctor = widget.reading.doctor;
-        await RecordsRepository(services.db).add(
-          patientId: services.patientId,
-          kind: RecordKind.prescription,
-          title: prescriptionRecordTitle(names.length),
-          happenedAt: DateTime(_today.year, _today.month, _today.day),
-          doctor: doctor.needsReview ? null : doctor.value,
-          notes: names.join(' — '),
-        );
-      } catch (error, stack) {
-        debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');
-      }
+    final names = [for (final l in keep) l.name!];
+    try {
+      final doctor = widget.reading.doctor;
+      await RecordsRepository(services.db).add(
+        patientId: services.patientId,
+        kind: RecordKind.prescription,
+        title: prescriptionRecordTitle(names.length),
+        happenedAt: DateTime(_today.year, _today.month, _today.day),
+        doctor: doctor.needsReview ? null : doctor.value,
+        notes: names.join(' — '),
+      );
+    } catch (error, stack) {
+      debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');
     }
 
     if (mounted) navigator.pop(ReviewResult.confirmed);
@@ -214,44 +216,46 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     DebugPanel(reading.modelWarning!),
                   ],
                   const SizedBox(height: F.gap),
-                  if (reading.isEmpty)
+                  if (reading.isEmpty && _lines.isEmpty)
                     const _EmptyReading()
                   else
-                    for (final (i, line) in reading.lines.indexed) ...[
-                      _MedicineRow(
-                        line: line,
-                        timings: _timingsFor(i),
-                        saved: _saved.contains(i),
-                        timeFor: (t) => arabicTime(switch (t) {
-                          AnchorTiming(:final anchor, :final offsetMinutes) =>
-                            engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today),
-                          FixedTiming(:final minuteOfDay) =>
-                            engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today),
-                        }),
-                        onEdit: () => _edit(i),
-                      ),
-                      const SizedBox(height: F.s12),
-                    ],
-                  _AddUnreadRow(onTap: _busy ? null : _addUnread),
-                  if (_addedByHand > 0) ...[
-                    const SizedBox(height: F.s8),
-                    Row(
-                      children: [
-                        Icon(Icons.check, color: F.greenOk, size: 24),
-                        const SizedBox(width: F.s6),
-                        Text(
-                          _addedByHand == 1
-                              ? 'اتضاف دوا بإيدك'
-                              : 'اتضاف ${arabicNumber(_addedByHand)} أدوية بإيدك',
-                          style: TextStyle(
-                            fontSize: F.minTextSize,
-                            fontWeight: FontWeight.w600,
-                            color: F.greenOk,
-                          ),
+                    for (final (i, line) in _lines.indexed)
+                      if (line.deleted) ...[
+                        _RemovedRow(
+                          name: line.name ?? 'السطر',
+                          onUndo: _busy ? null : () => _undoDelete(i),
                         ),
+                        const SizedBox(height: F.s12),
+                      ] else ...[
+                        _MedicineRow(
+                          line: line,
+                          timeFor: (t) => arabicTime(switch (t) {
+                            AnchorTiming(:final anchor, :final offsetMinutes) =>
+                              engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today),
+                            FixedTiming(:final minuteOfDay) =>
+                              engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today),
+                          }),
+                          onEdit: _busy ? null : () => _edit(i),
+                          onDelete: _busy ? null : () => _delete(i),
+                        ),
+                        const SizedBox(height: F.s12),
                       ],
+                  if (_keep.isEmpty && _lines.isNotEmpty) ...[
+                    Container(
+                      key: const ValueKey('all-removed'),
+                      padding: const EdgeInsets.all(F.s12),
+                      decoration: BoxDecoration(
+                        color: F.railGround,
+                        borderRadius: BorderRadius.circular(F.radiusTile),
+                      ),
+                      child: Text(
+                        'شيلت كل الأدوية — مفيش حاجة تتأكّد. رجّع واحد أو صوّر تاني.',
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                      ),
                     ),
+                    const SizedBox(height: F.s12),
                   ],
+                  _AddUnreadRow(onTap: _busy ? null : _addUnread),
                 ],
               ),
             ),
@@ -307,9 +311,11 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                       const SizedBox(width: F.s10),
                       Expanded(
                         child: _EqualButton(
-                          label: 'تمام، ظبّطهم',
+                          key: const ValueKey('confirm-review'),
+                          // العدد على الزرار: اللي بيتأكّد لازم يعرف هيحفظ كام
+                          label: 'تمام — ${_countWord(_keep.length)}',
                           fill: F.green,
-                          onPressed: _busy || _hasBlocking ? null : _confirm,
+                          onPressed: _busy || _hasBlocking || _keep.isEmpty ? null : _confirm,
                         ),
                       ),
                     ],
@@ -326,7 +332,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
 /// زرار من الاتنين — كل الفرق بينهم لون التعبئة، والاتنين غامقين.
 class _EqualButton extends StatelessWidget {
-  const _EqualButton({required this.label, required this.fill, required this.onPressed});
+  const _EqualButton({required this.label, required this.fill, required this.onPressed, super.key});
 
   final String label;
   final Color fill;
@@ -355,36 +361,31 @@ class _EqualButton extends StatelessWidget {
 class _MedicineRow extends StatelessWidget {
   const _MedicineRow({
     required this.line,
-    required this.timings,
-    required this.saved,
     required this.timeFor,
     required this.onEdit,
+    required this.onDelete,
   });
 
-  final ReadLine line;
-
-  /// اللي هيتحفظ فعلاً — تعديل الإنسان لو حصل، وإلا اللي الورقة قالته.
-  final List<DoseTiming> timings;
-  final bool saved;
+  /// سطر المسوّدة — اللي هيتحفظ، مش اللي الورقة قالته بالظبط.
+  final _DraftLine line;
   final String Function(DoseTiming) timeFor;
-  final VoidCallback onEdit;
-
-  /// أقل ثقة في الحقول اللي بتتحفظ — الرقم اللي بيتعرض على الصف الواضح.
-  double get _confidence => [
-        line.name.confidence,
-        line.amount.confidence,
-        line.timings.confidence,
-      ].reduce((a, b) => a < b ? a : b);
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final unsure = line.needsReview && !saved;
-    final name = line.name.value;
+    final read = line.read;
+    final edited = line.edited;
+    final timings = line.timings;
+    final unsure = line.needsReview;
+    final name = line.name;
 
     final unsureFields = [
-      if (line.name.needsReview) ('الاسم', line.name.note),
-      if (line.timings.needsReview) ('التوقيت', line.timings.note),
-      if (line.amount.needsReview) ('الجرعة', line.amount.note),
+      if (read != null && !edited) ...[
+        if (read.name.needsReview) ('الاسم', read.name.note),
+        if (read.timings.needsReview) ('التوقيت', read.timings.note),
+        if (read.amount.needsReview) ('الجرعة', read.amount.note),
+      ],
     ];
 
     final body = Padding(
@@ -417,10 +418,10 @@ class _MedicineRow extends StatelessWidget {
                     const SizedBox(height: F.s4),
                     Text(
                       [
-                        line.amount.needsReview
+                        line.amountUnknown
                             ? 'الجرعة مش معروفة'
-                            : (line.amount.value ?? 'الجرعة مش معروفة'),
-                        switch (line.duration.value) {
+                            : (line.amountLabel ?? 'الجرعة مش معروفة'),
+                        switch (line.durationDays) {
                           null => 'مفتوحة — لحد ما توقفه',
                           final d => '${arabicNumber(d)} يوم',
                         },
@@ -431,38 +432,23 @@ class _MedicineRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: F.s8),
-              if (saved)
+              if (edited)
                 Padding(
-                  padding: EdgeInsets.only(top: F.s8),
+                  padding: const EdgeInsets.only(top: F.s8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.check, color: F.greenOk, size: 24),
-                      SizedBox(width: F.s4),
+                      const SizedBox(width: F.s4),
                       Text(
-                        'اتضاف',
-                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenOk),
+                        'اتعدّل',
+                        style: TextStyle(
+                          fontSize: F.minTextSize,
+                          fontWeight: FontWeight.w700,
+                          color: F.greenOk,
+                        ),
                       ),
                     ],
-                  ),
-                )
-              else
-                SizedBox(
-                  height: F.minTapTarget,
-                  child: OutlinedButton.icon(
-                    onPressed: onEdit,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: F.ink,
-                      minimumSize: const Size(0, F.minTapTarget),
-                      padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                      side: BorderSide(color: F.line, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
-                    ),
-                    icon: const Icon(Icons.edit_outlined, size: 22),
-                    label: const Text(
-                      'عدّل',
-                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
-                    ),
                   ),
                 ),
             ],
@@ -498,13 +484,35 @@ class _MedicineRow extends StatelessWidget {
                   ),
               ],
             ),
-          if (!unsure && !saved) ...[
+          if (!unsure && !edited && read != null) ...[
             const SizedBox(height: F.s8),
             Text(
-              'ثقة ${arabicNumber((_confidence * 100).round())}٪',
+              'ثقة ${arabicNumber((line.confidence * 100).round())}٪',
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],
+          const SizedBox(height: F.s12),
+          // التعديل والشيل مع بعض في آخر الكارت: الاتنين بكلمة، والاتنين
+          // على المسوّدة — ولا واحد فيهم بيكتب في القاعدة.
+          Row(
+            children: [
+              Expanded(
+                child: _RowButton(
+                  icon: Icons.edit_outlined,
+                  label: 'عدّل',
+                  onPressed: onEdit,
+                ),
+              ),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: _RowButton(
+                  icon: Icons.delete_outline,
+                  label: 'شيله',
+                  onPressed: onDelete,
+                ),
+              ),
+            ],
+          ),
           if (unsure) ...[
             const SizedBox(height: F.s12),
             // الشك مكتوب بهدوء: عنوان، وكل حقل مش متأكد منه بملاحظته.
@@ -544,9 +552,7 @@ class _MedicineRow extends StatelessWidget {
       ),
     );
 
-    return Opacity(
-      opacity: saved ? 0.6 : 1,
-      child: Container(
+    return Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: F.cardGround,
@@ -563,7 +569,6 @@ class _MedicineRow extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -646,6 +651,145 @@ class _EmptyReading extends StatelessWidget {
         child: Text(
           'مقدرتش ألاقي أدوية في الصورة دي. صوّر تاني والنور يكون كويس.',
           style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+        ),
+      );
+}
+
+/// «دوا واحد» / «دواءين» / «٣ أدوية» — للزرار.
+String _countWord(int count) => switch (count) {
+      0 => 'مفيش أدوية',
+      1 => 'دوا واحد',
+      2 => 'دواءين',
+      _ => '${arabicNumber(count)} أدوية',
+    };
+
+/// سطر في المسوّدة: اللي الورقة قالته + اللي الإنسان غيّره، ولسه ما اتحفظش.
+class _DraftLine {
+  _DraftLine({
+    required this.read,
+    required this.name,
+    required this.amountLabel,
+    required this.amountUnknown,
+    required this.timings,
+    required this.durationDays,
+    this.edited = false,
+  });
+
+  /// من قراية الذكاء — بثقتها وملاحظاتها زي ما هي.
+  factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
+        read: read,
+        name: read.name.value,
+        amountLabel: read.amount.value,
+        amountUnknown: read.amount.needsReview,
+        timings: read.timings.value ?? const [],
+        durationDays: read.duration.value,
+      );
+
+  /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
+  factory _DraftLine.fromDraft(MedicationDraft d) => _DraftLine(
+        read: null,
+        name: d.name,
+        amountLabel: d.amountLabel,
+        amountUnknown: d.amountUnknown,
+        timings: d.timings,
+        durationDays: d.durationDays,
+        edited: true,
+      );
+
+  /// null = السطر اتكتب بالإيد، مش من الورقة.
+  final ReadLine? read;
+
+  String? name;
+  String? amountLabel;
+  bool amountUnknown;
+  List<DoseTiming> timings;
+  int? durationDays;
+
+  /// إنسان عدّاها بإيده — فالشك بتاع الذكاء خلص.
+  bool edited;
+
+  /// اتشال من المسوّدة (وممكن يرجع من «رجّعه»).
+  bool deleted = false;
+
+  void applyDraft(MedicationDraft d) {
+    name = d.name;
+    amountLabel = d.amountLabel;
+    amountUnknown = d.amountUnknown;
+    timings = d.timings;
+    durationDays = d.durationDays;
+    edited = true;
+  }
+
+  /// من غير اسم أو من غير جرعة مفيش حاجة تتجدول — ده اللي بيقفل «تمام».
+  bool get blocks => (name ?? '').trim().isEmpty || timings.isEmpty;
+
+  /// الذكاء مش متأكد، والإنسان لسه ما راجعهاش.
+  bool get needsReview => !edited && (read?.needsReview ?? false);
+
+  /// أقل ثقة في الحقول اللي بتتحفظ.
+  double get confidence => read == null
+      ? 1
+      : [read!.name.confidence, read!.amount.confidence, read!.timings.confidence]
+          .reduce((a, b) => a < b ? a : b);
+}
+
+/// سطر اتشال — مكانه في القايمة، والتراجع جنبه ومستني.
+class _RemovedRow extends StatelessWidget {
+  const _RemovedRow({required this.name, required this.onUndo});
+
+  final String name;
+  final VoidCallback? onUndo;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const ValueKey('removed-row'),
+        padding: const EdgeInsets.fromLTRB(F.s14, F.s8, F.s14, F.s8),
+        decoration: BoxDecoration(
+          color: F.railGround,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          border: Border.all(color: F.line),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'اتشال $name',
+                style: TextStyle(
+                  fontSize: F.minBodySize,
+                  color: F.mutedDark,
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+            ),
+            const SizedBox(width: F.s8),
+            _RowButton(icon: Icons.undo, label: 'رجّعه', onPressed: onUndo),
+          ],
+        ),
+      );
+}
+
+/// زرار صغير على كارت السطر — بأيقونة **وكلمة**.
+class _RowButton extends StatelessWidget {
+  const _RowButton({required this.icon, required this.label, required this.onPressed});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.minTapTarget,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: F.ink,
+            minimumSize: const Size(0, F.minTapTarget),
+            padding: const EdgeInsets.symmetric(horizontal: F.s12),
+            side: BorderSide(color: F.line, width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
+          ),
+          icon: Icon(icon, size: 22),
+          label: Text(label, style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
         ),
       );
 }

@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         785 passing
+test/                         784 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1463,6 +1463,31 @@ groups and stays when the list is empty, where the sentence is now just
 «لسه مفيش أدوية.» — the card is the call to action, not a pointer at the
 dock. `add_sheet_test` reads `lib/` and fails if a sheet titled «ضيف
 دوا» is built anywhere else or if the callers are not exactly those two.
+
+**The review screen is a draft. «تمام، ظبّطهم» is the only write.**
+Until this round «عدّل» opened `AddMedicationScreen`, which **saved
+immediately**, while «تمام» saved the rest — one prescription written by
+two different buttons, in two transactions, with the screen still open
+in between. That split is what hid the dose loss.
+Now `AddMedicationScreen` has a **draft mode** (`draft: true`) that pops a
+`MedicationDraft` instead of writing; in save mode it pops the same type
+*after* writing, so a caller has one return type and `null` always means
+«رجع من غير حفظ». The review screen holds `_DraftLine`s — what the reader
+said, plus whatever the human changed — and confirms them all through
+`addMedicationsWithDoses`, **one transaction for the whole prescription**,
+then schedules once. Nothing reaches the database before that tap; a test
+asserts the schedules table and the notification sink are both empty after
+an edit.
+- **Each line can be removed** («شيله»), and the undo replaces the row in
+  place — *not* a SnackBar. Two reasons, both real: a 6-second bar asks a
+  man in his seventies to race a timer, and it sits directly on top of
+  «تمام» while it is showing (the test caught that by tapping through it).
+- The confirm button **carries the count** («تمام — ٣ أدوية») and is
+  disabled at zero, with a line saying everything was removed. A button
+  that says how much it is about to write is the cheapest possible guard
+  against confirming a list you have not read.
+- A line edited by hand reads «اتعدّل», not «اتضاف» — nothing was added
+  yet, and the word should not claim otherwise.
 
 **A medication with N doses is written in one place** — a bug, and the
 shape that prevented it being caught. `MedicationRepository
