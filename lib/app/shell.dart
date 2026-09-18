@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
 import '../core/widgets/dark_mode_toggle.dart';
-import '../core/widgets/f_sheet.dart';
-import '../core/widgets/primitives.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_health_screen.dart';
@@ -15,12 +13,8 @@ import '../features/care/caregiver_snapshot_holder.dart';
 import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
 import '../features/emergency/emergency_pill.dart';
-import '../features/medication/add_medication_screen.dart';
+import '../features/medication/add_sheet.dart';
 import '../features/medication/medications_screen.dart';
-import '../features/health/glucose_screen.dart';
-import '../features/health/scan_lab_screen.dart';
-import '../features/records/manual_entry_screen.dart';
-import '../features/scan/scan_prescription_screen.dart';
 import '../features/records/health_file_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/today/today_screen.dart';
@@ -66,67 +60,9 @@ class _AppShellState extends State<AppShell> {
     _settings ??= AppScope.of(context).preferences.watch();
   }
 
-  void _openAdd() {
-    final services = AppScope.of(context);
-    FSheet.show<void>(
-      context,
-      title: 'ضيف دوا',
-      children: [
-        FPrimaryButton(
-          label: 'صوّر روشتة',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ScanPrescriptionScreen(
-                  routine: widget.routine,
-                  reader: services.prescriptionReader,
-                ),
-              ),
-            );
-          },
-        ),
-        FSecondaryButton(
-          label: 'أكتبها بإيدي',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => AddMedicationScreen(routine: widget.routine),
-              ),
-            );
-          },
-        ),
-        // سكر الدم وتقارير التحاليل (D3.6)
-        FSecondaryButton(
-          label: 'قيس السكر',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()));
-          },
-        ),
-        FSecondaryButton(
-          label: 'صوّر تقرير تحليل',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => ScanLabScreen(reader: services.labReader)),
-            );
-          },
-        ),
-        // الملف الصحي (D3.5) — مش دوا، فمش بيتجدول
-        FSecondaryButton(
-          label: 'سجّل زيارة أو تحليل أو أشعة',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ManualEntryScreen()),
-            );
-          },
-        ),
-      ],
-    );
-  }
+  /// الشيت نفسه معرّف مرة واحدة في `add_sheet.dart` — بيتفتح من هنا ومن
+  /// كارت «ضيف دوا» في جدول الأدوية.
+  void _openAdd() => showAddSheet(context, routine: widget.routine);
 
   @override
   Widget build(BuildContext context) => StreamBuilder<DeviceSettings>(

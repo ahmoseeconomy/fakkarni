@@ -223,7 +223,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         757 passing
+test/                         761 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1485,6 +1485,18 @@ device-verified)**
   between our gold and our red, and a colour that close to «دي لسه
   عايزاك» must not be spent on «ضيف».
 
+**The «ضيف دوا» sheet is defined once, opened from two places.**
+`showAddSheet(context, routine:)` in `features/medication/add_sheet.dart`
+holds the sheet's body — five entries, `addSheetLabels` — and both the
+dock's «+ ضيف» and the «ضيف دوا» card at the top of «جدول الأدوية» call it,
+so an entry added there appears in both without anyone remembering. The
+card follows the screen's card language (same radius, padding, ink, no
+new colour), a plus and the two words, nothing else; it sits above the
+groups and stays when the list is empty, where the sentence is now just
+«لسه مفيش أدوية.» — the card is the call to action, not a pointer at the
+dock. `add_sheet_test` reads `lib/` and fails if a sheet titled «ضيف
+دوا» is built anywhere else or if the callers are not exactly those two.
+
 **D3.3 — elder mode + notifications (built)**
 - Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —
   `elder_mode`, `rung_first_on`, `rung_second_on`; no row = defaults.
@@ -1759,7 +1771,9 @@ device-verified)**
 - Location permission is requested when the screen opens and nowhere else
   (`geolocator`; `NSLocationWhenInUseUsageDescription`, Android coarse/fine);
   denied, denied-forever («افتح الإعدادات») and service-off each get words.
-- Entry: «صيدليات ودكاترة قريب منك» on «الأدوية», and «قريب منك» in
+- Entry: the «القريب مني» pill on the home screen (the «الأدوية» button
+  was removed in the add-card round — nearby is not a medication-list
+  concern), and «قريب منك» in
   settings. New dependencies: `flutter_map`, `latlong2`, `geolocator`.
 
 **Ramadan mode (built, screen restyled in D2.7)**

@@ -8,8 +8,7 @@ import '../../data/repositories/medication_repository.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
-import '../../core/widgets/primitives.dart';
-import '../nearby/nearby_screen.dart';
+import 'add_sheet.dart';
 import 'edit_medication_screen.dart';
 
 /// تبويب «الأدوية» (المخطط 09): الأدوية مجمّعة بالمرساة.
@@ -76,18 +75,13 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 ),
                 const SizedBox(height: F.s4),
                 Text(
-                  active.isEmpty
-                      ? 'لسه مفيش أدوية. دوس «ضيف» تحت.'
-                      : '${_count(active.length)} — مرتّبة على مواعيد يومك',
+                  // الكارت تحت هو الدعوة — الجملة ما بتشاورش على الدوك
+                  active.isEmpty ? 'لسه مفيش أدوية.' : '${_count(active.length)} — مرتّبة على مواعيد يومك',
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 const SizedBox(height: F.s10),
-                FSecondaryButton(
-                  label: 'صيدليات ودكاترة قريب منك',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const NearbyScreen()),
-                  ),
-                ),
+                // «قريب منك» مكانه حبّاية «القريب مني» على الرئيسية، مش هنا.
+                _AddCard(onTap: () => showAddSheet(context, routine: routine)),
                 for (final group in groups) ...[
                   const SizedBox(height: F.gap),
                   _GroupHead(label: group.label, time: group.time),
@@ -188,6 +182,45 @@ class _GroupHead extends StatelessWidget {
 }
 
 /// كارت دوا: الاسم mono ٢٤+، الجرعة والقاعدة، و«عدّل». الموقوف رمادي.
+/// كارت «ضيف دوا» — بنفس لغة كروت الشاشة (نفس الزوايا والحشو والحبر، ومن غير
+/// لون جديد)، علامة زايد وكلمتين وبس. بيفتح نفس شيت الدوك.
+class _AddCard extends StatelessWidget {
+  const _AddCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: F.cardGround,
+      borderRadius: BorderRadius.circular(F.radiusCard),
+      child: InkWell(
+        key: const ValueKey('add-medication-card'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(F.radiusCard),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: F.minTapTarget),
+          padding: const EdgeInsets.all(F.s14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            border: Border.all(color: F.line),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.add, color: F.green, size: 26),
+              const SizedBox(width: F.s10),
+              Text(
+                addSheetTitle,
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MedCard extends StatelessWidget {
   const _MedCard({
     required this.summary,

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/core/widgets/f_sheet.dart';
+import 'package:fakkarni/features/medication/add_sheet.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 
 import '../scan/scan_test_support.dart';
@@ -72,9 +74,42 @@ void main() {
         greaterThan(tester.getCenter(find.text('الفطار — ٧:٣٠ ص')).dy));
   });
 
-  screenTest('فاضي → سطر هادي بيشاور على «ضيف»', (tester) async {
+  screenTest('فاضي → «لسه مفيش أدوية.» وكارت «ضيف دوا» هو الدعوة — مش جملة بتشاور على الدوك', (tester) async {
     await pump(tester);
-    expect(find.text('لسه مفيش أدوية. دوس «ضيف» تحت.'), findsOneWidget);
+    expect(find.text('لسه مفيش أدوية.'), findsOneWidget);
+    expect(find.textContaining('دوس «ضيف»'), findsNothing);
+    expect(find.byKey(const ValueKey('add-medication-card')), findsOneWidget);
     expect(find.text('موقوفة'), findsNothing);
+  });
+
+  screenTest('زرار «قريب منك» اتشال من الشاشة دي — مكانه حبّاية الرئيسية', (tester) async {
+    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+    await pump(tester);
+    expect(find.textContaining('قريب منك'), findsNothing);
+    expect(find.textContaining('صيدليات'), findsNothing);
+  });
+
+  screenTest('كارت «ضيف دوا» فوق المجموعات: زايد وكلمتين، ≥٥٦، وبيفتح نفس شيت الدوك بنفس المداخل', (tester) async {
+    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+    await pump(tester);
+
+    final card = find.byKey(const ValueKey('add-medication-card'));
+    expect(card, findsOneWidget);
+    expect(tester.getSize(card).height, greaterThanOrEqualTo(F.minTapTarget));
+    expect(find.descendant(of: card, matching: find.byIcon(Icons.add)), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text('ضيف دوا')), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.byType(Text)), findsOneWidget, reason: 'كلمتين وبس');
+    expect(tester.getCenter(card).dy, lessThan(tester.getCenter(find.text('Concor 5mg')).dy), reason: 'فوق المجموعات');
+
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(F.sheetDuration);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(FSheet), findsOneWidget);
+    for (final label in addSheetLabels) {
+      expect(find.descendant(of: find.byType(FSheet), matching: find.text(label)), findsOneWidget, reason: label);
+    }
+    expectNoRedAndMinSize(tester);
   });
 }

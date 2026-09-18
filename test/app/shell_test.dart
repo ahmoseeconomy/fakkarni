@@ -26,6 +26,7 @@ import 'package:fakkarni/features/elder/elder_home_screen.dart';
 import 'package:fakkarni/features/settings/notifications_screen.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
+import 'package:fakkarni/features/medication/add_sheet.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/settings/settings_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
@@ -153,7 +154,7 @@ void main() {
 
     await tester.tap(find.text('الأدوية').last);
     await settle(tester);
-    expect(find.text('لسه مفيش أدوية. دوس «ضيف» تحت.'), findsOneWidget);
+    expect(find.text('لسه مفيش أدوية.'), findsOneWidget);
 
     await tester.tap(find.text('الملف').last);
     await settle(tester);
@@ -179,6 +180,10 @@ void main() {
     expect(find.byType(FSheet), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'صوّر روشتة'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'أكتبها بإيدي'), findsOneWidget);
+    // نفس القايمة اللي كارت «ضيف دوا» بيفتحها — الشيت معرّف مرة واحدة
+    for (final label in addSheetLabels) {
+      expect(find.descendant(of: find.byType(FSheet), matching: find.text(label)), findsOneWidget, reason: label);
+    }
     expectNoRedAndMinSize(tester);
   });
 
