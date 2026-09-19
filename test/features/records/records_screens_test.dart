@@ -208,7 +208,7 @@ void main() {
   });
 
   group('الوصول', () {
-    screenTest('الإعدادات → «الملف الصحي»، و«ضيف» → «سجّل زيارة أو تحليل أو أشعة»', (tester) async {
+    screenTest('تبويب «الملف» في الدوك، و«ضيف» → «سجّل زيارة أو تحليل أو أشعة»', (tester) async {
       await h.pump(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
       await settle(tester);
 
@@ -220,9 +220,9 @@ void main() {
       await tester.pageBack();
       await settle(tester);
 
-      await tester.tap(find.text('الإعدادات').last);
-      await settle(tester);
-      await tester.tap(find.text('الملف الصحي'));
+      // الباب الوحيد للملف الصحي: تبويب الدوك. صف الإعدادات اتشال —
+      // بابين لأوضة واحدة بيخلّي المستخدم يشك إنهم حاجتين.
+      await tester.tap(find.text('الملف').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
     });

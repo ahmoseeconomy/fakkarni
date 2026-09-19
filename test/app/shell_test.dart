@@ -213,6 +213,11 @@ void main() {
       for (final row in ['مواعيد يومك', 'وضع رمضان', 'التنبيهات', 'نمط كبار السن', 'دائرة الرعاية', 'اللغة']) {
         expect(find.text(row), findsOneWidget, reason: row);
       }
+      // «الملف الصحي» تبويب في الدوك — بابين لأوضة واحدة اتشال منهم واحد.
+      // «قريب منك» مكانه هنا زي ما هو (مالوش تبويب).
+      expect(find.widgetWithText(InkWell, 'الملف الصحي'), findsNothing,
+          reason: 'مفيش صف تاني لنفس الشاشة');
+      expect(find.text('قريب منك'), findsOneWidget);
       expect(find.text('عربي'), findsOneWidget);
       // D5.2: الأب بيعرف بالظبط الابن بيشوف إيه — ومفيش حاجة من سحابة 0012 ناقصة من السطر
       final sees = tester.widget<Text>(find.descendant(
@@ -294,7 +299,38 @@ void main() {
       }
     });
 
-    screenTest('كارت جرعة واحد بس، نص ٢٤+، «تم ✅» ٨٠، ومفيش «اتصل» ولا سطر صوت ولا أحمر', (tester) async {
+    screenTest('باقي اليوم بيبان تحت الكارت — بحالته، ومن غير أزرار', (tester) async {
+      await services.preferences.setElderMode(true);
+      // واحدة فاتت (٧:٠٠)، واحدة جاية (٢:٣٠)، وواحدة بالليل (٨:٠٠ م)
+      await addDose('Concor', DayAnchor.breakfast, offset: -30);
+      await addDose('Amaryl', DayAnchor.lunch);
+      await addDose('Telfast', DayAnchor.dinner);
+      await pumpShell(tester, now: DateTime(2026, 8, 31, 8));
+
+      // التلاتة كلهم ظاهرين — إخفاء باقي اليوم بيتقري «أدويتي اتمسحت»
+      for (final name in ['Concor', 'Amaryl', 'Telfast']) {
+        expect(find.text(name), findsOneWidget, reason: name);
+      }
+      expect(find.text('باقي اليوم'), findsOneWidget);
+      expect(find.text('جاي'), findsNWidgets(2), reason: 'الاتنين الجايين');
+      expect(find.text('مفيش أدوية النهارده'), findsNothing);
+
+      // صفوف باقي اليوم للقراية: ولا زرار فيها
+      final home = find.byType(ElderHomeScreen);
+      expect(find.descendant(of: home, matching: find.byType(FilledButton)), findsOneWidget);
+      expect(find.descendant(of: home, matching: find.byType(OutlinedButton)), findsOneWidget,
+          reason: '«بعد شوية» بتاع الكارت وبس');
+    });
+
+    screenTest('يوم من غير جرعات خالص → الجملة زي ما هي', (tester) async {
+      await services.preferences.setElderMode(true);
+      await pumpShell(tester, now: DateTime(2026, 8, 31, 8));
+
+      expect(find.text('مفيش أدوية النهارده'), findsOneWidget);
+      expect(find.text('باقي اليوم'), findsNothing);
+    });
+
+    screenTest('كارت فعل واحد بس وباقي اليوم للقراية، نص ٢٤+، «تم ✅» ٨٠، ومفيش «اتصل» ولا سطر صوت ولا أحمر', (tester) async {
       await services.routines.saveProfile(services.patientId, name: 'فاطمة', sex: Sex.f);
       await services.preferences.setElderMode(true);
       await addDose('Concor', DayAnchor.breakfast, offset: -30); // ٧:٠٠
@@ -304,8 +340,11 @@ void main() {
       expect(find.text('صباح الخير'), findsOneWidget);
       expect(find.text('يا فاطمة'), findsOneWidget);
       expect(find.text('Concor'), findsOneWidget);
-      expect(find.text('Telfast'), findsNothing, reason: 'كارت واحد — الجاية بس');
-      // بيل «طوارئ» فوق FilledButton كمان — بنعدّ اللي جوّه الشاشة نفسها
+      // باقي اليوم بيبان — بس للقراية. إخفاؤه كان بيتقري «أدويتي اتمسحت».
+      expect(find.text('Telfast'), findsOneWidget, reason: 'باقي اليوم ظاهر');
+      expect(find.text('باقي اليوم'), findsOneWidget);
+      // **كارت الفعل واحد**: زرار واحد أساسي في الشاشة كلها، وهو بتاع الكارت
+      // اللي فوق — صفوف باقي اليوم من غير أي زرار.
       expect(
         find.descendant(of: find.byType(ElderHomeScreen), matching: find.byType(FilledButton)),
         findsOneWidget,
@@ -336,8 +375,12 @@ void main() {
 
       await tester.tap(find.text('تم ✅'));
       await settle(tester);
-      expect(find.text('Concor'), findsNothing);
+      // الكارت بقى بتاع الجرعة اللي بعدها…
       expect(find.text('Telfast'), findsOneWidget);
+      // …واللي اتاخدت **ما بتختفيش**: بتنزل «باقي اليوم» بعلامة «اتاخد».
+      // اختفاؤها كان بيخلّي المريض يشك إنه نسيها (نفس قاعدة السكة العادية).
+      expect(find.text('Concor'), findsOneWidget);
+      expect(find.text('اتاخد'), findsOneWidget);
       expect(sink.scheduled.keys, isNot(contains(snoozeIdFor(DateTime(2026, 8, 31, 7)))),
           reason: 'التأكيد بيسكّت الخانة كلها — التأجيل معاها');
     });

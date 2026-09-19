@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         805 passing
+test/                         810 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1112,6 +1112,9 @@ Consequences to handle:
   and asserts zero sign-in calls. The only working control is «كمّل بحساب
   تجريبي», labelled as what it is (debt 2). Email is not offered (Email OTP
   was removed from the product).
+- **«الملف الصحي» is not a settings row.** It is a dock tab; two doors to
+  one room make a user wonder whether they are two different rooms.
+  «قريب منك» stays in settings — it has no tab.
 - **Mockup 33's rows with no backend are not built:** نمط كبار السن,
   التنبيهات, الاسم والسن, بطاقة الطوارئ, تصدير البيانات. A settings row that
   opens onto nothing is worse than a row that is not there. Each returns
@@ -1595,9 +1598,19 @@ the live project — not a line in a UI round.
   an alert before the server sends one.
 - «نمط كبار السن» (mockup 18): a switch in settings (gold when on). When on,
   `AppShell` shows two tabs («الرئيسية», «الإعدادات») and no «ضيف»;
-  `ElderHomeScreen` shows the greeting and **one** dose card — the first of
+  `ElderHomeScreen` shows the greeting, **one** dose card — the first of
   `nowGroups`, the same selection as the home — with «تم ✅» (green, 80)
-  and «بعد شوية ⏰» (real snooze, 64). Sizes come from `F.elder*` and are
+  and «بعد شوية ⏰» (real snooze, 64), **and the rest of the day under it,
+  read-only**. The card is the only place with buttons; the rows below
+  carry the time, the names and the state at elder sizes and nothing else,
+  because a second «تم» would be a second place to confirm and that is
+  what this mode exists to prevent. Showing only the card was the bug: if
+  the next dose was hours away the whole screen read «مفيش أدوية
+  النهارده», which to a 72-year-old says *his medicines were deleted*. A
+  taken dose stays in that list marked «اتاخد» for the same reason the
+  rail never drops one — vanishing reads as "I must have forgotten it".
+  Overdue says **«لسه ما اتأكدتش»**, not «فات»: he forgot, he did not
+  fail, and that wording is already the rail's. Sizes come from `F.elder*` and are
   **above** the normal floor (text 24+). Confirm and snooze are the shared
   `confirmGroup` / `snoozeGroup` in `features/today/dose_actions.dart`,
   used by the home too. The settings tab keeps normal sizes.
@@ -1616,6 +1629,15 @@ the live project — not a line in a UI round.
   as null; «مفيش حساسية» has to be typed by a person. A blood type outside
   the eight is refused, not stored. The only writer is
   `EmergencyEditScreen` (8 chips + «مش عارف» = null, free text, contacts).
+- **An empty section offers the action, not a hyphen.** «جهات الاتصال»
+  with nothing in it shows «ضيف جهة اتصال», which opens the edit screen
+  scrolled to that section with one row ready. The path existed before
+  (Settings → معلومات الطوارئ → عدّل → +) and nobody walked it: the info
+  screen looks like a finished card, so «عدّل» reads as *correct
+  something wrong*, not *add what is missing*. Found on the way: a blank
+  contact row used to save as a contact with an empty name and a «اتصال»
+  button dialling nothing — blank rows are now dropped on save, the same
+  rule as every other field here.
 - «معلومات الطوارئ» (19) on `F.redDeep`, «بطاقة الطوارئ» (32) as a full
   in-app screen with the gradient and a live clock (timer cancelled in
   dispose). Every contact has an «اتصال» button; the ambulance button

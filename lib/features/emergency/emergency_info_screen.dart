@@ -168,8 +168,17 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen>
               _Panel(
                 dark: true,
                 label: 'جهات الاتصال',
+                // فاضية؟ يبقى الفعل هنا، مش مخبّي ورا «عدّل». الشاشة دي
+                // شكلها بطاقة خلصت، فـ«عدّل» بتتقري «صحّح حاجة غلط» — مش
+                // «ضيف اللي لسه مش موجود». والحاجة دي بيحتاجها في ثانية.
                 child: info.contacts.isEmpty
-                    ? const Text(notFilled, style: empty)
+                    ? _AddContact(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const EmergencyEditScreen(focusContacts: true),
+                          ),
+                        ),
+                      )
                     : Column(
                         children: [
                           for (final c in info.contacts) ContactRow(contact: c),
@@ -224,6 +233,43 @@ class _Panel extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// «ضيف جهة اتصال» — على أرضية حمرا، فبحدّ فاتح ونص فاتح زي باقي الشاشة.
+/// مش أحمر على أحمر، ومش زرار أيقونة: كلمة كاملة وارتفاع لمسة كامل.
+class _AddContact extends StatelessWidget {
+  const _AddContact({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'مفيش حد مسجّل لحد دلوقتي.',
+            style: TextStyle(fontSize: F.minTextSize, color: F.onRedMuted, height: 1.5),
+          ),
+          const SizedBox(height: F.s8),
+          SizedBox(
+            height: F.minTapTarget,
+            child: OutlinedButton.icon(
+              key: const ValueKey('add-emergency-contact'),
+              onPressed: onPressed,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: F.onRed,
+                side: BorderSide(color: F.onRed.withValues(alpha: 0.6), width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
+              ),
+              icon: const Icon(Icons.person_add_alt, size: 22),
+              label: const Text(
+                'ضيف جهة اتصال',
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      );
 }
 
 class _BarButton extends StatelessWidget {

@@ -11,13 +11,21 @@ import '../../data/repositories/emergency_repository.dart';
 /// + «مش عارف» (= null). الحساسية والأمراض نص حر زي ما الدكتور قالها.
 /// الفاضي بيتحفظ فاضي ويبان «لسه ما اتملاش» — «مفيش» لازم حد يكتبها.
 class EmergencyEditScreen extends StatefulWidget {
-  const EmergencyEditScreen({super.key});
+  const EmergencyEditScreen({this.focusContacts = false, super.key});
+
+  /// جاي من «ضيف جهة اتصال» على شاشة المعلومات: بيفتح على قسم جهات الاتصال
+  /// وصف فاضي جاهز. من غير كده المستخدم بيقع على أول الشاشة (فصيلة الدم)
+  /// ولازم يدوّر على اللي جه عشانه.
+  final bool focusContacts;
 
   @override
   State<EmergencyEditScreen> createState() => _EmergencyEditScreenState();
 }
 
 class _ContactFields {
+  bool get isBlank =>
+      name.text.trim().isEmpty && phone.text.trim().isEmpty && relation.text.trim().isEmpty;
+
   _ContactFields([EmergencyContact? c])
     : name = TextEditingController(text: c?.name),
       phone = TextEditingController(text: c?.phone),
@@ -36,6 +44,9 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
   final _allergies = TextEditingController();
   final _chronic = TextEditingController();
   final List<_ContactFields> _contacts = [];
+
+  /// مكان قسم جهات الاتصال — عشان نبعت الشاشة له لما نيجي منه.
+  final _contactsKey = GlobalKey();
   String? _blood;
   bool _loaded = false;
   bool _saving = false;
@@ -53,7 +64,15 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
         _allergies.text = info.allergies ?? '';
         _chronic.text = info.chronicConditions ?? '';
         _contacts.addAll([for (final c in info.contacts) _ContactFields(c)]);
+        // جاي يضيف واحدة — فالصف جاهز، مش محتاج يدوس «+» تاني
+        if (widget.focusContacts && _contacts.isEmpty) _contacts.add(_ContactFields());
       });
+      if (widget.focusContacts) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final target = _contactsKey.currentContext;
+          if (target != null) Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 250));
+        });
+      }
     });
   }
 
@@ -77,12 +96,15 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
         allergies: _allergies.text,
         chronicConditions: _chronic.text,
         contacts: [
+          // صف فاضي خالص مش جهة اتصال — بيتشال بدل ما يتحفظ باسم فاضي وزرار
+          // «اتصال» بيدوّر على لا حاجة. (نفس قاعدة «ما بنملاش حقل لوحدنا».)
           for (final c in _contacts)
-            EmergencyContact(
-              name: c.name.text,
-              phone: c.phone.text,
-              relation: c.relation.text,
-            ),
+            if (!c.isBlank)
+              EmergencyContact(
+                name: c.name.text,
+                phone: c.phone.text,
+                relation: c.relation.text,
+              ),
         ],
       ),
     );
@@ -157,7 +179,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
             decoration: _field('الأمراض المزمنة', hint: 'مثلاً: سكر، ضغط'),
           ),
           const SizedBox(height: F.gap),
-          const SectionHead('جهات الاتصال'),
+          SectionHead('جهات الاتصال', key: _contactsKey),
           const SizedBox(height: F.s4),
           Text(
             'الأرقام دي على الموبايل ده بس — مش بتتبعت لأي حد.',

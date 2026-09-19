@@ -93,8 +93,14 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
         stream: _events,
         builder: (context, snapshot) {
           final events = snapshot.data ?? const <DoseEventView>[];
-          final now = nowGroups(groupByMinute(events), _now);
+          final all = groupByMinute(events);
+          final now = nowGroups(all, _now);
           final group = now.isEmpty ? null : now.first;
+          // باقي اليوم: كل المجموعات ما عدا اللي فوق في الكارت.
+          final rest = [
+            for (final g in all)
+              if (group == null || g.first.scheduledAt != group.first.scheduledAt) g,
+          ];
 
           return ListView(
             padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
@@ -115,9 +121,108 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                 )
               else
                 _Quiet(text: events.isEmpty ? 'مفيش أدوية النهارده' : say.allDone),
+              // باقي اليوم — **للقراية بس**. الكارت فوق هو المكان الوحيد
+              // اللي فيه «تمام» و«بعد شوية»؛ صف بزرار هنا معناه مكانين
+              // للتأكيد، وده اللي نمط كبار السن موجود عشان يمنعه.
+              if (rest.isNotEmpty) ...[
+                const SizedBox(height: F.gap),
+                Text(
+                  'باقي اليوم',
+                  style: TextStyle(
+                    fontSize: F.elderTextSize,
+                    fontWeight: FontWeight.w700,
+                    color: F.mutedDark,
+                  ),
+                ),
+                const SizedBox(height: F.s10),
+                for (final g in rest) ...[
+                  _DayRow(group: g, now: _now),
+                  const SizedBox(height: F.s10),
+                ],
+              ],
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// صف من باقي اليوم: الساعة، أسامي الدوا، وحالته — بخط النمط الكبير.
+///
+/// **من غير أزرار.** القراية مش تحكّم: المريض بيشوف يومه كله، والفعل مكانه
+/// الكارت اللي فوق. والفايتة بتقول «لسه ما اتأكدتش» زي السكة العادية —
+/// مش «فات»: هو نسي، ما فشلش (نفس قاعدة الذهبي والكلام الهادي).
+class _DayRow extends StatelessWidget {
+  const _DayRow({required this.group, required this.now});
+
+  final List<DoseEventView> group;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final done = group.every((d) => d.isDone);
+    final at = group.first.scheduledAt;
+    final unconfirmed =
+        !done && (at.isBefore(now) || group.any((d) => d.state == DoseState.missed));
+    final state = done
+        ? (group.first.state == DoseState.skipped ? 'اتأجّل' : 'اتاخد')
+        : unconfirmed
+            ? 'لسه ما اتأكدتش'
+            : 'جاي';
+
+    return Container(
+      key: ValueKey('elder-day-${at.millisecondsSinceEpoch}'),
+      padding: const EdgeInsets.all(F.s14),
+      decoration: BoxDecoration(
+        color: done ? F.railGround : F.cardGround,
+        borderRadius: BorderRadius.circular(F.radiusCard),
+        // الذهبي معناه «دي لسه عايزاك» — وبس
+        border: Border.all(color: unconfirmed ? F.gold : F.line, width: unconfirmed ? 2 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (done) ...[
+                Icon(Icons.check, size: 26, color: F.greenOk),
+                const SizedBox(width: F.s8),
+              ],
+              Expanded(
+                child: Text(
+                  arabicTime(at),
+                  style: TextStyle(
+                    fontSize: F.elderTextSize,
+                    fontWeight: FontWeight.w700,
+                    color: done ? F.mutedDark : F.ink,
+                  ),
+                ),
+              ),
+              Text(
+                state,
+                style: TextStyle(
+                  fontSize: F.elderTextSize,
+                  fontWeight: FontWeight.w600,
+                  color: done ? F.mutedDark : F.ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: F.s6),
+          Text(
+            group.map((d) => d.medicationName).join(' + '),
+            textDirection: nameDirection(group.first.medicationName),
+            style: TextStyle(
+              fontSize: F.elderNameSize,
+              fontWeight: FontWeight.w700,
+              color: done ? F.mutedDark : F.ink,
+              fontFamily: F.monoFamily,
+              fontFamilyFallback: F.monoFallback,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }

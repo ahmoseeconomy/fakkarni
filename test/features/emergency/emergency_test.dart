@@ -144,8 +144,10 @@ void main() {
     screenTest('فاضية → كل حقل «لسه ما اتملاش» وبس — ولا حقل اتملا لوحده', (tester) async {
       await pump(tester, const EmergencyInfoScreen());
 
-      // فصيلة الدم، الحساسية، الاسم والسن، الأمراض المزمنة، جهات الاتصال
-      expect(find.text(notFilled), findsNWidgets(5));
+      // فصيلة الدم، الحساسية، الاسم والسن، الأمراض المزمنة — وجهات الاتصال
+      // ليها فعل صريح بدل السطر الهادي (مكانها الوحيد اللي بيتضاف منه).
+      expect(find.text(notFilled), findsNWidgets(4));
+      expect(find.byKey(const ValueKey('add-emergency-contact')), findsOneWidget);
       expect(find.text('مفيش أدوية متسجّلة'), findsOneWidget);
       for (final invented in ['لا يوجد', 'غير معروف', 'O+', 'A+', 'مفيش حساسية']) {
         expect(find.text(invented), findsNothing, reason: invented);
@@ -295,6 +297,49 @@ void main() {
       await tester.tap(find.text('معلومات الطوارئ'));
       await settle(tester);
       expect(find.byType(EmergencyInfoScreen), findsOneWidget);
+    });
+  });
+
+  group('جهات الاتصال: الطريق اللي محدش كان بيلاقيه', () {
+    screenTest('مفيش جهات → فعل صريح بيفتح التعديل على القسم ده', (tester) async {
+      await pump(tester, const EmergencyInfoScreen());
+
+      final add = find.byKey(const ValueKey('add-emergency-contact'));
+      expect(add, findsOneWidget);
+      expect(find.text('ضيف جهة اتصال'), findsOneWidget);
+      expect(tester.getSize(add).height, greaterThanOrEqualTo(F.minTapTarget));
+
+      await tester.tap(add);
+      await settle(tester);
+
+      expect(find.byType(EmergencyEditScreen), findsOneWidget);
+      // وصف جاهز في القسم اللي جه عشانه — مش محتاج يدوّر ولا يدوس «+» تاني
+      expect(find.byKey(const ValueKey('contact-0')), findsOneWidget);
+    });
+
+    screenTest('فيه جهات → بتتعرض زي ما هي، ومفيش الفعل ده', (tester) async {
+      await EmergencyRepository(db).save(
+        services.patientId,
+        const EmergencyInfo(
+          contacts: [EmergencyContact(name: 'محمد', phone: '01001234567', relation: 'ابني')],
+        ),
+      );
+      await pump(tester, const EmergencyInfoScreen());
+
+      expect(find.text('محمد (ابني)'), findsOneWidget);
+      expect(find.byKey(const ValueKey('add-emergency-contact')), findsNothing);
+    });
+
+    screenTest('صف فاضي خالص ما بيتحفظش كجهة اتصال', (tester) async {
+      await pump(tester, const EmergencyEditScreen(focusContacts: true));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('contact-0')), findsOneWidget);
+
+      await tester.tap(find.text('احفظ'));
+      await settle(tester);
+
+      final info = await EmergencyRepository(db).get(services.patientId);
+      expect(info.contacts, isEmpty, reason: 'اسم فاضي وزرار «اتصال» بيدوّر على لا حاجة');
     });
   });
 }
