@@ -6,10 +6,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
-import '../../domain/scheduling/schedule_engine.dart';
 import 'dose_editor.dart';
 import 'medication_draft.dart';
-import 'dose_row.dart';
 
 /// «إضافة دواء» (المخطط 20) — الحقول الأول، وبعدها محرّر الجرعة.
 ///
@@ -19,7 +17,14 @@ import 'dose_row.dart';
 /// مفيش دوا نص مكتوب.
 ///
 /// «كام مرة» → مراسي عُرف تشغيلي مش ورقة: ١× الفطار، ٢× الفطار والعشا،
-/// ٣× الفطار والغدا والعشا — وكل واحدة بتتعدّل في محرّرها.
+/// ٣× الفطار والغدا والعشا، ٤× وكمان قبل النوم، ٥× وكمان الصحيان — وكل
+/// واحدة بتتعدّل في محرّرها. و«أكتر» بتفتح حقل رقم.
+///
+/// **«كام مرة» هي المكان الوحيد اللي بيقرر العدد هنا.** كان فيه كمان قايمة
+/// جرعات بـ«شيل» و«أضف جرعة» تحتها، فبقى تلات أماكن بتقرر نفس الرقم:
+/// الشرايح، والقايمة، والمشي اللي بعد «كمّل». إضافة وشيل لدوا **محفوظ**
+/// مكانهم [EditMedicationScreen] — هناك اللي بيغيّر دوا عنده بيروح،
+/// وهناك الأرضية بتتفرض على صفوف حقيقية.
 class AddMedicationScreen extends StatefulWidget {
   const AddMedicationScreen({
     required this.routine,
@@ -67,10 +72,15 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   /// جرعات اليوم قبل ما تتراجع واحدة واحدة — **في الذاكرة، ولسه ما اتحفظتش**.
   ///
-  /// بتتعبّى من الورقة لو جاية منها، وإلا من «كام مرة» + «مع الأكل». و«شيل»
-  /// و«أضف جرعة» بيغيّروا العدد هنا: ده اللي كان ناقص، ومن غيره سطر روشتة
-  /// بأربع جرعات ما كانش ينفع يتعدّل لاتنين.
+  /// بتتعبّى من الورقة لو جاية منها، وإلا من «كام مرة» + «مع الأكل». **مفيش
+  /// قايمة بتتعرض هنا**: العدد بيتظبط من «كام مرة» بس، والتوقيت بيتراجع
+  /// جرعة جرعة بعد «كمّل». كانت فيه قايمة بـ«شيل» و«أضف جرعة» جولة
+  /// واحدة، فبقى تلات أماكن بتقرر نفس الرقم.
   List<DoseTiming> _doses = const [];
+
+  /// «أكتر» متفتوحة — الرقم بيتكتب بالإيد.
+  bool _customCount = false;
+  late final _count = TextEditingController();
   bool _openEnded = true;
   int _days = 7;
   bool _busy = false;
@@ -82,6 +92,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     if (days != null) {
       _openEnded = false;
       _days = days.clamp(1, 90);
+    }
+    // الورقة بتقول العدد، فالشريحة بتبان عليه. سطر بأربع جرعات كان
+    // بيوصل هنا والعدّاد مخبّي خالص — فاللي عايز يخلّيها اتنين ما كانش
+    // قدامه غير إنه يشيل من قايمة مابقتش موجودة.
+    if (widget.initialTimings.isNotEmpty) {
+      _timesPerDay = widget.initialTimings.length;
+      _customCount = _timesPerDay > _countChips.last;
+      if (_customCount) _count.text = '$_timesPerDay';
     }
     _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
     if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
@@ -97,17 +115,47 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   void dispose() {
     _name.dispose();
     _amount.dispose();
+    _count.dispose();
     super.dispose();
   }
 
+  /// الشرايح الجاهزة. الرقم اللي برّاها بيتكتب في «أكتر».
+  static const _countChips = [1, 2, 3, 4];
+
+  /// أكتر من كده مش رقم بنمنعه، بس الحقل لازم يقف عند حد — وروشتة
+  /// بأكتر من ١٢ جرعة في اليوم غلطة كتابة أقرب منها لوصفة.
+  static const _maxCount = 12;
+
+  /// ترتيب الاختيار: الفطار الأول، وبعده العشا، وبعده الغدا — **عُرف
+  /// تشغيلي عندنا، مش كلام الورقة** (القاعدة ٦).
+  static const _pickOrder = [
+    DayAnchor.breakfast,
+    DayAnchor.dinner,
+    DayAnchor.lunch,
+    DayAnchor.sleep,
+    DayAnchor.wake,
+  ];
+
+  /// ترتيب العرض والمشي: زي ما اليوم بيمشي.
+  static const _dayOrder = [
+    DayAnchor.wake,
+    DayAnchor.breakfast,
+    DayAnchor.lunch,
+    DayAnchor.dinner,
+    DayAnchor.sleep,
+  ];
+
   /// عُرف «كام مرة» + «مع الأكل» — مش الورقة.
+  ///
+  /// أكتر من خمس جرعات بيلف على نفس المراسي تاني: مفيش عندنا مرسى سادس،
+  /// وما بنخترعش واحد. الجرعتين اللي على نفس المرسى بيتراجعوا في المحرّر
+  /// زي أي جرعة، ولو الإنسان سابهم زي ما هم المحرّك بيجمّعهم في تذكير
+  /// واحد — وده سلوكه المكتوب، مش ضياع.
   List<DoseTiming> _fromConvention() {
-    final anchors = switch (_timesPerDay) {
-      1 => [DayAnchor.breakfast],
-      2 => [DayAnchor.breakfast, DayAnchor.dinner],
-      _ => [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner],
-    };
-    return [for (final anchor in anchors) _withFood(anchor)];
+    final picked = [
+      for (var i = 0; i < _timesPerDay; i++) _pickOrder[i % _pickOrder.length],
+    ]..sort((a, b) => _dayOrder.indexOf(a).compareTo(_dayOrder.indexOf(b)));
+    return [for (final anchor in picked) _withFood(anchor)];
   }
 
   DoseTiming _withFood(DayAnchor anchor) => AnchorTiming(
@@ -126,33 +174,22 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         _doses = _fromConvention();
       });
 
-  /// «أضف جرعة»: أول مرساة لسه مش مستعملة — والمستخدم بيراجعها في محرّرها
-  /// بعد «كمّل» زي أي جرعة تانية.
-  void _addDose() {
-    const order = [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.wake, DayAnchor.sleep];
-    final used = {
-      for (final t in _doses)
-        if (t case AnchorTiming(:final anchor)) anchor,
-    };
-    final next = order.firstWhere((a) => !used.contains(a), orElse: () => DayAnchor.dinner);
-    setState(() => _doses = [..._doses, _withFood(next)]);
+  /// شريحة عدد اتداست. اللي متختارة أصلاً ما بتعملش حاجة — الدوسة التانية
+  /// على «٤ مرات» في سطر جاي من ورقة كانت هترمي مراسي الورقة وتبني عُرف.
+  void _pickCount(int n) {
+    if (_timesPerDay == n && !_customCount) return;
+    _reseed(() {
+      _timesPerDay = n;
+      _customCount = false;
+    });
   }
 
-  /// الساعة المحسوبة على مواعيد اليوم — عرض بس، عمرها ما بتتخزّن.
-  DateTime _resolve(DoseTiming timing) {
-    final engine = ScheduleEngine(widget.routine);
-    final day = widget.today ?? DateTime.now();
-    return switch (timing) {
-      AnchorTiming(:final anchor, :final offsetMinutes) =>
-        engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day),
-      FixedTiming(:final minuteOfDay) => engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: day),
-    };
-  }
-
-  /// الأرضية: الدوا لازم له جرعة واحدة. آخر صف مالوش «شيل» أصلاً.
-  void _removeDose(int index) {
-    if (_doses.length <= 1) return;
-    setState(() => _doses = [..._doses]..removeAt(index));
+  /// الأرضية: الدوا لازم له جرعة واحدة. والحد الأعلى عشان الحقل ما يبنيش
+  /// مية صف من غلطة كتابة.
+  void _typeCount(String text) {
+    final n = int.tryParse(text.trim());
+    if (n == null) return;
+    _reseed(() => _timesPerDay = n.clamp(1, _maxCount));
   }
 
   /// «كمّل»: محرّر لكل جرعة بالترتيب، والحفظ بعد الأخيرة بس.
@@ -273,26 +310,52 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s12),
-                  if (!fromPaper)
-                    FCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                  FCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                           const _FieldLabel('كام مرة في اليوم؟'),
-                          Row(
+                          // **المكان الوحيد اللي بيقرر العدد.** روشتة أربع
+                          // مرات بتلاقي شريحتها، واللي أكتر بيكتب رقمه.
+                          Wrap(
+                            spacing: F.s8,
+                            runSpacing: F.s8,
                             children: [
-                              for (final n in [1, 2, 3]) ...[
-                                Expanded(
-                                  child: AnchorChip(
-                                    label: switch (n) { 1 => 'مرة', 2 => 'مرتين', _ => '٣ مرات' },
-                                    selected: _timesPerDay == n,
-                                    onTap: () => _reseed(() => _timesPerDay = n),
-                                  ),
+                              for (final n in _countChips)
+                                AnchorChip(
+                                  key: ValueKey('count-$n'),
+                                  label: switch (n) {
+                                    1 => 'مرة',
+                                    2 => 'مرتين',
+                                    _ => '${arabicNumber(n)} مرات',
+                                  },
+                                  selected: !_customCount && _timesPerDay == n,
+                                  onTap: () => _pickCount(n),
                                 ),
-                                if (n != 3) const SizedBox(width: F.s8),
-                              ],
+                              AnchorChip(
+                                key: const ValueKey('count-more'),
+                                label: 'أكتر',
+                                selected: _customCount,
+                                onTap: () => setState(() {
+                                  _customCount = true;
+                                  if (_count.text.trim().isEmpty) {
+                                    _count.text = '${_countChips.last + 1}';
+                                  }
+                                  _typeCount(_count.text);
+                                }),
+                              ),
                             ],
                           ),
+                          if (_customCount) ...[
+                            const SizedBox(height: F.s10),
+                            _Field(
+                              key: const ValueKey('count-field'),
+                              controller: _count,
+                              hint: 'كام مرة؟',
+                              number: true,
+                              onChanged: _typeCount,
+                            ),
+                          ],
                           const SizedBox(height: F.gap),
                           const _FieldLabel('مع الأكل؟'),
                           Row(
@@ -315,38 +378,15 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           ),
                           const SizedBox(height: F.s10),
                           Text(
-                            'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.',
+                            fromPaper
+                                ? 'دي اللي الورقة قالتها. غيّر العدد لو مش مظبوط — '
+                                    'وهتراجع كل جرعة لوحدها بعد ما تكمّل.'
+                                : 'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.',
                             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                           ),
                         ],
                       ),
                     ),
-                  const SizedBox(height: F.s12),
-                  // قايمة الجرعات قبل «كمّل» — العدد بيتظبط هنا، والتوقيت
-                  // بيتراجع واحد واحد بعد كده. الساعة للعرض بس.
-                  FCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _FieldLabel(fromPaper ? 'جرعات الورقة' : 'جرعات اليوم'),
-                        const SizedBox(height: F.s8),
-                        for (final (i, timing) in _doses.indexed)
-                          DoseRow(
-                            key: ValueKey('dose-row-$i'),
-                            timing: timing,
-                            time: arabicTime(_resolve(timing)),
-                            onRemove: _doses.length > 1 && !_busy ? () => _removeDose(i) : null,
-                          ),
-                        SizedBox(
-                          height: F.minTapTarget,
-                          child: FSecondaryButton(
-                            label: 'أضف جرعة',
-                            onPressed: _busy ? null : _addDose,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: F.s12),
                   FCard(
                     child: Column(
@@ -422,17 +462,28 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.controller, required this.hint, this.mono = false, this.onChanged});
+  const _Field({
+    required this.controller,
+    required this.hint,
+    this.mono = false,
+    this.number = false,
+    this.onChanged,
+    super.key,
+  });
 
   final TextEditingController controller;
   final String hint;
   final bool mono;
+
+  /// لوحة أرقام — «كام مرة» رقم، مفيش حروف تتكتب فيه.
+  final bool number;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) => TextField(
         controller: controller,
         onChanged: onChanged,
+        keyboardType: number ? TextInputType.number : null,
         style: TextStyle(
           fontSize: F.minBodySize,
           fontFamily: mono ? F.monoFamily : null,

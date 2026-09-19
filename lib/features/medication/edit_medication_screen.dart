@@ -114,6 +114,55 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     await _loadSchedules();
   }
 
+  /// «شيل» لجرعة **محفوظة** — إيقاف ناعم، مش مسح.
+  ///
+  /// `stopDoseSchedule` بيحط `stopped_at` وبيعلّم الأحداث الجاية
+  /// `superseded`، فالتذكير بيقف والابن ما بيتنبّهش على جرعة مابقتش
+  /// موجودة. المسح الحقيقي هنا ممنوع: المزامنة بترفع بس، والأحداث بتتشال
+  /// بالـcascade — فالجهاز ينسى والسحابة تفضل فاكرة ويتصعّد على جرعة
+  /// الأب شالها بنفسه.
+  ///
+  /// وبيتسأل مرة قبلها: دوسة بالغلط هنا معناها جرعة بتبطّل ترنّ، وهو مش
+  /// هيعرف غير لما يفوّتها.
+  Future<void> _removeTiming(DoseSchedule schedule) async {
+    if (_busy || _schedules.length <= 1) return;
+    final services = AppScope.of(context);
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: F.dialogGround,
+        title: Text(
+          'تشيل جرعة «${schedule.timing.ruleLabel}»؟',
+          style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'هتبطّل ترنّ من دلوقتي. الجرعات اللي فاتت بتفضل في سجلك، وتقدر '
+          'تضيفها تاني من «أضف جرعة».',
+          style: TextStyle(fontSize: F.minBodySize, height: 1.5),
+        ),
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FPrimaryButton(
+                key: const ValueKey('remove-dose-confirm'),
+                label: 'أيوه، شيلها',
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: F.s8),
+              FSecondaryButton(label: 'لأ، سيبها', onPressed: () => Navigator.of(context).pop(false)),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (yes ?? false) {
+      await services.medications.stopDoseSchedule(int.parse(schedule.id));
+      await services.scheduler.rescheduleAll();
+      await _loadSchedules();
+    }
+  }
+
   @override
   void dispose() {
     _amount.dispose();
@@ -191,11 +240,18 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
                       ),
                       const SizedBox(height: F.s8),
-                      for (final schedule in _schedules)
+                      for (final (i, schedule) in _schedules.indexed)
                         DoseRow(
+                          key: ValueKey('dose-row-$i'),
                           timing: schedule.timing,
                           time: arabicTime(ScheduleEngine(_routine).resolve(schedule, DateTime.now())),
                           onEdit: () => _editTiming(schedule, med.name),
+                          // الأرضية: آخر جرعة مالهاش «شيل» خالص — دوا من
+                          // غير جرعة مش دوا، وزرار رمادي كان هيخلّيه يدوس
+                          // ويستنى حاجة تحصل.
+                          onRemove: _schedules.length > 1 && !_busy
+                              ? () => _removeTiming(schedule)
+                              : null,
                         ),
                       SizedBox(
                         height: F.minTapTarget,

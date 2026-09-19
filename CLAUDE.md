@@ -234,7 +234,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         825 passing
+test/                         833 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1561,36 +1561,49 @@ to one is the failure mode here** — the regression test is named for it,
 and `multi_dose_read_test` asserts the count again on the *read* side
 (database, «جدول الأدوية», and the export's «٤× في اليوم»), because this
 class of loss should be visible from both ends.
-**The dose count is set before the medication is saved, and one dose is
-the floor.** `AddMedicationScreen` shows the day's doses as a list above
-«كمّل» — `DoseRow` (extracted from `EditMedicationScreen`'s `_TimingRow`,
-now shared and taking a `DoseTiming` rather than a saved row) — with
-«شيل» per row and «أضف جرعة» under it. «كام مرة» stays as a **preset**
-that seeds the list; add/remove refine it, and the editor walk after
-«كمّل» is still where each timing is confirmed, so there is one way to
-set a timing, not two. Rows in that list carry no «عدّل» for that reason
-(`DoseRow`'s buttons are both optional: null means the control is absent,
-not disabled). The floor is enforced twice — the last row has no «شيل»,
-and `_removeDose` refuses — because a medication with zero doses is not a
-medication. On an already-saved medication «أضف جرعة» writes a new
-schedule through `addDoseSchedule`, exactly the path a scan uses.
+**How many doses a medication has is decided in exactly one place per
+screen — and they are different screens on purpose.**
 
-**Removing a dose from a medication that is already saved is NOT built,
-and must not be until deletes exist.** A hard delete was asked for and is
-unsafe here, concretely: `dose_schedules` is a `SyncIdentity` table,
-`sync_service` only ever upserts (debt 1 — no deletes), and
-`dose_events` cascades on the local delete. So the father removes his
-2 PM dose, his phone forgets it, and the cloud keeps both the schedule
-and its `pending` events — which `due_escalations` still selects
-(`state in ('pending','missed')`, 0011). At 3 PM the son is told his
-father missed a 2 PM dose that no longer exists, and the father's phone
-can no longer correct the row because it deleted it. That is the exact
-alarm `superseded` was introduced to prevent. The safe shape is the one
-already used elsewhere: a soft stop on the schedule (a new column, schema
-v16 + a cloud migration), marking its future `pending` events
-`superseded` so the server drops them, and filtering stopped schedules
-out of the caregiver view. That is its own round, with SQL run against
-the live project — not a line in a UI round.
+- **Adding («ضيف دوا»): «كام مرة في اليوم؟» and nothing else.**
+  `AddMedicationScreen` briefly also showed the day's doses as a `DoseRow`
+  list with «شيل» and «أضف جرعة» under it. That made **three** controls for
+  one number — the chips, the list, and the editor walk after «كمّل» — and
+  the list was the wrong one of the three: nothing there is saved yet, so
+  removing a row is arithmetic on a preset, not an edit to a medicine.
+  The chips now run ١ / ٢ / ٣ / ٤ plus «أكتر», which opens a number field
+  (clamped 1–12; more doses than that is a typo, not a regimen).
+  «مع الأكل» still seeds the offsets. Tapping the chip that is **already
+  selected** does nothing — a second tap on «٤ مرات» for a line that came
+  from paper would otherwise throw the paper's anchors away and rebuild
+  them from our convention.
+- **The convention past three:** ١× الفطار، ٢× + العشا، ٣× + الغدا،
+  ٤× + قبل النوم، ٥× + الصحيان. Past five it cycles the same five anchors,
+  because there is no sixth anchor and inventing one is rule 6. Two doses
+  landing on one anchor are reviewed in the walk like any other, and if
+  the person leaves them identical the engine groups them into one
+  reminder — its documented behaviour, not a loss.
+- **A scan reading keeps its own count.** Four timings from the paper
+  arrive with «٤ مرات» selected and four editors in the walk, and the
+  paper's anchors are what gets saved unless the person changes the
+  number. The count used to be hidden entirely on the paper path, so a
+  four-dose line could not be made a two-dose line at all.
+- **Changing a saved medication is `EditMedicationScreen`'s job**, which is
+  where `DoseRow` already lived and where a person goes to change a
+  medicine they have. «أضف جرعة» writes a new schedule through
+  `addDoseSchedule` (the path a scan uses); «شيل» calls `stopDoseSchedule`
+  after a one-tap confirm naming the rule — a mistap here silently stops a
+  dose ringing, and he finds out by missing it. The floor is one dose and
+  it is enforced on real rows: the last `DoseRow` gets no «شيل» at all
+  (null, not disabled), and `_removeTiming` refuses.
+- **«شيل» on a saved dose is a soft stop, and a hard delete stays
+  forbidden.** `dose_schedules` is a `SyncIdentity` table, sync upserts
+  only for it (debt 1), and `dose_events` cascades on a local delete — so a
+  real delete makes the phone forget while the cloud keeps the schedule
+  and its `pending` events, which `due_escalations` still selects. At 3 PM
+  the son is told his father missed a 2 PM dose that no longer exists, and
+  the father's phone can no longer correct a row it deleted.
+  `stopDoseSchedule` writes `stopped_at`, marks future events `superseded`,
+  and `0014` already filters `s.stopped_at is null` server-side.
 
 **D3.3 — elder mode + notifications (built)**
 - Schema v9 `device_preferences`: one local row (`id = 1`, not synced) —

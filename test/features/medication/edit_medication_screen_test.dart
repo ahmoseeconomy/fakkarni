@@ -222,4 +222,104 @@ void main() {
       expect(find.text('أدويتك'), findsNothing);
     });
   });
+
+  /// **عدد الجرعات لدوا محفوظ بيتغيّر من هنا** — الحالتين دول كانوا على
+  /// قايمة «ضيف دوا» قبل ما تتشال. هنا صح أكتر: الصفوف حقيقية، فالشيل
+  /// بيوقف تذكير فعلاً، والأرضية بتتفرض على اللي في القاعدة مش على قايمة
+  /// في الذاكرة.
+  group('كام جرعة لدوا موجود', () {
+    const fourTimes = [
+      AnchorTiming(DayAnchor.wake, 0),
+      AnchorTiming(DayAnchor.breakfast, 0),
+      AnchorTiming(DayAnchor.lunch, 0),
+      AnchorTiming(DayAnchor.dinner, 0),
+    ];
+
+    Future<int> seedFour() => h.meds.addMedicationWithDoses(
+          patientId: h.services.patientId,
+          name: 'Augmentin',
+          timings: fourTimes,
+          startDate: aug31,
+          amountLabel: 'قرص',
+        );
+
+    Future<void> removeRow(WidgetTester tester, int index) async {
+      await tester.tap(find.descendant(
+        of: find.byKey(ValueKey('dose-row-$index')),
+        matching: find.text('شيل'),
+      ));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('remove-dose-confirm')));
+      await settle(tester);
+    }
+
+    screenTest('٤ → ٢: «شيل» مرتين، والتذكيرات بتفضل للاتنين الباقيين بس', (tester) async {
+      final id = await seedFour();
+      await pumpEdit(tester, id);
+      expect(find.byType(DoseRow), findsNWidgets(4));
+
+      // شيل الصحيان والغدا — الفاضل الفطار والعشا
+      await removeRow(tester, 0);
+      await removeRow(tester, 1);
+
+      expect(find.byType(DoseRow), findsNWidgets(2));
+      final left = await h.meds.schedulesFor(id);
+      expect(left, hasLength(2));
+      expect(
+        [for (final s in left) if (s.timing case AnchorTiming(:final anchor)) anchor],
+        unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
+      );
+
+      final doseTimes = {
+        for (final e in h.sink.scheduled.entries)
+          if (isDoseId(e.key)) '${e.value.at.hour}:${e.value.at.minute.toString().padLeft(2, '0')}',
+      };
+      expect(doseTimes, {'7:30', '20:00'}, reason: 'ولا تذكير للصحيان ولا الغدا');
+    });
+
+    screenTest('١ → ٢: «أضف جرعة» بتكتب صف جديد', (tester) async {
+      final id = await seedTelfast(unknown: false);
+      await pumpEdit(tester, id);
+      expect(find.byType(DoseRow), findsOneWidget);
+
+      await tester.tap(find.text('أضف جرعة'));
+      await settle(tester);
+      await tester.tap(find.text('احفظ الجرعة'));
+      await settle(tester);
+
+      expect(find.byType(DoseRow), findsNWidgets(2));
+      expect(await h.meds.schedulesFor(id), hasLength(2));
+    });
+
+    screenTest('الأرضية: آخر جرعة مالهاش «شيل» خالص', (tester) async {
+      final id = await seedTelfast(unknown: false);
+      await pumpEdit(tester, id);
+      expect(find.byType(DoseRow), findsOneWidget);
+      expect(find.text('شيل'), findsNothing, reason: 'دوا من غير جرعة مش دوا');
+
+      // اتنين → فيه شيل؛ ونرجع لواحدة → يختفي تاني
+      await tester.tap(find.text('أضف جرعة'));
+      await settle(tester);
+      await tester.tap(find.text('احفظ الجرعة'));
+      await settle(tester);
+      expect(find.text('شيل'), findsNWidgets(2));
+
+      await removeRow(tester, 1);
+      expect(find.byType(DoseRow), findsOneWidget);
+      expect(find.text('شيل'), findsNothing, reason: 'رجعنا للأرضية');
+      expect(await h.meds.schedulesFor(id), hasLength(1));
+    });
+
+    screenTest('الشيل إيقاف ناعم: الصف بيفضل في القاعدة، والأحداث الجاية superseded',
+        (tester) async {
+      final id = await seedFour();
+      await pumpEdit(tester, id);
+      await removeRow(tester, 0);
+
+      // مفيش مسح — الصف مكانه بـstopped_at
+      final all = await h.db.select(h.db.doseSchedules).get();
+      expect(all, hasLength(4), reason: 'مسح حقيقي كان هيخلّي الابن يتصعّد على جرعة مش موجودة');
+      expect(all.where((s) => s.stoppedAt != null), hasLength(1));
+    });
+  });
 }

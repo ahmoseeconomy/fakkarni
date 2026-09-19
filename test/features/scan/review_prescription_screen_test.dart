@@ -237,6 +237,46 @@ void main() {
     expect((await h.meds.activeSchedules(h.services.patientId)).single.medicationName, 'Cataflam');
   });
 
+  screenTest('سطر بأربع جرعات بيعدّي من «عدّل» بأربعتهم — العدّاد هو اللي بيحملهم دلوقتي',
+      (tester) async {
+    const fourTimes = [
+      AnchorTiming(DayAnchor.wake, 0),
+      AnchorTiming(DayAnchor.breakfast, 0),
+      AnchorTiming(DayAnchor.lunch, 0),
+      AnchorTiming(DayAnchor.dinner, 0),
+    ];
+    final four = ReadLine(
+      name: ok('Augmentin'),
+      amount: ok('قرص'),
+      timings: ok<List<DoseTiming>>(fourTimes),
+      duration: ok<int?>(7),
+    );
+    await pumpReview(tester, [four]);
+    await open(tester);
+
+    await tester.tap(find.byKey(const ValueKey('edit-line-0')));
+    await settle(tester);
+    expect(find.byType(AddMedicationScreen), findsOneWidget);
+
+    // القايمة اتشالت من الشاشة دي، فالعدد بقى على الشريحة — واللي بيثبت
+    // إنه وصل هو إن المشي بيقف أربع مرات.
+    await tester.tap(find.text('كمّل — إمتى؟'));
+    await settle(tester);
+    for (var i = 1; i <= 4; i++) {
+      await tester.tap(find.text(i == 4 ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
+      await settle(tester);
+    }
+
+    expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+    expect(await h.meds.activeSchedules(h.services.patientId), isEmpty, reason: 'لسه مسوّدة');
+
+    await confirm(tester);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(4), reason: 'أربعة دخلوا «عدّل» وأربعة خرجوا');
+    expect(saved.map((s) => s.timing), containsAll(fourTimes));
+  });
+
   screenTest('«شيله» بيطلع السطر من المسوّدة — فعمره ما يتحفظ، و«رجّعه» بترجّعه', (tester) async {
     final second = ReadLine(
       name: ok('Antodine 40 mg'),

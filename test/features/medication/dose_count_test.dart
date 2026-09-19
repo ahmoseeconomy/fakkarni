@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fakkarni/data/services/reminder_plan.dart' show isDoseId;
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
@@ -9,11 +8,11 @@ import 'package:fakkarni/features/medication/dose_row.dart';
 
 import '../scan/scan_test_support.dart';
 
-/// عدد جرعات الدوا بيتظبط **قبل** ما يتحفظ: «شيل» و«أضف جرعة» على قايمة
-/// الجرعات، والأرضية جرعة واحدة.
+/// **«كام مرة في اليوم؟» هي المكان الوحيد اللي بيقرر العدد في «ضيف دوا».**
 ///
-/// ده اللي كان ناقص: سطر روشتة بأربع جرعات ما كانش ينفع يتعدّل لاتنين، لأن
-/// العدد كان جاي من الورقة وخلاص.
+/// كانت تحتها قايمة جرعات بـ«شيل» و«أضف جرعة»، فبقى تلات أماكن بتقرر نفس
+/// الرقم: الشرايح، والقايمة، والمشي اللي بعد «كمّل». القايمة اتشالت من
+/// هنا، وإضافة وشيل لدوا **محفوظ** مكانهم شاشة التعديل.
 void main() {
   final h = Harness();
   setUp(h.setUp);
@@ -47,85 +46,113 @@ void main() {
     await tester.tap(find.text('كمّل — إمتى؟'));
     await settle(tester);
     for (var i = 1; i <= count; i++) {
+      expect(
+        find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'),
+        findsOneWidget,
+        reason: 'المحرّر رقم $i من $count',
+      );
       await tester.tap(find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
       await settle(tester);
     }
   }
 
-  screenTest('٤ → ٢: «شيل» مرتين بيحفظ جرعتين، والتذكيرات المجدولة للاتنين الباقيين بس',
-      (tester) async {
-    await pumpAdd(tester, timings: fourTimes);
-    expect(find.byType(DoseRow), findsNWidgets(4));
+  screenTest('مفيش زرار يضيف ولا يشيل جرعة في «ضيف دوا» — ولا قايمة أصلاً', (tester) async {
+    await pumpAdd(tester);
 
-    // «شيل» الصحيان والغدا — الفاضل الفطار والعشا
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-0')), matching: find.text('شيل')));
-    await settle(tester);
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-1')), matching: find.text('شيل')));
-    await settle(tester);
-    expect(find.byType(DoseRow), findsNWidgets(2));
+    expect(find.byType(DoseRow), findsNothing);
+    expect(find.text('أضف جرعة'), findsNothing);
+    expect(find.text('شيل'), findsNothing);
+    expect(find.text('جرعات اليوم'), findsNothing);
+    // اللي فاضل: الشرايح
+    expect(find.byKey(const ValueKey('count-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('count-more')), findsOneWidget);
+    expectNoRedAndMinSize(tester);
+  });
 
-    await walk(tester, 2);
+  screenTest('«٤ مرات» → أربع محرّرات وأربع جرعات متحفوظة', (tester) async {
+    await pumpAdd(tester);
+
+    await tester.tap(find.byKey(const ValueKey('count-4')));
+    await settle(tester);
+
+    await walk(tester, 4);
 
     final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(saved, hasLength(2), reason: 'اتنين اتشالوا قبل الحفظ — فمفيش صفوف ليهم');
+    expect(saved, hasLength(4), reason: 'روشتة أربع مرات لازم تعدّي');
     expect(
       [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
-      unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
+      unorderedEquals([DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.sleep]),
     );
-
-    // التذكيرات المجدولة (نطاق الجرعات — من غير درجات التصعيد) على الفطار
-    // والعشا بس: ولا تذكير للصحيان ولا الغدا اللي اتشالوا.
-    final doseTimes = {
-      for (final e in h.sink.scheduled.entries)
-        if (isDoseId(e.key)) '${e.value.at.hour}:${e.value.at.minute.toString().padLeft(2, '0')}',
-    };
-    expect(doseTimes, {'7:30', '20:00'});
   });
 
-  screenTest('١ → ٢: «أضف جرعة» بيحفظ جرعتين', (tester) async {
-    await pumpAdd(tester, timings: const [AnchorTiming(DayAnchor.breakfast, 0)]);
-    expect(find.byType(DoseRow), findsOneWidget);
+  screenTest('«أكتر» بتفتح حقل رقم — ٦ مرات بتمشي ٦ محرّرات', (tester) async {
+    await pumpAdd(tester);
+    expect(find.byKey(const ValueKey('count-field')), findsNothing);
 
-    await tester.tap(find.text('أضف جرعة'));
+    await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
-    expect(find.byType(DoseRow), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
 
-    await walk(tester, 2);
+    await tester.enterText(find.byKey(const ValueKey('count-field')), '6');
+    await settle(tester);
 
-    final saved = await h.meds.activeSchedules(h.services.patientId);
-    expect(saved, hasLength(2));
-    expect(saved.map((s) => s.medicationName).toSet(), {'Augmentin'});
+    await walk(tester, 6);
+    expect(await h.meds.activeSchedules(h.services.patientId), hasLength(6));
   });
 
-  screenTest('الأرضية: جرعة واحدة مالهاش «شيل» — لا من الورقة ولا بعد ما تشيل الباقي',
-      (tester) async {
-    await pumpAdd(tester, timings: const [AnchorTiming(DayAnchor.breakfast, 0)]);
-    expect(find.text('شيل'), findsNothing, reason: 'آخر جرعة مالهاش شيل');
-
-    await tester.tap(find.text('أضف جرعة'));
+  screenTest('الأرضية: رقم أقل من واحد ما بيبقاش صفر جرعة', (tester) async {
+    await pumpAdd(tester);
+    await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
-    expect(find.text('شيل'), findsNWidgets(2));
-
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('dose-row-1')), matching: find.text('شيل')));
+    await tester.enterText(find.byKey(const ValueKey('count-field')), '0');
     await settle(tester);
-    expect(find.byType(DoseRow), findsOneWidget);
-    expect(find.text('شيل'), findsNothing, reason: 'رجعنا للأرضية');
 
     await walk(tester, 1);
     expect(await h.meds.activeSchedules(h.services.patientId), hasLength(1));
   });
 
-  screenTest('«كام مرة» لسه بتشتغل في الإدخال اليدوي — وبتعيد بناء القايمة', (tester) async {
-    await pumpAdd(tester);
-    expect(find.byType(DoseRow), findsOneWidget, reason: 'الافتراضي مرة واحدة');
+  screenTest('سطر روشتة بأربع جرعات بيوصل بأربعتهم، والعدّاد واقف على ٤', (tester) async {
+    await pumpAdd(tester, timings: fourTimes);
 
-    await tester.tap(find.text('٣ مرات'));
-    await settle(tester);
-    expect(find.byType(DoseRow), findsNWidgets(3));
+    // الشريحة بتقول الحقيقة — قبل كده العدّاد كان مخبّي خالص في طريق الورقة
+    final chip = tester.widget<InkWell>(
+      find.descendant(of: find.byKey(const ValueKey('count-4')), matching: find.byType(InkWell)),
+    );
+    expect(chip.onTap, isNotNull);
+    expect(find.textContaining('دي اللي الورقة قالتها'), findsOneWidget);
 
-    // وبعد كده «أضف جرعة» بتزوّد على العُرف
-    await tester.tap(find.text('أضف جرعة'));
+    await walk(tester, 4);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(4));
+    expect(saved.map((s) => s.timing), containsAll(fourTimes),
+        reason: 'مراسي الورقة زي ما هي — مش عُرفنا');
+  });
+
+  screenTest('دوسة تانية على الشريحة المختارة ما بترميش مراسي الورقة', (tester) async {
+    await pumpAdd(tester, timings: fourTimes);
+
+    await tester.tap(find.byKey(const ValueKey('count-4')));
     await settle(tester);
-    expect(find.byType(DoseRow), findsNWidgets(4));
+
+    await walk(tester, 4);
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved.map((s) => s.timing), containsAll(fourTimes));
+  });
+
+  screenTest('تغيير العدد بإيد بيعيد البناء من العُرف — ٤ → ٢', (tester) async {
+    await pumpAdd(tester, timings: fourTimes);
+
+    await tester.tap(find.byKey(const ValueKey('count-2')));
+    await settle(tester);
+
+    await walk(tester, 2);
+
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved, hasLength(2));
+    expect(
+      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
+      unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
+    );
   });
 }
