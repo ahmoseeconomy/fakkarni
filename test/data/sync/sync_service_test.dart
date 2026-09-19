@@ -628,4 +628,66 @@ void main() {
     });
   });
 
+
+  group('الإيقاف الناعم بيعدّي المزامنة من غير ما يعيش تاني', () {
+    test('الشيل والإيقاف بيترفعوا كأعمدة — ولا صف بيتمسح من السحابة', () async {
+      final id = await meds.addMedicationWithDoses(
+        patientId: patientId,
+        name: 'Concor 5mg',
+        timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+        startDate: DateTime(2026, 8, 31),
+      );
+      await sync.confirmLinked();
+      await sync.push();
+      expect(remote.rowCount('medications'), 1);
+      expect(remote.rowCount('dose_schedules'), 1);
+      final beforeMed = remote.tables['medications']!.values.single;
+      expect(beforeMed['removed_at'], isNull);
+
+      await meds.removeMedication(id, now: DateTime(2026, 9, 1));
+      await sync.push();
+
+      // نفس الصف، محدّث — **مش** صف جديد ولا صف أقل
+      expect(remote.rowCount('medications'), 1, reason: 'مفيش مسح ومفيش تكرار');
+      final afterMed = remote.tables['medications']!.values.single;
+      expect(afterMed['uuid'], beforeMed['uuid']);
+      expect(afterMed['removed_at'], isNotNull, reason: 'السحابة عرفت إنه اتشال');
+    });
+
+    test('الجرعة الموقوفة بترفع stopped_at، والصف بيفضل مكانه', () async {
+      final id = await meds.addMedicationWithDoses(
+        patientId: patientId,
+        name: 'Augmentin',
+        timings: const [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)],
+        startDate: DateTime(2026, 8, 31),
+      );
+      await sync.confirmLinked();
+      await sync.push();
+      expect(remote.rowCount('dose_schedules'), 2);
+
+      final schedules = await meds.schedulesFor(id);
+      await meds.stopDoseSchedule(int.parse(schedules.first.id), now: DateTime(2026, 9, 1));
+      await sync.push();
+
+      expect(remote.rowCount('dose_schedules'), 2, reason: 'الصف مكانه — إيقاف مش مسح');
+      final stopped = remote.tables['dose_schedules']!.values.where((r) => r['stopped_at'] != null);
+      expect(stopped, hasLength(1));
+    });
+
+    test('دفعة تانية بعد الشيل ما بترجّعوش للقوايم — القراية المحلية لسه بتستثنيه', () async {
+      final id = await meds.addMedicationWithDoses(
+        patientId: patientId,
+        name: 'Concor 5mg',
+        timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+        startDate: DateTime(2026, 8, 31),
+      );
+      await meds.removeMedication(id, now: DateTime(2026, 9, 1));
+      await sync.confirmLinked();
+      await sync.push();
+      await sync.push();
+
+      expect(await meds.activeSchedules(patientId), isEmpty, reason: 'المزامنة ما بتقراش جوّه drift');
+      expect((await meds.watchAllSummaries(patientId).first), isEmpty);
+    });
+  });
 }

@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -313,6 +313,22 @@ class AppDatabase extends _$AppDatabase {
               ).get();
               if (existing.isEmpty) {
                 await customStatement('ALTER TABLE dose_schedules ADD COLUMN active_from INTEGER NULL');
+              }
+            }
+            if (from < 16) {
+              // الإيقاف الناعم: الدوا بيتشال من القوايم، والجرعة بتقف —
+              // **ومفيش مسح**. nullable: الصفوف القديمة شغّالة زي ما هي،
+              // وما بنخترعش لها وقت. بحماية وجود زي v13 وv15.
+              for (final (table, column) in [
+                ('medications', 'removed_at'),
+                ('dose_schedules', 'stopped_at'),
+              ]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('$table') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE $table ADD COLUMN $column INTEGER NULL');
+                }
               }
             }
             if (from < 6) {

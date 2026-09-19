@@ -119,12 +119,15 @@ Future<ExportDocument> collectExport(
 
 Future<List<String>> _medications(AppDatabase db, int patientId) async {
   final meds = await (db.select(db.medications)
-        ..where((t) => t.patientId.equals(patientId) & t.stoppedAt.isNull())
+        // الموقوف مش دوا حالي، والمتشال مش موجود أصلاً
+        ..where((t) => t.patientId.equals(patientId) & t.stoppedAt.isNull() & t.removedAt.isNull())
         ..orderBy([(t) => OrderingTerm.asc(t.name)]))
       .get();
   final lines = <String>[];
   for (final m in meds) {
-    final schedules = await (db.select(db.doseSchedules)..where((t) => t.medicationId.equals(m.id))).get();
+    final schedules = await (db.select(db.doseSchedules)
+          ..where((t) => t.medicationId.equals(m.id) & t.stoppedAt.isNull()))
+        .get();
     lines.add([
       m.name,
       if (m.amountLabel != null) m.amountLabel!,

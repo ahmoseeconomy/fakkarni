@@ -268,6 +268,14 @@ class Medications extends Table with SyncIdentity {
   /// أي مسار في التطبيق بيوقف دوا من نفسه.
   DateTimeColumn get stoppedAt => dateTime().nullable()();
 
+  /// null معناها الدوا لسه في القوايم.
+  ///
+  /// **مش مسح.** الصف بيفضل مكانه بأحداثه القديمة كتاريخ، وبيختفي من كل
+  /// قايمة. المسح الحقيقي ممنوع: المزامنة بترفع بس (دين ١)، و`dose_events`
+  /// بتتمسح بالـcascade — يعني الجهاز ينسى والسحابة تفضل تنبّه الابن على
+  /// جرعة مابقتش موجودة. ومفيش رجوع من هنا، على عكس [stoppedAt].
+  DateTimeColumn get removedAt => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -295,6 +303,13 @@ class DoseSchedules extends Table with SyncIdentity {
   /// الافتراضي مرساة — وده اللي الصفوف القديمة بتاخده في الترحيل.
   TextColumn get timingKind => textEnum<DoseTimingKind>()
       .withDefault(Constant(DoseTimingKind.anchor.name))();
+
+  /// null معناها الجرعة دي لسه شغّالة.
+  ///
+  /// إيقاف ناعم لجرعة واحدة من دوا شغّال — **مش مسح**، لنفس سبب
+  /// [Medications.removedAt]. الجرعة بتقف عن توليد أحداث جديدة، وأحداثها
+  /// الجاية اللي «لسه» بتتعلّم `superseded` فالسيرفر ما يصعّدش عليها.
+  DateTimeColumn get stoppedAt => dateTime().nullable()();
 
   /// المرساة — null بس لو [timingKind] ساعة ثابتة.
   TextColumn get anchor => textEnum<DayAnchor>().nullable()();

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/scheduling/dose_schedule.dart';
+import '../dose_state.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../mappers.dart';
@@ -35,13 +36,23 @@ class MedicationRepository {
       _joined(patientId)
         ..where(
           _db.medications.patientId.equals(patientId) &
-              _db.medications.stoppedAt.isNull(),
+              _db.medications.stoppedAt.isNull() &
+              // المتشال مالوش وجود في أي قايمة، والجرعة الموقوفة ما بتولّدش
+              // حاجة جديدة — الجدولة بتقرا من هنا.
+              _db.medications.removedAt.isNull() &
+              _db.doseSchedules.stoppedAt.isNull(),
         );
 
   /// نفس الـjoin من غير فلتر الإيقاف — لقايمة «الأدوية» اللي بتعرض الموقوف
   /// في قسم لوحده بدل ما يختفي.
   JoinedSelectStatement<HasResultSet, dynamic> _allQuery(int patientId) =>
-      _joined(patientId)..where(_db.medications.patientId.equals(patientId));
+      _joined(patientId)
+        ..where(
+          _db.medications.patientId.equals(patientId) &
+              // «موقوفة» قسم في القايمة؛ «متشال» مش قايمة أصلاً.
+              _db.medications.removedAt.isNull() &
+              _db.doseSchedules.stoppedAt.isNull(),
+        );
 
   JoinedSelectStatement<HasResultSet, dynamic> _joined(int patientId) =>
       _db.select(_db.doseSchedules).join([
@@ -247,7 +258,12 @@ class MedicationRepository {
           .watchSingleOrNull();
 
   Future<List<DoseSchedule>> schedulesFor(int medicationId) async => _map(
-        await (_activeQueryAll()..where(_db.doseSchedules.medicationId.equals(medicationId))).get(),
+        await (_activeQueryAll()
+              ..where(
+                _db.doseSchedules.medicationId.equals(medicationId) &
+                    _db.doseSchedules.stoppedAt.isNull(),
+              ))
+            .get(),
       );
 
   JoinedSelectStatement<HasResultSet, dynamic> _activeQueryAll() =>
@@ -335,13 +351,72 @@ class MedicationRepository {
     );
   }
 
-  /// بيوقف دوا — **بإيد إنسان وبس**.
+  /// بيوقف دوا — **بإيد إنسان وبس**، وبيتراجع عنه.
   ///
   /// مفيش أي مسار تاني في التطبيق بيكتب في `stoppedAt`. مدة مفتوحة معناها
   /// التذكير يفضل شغال لحد ما حد يقرر يوقفه.
-  Future<void> stopMedication(int medicationId) =>
+  ///
+  /// وبيعلّم جرعاته الجاية اللي «لسه» بـ`superseded`: من غير كده الصفوف دي
+  /// بتفضل `pending` في السحابة، والسيرفر بيصعّد عند +٦٠ على جرعة الأب
+  /// وقّفها بنفسه. اللي عدّى ما بيتلمسش — ده تاريخ حصل.
+  Future<void> stopMedication(int medicationId, {DateTime? now}) =>
+      _db.transaction(() async {
+        final at = now ?? _clock();
+        await (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+            .write(MedicationsCompanion(stoppedAt: Value(at)));
+        await _supersedeFuture(medicationId: medicationId, from: at);
+      });
+
+  /// بيرجّع دوا موقوف للخدمة. الجدولة بعدها بتنزّل أيامه من جديد.
+  Future<void> resumeMedication(int medicationId) =>
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
-          .write(MedicationsCompanion(stoppedAt: Value(DateTime.now())));
+          .write(const MedicationsCompanion(stoppedAt: Value(null)));
+
+  /// بيشيل الدوا من كل القوايم — **من غير مسح، ومن غير رجوع**.
+  ///
+  /// الصف وأحداثه القديمة بيفضلوا مكانهم كتاريخ. المسح الحقيقي ممنوع:
+  /// المزامنة بترفع بس (دين ١)، و`dose_events` بتتمسح بالـcascade — فالجهاز
+  /// ينسى والسحابة تفضل تنبّه الابن على جرعة مابقتش موجودة.
+  Future<void> removeMedication(int medicationId, {DateTime? now}) =>
+      _db.transaction(() async {
+        final at = now ?? _clock();
+        await (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+            .write(MedicationsCompanion(removedAt: Value(at)));
+        await _supersedeFuture(medicationId: medicationId, from: at);
+      });
+
+  /// بيوقف جرعة واحدة من دوا شغّال — نفس القاعدة: إيقاف ناعم، مش مسح.
+  Future<void> stopDoseSchedule(int scheduleId, {DateTime? now}) =>
+      _db.transaction(() async {
+        final at = now ?? _clock();
+        await (_db.update(_db.doseSchedules)..where((t) => t.id.equals(scheduleId)))
+            .write(DoseSchedulesCompanion(stoppedAt: Value(at)));
+        await _supersedeFuture(scheduleId: scheduleId, from: at);
+      });
+
+  /// «اتغيّرت القاعدة» على كل حدث **جاي** لسه `pending`.
+  ///
+  /// `superseded` حالة موجودة أصلاً (٠٠١٠): الشاشات بتخفيها، و
+  /// `due_escalations` ما بتختارش غير `pending`/`missed` — فالصف ده ما
+  /// بيوصلش الابن. ومفيش مسح، فالسحابة بتاخد نفس الصف محدّث.
+  Future<void> _supersedeFuture({int? medicationId, int? scheduleId, required DateTime from}) async {
+    final ids = scheduleId != null
+        ? [scheduleId]
+        : (await (_db.select(_db.doseSchedules)
+                  ..where((t) => t.medicationId.equals(medicationId!)))
+                .get())
+            .map((r) => r.id)
+            .toList();
+    if (ids.isEmpty) return;
+    await (_db.update(_db.doseEvents)
+          ..where(
+            (t) =>
+                t.doseScheduleId.isIn(ids) &
+                t.state.equalsValue(DoseState.pending) &
+                t.scheduledAt.isBiggerThanValue(from),
+          ))
+        .write(const DoseEventsCompanion(state: Value(DoseState.superseded)));
+  }
 
   /// الأدوية اللي جرعتها مش معروفة ولسه شغّالة — عشان «اسأل الصيدلي عن…».
   Stream<List<MedicationRow>> watchAmountUnknown(int patientId) =>
@@ -350,12 +425,13 @@ class MedicationRepository {
               (t) =>
                   t.patientId.equals(patientId) &
                   t.amountUnknown.equals(true) &
-                  t.stoppedAt.isNull(),
+                  t.stoppedAt.isNull() &
+                  t.removedAt.isNull(),
             ))
           .watch();
 
   Stream<List<MedicationRow>> watchMedications(int patientId) =>
       (_db.select(_db.medications)
-            ..where((t) => t.patientId.equals(patientId)))
+            ..where((t) => t.patientId.equals(patientId) & t.removedAt.isNull()))
           .watch();
 }

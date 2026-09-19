@@ -8,6 +8,8 @@ import '../../data/repositories/medication_repository.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../../core/widgets/f_sheet.dart';
+import '../../core/widgets/primitives.dart';
 import 'add_sheet.dart';
 import 'edit_medication_screen.dart';
 
@@ -46,6 +48,92 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           builder: (_) => EditMedicationScreen(medicationId: medicationId),
         ),
       );
+
+  /// التلات أفعال من زرار واحد: عدّل، وقّفه، شيله.
+  ///
+  /// الفرق بين الاتنين الأخيرين مكتوب على الشيت نفسه، مش متروك للاسم:
+  /// الإيقاف بيتراجع، والشيل لأ.
+  Future<void> _actions(MedicationSummary summary) async {
+    final med = summary.medication;
+    final stopped = med.stoppedAt != null;
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+
+    await FSheet.show<void>(
+      context,
+      title: med.name,
+      children: [
+        FPrimaryButton(
+          label: 'عدّل',
+          onPressed: () {
+            navigator.pop();
+            _edit(med.id);
+          },
+        ),
+        if (stopped)
+          FSecondaryButton(
+            label: 'رجّعه تاني',
+            onPressed: () async {
+              navigator.pop();
+              await services.medications.resumeMedication(med.id);
+              await services.scheduler.rescheduleAll();
+            },
+          )
+        else
+          FSecondaryButton(
+            label: 'وقّفه دلوقتي',
+            onPressed: () async {
+              navigator.pop();
+              await services.medications.stopMedication(med.id);
+              // التذكيرات الجاية بتتلغى هنا — جوّه نطاق الجرعات بس.
+              await services.scheduler.rescheduleAll();
+            },
+          ),
+        FSecondaryButton(
+          label: 'شيله خالص',
+          onPressed: () {
+            navigator.pop();
+            _confirmRemove(summary);
+          },
+        ),
+      ],
+    );
+  }
+
+  /// **سؤال واحد قبل الشيل، والاسم فيه.** الشيل مالوش رجوع، فالتأكيد مش
+  /// تفصيلة: «شيله خالص» على كارت غلط بتشيل دوا المريض بياخده.
+  ///
+  /// الزرار غامق مش أحمر — الأحمر للطوارئ وبس، حتى في الحاجة اللي مالهاش رجوع.
+  Future<void> _confirmRemove(MedicationSummary summary) async {
+    final med = summary.medication;
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+
+    await FSheet.show<void>(
+      context,
+      title: 'تشيل ${med.name}؟',
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: F.gap),
+          child: Text(
+            'هيختفي من كل القوايم ومن ملف التصدير، وتذكيراته هتقف. '
+            'اللي فات من جرعاته بيفضل في تاريخك. **مفيش رجوع من الخطوة دي** — '
+            'لو ناوي توقفه مؤقتاً، «وقّفه دلوقتي» بترجع.',
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+          ),
+        ),
+        FPrimaryButton(
+          label: 'أيوه، شيله',
+          onPressed: () async {
+            navigator.pop();
+            await services.medications.removeMedication(med.id);
+            await services.scheduler.rescheduleAll();
+          },
+        ),
+        FSecondaryButton(label: 'لا، سيبه', onPressed: () => navigator.pop()),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +178,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     _MedCard(
                       summary: entry.summary,
                       schedule: entry.schedule,
-                      onEdit: () => _edit(entry.summary.medication.id),
+                      onActions: () => _actions(entry.summary),
                     ),
                     const SizedBox(height: F.s8),
                   ],
@@ -100,7 +188,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   const _GroupHead(label: 'موقوفة', time: null, muted: true),
                   const SizedBox(height: F.s8),
                   for (final m in stopped) ...[
-                    _MedCard(summary: m, schedule: null, onEdit: () => _edit(m.medication.id), stopped: true),
+                    _MedCard(summary: m, schedule: null, onActions: () => _actions(m), stopped: true),
                     const SizedBox(height: F.s8),
                   ],
                 ],
@@ -225,7 +313,7 @@ class _MedCard extends StatelessWidget {
   const _MedCard({
     required this.summary,
     required this.schedule,
-    required this.onEdit,
+    required this.onActions,
     this.stopped = false,
   });
 
@@ -233,7 +321,8 @@ class _MedCard extends StatelessWidget {
 
   /// الجرعة اللي الكارت بيمثّلها في مجموعته — null للموقوف (كل جداوله).
   final DoseSchedule? schedule;
-  final VoidCallback onEdit;
+  /// زرار واحد بيفتح التلاتة: «عدّل»، «وقّفه دلوقتي»، «شيله خالص».
+  final VoidCallback onActions;
   final bool stopped;
 
   @override
@@ -289,7 +378,8 @@ class _MedCard extends StatelessWidget {
           SizedBox(
             height: F.minTapTarget,
             child: OutlinedButton.icon(
-              onPressed: onEdit,
+              key: ValueKey('med-actions-${summary.medication.id}'),
+              onPressed: onActions,
               style: OutlinedButton.styleFrom(
                 foregroundColor: F.ink,
                 minimumSize: const Size(0, F.minTapTarget),
@@ -297,8 +387,9 @@ class _MedCard extends StatelessWidget {
                 side: BorderSide(color: F.line, width: 1.5),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
               ),
-              icon: const Icon(Icons.edit_outlined, size: 22),
-              label: const Text('عدّل', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
+              icon: const Icon(Icons.tune, size: 22),
+              // كلمة مع الأيقونة — مفيش زرار أيقونة من غير كلمة
+              label: const Text('خيارات', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
             ),
           ),
         ],

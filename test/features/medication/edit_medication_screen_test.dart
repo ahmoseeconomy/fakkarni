@@ -197,7 +197,10 @@ void main() {
       expect(find.text('العشا — ٨:٠٠ م'), findsOneWidget, reason: 'عنوان المجموعة بالمرساة والوقت');
       expect(find.text('قرص واحد — العشا'), findsOneWidget);
 
-      await tester.tap(find.text('عدّل'));
+      // «خيارات» → شيت التلات أفعال → «عدّل»
+      await tester.tap(find.text('خيارات'));
+      await settle(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'عدّل'));
       await settle(tester);
       expect(find.byType(EditMedicationScreen), findsOneWidget);
     });

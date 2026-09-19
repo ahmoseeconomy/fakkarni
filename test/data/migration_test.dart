@@ -88,7 +88,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 15);
+    expect(version.read<int>('user_version'), 16);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -143,6 +143,14 @@ void main() {
     final scheduleRows = await db.select(db.doseSchedules).get();
     expect(scheduleRows.length, 2);
     expect(scheduleRows.every((s) => s.activeFrom == null), isTrue);
+
+    // v16: مفيش حاجة اتشالت ولا اتوقفت لوحدها في الترحيل
+    expect(scheduleRows.every((s) => s.stoppedAt == null), isTrue);
+    expect(
+      (await db.select(db.medications).get()).every((m) => m.removedAt == null),
+      isTrue,
+      reason: 'الترحيل ما بيشيلش دوا',
+    );
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

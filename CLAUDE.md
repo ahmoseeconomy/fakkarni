@@ -164,7 +164,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v15: patients (sex, age — local),
+  data/db/                    drift (SQLite) v16: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         784 passing
+test/                         805 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1463,6 +1463,40 @@ groups and stays when the list is empty, where the sentence is now just
 «لسه مفيش أدوية.» — the card is the call to action, not a pointer at the
 dock. `add_sheet_test` reads `lib/` and fails if a sheet titled «ضيف
 دوا» is built anywhere else or if the callers are not exactly those two.
+
+**Nothing is ever deleted: a medication is *removed*, a dose is
+*stopped*** (schema v16 — `medications.removed_at`,
+`dose_schedules.stopped_at`, both nullable). A hard delete is forbidden
+here and the reason is mechanical, not stylistic: sync only upserts
+(debt 1), so the row lives on in the cloud forever; and `dose_events`
+cascades on the local delete, so the phone forgets the evidence while the
+cloud still holds the same events as `pending`. At +60 the son is told his
+father missed a dose his father removed, and the father's phone cannot
+correct a row it deleted. `test/data/no_hard_delete_test.dart` reads
+`lib/` and fails on a delete against either table (mutation-checked).
+- **Stopping** sets `medications.stopped_at`, marks its **future**
+  `pending` events `superseded` (the state `0010` added, which
+  `due_escalations` never selects), and `rescheduleAll` then cancels their
+  notifications. Past events are untouched — that is history, and it
+  happened. It moves to the «موقوفة» group and **resumes**.
+- **Removing** sets `removed_at`. It leaves every list, keeps its past
+  events, and does not come back. It asks once, naming the medication, and
+  says in words that there is no way back and that «وقّفه دلوقتي» is the
+  reversible one. The confirm is ink, **not red** — red is emergency only,
+  even for the irreversible thing.
+- **Six reads had to learn this, and a missed one is a ghost dose on the
+  son's phone:** the medication list (`_allQuery`), «يومك» and the
+  calendar (`DoseEventRepository._watch`), the export, the scheduler
+  (`_activeQuery` → `activeSchedules`), and the caregiver query. Each has
+  its own named test in `test/data/soft_stop_test.dart`; the caregiver one
+  is a source guard, because that query runs in the cloud.
+- **Cloud: `0014_soft_stop.sql`** adds both columns and re-declares
+  `private.due_escalations` with `m.removed_at is null` and
+  `s.stopped_at is null`. The device already supersedes, so these are the
+  second belt — an old phone, a row written by a background wake-up after
+  the stop, or a push that has not landed yet. Its self-check walks four
+  medications (live, removed, schedule-stopped, medication-stopped) and
+  asserts only the live one is due, then rolls back.
 
 **The review screen is a draft. «تمام، ظبّطهم» is the only write.**
 Until this round «عدّل» opened `AddMedicationScreen`, which **saved

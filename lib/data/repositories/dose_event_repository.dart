@@ -123,8 +123,14 @@ class DoseEventRepository {
         _db.medications.id.equalsExp(_db.doseSchedules.medicationId),
       ),
     ])
-      // «اتغيّرت القاعدة» مش جرعة — ما بتتعرضش في أي شاشة
-      ..where(where & _db.doseEvents.state.equalsValue(DoseState.superseded).not())
+      // «اتغيّرت القاعدة» مش جرعة — ما بتتعرضش في أي شاشة. والدوا المتشال
+      // مالوش وجود: لا في «يومك» ولا في التقويم. الموقوف بيفضل تاريخه
+      // ظاهر — أحداثه الجاية اتعلّمت `superseded` وقت الإيقاف.
+      ..where(
+        where &
+            _db.doseEvents.state.equalsValue(DoseState.superseded).not() &
+            _db.medications.removedAt.isNull(),
+      )
       ..orderBy([OrderingTerm.asc(_db.doseEvents.scheduledAt)]);
 
     return query.watch().map((rows) {

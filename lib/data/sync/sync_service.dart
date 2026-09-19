@@ -268,6 +268,9 @@ class SyncService {
                 'amount_label': m.amountLabel,
                 'notes': m.notes,
                 'stopped_at': m.stoppedAt == null ? null : utcIso(m.stoppedAt!),
+                // الإيقاف الناعم بيترفع زي أي عمود — **مفيش مسح** (دين ١)،
+                // والسحابة بتاخد نفس الصف محدّث فما بيرجعش يعيش.
+                'removed_at': m.removedAt == null ? null : utcIso(m.removedAt!),
                 'amount_unknown': m.amountUnknown,
               }
             );
@@ -307,6 +310,7 @@ class SyncService {
                 'repeat': s.repeat.name,
                 'start_date': dateOnly(s.startDate),
                 'duration_days': s.durationDays,
+                'stopped_at': s.stoppedAt == null ? null : utcIso(s.stoppedAt!),
               }
             );
           }(),

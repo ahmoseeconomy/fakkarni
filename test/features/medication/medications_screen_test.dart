@@ -50,9 +50,84 @@ void main() {
     final name = tester.widget<Text>(find.text('Concor 5mg'));
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
     expect(name.style?.fontFamily, F.monoFamily);
-    expect(find.widgetWithText(OutlinedButton, 'عدّل'), findsNWidgets(3));
+    expect(find.widgetWithText(OutlinedButton, 'خيارات'), findsNWidgets(3), reason: 'زرار واحد بيفتح التلاتة');
     expect(find.byIcon(Icons.mic), findsNothing, reason: 'مفيش زرار صوت');
     expectNoRedAndMinSize(tester);
+  });
+
+  group('التلات أفعال من زرار واحد', () {
+    Future<void> openActions(WidgetTester tester) async {
+      await tester.tap(find.text('خيارات').first);
+      await settle(tester);
+    }
+
+    screenTest('«خيارات» بيفتح التلاتة: عدّل، وقّفه، شيله', (tester) async {
+      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await pump(tester);
+      await openActions(tester);
+
+      expect(find.widgetWithText(FilledButton, 'عدّل'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'وقّفه دلوقتي'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'شيله خالص'), findsOneWidget);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('«وقّفه دلوقتي» بينقله لـ«موقوفة»، و«رجّعه تاني» بترجّعه', (tester) async {
+      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await pump(tester);
+
+      await openActions(tester);
+      await tester.tap(find.text('وقّفه دلوقتي'));
+      await settle(tester);
+      expect(find.text('موقوفة'), findsOneWidget);
+      expect(find.text('موقوف — التذكيرات واقفة'), findsOneWidget);
+
+      await openActions(tester);
+      expect(find.widgetWithText(OutlinedButton, 'رجّعه تاني'), findsOneWidget,
+          reason: 'الإيقاف بيتراجع — والشيل لأ');
+      await tester.tap(find.text('رجّعه تاني'));
+      await settle(tester);
+      expect(find.text('موقوفة'), findsNothing);
+    });
+
+    screenTest('**التأكيد شرط**: «شيله خالص» بتسأل بالاسم، و«لا، سيبه» ما بتشيلش',
+        (tester) async {
+      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await pump(tester);
+
+      await openActions(tester);
+      await tester.tap(find.text('شيله خالص'));
+      await settle(tester);
+
+      // السؤال بالاسم، ومكتوب إنه مالوش رجوع
+      expect(find.text('تشيل Concor 5mg؟'), findsOneWidget);
+      expect(find.textContaining('مفيش رجوع'), findsOneWidget);
+      expectNoRedAndMinSize(tester);
+
+      await tester.tap(find.text('لا، سيبه'));
+      await settle(tester);
+      expect(find.text('Concor 5mg'), findsOneWidget, reason: 'لسه مكانه');
+      // قراية مباشرة: بث drift جوّه اختبار ودجت ممكن يستنى إشعار مش جاي
+      expect((await h.db.select(h.db.medications).get()).single.removedAt, isNull);
+    });
+
+    screenTest('«أيوه، شيله» بتشيله من القايمة — ومن غير مسح', (tester) async {
+      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await add('Telfast 180 mg', const AnchorTiming(DayAnchor.dinner, 0), amount: 'قرص');
+      await pump(tester);
+
+      await openActions(tester);
+      await tester.tap(find.text('شيله خالص'));
+      await settle(tester);
+      await tester.tap(find.text('أيوه، شيله'));
+      await settle(tester);
+
+      expect(find.text('Concor 5mg'), findsNothing);
+      expect(find.text('Telfast 180 mg'), findsOneWidget);
+      expect(find.text('موقوفة'), findsNothing, reason: 'المتشال مش موقوف — مش في أي قسم');
+      // الصف مكانه — إيقاف ناعم مش مسح
+      expect((await h.db.select(h.db.medications).get()), hasLength(2));
+    });
   });
 
   screenTest('جرعة مش معروفة → «الجرعة مش معروفة» بهدوء، مش ذهبي ولا أحمر', (tester) async {

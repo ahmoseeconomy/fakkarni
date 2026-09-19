@@ -56,7 +56,9 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     name: row['name'] as String,
     amountLabel: row['amount_label'] as String?,
     rules: [
-      for (final s in schedules) ?rule(s as Map),
+      // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن
+      for (final s in schedules)
+        if ((s as Map)['stopped_at'] == null) ?rule(s),
     ],
   );
 }
@@ -161,20 +163,26 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
         final patient = await linkedPatient();
         if (patient == null) return null;
 
+        // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
+        // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
         final meds = await _supabase
             .from('medications')
             .select('uuid, name, amount_label, stopped_at, updated_at, '
-                'dose_schedules(timing_kind, anchor, offset_minutes, fixed_timings(minute_of_day))')
-            .eq('patient_uuid', patient.uuid);
+                'dose_schedules(timing_kind, anchor, offset_minutes, stopped_at, '
+                'fixed_timings(minute_of_day))')
+            .eq('patient_uuid', patient.uuid)
+            .isFilter('removed_at', null);
 
         final since = DateTime.now().toUtc().subtract(const Duration(days: 7));
         final events = await _supabase
             .from('dose_events')
             .select('uuid, scheduled_at, state, acted_at, updated_at, '
-                'dose_schedules(medications(name, amount_label))')
+                'dose_schedules!inner(medications!inner(name, amount_label, removed_at))')
             .gte('scheduled_at', since.toIso8601String())
             // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
             .neq('state', 'superseded')
+            // ولا جرعة دوا الأب شاله
+            .isFilter('dose_schedules.medications.removed_at', null)
             .order('scheduled_at', ascending: true);
 
         final alertsSince =

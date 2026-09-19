@@ -1398,6 +1398,17 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _removedAtMeta = const VerificationMeta(
+    'removedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> removedAt = GeneratedColumn<DateTime>(
+    'removed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1422,6 +1433,7 @@ class $MedicationsTable extends Medications
     amountUnknown,
     notes,
     stoppedAt,
+    removedAt,
     createdAt,
   ];
   @override
@@ -1509,6 +1521,12 @@ class $MedicationsTable extends Medications
         stoppedAt.isAcceptableOrUnknown(data['stopped_at']!, _stoppedAtMeta),
       );
     }
+    if (data.containsKey('removed_at')) {
+      context.handle(
+        _removedAtMeta,
+        removedAt.isAcceptableOrUnknown(data['removed_at']!, _removedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1564,6 +1582,10 @@ class $MedicationsTable extends Medications
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
       ),
+      removedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}removed_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1601,6 +1623,14 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
   /// أي مسار في التطبيق بيوقف دوا من نفسه.
   final DateTime? stoppedAt;
+
+  /// null معناها الدوا لسه في القوايم.
+  ///
+  /// **مش مسح.** الصف بيفضل مكانه بأحداثه القديمة كتاريخ، وبيختفي من كل
+  /// قايمة. المسح الحقيقي ممنوع: المزامنة بترفع بس (دين ١)، و`dose_events`
+  /// بتتمسح بالـcascade — يعني الجهاز ينسى والسحابة تفضل تنبّه الابن على
+  /// جرعة مابقتش موجودة. ومفيش رجوع من هنا، على عكس [stoppedAt].
+  final DateTime? removedAt;
   final DateTime createdAt;
   const MedicationRow({
     required this.uuid,
@@ -1613,6 +1643,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     required this.amountUnknown,
     this.notes,
     this.stoppedAt,
+    this.removedAt,
     required this.createdAt,
   });
   @override
@@ -1635,6 +1666,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
+    }
+    if (!nullToAbsent || removedAt != null) {
+      map['removed_at'] = Variable<DateTime>(removedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -1660,6 +1694,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
+      removedAt: removedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedAt),
       createdAt: Value(createdAt),
     );
   }
@@ -1680,6 +1717,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       amountUnknown: serializer.fromJson<bool>(json['amountUnknown']),
       notes: serializer.fromJson<String?>(json['notes']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
+      removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1697,6 +1735,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'amountUnknown': serializer.toJson<bool>(amountUnknown),
       'notes': serializer.toJson<String?>(notes),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
+      'removedAt': serializer.toJson<DateTime?>(removedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1712,6 +1751,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     bool? amountUnknown,
     Value<String?> notes = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
+    Value<DateTime?> removedAt = const Value.absent(),
     DateTime? createdAt,
   }) => MedicationRow(
     uuid: uuid ?? this.uuid,
@@ -1724,6 +1764,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     amountUnknown: amountUnknown ?? this.amountUnknown,
     notes: notes.present ? notes.value : this.notes,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
+    removedAt: removedAt.present ? removedAt.value : this.removedAt,
     createdAt: createdAt ?? this.createdAt,
   );
   MedicationRow copyWithCompanion(MedicationsCompanion data) {
@@ -1746,6 +1787,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           : this.amountUnknown,
       notes: data.notes.present ? data.notes.value : this.notes,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
+      removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1763,6 +1805,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('stoppedAt: $stoppedAt, ')
+          ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -1780,6 +1823,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     amountUnknown,
     notes,
     stoppedAt,
+    removedAt,
     createdAt,
   );
   @override
@@ -1796,6 +1840,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.amountUnknown == this.amountUnknown &&
           other.notes == this.notes &&
           other.stoppedAt == this.stoppedAt &&
+          other.removedAt == this.removedAt &&
           other.createdAt == this.createdAt);
 }
 
@@ -1810,6 +1855,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<bool> amountUnknown;
   final Value<String?> notes;
   final Value<DateTime?> stoppedAt;
+  final Value<DateTime?> removedAt;
   final Value<DateTime> createdAt;
   const MedicationsCompanion({
     this.uuid = const Value.absent(),
@@ -1822,6 +1868,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.stoppedAt = const Value.absent(),
+    this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   MedicationsCompanion.insert({
@@ -1835,6 +1882,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.stoppedAt = const Value.absent(),
+    this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : patientId = Value(patientId),
        name = Value(name);
@@ -1849,6 +1897,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<bool>? amountUnknown,
     Expression<String>? notes,
     Expression<DateTime>? stoppedAt,
+    Expression<DateTime>? removedAt,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -1862,6 +1911,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (amountUnknown != null) 'amount_unknown': amountUnknown,
       if (notes != null) 'notes': notes,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
+      if (removedAt != null) 'removed_at': removedAt,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -1877,6 +1927,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<bool>? amountUnknown,
     Value<String?>? notes,
     Value<DateTime?>? stoppedAt,
+    Value<DateTime?>? removedAt,
     Value<DateTime>? createdAt,
   }) {
     return MedicationsCompanion(
@@ -1890,6 +1941,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       amountUnknown: amountUnknown ?? this.amountUnknown,
       notes: notes ?? this.notes,
       stoppedAt: stoppedAt ?? this.stoppedAt,
+      removedAt: removedAt ?? this.removedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -1927,6 +1979,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
+    if (removedAt.present) {
+      map['removed_at'] = Variable<DateTime>(removedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1946,6 +2001,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('stoppedAt: $stoppedAt, ')
+          ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2029,6 +2085,17 @@ class $DoseSchedulesTable extends DoseSchedules
     requiredDuringInsert: false,
     defaultValue: Constant(DoseTimingKind.anchor.name),
   ).withConverter<DoseTimingKind>($DoseSchedulesTable.$convertertimingKind);
+  static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
+    'stoppedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> stoppedAt = GeneratedColumn<DateTime>(
+    'stopped_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DayAnchor?, String> anchor =
       GeneratedColumn<String>(
@@ -2097,6 +2164,7 @@ class $DoseSchedulesTable extends DoseSchedules
     id,
     medicationId,
     timingKind,
+    stoppedAt,
     anchor,
     offsetMinutes,
     repeat,
@@ -2153,6 +2221,12 @@ class $DoseSchedulesTable extends DoseSchedules
       );
     } else if (isInserting) {
       context.missing(_medicationIdMeta);
+    }
+    if (data.containsKey('stopped_at')) {
+      context.handle(
+        _stoppedAtMeta,
+        stoppedAt.isAcceptableOrUnknown(data['stopped_at']!, _stoppedAtMeta),
+      );
     }
     if (data.containsKey('offset_minutes')) {
       context.handle(
@@ -2212,6 +2286,10 @@ class $DoseSchedulesTable extends DoseSchedules
           DriftSqlType.string,
           data['${effectivePrefix}timing_kind'],
         )!,
+      ),
+      stoppedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}stopped_at'],
       ),
       anchor: $DoseSchedulesTable.$converteranchorn.fromSql(
         attachedDatabase.typeMapping.read(
@@ -2280,6 +2358,13 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   /// الافتراضي مرساة — وده اللي الصفوف القديمة بتاخده في الترحيل.
   final DoseTimingKind timingKind;
 
+  /// null معناها الجرعة دي لسه شغّالة.
+  ///
+  /// إيقاف ناعم لجرعة واحدة من دوا شغّال — **مش مسح**، لنفس سبب
+  /// [Medications.removedAt]. الجرعة بتقف عن توليد أحداث جديدة، وأحداثها
+  /// الجاية اللي «لسه» بتتعلّم `superseded` فالسيرفر ما يصعّدش عليها.
+  final DateTime? stoppedAt;
+
   /// المرساة — null بس لو [timingKind] ساعة ثابتة.
   final DayAnchor? anchor;
 
@@ -2305,6 +2390,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     required this.id,
     required this.medicationId,
     required this.timingKind,
+    this.stoppedAt,
     this.anchor,
     this.offsetMinutes,
     required this.repeat,
@@ -2326,6 +2412,9 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       map['timing_kind'] = Variable<String>(
         $DoseSchedulesTable.$convertertimingKind.toSql(timingKind),
       );
+    }
+    if (!nullToAbsent || stoppedAt != null) {
+      map['stopped_at'] = Variable<DateTime>(stoppedAt);
     }
     if (!nullToAbsent || anchor != null) {
       map['anchor'] = Variable<String>(
@@ -2364,6 +2453,9 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       id: Value(id),
       medicationId: Value(medicationId),
       timingKind: Value(timingKind),
+      stoppedAt: stoppedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stoppedAt),
       anchor: anchor == null && nullToAbsent
           ? const Value.absent()
           : Value(anchor),
@@ -2395,6 +2487,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       timingKind: $DoseSchedulesTable.$convertertimingKind.fromJson(
         serializer.fromJson<String>(json['timingKind']),
       ),
+      stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       anchor: $DoseSchedulesTable.$converteranchorn.fromJson(
         serializer.fromJson<String?>(json['anchor']),
       ),
@@ -2419,6 +2512,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       'timingKind': serializer.toJson<String>(
         $DoseSchedulesTable.$convertertimingKind.toJson(timingKind),
       ),
+      'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'anchor': serializer.toJson<String?>(
         $DoseSchedulesTable.$converteranchorn.toJson(anchor),
       ),
@@ -2439,6 +2533,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     int? id,
     int? medicationId,
     DoseTimingKind? timingKind,
+    Value<DateTime?> stoppedAt = const Value.absent(),
     Value<DayAnchor?> anchor = const Value.absent(),
     Value<int?> offsetMinutes = const Value.absent(),
     DoseRepeat? repeat,
@@ -2452,6 +2547,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     id: id ?? this.id,
     medicationId: medicationId ?? this.medicationId,
     timingKind: timingKind ?? this.timingKind,
+    stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     anchor: anchor.present ? anchor.value : this.anchor,
     offsetMinutes: offsetMinutes.present
         ? offsetMinutes.value
@@ -2477,6 +2573,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       timingKind: data.timingKind.present
           ? data.timingKind.value
           : this.timingKind,
+      stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       anchor: data.anchor.present ? data.anchor.value : this.anchor,
       offsetMinutes: data.offsetMinutes.present
           ? data.offsetMinutes.value
@@ -2501,6 +2598,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
           ..write('timingKind: $timingKind, ')
+          ..write('stoppedAt: $stoppedAt, ')
           ..write('anchor: $anchor, ')
           ..write('offsetMinutes: $offsetMinutes, ')
           ..write('repeat: $repeat, ')
@@ -2519,6 +2617,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     id,
     medicationId,
     timingKind,
+    stoppedAt,
     anchor,
     offsetMinutes,
     repeat,
@@ -2536,6 +2635,7 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           other.id == this.id &&
           other.medicationId == this.medicationId &&
           other.timingKind == this.timingKind &&
+          other.stoppedAt == this.stoppedAt &&
           other.anchor == this.anchor &&
           other.offsetMinutes == this.offsetMinutes &&
           other.repeat == this.repeat &&
@@ -2551,6 +2651,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   final Value<int> id;
   final Value<int> medicationId;
   final Value<DoseTimingKind> timingKind;
+  final Value<DateTime?> stoppedAt;
   final Value<DayAnchor?> anchor;
   final Value<int?> offsetMinutes;
   final Value<DoseRepeat> repeat;
@@ -2564,6 +2665,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.id = const Value.absent(),
     this.medicationId = const Value.absent(),
     this.timingKind = const Value.absent(),
+    this.stoppedAt = const Value.absent(),
     this.anchor = const Value.absent(),
     this.offsetMinutes = const Value.absent(),
     this.repeat = const Value.absent(),
@@ -2578,6 +2680,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.id = const Value.absent(),
     required int medicationId,
     this.timingKind = const Value.absent(),
+    this.stoppedAt = const Value.absent(),
     this.anchor = const Value.absent(),
     this.offsetMinutes = const Value.absent(),
     required DoseRepeat repeat,
@@ -2594,6 +2697,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Expression<int>? id,
     Expression<int>? medicationId,
     Expression<String>? timingKind,
+    Expression<DateTime>? stoppedAt,
     Expression<String>? anchor,
     Expression<int>? offsetMinutes,
     Expression<String>? repeat,
@@ -2608,6 +2712,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       if (id != null) 'id': id,
       if (medicationId != null) 'medication_id': medicationId,
       if (timingKind != null) 'timing_kind': timingKind,
+      if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (anchor != null) 'anchor': anchor,
       if (offsetMinutes != null) 'offset_minutes': offsetMinutes,
       if (repeat != null) 'repeat': repeat,
@@ -2624,6 +2729,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Value<int>? id,
     Value<int>? medicationId,
     Value<DoseTimingKind>? timingKind,
+    Value<DateTime?>? stoppedAt,
     Value<DayAnchor?>? anchor,
     Value<int?>? offsetMinutes,
     Value<DoseRepeat>? repeat,
@@ -2638,6 +2744,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       id: id ?? this.id,
       medicationId: medicationId ?? this.medicationId,
       timingKind: timingKind ?? this.timingKind,
+      stoppedAt: stoppedAt ?? this.stoppedAt,
       anchor: anchor ?? this.anchor,
       offsetMinutes: offsetMinutes ?? this.offsetMinutes,
       repeat: repeat ?? this.repeat,
@@ -2669,6 +2776,9 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       map['timing_kind'] = Variable<String>(
         $DoseSchedulesTable.$convertertimingKind.toSql(timingKind.value),
       );
+    }
+    if (stoppedAt.present) {
+      map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
     if (anchor.present) {
       map['anchor'] = Variable<String>(
@@ -2706,6 +2816,7 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
           ..write('timingKind: $timingKind, ')
+          ..write('stoppedAt: $stoppedAt, ')
           ..write('anchor: $anchor, ')
           ..write('offsetMinutes: $offsetMinutes, ')
           ..write('repeat: $repeat, ')
@@ -9098,6 +9209,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       Value<bool> amountUnknown,
       Value<String?> notes,
       Value<DateTime?> stoppedAt,
+      Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
     });
 typedef $$MedicationsTableUpdateCompanionBuilder =
@@ -9112,6 +9224,7 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<bool> amountUnknown,
       Value<String?> notes,
       Value<DateTime?> stoppedAt,
+      Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
     });
 
@@ -9206,6 +9319,11 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9317,6 +9435,11 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -9389,6 +9512,9 @@ class $$MedicationsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get removedAt =>
+      $composableBuilder(column: $table.removedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -9480,6 +9606,7 @@ class $$MedicationsTableTableManager
                 Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => MedicationsCompanion(
                 uuid: uuid,
@@ -9492,6 +9619,7 @@ class $$MedicationsTableTableManager
                 amountUnknown: amountUnknown,
                 notes: notes,
                 stoppedAt: stoppedAt,
+                removedAt: removedAt,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -9506,6 +9634,7 @@ class $$MedicationsTableTableManager
                 Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => MedicationsCompanion.insert(
                 uuid: uuid,
@@ -9518,6 +9647,7 @@ class $$MedicationsTableTableManager
                 amountUnknown: amountUnknown,
                 notes: notes,
                 stoppedAt: stoppedAt,
+                removedAt: removedAt,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -9618,6 +9748,7 @@ typedef $$DoseSchedulesTableCreateCompanionBuilder =
       Value<int> id,
       required int medicationId,
       Value<DoseTimingKind> timingKind,
+      Value<DateTime?> stoppedAt,
       Value<DayAnchor?> anchor,
       Value<int?> offsetMinutes,
       required DoseRepeat repeat,
@@ -9633,6 +9764,7 @@ typedef $$DoseSchedulesTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int> medicationId,
       Value<DoseTimingKind> timingKind,
+      Value<DateTime?> stoppedAt,
       Value<DayAnchor?> anchor,
       Value<int?> offsetMinutes,
       Value<DoseRepeat> repeat,
@@ -9738,6 +9870,11 @@ class $$DoseSchedulesTableFilterComposer
   get timingKind => $composableBuilder(
     column: $table.timingKind,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<DateTime> get stoppedAt => $composableBuilder(
+    column: $table.stoppedAt,
+    builder: (column) => ColumnFilters(column),
   );
 
   ColumnWithTypeConverterFilters<DayAnchor?, DayAnchor, String> get anchor =>
@@ -9881,6 +10018,11 @@ class $$DoseSchedulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
+    column: $table.stoppedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get anchor => $composableBuilder(
     column: $table.anchor,
     builder: (column) => ColumnOrderings(column),
@@ -9965,6 +10107,9 @@ class $$DoseSchedulesTableAnnotationComposer
         column: $table.timingKind,
         builder: (column) => column,
       );
+
+  GeneratedColumn<DateTime> get stoppedAt =>
+      $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<DayAnchor?, String> get anchor =>
       $composableBuilder(column: $table.anchor, builder: (column) => column);
@@ -10102,6 +10247,7 @@ class $$DoseSchedulesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> medicationId = const Value.absent(),
                 Value<DoseTimingKind> timingKind = const Value.absent(),
+                Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DayAnchor?> anchor = const Value.absent(),
                 Value<int?> offsetMinutes = const Value.absent(),
                 Value<DoseRepeat> repeat = const Value.absent(),
@@ -10115,6 +10261,7 @@ class $$DoseSchedulesTableTableManager
                 id: id,
                 medicationId: medicationId,
                 timingKind: timingKind,
+                stoppedAt: stoppedAt,
                 anchor: anchor,
                 offsetMinutes: offsetMinutes,
                 repeat: repeat,
@@ -10130,6 +10277,7 @@ class $$DoseSchedulesTableTableManager
                 Value<int> id = const Value.absent(),
                 required int medicationId,
                 Value<DoseTimingKind> timingKind = const Value.absent(),
+                Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DayAnchor?> anchor = const Value.absent(),
                 Value<int?> offsetMinutes = const Value.absent(),
                 required DoseRepeat repeat,
@@ -10143,6 +10291,7 @@ class $$DoseSchedulesTableTableManager
                 id: id,
                 medicationId: medicationId,
                 timingKind: timingKind,
+                stoppedAt: stoppedAt,
                 anchor: anchor,
                 offsetMinutes: offsetMinutes,
                 repeat: repeat,
