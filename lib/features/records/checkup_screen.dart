@@ -11,10 +11,14 @@ import '../../domain/health/checkup.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../onboarding/time_wheel.dart';
 
-/// «دورة الفحص» (المخطط ١١): سبع مراحل، والمستخدم بيقدّمها بإيده.
+/// «متابعة التحليل» (المخطط ١١): سبع مراحل، والمستخدم بيقدّمها بإيده.
 ///
 /// الخالصة ✓ خضرا، الحالية برقمها بالذهبي (الحالة اللي إنت عليها)، واللي
 /// بعدها باهتة. السطر اللي تحت العنوان بيقول ليه الشاشة موجودة أصلاً.
+///
+/// **كل مرحلة بتسأل عن ميعادها، وما بنفترضش حاجة.** «حجزت إمتى؟»،
+/// «النتيجة هتجهز إمتى؟»، «معاد الدكتور؟» — الإجابة بتجدول تذكير في اليوم
+/// ده، والتخطّي عادي وبيتقال بسطر قصير مش بتحذير. مفيش مدة بتتحسب من عندنا.
 ///
 /// «اضبط تذكير الصيام» بيجدول إشعار حقيقي — من الضغطة بس (القاعدة ٤)، بساعات
 /// **المستخدم** كتبها (القاعدة ٦). مش مبني: صندوق «قاعدة: لا يمكن للفحص أن
@@ -65,6 +69,32 @@ class _CheckupScreenState extends State<CheckupScreen> {
     }
   }
 
+  /// ميعاد المرحلة — **نفس منتقي اليوم بتاع شيت الصيام**، مش تاني.
+  Future<void> _pickStageDate(RecordRow row, CheckupStage stage) async {
+    final checkups = _checkups;
+    final messenger = ScaffoldMessenger.of(context);
+    final day = await showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: F.pageGround,
+      builder: (_) => _StageDateSheet(
+        stage: stage,
+        now: _now,
+        initial: CheckupService.stageDateOf(row, stage),
+      ),
+    );
+    if (day == null) return;
+    final result = await checkups.setStageDate(row.id, stage, day: day, now: _now);
+    final text = switch (result) {
+      StageDateResult.scheduled => null,
+      StageDateResult.inPast => 'اليوم ده عدّى — اختار يوم جاي.',
+      StageDateResult.tooMany => 'فيه ميعادين متظبطين في متابعات تانية — شيل واحد الأول.',
+    };
+    if (text != null) {
+      messenger.showSnackBar(SnackBar(content: Text(text, style: const TextStyle(fontSize: F.minBodySize))));
+    }
+  }
+
   Future<void> _stop(RecordRow row) async {
     final checkups = _checkups;
     final navigator = Navigator.of(context);
@@ -72,9 +102,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: F.dialogGround,
-        title: Text('توقّف دورة «${row.title}»؟', style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+        title: Text('توقّف متابعة «${row.title}»؟', style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: const Text(
-          'هتتمسح من الملف خالص ومش هتقدر ترجّعها، وتذكير الصيام بتاعها — لو فيه — بيتلغي.',
+          'هتتمسح من الملف خالص ومش هتقدر ترجّعها، والتذكيرات بتاعتها — لو فيه — بتتلغي.',
           style: TextStyle(fontSize: F.minBodySize, height: 1.5),
         ),
         actions: [
@@ -98,7 +128,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('دورة الفحص')),
+      appBar: AppBar(title: const Text('متابعة التحليل')),
       body: StreamBuilder<RecordRow?>(
         stream: _row,
         builder: (context, snap) {
@@ -116,7 +146,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
               ),
               const SizedBox(height: F.s4),
               Text(
-                'الفحص مش ميعاد واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين.',
+                'التحليل مش ميعاد واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين.',
                 key: ValueKey('checkup-why'),
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
@@ -144,6 +174,15 @@ class _CheckupScreenState extends State<CheckupScreen> {
                               'ده آخر مرحلة.',
                               style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.greenDeep),
                             ),
+                          if (stage.asksForDate) ...[
+                            const SizedBox(height: F.s8),
+                            _StageDate(
+                              stage: stage,
+                              at: CheckupService.stageDateOf(row, stage),
+                              onPick: () => _pickStageDate(row, stage),
+                              onClear: () => _checkups.clearStageDate(row.id, stage),
+                            ),
+                          ],
                           if (fastingReminderStillUseful(stage)) ...[
                             const SizedBox(height: F.s8),
                             if (reminder == null)
@@ -174,7 +213,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                         ],
                 ),
               const SizedBox(height: F.gap),
-              FSecondaryButton(label: 'وقّف الدورة دي', onPressed: () => _stop(row)),
+              FSecondaryButton(label: 'وقّف المتابعة', onPressed: () => _stop(row)),
             ],
           );
         },
@@ -301,11 +340,6 @@ class _FastingSheetState extends State<_FastingSheet> {
   @override
   Widget build(BuildContext context) {
     final today = DateTime(widget.now.year, widget.now.month, widget.now.day);
-    final quick = [
-      ('بكرة', DateTime(today.year, today.month, today.day + 1)),
-      ('بعد بكرة', DateTime(today.year, today.month, today.day + 2)),
-    ];
-    final onQuick = quick.any((q) => q.$2 == _day);
     final hours = _parsedHours;
     final ok = hours != null && isTypedFastingHours(hours);
 
@@ -321,27 +355,7 @@ class _FastingSheetState extends State<_FastingSheet> {
               const SizedBox(height: F.s12),
               const SectionHead('ميعاد سحب العينة إمتى؟'),
               const SizedBox(height: F.s8),
-              Wrap(
-                spacing: F.s8,
-                runSpacing: F.s8,
-                children: [
-                  for (final (label, day) in quick)
-                    AnchorChip(label: label, selected: _day == day, onTap: () => setState(() => _day = day)),
-                  AnchorChip(
-                    label: onQuick ? 'يوم تاني' : arabicDate(_day),
-                    selected: !onQuick,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _day,
-                        firstDate: today,
-                        lastDate: DateTime(today.year + 1, today.month, today.day),
-                      );
-                      if (picked != null) setState(() => _day = picked);
-                    },
-                  ),
-                ],
-              ),
+              DayPicker(today: today, value: _day, onChanged: (d) => setState(() => _day = d)),
               const SizedBox(height: F.s8),
               SizedBox(height: 180, child: TimeWheel(value: _time, onChanged: (t) => setState(() => _time = t))),
               const SizedBox(height: F.s12),
@@ -377,6 +391,168 @@ class _FastingSheetState extends State<_FastingSheet> {
                           draw: DateTime(_day.year, _day.month, _day.day, _time.hour, _time.minute),
                           hours: hours,
                         )),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// منتقي يوم: شريحتين سريعتين وشريحة بتفتح التقويم.
+///
+/// **واحد لكل الشاشة**: شيت الصيام وشيت ميعاد المرحلة بيستعملوه — منتقي
+/// تاني معناه مكانين لنفس السلوك، وفي يوم هيختلفوا.
+class DayPicker extends StatelessWidget {
+  const DayPicker({required this.today, required this.value, required this.onChanged, super.key});
+
+  final DateTime today;
+  final DateTime value;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final quick = [
+      ('بكرة', DateTime(today.year, today.month, today.day + 1)),
+      ('بعد بكرة', DateTime(today.year, today.month, today.day + 2)),
+    ];
+    final onQuick = quick.any((q) => q.$2 == value);
+    return Wrap(
+      spacing: F.s8,
+      runSpacing: F.s8,
+      children: [
+        for (final (label, day) in quick)
+          AnchorChip(label: label, selected: value == day, onTap: () => onChanged(day)),
+        AnchorChip(
+          key: const ValueKey('day-other'),
+          label: onQuick ? 'يوم تاني' : arabicDate(value),
+          selected: !onQuick,
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: value.isBefore(today) ? today : value,
+              firstDate: today,
+              lastDate: DateTime(today.year + 1, today.month, today.day),
+            );
+            if (picked != null) onChanged(picked);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// ميعاد المرحلة على الشاشة: السؤال، وإجابته لو فيه، والتخطّي بسطر قصير.
+class _StageDate extends StatelessWidget {
+  const _StageDate({required this.stage, required this.at, required this.onPick, required this.onClear});
+
+  final CheckupStage stage;
+  final DateTime? at;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    if (at case final picked?) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${stage.dateQuestion} ${arabicDate(picked)}',
+            key: ValueKey('stage-date-line-${stage.number}'),
+            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+          ),
+          const SizedBox(height: F.s6),
+          Row(
+            children: [
+              Expanded(
+                child: FSecondaryButton(
+                  key: ValueKey('stage-date-edit-${stage.number}'),
+                  label: 'غيّر الميعاد',
+                  onPressed: onPick,
+                ),
+              ),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: FSecondaryButton(
+                  key: ValueKey('stage-date-clear-${stage.number}'),
+                  label: 'شيل الميعاد',
+                  onPressed: onClear,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FPrimaryButton(
+          key: ValueKey('stage-date-set-${stage.number}'),
+          label: stage.dateQuestion!,
+          gold: false,
+          onPressed: onPick,
+        ),
+        const SizedBox(height: F.s6),
+        // التخطّي عادي — سطر قصير، مش تحذير ولا ذهبي
+        Text(
+          'لو لسه ما تحدّدش، عدّي — من غير ميعاد مفيش تذكير وبس.',
+          key: ValueKey('stage-date-skip-${stage.number}'),
+          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+        ),
+      ],
+    );
+  }
+}
+
+/// شيت ميعاد المرحلة: سؤال واحد ومنتقي يوم واحد — نفس [DayPicker].
+class _StageDateSheet extends StatefulWidget {
+  const _StageDateSheet({required this.stage, required this.now, this.initial});
+
+  final CheckupStage stage;
+  final DateTime now;
+  final DateTime? initial;
+
+  @override
+  State<_StageDateSheet> createState() => _StageDateSheetState();
+}
+
+class _StageDateSheetState extends State<_StageDateSheet> {
+  late DateTime _day = widget.initial ??
+      DateTime(widget.now.year, widget.now.month, widget.now.day + 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime(widget.now.year, widget.now.month, widget.now.day);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(F.gap),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.stage.dateQuestion!,
+                style: const TextStyle(
+                  fontFamily: F.displayFamily,
+                  fontSize: F.subtitleSize,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: F.s12),
+              DayPicker(
+                today: today,
+                value: DateTime(_day.year, _day.month, _day.day),
+                onChanged: (d) => setState(() => _day = d),
+              ),
+              const SizedBox(height: F.gap),
+              FPrimaryButton(
+                key: const ValueKey('stage-date-save'),
+                label: 'احفظ الميعاد',
+                onPressed: () => Navigator.of(context).pop(DateTime(_day.year, _day.month, _day.day)),
               ),
             ],
           ),

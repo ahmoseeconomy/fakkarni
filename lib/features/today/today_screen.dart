@@ -4,20 +4,24 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
+import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
+import '../../data/services/checkup_service.dart';
 import '../../data/services/reminder_plan.dart';
+import '../../domain/health/checkup.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../health/glucose_screen.dart';
 import '../link/sign_in_screen.dart';
 import '../medication/edit_medication_screen.dart';
 import '../nearby/nearby_screen.dart';
-import '../health/glucose_screen.dart';
+import '../records/checkup_screen.dart';
 import '../reminder/reminder_screen.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
@@ -65,6 +69,9 @@ class _TodayScreenState extends State<TodayScreen> {
   StreamSubscription<List<ReadingRow>>? _readingsSub;
   List<ReadingRow> _readings = const [];
 
+  /// متابعات التحاليل المفتوحة — **متابعة محدش شايفها متابعة محدش بيعملها**.
+  Stream<List<RecordRow>>? _followUps;
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -80,6 +87,7 @@ class _TodayScreenState extends State<TodayScreen> {
     );
     _patient = services.routines.watchPatient(services.patientId);
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
+    _followUps = services.checkups.watchOpen(services.patientId);
     _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
       if (mounted) setState(() => _readings = rows);
     });
@@ -182,6 +190,10 @@ class _TodayScreenState extends State<TodayScreen> {
         MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()),
       );
 
+  void _openCheckup(int recordId) => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => CheckupScreen(recordId: recordId)),
+      );
+
   List<List<DoseEventView>> _group(List<DoseEventView> events) => groupByMinute(events);
 
   /// الدوسة على كارت في السكة بتفتح شاشة التذكير بتاعته — أخدته / فكّرني /
@@ -277,6 +289,22 @@ class _TodayScreenState extends State<TodayScreen> {
                 GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
                 const SizedBox(height: F.gap),
               ],
+              // متابعات التحاليل المفتوحة: اسم التحليل والمرحلة، والدوسة
+              // بتفتحها. مفيش حاجة بتتعرض لما مفيش متابعات.
+              StreamBuilder<List<RecordRow>>(
+                stream: _followUps,
+                builder: (context, snap) {
+                  final open = snap.data ?? const <RecordRow>[];
+                  if (open.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _OpenFollowUps(
+                      records: open,
+                      onOpen: _openCheckup,
+                    ),
+                  );
+                },
+              ),
               const WaterWidget(),
               const SizedBox(height: F.gap),
               Text(
@@ -309,15 +337,36 @@ class _TodayScreenState extends State<TodayScreen> {
                 stream: _amountUnknown,
                 builder: (context, snapshot) {
                   final meds = snapshot.data ?? const <MedicationRow>[];
-                  if (meds.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: F.gap),
-                    child: _FollowUpPanel(
-                      items: [
+                  return StreamBuilder<List<RecordRow>>(
+                    stream: _followUps,
+                    builder: (context, followSnap) {
+                      // متابعة واقفة عند مرحلة بتسأل عن ميعاد، ومفيش ميعاد،
+                      // وعدّى أسبوع. حد عرض — مش حكم على المعمل.
+                      final stalled = [
+                        for (final r in followSnap.data ?? const <RecordRow>[])
+                          if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
+                            if (checkupIsStalled(
+                              stage: stage,
+                              stageSince: r.checkupStageSince,
+                              stageDate: CheckupService.stageDateOf(r, stage),
+                              now: _now,
+                            ))
+                              (
+                                label: 'متابعة ${r.title} واقفة عند ${stage.label}',
+                                onTap: () => _openCheckup(r.id),
+                              ),
+                      ];
+                      final items = [
                         for (final m in meds)
                           (label: 'اسأل الصيدلي عن جرعة ${m.name}', onTap: () => _openEdit(m.id)),
-                      ],
-                    ),
+                        ...stalled,
+                      ];
+                      if (items.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: F.gap),
+                        child: _FollowUpPanel(items: items),
+                      );
+                    },
                   );
                 },
               ),
@@ -668,5 +717,89 @@ class _NearbyPill extends StatelessWidget {
             ),
           ),
         ),
+      );
+}
+
+/// متابعات التحاليل المفتوحة: عنوان صغير، وسطر لكل واحدة باسمها ومرحلتها.
+///
+/// مش كارت ومش ذهبي — دي حاجة بتتعمل على مهل، مش جرعة فاتت. والدوسة
+/// بتفتح شاشة المتابعة نفسها.
+class _OpenFollowUps extends StatelessWidget {
+  const _OpenFollowUps({required this.records, required this.onOpen});
+
+  final List<RecordRow> records;
+  final ValueChanged<int> onOpen;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const ValueKey('open-follow-ups'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'متابعة التحاليل',
+            style: TextStyle(
+              fontFamily: F.displayFamily,
+              fontSize: F.subtitleSize,
+              fontWeight: FontWeight.w700,
+              color: F.ink,
+            ),
+          ),
+          const SizedBox(height: F.s8),
+          Container(
+            decoration: BoxDecoration(
+              color: F.railGround,
+              borderRadius: BorderRadius.circular(F.radius),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final r in records)
+                  InkWell(
+                    key: ValueKey('follow-up-${r.id}'),
+                    onTap: () => onOpen(r.id),
+                    borderRadius: BorderRadius.circular(F.radius),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  r.title,
+                                  textDirection: nameDirection(r.title),
+                                  style: TextStyle(
+                                    fontSize: F.minBodySize,
+                                    fontWeight: FontWeight.w700,
+                                    color: F.ink,
+                                  ),
+                                ),
+                                if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
+                                  Text(
+                                    stage.label,
+                                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            'افتح',
+                            style: TextStyle(
+                              fontSize: F.minTextSize,
+                              fontWeight: FontWeight.w600,
+                              color: F.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       );
 }

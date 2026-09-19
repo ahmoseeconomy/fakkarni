@@ -177,7 +177,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v16: patients (sex, age — local),
+  data/db/                    drift (SQLite) v17: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -186,6 +186,7 @@ lib/
                               lab_results (v12), visit_questions (v14) —
                               the health file, pushed since D5.1,
                               dose_schedules.active_from (v15, local),
+                              records checkup dates (v17),
                               medications (amount_unknown), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
@@ -234,7 +235,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         836 passing
+test/                         863 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -428,7 +429,8 @@ for days — that waste is now the patient dimension.
 | Snooze | `20_000_000` – `25_898_239` | live. `snoozeIdBase` / `snoozeIdFor()` / `isSnoozeId()`. Derived from the **original** dose slot, not the snooze time — so a snooze can never overwrite a real dose that happens to fall on the same minute, and «أخدته» cancels it without storing anything |
 | Escalation rung 2 (+30) | `30_000_000` – `35_898_239` | **Phase 4.1**, live. `escalationSecondIdBase`. One band per rung because a band holds exactly one ID per (patient, slot) — a second rung needs a second band |
 | Fasting reminder | `40_000_000` – `45_898_239` | **D3.7**, live. `fastingIdBase` / `fastingIdFor(recordId)` / `isFastingId()`. Derived from the `records` row id (not a slot — one reminder per checkup cycle), throws past the band. **Not** in `isRescheduledId`: rebuilding doses never cancels it, and a dose confirmation never touches it. `test/data/checkup_fasting_test.dart` proves it overlaps no dose band — mutation-checked: moving the base into the dose band fails three tests |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`50_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
+| Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**, live. `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. One id per (record, stage): `base + recordId * 3 + slot`, three stages ask for a date. **Not** in `isRescheduledId`, like fasting |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`60_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -437,11 +439,13 @@ far below the 32-bit ceiling Android imposes on notification IDs
 
 **iOS keeps only 64 pending local notifications per app and silently drops
 the rest** — no error, no warning. So the window is capped, not fixed:
-`maxPendingReminders` is 46 (48 until D3.7); the remaining 18 are
-`maxPendingEscalations` (14 = the nearest 7 reminders × 2 rungs),
-`snoozePendingSlack` (2) and `fastingPendingSlack` (2 — at most two fasting
-reminders exist at once, and the button says so), so dose + ladder + a
-snooze + fasting never reach 65. `planWindow` sorts and keeps the **nearest** 48, so the horizon
+`maxPendingReminders` is 44 (48 until D3.7, 46 until the follow-up dates);
+the remaining 20 are `maxPendingEscalations` (14 = the nearest 7 reminders ×
+2 rungs), `snoozePendingSlack` (2), `fastingPendingSlack` (2 — at most two
+fasting reminders exist at once, and the button says so) and
+`checkupPendingSlack` (2, same reasoning), so dose + ladder + a snooze +
+fasting + follow-up dates never reach 65. **Every new band pays for itself
+out of the dose window, never out of the ladder.** `planWindow` sorts and keeps the **nearest** 48, so the horizon
 shortens by itself as medications accumulate — a patient on one drug gets the
 full 7 days, one on six drugs three times daily gets about two and a half.
 Every app launch calls `rescheduleAll()`, which re-extends the window from the
@@ -1816,24 +1820,88 @@ screen — and they are different screens on purpose.**
   water. «افتح» is secondary. Entry: «ضيف» sheet («قيس السكر», «صوّر
   تقرير تحليل») and «الملف الصحي».
 
-**D3.7 — calendar + checkup (built)**
+**D3.7 — calendar + lab follow-up (built)**
+- **It is called «تابع تحليل» / «متابعة التحليل», never «دورة».** «دورة
+  فحص» described an administrative process; a man walking out of a clinic
+  with a paper is not thinking "I am starting a cycle", he wants someone to
+  walk it with him — so the button's one-line subtitle is «نمشي معاك من
+  طلب الدكتور لحد ما النتيجة توصله». The **code** keeps its names on
+  purpose (`CheckupStage`, `records.checkup_stage`, `CheckupService`):
+  that is the code's language, and renaming it would be a migration with
+  nothing behind it. `test/app/no_cycle_word_test.dart` reads every string
+  literal under `lib/` — the same shape as `no_middle_dot_test`, comments
+  excluded — and fails on «دورة»/«دورات». Mutation-checked.
 - Schema v13 (written red first): `records.checkup_stage` (1..7, null = not
-  a cycle — every earlier lab record) and `records.fasting_reminder_at`
+  a follow-up — every earlier lab record) and `records.fasting_reminder_at`
   (the scheduled instant, null = none; the ID itself is derived, never
   stored). Columns added with an existence check above the `from < 6` block.
-- «دورة الفحص» (11): seven stages from `domain/health/checkup.dart`; done ✓
+- «متابعة التحليل» (11): seven stages from `domain/health/checkup.dart`; done ✓
   green, current numbered in gold (the state you are on), later faded. The
-  user advances by hand. The subtitle stays, in colloquial: «الفحص مش ميعاد
+  user advances by hand. The subtitle stays, in colloquial: «التحليل مش ميعاد
   واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين». Started from «الملف
-  الصحي» («ابدأ دورة فحص»); cancelling = the D3.5 soft delete.
+  الصحي» («تابع تحليل»); stopping = the D3.5 delete.
+- **Each stage asks for its own date, and nothing is invented** (schema
+  v17: `lab_booking_at`, `result_ready_at`, `doctor_visit_at`, plus
+  `checkup_stage_since`). The rule that we never assume how long a stage
+  takes is unchanged — it is now *served* rather than worked around: the
+  person tells us, per stage, and only then is there a reminder.
+  «حجز المعمل» asks «حجزت إمتى؟», «انتظار النتيجة» asks «النتيجة هتجهز
+  إمتى؟», «النتيجة وصلت» asks «معاد الدكتور؟». Each is optional and
+  editable, and **skipping is normal and says so in one short muted line**
+  («لو لسه ما تحدّدش، عدّي — من غير ميعاد مفيش تذكير وبس.»), never a
+  warning and never gold.
+- **The person gives a day; the clock time comes from his own wake anchor**,
+  not from an invented 9 AM — "the day starts at wake" is the app's own
+  notion of when a person is up. With no saved routine it falls back to
+  9:00, an operational choice like `defaultOffsetBefore`, not medical.
+- **The day picker is one widget** (`DayPicker`: «بكرة» / «بعد بكرة» / a
+  chip that opens the calendar). The fasting sheet and the stage sheet both
+  use it — a second picker would be a second place for the same behaviour,
+  free to disagree with the first.
+- **Cancellation mirrors the fasting reminder exactly.** Changing a date
+  reschedules onto the *same derived id*, so it replaces rather than adds.
+  Going back a stage cancels and clears that stage's date (the plan
+  changed — he will be asked again). Stopping the follow-up cancels
+  everything. Advancing cancels a reminder only once it is meaningless,
+  via `stageReminderStillUseful`: the lab-appointment reminder survives
+  «التحضير» — you pass through that stage *before* you go — and dies after
+  «سحب العينة».
+- **A stage with no date does not go silent.** After
+  `checkupStalledAfter` (7 days) at a date-asking stage with no date,
+  «يومك» shows one line in the existing muted `_FollowUpPanel` —
+  «متابعة صورة الدم واقفة عند حجز المعمل» — that opens the screen at the
+  control which fixes it. **Seven days is a display threshold, not a claim
+  about how long a lab takes**: we have never been told that number and do
+  not invent it (rule 6). The sentence is a fact about the screen — this
+  has not moved in a week — not about the body. `checkup_stage_since`
+  exists because `updatedAtMs` moves on any edit and `happenedAt` is the
+  draw time; neither can answer "how long at this stage".
+- **Open follow-ups live on «يومك»** under their own small heading
+  «متابعة التحاليل», each row the test name over its current stage,
+  tapping through to the screen. Nothing renders when there are none — a
+  follow-up nobody sees is a follow-up nobody does, and an empty section
+  saying "none" is the opposite problem.
+- **Band `50_000_000` is claimed** (`checkupIdBase` / `checkupIdFor(recordId,
+  stageSlot)` / `isCheckupId`), one id per (record, stage) — `base +
+  recordId * 3 + slot`, throwing past the band, and deliberately **not** in
+  `isRescheduledId`. The iOS budget paid for it: `maxPendingReminders` drops
+  46 → 44 so `checkupPendingSlack` (2) fits, and `maxPendingEscalations`
+  stays 14. The dose horizon shortens by about two slots; the ladder was not
+  touched.
+- **Cloud: `supabase/migrations/0015_checkup_dates.sql`** adds the four
+  columns to `public.records` (the device pushes them with the row) and
+  changes **no policy and no `due_escalations`** — they are new columns on
+  an existing table, and have nothing to do with escalation. Its self-check
+  writes a full follow-up, asserts a plain record is still valid with them
+  null, exercises the delete, and rolls back. **Not run yet.**
 - **«اضبط تذكير الصيام» schedules a real notification — only from that
   tap (rule 4)**, at draw time minus the hours **the user types** (no
   default, rule 6), through `NotificationService.scheduleCheckup`: its own
   Android channel `fakkarni_checkup`, **no «أخدته»/«فكّرني بعدين» buttons,
   no dose category, no payload** — those buttons record doses. It is
   cancelled by going back a stage, advancing past «سحب العينة», stopping
-  the cycle, or deleting the record from «الملف الصحي» (all through
-  `CheckupService`); restoring a deleted record does not reschedule it.
+  the follow-up, or deleting the record from «الملف الصحي» (all through
+  `CheckupService`); a deleted record does not come back.
   A third concurrent reminder is refused with words.
 - «التقويم» (12): month/week (week starts Saturday), filters دوا (incl.
   prescription records) · زيارة · تحليل · أشعة · حجز · سكر. Days with

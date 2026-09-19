@@ -137,7 +137,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 ],
               ),
             );
-            // عن طريق دورة الفحص: لو السجل ده عليه تذكير صيام بيتلغي معاه
+            // عن طريق المتابعة: لو السجل ده عليه تذكيرات بتتلغي معاه
             if (yes ?? false) await checkups.delete(record.id, attachments: attachments);
           },
         ),
@@ -200,8 +200,16 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     ),
                   ),
                   const SizedBox(width: F.s10),
-                  Expanded(child: FSecondaryButton(label: 'ابدأ دورة فحص', onPressed: _startCheckup)),
+                  Expanded(child: FSecondaryButton(label: 'تابع تحليل', onPressed: _startCheckup)),
                 ],
+              ),
+              const SizedBox(height: F.s6),
+              // سطر واحد بيقول الزرار بيعمل إيه — «تابع تحليل» لوحدها
+              // ممكن تتقري «سجّل تحليل».
+              Text(
+                'نمشي معاك من طلب الدكتور لحد ما النتيجة توصله.',
+                key: const ValueKey('follow-lab-why'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
               const SizedBox(height: F.s10),
               Row(
@@ -309,7 +317,7 @@ class RecordSummary extends StatelessWidget {
         Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
         if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
           Text(
-            'دورة فحص — ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
+            'متابعة — ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
             style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
           ),
       ],
@@ -338,7 +346,7 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
         backgroundColor: F.dialogGround,
-        title: const Text('دورة فحص جديدة', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+        title: const Text('متابعة تحليل جديدة', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

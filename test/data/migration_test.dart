@@ -88,7 +88,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 16);
+    expect(version.read<int>('user_version'), 17);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -150,6 +150,16 @@ void main() {
       (await db.select(db.medications).get()).every((m) => m.removedAt == null),
       isTrue,
       reason: 'الترحيل ما بيشيلش دوا',
+    );
+
+    // v17: الأعمدة الجديدة موجودة وفاضية — ولا ميعاد اتخترع لصف قديم
+    final columns = await db
+        .customSelect("SELECT name FROM pragma_table_info('records')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(
+      columns,
+      containsAll(['checkup_stage_since', 'lab_booking_at', 'result_ready_at', 'doctor_visit_at']),
     );
   });
 

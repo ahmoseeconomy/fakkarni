@@ -5412,6 +5412,53 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _checkupStageSinceMeta = const VerificationMeta(
+    'checkupStageSince',
+  );
+  @override
+  late final GeneratedColumn<DateTime> checkupStageSince =
+      GeneratedColumn<DateTime>(
+        'checkup_stage_since',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _labBookingAtMeta = const VerificationMeta(
+    'labBookingAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> labBookingAt = GeneratedColumn<DateTime>(
+    'lab_booking_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resultReadyAtMeta = const VerificationMeta(
+    'resultReadyAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resultReadyAt =
+      GeneratedColumn<DateTime>(
+        'result_ready_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _doctorVisitAtMeta = const VerificationMeta(
+    'doctorVisitAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> doctorVisitAt =
+      GeneratedColumn<DateTime>(
+        'doctor_visit_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -5429,6 +5476,10 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
     deletedAt,
     checkupStage,
     fastingReminderAt,
+    checkupStageSince,
+    labBookingAt,
+    resultReadyAt,
+    doctorVisitAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5544,6 +5595,42 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         ),
       );
     }
+    if (data.containsKey('checkup_stage_since')) {
+      context.handle(
+        _checkupStageSinceMeta,
+        checkupStageSince.isAcceptableOrUnknown(
+          data['checkup_stage_since']!,
+          _checkupStageSinceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lab_booking_at')) {
+      context.handle(
+        _labBookingAtMeta,
+        labBookingAt.isAcceptableOrUnknown(
+          data['lab_booking_at']!,
+          _labBookingAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('result_ready_at')) {
+      context.handle(
+        _resultReadyAtMeta,
+        resultReadyAt.isAcceptableOrUnknown(
+          data['result_ready_at']!,
+          _resultReadyAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('doctor_visit_at')) {
+      context.handle(
+        _doctorVisitAtMeta,
+        doctorVisitAt.isAcceptableOrUnknown(
+          data['doctor_visit_at']!,
+          _doctorVisitAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5615,6 +5702,22 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}fasting_reminder_at'],
       ),
+      checkupStageSince: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}checkup_stage_since'],
+      ),
+      labBookingAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}lab_booking_at'],
+      ),
+      resultReadyAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}result_ready_at'],
+      ),
+      doctorVisitAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}doctor_visit_at'],
+      ),
     );
   }
 
@@ -5651,13 +5754,25 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
   final String? attachmentPath;
   final DateTime? deletedAt;
 
-  /// نسخة ١٣ — مرحلة دورة الفحص (١..٧) على صف `lab`. null = سجل عادي مش
-  /// دورة (كل تحاليل D3.5 وD3.6). المستخدم بس اللي بيحرّكها.
+  /// نسخة ١٣ — مرحلة متابعة التحليل (١..٧) على صف `lab`. null = سجل عادي
+  /// مش متابعة (كل تحاليل D3.5 وD3.6). المستخدم بس اللي بيحرّكها.
   final int? checkupStage;
 
   /// نسخة ١٣ — لحظة تذكير الصيام المتجدول، أو null. رقم الإشعار نفسه
   /// **مش متخزّن**: مشتق من id الصف في نطاق الصيام (`fastingIdFor`).
   final DateTime? fastingReminderAt;
+
+  /// نسخة ١٧ — ساعة دخول المرحلة الحالية. منها بس بنعرف إن المتابعة واقفة
+  /// من أسبوع؛ `updatedAtMs` بتتحرّك مع أي تعديل فما بتنفعش، و`happenedAt`
+  /// ميعاد السحب مش لحظة الحركة. null = صف قديم، فمفيش حكم عليه.
+  final DateTime? checkupStageSince;
+
+  /// نسخة ١٧ — المواعيد اللي **الإنسان** قالها، واحد لكل مرحلة بتسأل
+  /// (`CheckupStage.dateQuestion`). null = ما قالش، ودي حالة عادية بتتكتب
+  /// بسطر هادي مش بتحذير. مفيش تخمين لأي واحد فيهم.
+  final DateTime? labBookingAt;
+  final DateTime? resultReadyAt;
+  final DateTime? doctorVisitAt;
   const RecordRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -5674,6 +5789,10 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     this.deletedAt,
     this.checkupStage,
     this.fastingReminderAt,
+    this.checkupStageSince,
+    this.labBookingAt,
+    this.resultReadyAt,
+    this.doctorVisitAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5711,6 +5830,18 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     if (!nullToAbsent || fastingReminderAt != null) {
       map['fasting_reminder_at'] = Variable<DateTime>(fastingReminderAt);
     }
+    if (!nullToAbsent || checkupStageSince != null) {
+      map['checkup_stage_since'] = Variable<DateTime>(checkupStageSince);
+    }
+    if (!nullToAbsent || labBookingAt != null) {
+      map['lab_booking_at'] = Variable<DateTime>(labBookingAt);
+    }
+    if (!nullToAbsent || resultReadyAt != null) {
+      map['result_ready_at'] = Variable<DateTime>(resultReadyAt);
+    }
+    if (!nullToAbsent || doctorVisitAt != null) {
+      map['doctor_visit_at'] = Variable<DateTime>(doctorVisitAt);
+    }
     return map;
   }
 
@@ -5747,6 +5878,18 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       fastingReminderAt: fastingReminderAt == null && nullToAbsent
           ? const Value.absent()
           : Value(fastingReminderAt),
+      checkupStageSince: checkupStageSince == null && nullToAbsent
+          ? const Value.absent()
+          : Value(checkupStageSince),
+      labBookingAt: labBookingAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(labBookingAt),
+      resultReadyAt: resultReadyAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultReadyAt),
+      doctorVisitAt: doctorVisitAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doctorVisitAt),
     );
   }
 
@@ -5775,6 +5918,12 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       fastingReminderAt: serializer.fromJson<DateTime?>(
         json['fastingReminderAt'],
       ),
+      checkupStageSince: serializer.fromJson<DateTime?>(
+        json['checkupStageSince'],
+      ),
+      labBookingAt: serializer.fromJson<DateTime?>(json['labBookingAt']),
+      resultReadyAt: serializer.fromJson<DateTime?>(json['resultReadyAt']),
+      doctorVisitAt: serializer.fromJson<DateTime?>(json['doctorVisitAt']),
     );
   }
   @override
@@ -5798,6 +5947,10 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'checkupStage': serializer.toJson<int?>(checkupStage),
       'fastingReminderAt': serializer.toJson<DateTime?>(fastingReminderAt),
+      'checkupStageSince': serializer.toJson<DateTime?>(checkupStageSince),
+      'labBookingAt': serializer.toJson<DateTime?>(labBookingAt),
+      'resultReadyAt': serializer.toJson<DateTime?>(resultReadyAt),
+      'doctorVisitAt': serializer.toJson<DateTime?>(doctorVisitAt),
     };
   }
 
@@ -5817,6 +5970,10 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     Value<DateTime?> deletedAt = const Value.absent(),
     Value<int?> checkupStage = const Value.absent(),
     Value<DateTime?> fastingReminderAt = const Value.absent(),
+    Value<DateTime?> checkupStageSince = const Value.absent(),
+    Value<DateTime?> labBookingAt = const Value.absent(),
+    Value<DateTime?> resultReadyAt = const Value.absent(),
+    Value<DateTime?> doctorVisitAt = const Value.absent(),
   }) => RecordRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -5837,6 +5994,16 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     fastingReminderAt: fastingReminderAt.present
         ? fastingReminderAt.value
         : this.fastingReminderAt,
+    checkupStageSince: checkupStageSince.present
+        ? checkupStageSince.value
+        : this.checkupStageSince,
+    labBookingAt: labBookingAt.present ? labBookingAt.value : this.labBookingAt,
+    resultReadyAt: resultReadyAt.present
+        ? resultReadyAt.value
+        : this.resultReadyAt,
+    doctorVisitAt: doctorVisitAt.present
+        ? doctorVisitAt.value
+        : this.doctorVisitAt,
   );
   RecordRow copyWithCompanion(RecordsCompanion data) {
     return RecordRow(
@@ -5867,6 +6034,18 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       fastingReminderAt: data.fastingReminderAt.present
           ? data.fastingReminderAt.value
           : this.fastingReminderAt,
+      checkupStageSince: data.checkupStageSince.present
+          ? data.checkupStageSince.value
+          : this.checkupStageSince,
+      labBookingAt: data.labBookingAt.present
+          ? data.labBookingAt.value
+          : this.labBookingAt,
+      resultReadyAt: data.resultReadyAt.present
+          ? data.resultReadyAt.value
+          : this.resultReadyAt,
+      doctorVisitAt: data.doctorVisitAt.present
+          ? data.doctorVisitAt.value
+          : this.doctorVisitAt,
     );
   }
 
@@ -5887,7 +6066,11 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
           ..write('attachmentPath: $attachmentPath, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('checkupStage: $checkupStage, ')
-          ..write('fastingReminderAt: $fastingReminderAt')
+          ..write('fastingReminderAt: $fastingReminderAt, ')
+          ..write('checkupStageSince: $checkupStageSince, ')
+          ..write('labBookingAt: $labBookingAt, ')
+          ..write('resultReadyAt: $resultReadyAt, ')
+          ..write('doctorVisitAt: $doctorVisitAt')
           ..write(')'))
         .toString();
   }
@@ -5909,6 +6092,10 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     deletedAt,
     checkupStage,
     fastingReminderAt,
+    checkupStageSince,
+    labBookingAt,
+    resultReadyAt,
+    doctorVisitAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -5928,7 +6115,11 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
           other.attachmentPath == this.attachmentPath &&
           other.deletedAt == this.deletedAt &&
           other.checkupStage == this.checkupStage &&
-          other.fastingReminderAt == this.fastingReminderAt);
+          other.fastingReminderAt == this.fastingReminderAt &&
+          other.checkupStageSince == this.checkupStageSince &&
+          other.labBookingAt == this.labBookingAt &&
+          other.resultReadyAt == this.resultReadyAt &&
+          other.doctorVisitAt == this.doctorVisitAt);
 }
 
 class RecordsCompanion extends UpdateCompanion<RecordRow> {
@@ -5947,6 +6138,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
   final Value<DateTime?> deletedAt;
   final Value<int?> checkupStage;
   final Value<DateTime?> fastingReminderAt;
+  final Value<DateTime?> checkupStageSince;
+  final Value<DateTime?> labBookingAt;
+  final Value<DateTime?> resultReadyAt;
+  final Value<DateTime?> doctorVisitAt;
   const RecordsCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -5963,6 +6158,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     this.deletedAt = const Value.absent(),
     this.checkupStage = const Value.absent(),
     this.fastingReminderAt = const Value.absent(),
+    this.checkupStageSince = const Value.absent(),
+    this.labBookingAt = const Value.absent(),
+    this.resultReadyAt = const Value.absent(),
+    this.doctorVisitAt = const Value.absent(),
   });
   RecordsCompanion.insert({
     this.uuid = const Value.absent(),
@@ -5980,6 +6179,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     this.deletedAt = const Value.absent(),
     this.checkupStage = const Value.absent(),
     this.fastingReminderAt = const Value.absent(),
+    this.checkupStageSince = const Value.absent(),
+    this.labBookingAt = const Value.absent(),
+    this.resultReadyAt = const Value.absent(),
+    this.doctorVisitAt = const Value.absent(),
   }) : patientId = Value(patientId),
        kind = Value(kind),
        title = Value(title),
@@ -6000,6 +6203,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     Expression<DateTime>? deletedAt,
     Expression<int>? checkupStage,
     Expression<DateTime>? fastingReminderAt,
+    Expression<DateTime>? checkupStageSince,
+    Expression<DateTime>? labBookingAt,
+    Expression<DateTime>? resultReadyAt,
+    Expression<DateTime>? doctorVisitAt,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -6017,6 +6224,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (checkupStage != null) 'checkup_stage': checkupStage,
       if (fastingReminderAt != null) 'fasting_reminder_at': fastingReminderAt,
+      if (checkupStageSince != null) 'checkup_stage_since': checkupStageSince,
+      if (labBookingAt != null) 'lab_booking_at': labBookingAt,
+      if (resultReadyAt != null) 'result_ready_at': resultReadyAt,
+      if (doctorVisitAt != null) 'doctor_visit_at': doctorVisitAt,
     });
   }
 
@@ -6036,6 +6247,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     Value<DateTime?>? deletedAt,
     Value<int?>? checkupStage,
     Value<DateTime?>? fastingReminderAt,
+    Value<DateTime?>? checkupStageSince,
+    Value<DateTime?>? labBookingAt,
+    Value<DateTime?>? resultReadyAt,
+    Value<DateTime?>? doctorVisitAt,
   }) {
     return RecordsCompanion(
       uuid: uuid ?? this.uuid,
@@ -6053,6 +6268,10 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
       deletedAt: deletedAt ?? this.deletedAt,
       checkupStage: checkupStage ?? this.checkupStage,
       fastingReminderAt: fastingReminderAt ?? this.fastingReminderAt,
+      checkupStageSince: checkupStageSince ?? this.checkupStageSince,
+      labBookingAt: labBookingAt ?? this.labBookingAt,
+      resultReadyAt: resultReadyAt ?? this.resultReadyAt,
+      doctorVisitAt: doctorVisitAt ?? this.doctorVisitAt,
     );
   }
 
@@ -6106,6 +6325,18 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     if (fastingReminderAt.present) {
       map['fasting_reminder_at'] = Variable<DateTime>(fastingReminderAt.value);
     }
+    if (checkupStageSince.present) {
+      map['checkup_stage_since'] = Variable<DateTime>(checkupStageSince.value);
+    }
+    if (labBookingAt.present) {
+      map['lab_booking_at'] = Variable<DateTime>(labBookingAt.value);
+    }
+    if (resultReadyAt.present) {
+      map['result_ready_at'] = Variable<DateTime>(resultReadyAt.value);
+    }
+    if (doctorVisitAt.present) {
+      map['doctor_visit_at'] = Variable<DateTime>(doctorVisitAt.value);
+    }
     return map;
   }
 
@@ -6126,7 +6357,11 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
           ..write('attachmentPath: $attachmentPath, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('checkupStage: $checkupStage, ')
-          ..write('fastingReminderAt: $fastingReminderAt')
+          ..write('fastingReminderAt: $fastingReminderAt, ')
+          ..write('checkupStageSince: $checkupStageSince, ')
+          ..write('labBookingAt: $labBookingAt, ')
+          ..write('resultReadyAt: $resultReadyAt, ')
+          ..write('doctorVisitAt: $doctorVisitAt')
           ..write(')'))
         .toString();
   }
@@ -12129,6 +12364,10 @@ typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
   Value<DateTime?> deletedAt,
   Value<int?> checkupStage,
   Value<DateTime?> fastingReminderAt,
+  Value<DateTime?> checkupStageSince,
+  Value<DateTime?> labBookingAt,
+  Value<DateTime?> resultReadyAt,
+  Value<DateTime?> doctorVisitAt,
 });
 typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<String> uuid,
@@ -12146,6 +12385,10 @@ typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<DateTime?> deletedAt,
   Value<int?> checkupStage,
   Value<DateTime?> fastingReminderAt,
+  Value<DateTime?> checkupStageSince,
+  Value<DateTime?> labBookingAt,
+  Value<DateTime?> resultReadyAt,
+  Value<DateTime?> doctorVisitAt,
 });
 
 final class $$RecordsTableReferences
@@ -12265,6 +12508,26 @@ class $$RecordsTableFilterComposer
 
   ColumnFilters<DateTime> get fastingReminderAt => $composableBuilder(
     column: $table.fastingReminderAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get checkupStageSince => $composableBuilder(
+    column: $table.checkupStageSince,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get labBookingAt => $composableBuilder(
+    column: $table.labBookingAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resultReadyAt => $composableBuilder(
+    column: $table.resultReadyAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get doctorVisitAt => $composableBuilder(
+    column: $table.doctorVisitAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12396,6 +12659,26 @@ class $$RecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get checkupStageSince => $composableBuilder(
+    column: $table.checkupStageSince,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get labBookingAt => $composableBuilder(
+    column: $table.labBookingAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resultReadyAt => $composableBuilder(
+    column: $table.resultReadyAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get doctorVisitAt => $composableBuilder(
+    column: $table.doctorVisitAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PatientsTableOrderingComposer get patientId {
     final $$PatientsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12480,6 +12763,26 @@ class $$RecordsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get fastingReminderAt => $composableBuilder(
     column: $table.fastingReminderAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get checkupStageSince => $composableBuilder(
+    column: $table.checkupStageSince,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get labBookingAt => $composableBuilder(
+    column: $table.labBookingAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get resultReadyAt => $composableBuilder(
+    column: $table.resultReadyAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get doctorVisitAt => $composableBuilder(
+    column: $table.doctorVisitAt,
     builder: (column) => column,
   );
 
@@ -12575,6 +12878,10 @@ class $$RecordsTableTableManager
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int?> checkupStage = const Value.absent(),
                 Value<DateTime?> fastingReminderAt = const Value.absent(),
+                Value<DateTime?> checkupStageSince = const Value.absent(),
+                Value<DateTime?> labBookingAt = const Value.absent(),
+                Value<DateTime?> resultReadyAt = const Value.absent(),
+                Value<DateTime?> doctorVisitAt = const Value.absent(),
               }) => RecordsCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12591,6 +12898,10 @@ class $$RecordsTableTableManager
                 deletedAt: deletedAt,
                 checkupStage: checkupStage,
                 fastingReminderAt: fastingReminderAt,
+                checkupStageSince: checkupStageSince,
+                labBookingAt: labBookingAt,
+                resultReadyAt: resultReadyAt,
+                doctorVisitAt: doctorVisitAt,
               ),
           createCompanionCallback:
               ({
@@ -12609,6 +12920,10 @@ class $$RecordsTableTableManager
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int?> checkupStage = const Value.absent(),
                 Value<DateTime?> fastingReminderAt = const Value.absent(),
+                Value<DateTime?> checkupStageSince = const Value.absent(),
+                Value<DateTime?> labBookingAt = const Value.absent(),
+                Value<DateTime?> resultReadyAt = const Value.absent(),
+                Value<DateTime?> doctorVisitAt = const Value.absent(),
               }) => RecordsCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12625,6 +12940,10 @@ class $$RecordsTableTableManager
                 deletedAt: deletedAt,
                 checkupStage: checkupStage,
                 fastingReminderAt: fastingReminderAt,
+                checkupStageSince: checkupStageSince,
+                labBookingAt: labBookingAt,
+                resultReadyAt: resultReadyAt,
+                doctorVisitAt: doctorVisitAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(

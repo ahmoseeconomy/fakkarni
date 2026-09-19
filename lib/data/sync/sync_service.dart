@@ -439,6 +439,12 @@ class SyncService {
           'checkup_stage': r.checkupStage,
           'fasting_reminder_at':
               r.fastingReminderAt == null ? null : utcIso(r.fastingReminderAt!),
+          // نسخة ١٧ — مواعيد المتابعة اللي الإنسان قالها
+          'checkup_stage_since':
+              r.checkupStageSince == null ? null : utcIso(r.checkupStageSince!),
+          'lab_booking_at': r.labBookingAt == null ? null : utcIso(r.labBookingAt!),
+          'result_ready_at': r.resultReadyAt == null ? null : utcIso(r.resultReadyAt!),
+          'doctor_visit_at': r.doctorVisitAt == null ? null : utcIso(r.doctorVisitAt!),
         }
       );
     }

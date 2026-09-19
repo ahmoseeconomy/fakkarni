@@ -6,6 +6,7 @@ import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
+import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -135,7 +136,7 @@ void main() {
     });
   });
 
-  group('دورة الفحص (المخطط ١١)', () {
+  group('متابعة التحليل (المخطط ١١)', () {
     Future<int> start() => h.services.checkups.start(
       patientId: h.services.patientId,
       title: 'صورة دم كاملة',
@@ -243,12 +244,51 @@ void main() {
       },
     );
 
+    screenTest('المرحلة بتسأل عن ميعادها، والتخطّي بيتقال بسطر قصير مش بتحذير',
+        (tester) async {
+      final id = await start();
+      await h.services.checkups.advance(id, now: sep15); // حجز المعمل
+      await h.pump(tester, CheckupScreen(recordId: id, now: () => sep15));
+      await settle(tester);
+
+      final stage = CheckupStage.labBooking;
+      expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsOneWidget);
+      expect(find.text('حجزت إمتى؟'), findsWidgets);
+      final skip = find.byKey(ValueKey('stage-date-skip-${stage.number}'));
+      expect(skip, findsOneWidget);
+      // سطر قصير هادي: باهت، مش ذهبي ولا أحمر
+      expect(tester.widget<Text>(skip).style?.color, F.mutedDark);
+      expectNoRedAndMinSize(tester);
+
+      // والمراحل التانية ما بتسألش
+      expect(find.byKey(ValueKey('stage-date-set-${CheckupStage.preparation.number}')), findsNothing);
+
+      // بيحطّ الميعاد من الشيت — **نفس منتقي اليوم بتاع شيت الصيام**
+      await tester.tap(find.byKey(ValueKey('stage-date-set-${stage.number}')));
+      await settle(tester);
+      expect(find.byType(DayPicker), findsOneWidget);
+      await tester.tap(find.text('بكرة'));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('stage-date-save')));
+      await settle(tester);
+
+      expect(find.byKey(ValueKey('stage-date-line-${stage.number}')), findsOneWidget);
+      expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsNothing);
+      expect(h.sink.scheduled.keys.where(isCheckupId), hasLength(1));
+
+      // و«شيل الميعاد» بترجّع السؤال
+      await tester.tap(find.byKey(ValueKey('stage-date-clear-${stage.number}')));
+      await settle(tester);
+      expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsOneWidget);
+      expect(h.sink.cancelled, contains(checkupIdFor(id, 0)));
+    });
+
     screenTest(
-      '«ابدأ دورة فحص» من الملف الصحي → الشاشة، و«امسحه» على دورة عليها تذكير بيلغيه',
+      '«تابع تحليل» من الملف الصحي → الشاشة، و«امسحه» على متابعة عليها تذكير بيلغيه',
       (tester) async {
         await h.pump(tester, HealthFileScreen(today: sep15));
         await settle(tester);
-        await tester.tap(find.text('ابدأ دورة فحص'));
+        await tester.tap(find.text('تابع تحليل'));
         await settle(tester);
         await tester.enterText(
           find.byKey(const ValueKey('checkup-title')),
@@ -269,7 +309,7 @@ void main() {
         );
         await tester.pageBack();
         await settle(tester);
-        expect(find.textContaining('دورة فحص — ١ من ٧'), findsOneWidget);
+        expect(find.textContaining('متابعة — ١ من ٧'), findsOneWidget);
 
         await tester.tap(find.byKey(ValueKey('record-options-$id')));
         await settle(tester);

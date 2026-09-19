@@ -86,13 +86,53 @@ int fastingIdFor(int recordId) {
 
 bool isFastingId(int id) => id >= fastingIdBase && id < fastingIdLimit;
 
+/// مكان محجوز لمواعيد متابعة التحليل — أقصى ٢ معلّقين في نفس الوقت.
+///
+/// مرحلة واحدة بس بتبقى «الحالية» في كل متابعة، وتذكير المرحلة اللي فاتت
+/// بيتلغي أول ما يبقى بلا معنى ([stageReminderStillUseful])، فمتابعة
+/// واحدة = تذكير واحد. الاتنين دول يعني متابعتين شغّالين في وقت واحد،
+/// زي تذكيرات الصيام بالظبط.
+const int checkupPendingSlack = 2;
+
+/// نطاق مواعيد المتابعة — **نطاق جديد على حد ١٠ مليون، زي القاعدة**.
+///
+/// الرقم مشتق من (id الصف، المرحلة)، مش متخزّن: نفس الصف ونفس المرحلة
+/// بيدّوا نفس الرقم للأبد، فإعادة الضبط بتستبدل التذكير بدل ما تزوّد
+/// واحد. تلات مراحل بتسأل عن تاريخ، فكل صف بياخد تلات أرقام متجاورة.
+const int checkupIdBase = 50000000;
+const int checkupIdLimit = checkupIdBase + maxPatients * patientIdSpan;
+
+/// عدد المراحل اللي بتسأل عن تاريخ — عرض الخانة لكل صف.
+const int checkupDatedStages = 3;
+
+/// رقم تذكير المرحلة [stageSlot] (٠..٢) للسجل [recordId].
+///
+/// برّه النطاق بيرمي — اللفّ هو بالظبط التصادم اللي النطاق موجود عشان
+/// يمنعه، وتذكير متابعة بيدوس على تذكير دوا هو أسوأ باج ممكن.
+int checkupIdFor(int recordId, int stageSlot) {
+  if (stageSlot < 0 || stageSlot >= checkupDatedStages) {
+    throw RangeError.range(stageSlot, 0, checkupDatedStages - 1, 'stageSlot');
+  }
+  final id = checkupIdBase + recordId * checkupDatedStages + stageSlot;
+  if (recordId < 0 || id >= checkupIdLimit) {
+    throw RangeError.range(
+        recordId, 0, (checkupIdLimit - checkupIdBase) ~/ checkupDatedStages - 1, 'recordId');
+  }
+  return id;
+}
+
+bool isCheckupId(int id) => id >= checkupIdBase && id < checkupIdLimit;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
 /// ومكان التأجيل والصيام: ٦٤ − ٤٦ − ٢ − ٢ = ١٤.
 ///
 /// ١٤ ÷ درجتين = أقرب ٧ تذكيرات بس هي اللي بياخدوا سلّم. النافذة دي
 /// بتتجدد مع كل تأكيد وكل فتحة زي نافذة الجرعات، فاللي بعدهم بيلحقوا.
-const int maxPendingEscalations =
-    iosPendingLimit - maxPendingReminders - snoozePendingSlack - fastingPendingSlack;
+const int maxPendingEscalations = iosPendingLimit -
+    maxPendingReminders -
+    snoozePendingSlack -
+    fastingPendingSlack -
+    checkupPendingSlack;
 
 /// نافذة الجدولة الافتراضية.
 const int reminderWindowDays = 7;
@@ -107,8 +147,11 @@ const int iosPendingLimit = 64;
 /// السقف بيتطبّق على أندرويد كمان عن قصد: نفس السلوك على الجهازين أسهل في
 /// التفكير من «شغال عندي على أندرويد».
 ///
-/// كان ٤٨؛ بقى ٤٦ في D3.7 عشان تذكيرين صيام يلاقوا مكان.
-const int maxPendingReminders = 46;
+/// كان ٤٨؛ بقى ٤٦ في D3.7 عشان تذكيرين صيام يلاقوا مكان، وبقى ٤٤ مع
+/// مواعيد متابعة التحليل (تذكيرين كمان). التمن متشاف ومقصود: أفق الجرعات
+/// بيقصر بيومين تقريباً لمريض على أدوية كتير، وبيتجدد مع كل فتحة وكل
+/// تأكيد زي ما هو.
+const int maxPendingReminders = 44;
 
 /// رقم الإشعار مشتق من (المريض، اليوم، الدقيقة).
 ///

@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -328,6 +328,24 @@ class AppDatabase extends _$AppDatabase {
                 ).get();
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE $table ADD COLUMN $column INTEGER NULL');
+                }
+              }
+            }
+            if (from < 17) {
+              // مواعيد متابعة التحليل: كل مرحلة بتسأل عن ميعادها، وساعة
+              // دخول المرحلة الحالية. الأربعة nullable — السجلات القديمة
+              // مالهاش مواعيد، وما بنخترعش لها. بحماية وجود زي v13 وv15 وv16.
+              for (final column in [
+                'checkup_stage_since',
+                'lab_booking_at',
+                'result_ready_at',
+                'doctor_visit_at',
+              ]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('records') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE records ADD COLUMN $column INTEGER NULL');
                 }
               }
             }

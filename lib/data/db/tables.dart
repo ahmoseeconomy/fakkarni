@@ -191,13 +191,25 @@ class Records extends Table with SyncIdentity {
   TextColumn get attachmentPath => text().nullable()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
-  /// نسخة ١٣ — مرحلة دورة الفحص (١..٧) على صف `lab`. null = سجل عادي مش
-  /// دورة (كل تحاليل D3.5 وD3.6). المستخدم بس اللي بيحرّكها.
+  /// نسخة ١٣ — مرحلة متابعة التحليل (١..٧) على صف `lab`. null = سجل عادي
+  /// مش متابعة (كل تحاليل D3.5 وD3.6). المستخدم بس اللي بيحرّكها.
   IntColumn get checkupStage => integer().nullable()();
 
   /// نسخة ١٣ — لحظة تذكير الصيام المتجدول، أو null. رقم الإشعار نفسه
   /// **مش متخزّن**: مشتق من id الصف في نطاق الصيام (`fastingIdFor`).
   DateTimeColumn get fastingReminderAt => dateTime().nullable()();
+
+  /// نسخة ١٧ — ساعة دخول المرحلة الحالية. منها بس بنعرف إن المتابعة واقفة
+  /// من أسبوع؛ `updatedAtMs` بتتحرّك مع أي تعديل فما بتنفعش، و`happenedAt`
+  /// ميعاد السحب مش لحظة الحركة. null = صف قديم، فمفيش حكم عليه.
+  DateTimeColumn get checkupStageSince => dateTime().nullable()();
+
+  /// نسخة ١٧ — المواعيد اللي **الإنسان** قالها، واحد لكل مرحلة بتسأل
+  /// (`CheckupStage.dateQuestion`). null = ما قالش، ودي حالة عادية بتتكتب
+  /// بسطر هادي مش بتحذير. مفيش تخمين لأي واحد فيهم.
+  DateTimeColumn get labBookingAt => dateTime().nullable()();
+  DateTimeColumn get resultReadyAt => dateTime().nullable()();
+  DateTimeColumn get doctorVisitAt => dateTime().nullable()();
 }
 
 /// سياق قياس السكر — الاتنين بس.
