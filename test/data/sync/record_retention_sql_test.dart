@@ -1,43 +1,46 @@
-// «هيتمسح نهائي بعد ٣٠ يوم» مكتوبة مرتين — `RecordsRepository.retentionDays`
-// على موبايل الأب، و`private.record_retention()` في السحابة (0012). Postgres
-// ما بيقراش دارت. لو انحرفوا، الشاشة بتقول رقم والسحابة بتعمل رقم تاني —
-// يا إما سجل ممسوح بيفضل عند الابن بعد الوعد، يا إما بيتمسح قبله.
+// **ده كان مرآة، وبقى شبكة أمان.**
 //
-// بيقرا ملف الترحيل نفسه، زي `server_grace_sql_test`.
+// «هيتمسح نهائي بعد ٣٠ يوم» كانت مكتوبة مرتين — `RecordsRepository
+// .retentionDays` على موبايل الأب و`private.record_retention()` في السحابة
+// (0012) — والاختبار ده كان بيمسك انحرافهم.
+//
+// المهلة اتشالت من التطبيق: المسح بقى بيمسح، والمزامنة بتشيل الصف السحابي
+// في الدفعة الجاية (`_pushRecords`). فمفيش رقم في دارت يتقارن بيه، ومفيش
+// وعد للمستخدم بالرقم ده خالص.
+//
+// اللي فاضل في السحابة بيفضل مكانه **عن قصد**، لحالة واحدة: موبايل مسح
+// سجل وما نجحش يوصل السحابة تاني أبداً — اتكسر، اتباع، أو الشبكة ما رجعتش.
+// ساعتها الشاهدة اللي اترفعت قبل المسح هي كل اللي هناك، والكرون هو اللي
+// بيشيلها. من غير الكرون الصف ده بيقعد في ملف الابن للأبد.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fakkarni/data/repositories/records_repository.dart';
-
 const _migration = 'supabase/migrations/0012_health_file.sql';
-
-final _retentionInSql = RegExp(
-  r"function\s+private\.record_retention\s*\(\s*\)[\s\S]*?interval\s*'(\d+)\s*days'",
-);
-final _anyDaysInterval = RegExp(r"interval\s*'(\d+)\s*days'");
 
 void main() {
   late String sql;
 
   setUp(() => sql = File(_migration).readAsStringSync());
 
-  test('الـ٣٠ يوم في SQL = retentionDays في دارت', () {
-    final match = _retentionInSql.firstMatch(sql);
-    expect(match, isNotNull, reason: 'private.record_retention() مش لاقيها في $_migration');
-    expect(int.parse(match!.group(1)!), RecordsRepository.retentionDays);
-  });
-
-  test('المسح بيعدّي على الدالة — مفيش نسخة تانية من الرقم في الملف', () {
-    // التأكيد في آخر الملف بيستعمل ٣١ و٢٩ يوم كحدود، مش كمهلة
-    final values = {
-      for (final m in _anyDaysInterval.allMatches(sql)) int.parse(m.group(1)!),
-    }..removeAll({RecordsRepository.retentionDays + 1, RecordsRepository.retentionDays - 1});
-    expect(values, {RecordsRepository.retentionDays});
+  test('شبكة الأمان لسه موجودة: purge_deleted_records بتمسح الشواهد القديمة', () {
+    expect(
+      RegExp(r'create or replace function private\.purge_deleted_records').hasMatch(sql),
+      isTrue,
+      reason: 'الدالة اتشالت — يبقى صف اتمسح على موبايل مات هيفضل عند الابن للأبد',
+    );
     expect(
       RegExp(r'deleted_at\s*<\s*now\(\)\s*-\s*private\.record_retention\(\)').hasMatch(sql),
       isTrue,
-      reason: 'purge_deleted_records لازم تستعمل الدالة، مش رقم مكتوب',
+      reason: 'لازم تعدّي على الدالة، مش رقم مكتوب في نص الاستعلام',
+    );
+  });
+
+  test('والكرون بينده عليها — دالة من غير جدول ما بتشتغلش', () {
+    expect(sql, contains('fakkarni-purge-records'));
+    expect(
+      RegExp(r'\$job\$\s*select private\.purge_deleted_records\(\)\s*\$job\$').hasMatch(sql),
+      isTrue,
     );
   });
 }

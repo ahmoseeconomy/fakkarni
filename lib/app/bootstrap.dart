@@ -21,7 +21,6 @@ import '../data/repositories/medication_repository.dart';
 import '../data/repositories/routine_repository.dart';
 import '../data/services/notification_actions.dart';
 import '../data/repositories/preferences_repository.dart';
-import '../data/repositories/records_repository.dart';
 import '../data/services/reminder_scheduler.dart';
 import 'app_scope.dart';
 
@@ -70,17 +69,12 @@ Future<AppServices> buildServices(
 
 /// شغل البيت عند فتح التطبيق — مش في صحوة الخلفية.
 ///
-/// الملف الصحي بيقول للمستخدم «هيتمسح نهائي بعد ٣٠ يوم»؛ السطر ده هو اللي
-/// بيخلّي الجملة دي حقيقية. فشله ما بيوقفش الفتح — الصفوف بتتمسح الفتحة
-/// الجاية.
-Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {
-  try {
-    final purged = await RecordsRepository(services.db).purgeDeleted(now: now, attachments: services.attachments);
-    if (purged > 0) debugPrint('الملف الصحي: اتمسح نهائي $purged صف عدّى عليهم ٣٠ يوم');
-  } catch (error, stack) {
-    debugPrint('تنظيف الملف الصحي ما اشتغلش: $error\n$stack');
-  }
-}
+/// **فاضي دلوقتي، ومتساب عن قصد.** كان بيمسح السجلات اللي عدّى على مسحها
+/// ٣٠ يوم، عشان الجملة «هيتمسح نهائي بعد ٣٠ يوم» تبقى حقيقية. المهلة دي
+/// اتشالت: المسح بقى بيمسح المحتوى في لحظته، واللي فاضل شاهدة فاضية
+/// المزامنة محتاجاها. الدالة بتفضل مكانها لأن أول حاجة محتاجة تنضيف عند
+/// الفتح هتلاقي بابها مفتوح ومربوط ومتغطّي باختبار.
+Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {}
 
 /// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.
 LabReportReader? _labReaderFromEnvironment() {

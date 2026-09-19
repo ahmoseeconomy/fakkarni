@@ -114,12 +114,13 @@ void main() {
       expect(find.text('مفيش حاجة بالكلام ده'), findsOneWidget);
     });
 
-    screenTest('«⋯ خيارات» → «امسحه» بتأكيد → الصف فاضل مشطوب وباهت و«↺ رجّعه» بيرجّعه', (tester) async {
+    screenTest('«⋯ خيارات» → «امسحه» بتأكيد → الصف بيختفي، مش بيفضل شهر', (tester) async {
       final id = await add(RecordKind.lab, 'HbA1c', DateTime(2026, 8, 28));
+      await add(RecordKind.visit, 'باطنة', DateTime(2026, 8, 20));
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
 
-      expect(find.text('⋯ خيارات'), findsOneWidget, reason: 'مش أيقونة لوحدها');
+      expect(find.text('⋯ خيارات'), findsNWidgets(2), reason: 'مش أيقونة لوحدها');
 
       // «لأ، سيبه» ما بيمسحش
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
@@ -127,9 +128,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('record-delete')));
       await settle(tester);
       expect(find.text('تمسح «HbA1c»؟'), findsOneWidget);
+      expect(find.text('هيتشال من الملف خالص، ومفيش رجوع.'), findsOneWidget);
+      // الجملة القديمة كانت بتوعد بشهر رجوع — ومحدش كان بيقدر يرجّع بيها حاجة
+      expect(find.textContaining('٣٠ يوم'), findsNothing);
       await tester.tap(find.text('لأ، سيبه'));
       await settle(tester);
-      expect((await repo().all(h.services.patientId)).single.deletedAt, isNull);
+      expect((await repo().all(h.services.patientId)), hasLength(2));
 
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
       await settle(tester);
@@ -138,22 +142,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('record-delete-confirm')));
       await settle(tester);
 
-      expect(find.text('HbA1c'), findsOneWidget, reason: 'ما اختفاش');
-      expect(find.text('اتمسح'), findsOneWidget);
-      expect(find.text('هيتمسح نهائي بعد ٣٠ يوم — تقدر ترجّعه لحد كده'), findsOneWidget);
-      final faded = tester.widget<Opacity>(
-        find.ancestor(of: find.text('HbA1c'), matching: find.byType(Opacity)).first,
-      );
-      expect(faded.opacity, 0.45);
-      expect(find.text('⋯ خيارات'), findsNothing);
+      expect(find.text('HbA1c'), findsNothing, reason: 'اتمسح يعني راح');
+      expect(find.text('باطنة'), findsOneWidget, reason: 'والباقي مكانه');
+      expect(find.text('رجّعه'), findsNothing);
+      expect(find.byType(Opacity), findsNothing, reason: 'مفيش صف باهت مشطوب');
       for (final msa in ['حُذف', 'يُنقل', 'المحذوفات']) {
         expect(find.textContaining(msa), findsNothing, reason: msa);
       }
 
-      await tester.tap(find.text('رجّعه'));
-      await settle(tester);
-      expect(find.text('اتمسح'), findsNothing);
-      expect((await repo().all(h.services.patientId)).single.deletedAt, isNull);
       expectNoRedAndMinSize(tester);
     });
   });
@@ -187,16 +183,16 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
-    screenTest('الممسوح فاضل على الخط مشطوب ومعاه «رجّعه»', (tester) async {
+    screenTest('الممسوح مش على الخط خالص — ولا مشطوب ولا «رجّعه»', (tester) async {
       final id = await add(RecordKind.imaging, 'أشعة صدر', DateTime(2026, 9, 10));
-      await repo().softDelete(id, now: sep14);
+      await add(RecordKind.lab, 'صورة دم', DateTime(2026, 9, 11));
+      await repo().delete(id, now: sep14);
       await h.pump(tester, HistoryScreen(today: sep14));
       await settle(tester);
-      expect(find.text('أشعة صدر'), findsOneWidget);
-      expect(find.text('اتمسح'), findsOneWidget);
-      await tester.tap(find.text('رجّعه'));
-      await settle(tester);
-      expect(find.text('اتمسح'), findsNothing);
+      expect(find.text('صورة دم'), findsOneWidget, reason: 'الباقي مكانه');
+      expect(find.text('أشعة صدر'), findsNothing);
+      expect(find.text('رجّعه'), findsNothing);
+      expect(find.textContaining('٣٠ يوم'), findsNothing);
     });
 
     screenTest('فاضي → بيقول إزاي تضيف', (tester) async {

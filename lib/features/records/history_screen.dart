@@ -8,12 +8,12 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
-import 'deleted_row.dart';
 import 'manual_entry_screen.dart';
+import 'records_empty.dart';
 import 'record_kinds.dart';
 
 /// «الحالات السابقة» (المخطط ٢٩): خط زمني بالترتيب (الأحدث فوق)، فلتر
-/// بالنوع وبالفترة. الممسوح بيفضل على الخط مشطوب ومعاه «↺ رجّعه».
+/// بالنوع وبالفترة. الممسوح مش هنا خالص — `watchAll` بتفلتره.
 ///
 /// «إيقاف دوا» اللي في التصميم جاي من الأدوية مش من السجلات — مش هنا.
 class HistoryScreen extends StatefulWidget {
@@ -41,7 +41,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final now = widget.today ?? DateTime.now();
-    final services = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('الحالات السابقة')),
       body: StreamBuilder<List<RecordRow>>(
@@ -111,11 +110,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 )
               else
                 for (final (i, r) in shown.indexed)
-                  _TimelineEntry(
-                    record: r,
-                    last: i == shown.length - 1,
-                    onRestore: () => RecordsRepository(services.db).restore(r.id),
-                  ),
+                  _TimelineEntry(record: r, last: i == shown.length - 1),
             ],
           );
         },
@@ -125,11 +120,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _TimelineEntry extends StatelessWidget {
-  const _TimelineEntry({required this.record, required this.last, required this.onRestore});
+  const _TimelineEntry({required this.record, required this.last});
 
   final RecordRow record;
   final bool last;
-  final VoidCallback onRestore;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +168,7 @@ class _TimelineEntry extends StatelessWidget {
                     border: Border.all(color: F.line),
                     borderRadius: BorderRadius.circular(F.radiusTile),
                   ),
-                  child: Icon(r.kind.icon, size: 22, color: r.deletedAt == null ? F.green : F.mutedLight),
+                  child: Icon(r.kind.icon, size: 22, color: F.green),
                 ),
                 if (!last) Expanded(child: Container(width: 2, color: F.line)),
               ],
@@ -184,7 +178,7 @@ class _TimelineEntry extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: F.gap),
-              child: r.deletedAt == null ? content : DeletedRecord(onRestore: onRestore, child: content),
+              child: content,
             ),
           ),
         ],

@@ -20,8 +20,14 @@ void main() {
   });
   tearDown(() => db.close());
 
-  Future<int> add(String title, DateTime at) =>
-      repo.add(patientId: patientId, kind: RecordKind.lab, title: title, happenedAt: at);
+  Future<int> add(String title, DateTime at, {String? doctor, String? notes}) => repo.add(
+        patientId: patientId,
+        kind: RecordKind.lab,
+        title: title,
+        happenedAt: at,
+        doctor: doctor,
+        notes: notes,
+      );
 
   test('بيتحفظ بالحرف، الفاضي null، والعنوان الفاضي بيترفض', () async {
     await repo.add(
@@ -42,36 +48,37 @@ void main() {
     expect(() => add('  ', sep14), throwsArgumentError);
   });
 
-  test('المسح ناعم: الصف فاضل في القايمة بتاريخ مسحه، والرجوع بيشيله', () async {
-    final id = await add('HbA1c', sep14);
-    await repo.softDelete(id, now: sep14);
-    var rows = await repo.all(patientId);
-    expect(rows.single.deletedAt, isNotNull, reason: 'ما اختفاش');
-    await repo.restore(id);
-    rows = await repo.all(patientId);
-    expect(rows.single.deletedAt, isNull);
-  });
+  test('روشتة اتمسحت ما بتفضلش في الملف شهر — بتختفي في لحظتها', () async {
+    final id = await add('روشتة الضغط', sep14);
+    await add('تحليل', sep14);
 
-  test('التنظيف: ممسوح من ٣١ يوم بيتمسح نهائي، من ٢٩ يوم فاضل، وغير الممسوح ما يتلمسش', () async {
-    final old = await add('قديم', DateTime(2026, 6, 1));
-    final recent = await add('قريب', DateTime(2026, 6, 1));
-    await add('شغّال', DateTime(2025, 1, 1));
-    await repo.softDelete(old, now: DateTime(2026, 8, 14, 12));
-    await repo.softDelete(recent, now: DateTime(2026, 8, 16, 12));
+    await repo.delete(id, now: sep14);
 
-    final purged = await repo.purgeDeleted(now: sep14);
-
-    expect(purged, 1);
     final titles = [for (final r in await repo.all(patientId)) r.title];
-    expect(titles, containsAll(['قريب', 'شغّال']));
-    expect(titles, isNot(contains('قديم')));
+    expect(titles, ['تحليل'], reason: 'الممسوح لسه في القايمة');
+    // ومفيش طريق رجوع: الواجهة مابقاش فيها «رجّعه» والمستودع مابقاش فيه restore
+    expect(await repo.watchAll(patientId).first, hasLength(1));
   });
 
-  test('فتح التطبيق بينضّف فعلاً — launchHousekeeping هو اللي main بيندهه', () async {
+  test('المسح بيشيل المحتوى نفسه، مش بس بيعلّم عليه', () async {
+    final id = await add('روشتة د. هشام', sep14, doctor: 'د. هشام مام', notes: 'ملاحظة خاصة');
+
+    await repo.delete(id, now: sep14);
+
+    final row = await (db.select(db.records)..where((t) => t.id.equals(id))).getSingle();
+    expect(row.doctor, isNull);
+    expect(row.notes, isNull);
+    expect(row.title, RecordsRepository.tombstoneTitle);
+    expect(row.deletedAt, sep14, reason: 'الشاهدة هي اللي بتخلّي المزامنة تمسح من السحابة');
+  });
+
+  test('فتح التطبيق مابقاش بينضّف حاجة — المسح خلص وقته', () async {
     final services = await buildServices(db);
     final id = await add('قديم', DateTime(2026, 6, 1));
-    await repo.softDelete(id, now: DateTime(2026, 8, 1));
+    await repo.delete(id, now: DateTime(2026, 8, 1));
+
     await launchHousekeeping(services, now: sep14);
-    expect(await repo.all(patientId), isEmpty);
+
+    expect(await repo.all(patientId), isEmpty, reason: 'كان مختفي من قبل التنظيف أصلاً');
   });
 }

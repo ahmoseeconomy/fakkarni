@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
@@ -165,13 +166,13 @@ void main() {
       expect(sink.scheduled.containsKey(fastingIdFor(id)), isFalse);
     });
 
-    test('إلغاء الدورة (مسح ناعم) بيلغيه، والرجوع من المسح ما بيرجّعهوش', () async {
+    test('إلغاء الدورة بيمسحها ويلغي تذكيرها — ومفيش رجوع يرجّعه', () async {
       final id = await checkups.start(patientId: patientId, title: 'صورة دم كاملة', today: now);
       await checkups.setFastingReminder(id, draw: draw, hours: 8, now: now);
-      await checkups.softDelete(id, now: now);
+      await checkups.delete(id, now: now);
       expect(sink.scheduled.containsKey(fastingIdFor(id)), isFalse);
-      await (db.update(db.records)..where((t) => t.id.equals(id))).write(const RecordsCompanion());
       expect(sink.scheduled.keys.where(isFastingId), isEmpty);
+      expect(await RecordsRepository(db).all(patientId), isEmpty);
     });
 
     test('وقت فات، ساعات غلط، أو تالت تذكير → مفيش جدولة', () async {

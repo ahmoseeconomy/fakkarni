@@ -140,6 +140,19 @@ These are product decisions, already settled. Do not "improve" them without aski
   reads better); comments and docstrings may keep «·».
   `test/app/no_middle_dot_test.dart` reads every string literal under
   `lib/` and fails if one comes back.
+- **A sheet with a text field moves with the keyboard — and that lives in
+  `FSheet`, not in the caller.** `showModalBottomSheet` is already
+  `isScrollControlled`, but a sheet built at its natural height is simply
+  covered when the keyboard rises: the field and the save button end up
+  under it, so a 72-year-old types blind and cannot reach «احفظ» at all.
+  `FSheet` now pads its bottom by `MediaQuery.viewInsetsOf(context).bottom`
+  and puts its body (not the grip and title) in a `Flexible`
+  `SingleChildScrollView`, so a short screen scrolls instead of clipping.
+  Fixed in the one widget because the same sheet is opened from four
+  places; `test/core/f_sheet_keyboard_test.dart` pins it on a 400×600
+  screen with a 336px keyboard and asserts both the field and the button
+  are **above** it and actually tappable — mutation-checked: dropping the
+  padding puts the field at y=500 against a keyboard starting at 264.
 - **Any monospace font needs an Arabic fallback in the stack.** IBM Plex Mono
   has no Arabic glyphs; without a fallback Arabic letters render disconnected.
 
@@ -221,7 +234,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         817 passing
+test/                         825 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1065,13 +1078,17 @@ Consequences to handle:
    `pending` past +60 and the son is told. `syncSlack` covers a slow
    wire, not a dead one. Inherent to any server-side scan; his view
    corrects on the next refresh (rule 5).
-1. **Sync has no deletes and no second owner device — yet.** Deletes ship
-   as soft-delete (`deleted_at`) with the first feature that needs one;
-   a second device for the same owner ships as last-write-wins by
-   `updated_at`. Neither exists today, and nothing may pretend to handle
-   them until they do. A dose confirmed from the lock screen stays dirty
-   until the next app open/foreground (the background isolate builds no
-   SyncService).
+1. **Sync deletes exactly one table, and has no second owner device — yet.**
+   `SyncRemote.deleteByUuid` exists for `records` only, because deleting a
+   record is the first thing a person does that *must* reach the cloud (see
+   «المسح بيمسح» below). Every other table is still upsert-only, and a
+   second device for the same owner still ships as last-write-wins by
+   `updated_at` — neither exists today, and nothing may pretend to handle
+   them until they do. Do not read the records delete as permission to
+   delete elsewhere: each table that needs one needs its own thinking about
+   what the absent row means to the son. A dose confirmed from the lock
+   screen stays dirty until the next app open/foreground (the background
+   isolate builds no SyncService).
 2b. **The Gemini key is inside the binary (since the C2 revert,
    18 Sep 2026). Shipping to any store in this state is forbidden.**
    Same shelf as anonymous auth, same absolute rule. Paying it back is
@@ -1657,15 +1674,47 @@ the live project — not a line in a UI round.
   beyond PHASE_D3's list: the imaging centre, lab and clinic fields of
   mockup 28 had no column), notes, attachment_path, deleted_at. Written red
   first; frozen SQL above the `from < 6` block.
-- **Soft delete is a promise, and the promise runs.** `deletedAt` is set,
-  the row stays in place on «الملف الصحي» and «الحالات السابقة» — struck
-  through at 45%, with «اتمسح», «هيتمسح نهائي بعد ٣٠ يوم — تقدر ترجّعه لحد
-  كده» and «↺ رجّعه» at full contrast. There is no trash screen and the
-  text never mentions one (the brief's «يُنقل إلى المحذوفات» was MSA and
-  untrue). `launchHousekeeping` in `main.dart` calls
-  `RecordsRepository.purgeDeleted` on every launch: rows deleted more than
-  `retentionDays` (30, the number the text is built from) ago are removed
-  for good; 31 days goes, 29 stays, both under test.
+- **المسح بيمسح. The 30-day grace is gone, everywhere.** It used to be a
+  soft delete: the row stayed struck through with «هيتمسح نهائي بعد ٣٠
+  يوم — تقدر ترجّعه لحد كده» and «↺ رجّعه». That was written for a person
+  who deletes by mistake, and it was wrong for the person who actually
+  deletes — the one whose scan read a prescription he never wanted. He
+  taps «امسحه» and it sits in his medical file for a month.
+  Now: **one confirmation naming the record, and it is gone from every
+  view in the same frame.** No «رجّعه», no strike-through, no trash screen
+  (the text never promised one, and still doesn't).
+- **The grace was not moved somewhere safer — it was removed.** The one
+  place worth arguing for was a `lab` record whose attached photo is the
+  only copy of a report (the camera path does not write to the gallery).
+  But a grace nobody can see and nobody can act on protects no one: the
+  thing that actually protects him is being told **before** the tap, so
+  the confirmation names the loss — «هيتشال من الملف خالص، ومعاه الصورة
+  المرفقة. مفيش رجوع.» when there is an attachment, and the shorter
+  sentence when there is not.
+- **What is deleted is the content; what remains is a tombstone.**
+  `RecordsRepository.delete` clears doctor, place, notes, attachment path,
+  checkup stage and fasting instant, writes `tombstoneTitle`, deletes the
+  attachment file and the row's `lab_results` lines, and sets `deletedAt`.
+  The row itself stays **because sync only upserts**: a hard local delete
+  would leave the cloud copy in place with nothing to say it was deleted,
+  and the son would keep reading a prescription his father removed.
+- **The cloud row goes on the next push, not on the 30-day cron.**
+  `_pushRecords` splits dirty rows into live and tombstoned; a tombstone is
+  **upserted first and deleted second**, and only then marked synced. That
+  order is the whole safety of it: if the delete fails mid-push, the cloud
+  row is at least marked deleted (the caregiver query filters
+  `deleted_at is null`) and the row stays dirty so the delete retries. The
+  reverse order would leave the record visible to the son on any failure.
+- **Nothing in `private.purge_deleted_records` had to change, and no
+  migration is needed.** `records_delete` (0012) already lets the owner
+  delete his own rows, and `lab_results.record_uuid` already cascades. The
+  cron keeps running as a **backstop** for the one case sync cannot reach:
+  a phone that deleted a record and never came online again — its
+  tombstone upload is all the cloud has, and the cron is what eventually
+  clears it. `record_retention_sql_test` was a mirror of a Dart constant
+  that no longer exists; it now asserts that backstop is still wired.
+- `launchHousekeeping` still exists and is now empty, on purpose — the
+  launch-time hook stays wired and tested for the next thing that needs it.
 - «إدخال يدوي» (28): five forms, same primitives, own labels per kind;
   date chips («النهارده»/«امبارح», «بكرة» for a booking) + a date picker.
   «الملف الصحي» (13): search across title, doctor, place, notes and the
@@ -1779,6 +1828,18 @@ the live project — not a line in a UI round.
 **D3.8 — doctor page + export (built)**
 - Schema v14 `visit_questions` (body, created_at, asked; SyncIdentity +
   trigger; pushed since D5.1). Written red first.
+- **«الزيارات والروشتات» — grouped by the doctor's name.** The record has
+  carried `doctor`, `place` and the paper's `happenedAt` since the review
+  screen learned to read them, and this screen ignored all three: a visit
+  summary with no doctor on it is not a summary. Visits and prescriptions
+  (newest first, capped at 8 — this opens while a doctor is standing there)
+  group under the name **as written**, matched case-insensitively after
+  trimming so «د. هشام» and «د. هشام » are one person. It never guesses
+  that «هشام» and «د. هشام» are the same man; that is a guess about people,
+  and getting it wrong files a visit under a doctor who never saw it. A
+  paper with no doctor gets its own group at the end, «من غير اسم دكتور
+  على الورقة» — said in words, never invented, never mixed into someone
+  else's. Each line under the head is «العنوان — العيادة — تاريخ الورقة».
 - «ملخص زيارة الطبيب» (16): current medications with their rules, glucose
   for the last 30 days per context (count · lowest · highest · average),
   the latest value of each lab test with «كان X في {date}», the nearest

@@ -4,6 +4,7 @@ import '../../core/format/arabic_time.dart';
 import '../../domain/health/checkup.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
+import '../files/attachment_store.dart';
 import '../repositories/records_repository.dart';
 import 'reminder_plan.dart';
 import 'reminder_sink.dart';
@@ -114,10 +115,13 @@ class CheckupService {
         .write(const RecordsCompanion(fastingReminderAt: Value(null)));
   }
 
-  /// مسح ناعم (D3.5) + إلغاء التذكير لو فيه. الرجوع ما بيرجّعش التذكير.
-  Future<void> softDelete(int id, {DateTime? now}) async {
+  /// مسح (D3.5) + إلغاء التذكير لو فيه. **مفيش رجوع.**
+  ///
+  /// التذكير بيتلغي **قبل** المسح: رقمه مشتق من `id` الصف، والمسح بيصفّر
+  /// `fastingReminderAt`، فلو اتأخّرنا هنبقى بنلغي حاجة الصف مابقاش فاكرها.
+  Future<void> delete(int id, {DateTime? now, AttachmentStore? attachments}) async {
     final row = await _row(id);
-    await _records.softDelete(id, now: now);
     if (row.fastingReminderAt != null) await cancelFasting(id);
+    await _records.delete(id, now: now, attachments: attachments);
   }
 }

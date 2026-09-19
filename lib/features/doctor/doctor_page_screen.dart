@@ -33,6 +33,14 @@ class DoctorPageScreen extends StatefulWidget {
   State<DoctorPageScreen> createState() => _DoctorPageScreenState();
 }
 
+/// زيارة أو روشتة زي ما هي متسجّلة: مين كتبها، فين، وتاريخ الورقة.
+class _Visit {
+  const _Visit(this.title, this.place, this.at);
+  final String title;
+  final String? place;
+  final DateTime at;
+}
+
 class _LabLine {
   const _LabLine(this.name, this.value, this.unit, this.at, this.previous);
   final String name;
@@ -48,7 +56,14 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
   List<ReadingRow> _readings = const [];
   List<VisitQuestionRow> _questions = const [];
   List<_LabLine> _labs = const [];
+
+  /// الزيارات والروشتات مجمّعة باسم الدكتور، الأحدث الأول — واللي مكتوبش
+  /// عليها دكتور في الآخر تحت اسمها الصريح، مش مخلوطة مع حد.
+  List<(String?, List<_Visit>)> _byDoctor = const [];
   RecordRow? _nextBooking;
+
+  /// سقف: الشاشة دي بتتفتح قدام الدكتور وهو واقف — مش أرشيف.
+  static const _maxVisits = 8;
   final _newQuestion = TextEditingController();
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
@@ -74,7 +89,10 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           for (final r in rows)
             if (r.kind == RecordKind.booking && !r.happenedAt.isBefore(DateTime(_now.year, _now.month, _now.day))) r,
         ]..sort((a, b) => a.happenedAt.compareTo(b.happenedAt));
-        _set(() => _nextBooking = upcoming.isEmpty ? null : upcoming.first);
+        _set(() {
+          _nextBooking = upcoming.isEmpty ? null : upcoming.first;
+          _byDoctor = _groupByDoctor(rows);
+        });
         _loadLabs();
       }));
     _newQuestion.addListener(() => setState(() {}));
@@ -82,6 +100,33 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
 
   void _set(VoidCallback f) {
     if (mounted) setState(f);
+  }
+
+  /// **الملخص من غير اسم الدكتور مش ملخص زيارة.** الصف بقى شايل الدكتور
+  /// والعيادة وتاريخ الورقة من يوم ما شاشة المراجعة بقت بتقراهم، والشاشة
+  /// دي كانت بتتجاهل التلاتة.
+  ///
+  /// بيتجمّع بالاسم **زي ما اتكتب** بعد تنضيف المسافات، والمقارنة بتتعمل
+  /// على نسخة صغيرة الحروف عشان «د. هشام» و«د. هشام » ما يبقوش اتنين —
+  /// من غير ما نحاول نخمّن إن «هشام» و«د. هشام» نفس الراجل؛ ده تخمين على
+  /// بني آدمين، والغلط فيه بيلزّق زيارة بدكتور ما شافهاش.
+  static List<(String?, List<_Visit>)> _groupByDoctor(List<RecordRow> rows) {
+    const kinds = {RecordKind.visit, RecordKind.prescription};
+    final wanted = [for (final r in rows) if (kinds.contains(r.kind)) r]
+      ..sort((a, b) => b.happenedAt.compareTo(a.happenedAt));
+    final groups = <String?, List<_Visit>>{};
+    final shown = <String?, String>{};
+    for (final r in wanted.take(_maxVisits)) {
+      final name = r.doctor?.trim();
+      final key = (name == null || name.isEmpty) ? null : name.toLowerCase();
+      shown.putIfAbsent(key, () => name ?? '');
+      groups.putIfAbsent(key, () => []).add(_Visit(r.title, r.place, r.happenedAt));
+    }
+    return [
+      for (final e in groups.entries)
+        if (e.key != null) (shown[e.key], e.value),
+      if (groups[null] case final unnamed?) (null, unnamed),
+    ];
   }
 
   Future<void> _loadLabs() async {
@@ -170,6 +215,43 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                               ].join(' — '),
                               style: sub,
                             ),
+                          ],
+                        ),
+                      ),
+                  ],
+          ),
+          _Section(
+            title: 'الزيارات والروشتات',
+            children: _byDoctor.isEmpty
+                ? [Text('مفيش زيارات ولا روشتات متسجّلة', style: sub)]
+                : [
+                    for (final (doctor, visits) in _byDoctor)
+                      Container(
+                        key: ValueKey('doctor-group-${doctor ?? 'مجهول'}'),
+                        margin: const EdgeInsets.only(bottom: F.s8),
+                        padding: const EdgeInsets.all(F.s12),
+                        decoration: BoxDecoration(
+                          color: F.railGround,
+                          borderRadius: BorderRadius.circular(F.radiusCard),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // اسم الدكتور هو ترويسة اللي تحته. ومكتوبش؟
+                            // بيتقال بالكلام، ما بيتخترعش ولا بيتساب فاضي.
+                            Text(
+                              doctor ?? 'من غير اسم دكتور على الورقة',
+                              textDirection: doctor == null ? null : nameDirection(doctor),
+                              style: body.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            for (final v in visits)
+                              Padding(
+                                padding: const EdgeInsets.only(top: F.s4),
+                                child: Text(
+                                  [v.title, ?v.place, arabicDate(v.at)].join(' — '),
+                                  style: sub,
+                                ),
+                              ),
                           ],
                         ),
                       ),

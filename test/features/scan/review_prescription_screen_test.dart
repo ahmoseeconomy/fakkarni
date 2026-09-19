@@ -13,7 +13,7 @@ import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/scan/debug_panel.dart';
 import 'package:fakkarni/features/records/health_file_screen.dart';
-import 'package:fakkarni/features/records/deleted_row.dart' show RecordsEmpty;
+import 'package:fakkarni/features/records/records_empty.dart' show RecordsEmpty;
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
 
 import 'scan_test_support.dart';

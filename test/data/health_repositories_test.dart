@@ -86,13 +86,13 @@ void main() {
         happenedAt: DateTime(2026, 3, 1),
         lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 9.9)],
       );
-      await RecordsRepository(db).softDelete(id);
+      await RecordsRepository(db).delete(id);
       expect(await repo.historyFor(patientId, 'HbA1c'), isEmpty);
     });
   });
 
   group('المرفقات', () {
-    test('الصورة بتتحفظ بمسار نسبي، والمسح النهائي بعد ٣٠ يوم بيمسح الملف معاه', () async {
+    test('الصورة بتتمسح مع السجل في لحظته — مش بعد ٣٠ يوم', () async {
       final store = DirectoryAttachmentStore(root: tmp);
       final path = await store.save(Uint8List.fromList([1, 2, 3]));
       expect(path, startsWith('attachments/'));
@@ -105,13 +105,10 @@ void main() {
         lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.4)],
       );
       final records = RecordsRepository(db);
-      await records.softDelete(id, now: DateTime(2026, 8, 1));
+      await records.delete(id, now: DateTime(2026, 8, 1), attachments: store);
 
-      // ممسوح ناعم بس → الملف لسه موجود
-      await records.purgeDeleted(now: DateTime(2026, 8, 20), attachments: store);
-      expect(await store.fileFor(path), isNotNull);
-
-      await records.purgeDeleted(now: DateTime(2026, 9, 15), attachments: store);
+      // تقرير معمل ممكن تكون دي النسخة الوحيدة منه — فالتأكيد بيقول كده
+      // بالاسم قبل الدوسة، واللي بيحصل بعدها إنها تروح فعلاً.
       expect(await store.fileFor(path), isNull);
       expect(await db.select(db.labResults).get(), isEmpty, reason: 'النتايج راحت مع السجل');
     });

@@ -76,6 +76,12 @@ class FakeRemote implements SyncRemote {
     if (hangFor != null) await Future<void>.delayed(hangFor!);
     if (fail) throw Exception('السحابة وقعت');
   }
+
+  @override
+  Future<void> deleteByUuid(String table, List<String> uuids) async {
+    trace.add('delete:$table');
+    if (fail) throw Exception('السحابة وقعت');
+  }
 }
 
 void main() {

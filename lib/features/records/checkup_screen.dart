@@ -74,7 +74,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
         backgroundColor: F.dialogGround,
         title: Text('توقّف دورة «${row.title}»؟', style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
         content: const Text(
-          'هتتمسح من الملف مشطوبة وتقدر ترجّعها، وتذكير الصيام بتاعها — لو فيه — بيتلغي.',
+          'هتتمسح من الملف خالص ومش هتقدر ترجّعها، وتذكير الصيام بتاعها — لو فيه — بيتلغي.',
           style: TextStyle(fontSize: F.minBodySize, height: 1.5),
         ),
         actions: [
@@ -90,7 +90,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
       ),
     );
     if (yes ?? false) {
-      await checkups.softDelete(row.id);
+      await checkups.delete(row.id);
       navigator.pop();
     }
   }

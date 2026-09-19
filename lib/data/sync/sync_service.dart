@@ -18,6 +18,13 @@ import '../db/app_database.dart';
 abstract interface class SyncRemote {
   /// upsert on conflict (uuid) do update — تكرار الدفع ما بيكرّرش صفوف.
   Future<void> upsert(String table, List<Map<String, dynamic>> rows);
+
+  /// **أول مسح في المزامنة** (الدين ١ كان بيقول «مفيش deletes»).
+  ///
+  /// سجل الإنسان مسحه لازم يروح من السحابة كمان، وإلا الابن يفضل شايفه
+  /// في «الملف الصحي» بتاعه. بيتنده بالـuuid — نفس المفتاح اللي الـupsert
+  /// بيشتغل عليه — وتكراره بيمسح صفر صف من غير خطأ، فالإعادة آمنة.
+  Future<void> deleteByUuid(String table, List<String> uuids);
 }
 
 /// مهلة دفعة الخلفية.
@@ -394,8 +401,18 @@ class SyncService {
   // عشان الـuuid، شرط الوسخ المشتق، وعلامة بعد الـupsert بس.
 
   /// السجلات — **من غير مسار الصورة**: مسار ملف على موبايل الأب مالوش
-  /// معنى في السحابة (الصور في D5.3). الحذف الناعم بيطلع زي أي عمود:
-  /// `deleted_at` بيوصل، والسحابة بتمسح بعد ٣٠ يوم (0012).
+  /// معنى في السحابة (الصور في D5.3).
+  ///
+  /// **والممسوح بيتمسح من السحابة هنا، مش بعد ٣٠ يوم.** الراجل مسح روشتة
+  /// من ملفه؛ إنها تفضل في ملف ابنه شهر كمان مش «مهلة»، ده نفس الصف اللي
+  /// هو مش عايزه.
+  ///
+  /// بترفع الشاهدة الأول (upsert بـ`deleted_at`) وبعدين بتمسح، والترتيب ده
+  /// مقصود: لو المسح فشل — شبكة قطعت في النص — الصف السحابي يبقى معلّم
+  /// ممسوح، فاستعلام الابن (`deleted_at is null`) ما بيشوفوش، وكرون
+  /// `purge_deleted_records` بتاع 0012 بيشيله بعد ٣٠ يوم كشبكة أمان. لو
+  /// مسحنا على طول وفشلنا، الصف بيفضل ظاهر للابن على طول. الصف بيفضل
+  /// متوسّخ في الحالتين فالمحاولة بتتكرر.
   Future<void> _pushRecords() async {
     final query = _db.select(_db.records).join([
       innerJoin(_db.patients, _db.patients.id.equalsExp(_db.records.patientId)),
@@ -403,36 +420,51 @@ class SyncService {
       ..where(_db.records.syncedAtMs.isNull() |
           _db.records.syncedAtMs.isSmallerThan(_db.records.updatedAtMs));
     final rows = await query.get();
-    await _upsertAndMark(
-      'records',
-      [
-        for (final row in rows)
-          () {
-            final r = row.readTable(_db.records);
-            final p = row.readTable(_db.patients);
-            return (
-              uuid: r.uuid,
-              updatedAtMs: r.updatedAtMs,
-              json: {
-                'uuid': r.uuid,
-                'patient_uuid': p.uuid,
-                'kind': r.kind.name,
-                'title': r.title,
-                'happened_at': utcIso(r.happenedAt),
-                'doctor': r.doctor,
-                'place': r.place,
-                'notes': r.notes,
-                'deleted_at': r.deletedAt == null ? null : utcIso(r.deletedAt!),
-                'checkup_stage': r.checkupStage,
-                'fasting_reminder_at':
-                    r.fastingReminderAt == null ? null : utcIso(r.fastingReminderAt!),
-              }
-            );
-          }(),
-      ],
-      (uuid, ms) => (_db.update(_db.records)..where((t) => t.uuid.equals(uuid)))
-          .write(RecordsCompanion(syncedAtMs: Value(ms))),
-    );
+    ({String uuid, int updatedAtMs, Map<String, dynamic> json}) wire(TypedResult row) {
+      final r = row.readTable(_db.records);
+      final p = row.readTable(_db.patients);
+      return (
+        uuid: r.uuid,
+        updatedAtMs: r.updatedAtMs,
+        json: {
+          'uuid': r.uuid,
+          'patient_uuid': p.uuid,
+          'kind': r.kind.name,
+          'title': r.title,
+          'happened_at': utcIso(r.happenedAt),
+          'doctor': r.doctor,
+          'place': r.place,
+          'notes': r.notes,
+          'deleted_at': r.deletedAt == null ? null : utcIso(r.deletedAt!),
+          'checkup_stage': r.checkupStage,
+          'fasting_reminder_at':
+              r.fastingReminderAt == null ? null : utcIso(r.fastingReminderAt!),
+        }
+      );
+    }
+
+    Future<void> mark(String uuid, int ms) =>
+        (_db.update(_db.records)..where((t) => t.uuid.equals(uuid)))
+            .write(RecordsCompanion(syncedAtMs: Value(ms)));
+
+    final live = [for (final row in rows) if (row.readTable(_db.records).deletedAt == null) row];
+    final gone = [for (final row in rows) if (row.readTable(_db.records).deletedAt != null) row];
+
+    await _upsertAndMark('records', [for (final row in live) wire(row)], mark);
+
+    if (gone.isEmpty) return;
+    final tombstones = [for (final row in gone) wire(row)];
+    // الرفع من غير علامة: العلامة بعد المسح بس، وإلا فشل المسح بينضّف الصف
+    // من الوسخ والمحاولة الجاية ما بتشوفوش أصلاً.
+    for (var i = 0; i < tombstones.length; i += _batchSize) {
+      final chunk = tombstones.sublist(
+          i, i + _batchSize > tombstones.length ? tombstones.length : i + _batchSize);
+      await _remote.upsert('records', [for (final r in chunk) r.json]);
+      await _remote.deleteByUuid('records', [for (final r in chunk) r.uuid]);
+      for (final r in chunk) {
+        await mark(r.uuid, r.updatedAtMs);
+      }
+    }
   }
 
   Future<void> _pushReadings() async {

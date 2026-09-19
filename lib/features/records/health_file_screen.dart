@@ -14,7 +14,7 @@ import '../doctor/doctor_page_screen.dart';
 import '../export/export_screen.dart';
 import 'calendar_screen.dart';
 import 'checkup_screen.dart';
-import 'deleted_row.dart';
+import 'records_empty.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
 import 'record_kinds.dart';
@@ -22,7 +22,7 @@ import 'record_kinds.dart';
 /// «الملف الصحي» (المخطط ١٣): بحث بالاسم والدكتور والتاريخ، و«⋯ خيارات»
 /// لكل صف → «امسحه» بتأكيد.
 ///
-/// المسح ناعم: الصف بيفضل مكانه مشطوب وباهت، و«↺ رجّعه» جنبه. مفيش شاشة
+/// المسح بيمسح: الصف بيختفي من هنا في لحظته. مفيش شاشة
 /// «محذوفات» — الكلام ما بيوعدش بيها. «استخراج الملف» بييجي في D3.8،
 /// و«نشطة/منتهية» بتاعة التصميم جاية من الأدوية مش السجلات فمش هنا.
 class HealthFileScreen extends StatefulWidget {
@@ -86,6 +86,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
 
   Future<void> _options(RecordRow record) async {
     final checkups = AppScope.of(context).checkups;
+    final attachments = AppScope.of(context).attachments;
     await FSheet.show<void>(
       context,
       title: record.title,
@@ -108,8 +109,13 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     color: F.ink,
                   ),
                 ),
+                // **الخسارة بتتقال قبل الدوسة، مش بعدها.** مفيش مهلة ٣٠
+                // يوم دلوقتي، فالجملة الوحيدة اللي بتحمي حد هي دي — واللي
+                // مالوش رجعة فيها (الصورة) بيتسمّى بالاسم.
                 content: Text(
-                  'هيفضل باين مشطوب وتقدر ترجّعه. بعد ${arabicNumber(RecordsRepository.retentionDays)} يوم بيتمسح نهائي.',
+                  record.attachmentPath == null
+                      ? 'هيتشال من الملف خالص، ومفيش رجوع.'
+                      : 'هيتشال من الملف خالص، ومعاه الصورة المرفقة. مفيش رجوع.',
                   style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
                 ),
                 actions: [
@@ -129,7 +135,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               ),
             );
             // عن طريق دورة الفحص: لو السجل ده عليه تذكير صيام بيتلغي معاه
-            if (yes ?? false) await checkups.softDelete(record.id);
+            if (yes ?? false) await checkups.delete(record.id, attachments: attachments);
           },
         ),
       ],
@@ -243,8 +249,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     padding: const EdgeInsets.only(bottom: F.s10),
                     child: FCard(
                       key: ValueKey('record-${r.id}'),
-                      child: r.deletedAt == null
-                          ? Row(
+                      child: Row(
                               children: [
                                 Expanded(
                                   child: r.checkupStage == null
@@ -268,12 +273,8 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                                     child: const Text('⋯ خيارات'),
                                   ),
                                 ),
-                              ],
-                            )
-                          : DeletedRecord(
-                              onRestore: () => _repo.restore(r.id),
-                              child: RecordSummary(record: r),
-                            ),
+                        ],
+                      ),
                     ),
                   ),
             ],

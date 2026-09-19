@@ -22,4 +22,12 @@ class SupabaseSyncRemote implements SyncRemote {
         : rows;
     await _supabase.from(table).upsert(payload, onConflict: 'uuid');
   }
+
+  @override
+  Future<void> deleteByUuid(String table, List<String> uuids) async {
+    if (uuids.isEmpty) return;
+    // RLS بترفض مسح صف مش بتاع المالك (`records_delete` في 0012)، فمفيش
+    // حاجة هنا بتفلتر بالمريض — الحيطة في السيرفر زي كل حاجة تانية.
+    await _supabase.from(table).delete().inFilter('uuid', uuids);
+  }
 }

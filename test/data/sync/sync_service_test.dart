@@ -8,6 +8,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/db/tables.dart' show RecordKind, GlucoseContext;
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
+import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
@@ -65,6 +66,19 @@ class FakeSyncRemote implements SyncRemote {
       t[row['uuid'] as String] = row; // on conflict (uuid) do update
     }
   }
+
+  /// كل مسح اتبعت — بالترتيب، عشان نثبت إنه بعد الرفع مش قبله.
+  final deletes = <(String, List<String>)>[];
+
+  @override
+  Future<void> deleteByUuid(String table, List<String> uuids) async {
+    deletes.add((table, uuids));
+    if (table == failOnDelete) throw Exception('المسح وقع');
+    tables[table]?.removeWhere((uuid, _) => uuids.contains(uuid));
+  }
+
+  /// جدول مسحه بيرمي — الشبكة قطعت بعد الرفع وقبل المسح.
+  String? failOnDelete;
 
   int rowCount(String table) => tables[table]?.length ?? 0;
 }
@@ -250,19 +264,41 @@ void main() {
       expect(remote.calls, calls, reason: 'مفيش حاجة متوسّخة → صفر نداءات');
     });
 
-    test('سجل اتمسح ناعم بيطلع برضه، شايل deleted_at', () async {
+    test('سجل اتمسح بيتشال من السحابة في الدفعة الجاية — مش بعد ٣٠ يوم', () async {
       await seedHealthFile();
       await sync.confirmLinked();
       await sync.push();
+      expect(remote.rowCount('records'), 1);
 
-      final deletedAt = DateTime(2026, 9, 2, 18);
-      await (db.update(db.records)..where((t) => t.id.equals(recordId)))
-          .write(RecordsCompanion(deletedAt: Value(deletedAt)));
+      await RecordsRepository(db).delete(recordId, now: DateTime(2026, 9, 2, 18));
       expect((await dirtyByTable())['records'], isTrue);
 
       await sync.push();
 
-      expect(remote.tables['records']!.values.single['deleted_at'], utcIso(deletedAt));
+      expect(remote.rowCount('records'), 0, reason: 'الابن مالوش يشوف حاجة أبوه مسحها');
+      expect(remote.deletes.single.$1, 'records');
+      expect((await dirtyByTable())['records'], isFalse);
+    });
+
+    test('الشاهدة بتترفع قبل المسح — فلو المسح وقع الابن برضه مش بيشوفه', () async {
+      await seedHealthFile();
+      await sync.confirmLinked();
+      await sync.push();
+
+      remote.failOnDelete = 'records';
+      await RecordsRepository(db).delete(recordId, now: DateTime(2026, 9, 2, 18));
+      await sync.push();
+
+      // الصف لسه هناك، بس معلّم ممسوح — واستعلام الابن بيفلتر deleted_at
+      final row = remote.tables['records']!.values.single;
+      expect(row['deleted_at'], isNotNull);
+      expect(row['doctor'], isNull, reason: 'المحتوى اتشال من ساعة المسح');
+      // ولسه متوسّخ، فالمسح بيتحاول تاني
+      expect((await dirtyByTable())['records'], isTrue);
+
+      remote.failOnDelete = null;
+      await sync.push();
+      expect(remote.rowCount('records'), 0);
       expect((await dirtyByTable())['records'], isFalse);
     });
 
