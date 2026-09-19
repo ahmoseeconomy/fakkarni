@@ -1,15 +1,19 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/tables.dart';
+import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/scan/debug_panel.dart';
+import 'package:fakkarni/features/records/health_file_screen.dart';
+import 'package:fakkarni/features/records/deleted_row.dart' show RecordsEmpty;
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
 
 import 'scan_test_support.dart';
@@ -22,7 +26,9 @@ void main() {
   Future<Future<ReviewResult?> Function()> pumpReview(
     WidgetTester tester,
     List<ReadLine> lines, {
-    ReadField<String> doctor = const ReadField.missing(),
+    ReadField<String> doctor = const ReadField(value: null, confidence: 1),
+    ReadField<String> clinic = const ReadField(value: null, confidence: 1),
+    ReadField<DateTime?> issuedAt = const ReadField(value: null, confidence: 1),
   }) async {
     ReviewResult? result;
     final screen = Builder(
@@ -35,6 +41,8 @@ void main() {
                   builder: (_) => ReviewPrescriptionScreen(
                     reading: PrescriptionReading(
                       doctor: doctor,
+                      clinic: clinic,
+                      issuedAt: issuedAt,
                       lines: lines,
                     ),
                     routine: normalDay,
@@ -105,8 +113,9 @@ void main() {
     // الفطار ٧:٣٠ − ٣٠ = ٧:٠٠ ص — للعرض بس
     expect(find.text('٧:٠٠ ص'), findsOneWidget);
     expect(find.text('الفطار − ٣٠ د'), findsOneWidget, reason: 'القاعدة، مش الساعة');
-    expect(find.widgetWithText(OutlinedButton, 'عدّل'), findsOneWidget);
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget, reason: 'أيقونة وكلمة');
+    // «عدّل» على الكارت + تلاتة على الترويسة (الدكتور، العيادة، التاريخ)
+    expect(find.widgetWithText(OutlinedButton, 'عدّل'), findsNWidgets(4));
+    expect(find.byIcon(Icons.edit_outlined), findsNWidgets(4), reason: 'أيقونة وكلمة — الكارت وترويسة الورقة');
     // الصف الواضح مفيهوش حافة شك
     expect(find.byKey(const ValueKey('unsure-edge')), findsNothing);
     expectNoRedAndMinSize(tester);
@@ -203,7 +212,7 @@ void main() {
     await pumpReview(tester, [unclearLine]);
     await open(tester);
 
-    await tester.tap(find.text('عدّل'));
+    await tester.tap(find.byKey(const ValueKey('edit-line-0')));
     await settle(tester);
 
     expect(find.byType(AddMedicationScreen), findsOneWidget);
@@ -239,7 +248,7 @@ void main() {
     await open(tester);
     expect(find.text('تمام — دواءين'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
+    await tester.tap(find.byKey(const ValueKey('remove-line-0')));
     await settle(tester);
 
     expect(find.text('Concor 5mg'), findsNothing, reason: 'طلع من المسوّدة');
@@ -264,7 +273,7 @@ void main() {
     await pumpReview(tester, [clearLine, second]);
     await open(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
+    await tester.tap(find.byKey(const ValueKey('remove-line-0')));
     await settle(tester);
     await tester.tap(find.text('رجّعه'));
     await settle(tester);
@@ -281,7 +290,7 @@ void main() {
     await pumpReview(tester, [clearLine]);
     await open(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'شيله').first);
+    await tester.tap(find.byKey(const ValueKey('remove-line-0')));
     await settle(tester);
 
     expect(confirmButton(tester).onPressed, isNull);
@@ -291,6 +300,90 @@ void main() {
   });
 
   group('الملف الصحي (D3.5)', () {
+    screenTest('فشل تسجيل الروشتة بيتقال — والأدوية بتفضل محفوظة', (tester) async {
+      // مستودع على قاعدة مقفولة: `add` بترمي فعلاً — مش fake بيمثّل
+      final dead = AppDatabase(NativeDatabase.memory());
+      await dead.close();
+
+      ReviewResult? result;
+      await h.pump(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () async {
+                  result = await Navigator.of(context).push<ReviewResult>(
+                    MaterialPageRoute(
+                      builder: (_) => ReviewPrescriptionScreen(
+                        reading: PrescriptionReading(
+                          doctor: const ReadField(value: null, confidence: 1),
+                          lines: [clearLine],
+                        ),
+                        routine: normalDay,
+                        today: aug31,
+                        records: RecordsRepository(dead),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await open(tester);
+      await confirm(tester);
+
+      // الوعد اتنفّذ: الدوا محفوظ وهيرنّ
+      expect((await h.meds.activeSchedules(h.services.patientId)), hasLength(1));
+      expect(h.sink.scheduled, isNotEmpty);
+      // والحقيقة متقالة — مش صمت
+      expect(find.byKey(const ValueKey('file-failed')), findsOneWidget);
+      expect(find.textContaining('ما اتسجّلتش في الملف الصحي'), findsOneWidget);
+      expect(await RecordsRepository(h.db).all(h.services.patientId), isEmpty);
+      expect(result, isNull, reason: 'الشاشة لسه مفتوحة — المستخدم بيقفلها بنفسه');
+
+      await tester.tap(find.byKey(const ValueKey('close-review')));
+      await settle(tester);
+      expect(result, ReviewResult.confirmed);
+    });
+
+    screenTest('من الطرف للطرف: بعد التأكيد، الكارت بيبان في شاشة «الملف الصحي» نفسها',
+        (tester) async {
+      await pumpReview(tester, [clearLine]);
+      await open(tester);
+      await confirm(tester);
+
+      // نفس الشاشة اللي المستخدم بيفتحها — مش القراية بس
+      await tester.pumpWidget(const SizedBox.shrink());
+      await h.pump(tester, const HealthFileScreen());
+      await settle(tester);
+
+      // الكارت بيعرض العنوان والسطر التعريفي — أسامي الأدوية في `notes`
+      expect(find.text('روشتة — دوا واحد'), findsOneWidget);
+      expect(find.byType(RecordsEmpty), findsNothing, reason: 'الملف مش فاضي');
+      expect(
+        (await RecordsRepository(h.db).all(h.services.patientId)).single.notes,
+        'Concor 5mg',
+      );
+    });
+
+    screenTest('تشخيص: بعد التأكيد، الروشتة موجودة في watchAll بنفس patientId اللي الشاشة بتقرا بيه',
+        (tester) async {
+      await pumpReview(tester, [clearLine]);
+      await open(tester);
+      await confirm(tester);
+
+      // نفس القراية اللي «الملف الصحي» بيستعملها بالظبط
+      // قراية مباشرة بنفس شرط `watchAll` — بث drift جوّه اختبار ودجت بيعلّق
+      final rows = await RecordsRepository(h.db).all(h.services.patientId);
+      expect(rows, hasLength(1), reason: 'الكتابة وصلت — لو وقع هنا فالمشكلة في الكتابة');
+      expect(rows.single.kind, RecordKind.prescription);
+      expect(rows.single.patientId, h.services.patientId);
+    });
+
     Future<List<dynamic>> records() => RecordsRepository(h.db).all(h.services.patientId);
 
     screenTest('التأكيد بيكتب صف روشتة واحد بالتاريخ والأدوية — والدكتور الواثق منه بس', (tester) async {
@@ -322,6 +415,91 @@ void main() {
       final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
       expect(r.doctor, isNull);
       expect(r.title, 'روشتة — دوا واحد');
+    });
+
+    screenTest('ترويسة الورقة كاملة → بتتحفظ مع السجل (مين، فين، وإمتى)', (tester) async {
+      await pumpReview(
+        tester,
+        [clearLine],
+        doctor: ok('د. هشام مام'),
+        clinic: ok('مستشفى القصر العيني'),
+        issuedAt: ReadField(value: DateTime(2026, 8, 20), confidence: 0.95),
+      );
+      await open(tester);
+
+      expect(find.text('د. هشام مام'), findsOneWidget);
+      expect(find.text('مستشفى القصر العيني'), findsOneWidget);
+      expect(find.byKey(const ValueKey('date-fallback')), findsNothing,
+          reason: 'الورقة كاتبة تاريخها — مفيش رجوع للنهاردة');
+
+      await confirm(tester);
+
+      final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
+      expect(r.doctor, 'د. هشام مام');
+      expect(r.place, 'مستشفى القصر العيني');
+      expect(r.happenedAt, DateTime(2026, 8, 20), reason: 'تاريخ الورقة، مش النهاردة');
+    });
+
+    screenTest('مفيش ترويسة → السجل بتاريخ النهاردة، والجملة بتقول كده **قبل** الدوسة',
+        (tester) async {
+      await pumpReview(tester, [clearLine]);
+      await open(tester);
+
+      // التحذير ظاهر قبل التأكيد — تاريخ غلط في ملف طبي أوحش من ناقص
+      expect(find.byKey(const ValueKey('date-fallback')), findsOneWidget);
+      expect(find.textContaining('هتتسجّل بتاريخ النهاردة'), findsOneWidget);
+      // والفاضي بيتقال بالكلام، من غير علامة ذهبية (مش مكتوب ≠ مش متأكد)
+      expect(find.text('مش مكتوب على الورقة'), findsNWidgets(2),
+          reason: 'الدكتور والتاريخ');
+      expect(find.text('مش مكتوبة على الورقة'), findsOneWidget, reason: 'العيادة');
+      expect(find.text('مش متأكد من دي — راجعها'), findsNothing,
+          reason: 'مفيش ذهبي على حاجة مش مكتوبة');
+
+      await confirm(tester);
+
+      final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
+      expect(r.happenedAt, DateTime(aug31.year, aug31.month, aug31.day));
+      expect(r.doctor, isNull);
+      expect(r.place, isNull);
+    });
+
+    screenTest('عيادة بثقة قليلة → علامة ذهبية، وبتتصحّح قبل الحفظ', (tester) async {
+      await pumpReview(
+        tester,
+        [clearLine],
+        clinic: low('مستشفى القصـ؟', 'الترويسة مش واضحة'),
+      );
+      await open(tester);
+
+      final card = find.byKey(const ValueKey('header-العيادة أو المستشفى'));
+      expect(card, findsOneWidget);
+      expect(
+        tester.widget<Container>(card).decoration,
+        isA<BoxDecoration>().having((d) => (d.border! as Border).top.color, 'حافة', F.gold),
+      );
+      expect(find.text('الترويسة مش واضحة'), findsOneWidget);
+
+      // بيتصحّح بإيده قبل التأكيد
+      await tester.tap(find.descendant(of: card, matching: find.text('عدّل')));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField).last, 'مستشفى القصر العيني');
+      await tester.tap(find.text('احفظ'));
+      await settle(tester);
+
+      expect(find.text('مستشفى القصر العيني'), findsOneWidget);
+      await confirm(tester);
+
+      final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
+      expect(r.place, 'مستشفى القصر العيني', reason: 'اللي الإنسان كتبه بيتحفظ');
+    });
+
+    screenTest('عيادة بثقة قليلة ما اتصححتش → العمود يفضل فاضي، مش تخمين', (tester) async {
+      await pumpReview(tester, [clearLine], clinic: low('مستشفى القصـ؟', 'الترويسة مش واضحة'));
+      await open(tester);
+      await confirm(tester);
+
+      final r = (await RecordsRepository(h.db).all(h.services.patientId)).single;
+      expect(r.place, isNull);
     });
 
     screenTest('«صوّر تاني» ما بيكتبش أي سجل', (tester) async {
@@ -411,7 +589,7 @@ void main() {
                 MaterialPageRoute(
                   builder: (_) => ReviewPrescriptionScreen(
                     reading: PrescriptionReading(
-                      doctor: const ReadField.missing(),
+                      doctor: const ReadField(value: null, confidence: 1),
                       lines: [clearLine],
                       modelWarning: 'pinned gemini-3.6-flash retired',
                     ),

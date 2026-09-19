@@ -273,6 +273,12 @@ class GeminiPrescriptionReader implements PrescriptionReader {
 You are reading a photo of a paper medical prescription from Egypt (Arabic and/or English, often handwritten).
 Extract ONLY what is literally written. Never guess, infer, or complete anything.
 
+First, read the paper's own header — these three are about the prescription, not about any medicine:
+- doctor: the prescribing doctor's name as printed.
+- clinic: the clinic or hospital name as printed — usually the letterhead at the top.
+- issuedAt: the date written on the paper, as "YYYY-MM-DD".
+If one of them is not written on the paper, return value null with confidence 1. A missing one is NOT an error and must never be guessed or filled from today's date.
+
 For each medication line return: name (as written, keep Latin drug names in Latin), amount (e.g. "قرص واحد", "1 tablet", "5 ml"), timing, durationDays.
 
 Timing rules:

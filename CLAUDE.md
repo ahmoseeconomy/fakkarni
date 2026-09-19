@@ -221,7 +221,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         810 passing
+test/                         817 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1679,6 +1679,38 @@ the live project — not a line in a UI round.
   reading is confident — otherwise null). It runs after the medicines and
   `rescheduleAll`, wrapped and logged: a failed record never undoes a
   confirmation. «صوّر تاني» writes nothing.
+- **And when that write fails, the person is told — in one sentence.** The
+  catch stays a catch (the medicines must still ring), but it is no longer
+  only a `debugPrint`: the screen stays open with «الأدوية اتحفظت
+  — بس الروشتة ما اتسجّلتش في الملف الصحي» and the real error is logged.
+  Silently swallowing it left a man closing a screen believing his
+  prescription was filed. Proven with a `RecordsRepository` on a **closed**
+  database — the only way to make the write fail for real.
+
+**The prescription's header: who wrote it, where, and when (round 16)**
+- The reading carries `doctor`, `clinic` and `issuedAt` (`ReadField`s like
+  every other field). **Absent is not uncertain**: a field the paper does
+  not have comes back `value: null, confidence: 1`, so it renders «مش
+  مكتوب على الورقة» in plain words and never takes the gold mark. The
+  prompt says so in as many words, and forbids filling `issuedAt` from
+  today's date — `_date` also refuses a year outside 2000–2100.
+- The three sit above the medication list, each editable («عدّل»), each
+  gold-edged with its note when the model is unsure.
+- **`happenedAt` is the paper's date when it was read, otherwise today —
+  and the screen says which, before «تمام» is tapped.** A gold
+  `date-fallback` note («هتتسجّل بتاريخ النهاردة») is the whole point: a
+  wrong date in a medical file is worse than a missing one, and the
+  correction has to be possible while the person is still looking at it.
+- **An uncertain header the human did not touch is saved as null, not as
+  the guess** (`_confirmedHeader`). «د. هشـ؟» in a medical record is worse
+  than an empty column; the confirm button is about the medicines, and
+  tapping it is not a claim that the header was read. An edited field is
+  his, and goes in as typed. Both directions are under test.
+- Found by writing those tests: the header sheet disposed its
+  `TextEditingController` the moment `FSheet.show` returned, while the
+  dismiss animation still had frames to build — «A TextEditingController
+  was used after being disposed» on every edit, on a real phone too. The
+  controller now belongs to the State and dies with the screen.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

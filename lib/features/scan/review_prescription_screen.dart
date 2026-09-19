@@ -6,6 +6,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
@@ -35,12 +36,16 @@ class ReviewPrescriptionScreen extends StatefulWidget {
     required this.reading,
     required this.routine,
     this.today,
+    this.records,
     super.key,
   });
 
   final PrescriptionReading reading;
   final DayRoutine routine;
   final DateTime? today;
+
+  /// للاختبارات — الافتراضي مستودع على قاعدة التطبيق.
+  final RecordsRepository? records;
 
   @override
   State<ReviewPrescriptionScreen> createState() => _ReviewPrescriptionScreenState();
@@ -57,6 +62,49 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   ];
 
   bool _busy = false;
+
+  /// الأدوية اتحفظت بس صف الروشتة في الملف الصحي وقع.
+  ///
+  /// الوعد اتنفّذ (الدوا هيرنّ)، فمش هنرجّع حاجة — بس **بنقول**. قبل كده
+  /// الفشل ده كان `debugPrint` وبس: المستخدم بيقفل الشاشة وهو فاكر إن
+  /// روشتته اتسجّلت، وبيلاقي الملف الصحي فاضي من غير ما يعرف ليه.
+  bool _fileFailed = false;
+
+  /// ترويسة الورقة زي ما الإنسان سابها: الدكتور، العيادة، وتاريخها.
+  ///
+  /// روشتة من غير مين وإمتى مش سجل طبي — «ملخص زيارة الطبيب» بيبص عليها
+  /// ومفيش حاجة يقولها. الثلاثة دي بتتعدّل هنا زي أي سطر دوا.
+  late String? _doctor = widget.reading.doctor.value;
+  late String? _clinic = widget.reading.clinic.value;
+  late DateTime? _issuedAt = widget.reading.issuedAt.value;
+
+  /// الإنسان عدّل الحقل ده بإيده — فالشك بتاع الذكاء خلص.
+  final Set<String> _headerEdited = {};
+
+  /// حقل التعديل بتاع الشيت — **واحد للشاشة كلها، بيتقفل مع الشاشة**.
+  ///
+  /// كان بيتعمل جوّه `_editText` وبيتقفل أول ما `FSheet.show` ترجع. بس
+  /// الشيت وقتها لسه بيطلع من الشاشة: الرسمة اللي بعدها بتبني الـTextField
+  /// تاني بكنترولر متقفل وبترمي «A TextEditingController was used after
+  /// being disposed». اختبار «عدّل العيادة» هو اللي مسكها.
+  final TextEditingController _headerController = TextEditingController();
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    super.dispose();
+  }
+
+  /// التاريخ هيتسجّل النهاردة لأن الورقة ما قالتش تاريخ.
+  bool get _dateFallback => _issuedAt == null;
+
+  /// القيمة اللي بتتحفظ فعلاً — **والتخمين ما بيدخلش ملف حد**.
+  ///
+  /// الذكاء مش متأكد والإنسان ما راجعهاش؟ يبقى العمود يفضل فاضي. المستخدم
+  /// دوس «تمام» على الأدوية، مش بالضرورة قرا الترويسة — و«د. هشـ؟» في ملف
+  /// طبي أوحش من خانة فاضية. عدّلها بإيده؟ يبقى دي بتاعته وبتتحفظ.
+  String? _confirmedHeader(String key, String? value, ReadField<String> read) =>
+      _headerEdited.contains(key) || !read.needsReview ? value : null;
 
   DateTime get _today => widget.today ?? DateTime.now();
 
@@ -113,6 +161,63 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));
   }
 
+  /// تعديل حقل نصي في الترويسة — شيت صغير بحقل واحد.
+  ///
+  /// فاضي = «مش مكتوب»، مش نص فاضي: الملف الصحي بيعرض «لسه ما اتملاش»،
+  /// وما بنخترعش قيمة عشان نملا خانة.
+  Future<void> _editText({
+    required String title,
+    required String? initial,
+    required void Function(String?) onSave,
+  }) async {
+    final controller = _headerController..text = initial ?? '';
+    final navigator = Navigator.of(context);
+    await FSheet.show<void>(
+      context,
+      title: title,
+      children: [
+        TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(fontSize: F.minBodySize),
+          decoration: InputDecoration(
+            hintText: 'زي ما هو مكتوب على الورقة',
+            hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+            filled: true,
+            fillColor: F.fieldGround,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+          ),
+        ),
+        const SizedBox(height: F.gap),
+        FPrimaryButton(
+          label: 'احفظ',
+          onPressed: () {
+            final text = controller.text.trim();
+            onSave(text.isEmpty ? null : text);
+            navigator.pop();
+          },
+        ),
+      ],
+    );
+  }
+
+  /// تاريخ الورقة — منتقي تواريخ، ومش بيسمح بتاريخ في المستقبل.
+  Future<void> _pickIssuedAt() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _issuedAt ?? _today,
+      firstDate: DateTime(_today.year - 5),
+      lastDate: _today,
+      locale: const Locale('ar'),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _issuedAt = DateTime(picked.year, picked.month, picked.day);
+        _headerEdited.add('date');
+      });
+    }
+  }
+
   /// «شيله»: بيطلع من المسوّدة — والتراجع **مكانه في القايمة**، مش SnackBar.
   ///
   /// دوا الدكتور ما كتبهوش، أو تكرار الذكاء اخترعه، لازم ينشال من هنا — من
@@ -156,17 +261,22 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     // الدكتور بس لو القراءة واثقة منه — مفيش تخمين في ملف حد.
     final names = [for (final l in keep) l.name!];
     try {
-      final doctor = widget.reading.doctor;
-      await RecordsRepository(services.db).add(
+      final issued = _issuedAt;
+      await (widget.records ?? RecordsRepository(services.db)).add(
         patientId: services.patientId,
         kind: RecordKind.prescription,
         title: prescriptionRecordTitle(names.length),
-        happenedAt: DateTime(_today.year, _today.month, _today.day),
-        doctor: doctor.needsReview ? null : doctor.value,
+        // تاريخ الورقة لو مقروء، وإلا النهاردة — والشاشة قالت كده قبل الدوسة.
+        happenedAt: issued ?? DateTime(_today.year, _today.month, _today.day),
+        doctor: _confirmedHeader('doctor', _doctor, widget.reading.doctor),
+        place: _confirmedHeader('clinic', _clinic, widget.reading.clinic),
         notes: names.join(' — '),
       );
     } catch (error, stack) {
+      // السبب الحقيقي في اللوج — والمستخدم بيشوف جملة، مش صمت.
       debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');
+      if (mounted) setState(() => _fileFailed = true);
+      return; // الشاشة بتفضل مفتوحة بالجملة — الخروج بدوسة منه
     }
 
     if (mounted) navigator.pop(ReviewResult.confirmed);
@@ -204,11 +314,56 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     'راجع كل دوا قبل ما يتحفظ. اللي عليه علامة ذهبية الذكاء مش متأكد منه.',
                     style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                   ),
-                  if (reading.doctor.value != null) ...[
-                    const SizedBox(height: F.s4),
-                    Text(
-                      'د. ${reading.doctor.value}',
-                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                  const SizedBox(height: F.gap),
+                  // ترويسة الورقة — فوق الأدوية، لأنها بتوصف الروشتة كلها.
+                  _HeaderField(
+                    label: 'الدكتور',
+                    value: _doctor,
+                    hint: 'مش مكتوب على الورقة',
+                    unsure: !_headerEdited.contains('doctor') && reading.doctor.needsReview,
+                    note: reading.doctor.note,
+                    onEdit: () => _editText(
+                      title: 'اسم الدكتور',
+                      initial: _doctor,
+                      onSave: (v) => setState(() {
+                        _doctor = v;
+                        _headerEdited.add('doctor');
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: F.s8),
+                  _HeaderField(
+                    label: 'العيادة أو المستشفى',
+                    value: _clinic,
+                    hint: 'مش مكتوبة على الورقة',
+                    unsure: !_headerEdited.contains('clinic') && reading.clinic.needsReview,
+                    note: reading.clinic.note,
+                    onEdit: () => _editText(
+                      title: 'العيادة أو المستشفى',
+                      initial: _clinic,
+                      onSave: (v) => setState(() {
+                        _clinic = v;
+                        _headerEdited.add('clinic');
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: F.s8),
+                  _HeaderField(
+                    label: 'تاريخ الورقة',
+                    value: _issuedAt == null ? null : arabicDate(_issuedAt!),
+                    hint: 'مش مكتوب على الورقة',
+                    unsure: !_headerEdited.contains('date') && reading.issuedAt.needsReview,
+                    note: reading.issuedAt.note,
+                    onEdit: _pickIssuedAt,
+                  ),
+                  if (_dateFallback) ...[
+                    const SizedBox(height: F.s8),
+                    // **تاريخ غلط في ملف طبي أوحش من تاريخ ناقص** — فبنقولها
+                    // قبل الدوسة، مش بعدها.
+                    GoldNote(
+                      'الورقة مش كاتبة تاريخ — هتتسجّل بتاريخ النهاردة '
+                      '(${arabicDate(_today)}). لو تاريخها غير كده، حدّده.',
+                      key: const ValueKey('date-fallback'),
                     ),
                   ],
                   if (kDebugMode && reading.modelWarning != null) ...[
@@ -216,6 +371,23 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     DebugPanel(reading.modelWarning!),
                   ],
                   const SizedBox(height: F.gap),
+                  if (_fileFailed) ...[
+                    Container(
+                      key: const ValueKey('file-failed'),
+                      padding: const EdgeInsets.all(F.s12),
+                      decoration: BoxDecoration(
+                        color: F.railGround,
+                        borderRadius: BorderRadius.circular(F.radiusTile),
+                        border: Border.all(color: F.gold, width: 1.5),
+                      ),
+                      child: Text(
+                        'الأدوية اتحفظت وهتفكّرك بيها — بس الروشتة نفسها ما اتسجّلتش '
+                        'في الملف الصحي. تقدر تسجّلها بإيدك من «ضيف».',
+                        style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.6),
+                      ),
+                    ),
+                    const SizedBox(height: F.gap),
+                  ],
                   if (reading.isEmpty && _lines.isEmpty)
                     const _EmptyReading()
                   else
@@ -228,6 +400,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         const SizedBox(height: F.s12),
                       ] else ...[
                         _MedicineRow(
+                          index: i,
                           line: line,
                           timeFor: (t) => arabicTime(switch (t) {
                             AnchorTiming(:final anchor, :final offsetMinutes) =>
@@ -298,6 +471,14 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s4),
+                  if (_fileFailed)
+                    _EqualButton(
+                      key: const ValueKey('close-review'),
+                      label: 'تمام',
+                      fill: F.green,
+                      onPressed: () => Navigator.of(context).pop(ReviewResult.confirmed),
+                    )
+                  else
                   // الزرارين نفس الوزن بالظبط: مليانين، نفس المقاس والخط.
                   Row(
                     children: [
@@ -360,11 +541,15 @@ class _EqualButton extends StatelessWidget {
 /// صف دوا واحد.
 class _MedicineRow extends StatelessWidget {
   const _MedicineRow({
+    required this.index,
     required this.line,
     required this.timeFor,
     required this.onEdit,
     required this.onDelete,
   });
+
+  /// ترتيبه في المسوّدة — بيدخل في مفاتيح أزراره عشان يتفرّق عن ترويسة الورقة.
+  final int index;
 
   /// سطر المسوّدة — اللي هيتحفظ، مش اللي الورقة قالته بالظبط.
   final _DraftLine line;
@@ -498,6 +683,7 @@ class _MedicineRow extends StatelessWidget {
             children: [
               Expanded(
                 child: _RowButton(
+                  key: ValueKey('edit-line-$index'),
                   icon: Icons.edit_outlined,
                   label: 'عدّل',
                   onPressed: onEdit,
@@ -506,6 +692,7 @@ class _MedicineRow extends StatelessWidget {
               const SizedBox(width: F.s8),
               Expanded(
                 child: _RowButton(
+                  key: ValueKey('remove-line-$index'),
                   icon: Icons.delete_outline,
                   label: 'شيله',
                   onPressed: onDelete,
@@ -768,9 +955,75 @@ class _RemovedRow extends StatelessWidget {
       );
 }
 
+/// حقل من ترويسة الورقة: الاسم، القيمة، و«عدّل».
+///
+/// الحافة الذهبية بنفس معنى سطر الدوا: «الذكاء مش متأكد — بصّ عليها».
+/// وفاضي بيتقال بالكلام («مش مكتوب على الورقة») مش بشرطة.
+class _HeaderField extends StatelessWidget {
+  const _HeaderField({
+    required this.label,
+    required this.value,
+    required this.hint,
+    required this.unsure,
+    required this.note,
+    required this.onEdit,
+  });
+
+  final String label;
+  final String? value;
+  final String hint;
+  final bool unsure;
+  final String? note;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: ValueKey('header-$label'),
+        padding: const EdgeInsets.all(F.s12),
+        decoration: BoxDecoration(
+          color: F.cardGround,
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          border: Border.all(color: unsure ? F.gold : F.line, width: unsure ? 1.5 : 1),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                  ),
+                  const SizedBox(height: F.s4),
+                  Text(
+                    value ?? hint,
+                    style: TextStyle(
+                      fontSize: F.minBodySize,
+                      fontWeight: FontWeight.w700,
+                      color: value == null ? F.mutedDark : F.ink,
+                    ),
+                  ),
+                  if (unsure) ...[
+                    const SizedBox(height: F.s4),
+                    Text(
+                      note ?? 'مش متأكد من دي — راجعها',
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: F.s8),
+            _RowButton(icon: Icons.edit_outlined, label: 'عدّل', onPressed: onEdit),
+          ],
+        ),
+      );
+}
+
 /// زرار صغير على كارت السطر — بأيقونة **وكلمة**.
 class _RowButton extends StatelessWidget {
-  const _RowButton({required this.icon, required this.label, required this.onPressed});
+  const _RowButton({required this.icon, required this.label, required this.onPressed, super.key});
 
   final IconData icon;
   final String label;

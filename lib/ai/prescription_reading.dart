@@ -72,11 +72,21 @@ class ReadLine {
 class PrescriptionReading {
   const PrescriptionReading({
     required this.doctor,
+    this.clinic = const ReadField(value: null, confidence: 1),
+    this.issuedAt = const ReadField(value: null, confidence: 1),
     required this.lines,
     this.modelWarning,
   });
 
   final ReadField<String> doctor;
+
+  /// اسم العيادة أو المستشفى زي ما هو مطبوع — غالباً في ترويسة الورقة.
+  final ReadField<String> clinic;
+
+  /// تاريخ الورقة نفسها. **null بثقة كاملة = الورقة مش كاتبة تاريخ** — ده
+  /// مش نقص، زي المدة المفتوحة بالظبط. وما بنخترعش تاريخ: تاريخ غلط في ملف
+  /// طبي أوحش من تاريخ ناقص.
+  final ReadField<DateTime?> issuedAt;
   final List<ReadLine> lines;
 
   /// الموديل المثبّت اتقفل والقراءة جت من البديل — تحذير للمطوّر، مش للمريض.
@@ -85,7 +95,13 @@ class PrescriptionReading {
   bool get isEmpty => lines.isEmpty;
 
   PrescriptionReading withModelWarning(String warning) =>
-      PrescriptionReading(doctor: doctor, lines: lines, modelWarning: warning);
+      PrescriptionReading(
+        doctor: doctor,
+        clinic: clinic,
+        issuedAt: issuedAt,
+        lines: lines,
+        modelWarning: warning,
+      );
 
   /// بيفكّ JSON بالشكل اللي طلبناه من Gemini في [prescriptionSchema].
   ///
@@ -93,7 +109,9 @@ class PrescriptionReading {
   factory PrescriptionReading.fromJson(Map<String, dynamic> json) {
     final meds = json['medications'];
     return PrescriptionReading(
-      doctor: _string(json['doctor']),
+      doctor: _headerString(json['doctor']),
+      clinic: _headerString(json['clinic']),
+      issuedAt: _date(json['issuedAt']),
       lines: [
         if (meds is List)
           for (final m in meds)
@@ -108,6 +126,19 @@ class PrescriptionReading {
         timings: _timings(m['timing']),
         duration: _duration(m['durationDays']),
       );
+
+  /// حقل من ترويسة الورقة: **مش مكتوب ≠ مش متأكد**.
+  ///
+  /// الورقة اللي مفيهاش اسم عيادة مش ورقة ناقصة — فالغياب بيرجع null بثقة
+  /// كاملة (زي المدة المفتوحة)، ومفيش علامة ذهبية عليه. الذهبي محجوز
+  /// لحاجة الذكاء قراها وهو مش متأكد منها.
+  static ReadField<String> _headerString(dynamic field) {
+    if (field is! Map) return const ReadField(value: null, confidence: 1);
+    final value = field['value'];
+    final text = value is String ? value.trim() : '';
+    if (text.isEmpty) return ReadField(value: null, confidence: 1, note: _note(field));
+    return ReadField(value: text, confidence: _confidence(field), note: _note(field));
+  }
 
   static ReadField<String> _string(dynamic field) {
     if (field is! Map) return const ReadField.missing();
@@ -125,6 +156,27 @@ class PrescriptionReading {
     final days = value is num ? value.toInt() : int.tryParse(value.toString());
     if (days == null || days <= 0) return const ReadField(value: null, confidence: 1);
     return ReadField(value: days, confidence: _confidence(field), note: _note(field));
+  }
+
+  /// تاريخ الورقة: `yyyy-MM-dd` بالحرف. مش مكتوب = null بثقة كاملة.
+  ///
+  /// أي شكل تاني (أو تاريخ مش منطقي) بيترمي بدل ما يتخمّن — الورقة اللي
+  /// مفيهاش تاريخ بتتسجّل بتاريخ النهاردة والشاشة بتقول كده.
+  static ReadField<DateTime?> _date(dynamic field) {
+    if (field is! Map) return const ReadField(value: null, confidence: 1);
+    final value = field['value'];
+    if (value is! String || value.trim().isEmpty) {
+      return ReadField(value: null, confidence: 1, note: _note(field));
+    }
+    final parsed = DateTime.tryParse(value.trim());
+    if (parsed == null || parsed.year < 2000 || parsed.year > 2100) {
+      return const ReadField.missing('التاريخ مش واضح');
+    }
+    return ReadField(
+      value: DateTime(parsed.year, parsed.month, parsed.day),
+      confidence: _confidence(field),
+      note: _note(field),
+    );
   }
 
   /// التوقيت — القلب. مرساة + قبل/بعد، أو ساعة بالحرف، أو «١×٣».
@@ -231,6 +283,8 @@ const Map<String, dynamic> prescriptionSchema = {
   'type': 'OBJECT',
   'properties': {
     'doctor': _stringField,
+    'clinic': _stringField,
+    'issuedAt': _stringField,
     'medications': {
       'type': 'ARRAY',
       'items': {
