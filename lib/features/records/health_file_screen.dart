@@ -8,7 +8,6 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/records_repository.dart';
-import '../health/scan_lab_screen.dart';
 import '../../domain/health/checkup.dart';
 import '../doctor/doctor_page_screen.dart';
 import '../export/export_screen.dart';
@@ -21,6 +20,10 @@ import 'record_kinds.dart';
 
 /// «الملف الصحي» (المخطط ١٣): بحث بالاسم والدكتور والتاريخ، و«⋯ خيارات»
 /// لكل صف → «امسحه» بتأكيد.
+///
+/// **الشاشة دي بتفرّج وبتتابع، ما بتضيفش.** «صوّر تقرير تحليل» كانت هنا
+/// كمان وهي أصلاً في شيت «ضيف» — والإضافة عايشة هناك. بابين لنفس الحاجة
+/// بيخلّوا الواحد يسأل هما اتنين ولا واحدة.
 ///
 /// المسح بيمسح: الصف بيختفي من هنا في لحظته. مفيش شاشة
 /// «محذوفات» — الكلام ما بيوعدش بيها. «استخراج الملف» بييجي في D3.8،
@@ -221,15 +224,6 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: F.s10),
-              FSecondaryButton(
-                label: 'صوّر تقرير تحليل',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ScanLabScreen(reader: AppScope.of(context).labReader, today: widget.today),
-                  ),
-                ),
               ),
               const SizedBox(height: F.gap),
               if (all == null)

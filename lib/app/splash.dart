@@ -5,22 +5,32 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
 
-/// شاشة البداية — ٣ ثواني مؤلّفة، وعمرها ما بتوقف التطبيق.
+/// شاشة البداية — ٥.٥ ثانية مؤلّفة، وعمرها ما بتوقف التطبيق.
 ///
 /// الشاشة الأولى بتتبني **تحتها** من أول فريم؛ دي طبقة فوقها بتتلاشى.
 /// أرضيتها هي هي أرضية `LaunchScreen.storyboard` (`greenDeep` مسطّحة)،
 /// فالقطع من شاشة النظام مش بيبان. الحكاية:
-///   0.15 الحلقة، 0.60 الذيل، 1.20 النقطة الدهبي بتيجي **من بره الشاشة**
-///   على قوس وبتنطّ لحد مكانها، 2.00 نطّة صغيرة وميض، 2.30 «فكرني» تطلع
-///   ٨px، 3.00 تكبير ١.٠٤ وتلاشي ٠.٣٥ ث.
+///   0.21 الحلقة، 0.84 الذيل، 1.68 النقطة الدهبي بتيجي **من بره الشاشة**
+///   على قوس وبتنطّ لحد مكانها، 2.73 نطّة صغيرة وميض، 3.22 «فكرني» تطلع
+///   ٨px، **3.85 الوقفة**، 5.05 تكبير ١.٠٤ وتلاشي ٠.٤٥ ث.
 /// مع «تقليل الحركة» بتظهر الحالة النهائية على طول وتختفي بسرعة.
+///
+/// **الوقفة هي اللي الجولة دي اتعملت عشانها.** الحركة كانت ٢.٧٥ ث وبعدها
+/// ٠.٢٥ ث بس قبل التلاشي: العلامة بتتجمّع والكلمة بتطلع والطبقة بتروح في
+/// رمشة واحدة — واللي بيفتح التطبيق أول مرة مش بيشوف علامته أصلاً. كل
+/// الإيقاعات اتمدّت بنفس النسبة (×١.٤) عشان الحكاية ما تتغيّرش، وبعد ما
+/// الكلمة تستقر العلامة بتقف **١.٢ ث كاملة** من غير أي حركة قبل التلاشي.
+/// الفتحة الباردة عمرها ما تحس إنها اتقطعت في نص حركة.
 class SplashOverlay extends StatefulWidget {
   const SplashOverlay({required this.child, super.key});
 
   final Widget child;
 
-  /// إجمالي الطبقة: ٣ ث + ٠.٣٥ ث تلاشي.
-  static const Duration total = Duration(milliseconds: 3350);
+  /// إجمالي الطبقة: ٣.٨٥ ث حركة + ١.٢ ث وقفة + ٠.٤٥ ث تلاشي.
+  static const Duration total = Duration(milliseconds: 5500);
+
+  /// بداية التلاشي — ونفسها الحالة اللي «تقليل الحركة» بتقف عليها.
+  static const int _exitAtMs = 5050;
 
   @override
   State<SplashOverlay> createState() => _SplashOverlayState();
@@ -40,46 +50,46 @@ class _SplashOverlayState extends State<SplashOverlay>
   bool _done = _splashShown;
   bool _started = false;
 
-  // كل الفترات نسبة من ٣.٣٥ ث
-  static double _at(int ms) => ms / 3350;
+  // كل الفترات نسبة من ٥.٥ ث
+  static double _at(int ms) => ms / 5500;
 
   late final _bowl = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(150), _at(700), curve: Curves.easeOut),
+    curve: Interval(_at(210), _at(980), curve: Curves.easeOut),
   );
   late final _tail = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(600), _at(1150), curve: Curves.easeOut),
+    curve: Interval(_at(840), _at(1610), curve: Curves.easeOut),
   );
 
   /// الرحلة: النقطة داخلة من بره الشاشة لحد مكانها.
   late final _fly = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1200), _at(1950), curve: Curves.easeInOutCubic),
+    curve: Interval(_at(1680), _at(2730), curve: Curves.easeInOutCubic),
   );
 
   /// النطّة بعد ما توصل — مرتدّة صغيرة فوق وتحت.
   late final _land = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1950), _at(2350), curve: Curves.elasticOut),
+    curve: Interval(_at(2730), _at(3290), curve: Curves.elasticOut),
   );
 
   /// الوميض — بيولّع مع الوصول ويهدى.
   late final _flash = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1900), _at(2400), curve: Curves.easeOut),
+    curve: Interval(_at(2660), _at(3360), curve: Curves.easeOut),
   );
   late final _halo = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1950), _at(2700), curve: Curves.easeOut),
+    curve: Interval(_at(2730), _at(3780), curve: Curves.easeOut),
   );
   late final _word = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(2300), _at(2750), curve: Curves.easeOut),
+    curve: Interval(_at(3220), _at(3850), curve: Curves.easeOut),
   );
   late final _exit = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(3000), _at(3350), curve: Curves.easeIn),
+    curve: Interval(_at(SplashOverlay._exitAtMs), _at(5500), curve: Curves.easeIn),
   );
 
   @override
@@ -89,7 +99,7 @@ class _SplashOverlayState extends State<SplashOverlay>
     _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
       // الحالة النهائية على طول، وتلاشي قصير
-      _c.value = _at(3000);
+      _c.value = _at(SplashOverlay._exitAtMs);
     }
     // الساعة بتبدأ مع أول فريم **مرسوم**، مش مع أول build: في أول فتحة
     // الـUI thread مشغول بالتحميل، ولو الساعة بدأت قبل ما يرسم، الحركة

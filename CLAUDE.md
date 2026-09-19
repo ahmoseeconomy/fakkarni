@@ -234,7 +234,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         833 passing
+test/                         836 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1728,6 +1728,12 @@ screen — and they are different screens on purpose.**
   that no longer exists; it now asserts that backstop is still wired.
 - `launchHousekeeping` still exists and is now empty, on purpose — the
   launch-time hook stays wired and tested for the next thing that needs it.
+- **«الملف الصحي» shows and follows; it does not add.** «صوّر تقرير تحليل»
+  used to sit on it as a second door to something the «ضيف» sheet already
+  owns — and two doors to one action make a person wonder whether they are
+  two different actions (the same reasoning that kept «الملف الصحي» out of
+  Settings). Adding lives in the «ضيف» sheet, which is defined once and
+  opened from the dock and the medication list.
 - «إدخال يدوي» (28): five forms, same primitives, own labels per kind;
   date chips («النهارده»/«امبارح», «بكرة» for a booking) + a date picker.
   «الملف الصحي» (13): search across title, doctor, place, notes and the
@@ -2156,11 +2162,26 @@ device-verified)**
   still uses gold text.
 
 **Front-door visuals (مطابقة المخططات ١ و٢ و٣)**
-- **Splash is 3s + 0.35s fade** (was 1.9s): ring, tail, then the gold dot
-  **flies in from off-screen right on an arc**, hops as it lands, flashes
-  once (the dot lightens toward white and its halo expands), then «فكرني»
-  rises and the layer fades. `FaMarkPainter` gained `dotSlide` and
-  `dotFlash`; reduced-motion still jumps to the final state.
+- **Splash is 3.85s of motion + a 1.2s rest + a 0.45s fade = 5.5s total**
+  (1.9s → 3.35s → 5.5s): ring, tail, then the gold dot **flies in from
+  off-screen right on an arc**, hops as it lands, flashes once (the dot
+  lightens toward white and its halo expands), «فكرني» rises — **and then
+  nothing moves for 1.2 seconds** before the layer fades. `FaMarkPainter`
+  gained `dotSlide` and `dotFlash`; reduced-motion still jumps to the
+  final state (`_exitAtMs`, the one place the fade's start is written).
+- **The rest is the point, and it is why the total grew.** At 3.35s the
+  motion ran 2.75s with only 0.25s of stillness after it, and on a real
+  cold launch the app is ready before the eye settles: the mark assembles,
+  the word arrives and the whole layer leaves in one blink, so a first-time
+  user never actually sees the brand. Every beat was scaled by the same
+  ×1.4 so the story and its proportions are unchanged — only the hold is
+  new. Do not "trim" this back by shortening the rest; the rest is the
+  feature, and the animation must never look cut off mid-flight.
+  `test/app/splash_test.dart` samples `FaMarkPainter`'s moving fields at
+  two instants a second apart inside the rest and fails if any of them
+  differ — mutation-checked: starting the fade at 3.85s goes red. It lives
+  in its own file because `_splashShown` is per-process, so a completed
+  splash in one test would skip every later one.
 - **Entry screen follows mockup 02**: white ground, the ink mark with its
   gold dot, three cards, and a «يلا نبدأ» primary. **This replaces D4's
   "each card is the action"** — the owner asked for the mockup's two-step

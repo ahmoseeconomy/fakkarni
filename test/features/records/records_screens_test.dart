@@ -114,6 +114,20 @@ void main() {
       expect(find.text('مفيش حاجة بالكلام ده'), findsOneWidget);
     });
 
+    screenTest('الملف بيفرّج وبيتابع — مفيش زرار إضافة عليه', (tester) async {
+      await seed();
+      await h.pump(tester, HealthFileScreen(today: sep14));
+      await settle(tester);
+
+      // «صوّر تقرير تحليل» كانت هنا وهي أصلاً في شيت «ضيف»
+      expect(find.text('صوّر تقرير تحليل'), findsNothing);
+      expect(find.text('قيس السكر'), findsNothing);
+      expect(find.text('إدخال يدوي'), findsNothing);
+      // واللي بيفتح الملف بيلاقي اللي فيه
+      expect(find.text('أشعة صدر'), findsOneWidget);
+      expectNoRedAndMinSize(tester);
+    });
+
     screenTest('«⋯ خيارات» → «امسحه» بتأكيد → الصف بيختفي، مش بيفضل شهر', (tester) async {
       final id = await add(RecordKind.lab, 'HbA1c', DateTime(2026, 8, 28));
       await add(RecordKind.visit, 'باطنة', DateTime(2026, 8, 20));

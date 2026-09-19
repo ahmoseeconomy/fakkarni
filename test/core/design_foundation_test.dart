@@ -132,7 +132,7 @@ void main() {
     expect(painters.first.beat, 0, reason: 'تقليل الحركة → النقطة ساكنة');
   });
 
-  testWidgets('شاشة البداية طبقة فوق التطبيق — الشاشة الأولى موجودة من أول فريم وبتتشال بعد ١.٩ ث',
+  testWidgets('شاشة البداية طبقة فوق التطبيق — الشاشة الأولى موجودة من أول فريم وبتتشال بعد ٥.٥ ث',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
