@@ -12,7 +12,12 @@ import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
 import 'core/widgets/patient_voice.dart';
+import 'dart:async' show unawaited;
+
 import 'core/diagnostics.dart';
+import 'data/health/health_collector.dart';
+import 'data/health/health_heartbeat.dart';
+import 'data/health/health_watcher.dart';
 import 'core/notifications/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
@@ -131,6 +136,22 @@ Future<void> main() async {
   } catch (error, stack) {
     diag('التذكيرات مقدرتش تتجدول عند الفتح: $error\n$stack');
   }
+
+  // ------------------------------------------------ فحص السلامة — آخر حاجة
+  // **مجاملة، وبعد كل وعد.** بيقرا مدى التذكير من `pending()` بعد ما
+  // الجدولة خلصت، فلازم يبقى بعدها؛ وبيقرا حالة الجرعة بعد ما اتكتبت،
+  // فلازم يبقى بعد معالجة رد الإطلاق. **ومن غير await قبل `runApp`**:
+  // شاشة المريض مش بتستنى فحص.
+  //
+  // اختبار بيقرا الملف ده ويوقع لو الترتيب اتقلب — كسرناه مرتين في يوم
+  // واحد، مرة في الـisolate ومرة هنا.
+  final patient = await services.routines.getPatient(services.patientId);
+  unawaited(HealthWatcher(
+    collector: HealthCollector(services),
+    heartbeat: (cloud == null || patient == null)
+        ? null
+        : HealthHeartbeat(remote: cloud.health, patientUuid: patient.uuid),
+  ).run());
 
   runApp(FakkarniApp(services: services));
 }

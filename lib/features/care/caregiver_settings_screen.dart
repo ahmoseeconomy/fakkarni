@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../selfcheck/health_check_screen.dart';
 
 /// «الإعدادات» عند الابن (D4) — الحساب واللغة وبس.
 ///
@@ -66,6 +67,15 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                 FSecondaryButton(label: _busy ? 'ثواني…' : 'تسجيل الخروج', onPressed: _busy ? null : _signOut),
               ],
             ),
+          ),
+          const SizedBox(height: F.s12),
+          // نص الوعد التاني: التنبيه اللي بيوصل للموبايل ده. الفحص هنا
+          // بيتشغّل كابن، فبيسأل عن التوكن بدل مدى التذكير.
+          FSecondaryButton(
+            label: 'اطمن إن التنبيه هيوصلك',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const HealthCheckScreen(isCaregiver: true),
+            )),
           ),
           const SizedBox(height: F.s12),
           FCard(

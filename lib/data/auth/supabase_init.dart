@@ -8,6 +8,8 @@ import '../care/caregiver_remote.dart';
 import '../care/supabase_care_circle_service.dart';
 import '../care/supabase_caregiver_remote.dart';
 import '../push/push_tokens.dart';
+import '../health/health_heartbeat.dart';
+import '../health/supabase_health_remote.dart';
 import '../push/supabase_push_tokens.dart';
 import '../sync/supabase_sync_remote.dart';
 import '../sync/sync_service.dart';
@@ -127,6 +129,7 @@ typedef CloudServices = ({
   CaregiverRemote caregiver,
   SyncRemote syncRemote,
   PushTokenRemote pushTokens,
+  HealthRemote health,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -155,6 +158,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       caregiver: SupabaseCaregiverRemote(supabase.client),
       syncRemote: SupabaseSyncRemote(supabase.client),
       pushTokens: SupabasePushTokenRemote(supabase.client),
+      health: SupabaseHealthRemote(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

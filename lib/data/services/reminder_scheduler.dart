@@ -13,7 +13,7 @@ import 'reminder_sink.dart';
 /// بيتندَه بعد أي حاجة بتغيّر المواعيد: فتح التطبيق، حفظ الروتين، إضافة دوا،
 /// إيقاف دوا. مش بيتندَه في خلفية ولا بتوقيت — كل تغيير بيعيد الحساب كامل.
 class ReminderScheduler {
-  const ReminderScheduler({
+  ReminderScheduler({
     required this.routines,
     required this.medications,
     required this.events,
@@ -41,6 +41,10 @@ class ReminderScheduler {
 
   /// خانة المريض في نطاق أرقام الإشعارات — بتفصل أرقام كل مريض عن التاني.
   final int patientIndex;
+
+  /// آخر عدد تذكيرات جرعة الخطة طلعته — null قبل أول إعادة جدولة في
+  /// العملية دي. بيتقرا في فحص السلامة وبس.
+  int? lastPlannedDoseCount;
 
   /// بيعيد جدولة النافذة كلها من الأول.
   ///
@@ -123,6 +127,11 @@ class ReminderScheduler {
       for (final n in ladder)
         if (enabled.contains(escalationRungOf(n.id))) n,
     ];
+
+    // **الرقم ده بيتسجّل من الخطة الحقيقية، مش من نسخة منها.** فحص
+    // السلامة بيقارنه باللي الجهاز ماسك فعلاً؛ لو اتحسب تاني في مكان
+    // تاني، أي فرق صغير بين الحسبتين بيبقى إنذار كذب على شاشة المريض.
+    lastPlannedDoseCount = planned.length;
 
     final plan = reconcile(
       [...planned, ...allowedLadder],

@@ -10,6 +10,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
+import '../selfcheck/health_check_screen.dart';
 import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
@@ -140,6 +141,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: 'قريب منك',
               hint: 'صيدليات ودكاترة من OpenStreetMap',
               onTap: () => _open(const NearbyScreen()),
+            ),
+            _Row(
+              icon: Icons.health_and_safety_outlined,
+              label: 'اطمن إن التذكير هيشتغل',
+              hint: 'بنتأكد إن كل حاجة في مكانها، وبنقولك لو حاجة ناقصة',
+              onTap: () => _open(const HealthCheckScreen()),
             ),
             _Row(
               icon: Icons.medical_information_outlined,

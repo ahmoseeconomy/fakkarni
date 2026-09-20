@@ -80,6 +80,41 @@ String utcIso(DateTime local) => local.toUtc().toIso8601String();
 String dateOnly(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
     '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+/// حالة الرفع زي ما هي على الجهاز دلوقتي — لفحص السلامة.
+///
+/// **قراية بس**: مفيش أي نداء شبكة هنا، فاستدعاؤها آمن في أي وقت.
+class SyncStats {
+  const SyncStats({
+    required this.dirtyCount,
+    this.oldestDirtyAt,
+    this.lastSyncedAt,
+  });
+
+  /// صفوف اتغيّرت وما اترفعتش.
+  final int dirtyCount;
+
+  /// أقدم صف متوسّخ — ده اللي بيحدّد لو الابن هيتبلّغ بالغلط.
+  final DateTime? oldestDirtyAt;
+
+  /// آخر مرة صف اترفع بنجاح.
+  final DateTime? lastSyncedAt;
+}
+
+/// الجداول اللي بتتزامن — مكتوبة هنا مرة واحدة عشان الإحصاء يمشي عليهم.
+const List<String> syncedTableNames = [
+  'patients',
+  'day_routines',
+  'medications',
+  'dose_schedules',
+  'fixed_timings',
+  'dose_events',
+  'records',
+  'readings',
+  'lab_results',
+  'visit_questions',
+  'emergency_profile',
+];
+
 class SyncService {
   SyncService({
     required AppDatabase db,
@@ -171,6 +206,35 @@ class SyncService {
       await (_db.update(_db.patients)..where((t) => t.id.equals(p.id)))
           .write(PatientsCompanion(syncedAtMs: Value(p.updatedAtMs)));
     }
+  }
+
+  /// إحصاء المتوسّخ — نفس تعريف الاتساخ اللي الدفع بيمشي عليه بالظبط.
+  ///
+  /// استعلام واحد على اتحاد الجداول بدل ١١ استعلام: الرقم ده بيتقرا في
+  /// فحص السلامة، والفحص مجاملة — ماينفعش يكلّف أكتر من اللي بيحميه.
+  Future<SyncStats> stats() async {
+    final union = syncedTableNames
+        .map((t) => 'select updated_at_ms, synced_at_ms from $t')
+        .join(' union all ');
+    const dirty = 'synced_at_ms is null or synced_at_ms < updated_at_ms';
+    final row = await _db.customSelect(
+      'select '
+      'sum(case when $dirty then 1 else 0 end) as dirty_count, '
+      'min(case when $dirty then updated_at_ms end) as oldest_dirty, '
+      'max(synced_at_ms) as last_synced '
+      'from ($union)',
+    ).getSingle();
+
+    DateTime? at(String column) {
+      final ms = row.data[column] as int?;
+      return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    }
+
+    return SyncStats(
+      dirtyCount: (row.data['dirty_count'] as int?) ?? 0,
+      oldestDirtyAt: at('oldest_dirty'),
+      lastSyncedAt: at('last_synced'),
+    );
   }
 
   Future<bool> _linked() async {

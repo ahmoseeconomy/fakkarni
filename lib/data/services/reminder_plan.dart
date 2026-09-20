@@ -401,6 +401,42 @@ String escalationBody(EscalationRung rung, String reminderBody) {
 DateTime? coverageEnd(List<PlannedNotification> planned) =>
     planned.isEmpty ? null : planned.last.at;
 
+/// آخر تذكير جرعة **الجهاز ماسكه فعلاً** — من `pending()`، مش من الخطة.
+///
+/// الفرق بين الاتنين هو كل الحكاية: [planWindow] هو اللي احنا فاكرينه،
+/// والـpending هو اللي iOS وافق يمسكه — وiOS بيرمي اللي زيادة عن ٦٤ من
+/// غير خطأ ومن غير تحذير. فحص السلامة بيقرا من هنا عن قصد.
+///
+/// الرقم بيترجّع لوقته: الخانة جوّه الرقم هي `(epochDay % 32)*1440 +
+/// دقيقة اليوم`، ودورة الـ٣٢ يوم أطول بكتير من نافذة السبع أيام، فأول
+/// يوم جاي بيوافق الباقي هو اليوم الصح. اللي طلع معاده بيتشال.
+DateTime? horizonFromPendingDoseIds(
+  Iterable<int> pendingIds, {
+  required DateTime now,
+  int patientIndex = 0,
+}) {
+  DateTime? furthest;
+  final todayEpoch =
+      DateTime.utc(now.year, now.month, now.day).difference(DateTime.utc(1970)).inDays;
+
+  for (final id in pendingIds) {
+    if (!isDoseId(id)) continue;
+    final slot = id - doseIdBase - patientIndex * patientIdSpan;
+    if (slot < 0 || slot >= patientIdSpan) continue;
+
+    final dayMod = slot ~/ 1440;
+    final minuteOfDay = slot % 1440;
+    final ahead = (dayMod - todayEpoch % _dayCycle + _dayCycle) % _dayCycle;
+    final day = DateTime.utc(1970).add(Duration(days: todayEpoch + ahead));
+    // بالمُنشئ مش بـadd: مصر بتغيّر الساعة، والمُنشئ بيشتغل بساعة الحيطة
+    final at = DateTime(day.year, day.month, day.day, 0, minuteOfDay);
+
+    if (at.isBefore(now)) continue;
+    if (furthest == null || at.isAfter(furthest)) furthest = at;
+  }
+  return furthest;
+}
+
 /// نص التذكير — اسم الدوا والجرعة، أو عددهم لو أكتر من واحد.
 String reminderBody(Reminder reminder) => reminderBodyFor([
       for (final d in reminder.doses) (name: d.medicationName, amount: d.amountLabel),

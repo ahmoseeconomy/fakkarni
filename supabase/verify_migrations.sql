@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0017: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0018: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -176,7 +176,21 @@ with expected(migration, kind, ident) as (
     ('0016_lab_ranges', 'column', 'public.lab_results.ref_high'),
     ('0016_lab_ranges', 'column', 'public.lab_results.ref_text'),
     ('0017_follow_kind', 'column', 'public.records.follow_kind'),
-    ('0017_follow_kind', 'constraintdef', 'public.records|records_follow_kind_check|visit')
+    ('0017_follow_kind', 'constraintdef', 'public.records|records_follow_kind_check|visit'),
+    ('0018_device_health', 'table', 'public.device_health'),
+    ('0018_device_health', 'rls', 'public.device_health'),
+    ('0018_device_health', 'column', 'public.device_health.failing_codes'),
+    ('0018_device_health', 'column', 'public.device_health.horizon_until'),
+    ('0018_device_health', 'column', 'public.device_health.install_id'),
+    ('0018_device_health', 'policy', 'public.device_health|device_health_select'),
+    ('0018_device_health', 'policy', 'public.device_health|device_health_insert'),
+    ('0018_device_health', 'policy', 'public.device_health|device_health_update'),
+    ('0018_device_health', 'policy', 'public.device_health|device_health_delete'),
+    ('0018_device_health', 'index', 'public|device_health_failing_idx'),
+    ('0018_device_health', 'index', 'public|device_health_checked_idx'),
+    ('0018_device_health', 'function', 'private.broken_devices'),
+    -- المفتاح المركّب هو اللي بيخلّي الـupsert يعدّل بدل ما يزوّد صف
+    ('0018_device_health', 'constraintdef', 'public.device_health|device_health_pkey|install_id')
 ),
 checked as (
   select

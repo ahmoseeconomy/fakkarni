@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         994 passing
+test/                         1058 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1348,6 +1348,15 @@ on the live project.
 | Confirmed | Files |
 |---|---|
 | 20 Sep 2026 | `0001`-`0017`, all of them |
+| **not yet run** | **`0018_device_health` — written this round, NOT applied** |
+
+**`0018` is in the repo and not in the database.** That is the exact gap
+this table exists to make visible, so it is written here rather than
+assumed away: nothing reads or writes `device_health` successfully until
+someone pastes the migration into the SQL editor and then re-runs
+`verify_migrations.sql` (already extended to cover it). Until then the
+heartbeat's upsert fails, is swallowed by design, and logs one
+`Health: النبضة ما اترفعتش` line — the app is otherwise unaffected.
 
 **Re-run the script rather than trusting the date.** A row here goes stale
 the moment anyone touches the project; the script is one paste and it
@@ -1406,6 +1415,57 @@ test`, so this class of mistake is otherwise found only by the real project
 — after the time is spent.
 
 ---
+
+**فحص السلامة — «اطمن إن التذكير هيشتغل»** (`domain/health/health_check.dart`,
+`data/health/`, `features/selfcheck/`).
+
+كل عيب اتصلّح الأسبوع ده كان **ساكت**: التطبيق شكله سليم والوعد مكسور،
+وآخر واحد كلّف ماك وConsole.app وتلات ساعات. راجل عنده ٧٢ سنة عمره ما
+هيعمل ده، ومع ألف مستخدم كنا هنعرف من جرعة فايتة.
+
+- **المنطق نقي**: `HealthSnapshot` بيانات ساذجة، وكل فحص دالة نقية
+  بترجّع `HealthFinding?`. الاختبار بيبني لقطة حرفية ويقرا النتيجة —
+  مفيش قاعدة ولا pumping. **ولكل فحص لقطة بتعدّيه ولقطة بتوقّعه**؛ فحص
+  عمره ما اتحقّق شرطه مش حارس.
+- **درجتين وبس** (`broken` / `note`). تالتة معناها فرز، والفرز مش شغل
+  المريض.
+- **المدى بيتقرا من `pending()` مش من `planWindow`** —
+  `horizonFromPendingDoseIds`. الخطة هي اللي احنا فاكرينه؛ الـpending هو
+  اللي iOS وافق يمسكه، والفرق بينهم هو صنف العيب اللي بيسكت لحد ما جرعة
+  تفوت. وفيه فحص لنفس الفرق: `remindersDropped` بيقارن
+  `ReminderScheduler.lastPlannedDoseCount` (اللي **الخطة الحقيقية**
+  سجّلته، مش نسخة منها) باللي الجهاز ماسكه.
+- **كل مكسور معاه زرار بيحلّه** أو جملة بتقول اللي بيحصل. صف أحمر
+  المستخدم ما يقدرش يعمل فيه حاجة هو ضوضا، واختبار بيقفل على ده.
+- **السطر الأخضر جزء من الميزة**: شاشة عمرها ما بتقول «كله تمام» معناها
+  الوحيد «فيه بايظ». وعشان السطر ده ما يكدبش، `noMedications` ملاحظة —
+  موبايل مفيهوش دوا كان بيعدّي كل الفحوص ويقول كله تمام عن وعد مش موجود.
+
+**تلات حواجز، وكلها اتعملها mutation:**
+1. **الفحص بعد الوعد، مش قبله.** `test/app/health_is_last_test.dart`
+   بيقرا `main.dart` ويقارن المواضع: الفحص بعد معالجة رد الإطلاق وبعد
+   `rescheduleAll`، ومن غير `await` قبل `runApp` — وبيقرا
+   `bootstrap.dart` ويوقع لو اسم الفحص ظهر فيه أصلاً. **كسرنا الترتيب ده
+   مرتين في يوم واحد**، فهو اختبار مش تعليق.
+2. **تنبيه السلامة معروض، مش متجدول.** `NotificationService.showNow`
+   بتستعمل `show` — إشعار متجدول كان هياخد خانة من الأربعة وستين، يعني
+   التنبيه اللي بيقول «التذكير ممكن ما يشتغلش» هو نفسه اللي بيعطّله.
+   رقمه `60_000_001`، برّه كل النطاقات المحجوزة.
+3. **النبضة متخنوقة**: صف بيترفع لما مجموعة الأكواد المكسورة **تتغيّر**،
+   أو كل `heartbeatEvery` (٦ ساعات). ست ساعات = ربع نافذة الـ٢٤ ساعة
+   اللي «مكسور» بيتحدّد بيها، وأربع صفوف في اليوم للجهاز الواحد.
+
+**السحابة: `0018_device_health`** — صف لكل (مريض، تنزيلة)، **أكواد سلامة
+وبس**: مفيش اسم دوا ولا محتوى جرعة ولا أي حاجة طبية. الـRLS بيمشي على
+قاعدة ٠٠٠٥: السياسة بتقرا `patient_uuid` بتاع الصف نفسه وبتنده دوال
+بتوصل لجداول **تانية** بس. `private.broken_devices()` بترد على «أنهي
+حسابات مكسورة دلوقتي وعلى إيه» — وبتحسب الجهاز **الساكت** كمان، لأن
+الغياب أخطر من أي كود: الجهاز مش بيقدر يقوله عن نفسه.
+
+**اللي اتشال عن قصد: `batteryOptimisation`.** مفيش API نقراه من غير كود
+أندرويد أصلي جديد، فالفحص كان هيفضل `batteryUnrestricted: true` للأبد —
+يعني حارس شرطه عمره ما بيتحقّق، وهو بالظبط اللي الأعراف بتحذّر منه.
+يرجع مع القناة اللي بتقراه، مش قبلها.
 
 ## دين تقني
 

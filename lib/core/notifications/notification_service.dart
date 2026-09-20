@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../../domain/health/health_snapshot.dart' show NotificationPermission;
 import '../diagnostics.dart';
 
 /// أزرار الإشعار — نفس المعرّفات على أندرويد وiOS.
@@ -242,6 +243,89 @@ class NotificationService {
       return;
     }
     lastPayload.value = response.payload;
+  }
+
+  /// قناة تنبيه السلامة — نفس أهمية التذكير، وقناة لوحدها عشان تتقفل
+  /// لوحدها لو حد مش عايزها.
+  static const healthChannelId = 'fakkarni_health';
+
+  static const _healthChannel = AndroidNotificationChannel(
+    healthChannelId,
+    'سلامة التذكير',
+    description: 'لما حاجة بتمنع التذكير من إنه يرن',
+    importance: Importance.high,
+  );
+
+  /// **بيتعرض حالاً — `show`، مش `zonedSchedule`. ده شرط، مش أسلوب.**
+  ///
+  /// iOS بيمسك ٦٤ إشعار **معلّق** بس، والأربعة وستين كلهم متوزّعين خلاص
+  /// (٤٤ جرعة + ١٤ سلّم + ٢ تأجيل + ٢ صيام + ٢ متابعة). أي إشعار
+  /// **متجدول** من هنا بياخد خانة من جرعة حقيقية — يعني تنبيه بيقول
+  /// «التذكير ممكن ما يشتغلش» هو نفسه اللي بيعطّله. إشعار معروض دلوقتي
+  /// ما بياخدش خانة خالص.
+  ///
+  /// ومالوش payload ولا أزرار: الأزرار دي بتسجّل جرعات.
+  static Future<void> showNow({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    await init();
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_healthChannel);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          healthChannelId,
+          _healthChannel.name,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: const DarwinNotificationDetails(
+          interruptionLevel: InterruptionLevel.active,
+        ),
+      ),
+    );
+  }
+
+  /// إذن الإشعارات زي ما النظام بيقوله دلوقتي — لفحص السلامة.
+  ///
+  /// **«هادي» بتتحسب مكسورة**: إشعار provisional بينزل في مركز الإشعارات
+  /// من غير صوت، وراجل عنده ٧٢ سنة مش هيفتح المركز. للتذكير بالدوا ده
+  /// مش نص إذن، ده لا إذن.
+  ///
+  /// أي فشل بيرجّع [NotificationPermission.unknown] — مش بنخوّف بالشك.
+  static Future<NotificationPermission> permissionState() async {
+    try {
+      if (Platform.isAndroid) {
+        final android = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        final enabled = await android?.areNotificationsEnabled();
+        if (enabled == null) return NotificationPermission.unknown;
+        return enabled
+            ? NotificationPermission.granted
+            : NotificationPermission.denied;
+      }
+      if (Platform.isIOS) {
+        final ios = _plugin.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
+        final options = await ios?.checkPermissions();
+        if (options == null) return NotificationPermission.unknown;
+        if (!options.isEnabled) return NotificationPermission.denied;
+        if (options.isProvisionalEnabled) {
+          return NotificationPermission.provisional;
+        }
+        return NotificationPermission.granted;
+      }
+    } catch (_) {
+      // فحص السلامة مجاملة — عمره ما يوقّع حاجة بسببه
+    }
+    return NotificationPermission.unknown;
   }
 
   /// المنطقة الزمنية بتوقيت المريض — مش بتوقيت السيرفر.

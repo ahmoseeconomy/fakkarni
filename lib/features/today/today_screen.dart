@@ -28,6 +28,7 @@ import 'widgets/day_rail.dart';
 import 'widgets/glucose_home_card.dart';
 import 'widgets/now_card.dart';
 import 'widgets/water_widget.dart';
+import '../selfcheck/health_bar.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
@@ -475,6 +476,8 @@ class _HomeHeader extends StatelessWidget {
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
         const SizedBox(height: F.s12),
+        // عطل ساكت بيبقى مسموع هنا — ومفيش حاجة بتتعرض لما كله تمام.
+        const HealthBar(),
         CareCircleRow(onOpen: onOpenCircle),
       ],
     );
