@@ -1984,8 +1984,14 @@ screen — and they are different screens on purpose.**
   unsure lines gold «مش متأكد من دي — راجعها» and block «تمام، احفظه»
   until edited or removed; «صوّر تاني» carries equal weight.
 - Confirming saves a `lab` record + `lab_results` + the photo through
-  `AttachmentStore` (relative path in `attachment_path`); the 30-day purge
-  deletes the file after the row.
+  `AttachmentStore` (relative path in `attachment_path`). **Deleting the
+  record deletes the file, then and there** — `RecordsRepository.delete`,
+  after the row's transaction commits, because a row without its file is a
+  smaller problem than an orphan file holding a patient's data. This line
+  used to say "the 30-day purge deletes the file after the row"; that was
+  left behind when «المسح بيمسح» removed the local grace, and the 30-day
+  cron (`private.purge_deleted_records`) is a **cloud** backstop that never
+  touches this phone.
 - Home: the glucose card is gold and sits in «الآن» **only** when the
   latest reading is outside his own usual; otherwise a quiet card above
   water. «افتح» is secondary. Entry: «ضيف» sheet («قيس السكر», «صوّر
