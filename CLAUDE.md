@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         968 passing
+test/                         969 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -2756,8 +2756,20 @@ device-verified)**
   Ordered by cloud `updated_at`, each row showing the event's own date: a 2019 lab entered today is new
   to the son. Dose events are left out (their `updated_at` moves on every
   confirmation) and so are medications.
-- **«الملف الصحي»**: the red emergency card (blood type, allergies, chronic
-  conditions; «لسه ما اتملاش» for empty; no contacts, no call buttons),
+- **«الملف الصحي» is entries too** (round 28b, same split as the father's):
+  the red emergency card stays at the top — it is a card read at a glance,
+  not a list — and under it one entry per thing that has content, with its
+  count, each opening its own `CareListScreen`. **An empty entry does not
+  appear**: its absence *is* «مفيش حاجة هنا», and the screen no longer
+  stacks three empty panels saying so; with nothing at all it shows one
+  sentence. The opened list **listens to the same holder**, so the
+  ten-second poll updates it while it is open — a list holding a snapshot
+  taken at open time would go stale with nothing to say so.
+  The shell guard that walks every tappable widget now allows the entry
+  labels and ignores a text that is only Arabic-Indic digits: the count is
+  part of the entry's name, not an action of its own.
+- **«الملف الصحي» content**: the red emergency card (blood type, allergies,
+  chronic conditions; «لسه ما اتملاش» for empty; no contacts, no call buttons),
   glucose readings as number + context + date only (D3.6 — the advice-word
   scan now reads `lib/features/care/` too), records grouped by kind with
   lab lines under their report, and the family's questions («اتسأل ✓»).

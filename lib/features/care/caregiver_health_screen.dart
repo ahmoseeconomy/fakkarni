@@ -6,6 +6,7 @@ import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../emergency/emergency_facts_card.dart';
 import '../health/lab_flag.dart';
+import '../records/record_kinds.dart' show RecordKindWords;
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_words.dart';
 
@@ -87,6 +88,15 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
     );
   }
 
+  /// **مداخل، مش لفّة واحدة على كل حاجة** — نفس تقسيم ملف الأب (جولة ٢٨).
+  ///
+  /// الشاشة كانت بترصّ الطوارئ والسكر وكل نوع سجل والأسئلة تحت بعض في
+  /// سكرول واحد، والابن بيدوّر بعينه. دلوقتي كارت الطوارئ فوق (ده كارت
+  /// بيتقرا بنظرة، مش قايمة)، وتحته مدخل لكل حاجة فيها محتوى — بعدده —
+  /// وكل مدخل بيفتح قايمته.
+  ///
+  /// المدخل الفاضي مش بيظهر أصلاً: غيابه هو «مفيش حاجة هنا»، من غير لوحة
+  /// بتقولها. ولو مفيش ولا حاجة خالص، جملة واحدة بدل خمس لوحات فاضية.
   List<Widget> _sections(CaregiverSnapshot snapshot) {
     final byKind = <String, List<CaregiverRecord>>{};
     for (final r in snapshot.records) {
@@ -99,6 +109,32 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         if (!CaregiverHealthScreen.kindOrder.contains(k)) k,
     ];
     final emergency = snapshot.emergency;
+    final entries = <Widget>[
+      if (snapshot.readings.isNotEmpty)
+        _Entry(
+          key: const ValueKey('care-entry-readings'),
+          icon: Icons.water_drop_outlined,
+          label: 'قياسات السكر — آخر ٣٠ يوم',
+          count: snapshot.readings.length,
+          onTap: () => _open(CareListKind.readings),
+        ),
+      for (final kind in kinds)
+        _Entry(
+          key: ValueKey('care-entry-$kind'),
+          icon: recordKindOf(kind)?.icon ?? Icons.description_outlined,
+          label: recordKindPlural(kind),
+          count: byKind[kind]!.length,
+          onTap: () => _open(CareListKind.records, recordKind: kind),
+        ),
+      if (snapshot.questions.isNotEmpty)
+        _Entry(
+          key: const ValueKey('care-entry-questions'),
+          icon: Icons.help_outline,
+          label: 'أسئلة للدكتور',
+          count: snapshot.questions.length,
+          onTap: () => _open(CareListKind.questions),
+        ),
+    ];
 
     return [
       EmergencyFactsCard(
@@ -107,38 +143,144 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         chronicConditions: emergency?.chronicConditions,
       ),
       const SizedBox(height: F.gap),
-      const FSectionHead('قياسات السكر — آخر ٣٠ يوم'),
-      if (snapshot.readings.isEmpty)
+      if (entries.isEmpty)
         const _Panel(text: 'لسه مفيش حاجة هنا.')
       else
-        _Box(children: [for (final r in snapshot.readings) _ReadingRow(reading: r)]),
-      const SizedBox(height: F.gap),
-      const FSectionHead('السجلات'),
-      if (snapshot.records.isEmpty)
-        const _Panel(text: 'لسه مفيش حاجة هنا.')
-      else
-        for (final kind in kinds) ...[
-          _SubHead(recordKindPlural(kind)),
-          for (final r in byKind[kind]!) _RecordCard(record: r),
-        ],
-      const SizedBox(height: F.gap),
-      const FSectionHead('أسئلة للدكتور'),
-      if (snapshot.questions.isEmpty)
-        const _Panel(text: 'لسه مفيش حاجة هنا.')
-      else
-        _Box(children: [for (final q in snapshot.questions) _QuestionRow(question: q)]),
+        ...entries,
     ];
+  }
+
+  void _open(CareListKind kind, {String? recordKind}) => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CareListScreen(holder: widget.holder, kind: kind, recordKind: recordKind),
+        ),
+      );
+}
+
+/// نوع القايمة اللي المدخل بيفتحها.
+enum CareListKind { readings, records, questions }
+
+/// قايمة نوع واحد عند الابن — **بتقرا من نفس الصورة الحيّة**.
+///
+/// بتسمع للـholder زي الشاشة اللي فتحتها، فالسؤال الدوري (كل ١٠ ثواني وهو
+/// على تبويب بيانات) بيحدّثها وهي مفتوحة. لو كانت بتاخد نسخة ثابتة وقت
+/// الفتح، الابن كان هيبص على قايمة واقفة من غير ما حاجة تقول له.
+class CareListScreen extends StatefulWidget {
+  const CareListScreen({required this.holder, required this.kind, this.recordKind, super.key});
+
+  final CaregiverSnapshotHolder holder;
+  final CareListKind kind;
+
+  /// نوع السجل لما [kind] يكون [CareListKind.records].
+  final String? recordKind;
+
+  @override
+  State<CareListScreen> createState() => _CareListScreenState();
+}
+
+class _CareListScreenState extends State<CareListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.holder.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.holder.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  String get _title => switch (widget.kind) {
+        CareListKind.readings => 'قياسات السكر — آخر ٣٠ يوم',
+        CareListKind.questions => 'أسئلة للدكتور',
+        CareListKind.records => recordKindPlural(widget.recordKind ?? ''),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = widget.holder.snapshot;
+    final records = [
+      for (final r in snapshot?.records ?? const <CaregiverRecord>[])
+        if (r.kind == widget.recordKind) r,
+    ];
+    return Scaffold(
+      appBar: AppBar(title: Text(_title)),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: F.green,
+          onRefresh: widget.holder.refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            children: switch (widget.kind) {
+              CareListKind.readings => [
+                  _Box(children: [
+                    for (final r in snapshot?.readings ?? const <CaregiverReading>[]) _ReadingRow(reading: r),
+                  ]),
+                ],
+              CareListKind.questions => [
+                  _Box(children: [
+                    for (final q in snapshot?.questions ?? const <CaregiverQuestion>[]) _QuestionRow(question: q),
+                  ]),
+                ],
+              CareListKind.records => [for (final r in records) _RecordCard(record: r)],
+            },
+          ),
+        ),
+      ),
+    );
   }
 }
 
-class _SubHead extends StatelessWidget {
-  const _SubHead(this.text);
-  final String text;
+/// مدخل واحد: أيقونة، اسم، وعدد — ونفس شكل مداخل ملف الأب.
+class _Entry extends StatelessWidget {
+  const _Entry({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: F.s4, bottom: F.s6),
-        child: Text(text, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.green)),
+        padding: const EdgeInsets.only(bottom: F.s10),
+        child: FCard(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            onTap: onTap,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: F.minTapTarget),
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(
+                children: [
+                  Icon(icon, size: 22, color: F.green),
+                  const SizedBox(width: F.s10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                    ),
+                  ),
+                  Text(
+                    arabicNumber(count),
+                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
 }
 

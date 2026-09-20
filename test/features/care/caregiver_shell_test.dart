@@ -26,7 +26,21 @@ void main() {
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  const allowedTaps = {'متابعة', 'الملف الصحي', 'الإعدادات', 'تسجيل الخروج'};
+  // التبويبات والخروج — **ومداخل الملف الصحي**: دي بتفتح قايمة قراية،
+  // مش زرار بيكتب في بيانات الأب. أي كلمة تانية قابلة للدوس غلط.
+  const allowedTaps = {
+    'متابعة',
+    'الملف الصحي',
+    'الإعدادات',
+    'تسجيل الخروج',
+    'تحاليل',
+    'روشتات',
+    'زيارات',
+    'أشعة',
+    'حجوزات',
+    'قياسات السكر — آخر ٣٠ يوم',
+    'أسئلة للدكتور',
+  };
 
   Set<String> tappableTexts(WidgetTester tester) {
     final texts = <String>{};
@@ -40,6 +54,9 @@ void main() {
         texts.add((t.data ?? t.textSpan?.toPlainText() ?? '').trim());
       }
     }
+    // العدد اللي جنب المدخل جزء من اسمه، مش زرار لوحده — «٢» مش فعل.
+    // الحارس لسه بيمسك أي **كلمة** قابلة للدوس مش مسموح بيها.
+    texts.removeWhere((t) => RegExp(r'^[\u0660-\u0669]+$').hasMatch(t));
     return texts..remove('');
   }
 
@@ -151,8 +168,9 @@ void main() {
     await tester.tap(find.text('الملف الصحي'));
     await settle(tester);
     expect(find.byKey(const ValueKey('emergency-facts')), findsOneWidget);
-    expect(find.textContaining('HbA1c'), findsOneWidget);
-    expect(find.text('ينفع أوقف الملح؟'), findsOneWidget);
+    // الملف بقى مداخل: المحتوى جوّه قايمة كل مدخل
+    expect(find.byKey(const ValueKey('care-entry-lab')), findsOneWidget);
+    expect(find.byKey(const ValueKey('care-entry-questions')), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.byType(Image), findsNothing, reason: 'الصور في D5.3 — ولا مكان فاضي ولا صورة مكسورة');
     for (final word in ['ضيف', 'عدّل', 'امسح', 'رجّعه', 'اتصال', 'الإسعاف', 'احفظ', 'خيارات']) {

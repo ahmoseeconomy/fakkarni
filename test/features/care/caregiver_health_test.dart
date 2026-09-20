@@ -222,7 +222,7 @@ void main() {
     });
   });
 
-  screenTest('«الملف الصحي» بكل قسم فاضي: ما بيقعش، وكل قسم بيقول «لسه مفيش حاجة هنا»', (tester) async {
+  screenTest('«الملف الصحي» فاضي خالص: ما بيقعش، وجملة واحدة — مش لوحات فاضية', (tester) async {
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -240,7 +240,9 @@ void main() {
     await settle(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('لسه مفيش حاجة هنا.'), findsNWidgets(3));
+    // **جملة واحدة بدل تلات لوحات فاضية** — المدخل الفاضي مش بيظهر أصلاً،
+    // وغيابه هو «مفيش حاجة هنا».
+    expect(find.text('لسه مفيش حاجة هنا.'), findsOneWidget);
     expect(find.text('لسه ما اتملاش'), findsNWidgets(3), reason: 'الطوارئ فاضية = مفيش حاجة اتخمّنت');
     holder.setActive(false);
   });
@@ -285,9 +287,76 @@ void main() {
       home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
     ));
     await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('care-entry-visit')));
+    await settle(tester);
 
     expect(find.text('زيارة شغّالة'), findsOneWidget);
     expect(find.textContaining('اتمسحت'), findsNothing);
+    holder.setActive(false);
+  });
+
+  screenTest('مداخل بعددها، والفاضي مش بيظهر — والدوسة بتفتح قايمته', (tester) async {
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r1',
+              kind: 'lab',
+              title: 'صورة دم',
+              happenedAt: DateTime(2026, 9, 12),
+              updatedAt: DateTime(2026, 9, 12, 10),
+            ),
+            CaregiverRecord(
+              uuid: 'r2',
+              kind: 'lab',
+              title: 'وظايف كلى',
+              happenedAt: DateTime(2026, 9, 10),
+              updatedAt: DateTime(2026, 9, 10, 10),
+            ),
+          ],
+          readings: [
+            CaregiverReading(
+              uuid: 'g1',
+              valueMgDl: 128,
+              measuredAt: DateTime(2026, 9, 12, 8),
+              context: 'fasting',
+              updatedAt: DateTime(2026, 9, 12, 8, 5),
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+
+    // مدخل لكل حاجة فيها محتوى، بعدده
+    expect(find.byKey(const ValueKey('care-entry-lab')), findsOneWidget);
+    expect(find.byKey(const ValueKey('care-entry-readings')), findsOneWidget);
+    expect(find.text('٢'), findsOneWidget, reason: 'تحليلين');
+    // واللي مفيهوش حاجة مش بيظهر — غيابه هو «مفيش حاجة هنا»
+    expect(find.byKey(const ValueKey('care-entry-visit')), findsNothing);
+    expect(find.byKey(const ValueKey('care-entry-questions')), findsNothing);
+    expect(find.text('لسه مفيش حاجة هنا.'), findsNothing);
+    // والسجلات نفسها مش على الشاشة الأولى — دي مداخل
+    expect(find.text('صورة دم'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('care-entry-lab')));
+    await settle(tester);
+    expect(find.text('صورة دم'), findsOneWidget);
+    expect(find.text('وظايف كلى'), findsOneWidget);
+    expectNoRedAndMinSize(tester);
     holder.setActive(false);
   });
 
@@ -333,6 +402,9 @@ void main() {
       theme: F.light,
       home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
     ));
+    await settle(tester);
+    // الملف بقى مداخل — التقرير جوّه مدخل التحاليل
+    await tester.tap(find.byKey(const ValueKey('care-entry-lab')));
     await settle(tester);
 
     // **تمثيل واحد**: الفقرة راحت، والنتايج سطور
@@ -384,6 +456,8 @@ void main() {
       home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
     ));
     await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('care-entry-visit')));
+    await settle(tester);
     expect(find.text('الضغط كويس'), findsOneWidget,
         reason: 'مفيش سطور — الملاحظة هي المحتوى الوحيد');
     holder.setActive(false);
@@ -429,6 +503,8 @@ void main() {
       theme: F.light,
       home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
     ));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('care-entry-lab')));
     await settle(tester);
 
     // نفس التلات كلمات بالحرف — مش نسخة تانية من الكلام
