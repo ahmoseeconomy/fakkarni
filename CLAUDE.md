@@ -1392,6 +1392,52 @@ elsewhere on this machine — always use the one on PATH after `.zshrc` setup.
 
 ---
 
+## Testing conventions
+
+**A green assertion that was never put to the question is not a guard.**
+The pattern: a check whose *condition has never occurred in any fixture*.
+It passes everywhere, is counted in the total, reads as coverage in review,
+and is load-bearing in exactly nobody's hands — and the first real case
+walks straight past it, or fails it for the wrong reason. A test is a guard
+only once something has actually made it go red. **Twice in one week now**,
+so it is written down:
+
+- **`expectNoRedAndMinSize`** asserts no red text on a screen and is called
+  from **23 test files**. It had never seen red. Every lab fixture in the
+  suite had a value with no printed range, so the one thing that can
+  legitimately be red — an out-of-range lab value (round 21) — had never
+  been rendered under it. The helper was not protecting 23 screens from
+  red; it was protecting them from a case that never arrived, and the first
+  test to carry an out-of-range value would have failed on a badge the
+  owner had just sanctioned.
+- **A mutation check that reported zero failures over a corrupted file.**
+  Removing the v18 migration step was supposed to turn the migration tests
+  red. It reported all green — because the removal never happened: the
+  script sliced on `if (from < 6) {`, which appears **twice** in
+  `app_database.dart`, so it duplicated the migration chain instead of
+  cutting the step out. The "check" was green over a file that still had
+  the step *and* was now broken in four places. A mutation check proves
+  nothing until you prove the mutation landed — assert the thing is gone
+  before running the suite, and anchor on a string you have verified is
+  unique.
+
+**The fix is a fixture that triggers the condition — not an exemption.**
+When a guard finally meets its case and the case is legitimate, the
+temptation is to widen the guard and move on; that leaves it exactly as
+unexercised as before, now with a hole in it. `expectNoRedAndMinSize` did
+need one narrow exemption (red inside `LabFlagBadge` is a product
+decision), but that is not what made it a guard again: what did is that
+the son's screen and the doctor page now have fixtures carrying above,
+below and near-boundary values, and that red **outside** the badge on
+those same screens still fails — mutation-checked by colouring the range
+line and watching it go red.
+
+So: when you add a shared assertion, add the fixture that makes it fail on
+the same day. When you meet one that has never fired, treat it as untested
+code, because that is what it is.
+
+---
+
 ## Current state
 
 **Phase 1 is complete and verified on a physical iPhone** — reminders fire
