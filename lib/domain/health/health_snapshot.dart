@@ -13,6 +13,14 @@ enum HealthPlatform { ios, android, other }
 /// صوت، وراجل عنده ٧٢ سنة مش هيفتح المركز. للتذكير بالدوا ده مكسور.
 enum NotificationPermission { granted, denied, provisional, unknown }
 
+/// تحسين البطارية على أندرويد — **بتلات حالات عن قصد**.
+///
+/// [unknown] مش نفس [unrestricted]: الاتنين بيتعرضوا للمريض بنفس الشكل
+/// (مفيش صف على الشاشة — إنذار كذب أسوأ من فحص ساكت)، بس على السيرفر
+/// لازم يتفرّقوا. «كله تمام» و«ما قدرناش نبص» بيبقوا شكل واحد من برّه
+/// وبعدين محدش ياخد باله إن القناة نفسها بايظة على ألف جهاز.
+enum BatteryState { unrestricted, restricted, unknown }
+
 class HealthSnapshot {
   const HealthSnapshot({
     required this.now,
@@ -35,7 +43,7 @@ class HealthSnapshot {
     this.oldestDirtyAt,
     this.lastSyncedAt,
     this.exactAlarmsAllowed = true,
-    this.batteryUnrestricted = true,
+    this.batteryState = BatteryState.unrestricted,
     this.aiKeyPresent = true,
     this.rungFirstOn = true,
     this.rungSecondOn = true,
@@ -82,8 +90,9 @@ class HealthSnapshot {
 
   final bool exactAlarmsAllowed;
 
-  /// أندرويد: التطبيق مستثنى من تحسين البطارية؟ **الشك بيتحسب سليم.**
-  final bool batteryUnrestricted;
+  /// أندرويد: حالة تحسين البطارية. الشك بيتحسب سليم **على الشاشة**،
+  /// وبيتسجّل بنفسه في النبضة.
+  final BatteryState batteryState;
   final bool aiKeyPresent;
 
   /// مفاتيح درجات السلّم (+١٥ و+٣٠) — المستخدم يقدر يقفلهم من الإعدادات.

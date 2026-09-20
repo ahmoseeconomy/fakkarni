@@ -2,6 +2,7 @@ package com.fakkarni.fakkarni
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -13,6 +14,45 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         BatteryChannel.register(this, flutterEngine)
+        TestHookChannel.register(this, flutterEngine)
+    }
+}
+
+/**
+ * الباب الخلفي بتاع اختبار الجهاز — **debug بس**.
+ *
+ * سكّة أندرويد (زرار الإشعار والتطبيق متقفول) عمرها ما اشتغلت على أي
+ * جهاز. الاختبار الآلي بيشغّل النشاط ومعاه `fk_seed_seconds`، ودارت
+ * بتاخد الرقم مرة واحدة وتزرع جرعة معادها في أقرب دقيقة جاية.
+ *
+ * **البوابة هنا هي علم `debuggable` بتاع الـAPK نفسه**، و`kReleaseMode`
+ * بوابة تانية في
+ * `test_hook.dart`.** في نسخة الإصدار القناة دي مش بتتسجّل أصلاً، فالنداء
+ * بيرمي MissingPluginException ودارت بتبلعه وترجّع null.
+ */
+object TestHookChannel {
+    private const val NAME = "fakkarni/testhook"
+    private const val EXTRA = "fk_seed_seconds"
+
+    fun register(activity: MainActivity, engine: FlutterEngine) {
+        // مش BuildConfig.DEBUG: ده ثابت وقت الترجمة في ملف ممكن يتعدّل،
+        // والعلم ده بيتقرا من الـmanifest بتاع الـAPK اللي شغّال فعلاً.
+        // نسخة الإصدار عمرها ما بتبقى debuggable.
+        val debuggable =
+            (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) return
+        val channel = MethodChannel(engine.dartExecutor.binaryMessenger, NAME)
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takeSeedSeconds" -> {
+                    val seconds = activity.intent?.getIntExtra(EXTRA, -1) ?: -1
+                    // مرة واحدة بس: من غير المسح، كل رجوع للنشاط بيزرع تاني
+                    activity.intent?.removeExtra(EXTRA)
+                    result.success(if (seconds > 0) seconds else null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 }
 

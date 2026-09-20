@@ -34,7 +34,7 @@ void main() {
     DateTime? oldestDirtyAt,
     DateTime? lastSyncedAt,
     bool exactAlarmsAllowed = true,
-    bool batteryUnrestricted = true,
+    BatteryState batteryState = BatteryState.unrestricted,
     bool aiKeyPresent = true,
     bool rungFirstOn = true,
     bool rungSecondOn = true,
@@ -60,7 +60,7 @@ void main() {
         oldestDirtyAt: oldestDirtyAt,
         lastSyncedAt: lastSyncedAt ?? now.subtract(const Duration(minutes: 5)),
         exactAlarmsAllowed: exactAlarmsAllowed,
-        batteryUnrestricted: batteryUnrestricted,
+        batteryState: batteryState,
         aiKeyPresent: aiKeyPresent,
         rungFirstOn: rungFirstOn,
         rungSecondOn: rungSecondOn,
@@ -284,7 +284,9 @@ void main() {
 
     test('توفير البطارية ماسك → ملاحظة', () {
       expectRaised(
-          well(platform: HealthPlatform.android, batteryUnrestricted: false),
+          well(
+              platform: HealthPlatform.android,
+              batteryState: BatteryState.restricted),
           HealthCode.batteryOptimisation,
           Severity.note);
     });
@@ -294,8 +296,19 @@ void main() {
           well(platform: HealthPlatform.android), HealthCode.batteryOptimisation);
     });
 
+    test('«ما قدرناش نبص» → مفيش صف على الشاشة، زي السليم', () {
+      // إنذار كذب على شاشة مريض أسوأ من فحص ساكت — والفرق بيتسجّل في
+      // النبضة، مش هنا.
+      expectClean(
+          well(
+              platform: HealthPlatform.android,
+              batteryState: BatteryState.unknown),
+          HealthCode.batteryOptimisation);
+    });
+
     test('على iOS مفيش تحسين بطارية أصلاً', () {
-      expectClean(well(batteryUnrestricted: false), HealthCode.batteryOptimisation);
+      expectClean(well(batteryState: BatteryState.restricted),
+          HealthCode.batteryOptimisation);
     });
 
   });
@@ -392,7 +405,7 @@ HealthSnapshot _allBroken(DateTime now) => HealthSnapshot(
       oldestDirtyAt: now.subtract(const Duration(days: 2)),
       lastSyncedAt: now.subtract(const Duration(days: 2)),
       exactAlarmsAllowed: false,
-      batteryUnrestricted: false,
+      batteryState: BatteryState.restricted,
       aiKeyPresent: false,
       rungFirstOn: false,
       rungSecondOn: false,

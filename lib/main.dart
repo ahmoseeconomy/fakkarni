@@ -18,6 +18,7 @@ import 'core/diagnostics.dart';
 import 'data/health/health_collector.dart';
 import 'data/health/health_heartbeat.dart';
 import 'data/health/health_watcher.dart';
+import 'data/testhook/test_hook.dart';
 import 'core/notifications/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
@@ -52,8 +53,11 @@ Future<void> main() async {
   // تحت ومعاها السحابة. التانية هي اللي بتعيش في `AppScope`؛ الأولى
   // بتتقفل عليها الجرعة وخلاص. الصف بيفضل متوسّخاً لحد ما المزامنة
   // تشتغل بعد شوية — وده مقبول، الرفع مجاملة والكتابة هي الوعد.
-  final promise = actionHandlerFor(await buildServices(db));
-  NotificationService.onAction = (action, payload) => promise.handle(action, payload);
+  final local = await buildServices(db);
+  Future<void> door(String? action, String? payload) =>
+      handleNotificationAction(
+          db: db, services: local, actionId: action, payload: payload);
+  NotificationService.onAction = door;
   NotificationResponse? launched;
   try {
     launched = await NotificationService.init(
@@ -61,7 +65,8 @@ Future<void> main() async {
     );
     if (launched != null) {
       diag('Notif: رد الإطلاق زرار — action=${launched.actionId}');
-      await promise.handle(launched.actionId, launched.payload);
+      // نفس الباب اللي الـisolate بينادي عليه بالظبط
+      await door(launched.actionId, launched.payload);
     }
   } catch (error, stack) {
     diag('التذكيرات مقدرتش تتهيّأ عند الفتح: $error\n$stack');
@@ -130,6 +135,11 @@ Future<void> main() async {
   // ولو ده حصل قبل runApp، المريض هيلاقي شاشة سودا بدل تطبيقه. الشاشات
   // نفسها بتطلب الإذن وبتعيد الجدولة بعد الأسئلة.
   try {
+    // الباب الخلفي بتاع اختبار الجهاز — debug/profile بس، وبيرجّع false
+    // فوراً في أي نسخة تانية. لازم يسبق الجدولة عشان الجرعة المزروعة
+    // تدخل النافذة.
+    await TestHook.seedIfAsked(services);
+
     // كل فتحة للتطبيق بتعيد بناء النافذة: الجهاز ممكن يكون اتقفل يومين، أو
     // المستخدم عدّى نص الليل. الأرقام مشتقة من الوقت فالإعادة مش بتكرّر حاجة.
     await services.scheduler.rescheduleAll();

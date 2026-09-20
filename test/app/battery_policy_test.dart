@@ -59,7 +59,11 @@ void main() {
   test('غياب القناة بيتحسب سليم — مفيش إنذار كذب', () {
     // على iOS وفي الاختبارات مفيش قناة؛ فحص بيقول «مكسور» ساعتها بيبقى
     // أسوأ من فحص ساكت.
-    expect(dartSource, contains('if (!Platform.isAndroid) return true;'));
-    expect(dartSource, contains('} catch (_) {\n      return true;\n    }'));
+    expect(dartSource,
+        contains('if (!Platform.isAndroid) return BatteryState.unrestricted;'));
+    // قناة ما ردّتش ≠ «تمام»: بترجّع unknown، والفحص بيعدّيها زي السليم
+    // على الشاشة بس بتتسجّل لوحدها في النبضة.
+    expect(dartSource, contains('return BatteryState.unknown;'));
+    expect(dartSource, contains('} catch (_) {\n      return BatteryState.unknown;\n    }'));
   });
 }

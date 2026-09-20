@@ -1,0 +1,92 @@
+# سكّة أندرويد على محاكي حقيقي — الجزء الوحيد من الوعد اللي مفيش جهاز
+# بيجرّبه.
+#
+# على iOS اتثبت يوم ٢٠ سبتمبر ٢٠٢٦ إن الـisolate **مش** بيتنفّذ خالص:
+# النظام بيفتح التطبيق ويسيب الرد في getNotificationAppLaunchDetails
+# (cb0096d). فاللي فاضل هو أندرويد — ومفيش جهاز أندرويد عندنا، والمحاكي
+# بيقع على مستوى QEMU على الماك بتاع التطوير. أجهزة GitHub بتدي KVM،
+# فالمحاكي بيشتغل هنا بتسريع حقيقي.
+#
+# **شاشة خضرا هنا مش معناها «أندرويد شغّال»** — شوف «اللي لسه مش متأكَّد
+# منه على أندرويد» في CLAUDE.md.
+
+name: Android lock-screen action
+
+on:
+  push:
+    paths:
+      - 'lib/app/bootstrap.dart'
+      - 'lib/main.dart'
+      - 'lib/data/services/notification_actions.dart'
+      - 'lib/core/notifications/**'
+      - 'android/**'
+      - '.github/workflows/android-lockscreen.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  emulator:
+    # KVM موجود على ubuntu-latest بتاع GitHub؛ من غيره المحاكي بيزحف
+    # لدرجة إن المهل كلها بتعدّي.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+
+      - run: flutter pub get
+
+      # المفتاح مش محتاج للاختبار ده — الزرع بيعدّي على الذكاء خالص.
+      - name: Build debug APKs
+        run: |
+          flutter build apk --debug
+          cd android && ./gradlew :app:assembleDebugAndroidTest
+
+      - name: Run the lock-screen test on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          # الشاشة لازم تفضل نايمة عشان الستارة تتفتح بشكل متوقّع،
+          # والمنبّهات الدقيقة محتاجة الإذن على ١٢+
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+            -camera-back none
+          script: |
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            # إذن الإشعارات على ١٣+ — من غيره مفيش إشعار أصلاً
+            adb install -r -g build/app/outputs/flutter-apk/app-debug.apk || true
+            adb shell pm grant com.fakkarni.fakkarni android.permission.POST_NOTIFICATIONS || true
+            # المنبّه الدقيق على ١٢+
+            adb shell appops set com.fakkarni.fakkarni SCHEDULE_EXACT_ALARM allow || true
+            cd android && ./gradlew :app:connectedDebugAndroidTest --info
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-report
+          path: |
+            android/app/build/reports/androidTests/
+            android/app/build/outputs/androidTest-results/

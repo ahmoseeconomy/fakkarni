@@ -147,7 +147,7 @@ void main() {
           .readAsLinesSync()
           .where((l) => !l.trimLeft().startsWith('//'))
           .join('\n');
-      final handled = main.indexOf('promise.handle(launched.actionId');
+      final handled = main.indexOf('door(launched.actionId');
       final cloud = main.indexOf('initSupabaseAuth()');
       final token = main.indexOf('FirebaseTokenSource.initialise()');
       expect(handled, isNot(-1));

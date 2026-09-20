@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../../domain/health/health_snapshot.dart' show BatteryState;
+
 /// حالة «تحسين البطارية» على أندرويد — **قراية من النظام، مش افتراض**.
 ///
 /// الفحص ده رجع بعد ما اتشال: أول نسخة كانت بتحط `true` ثابتة عشان مفيش
@@ -17,19 +19,21 @@ import 'package:flutter/services.dart';
 abstract final class BatteryOptimisation {
   static const _channel = MethodChannel('fakkarni/battery');
 
-  /// true = التطبيق مستثنى (أو مفيش تحسين بطارية أصلاً).
+  /// الحالة بتلات قيم — **و«ما قدرناش نبص» مش نفس «تمام»**.
   ///
-  /// على iOS وفي `flutter test` مفيش قناة — بترجّع true والفحص بيسكت.
-  /// **الشك بيتحسب سليم** عن قصد: إنذار كذب على شاشة مريض أسوأ من فحص
-  /// ساكت.
-  static Future<bool> isUnrestricted() async {
-    if (!Platform.isAndroid) return true;
+  /// على iOS مفيش تحسين بطارية أصلاً، فالرد `unrestricted` حقيقة مش
+  /// تهرّب. لكن قناة ما ردّتش على أندرويد (نسخة قديمة، صلاحية، أي حاجة)
+  /// بترجّع `unknown`: على الشاشة بيتعامل زي السليم، وفي النبضة بيتسجّل
+  /// لوحده عشان نعرف لو القناة نفسها بايظة على ألف جهاز.
+  static Future<BatteryState> state() async {
+    if (!Platform.isAndroid) return BatteryState.unrestricted;
     try {
-      return await _channel
-              .invokeMethod<bool>('isIgnoringBatteryOptimizations') ??
-          true;
+      final ignoring =
+          await _channel.invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      if (ignoring == null) return BatteryState.unknown;
+      return ignoring ? BatteryState.unrestricted : BatteryState.restricted;
     } catch (_) {
-      return true;
+      return BatteryState.unknown;
     }
   }
 

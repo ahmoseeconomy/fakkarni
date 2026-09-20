@@ -16,7 +16,7 @@ void main() {
   group('فحص السلامة بعد الوعد، مش قبله', () {
     test('في main: بعد معالجة رد الإطلاق وبعد إعادة الجدولة', () {
       final main = code('lib/main.dart');
-      final handled = main.indexOf('promise.handle(launched.actionId');
+      final handled = main.indexOf('door(launched.actionId');
       final rescheduled = main.indexOf('services.scheduler.rescheduleAll()');
       final health = main.indexOf('HealthWatcher(');
 

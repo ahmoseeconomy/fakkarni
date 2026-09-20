@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0018: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0019: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -190,7 +190,10 @@ with expected(migration, kind, ident) as (
     ('0018_device_health', 'index', 'public|device_health_checked_idx'),
     ('0018_device_health', 'function', 'private.broken_devices'),
     -- المفتاح المركّب هو اللي بيخلّي الـupsert يعدّل بدل ما يزوّد صف
-    ('0018_device_health', 'constraintdef', 'public.device_health|device_health_pkey|install_id')
+    ('0018_device_health', 'constraintdef', 'public.device_health|device_health_pkey|install_id'),
+    ('0019_battery_state', 'column', 'public.device_health.battery_state'),
+    ('0019_battery_state', 'constraintdef',
+       'public.device_health|device_health_battery_state_check|unknown')
 ),
 checked as (
   select

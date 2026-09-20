@@ -118,6 +118,34 @@ NotificationActionHandler actionHandlerFor(
 /// النظام بيصحّي التطبيق على isolate منفصل ويندَه الدالة دي. مفيش واجهة
 /// ولا `runApp`. لازم تفضل دالة عليا بالـpragma ده وإلا المترجم بيشيلها.
 ///
+/// **الباب الواحد**: كل زرار إشعار على المنصتين بيعدّي من هنا.
+///
+/// الطريقين مختلفين تماماً وده مش اختيارنا — iOS بيفتح التطبيق ويسيب الرد
+/// في `getNotificationAppLaunchDetails`، وأندرويد بيصحّي isolate لوحده.
+/// **اللي اتعمل هنا إن الاختلاف اتحبس في محوّلين رفيعين**، والشغل الحقيقي
+/// بقى في دالة واحدة الاتنين بينادوها: لو طريق منهم اتصلّح، التاني بياخد
+/// الإصلاح من غير ما حد يفتكر.
+///
+/// [services] بتتبعت لما اللي بينده يكون بناها خلاص (المقدمة) — الـisolate
+/// بيسيبها فاضية فبتتبني هنا. الاتنين بيوصلوا لنفس
+/// [NotificationActionHandler.handle] وبنفس الترتيب: الصف، الإلغاء،
+/// النافذة، وبعدين السحابة.
+Future<void> handleNotificationAction({
+  required AppDatabase db,
+  required String? actionId,
+  required String? payload,
+  AppServices? services,
+  Future<void> Function()? prepareNotifications,
+  Future<SyncService?> Function()? cloud,
+}) async {
+  final resolved = services ?? await buildServices(db);
+  await actionHandlerFor(
+    resolved,
+    prepareNotifications: prepareNotifications,
+    cloud: cloud,
+  ).handle(actionId, payload);
+}
+
 /// **دي سكّة أندرويد، مش سكّة iOS — والجهاز قال كده** (٢٠ سبتمبر ٢٠٢٦،
 /// نسخة profile على آيفون، من `fkdiag.log` لحظة الدوسة):
 ///
@@ -165,11 +193,12 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   final db = AppDatabase(openConnection());
   IsolateCloud? cloud;
   try {
-    // **محلي بس.** الخدمات دي مش محتاجة لا إشعارات ولا سحابة عشان
-    // تتبني — والاتنين بقوا وراء الوعد، مش قدامه.
-    final services = await buildServices(db);
-    await actionHandlerFor(
-      services,
+    // الشغل نفسه في [handleNotificationAction] — نفس الدالة اللي
+    // المقدمة بتنادي عليها. اللي فاضل هنا محوّل أندرويد وبس.
+    await handleNotificationAction(
+      db: db,
+      actionId: response.actionId,
+      payload: response.payload,
       // بتتنده بعد صف الجرعة، قبل الإلغاء.
       prepareNotifications: () => NotificationService.init(),
       // بتتنده في آخر سطر خالص — تهيئة بثانيتين مالهاش أي حق تقف قدام
@@ -187,7 +216,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
                 hasSession: ready.hasSession,
               );
       },
-    ).handle(response.actionId, response.payload);
+    );
   } catch (error, stack) {
     diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {

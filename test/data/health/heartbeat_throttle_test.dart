@@ -86,6 +86,25 @@ void main() {
         contains(HealthCode.notificationPermission.name));
   });
 
+  test('«ما قدرناش نبص» بتتسجّل لوحدها — مش زي «تمام»', () async {
+    final remote = _Recording();
+    final unknown = HealthSnapshot(
+      now: start,
+      platform: HealthPlatform.android,
+      permission: NotificationPermission.granted,
+      activeDoseCount: 2,
+      horizonUntil: start.add(const Duration(days: 5)),
+      batteryState: BatteryState.unknown,
+    );
+    await HealthHeartbeat(remote: remote, patientUuid: 'p1')
+        .report(runHealthChecks(unknown), unknown);
+
+    expect(remote.rows.single['battery_state'], 'unknown');
+    expect(remote.rows.single['failing_codes'],
+        isNot(contains(HealthCode.batteryOptimisation.name)),
+        reason: 'مش عطل — بس مش «تمام» كمان');
+  });
+
   test('الصف فيه أكواد سلامة بس — ولا اسم دوا ولا أي حاجة طبية', () async {
     final remote = _Recording();
     await HealthHeartbeat(remote: remote, patientUuid: 'p1')
@@ -95,7 +114,7 @@ void main() {
       'patient_uuid', 'install_id', 'checked_at', 'app_version', 'platform',
       'os_version', 'tz', 'notif_permission', 'pending_count', 'horizon_until',
       'has_token', 'has_caregiver', 'last_sync_at', 'dirty_count',
-      'failing_codes',
+      'failing_codes', 'battery_state',
     };
     expect(remote.rows.single.keys.toSet(), allowed);
 

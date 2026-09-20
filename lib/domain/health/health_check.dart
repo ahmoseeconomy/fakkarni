@@ -272,7 +272,11 @@ HealthFinding? checkExactAlarms(HealthSnapshot s) {
 /// التلقائي» بتاعة شاومي وأوپو وهواوي قفل تاني برّه العلم ده تماماً،
 /// فجهاز ممكن يعدّي الفحص ويفضل بيتقفل.
 HealthFinding? checkBatteryOptimisation(HealthSnapshot s) {
-  if (s.platform != HealthPlatform.android || s.batteryUnrestricted) return null;
+  if (s.platform != HealthPlatform.android) return null;
+  // [BatteryState.unknown] بيعدّي هنا عن قصد: مش هنحط صف أحمر على شاشة
+  // مريض لأن قناة ما ردّتش. الفرق بين «تمام» و«ما بصّناش» بيتسجّل في
+  // النبضة، مكانه الصح.
+  if (s.batteryState != BatteryState.restricted) return null;
   return const HealthFinding(
     code: HealthCode.batteryOptimisation,
     severity: Severity.note,

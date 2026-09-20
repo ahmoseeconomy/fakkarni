@@ -69,6 +69,8 @@ class HealthHeartbeat {
         'has_caregiver': snapshot.hasCaregiver,
         'last_sync_at': snapshot.lastSyncedAt?.toUtc().toIso8601String(),
         'dirty_count': snapshot.dirtyRowCount,
+        // تلات حالات، مش اتنين: «ما قدرناش نبص» لازم يتعدّ لوحده
+        'battery_state': snapshot.batteryState.name,
         'failing_codes': codes,
       });
 

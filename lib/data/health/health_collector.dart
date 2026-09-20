@@ -75,7 +75,7 @@ class HealthCollector {
       oldestDirtyAt: stats?.oldestDirtyAt,
       lastSyncedAt: stats?.lastSyncedAt,
       exactAlarmsAllowed: await _exactAlarms(platform),
-      batteryUnrestricted: await BatteryOptimisation.isUnrestricted(),
+      batteryState: await BatteryOptimisation.state(),
       aiKeyPresent: services.prescriptionReader != null,
       rungFirstOn: settings.$1,
       rungSecondOn: settings.$2,
