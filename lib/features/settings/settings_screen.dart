@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -9,6 +10,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
+import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
 import '../nearby/nearby_screen.dart';
@@ -172,6 +174,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: 'عربي',
               onTap: null,
             ),
+            // قسم المطوّر — **مش موجود في نسخة المتجر**. سكّة صحوة شاشة
+            // القفل مالهاش مصحّح متوصّل، فالسجل ده هو الشاهد الوحيد
+            // عليها، ونسخة profile هي الوحيدة اللي بتشغّلها أصلاً.
+            if (!kReleaseMode) ...[
+              const SizedBox(height: F.gap),
+              const FSectionHead('للمطوّر'),
+              const SizedBox(height: F.s8),
+              _Row(
+                icon: Icons.bug_report_outlined,
+                label: 'سجل التشخيص',
+                hint: 'اللي حصل في آخر صحوة — من سويفت ومن دارت',
+                onTap: () => _open(const DiagnosticsLogScreen()),
+              ),
+            ],
             if (user != null) ...[
               const SizedBox(height: F.gap),
               FSecondaryButton(

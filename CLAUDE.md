@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         979 passing
+test/                         981 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -619,6 +619,35 @@ they are not on the wake-up path, and flipping them is one line each when
 a round needs them. `test/app/diagnostics_gated_test.dart` fails on a
 bare `debugPrint` anywhere on the wake-up path and on `diag` being gated
 the wrong way — mutation-checked.
+
+**والأثر التشخيصي بيعيش من غير مصحّح — `FKDIAG`.** The question this
+round could not answer is "how far does the tap actually get?", and every
+stage of it is in a different language, in a process nobody is attached
+to. So there is now one trail with **one filter and one file**:
+- **Native** (`FKDiag` in `AppDelegate.swift`): `os_log` at
+  `didFinishLaunching` (with `launchOptions` nil-or-keys and
+  `applicationState` — a background launch reads `background`),
+  `didInitializeImplicitFlutterEngine`, inside the
+  `setPluginRegistrantCallback` closure **when it actually runs** (that
+  line firing is the proof the second engine came up), and an override of
+  `userNotificationCenter(_:didReceive:)` that logs the action and
+  category identifiers **and then calls `super`** — it observes, it never
+  handles.
+- **Dart**: `diag()` writes the same prefix and appends to the same file.
+- **The same file**: `Documents/fkdiag.log`, which is exactly what
+  `getApplicationDocumentsDirectory()` returns on iOS. Dart reaches it
+  through `$HOME/Documents` with **no plugin call**, because `diag` is
+  called from the wake-up isolate and that is not the moment for a channel
+  that can hang; `path_provider` is only a fallback, from the UI.
+  **Resolution is gated on `Platform.isIOS`** — on this Mac
+  `$HOME/Documents` exists, so without the gate every `flutter test` run
+  would write into the developer's own Documents folder.
+- **Read it in the app**: «الإعدادات» → «للمطوّر» → «سجل التشخيص»,
+  newest first, with «حدّث» / «انسخ» / «امسح». The row is behind
+  `!kReleaseMode`, so it does not exist in a store build.
+`diagPrefix`, `diagFileName` and `diagMaxLines` are mirrored by hand in
+Swift; a test pins the three values, because a prefix that drifts splits
+the trail in two and the filter shows half of it.
 
 **The window must renew without the app ever being opened.** The patient
 has no reason to open it — the app exists to remind *him*. At 48 pending and
