@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
+import '../diagnostics.dart';
 
 /// طلب من iOS إنه يسيب العملية شغّالة شوية كمان.
 ///
@@ -32,10 +32,10 @@ abstract final class BackgroundTask {
   static Future<int?> begin() async {
     try {
       final token = await _channel.invokeMethod<int>('begin').timeout(_limit);
-      debugPrint('Isolate: مهلة الخلفية — ${token == null ? 'مفيش' : 'اتاخدت'}');
+      diag('Isolate: مهلة الخلفية — ${token == null ? 'مفيش' : 'اتاخدت'}');
       return token;
     } catch (error) {
-      debugPrint('Isolate: مهلة الخلفية — ما اتاخدتش ($error)');
+      diag('Isolate: مهلة الخلفية — ما اتاخدتش ($error)');
       return null;
     }
   }
@@ -46,7 +46,7 @@ abstract final class BackgroundTask {
     try {
       await _channel.invokeMethod<void>('end', token).timeout(_limit);
     } catch (error) {
-      debugPrint('Isolate: إنهاء مهلة الخلفية فشل ($error)');
+      diag('Isolate: إنهاء مهلة الخلفية فشل ($error)');
     }
   }
 }

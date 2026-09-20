@@ -24,6 +24,7 @@ import '../data/services/notification_actions.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../data/services/reminder_scheduler.dart';
 import 'app_scope.dart';
+import '../core/diagnostics.dart';
 
 /// بيبني كل خدمات التطبيق فوق قاعدة بيانات مفتوحة.
 ///
@@ -88,7 +89,7 @@ LabReportReader? _labReaderFromEnvironment() {
 PrescriptionReader? _readerFromEnvironment() {
   final config = GeminiConfig.tryFromEnvironment();
   if (config == null) {
-    debugPrint(GeminiConfig.missingKeyMessage);
+    diag(GeminiConfig.missingKeyMessage);
     return null;
   }
   return GeminiPrescriptionReader(config);
@@ -132,7 +133,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   // تشخيص: أول سطر في الـisolate — لو ما ظهرش، الضغطة عمرها ما وصلت دارت.
-  debugPrint('Isolate: دخلنا المعالج — action=${response.actionId} payload=${response.payload}');
+  diag('Isolate: دخلنا المعالج — action=${response.actionId} payload=${response.payload}');
 
   // **أول نداء خالص، قبل قاعدة البيانات وقبل أي حاجة.** كل سطر تحت ده
   // بيتنفّذ في وقت مستعار: الإضافة رجّعت completionHandler خلاص، والنظام
@@ -166,7 +167,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
       },
     ).handle(response.actionId, response.payload);
   } catch (error, stack) {
-    debugPrint('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
+    diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {
     await cloud?.shutdown();
     await db.close();

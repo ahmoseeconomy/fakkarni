@@ -26,10 +26,18 @@ most likely cause of a failure is:
    row shows `missed`.
 
 8b. **The lock-screen wake-up on iOS has never been seen to run, and step
-   8 assumes it does.** Read it with **Console.app**, iPhone connected,
-   filtered to the app's process — not `flutter run`, which is not
-   attached to a terminated app. Tap «أخدته» on a locked phone with the
-   app force-quit, then read, in order:
+   8 assumes it does.**
+   **Build it `--profile`, and nothing else.** From iOS 14 the system
+   refuses to launch a debug build outside the tooling, so once
+   `flutter run` detaches there is no process to wake and the isolate
+   cannot run whatever the code says — a debug run answers about the
+   build mode, not about the app. The diagnostics below print in debug
+   and profile and are silent in release (`diag`), so profile is the one
+   build that both runs and talks.
+   Read it with **Console.app**, iPhone connected, filtered to the app's
+   process — not `flutter run`, which is not attached to a terminated
+   app. Tap «أخدته» on a locked phone with the app force-quit, then read,
+   in order:
    - `Isolate: مهلة الخلفية — اتاخدت` — iOS gave us the assertion.
      «مفيش» means it refused; anything else means the channel is not
      registered on the background engine (`AppDelegate`).

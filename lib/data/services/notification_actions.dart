@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show debugPrint;
 import '../../core/notifications/notification_service.dart'
     show NotificationActions;
 import '../../domain/scheduling/day_routine.dart';
@@ -10,6 +9,7 @@ import '../repositories/routine_repository.dart';
 import '../sync/sync_service.dart';
 import 'reminder_plan.dart';
 import 'reminder_scheduler.dart';
+import '../../core/diagnostics.dart';
 
 /// بيعالج زرار اتداس على الإشعار — من الخلفية أو من التطبيق.
 ///
@@ -137,7 +137,7 @@ class NotificationActionHandler {
     // بالظبط زي الجهاز اللي مش مربوط — والاتنين ساكتين بنفس الشكل.
     final build = cloud;
     if (build == null) {
-      debugPrint(
+      diag(
           'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
       return;
     }
@@ -145,12 +145,12 @@ class NotificationActionHandler {
     try {
       service = await build();
     } catch (error, stack) {
-      debugPrint('Handle: ⚠ تهيئة السحابة فشلت (التأكيد اتسجّل برضه): '
+      diag('Handle: ⚠ تهيئة السحابة فشلت (التأكيد اتسجّل برضه): '
           '$error\n$stack');
       return;
     }
     if (service == null) {
-      debugPrint(
+      diag(
           'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
       return;
     }
@@ -165,7 +165,7 @@ class NotificationActionHandler {
     try {
       await step();
     } catch (error, stack) {
-      debugPrint('Handle: ⚠ $what فشلت (التأكيد اتسجّل برضه): $error\n$stack');
+      diag('Handle: ⚠ $what فشلت (التأكيد اتسجّل برضه): $error\n$stack');
     }
   }
 }

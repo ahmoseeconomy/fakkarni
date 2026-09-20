@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         977 passing
+test/                         979 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -524,10 +524,24 @@ they are the only visibility into a path no test can reach.
 
 **صحوة شاشة القفل على iOS: مقروءة من مصدر الإضافة، ومش متشافة على جهاز
 ولا مرة.** A confirmation from a locked iPhone was reported on
-20 Sep 2026 to leave the +15/+30 rungs ringing — which means the **local**
-write and the cancels did not happen either, not just the push. What the
-installed sources (`flutter_local_notifications` 22.3.0) actually say
-about that path, so nobody has to guess again:
+20 Sep 2026 to leave the +15/+30 rungs ringing — which would mean the
+**local** write and the cancels did not happen either, not just the push.
+
+**That observation is not evidence, and it took a day to notice why: it
+was made in a debug build.** From iOS 14 the system refuses to launch a
+debug (JIT) Flutter app outside the tooling, so the moment `flutter run`
+detaches there is no process to wake — the background isolate *cannot*
+run, by construction, whatever the code says. A rung ringing afterwards
+is the expected outcome of that, not a defect in the handler.
+**This path can only be tested in a profile build**, which is AOT and
+launches on its own. Never read a lock-screen result from a debug build
+again; the answer it gives is about the build mode, not about the app.
+(Both fixes below still stand on their own — the plugin's own source is
+what they were derived from, and that reading is independent of any
+build. What is open is whether they were ever needed.)
+
+What the installed sources (`flutter_local_notifications` 22.3.0)
+actually say about that path, so nobody has to guess again:
 - An action **without** `.foreground` (ours) is routed by
   `FlutterLocalNotificationsPlugin.m` to a second headless
   `FlutterEngine`, via `FOREGROUND_ACTION_IDENTIFIERS` in
@@ -579,6 +593,32 @@ the top of `handle` fails four).
 to write it.** The cloud, the timezone database and the notification
 plugin are all needed *after* — the cancels, `rescheduleAll` and
 `pushOnce` — never before.
+
+**A diagnostic that only prints is gated `!kReleaseMode`; one that shows
+on screen is gated `kDebugMode`.** Two facts forced the split, and both
+are easy to get backwards:
+- **`debugPrint` has no gate at all.** Its own documentation says it
+  "logs to console even in release mode", so every `Handle:` / `Isolate:`
+  / `Sync:` line was shipping inside each IPA and APK — table names, dose
+  states, raw error text. `diag()` in `lib/core/diagnostics.dart` is the
+  one place that gate lives now.
+- **`kDebugMode` silences exactly the build that can answer this
+  question.** A profile build is the only one that can run the
+  lock-screen isolate on iOS at all (see above), so a diagnostic hidden
+  behind `kDebugMode` goes quiet precisely when it is needed.
+On-screen debug affordances keep `kDebugMode` on purpose — a raw
+`Gemini:` cause panel or a `modelWarning` line in front of a patient in a
+profile build is a different thing from a line in Console.app. Those are
+`scan_lab_screen`, `scan_prescription_screen` and
+`review_prescription_screen`.
+**Still on `kDebugMode` and print-only, so they go quiet in profile:**
+`SupabaseCaregiverRemote._guard` and `CaregiverSnapshotHolder` (the
+`Care:` lines — the ones that named the `0014` gap in one line) and
+`GeminiLabReader`'s per-line range log. Left as they are deliberately:
+they are not on the wake-up path, and flipping them is one line each when
+a round needs them. `test/app/diagnostics_gated_test.dart` fails on a
+bare `debugPrint` anywhere on the wake-up path and on `diag` being gated
+the wrong way — mutation-checked.
 
 **The window must renew without the app ever being opened.** The patient
 has no reason to open it — the app exists to remind *him*. At 48 pending and
@@ -3082,6 +3122,10 @@ device-verified)**
 - Use `fullScreenIntent` or the `USE_EXACT_ALARM` permission — Google Play
   restricts both to alarm/calling apps and will reject the review.
   Use `SCHEDULE_EXACT_ALARM` requested at runtime instead.
+- Read a lock-screen result from a **debug** build on iOS — from iOS 14 the
+  background isolate cannot run at all once `flutter run` detaches, so the
+  answer is about the build mode. Use a profile build
+- Call `debugPrint` on the wake-up path — it ships in release. Use `diag`
 - Write formal MSA in the UI
 - Invent a medication duration, dosage or timing — this applies to the
   Gemini prompt as much as to the code

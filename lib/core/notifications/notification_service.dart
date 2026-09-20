@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../diagnostics.dart';
 
 /// أزرار الإشعار — نفس المعرّفات على أندرويد وiOS.
 ///
@@ -174,7 +175,7 @@ class NotificationService {
   static void _onTap(NotificationResponse response) {
     final action = response.actionId;
     // تشخيص: بيقول لنا إن الضغطة وصلت دارت أصلاً، وبأي actionId.
-    debugPrint('Notif: _onTap action=$action payload=${response.payload}');
+    diag('Notif: _onTap action=$action payload=${response.payload}');
     if (NotificationActions.isAction(action) && onAction != null) {
       onAction!(action!, response.payload);
       return;

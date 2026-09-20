@@ -3,10 +3,10 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../core/format/arabic_time.dart';
 import '../db/app_database.dart';
+import '../../core/diagnostics.dart';
 
 /// السحابة نسخة، والمحلي هو الحقيقة — اتجاه واحد.
 ///
@@ -150,9 +150,9 @@ class SyncService {
       // push() بتبلع أخطاءها جوّه، فده للنادر اللي بيفلت — ومش هنوقّع
       // isolate بيسجّل جرعة عشان السحابة اتعبت.
       outcome = PushOutcome.failed;
-      debugPrint('Sync: دفعة الخلفية فشلت: $error\n$stack');
+      diag('Sync: دفعة الخلفية فشلت: $error\n$stack');
     }
-    debugPrint('Handle: الرفع للسحابة — '
+    diag('Handle: الرفع للسحابة — '
         '${describePushOutcome(outcome, rows: _rowsPushed, timeout: limit)}');
     return outcome;
   }
@@ -212,7 +212,7 @@ class SyncService {
     } catch (error, stack) {
       // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز.
       failed = true;
-      debugPrint('Sync: push فشلت وهتتعاد: $error\n$stack');
+      diag('Sync: push فشلت وهتتعاد: $error\n$stack');
     } finally {
       _pushing = false;
       if (_pushAgain) {
