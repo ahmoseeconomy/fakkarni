@@ -42,6 +42,11 @@ class LabResultsRepository {
   static String normalize(String name) => name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   /// صف سجل + سطر لكل نتيجة، في معاملة واحدة.
+  ///
+  /// [attachmentPath] صورة التقرير — مسار **نسبي** جوّه فولدر التطبيق.
+  /// **بتفضل على الموبايل ده**: مفيش عمود ليها في السحابة (0012)، والمزامنة
+  /// ما بتلمسش الاسم ده (`health_file_sync_guard_test`)، فالوعد اللي في
+  /// «دائرة الرعاية» («مش هيشوفوا الصور») بيفضل صح.
   Future<int> saveReport({
     required int patientId,
     required DateTime happenedAt,

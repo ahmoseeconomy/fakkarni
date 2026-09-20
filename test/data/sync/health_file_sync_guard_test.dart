@@ -11,11 +11,23 @@ import 'package:flutter_test/flutter_test.dart';
 // * **مسار الصورة المحلي** (`attachment_path`) — مالوش معنى برّه الموبايل؛
 //   الصور في D5.3 بمفتاح تخزين.
 void main() {
-  test('المزامنة ما بتلمسش أرقام تليفونات الطوارئ ولا مسار الصورة المحلي', () {
-    for (final path in ['lib/data/sync/sync_service.dart', 'lib/data/sync/supabase_sync_remote.dart']) {
-      final source = File(path).readAsStringSync();
+  /// كل ملف بيبني حمولة سحابة — الرفع **وقراية الابن**. الاتنين بيسمّوا
+  /// أعمدتهم بالاسم، فالاسم هو الحارس: لو ظهر هنا يبقى خرج من الموبايل.
+  final cloudFiles = [
+    ...Directory('lib/data/sync').listSync(),
+    ...Directory('lib/data/care').listSync(),
+  ].whereType<File>().where((f) => f.path.endsWith('.dart')).toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+
+  test('فيه ملفات سحابة تتقرا أصلاً', () {
+    expect(cloudFiles, isNotEmpty);
+  });
+
+  test('ولا حمولة سحابة فيها أرقام تليفونات الطوارئ ولا مسار الصورة المحلي', () {
+    for (final file in cloudFiles) {
+      final source = file.readAsStringSync();
       for (final name in ['contactsJson', 'contacts_json', 'attachmentPath', 'attachment_path']) {
-        expect(source.contains(name), isFalse, reason: '$path → $name');
+        expect(source.contains(name), isFalse, reason: '${file.path} → $name');
       }
     }
   });

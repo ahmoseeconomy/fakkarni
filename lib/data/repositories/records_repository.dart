@@ -38,6 +38,14 @@ class RecordsRepository {
     String? doctor,
     String? place,
     String? notes,
+
+    /// مسار **نسبي** للصورة اللي السجل جه منها ([AttachmentStore]).
+    ///
+    /// **الصورة بتفضل على الموبايل ده.** `attachment_path` مش بيترفع
+    /// للسحابة ومفيش له عمود هناك أصلاً (0012)، واستعلام الابن ما بيختارهوش
+    /// — فالوعد اللي في «دائرة الرعاية» («مش هيشوفوا الصور») بيفضل صح.
+    /// `health_file_sync_guard_test` بيقع لو الاسم ده ظهر في أي حمولة سحابة.
+    String? attachmentPath,
   }) {
     String? clean(String? v) => (v == null || v.trim().isEmpty) ? null : v.trim();
     final t = title.trim();
@@ -50,6 +58,7 @@ class RecordsRepository {
           doctor: Value(clean(doctor)),
           place: Value(clean(place)),
           notes: Value(clean(notes)),
+          attachmentPath: Value(clean(attachmentPath)),
         ));
   }
 

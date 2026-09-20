@@ -9,6 +9,7 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import 'manual_entry_screen.dart';
+import 'attachment_viewer.dart';
 import 'records_empty.dart';
 import 'record_kinds.dart';
 
@@ -178,7 +179,16 @@ class _TimelineEntry extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: F.gap),
-              child: content,
+              // نفس قاعدة «الملف الصحي»: السجل اللي ليه صورة بيفتحها،
+              // واللي مالوش بيفضل زي ما هو. قايمتين لنفس السجلات لازم
+              // يتصرّفوا بنفس الطريقة.
+              child: r.attachmentPath == null
+                  ? content
+                  : InkWell(
+                      key: ValueKey('history-photo-${r.id}'),
+                      onTap: () => openAttachment(context, r),
+                      child: content,
+                    ),
             ),
           ),
         ],

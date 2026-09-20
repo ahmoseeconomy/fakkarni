@@ -137,6 +137,8 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
           builder: (_) => ReviewPrescriptionScreen(
             reading: reading,
             routine: widget.routine,
+            // اللي الكاميرا دته (٢٥٦٠ من المنتقي) — مش المصغّرة بتاعة الموديل
+            image: image,
             today: widget.today,
           ),
         ),

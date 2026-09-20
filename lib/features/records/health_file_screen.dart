@@ -16,6 +16,7 @@ import 'checkup_screen.dart';
 import 'records_empty.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
+import 'attachment_viewer.dart';
 import 'record_kinds.dart';
 
 /// «الملف الصحي» (المخطط ١٣): بحث بالاسم والدكتور والتاريخ، و«⋯ خيارات»
@@ -254,13 +255,23 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                       child: Row(
                               children: [
                                 Expanded(
-                                  child: r.checkupStage == null
-                                      ? RecordSummary(record: r)
-                                      : InkWell(
-                                          key: ValueKey('checkup-open-${r.id}'),
-                                          onTap: () => _openCheckup(r.id),
-                                          child: RecordSummary(record: r),
-                                        ),
+                                  // المتابعة بتفتح شاشتها زي ما هي؛ غير كده
+                                  // السجل اللي ليه صورة بيفتحها ملء الشاشة،
+                                  // واللي مالوش صورة ما بيتفتحش — من غير
+                                  // إطار فاضي ولا زرار ما بيعملش حاجة.
+                                  child: switch ((r.checkupStage, r.attachmentPath)) {
+                                    (final int _, _) => InkWell(
+                                        key: ValueKey('checkup-open-${r.id}'),
+                                        onTap: () => _openCheckup(r.id),
+                                        child: RecordSummary(record: r),
+                                      ),
+                                    (null, final String _) => InkWell(
+                                        key: ValueKey('record-photo-${r.id}'),
+                                        onTap: () => openAttachment(context, r),
+                                        child: RecordSummary(record: r),
+                                      ),
+                                    _ => RecordSummary(record: r),
+                                  },
                                 ),
                                 const SizedBox(width: F.s8),
                                 SizedBox(

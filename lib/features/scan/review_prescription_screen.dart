@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
@@ -35,6 +37,7 @@ class ReviewPrescriptionScreen extends StatefulWidget {
   const ReviewPrescriptionScreen({
     required this.reading,
     required this.routine,
+    this.image,
     this.today,
     this.records,
     super.key,
@@ -42,6 +45,11 @@ class ReviewPrescriptionScreen extends StatefulWidget {
 
   final PrescriptionReading reading;
   final DayRoutine routine;
+
+  /// الورقة زي ما الكاميرا (أو معرض الصور) دتها — **مش** النسخة المصغّرة
+  /// اللي راحت للموديل. الصغيرة للقراية، ودي للعين البشرية.
+  final Uint8List? image;
+
   final DateTime? today;
 
   /// للاختبارات — الافتراضي مستودع على قاعدة التطبيق.
@@ -260,6 +268,21 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     // بعد الأدوية والجدولة (دول الوعد)؛ لو السطر ده فشل التأكيد ما بيتلغيش.
     // الدكتور بس لو القراءة واثقة منه — مفيش تخمين في ملف حد.
     final names = [for (final l in keep) l.name!];
+
+    // الصورة الأول: لو تخزينها فشل، الروشتة بتتسجّل من غيرها — الأدوية
+    // والسجل هما اللي مهمين. **والصورة بتفضل على الموبايل ده**: مفيش رفع
+    // هنا، و`attachment_path` مالوش عمود في السحابة أصلاً، فالوعد اللي في
+    // «دائرة الرعاية» («مش هيشوفوا الصور») بيفضل صح.
+    String? path;
+    final image = widget.image;
+    if (image != null) {
+      try {
+        path = await services.attachments.save(image);
+      } catch (error) {
+        debugPrint('صورة الروشتة ما اتحفظتش: $error');
+      }
+    }
+
     try {
       final issued = _issuedAt;
       await (widget.records ?? RecordsRepository(services.db)).add(
@@ -271,6 +294,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
         doctor: _confirmedHeader('doctor', _doctor, widget.reading.doctor),
         place: _confirmedHeader('clinic', _clinic, widget.reading.clinic),
         notes: names.join(' — '),
+        attachmentPath: path,
       );
     } catch (error, stack) {
       // السبب الحقيقي في اللوج — والمستخدم بيشوف جملة، مش صمت.

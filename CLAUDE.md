@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         905 passing
+test/                         914 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1877,6 +1877,30 @@ screen — and they are different screens on purpose.**
   tombstone upload is all the cloud has, and the cron is what eventually
   clears it. `record_retention_sql_test` was a mirror of a Dart constant
   that no longer exists; it now asserts that backstop is still wired.
+- **كل سجل بيفضل شايل ورقته، والدوسة عليه بتفتحها (round 22).** A
+  confirmed scan attaches its photo to the record it creates —
+  **prescription and lab alike**; the prescription half was missing until
+  this round, so a confirmed روشتة kept its medicines and lost its paper.
+  What is kept is **what the picker gave us** (2560), never the 1600px
+  copy `shrinkForAi` builds: the shrunk one is for the model to read, the
+  kept one is for a human eye, and a test asserts the stored bytes are the
+  picker's. A failed image write never blocks the record — the medicines
+  are the promise, the photo is not.
+  Tapping a record with an attachment opens `AttachmentViewerScreen`
+  (`InteractiveViewer`, 1–5×, a close control carrying the word «اقفل» —
+  no icon-only button). A record **without** one is untouched: no empty
+  frame, no placeholder, no dead tap. `openAttachment` is also silent when
+  the file is gone (deleted from outside, a restore without the folder) —
+  a record without its photo is still a record. Both record lists do this,
+  «الملف الصحي» and «الحالات السابقة»: two lists of the same rows must not
+  behave differently.
+  **The images stay on this phone.** Nothing here uploads one and the
+  caregiver query is untouched, so «دائرة الرعاية»'s promise («مش هيشوفوا
+  الصور») still holds. `health_file_sync_guard_test` now scans **every**
+  `.dart` under `lib/data/sync/` and `lib/data/care/` — not the two files
+  it used to name — so a path reaching the son's query fails it too.
+  Deleting a record still deletes its file, and the confirmation still
+  names the photo when there is one; both are under test, mutation-checked.
 - `launchHousekeeping` still exists and is now empty, on purpose — the
   launch-time hook stays wired and tested for the next thing that needs it.
 - **«الملف الصحي» shows and follows; it does not add.** «صوّر تقرير تحليل»
