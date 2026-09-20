@@ -291,6 +291,104 @@ void main() {
     holder.setActive(false);
   });
 
+  screenTest('تقرير طويل: المتعلّم بيبان، والسليم بينطوي ورا «كل النتايج»',
+      (tester) async {
+    tester.view.physicalSize = const Size(1000, 4000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r1',
+              kind: 'lab',
+              title: 'صورة دم كاملة',
+              happenedAt: DateTime(2026, 9, 12),
+              updatedAt: DateTime(2026, 9, 12, 10),
+              // الملاحظة هي **نفس** النتايج كفقرة — دي اللي اتشالت
+              notes: 'WBC 12.4 10^3/uL — Hb 11.6 g/dL — PLT 250 10^3/uL',
+              labLines: const [
+                CaregiverLabLine(
+                    testName: 'WBC', value: 12.4, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+                CaregiverLabLine(testName: 'Hb', value: 11.6, unit: 'g/dL', range: LabRange(low: 11, high: 15)),
+                CaregiverLabLine(testName: 'PLT', value: 250, unit: '10^3/uL', range: LabRange(low: 150, high: 400)),
+                CaregiverLabLine(testName: 'MCV', value: 88, unit: 'fL', range: LabRange(low: 80, high: 100)),
+                // متعلّم **متأخر** في القايمة — الطي لازم يعدّيه
+                CaregiverLabLine(testName: 'MCH', value: 27.2, unit: 'pg', range: LabRange(low: 27, high: 33)),
+                CaregiverLabLine(testName: 'RDW', value: 13, unit: '%', range: LabRange(low: 11.5, high: 14.5)),
+              ],
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+
+    // **تمثيل واحد**: الفقرة راحت، والنتايج سطور
+    expect(find.textContaining('WBC 12.4 10^3/uL —'), findsNothing,
+        reason: 'الفقرة كانت نفس الكلام مرتين');
+    // المتعلّم بيبان من غير ما حد يفتح حاجة
+    expect(find.text(labAboveWord), findsOneWidget, reason: 'WBC ١٢.٤ فوق ٤–١١');
+    expect(find.textContaining('WBC'), findsOneWidget);
+    // وواحد قريب من الحد كمان متعلّم ومش منطوي
+    expect(find.text(labNearWord), findsWidgets);
+    // والسليم اللي بعد أول تلاتة منطوي
+    expect(find.textContaining('RDW'), findsNothing);
+    expect(find.text('كل النتايج (٦)'), findsOneWidget);
+
+    await tester.tap(find.text('كل النتايج (٦)'));
+    await settle(tester);
+    expect(find.textContaining('RDW'), findsOneWidget);
+    expect(find.text('كل النتايج (٦)'), findsNothing);
+    holder.setActive(false);
+  });
+
+  screenTest('سجل من غير سطور تحاليل لسه بيعرض ملاحظته', (tester) async {
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r2',
+              kind: 'visit',
+              title: 'باطنة',
+              happenedAt: DateTime(2026, 9, 12),
+              updatedAt: DateTime(2026, 9, 12, 10),
+              notes: 'الضغط كويس',
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+    expect(find.text('الضغط كويس'), findsOneWidget,
+        reason: 'مفيش سطور — الملاحظة هي المحتوى الوحيد');
+    holder.setActive(false);
+  });
+
   screenTest('الابن بيشوف نطاق الورقة وعلامته — نفس كلام شاشة أبوه', (tester) async {
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1.0;

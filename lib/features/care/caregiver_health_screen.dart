@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../emergency/emergency_facts_card.dart';
 import '../health/lab_flag.dart';
@@ -106,13 +107,13 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         chronicConditions: emergency?.chronicConditions,
       ),
       const SizedBox(height: F.gap),
-      const _Head('قياسات السكر — آخر ٣٠ يوم'),
+      const FSectionHead('قياسات السكر — آخر ٣٠ يوم'),
       if (snapshot.readings.isEmpty)
         const _Panel(text: 'لسه مفيش حاجة هنا.')
       else
         _Box(children: [for (final r in snapshot.readings) _ReadingRow(reading: r)]),
       const SizedBox(height: F.gap),
-      const _Head('السجلات'),
+      const FSectionHead('السجلات'),
       if (snapshot.records.isEmpty)
         const _Panel(text: 'لسه مفيش حاجة هنا.')
       else
@@ -121,24 +122,13 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           for (final r in byKind[kind]!) _RecordCard(record: r),
         ],
       const SizedBox(height: F.gap),
-      const _Head('أسئلة للدكتور'),
+      const FSectionHead('أسئلة للدكتور'),
       if (snapshot.questions.isEmpty)
         const _Panel(text: 'لسه مفيش حاجة هنا.')
       else
         _Box(children: [for (final q in snapshot.questions) _QuestionRow(question: q)]),
     ];
   }
-}
-
-class _Head extends StatelessWidget {
-  const _Head(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s8),
-        child: Text(text, style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.ink)),
-      );
 }
 
 class _SubHead extends StatelessWidget {
@@ -199,68 +189,122 @@ class _ReadingRow extends StatelessWidget {
       );
 }
 
-class _RecordCard extends StatelessWidget {
+/// سجل واحد — **تمثيل واحد للنتايج، مش اتنين**.
+///
+/// الكارت كان بيكتب `notes` كفقرة («… APTT 23.4 sec — Haemoglobin 11.6
+/// g/dL — …») وبعدين يعيد **نفس** النتايج تحتها كسطور. الفقرة دي حيطة:
+/// محدش بيقراها، وهي أصلاً نفس اللي تحتها متكتوب بشكل أوحش. اتشالت لما
+/// يكون فيه سطور تحاليل؛ السجل اللي مالوش سطور (زيارة، أشعة) لسه بيعرض
+/// ملاحظته عادي — هي المحتوى الوحيد عنده.
+class _RecordCard extends StatefulWidget {
   const _RecordCard({required this.record});
   final CaregiverRecord record;
 
+  /// كام سطر سليم بيبانوا قبل ما نطوي.
+  ///
+  /// تقرير صورة دم فيه عشرين سطر بيبلع الشاشة كلها، والابن جاي يشوف
+  /// **اللي برّه النطاق**. الرقم صغير عن قصد: التقرير الكامل على بعد دوسة.
+  static const previewClean = 3;
+
+  @override
+  State<_RecordCard> createState() => _RecordCardState();
+}
+
+class _RecordCardState extends State<_RecordCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    final lines = record.labLines;
+
+    // **المتعلّم عمره ما بينطوي.** قيمة برّه نطاق الورقة لازم تبان من غير
+    // ما حد يفتح حاجة — لو اتخبّت ورا زرار، الطي بقى إخفاء.
+    final flagged = [for (final l in lines) if (labFlagWordOf(l) != null) l];
+    final clean = [for (final l in lines) if (labFlagWordOf(l) == null) l];
+    final hidden = _expanded ? 0 : (clean.length - _RecordCard.previewClean).clamp(0, clean.length);
+    final shownClean = _expanded ? clean : clean.take(_RecordCard.previewClean).toList();
+    // ترتيب الورقة محفوظ جوّه كل مجموعة؛ المتعلّم فوق عشان يتشاف الأول.
+    final shown = [...flagged, ...shownClean];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: F.s8),
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(
+        color: F.cardGround,
+        borderRadius: BorderRadius.circular(F.radius),
+        border: Border.all(color: F.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(record.title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+          Text(
+            [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' — '),
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+          ),
+          // الملاحظة بتتعرض بس لما ما يكونش فيه سطور — غير كده هي نفس
+          // الكلام مرتين.
+          if (lines.isEmpty && record.notes != null && record.notes!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: F.s4),
+              child: Text(record.notes!, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
+            ),
+          if (lines.isNotEmpty) ...[
+            const SizedBox(height: F.s8),
+            for (final line in shown) _LabLineRow(line: line),
+            if (hidden > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: F.s8),
+                child: FSecondaryButton(
+                  key: ValueKey('all-results-${record.uuid}'),
+                  label: 'كل النتايج (${arabicNumber(lines.length)})',
+                  onPressed: () => setState(() => _expanded = true),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// سطر نتيجة: الاسم والرقم بوحدته، وتحتهم نطاق الورقة وعلامته.
+class _LabLineRow extends StatelessWidget {
+  const _LabLineRow({required this.line});
+
+  final CaregiverLabLine line;
+
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: F.s8),
-        padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(color: F.line),
-        ),
+        margin: const EdgeInsets.only(top: F.s4),
+        padding: const EdgeInsetsDirectional.only(start: F.s12),
+        decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.line, width: 3))),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(record.title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
             Text(
-              [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' — '),
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              labLineText(line),
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: F.minBodySize, color: F.ink),
             ),
-            if (record.notes != null && record.notes!.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: F.s4),
-                child: Text(record.notes!, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
-              ),
-            if (record.labLines.isNotEmpty) ...[
-              const SizedBox(height: F.s8),
-              for (final line in record.labLines)
-                Container(
-                  margin: const EdgeInsets.only(top: F.s4),
-                  padding: const EdgeInsetsDirectional.only(start: F.s12),
-                  decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.line, width: 3))),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        labLineText(line),
-                        textDirection: TextDirection.ltr,
-                        textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: F.minBodySize, color: F.ink),
-                      ),
-                      // نطاق الورقة والعلامة — نفس اللي على شاشة الأب
-                      // بالحرف. الابن بيشوف الورقة، مش رأينا فيها.
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              labRangeLine(line),
-                              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-                            ),
-                          ),
-                          if (labFlagWordOf(line) != null) ...[
-                            const SizedBox(width: F.s8),
-                            LabFlagBadge(labFlagOf(line)),
-                          ],
-                        ],
-                      ),
-                    ],
+            // نطاق الورقة والعلامة — نفس اللي على شاشة الأب بالحرف.
+            // الابن بيشوف الورقة، مش رأينا فيها.
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    labRangeLine(line),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                   ),
                 ),
-            ],
+                if (labFlagWordOf(line) != null) ...[
+                  const SizedBox(width: F.s8),
+                  LabFlagBadge(labFlagOf(line)),
+                ],
+              ],
+            ),
           ],
         ),
       );

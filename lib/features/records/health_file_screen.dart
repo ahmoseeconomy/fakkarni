@@ -4,9 +4,9 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
+import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import '../../data/services/checkup_service.dart';
 import '../../domain/health/follow_up.dart';
@@ -17,7 +17,8 @@ import 'checkup_screen.dart';
 import 'records_empty.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
-import 'attachment_viewer.dart';
+import 'record_row_card.dart';
+import 'records_of_kind_screen.dart';
 import 'start_follow_up.dart';
 import 'record_kinds.dart';
 
@@ -144,62 +145,61 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
         MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(today: widget.today)),
       );
 
-  Future<void> _options(RecordRow record) async {
-    final checkups = AppScope.of(context).checkups;
-    final attachments = AppScope.of(context).attachments;
-    await FSheet.show<void>(
-      context,
-      title: record.title,
-      children: [
-        FSecondaryButton(
-          key: const ValueKey('record-delete'),
-          label: 'امسحه',
-          onPressed: () async {
-            Navigator.of(context).pop();
-            final yes = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: F.dialogGround,
-                title: Text(
-                  'تمسح «${record.title}»؟',
-                  style: TextStyle(
-                    fontFamily: F.displayFamily,
-                    fontSize: F.subtitleSize,
-                    fontWeight: FontWeight.w700,
-                    color: F.ink,
-                  ),
-                ),
-                // **الخسارة بتتقال قبل الدوسة، مش بعدها.** مفيش مهلة ٣٠
-                // يوم دلوقتي، فالجملة الوحيدة اللي بتحمي حد هي دي — واللي
-                // مالوش رجعة فيها (الصورة) بيتسمّى بالاسم.
-                content: Text(
-                  record.attachmentPath == null
-                      ? 'هيتشال من الملف خالص، ومفيش رجوع.'
-                      : 'هيتشال من الملف خالص، ومعاه الصورة المرفقة. مفيش رجوع.',
-                  style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
-                ),
-                actions: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+
+  /// مدخل لكل نوع فيه سجلات، بعدده — والدوسة بتفتح «الحالات السابقة»
+  /// على النوع ده.
+  ///
+  /// بنستعمل شاشة الحالات السابقة نفسها لأنها **عندها فلتر النوع أصلاً**؛
+  /// قايمة تانية مخصوصة كانت هتبقى مكان تاني لنفس العرض، حرّ يختلف عنه.
+  List<Widget> _kindEntries(List<RecordRow> all) {
+    final counts = <RecordKind, int>{};
+    for (final r in all) {
+      counts[r.kind] = (counts[r.kind] ?? 0) + 1;
+    }
+    return [
+      for (final kind in RecordKind.values)
+        if (counts[kind] case final n? when n > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: F.s10),
+            child: FCard(
+              key: ValueKey('kind-entry-${kind.name}'),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(F.radiusCard),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => RecordsOfKindScreen(kind: kind, today: widget.today),
+                )),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
                     children: [
-                      FPrimaryButton(
-                        key: const ValueKey('record-delete-confirm'),
-                        label: 'أيوه، امسحه',
-                        onPressed: () => Navigator.of(context).pop(true),
+                      Icon(kind.icon, size: 22, color: F.green),
+                      const SizedBox(width: F.s10),
+                      Expanded(
+                        child: Text(
+                          kind.plural,
+                          style: TextStyle(
+                            fontSize: F.minBodySize,
+                            fontWeight: FontWeight.w700,
+                            color: F.ink,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: F.s8),
-                      FSecondaryButton(label: 'لأ، سيبه', onPressed: () => Navigator.of(context).pop(false)),
+                      Text(
+                        arabicNumber(n),
+                        style: TextStyle(
+                          fontSize: F.minBodySize,
+                          fontWeight: FontWeight.w700,
+                          color: F.mutedDark,
+                        ),
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            );
-            // عن طريق المتابعة: لو السجل ده عليه تذكيرات بتتلغي معاه
-            if (yes ?? false) await checkups.delete(record.id, attachments: attachments);
-          },
-        ),
-      ],
-    );
+            ),
+          ),
+    ];
   }
 
   @override
@@ -315,55 +315,23 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 const RecordsEmpty(
                   how: 'دوس «+ ضيف» وسجّل زيارة أو تحليل أو أشعة. والروشتة اللي بتأكّدها بعد التصوير بتتسجّل هنا لوحدها.',
                 )
+              // **مداخل بدل لفّة واحدة على كل حاجة.** الملف كان بيرصّ
+              // التحاليل والروشتات والزيارات والأشعة والحجوزات تحت بعض في
+              // قايمة واحدة، والواحد بيدوّر بعينه. دلوقتي مدخل لكل نوع
+              // بعدده، وكل مدخل بيفتح قايمته — نفس تقسيم باقي التطبيق.
+              //
+              // **والبحث بيفضل يدوّر في كل حاجة**: أول ما تكتب، النتايج
+              // بتحلّ محل المداخل. اللي بيدوّر عارف هو عايز إيه، وتقسيمه
+              // على أنواع وقتها بيبقى شغل زيادة.
+              else if (_query.text.trim().isEmpty)
+                ..._kindEntries(all)
               else if (shown.isEmpty)
                 const RecordsEmpty(
                   title: 'مفيش حاجة بالكلام ده',
                   how: 'جرّب اسم الدكتور، أو الشهر زي «أغسطس»، أو امسح البحث.',
                 )
               else
-                for (final r in shown)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: F.s10),
-                    child: FCard(
-                      key: ValueKey('record-${r.id}'),
-                      child: Row(
-                              children: [
-                                Expanded(
-                                  // المتابعة بتفتح شاشتها زي ما هي؛ غير كده
-                                  // السجل اللي ليه صورة بيفتحها ملء الشاشة،
-                                  // واللي مالوش صورة ما بيتفتحش — من غير
-                                  // إطار فاضي ولا زرار ما بيعملش حاجة.
-                                  child: switch ((r.checkupStage, r.attachmentPath)) {
-                                    (final int _, _) => InkWell(
-                                        key: ValueKey('checkup-open-${r.id}'),
-                                        onTap: () => _openCheckup(r.id),
-                                        child: RecordSummary(record: r),
-                                      ),
-                                    (null, final String _) => InkWell(
-                                        key: ValueKey('record-photo-${r.id}'),
-                                        onTap: () => openAttachment(context, r),
-                                        child: RecordSummary(record: r),
-                                      ),
-                                    _ => RecordSummary(record: r),
-                                  },
-                                ),
-                                const SizedBox(width: F.s8),
-                                SizedBox(
-                                  height: F.minTapTarget,
-                                  child: TextButton(
-                                    key: ValueKey('record-options-${r.id}'),
-                                    onPressed: () => _options(r),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: F.ink,
-                                      textStyle: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
-                                    ),
-                                    child: const Text('⋯ خيارات'),
-                                  ),
-                                ),
-                        ],
-                      ),
-                    ),
-                  ),
+                for (final r in shown) RecordRowCard(record: r, today: widget.today),
             ],
           );
         },

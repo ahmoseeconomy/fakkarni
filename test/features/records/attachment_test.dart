@@ -66,6 +66,13 @@ void main() {
   Future<T> io<T>(WidgetTester tester, Future<T> Function() body) async =>
       (await tester.runAsync(body)) as T;
 
+  /// «الملف الصحي» بقى مداخل: الدوسة على المدخل بتفتح قايمة النوع، وهي
+  /// اللي فيها صفوف السجلات بكل اللي بتعمله (مسح، صورة، متابعة).
+  Future<void> openKind(WidgetTester tester, String kind) async {
+    await tester.tap(find.byKey(ValueKey('kind-entry-$kind')));
+    await settle(tester);
+  }
+
   /// الحفظ كتابة ملف حقيقية — محتاجة وقت حقيقي برّه الساعة المزيّفة.
   Future<void> letFilesSettle(WidgetTester tester) async {
     for (var i = 0; i < 20; i++) {
@@ -141,6 +148,7 @@ void main() {
       final id = await seedWithPhoto(tester);
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      await openKind(tester, 'lab');
 
       await tester.tap(find.byKey(ValueKey('record-photo-$id')));
       await letFilesSettle(tester);
@@ -176,6 +184,9 @@ void main() {
       );
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      // المدخل نفسه بيبان بعدده، والدوسة بتفتح قايمته
+      expect(find.byKey(const ValueKey('kind-entry-visit')), findsOneWidget);
+      await openKind(tester, 'visit');
 
       expect(find.text('باطنة'), findsOneWidget);
       // ولا مفتاح فتح، ولا صورة، ولا مكان فاضي مستنيها
@@ -199,6 +210,7 @@ void main() {
       );
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      await openKind(tester, 'lab');
 
       await tester.tap(find.byKey(ValueKey('record-photo-$id')));
       await letFilesSettle(tester);
@@ -223,6 +235,7 @@ void main() {
 
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      await openKind(tester, 'lab');
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('record-delete')));
@@ -252,6 +265,7 @@ void main() {
 
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      await openKind(tester, 'lab');
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('record-delete')));

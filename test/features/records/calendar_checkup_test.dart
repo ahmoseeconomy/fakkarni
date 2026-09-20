@@ -312,6 +312,9 @@ void main() {
         );
         await tester.pageBack();
         await settle(tester);
+        // الملف بقى مداخل — المتابعة سجل `lab`، فجوّه مدخل التحاليل
+        await tester.tap(find.byKey(const ValueKey('kind-entry-lab')));
+        await settle(tester);
         expect(find.textContaining('متابعة تحليل — ١ من ٧'), findsOneWidget);
 
         await tester.tap(find.byKey(ValueKey('record-options-$id')));

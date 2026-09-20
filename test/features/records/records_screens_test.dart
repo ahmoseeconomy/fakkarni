@@ -123,7 +123,14 @@ void main() {
       expect(find.text('صوّر تقرير تحليل'), findsNothing);
       expect(find.text('قيس السكر'), findsNothing);
       expect(find.text('إدخال يدوي'), findsNothing);
-      // واللي بيفتح الملف بيلاقي اللي فيه
+      // واللي بيفتح الملف بيلاقي **مداخله** بعددها — مش لفّة على كل حاجة
+      expect(find.byKey(const ValueKey('kind-entry-imaging')), findsOneWidget);
+      expect(find.byKey(const ValueKey('kind-entry-lab')), findsOneWidget);
+      expect(find.byKey(const ValueKey('kind-entry-visit')), findsOneWidget);
+      expect(find.text('أشعة'), findsOneWidget);
+      // والمدخل بيفتح قايمته
+      await tester.tap(find.byKey(const ValueKey('kind-entry-imaging')));
+      await settle(tester);
       expect(find.text('أشعة صدر'), findsOneWidget);
       expectNoRedAndMinSize(tester);
     });
@@ -133,8 +140,11 @@ void main() {
       await add(RecordKind.visit, 'باطنة', DateTime(2026, 8, 20));
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
+      // الملف بقى مداخل — الصفوف جوّه قايمة النوع
+      await tester.tap(find.byKey(const ValueKey('kind-entry-lab')));
+      await settle(tester);
 
-      expect(find.text('⋯ خيارات'), findsNWidgets(2), reason: 'مش أيقونة لوحدها');
+      expect(find.text('⋯ خيارات'), findsOneWidget, reason: 'مش أيقونة لوحدها');
 
       // «لأ، سيبه» ما بيمسحش
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
@@ -157,7 +167,6 @@ void main() {
       await settle(tester);
 
       expect(find.text('HbA1c'), findsNothing, reason: 'اتمسح يعني راح');
-      expect(find.text('باطنة'), findsOneWidget, reason: 'والباقي مكانه');
       expect(find.text('رجّعه'), findsNothing);
       expect(find.byType(Opacity), findsNothing, reason: 'مفيش صف باهت مشطوب');
       for (final msa in ['حُذف', 'يُنقل', 'المحذوفات']) {

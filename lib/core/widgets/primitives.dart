@@ -49,6 +49,31 @@ class FCard extends StatelessWidget {
 
 enum FCardTone { plain, warm, attention, dark }
 
+/// عنوان قسم — **تعريف واحد للتطبيق كله**.
+///
+/// كان كل شاشة بتكتبه بإيدها: شاشة الابن بـ23 من خط العرض، وملفه الصحي
+/// بـ19 من غير خط العرض، و«يومك» بتالت شكل. نفس الفكرة بتلاتة مقاسات
+/// بتخلي الشاشة تتقري كأنها اتكتبت على مراحل — وهي فعلاً كده.
+class FSectionHead extends StatelessWidget {
+  const FSectionHead(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: F.s8),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: F.displayFamily,
+            fontSize: F.subtitleSize,
+            fontWeight: FontWeight.w700,
+            color: F.ink,
+          ),
+        ),
+      );
+}
+
 /// الزرار الأساسي — ٦٤. أخضر افتراضياً، ذهبي لما الفعل هو التذكير نفسه
 /// («أخدته»).
 class FPrimaryButton extends StatelessWidget {

@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         964 passing
+test/                         968 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -866,13 +866,40 @@ line per `delivery_status`. Three decisions live there:
   **The filter is in the query, not the widget** — the son never downloads
   a row he will not show — with `alert.open` as a second line for a stale
   row, and an unrecognised state counting as *not* open.
-- **Sections, each with the app's heading style**: «تنبيهات» ← «النهارده»
-  ← «أدويته» ← «الجديد». Alerts stay first because an open one means a dose
-  is being missed *now*; what stopped them filling the screen is that
-  closed ones no longer exist, not demoting them. The day's doses are their
-  own headed section rather than a tail, and the medicines moved off the
-  bottom. The alerts heading counts the **open** alerts, or a filtered row
-  would leave a heading over nothing.
+- **Sections, each with the app's heading style** (round 28 order):
+  «تنبيهات» ← «آخر أسبوع» ← «جرعات النهارده» ← «الجديد» ← «أدويته».
+  Alerts stay first because an open one means a dose is being missed *now*;
+  what stopped them filling the screen is that closed ones no longer exist,
+  not demoting them. The alerts heading counts the **open** alerts, or a
+  filtered row would leave a heading over nothing.
+  **Medicines are last on purpose**: that list is *reference* («what is he
+  on»), not *state* («is he OK today»). Between the day's doses and
+  «الجديد» it split the question from its answer.
+  «جرعات النهارده», not «النهارده» — the week panel's today row says
+  «النهارده» too, and one word for two things on one screen confuses.
+- **The week strip is seven rows, not seven columns** (round 28). «٤/١٦»
+  told nobody anything and «—» conflated *no doses* with *no news from his
+  phone* — opposite meanings to a worried son. Seven columns at phone width
+  have no room for a sentence, so the shape changed to the list row the app
+  already uses everywhere: «الاتنين — ٤ من ٦ اتأكدت», and an empty day says
+  **«مفيش بيانات»**. Gold still marks today. A week with nothing at all
+  keeps its single sentence — seven rows of «مفيش بيانات» is the same empty
+  table with more words, and a test pins that it does not appear.
+- **One lab result, one representation** (round 28). The card wrote
+  `notes` as a paragraph («… APTT 23.4 sec — Haemoglobin 11.6 g/dL — …»)
+  and then repeated the same results as rows underneath. `notes` now
+  renders **only when the record has no lab lines** — for a visit or an
+  X-ray it is the whole content; for a lab it was the same data written
+  worse. **Flagged rows are never collapsed**, wherever they sit in the
+  report: clean rows show three and the rest wait behind «كل النتايج (N)»,
+  because an out-of-range value must be visible without opening anything.
+  The test puts a flagged line *fifth* to prove a late one still escapes
+  the collapse.
+- **`FSectionHead` is the one heading definition** (`core/widgets/
+  primitives.dart`). There were three — 23px display on متابعة, 19px
+  non-display on the son's الملف الصحي, and a third inside «الجديد». That
+  spread is exactly why the screen read as sections written at different
+  times.
 - **Filtered to `caregiver_id = me` for wording, not access.** RLS lets a
   brother read alerts sent to his siblings (decided in 4.2b part 2), and
   «بلّغك» must not point at the wrong person. RLS is still the only
@@ -2116,9 +2143,21 @@ screen — and they are different screens on purpose.**
   opened from the dock and the medication list.
 - «إدخال يدوي» (28): five forms, same primitives, own labels per kind;
   date chips («النهارده»/«امبارح», «بكرة» for a booking) + a date picker.
-  «الملف الصحي» (13): search across title, doctor, place, notes and the
-  written date in Arabic or Western digits; «⋯ خيارات» (a word, not a bare
-  icon) → «امسحه» → confirm. «الحالات السابقة» (29): timeline newest first,
+  «الملف الصحي» (13): **entries, not one long list** (round 28) — one per
+  record kind that has anything, with its count, each opening its own
+  `RecordsOfKindScreen`. Search and «+ ضيف» stay where they were, and
+  typing **replaces the entries with results across everything**: someone
+  searching already knows what they want, and splitting by kind then is
+  work for them. Search covers title, doctor, place, notes and the written
+  date in Arabic or Western digits; «⋯ خيارات» (a word, not a bare icon) →
+  «امسحه» → confirm.
+  **The row had to move with the list, and nearly didn't.** That flat list
+  carried two behaviours nothing else did — «⋯ خيارات» → امسحه, and
+  tap-to-open-photo. Putting records behind entries would have deleted both
+  in silence unless the opened list carried them, so the row is now
+  `RecordRowCard` and both the search results and the kind list use it.
+  Anything that splits a list in this app has to ask what the rows *did*,
+  not just what they showed. «الحالات السابقة» (29): timeline newest first,
   kind and period filters (period uses calendar arithmetic). Every empty
   state says «لسه مفيش حاجة هنا» and how to add. Entry: settings «الملف
   الصحي», and a third option in the «ضيف» sheet.

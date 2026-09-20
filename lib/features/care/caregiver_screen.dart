@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_words.dart';
@@ -135,25 +136,32 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // السحابة — الاتنين بيقولوا نفس الحاجة.
                 if (snapshot.alerts.where((a) => a.open).toList() case final open
                     when open.isNotEmpty) ...[
-                  const _SectionHead('تنبيهات'),
+                  const FSectionHead('تنبيهات'),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
-                const _SectionHead('النهارده'),
+                const FSectionHead('آخر أسبوع'),
                 _WeekStrip(events: snapshot.events, now: _now),
-                const SizedBox(height: F.s12),
+                const SizedBox(height: F.gap),
+                // «جرعات النهارده» مش «النهارده» وبس: صف النهارده في لوحة
+                // الأسبوع فوق بيقول «النهارده» كمان، وكلمة واحدة لحاجتين
+                // على نفس الشاشة بتلغبط.
+                const FSectionHead('جرعات النهارده'),
                 ..._todayList(snapshot),
                 const SizedBox(height: F.gap),
-                // أدويته وقواعدها — للقراية بس. مفيش «عدّل» ولا «وقّف»: أي
-                // زرار بيغيّر بيانات الأب مش موجود هنا خالص، مش متعطّل.
-                const _SectionHead('أدويته'),
+                // «الجديد» (D5.2): تحت اللي بيجاوب «هو كويس؟» — تحليل اتضاف
+                // مش أعجل من جرعة النهارده. مترتب بالوصول، وكل سطر بتاريخه.
+                ..._newest(snapshot),
+                // أدويته وقواعدها — **آخر قسم**: دي مرجع («هو بياخد إيه»)
+                // مش حالة («هو كويس النهارده؟»). كانت واقفة بين النهارده
+                // و«الجديد»، فبتفصل السؤال عن إجابته.
+                // للقراية بس: مفيش «عدّل» ولا «وقّف» — أي زرار بيغيّر بيانات
+                // الأب مش موجود هنا خالص، مش متعطّل.
+                const FSectionHead('أدويته'),
                 if (snapshot.medications.isEmpty)
                   const _Panel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
                 else
                   for (final m in snapshot.medications) _MedicationRow(medication: m),
                 const SizedBox(height: F.gap),
-                // «الجديد» (D5.2): تحت اللي بيجاوب «هو كويس؟» — تحليل اتضاف
-                // مش أعجل من جرعة النهارده. مترتب بالوصول، وكل سطر بتاريخه.
-                ..._newest(snapshot),
                 if (snapshot.lastUpdated != null)
                   () {
                     // تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل
@@ -194,7 +202,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final items = newestArrivals(snapshot);
     if (items.isEmpty) return const [];
     return [
-      const _SectionHead('الجديد'),
+      const FSectionHead('الجديد'),
       Container(
         key: const ValueKey('newest'),
         margin: const EdgeInsets.only(bottom: F.gap),
@@ -311,61 +319,73 @@ class _WeekStrip extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      key: const ValueKey('week-strip'),
+      padding: const EdgeInsets.symmetric(vertical: F.s8, horizontal: F.gap),
       decoration: BoxDecoration(
         color: F.cardGround,
         borderRadius: BorderRadius.circular(F.radiusCard),
         border: Border.all(color: F.line),
       ),
-      child: Row(
-        children: [
-          for (final day in days)
-            Expanded(child: _dayCell(day, today)),
-        ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [for (final day in days) _dayRow(day, today)],
       ),
     );
   }
 
-  Widget _dayCell(DateTime day, DateTime today) {
+  /// يوم واحد **في سطر**، مكتوب بالكلام.
+  ///
+  /// كان سبع أعمدة فيها «٤/١٦» و«—». الكسر ده محدش بيعرف يقراه: أربعة من
+  /// إيه؟ والشَرطة معناها مفيش جرعات ولا مفيش بيانات؟ سبع خانات في عرض
+  /// موبايل مفيهاش مكان لجملة، فالشكل اتغيّر للسطر — والسطر فيه مكان
+  /// للكلمة كاملة. ده مش لغة بصرية جديدة: هو نفس صف القايمة اللي في
+  /// التطبيق كله.
+  Widget _dayRow(DateTime day, DateTime today) {
     final dayEvents = [
       for (final e in events)
         if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == day) e,
     ];
     final confirmed = dayEvents.where((e) => e.confirmed).length;
-    final pastUnconfirmed = dayEvents.any(
-      (e) => !e.confirmed && e.scheduledAt.isBefore(now),
-    );
+    final pastUnconfirmed = dayEvents.any((e) => !e.confirmed && e.scheduledAt.isBefore(now));
     final isToday = day == today;
 
-    return Column(
-      children: [
-        // سبع خانات في عرض موبايل: «الخميس» كانت بتتكسر سطرين — سطر واحد
-        // بيصغر بس لو ما دخلش، زي شريط التبويبات
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            _dayNames[day.weekday - 1],
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: F.minTextSize,
-              fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-              // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
-              color: isToday ? F.gold : F.mutedDark,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: F.s6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              isToday ? 'النهارده' : _dayNames[day.weekday - 1],
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
+                color: isToday ? F.gold : F.mutedDark,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          dayEvents.isEmpty
-              ? '—'
-              : '${arabicNumber(confirmed)}/${arabicNumber(dayEvents.length)}',
-          style: TextStyle(
-            fontSize: F.minTextSize,
-            fontWeight: FontWeight.w700,
-            color: pastUnconfirmed ? F.gold : F.greenDeep,
+          Expanded(
+            child: Text(
+              // **مفيش بيانات ≠ مفيش جرعات.** الشَرطة كانت بتخلط الاتنين،
+              // والابن يفتكر إن أبوه ما خدش حاجة وهو أصلاً ما وصلش خبر.
+              dayEvents.isEmpty
+                  ? 'مفيش بيانات'
+                  : '${arabicNumber(confirmed)} من ${arabicNumber(dayEvents.length)} اتأكدت',
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: dayEvents.isEmpty ? FontWeight.w400 : FontWeight.w700,
+                color: dayEvents.isEmpty
+                    ? F.mutedDark
+                    : pastUnconfirmed
+                        ? F.gold
+                        : F.greenDeep,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -543,28 +563,6 @@ class _AlertCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// عنوان قسم — **نفس ستايل العناوين في باقي التطبيق**، ومكان واحد يتغيّر
-/// منه. كان مكرر كـ`Text` في تلات حتت بنفس الأرقام.
-class _SectionHead extends StatelessWidget {
-  const _SectionHead(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s8),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontFamily: F.displayFamily,
-            fontSize: F.subtitleSize,
-            fontWeight: FontWeight.w700,
-            color: F.ink,
-          ),
-        ),
-      );
 }
 
 class _Panel extends StatelessWidget {
