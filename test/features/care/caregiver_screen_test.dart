@@ -118,8 +118,6 @@ void main() {
     expect(concorTop, lessThan(glucophageTop));
     expect(find.text('لسه ما اتأكدتش'), findsNothing, reason: 'بكرة مش متأخرة');
 
-    // الشريط: جملة واحدة بدل سبع شَرطات
-    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsOneWidget);
     expect(find.text('—'), findsNothing);
 
     // قراية بس
@@ -145,17 +143,13 @@ void main() {
     expect(find.textContaining('Telfast'), findsNothing);
   });
 
-  screenTest('فيه جرعات الأسبوع ده → الشريط بأيامه زي ما هو، مش الجملة', (tester) async {
+  screenTest('النهارده فاضي وبكرة فيها → الجملة اللي بتقول اللي جاي', (tester) async {
     remote.next = snapshot([
       event('Concor 5mg', DateTime(2026, 8, 29, 8), 'taken', actedAt: DateTime(2026, 8, 29, 8, 2)),
       event('Concor 5mg', DateTime(2026, 9, 1, 8), 'pending'),
     ]);
     await pumpScreen(tester);
 
-    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsNothing);
-    // الكسر بقى مكتوب بالكلام — «١/١» محدش كان بيعرف يقراها
-    expect(find.text('١ من ١ اتأكدت'), findsOneWidget);
-    expect(find.text('مفيش بيانات'), findsWidgets, reason: 'يوم من غير خبر بيقول كده');
     expect(find.textContaining('أول جرعة بكرة الساعة ٨:٠٠ الصبح'), findsOneWidget,
         reason: 'النهارده فاضي — بكرة فيها');
   });
@@ -204,15 +198,13 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('أسبوع فاضي → رسالة هادية والشاشة شغّالة', (tester) async {
+  screenTest('مفيش جرعات خالص → رسالة هادية والشاشة شغّالة', (tester) async {
     remote.next = snapshot(const []);
     await pumpScreen(tester);
 
     expect(find.textContaining('مفيش جرعات متسجّلة النهارده'), findsOneWidget,
         reason: 'مفيش حاجة النهارده ولا بكرة — الجملة القديمة هي الحقيقة');
-    // سبع شَرطات بتتقري تطبيق بايظ — جملة واحدة مكانهم
     expect(find.text('—'), findsNothing);
-    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsOneWidget);
   });
 
   screenTest('أوفلاين وفيه بيانات محمّلة → الجملة فوق والبيانات القديمة لسه ظاهرة',
@@ -251,47 +243,6 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('لوحة الأسبوع بتقول هي إيه، والكسر مكتوب بالكلام', (tester) async {
-    remote.next = snapshot([
-      event('Concor 5mg', DateTime(2026, 8, 30, 8), 'taken', actedAt: DateTime(2026, 8, 30, 8, 2)),
-      event('Telfast', DateTime(2026, 8, 30, 20), 'taken', actedAt: DateTime(2026, 8, 30, 20, 5)),
-    ]);
-    await pumpScreen(tester);
-
-    // عنوان بيقول اللوحة دي إيه — «٤/١٦» لوحدها محدش كان بيعرف يقراها
-    expect(find.text('آخر أسبوع'), findsOneWidget);
-    expect(find.text('٢ من ٢ اتأكدت'), findsOneWidget);
-    // **مفيش بيانات ≠ مفيش جرعات** — الشَرطة كانت بتخلط الاتنين
-    expect(find.text('مفيش بيانات'), findsWidgets);
-    expect(find.text('—'), findsNothing);
-    expect(find.byKey(const ValueKey('week-strip')), findsOneWidget);
-    expectNoRedAndMinSize(tester);
-  });
-
-  screenTest('أسبوع من غير ولا جرعة: جملة واحدة، مش جدول شَرطات', (tester) async {
-    remote.next = snapshot([]);
-    await pumpScreen(tester);
-
-    expect(find.byKey(const ValueKey('week-empty')), findsOneWidget);
-    expect(find.text('لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل'), findsOneWidget);
-    expect(find.byKey(const ValueKey('week-strip')), findsNothing);
-    expect(find.text('مفيش بيانات'), findsNothing, reason: 'سبع مرات «مفيش بيانات» جدول فاضي بكلام');
-  });
-
-  screenTest('شريط الأسبوع: يوم فيه غير مؤكّد فايت بيتلوّن ذهبي', (tester) async {
-    remote.next = snapshot([
-      event('A', DateTime(2026, 8, 30, 8), 'taken'),
-      event('B', DateTime(2026, 8, 30, 20), 'pending'), // امبارح، ما اتأكدتش
-      event('C', DateTime(2026, 8, 29, 8), 'taken'),
-    ]);
-    await pumpScreen(tester);
-
-    // امبارح: ١ من ٢ بالذهبي — أول امبارح: ١ من ١ أخضر
-    final yesterday = tester.widget<Text>(find.text('١ من ٢ اتأكدت'));
-    expect(yesterday.style?.color, F.gold);
-    final dayBefore = tester.widget<Text>(find.text('١ من ١ اتأكدت'));
-    expect(dayBefore.style?.color, F.greenDeep);
-  });
   group('تنبيهات السيرفر — سجل اللي حصل، فوق الشاشة', () {
     screenTest('تنبيه واحد → بطاقة ذهبية فوق شريط الأسبوع بالسطرين', (tester) async {
       remote.next = snapshot(
@@ -309,7 +260,7 @@ void main() {
       // فوق لوحة الأسبوع — الأحدث الأول يعني أوّل حاجة في الصفحة
       expect(
         tester.getTopLeft(header).dy,
-        lessThan(tester.getTopLeft(find.text('آخر أسبوع')).dy),
+        lessThan(tester.getTopLeft(find.text('جرعات النهارده')).dy),
       );
       expectNoRedAndMinSize(tester);
     });
@@ -376,7 +327,7 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
-    screenTest('الأقسام بترتيبها: تنبيهات ← آخر أسبوع ← جرعات النهارده ← الجديد (والأدوية بقت تبويب)',
+    screenTest('الأقسام بترتيبها: تنبيهات ← جرعات النهارده ← الجديد (والأدوية بقت تبويب)',
         (tester) async {
       final base = snapshot(
         [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
@@ -403,8 +354,7 @@ void main() {
 
       double y(String heading) => tester.getTopLeft(find.text(heading)).dy;
       // التنبيه المفتوح فوق: جرعة فايتة دلوقتي أعجل من أي حاجة تانية.
-      expect(y('تنبيهات'), lessThan(y('آخر أسبوع')));
-      expect(y('آخر أسبوع'), lessThan(y('جرعات النهارده')));
+      expect(y('تنبيهات'), lessThan(y('جرعات النهارده')));
       // وجرعات اليوم قبل «الجديد» — ده اللي الابن فاتح الشاشة عشانه.
       expect(y('جرعات النهارده'), lessThan(y('الجديد')));
       // **والأدوية مابقتش قسم هنا خالص** — بقت تبويب في الدوك (جولة ٢٩).

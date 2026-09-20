@@ -139,9 +139,6 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   const FSectionHead('تنبيهات'),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
-                const FSectionHead('آخر أسبوع'),
-                _WeekStrip(events: snapshot.events, now: _now),
-                const SizedBox(height: F.gap),
                 // «جرعات النهارده» مش «النهارده» وبس: صف النهارده في لوحة
                 // الأسبوع فوق بيقول «النهارده» كمان، وكلمة واحدة لحاجتين
                 // على نفس الشاشة بتلغبط.
@@ -272,113 +269,6 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
 }
 
 /// شريط الأسبوع: لكل يوم «اتأكد س من ص» — عدّ، مش حكم.
-class _WeekStrip extends StatelessWidget {
-  const _WeekStrip({required this.events, required this.now});
-
-  final List<CaregiverDoseEvent> events;
-  final DateTime now;
-
-  static const _dayNames = ['الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت', 'الحد'];
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime(now.year, now.month, now.day);
-    final days = [for (var i = 6; i >= 0; i--) DateTime(today.year, today.month, today.day - i)];
-
-    // سبع شَرطات بتتقري تطبيق بايظ حتى لو هي الحقيقة — جملة واحدة بتقول ليه.
-    final anything = events.any((e) {
-      final d = DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day);
-      return !d.isBefore(days.first) && !d.isAfter(today);
-    });
-    if (!anything) {
-      return Container(
-        key: const ValueKey('week-empty'),
-        width: double.infinity,
-        padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radiusCard),
-          border: Border.all(color: F.line),
-        ),
-        child: Text(
-          'لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل',
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
-        ),
-      );
-    }
-
-    return Container(
-      key: const ValueKey('week-strip'),
-      padding: const EdgeInsets.symmetric(vertical: F.s8, horizontal: F.gap),
-      decoration: BoxDecoration(
-        color: F.cardGround,
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        border: Border.all(color: F.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [for (final day in days) _dayRow(day, today)],
-      ),
-    );
-  }
-
-  /// يوم واحد **في سطر**، مكتوب بالكلام.
-  ///
-  /// كان سبع أعمدة فيها «٤/١٦» و«—». الكسر ده محدش بيعرف يقراه: أربعة من
-  /// إيه؟ والشَرطة معناها مفيش جرعات ولا مفيش بيانات؟ سبع خانات في عرض
-  /// موبايل مفيهاش مكان لجملة، فالشكل اتغيّر للسطر — والسطر فيه مكان
-  /// للكلمة كاملة. ده مش لغة بصرية جديدة: هو نفس صف القايمة اللي في
-  /// التطبيق كله.
-  Widget _dayRow(DateTime day, DateTime today) {
-    final dayEvents = [
-      for (final e in events)
-        if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == day) e,
-    ];
-    final confirmed = dayEvents.where((e) => e.confirmed).length;
-    final pastUnconfirmed = dayEvents.any((e) => !e.confirmed && e.scheduledAt.isBefore(now));
-    final isToday = day == today;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: F.s6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              isToday ? 'النهارده' : _dayNames[day.weekday - 1],
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                // الذهبي = «إنت هنا» — نفس معناه في التطبيق كله
-                color: isToday ? F.gold : F.mutedDark,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              // **مفيش بيانات ≠ مفيش جرعات.** الشَرطة كانت بتخلط الاتنين،
-              // والابن يفتكر إن أبوه ما خدش حاجة وهو أصلاً ما وصلش خبر.
-              dayEvents.isEmpty
-                  ? 'مفيش بيانات'
-                  : '${arabicNumber(confirmed)} من ${arabicNumber(dayEvents.length)} اتأكدت',
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: dayEvents.isEmpty ? FontWeight.w400 : FontWeight.w700,
-                color: dayEvents.isEmpty
-                    ? F.mutedDark
-                    : pastUnconfirmed
-                        ? F.gold
-                        : F.greenDeep,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class CaregiverMedicationRow extends StatelessWidget {
   const CaregiverMedicationRow({required this.medication, super.key});
 

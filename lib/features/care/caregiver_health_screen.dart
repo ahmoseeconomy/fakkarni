@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
+import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../emergency/emergency_facts_card.dart';
 import '../health/lab_flag.dart';
+import '../../data/db/tables.dart' show RecordKind;
 import '../records/record_kinds.dart' show RecordKindWords;
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_words.dart';
@@ -368,6 +370,10 @@ class _RecordCardState extends State<_RecordCard> {
     final shownClean = _expanded ? clean : clean.take(_RecordCard.previewClean).toList();
     // ترتيب الورقة محفوظ جوّه كل مجموعة؛ المتعلّم فوق عشان يتشاف الأول.
     final shown = [...flagged, ...shownClean];
+    final labels = recordFieldLabels(record.kind);
+    final medicines = recordKindOf(record.kind) == RecordKind.prescription
+        ? prescriptionMedicines(record.notes ?? '')
+        : const <String>[];
 
     return Container(
       margin: const EdgeInsets.only(bottom: F.s8),
@@ -381,19 +387,42 @@ class _RecordCardState extends State<_RecordCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(record.title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
-          Text(
-            [arabicDate(record.happenedAt), ?record.doctor, ?record.place].join(' — '),
-            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-          ),
-          // الملاحظة بتتعرض بس لما ما يكونش فيه سطور — غير كده هي نفس
-          // الكلام مرتين.
-          if (lines.isEmpty && record.notes != null && record.notes!.trim().isNotEmpty)
+          // **ترويسة بحقول مسمّاة، مش سطر واحد مربوط بشَرطات.**
+          // «١٢ سبتمبر — د. طارق — معمل البرج» بيسيب اللي بيقرا يخمّن إيه
+          // إيه؛ والاسم بيختلف بنوع الورقة كمان: «المعمل» على تقرير تحليل،
+          // و«العيادة» على روشتة.
+          const SizedBox(height: F.s6),
+          _Field(label: labels.date, value: arabicDate(record.happenedAt)),
+          if (record.doctor?.trim().isNotEmpty ?? false)
+            _Field(label: labels.doctor, value: record.doctor!),
+          if (record.place?.trim().isNotEmpty ?? false)
+            _Field(label: labels.place, value: record.place!),
+          // **أدوية الروشتة سطر لكل واحد** — كانت فقرة واحدة مربوطة
+          // بشَرطات («Concor 5mg — Telfast — Augmentin»)، وهي نفس حيطة
+          // نتايج التحليل اللي اتشالت قبل كده.
+          if (lines.isEmpty && medicines.isNotEmpty) ...[
+            const SizedBox(height: F.s8),
+            _BodyHead('الأدوية', count: medicines.length),
+            for (final m in medicines)
+              Padding(
+                padding: const EdgeInsets.only(top: F.s4),
+                child: Text(
+                  m,
+                  textDirection: nameDirection(m),
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+                ),
+              ),
+          ]
+          // ملاحظة إنسان كتبها بإيده (زيارة، أشعة) — بتتعرض زي ما هي.
+          else if (lines.isEmpty && record.notes != null && record.notes!.trim().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: F.s4),
+              padding: const EdgeInsets.only(top: F.s8),
               child: Text(record.notes!, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
             ),
           if (lines.isNotEmpty) ...[
             const SizedBox(height: F.s8),
+            _BodyHead('النتايج', count: lines.length),
             for (final line in shown) _LabLineRow(line: line),
             if (hidden > 0)
               Padding(
@@ -409,6 +438,58 @@ class _RecordCardState extends State<_RecordCard> {
       ),
     );
   }
+}
+
+/// حقل في ترويسة السجل: اسمه وقيمته.
+class _Field extends StatelessWidget {
+  const _Field({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: F.s4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 96,
+              child: Text(
+                label,
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                textDirection: nameDirection(value),
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+/// عنوان جسم السجل — «النتايج (٦)» / «الأدوية (٣)».
+///
+/// العدد جنبه عشان اللي بيقرا يعرف قد إيه قدامه قبل ما يبدأ.
+class _BodyHead extends StatelessWidget {
+  const _BodyHead(this.text, {required this.count});
+
+  final String text;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: F.s6, bottom: F.s4),
+        child: Text(
+          '$text (${arabicNumber(count)})',
+          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+        ),
+      );
 }
 
 /// سطر نتيجة: الاسم والرقم بوحدته، وتحتهم نطاق الورقة وعلامته.

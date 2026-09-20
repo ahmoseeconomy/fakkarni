@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         970 passing
+test/                         969 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -878,14 +878,32 @@ line per `delivery_status`. Three decisions live there:
   is not a patient» below.
   «جرعات النهارده», not «النهارده» — the week panel's today row says
   «النهارده» too, and one word for two things on one screen confuses.
-- **The week strip is seven rows, not seven columns** (round 28). «٤/١٦»
-  told nobody anything and «—» conflated *no doses* with *no news from his
-  phone* — opposite meanings to a worried son. Seven columns at phone width
-  have no room for a sentence, so the shape changed to the list row the app
-  already uses everywhere: «الاتنين — ٤ من ٦ اتأكدت», and an empty day says
-  **«مفيش بيانات»**. Gold still marks today. A week with nothing at all
-  keeps its single sentence — seven rows of «مفيش بيانات» is the same empty
-  table with more words, and a test pins that it does not appear.
+- **The week strip is gone** (round 30, owner's call). Round 28 had
+  rewritten it from seven columns of «٤/١٦» and «—» into seven labelled
+  rows, because the fraction told nobody anything and the dash conflated
+  *no doses* with *no news from his phone*. The owner then removed the
+  panel outright: a seven-day count is a summary of something the day list
+  below already answers, and «متابعة» is about **now**. The widget and its
+  tests went with it — the empty-week sentence belonged to the strip, and
+  the day list keeps its own «مفيش جرعات متسجّلة النهارده» so an empty
+  screen still explains itself.
+- **Each part of a report is named** (round 30). The card headed every
+  record with one run-on line — «١٢ سبتمبر — د. طارق — معمل البرج» — which
+  leaves the reader to work out which is which. Now each part is its own
+  labelled field, **and the label follows the kind**, because the same
+  column means different things: `place` is «المعمل» on a lab, «العيادة»
+  on a prescription, «المركز» on imaging; `happened_at` is «تاريخ التقرير»
+  / «تاريخ الورقة» / «تاريخ الأشعة». An empty field renders nothing — no
+  labels standing over blanks. The body gets a heading with its count,
+  «النتايج (٦)» or «الأدوية (٣)», so the reader knows the size before
+  starting.
+- **A prescription's medicines are one per line** (round 30) — they were a
+  single paragraph, «Concor 5mg — Telfast 180mg — Augmentin 1g», the exact
+  wall removed from the lab card in round 28 and left standing here. The
+  split is on **our own** separator (`names.join(' — ')`, written by the
+  review screen), and it applies to prescriptions **only**: a visit or
+  imaging note is free text a person typed, and splitting that would cut
+  their sentence in half.
 - **One lab result, one representation** (round 28). The card wrote
   `notes` as a paragraph («… APTT 23.4 sec — Haemoglobin 11.6 g/dL — …»)
   and then repeated the same results as rows underneath. `notes` now
@@ -2650,8 +2668,8 @@ device-verified)**
 **Round 3.5 — the son's read-only view (built)**
 - `CaregiverRemote` + Supabase impl (linked patient via own
   care_relationships, meds, 7 days of dose_events, max server updated_at);
-  `CaregiverScreen` (mockup 04 + week strip from 12): 7-day confirmed
-  counts, today's list with states verbatim, gold «لسه ما اتأكدتش»,
+  `CaregiverScreen` (mockup 04; the 7-day strip from 12 was built here and
+  **removed in round 30**): today's list with states verbatim, gold «لسه ما اتأكدتش»,
   «آخر تحديث من موبايل والدك». Entry: «متابعة {الاسم}» on the link screen
   + «افتح المتابعة» after redeem.
 

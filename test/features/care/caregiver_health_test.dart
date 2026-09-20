@@ -360,6 +360,103 @@ void main() {
     holder.setActive(false);
   });
 
+  screenTest('الروشتة: ترويسة بحقول مسمّاة، والأدوية سطر لكل واحد', (tester) async {
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r1',
+              kind: 'prescription',
+              title: 'روشتة — ٣ أدوية',
+              happenedAt: DateTime(2026, 9, 10),
+              updatedAt: DateTime(2026, 9, 10, 10),
+              doctor: 'د. حسام',
+              place: 'عيادة النزهة',
+              notes: 'Concor 5mg — Telfast 180mg — Augmentin 1g',
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('care-entry-prescription')));
+    await settle(tester);
+
+    // الترويسة بأسامي حقولها — والاسم بنوع الورقة: «العيادة» مش «المكان»
+    expect(find.text('تاريخ الورقة'), findsOneWidget);
+    expect(find.text('الدكتور'), findsOneWidget);
+    expect(find.text('العيادة'), findsOneWidget);
+    expect(find.text('د. حسام'), findsOneWidget);
+    expect(find.text('عيادة النزهة'), findsOneWidget);
+
+    // والأدوية سطر لكل واحد — مش فقرة مربوطة بشَرطات
+    expect(find.text('الأدوية (٣)'), findsOneWidget);
+    expect(find.text('Concor 5mg'), findsOneWidget);
+    expect(find.text('Telfast 180mg'), findsOneWidget);
+    expect(find.text('Augmentin 1g'), findsOneWidget);
+    expect(find.text('Concor 5mg — Telfast 180mg — Augmentin 1g'), findsNothing);
+    expectNoRedAndMinSize(tester);
+    holder.setActive(false);
+  });
+
+  screenTest('التحليل: «المعمل» مش «العيادة»، وعنوان النتايج بعددها', (tester) async {
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r1',
+              kind: 'lab',
+              title: 'صورة دم كاملة',
+              happenedAt: DateTime(2026, 9, 12),
+              updatedAt: DateTime(2026, 9, 12, 10),
+              place: 'معمل البرج',
+              labLines: const [
+                CaregiverLabLine(testName: 'WBC', value: 7, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+                CaregiverLabLine(testName: 'Hb', value: 13, unit: 'g/dL', range: LabRange(low: 11, high: 15)),
+              ],
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('care-entry-lab')));
+    await settle(tester);
+
+    expect(find.text('المعمل'), findsOneWidget);
+    expect(find.text('تاريخ التقرير'), findsOneWidget);
+    expect(find.text('معمل البرج'), findsOneWidget);
+    expect(find.text('النتايج (٢)'), findsOneWidget);
+    expectNoRedAndMinSize(tester);
+    holder.setActive(false);
+  });
+
   screenTest('تقرير طويل: المتعلّم بيبان، والسليم بينطوي ورا «كل النتايج»',
       (tester) async {
     tester.view.physicalSize = const Size(1000, 4000);

@@ -40,6 +40,30 @@ LabFlag labFlagOf(CaregiverLabLine line) => labFlagFor(line.value, line.range);
 /// الكلمة، أو null لو السطر ما بياخدش علامة.
 String? labFlagWordOf(CaregiverLabLine line) => labFlagWord(labFlagOf(line));
 
+/// أسامي حقول ترويسة السجل **حسب نوعه**.
+///
+/// «المكان» على تقرير تحليل معناها المعمل، وعلى روشتة معناها العيادة.
+/// الكلمة الصح بتخلّي الواحد يعرف بيبص على إيه من غير ما يفكّر؛ كلمة
+/// واحدة عامة بتخلّيه يخمّن.
+({String place, String date, String doctor}) recordFieldLabels(String kind) =>
+    switch (recordKindOf(kind)) {
+      RecordKind.lab => (place: 'المعمل', date: 'تاريخ التقرير', doctor: 'الدكتور'),
+      RecordKind.prescription => (place: 'العيادة', date: 'تاريخ الورقة', doctor: 'الدكتور'),
+      RecordKind.imaging => (place: 'المركز', date: 'تاريخ الأشعة', doctor: 'الدكتور'),
+      _ => (place: 'المكان', date: 'التاريخ', doctor: 'الدكتور'),
+    };
+
+/// أسامي أدوية الروشتة، سطر لكل واحد.
+///
+/// `notes` بتاعة الروشتة **إحنا** اللي كتبناها بالشكل ده
+/// (`names.join(' — ')` في شاشة المراجعة)، فتقسيمها على نفس الفاصل قراية
+/// لصيغتنا مش تخمين في نص إنسان. ولاحظ إنها بتتقسم **للروشتة بس**:
+/// ملاحظة زيارة أو أشعة بيكتبها إنسان بإيده، وتقسيمها هيقطّع جملته.
+List<String> prescriptionMedicines(String notes) => [
+      for (final n in notes.split(' — '))
+        if (n.trim().isNotEmpty) n.trim(),
+    ];
+
 /// سطر «الجديد» — النوع والعنوان، والتاريخ تحته.
 String newItemTitle(CaregiverNewItem item) => switch (item.type) {
       NewItemType.record => '${recordKindLabel(item.record!.kind)}: ${item.record!.title}',
