@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/data/contacts/contact_picker.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/emergency_repository.dart';
@@ -40,6 +41,23 @@ class _Sink implements ReminderSink {
   Future<Set<int>> pendingIds() async => {};
   @override
   Future<void> ensurePermissions() async {}
+}
+
+/// منتقي مزيّف — **وبيعدّ كام مرة اتندَه**، عشان «ما نسألش تاني ورا بعض»
+/// تبقى حاجة متقاسة مش نية.
+class FakePicker implements ContactPicker {
+  FakePicker({this.result, this.denied = false});
+
+  final PickedContact? result;
+  final bool denied;
+  int calls = 0;
+
+  @override
+  Future<PickedContact?> pickOne() async {
+    calls++;
+    if (denied) throw const ContactPickerDenied();
+    return result;
+  }
 }
 
 void screenTest(String name, Future<void> Function(WidgetTester) body) {
@@ -80,6 +98,21 @@ void main() {
     dialed = [];
     dialNumber = (n) async => dialed.add(n);
   });
+
+  /// بيعيد بناء الخدمات بمنتقي معيّن — نفس شكل `withLab` في شاشات الصحة.
+  FakePicker usePicker({PickedContact? result, bool denied = false}) {
+    final picker = FakePicker(result: result, denied: denied);
+    services = AppServices(
+      db: services.db,
+      routines: services.routines,
+      medications: services.medications,
+      events: services.events,
+      scheduler: services.scheduler,
+      patientId: services.patientId,
+      contacts: picker,
+    );
+    return picker;
+  }
 
   tearDown(() => db.close());
 
@@ -328,6 +361,94 @@ void main() {
 
       expect(find.text('محمد (ابني)'), findsOneWidget);
       expect(find.byKey(const ValueKey('add-emergency-contact')), findsNothing);
+    });
+
+    screenTest('«من جهات الاتصال» بيملا الاسم والرقم — والصلة بتفضل بإيده', (tester) async {
+      final picker = usePicker(result: const PickedContact(name: 'محمد سعد', phone: '01001234567'));
+      await pump(tester, const EmergencyEditScreen());
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey('pick-contact')));
+      await settle(tester);
+
+      expect(picker.calls, 1);
+      final fields = tester.widgetList<TextField>(
+        find.descendant(of: find.byKey(const ValueKey('contact-0')), matching: find.byType(TextField)),
+      ).toList();
+      expect(fields[0].controller!.text, 'محمد سعد');
+      expect(fields[1].controller!.text, '01001234567');
+      // **الموبايل ما بيعرفش صلة القرابة** — فبتفضل فاضية يكتبها هو
+      expect(fields[2].controller!.text, isEmpty);
+
+      // وهو بيكتبها — دي الحاجة الوحيدة اللي الموبايل ما جابهاش
+      await tester.enterText(
+        find.descendant(of: find.byKey(const ValueKey('contact-0')), matching: find.byType(TextField)).last,
+        'ابني',
+      );
+      await tester.tap(find.text('احفظ'));
+      await settle(tester);
+
+      final info = await EmergencyRepository(db).get(services.patientId);
+      expect(info.contacts.single.name, 'محمد سعد');
+      expect(info.contacts.single.phone, '01001234567');
+      expect(info.contacts.single.relation, 'ابني');
+    });
+
+    screenTest('الشخص قفل المنتقي من غير ما يختار → مفيش صف ومفيش رسالة', (tester) async {
+      usePicker();
+      await pump(tester, const EmergencyEditScreen());
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey('pick-contact')));
+      await settle(tester);
+
+      expect(find.byKey(const ValueKey('contact-0')), findsNothing);
+      expect(find.byKey(const ValueKey('contacts-denied')), findsNothing, reason: 'إلغاء مش رفض');
+    });
+
+    screenTest('النظام رفض → جملة واحدة، الكتابة بالإيد شغّالة، ومفيش سؤال تاني', (tester) async {
+      final picker = usePicker(denied: true);
+      await pump(tester, const EmergencyEditScreen());
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey('pick-contact')));
+      await settle(tester);
+
+      expect(picker.calls, 1);
+      expect(
+        find.text('الموبايل ما سمحش لنا نفتح جهات الاتصال — اكتب الاسم والرقم بإيدك.'),
+        findsOneWidget,
+      );
+      // **مفيش سؤال تاني ورا بعض**: الزرار نفسه مبقاش موجود
+      expect(find.byKey(const ValueKey('pick-contact')), findsNothing);
+
+      // والكتابة بالإيد زي ما هي
+      await tester.tap(find.byKey(const ValueKey('add-contact')));
+      await settle(tester);
+      final fields = find.descendant(
+        of: find.byKey(const ValueKey('contact-0')),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(fields.at(0), 'سلمى');
+      await tester.enterText(fields.at(1), '01112223334');
+      await tester.tap(find.text('احفظ'));
+      await settle(tester);
+
+      expect(picker.calls, 1, reason: 'ولا نداء تاني للنظام');
+      final info = await EmergencyRepository(db).get(services.patientId);
+      expect(info.contacts.single.name, 'سلمى');
+    });
+
+    screenTest('الجملة اللي بتوعد إن الأرقام على الموبايل ده بس لسه مكتوبة', (tester) async {
+      usePicker(result: const PickedContact(name: 'محمد سعد', phone: '01001234567'));
+      await pump(tester, const EmergencyEditScreen());
+      await settle(tester);
+
+      // قبل الاختيار وبعده — الوعد ده هو اللي بيخلي الزرار الجديد مقبول
+      expect(find.text('الأرقام دي على الموبايل ده بس — مش بتتبعت لأي حد.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('pick-contact')));
+      await settle(tester);
+      expect(find.text('الأرقام دي على الموبايل ده بس — مش بتتبعت لأي حد.'), findsOneWidget);
     });
 
     screenTest('صف فاضي خالص ما بيتحفظش كجهة اتصال', (tester) async {

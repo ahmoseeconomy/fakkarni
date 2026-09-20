@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../data/contacts/contact_picker.dart';
 import '../../data/repositories/emergency_repository.dart';
 
 /// «عدّل بيانات الطوارئ» — الطريق الوحيد اللي بيملا الجدول: بإيد إنسان.
@@ -50,6 +51,34 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
   String? _blood;
   bool _loaded = false;
   bool _saving = false;
+
+  /// النظام رفض يفتح منتقي جهات الاتصال. لما تبقى true الزرار بيختفي
+  /// وجملة واحدة بتظهر مكانه — **مش بنسأل تاني ورا بعض**: طلب تاني على
+  /// طول مش بيغيّر قرار النظام، وبيحوّل الشاشة لمشادة. الكتابة بالإيد
+  /// شغّالة زي ما هي، وهي أصلاً الطريقة الأساسية هنا.
+  bool _pickerDenied = false;
+
+  /// بيفتح شاشة النظام وبياخد **الجهة الواحدة** اللي الشخص اختارها.
+  ///
+  /// **ده المكان الوحيد في التطبيق اللي بينده جهات الاتصال** (اختبار بيقرا
+  /// `lib/` ويقع لو اتنده من مكان تاني). ما بنعددش الدفتر، وما بنخزّنش غير
+  /// الاسم والرقم، وما بنبعتهمش لحد — الجملة اللي فوق القسم بتفضل صح.
+  Future<void> _pickFromContacts() async {
+    final picker = AppScope.of(context).contacts;
+    final PickedContact? picked;
+    try {
+      picked = await picker.pickOne();
+    } on ContactPickerDenied {
+      if (mounted) setState(() => _pickerDenied = true);
+      return;
+    }
+    // قفل الشاشة من غير ما يختار — سكوت، زي إلغاء أي منتقي تاني.
+    if (picked == null || !mounted) return;
+    setState(() {
+      // صلة القرابة فاضية عن قصد: الموبايل ما بيعرفهاش.
+      _contacts.add(_ContactFields(EmergencyContact(name: picked!.name, phone: picked.phone, relation: '')));
+    });
+  }
 
   @override
   void didChangeDependencies() {
@@ -226,10 +255,36 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
               ),
             ),
           const SizedBox(height: F.s8),
-          FSecondaryButton(
-            label: '+ ضيف جهة اتصال',
-            onPressed: () => setState(() => _contacts.add(_ContactFields())),
+          Row(
+            children: [
+              Expanded(
+                child: FSecondaryButton(
+                  key: const ValueKey('add-contact'),
+                  label: '+ ضيف جهة اتصال',
+                  onPressed: () => setState(() => _contacts.add(_ContactFields())),
+                ),
+              ),
+              if (!_pickerDenied) ...[
+                const SizedBox(width: F.s10),
+                Expanded(
+                  child: FSecondaryButton(
+                    key: const ValueKey('pick-contact'),
+                    label: 'من جهات الاتصال',
+                    onPressed: _pickFromContacts,
+                  ),
+                ),
+              ],
+            ],
           ),
+          if (_pickerDenied)
+            Padding(
+              padding: const EdgeInsets.only(top: F.s8),
+              child: Text(
+                'الموبايل ما سمحش لنا نفتح جهات الاتصال — اكتب الاسم والرقم بإيدك.',
+                key: const ValueKey('contacts-denied'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              ),
+            ),
           const SizedBox(height: F.gap),
           FPrimaryButton(label: 'احفظ', onPressed: _saving ? null : _save),
         ],

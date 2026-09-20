@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../ai/lab_reader.dart';
 import '../ai/prescription_reader.dart';
+import '../data/contacts/contact_picker.dart';
+import '../data/contacts/native_contact_picker.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_remote.dart';
@@ -32,6 +34,7 @@ class AppServices {
     this.prescriptionReader,
     this.labReader,
     this.attachments = const DirectoryAttachmentStore(),
+    this.contacts = const NativeContactPicker(),
     this.auth,
     this.care,
     this.caregiver,
@@ -87,6 +90,10 @@ class AppServices {
 
   /// صور التقارير — فولدر التطبيق. الاختبارات بتحط فولدر مؤقت.
   final AttachmentStore attachments;
+
+  /// منتقي جهة اتصال من النظام — شاشة الطوارئ بس بتستعمله، ومن زرار واحد.
+  /// **ما بيقراش دفتر العناوين**: بيفتح شاشة النظام وبياخد اللي اتختار.
+  final ContactPicker contacts;
 }
 
 class AppScope extends InheritedWidget {

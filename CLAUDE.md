@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         914 passing
+test/                         923 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1830,6 +1830,35 @@ screen — and they are different screens on purpose.**
   `LSApplicationQueriesSchemes`. Contact calls go straight to the OS: iOS
   asks "Call …?" itself, Android opens the dialer without calling. Not yet
   tried on hardware — the simulator cannot place a call.
+- **«من جهات الاتصال» picks one contact — it does not read the address
+  book** (round 23). Beside «+ ضيف جهة اتصال», it opens the *system*
+  picker and fills name + the number the person chose; «صلة القرابة»
+  stays empty, because the phone does not know it and guessing it is a
+  guess about people.
+  **The rule is structural, not discipline.** `flutter_native_contact_picker`
+  was chosen because it has **no API that enumerates contacts at all** —
+  `CNContactPickerViewController` on iOS (out of our process),
+  `ACTION_PICK` on Android — so "we read exactly the one the picker
+  returned" has no other path to fail down, and **neither platform asks
+  for a contacts permission**. The plugin import lives in one file
+  (`lib/data/contacts/native_contact_picker.dart`) behind `ContactPicker`,
+  like the `supabase_*` / `firebase_*` rule.
+  `test/app/contacts_read_once_test.dart` holds four doors: one importer,
+  one caller (the button's handler), no enumeration API anywhere in
+  `lib/`, and no `READ_CONTACTS` / `NSContactsUsageDescription` in either
+  platform file. Mutation-checked both ways.
+  **The version is pinned exactly (`0.0.12`, no caret)** — the only
+  dependency in the project that stands next to other people's names and
+  numbers. Everything above is a property of *this build* of the plugin;
+  a minor bump could start asking for a permission nobody decided to ask
+  for. Upgrade by hand, reading the diff, with a device pass.
+  Refusal shows one line and **removes the button** — that is what "never
+  ask twice in a row" means here: there is no second ask to make. Plain
+  cancellation is silent; closing the picker is not a refusal.
+  **Never run on hardware**: `/device` step 9 covers both the iOS
+  no-prompt claim and what Android really does with no picker available —
+  the `ContactPickerDenied` mapping is read from the plugin's Kotlin, not
+  observed, and it may instead come back as a plain cancel.
 
 **D3.5 — records (built)**
 - Schema v11 `records` (SyncIdentity columns + trigger; pushed since D5.1,

@@ -25,6 +25,29 @@ most likely cause of a failure is:
    a dose past 45 minutes and interact with any notification: the cloud
    row shows `missed`.
 
+9. Contact picker (round 23), on **both** phones — none of this has ever
+   run on hardware, and both halves below are read from the plugin's
+   source, not observed:
+   a. iOS: «معلومات الطوارئ» → «عدّل» → «من جهات الاتصال». A pass is the
+      system sheet appearing **with no permission prompt at all** —
+      `CNContactPickerViewController` runs outside our process, so iOS
+      should never ask. If a prompt appears, something is reading the
+      address book rather than picking from it; stop and say so, because
+      that is the rule this feature rests on, not a cosmetic difference.
+      Then pick a contact with more than one number: it must ask which
+      number, and fill name + that number, leaving «صلة القرابة» empty.
+   b. Android: the same path, then the case with **no picker available** —
+      a device or profile with no contacts app, or the picker disabled.
+      The expected behaviour is `ContactPickerDenied` → the one line
+      «الموبايل ما سمحش لنا نفتح جهات الاتصال…», the «من جهات الاتصال»
+      button gone, and manual entry still working. **This mapping is a
+      guess from the plugin's Kotlin** (`ACTION_PICK` with no resolver);
+      it may instead return null, which would look like a plain cancel —
+      silent, no line, button still there. Report which one actually
+      happens, because the wording depends on it.
+   c. Either phone: confirm nothing else changed — the app must still ask
+      for no contacts permission anywhere in system settings.
+
 Step 4 is the one that fails silently in the real world. Say so.
 Step 8 fails silently too: an unlinked or signed-out device is meant to
 make zero network calls, so "nothing in Supabase" is a pass there, not a
