@@ -32,6 +32,7 @@ void main() {
     'متابعة',
     'الملف الصحي',
     'الإعدادات',
+    'الأدوية',
     'تسجيل الخروج',
     'تحاليل',
     'روشتات',
@@ -60,7 +61,7 @@ void main() {
     return texts..remove('');
   }
 
-  screenTest('تطبيق الابن: تلات تبويبات، ولا زرار بيكتب في بيانات الأب — على التلاتة', (tester) async {
+  screenTest('تطبيق الابن: أربع تبويبات، ولا زرار بيكتب في بيانات الأب — على الأربعة', (tester) async {
     tester.view.physicalSize = const Size(1000, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -151,16 +152,27 @@ void main() {
     );
     await settle(tester);
 
-    // اللي بيتابعه ظاهر: يومه، أدويته بقواعدها، التنبيه
+    // «متابعة» بقت عن الحالة وبس — الأدوية بقت تبويب لوحده (جولة ٢٩)
     expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
-    expect(find.text('قرص واحد — الفطار − ٣٠ د'), findsOneWidget);
     expect(find.textContaining('والدك ما أكّدش جرعة Glucophage'), findsOneWidget);
+    expect(find.text('قرص واحد — الفطار − ٣٠ د'), findsNothing,
+        reason: 'باب واحد للأوضة: القايمة اتنقلت، ما اتنسختش');
 
     // ومفيش حاجة بتتكتب
     expect(find.byType(TextField), findsNothing);
     expect(find.byType(Switch), findsNothing);
     expect(find.byType(FloatingActionButton), findsNothing);
     for (final word in ['ضيف', 'عدّل', 'وقّف', 'امسح', 'رجّعه', 'أخدته', 'تأكيد الجرعة', 'مش هاخده', 'احفظ', 'طوارئ', 'يومك']) {
+      expect(find.textContaining(word), findsNothing, reason: '«$word» مالوش مكان عند الابن');
+    }
+    expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
+
+    // تبويب الأدوية: القايمة بقواعدها، ومفيش ولا زرار بيغيّر حاجة
+    await tester.tap(find.text('الأدوية'));
+    await settle(tester);
+    expect(find.text('قرص واحد — الفطار − ٣٠ د'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    for (final word in ['ضيف', 'عدّل', 'وقّف', 'امسح', 'احفظ']) {
       expect(find.textContaining(word), findsNothing, reason: '«$word» مالوش مكان عند الابن');
     }
     expect(tappableTexts(tester).difference(allowedTaps), isEmpty);

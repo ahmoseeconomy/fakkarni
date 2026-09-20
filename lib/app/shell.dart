@@ -7,6 +7,7 @@ import '../core/widgets/fa_mark.dart';
 import '../core/widgets/dark_mode_toggle.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
+import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
 import '../features/care/caregiver_snapshot_holder.dart';
@@ -167,10 +168,12 @@ class CaregiverShell extends StatefulWidget {
   /// للاختبارات.
   final DateTime? now;
 
-  static const tabs = ['متابعة', 'الملف الصحي', 'الإعدادات'];
+  /// «الأدوية» تبويب لوحده (جولة ٢٩): القايمة دي مرجع مش حالة، وكانت
+  /// بتتزاحم مع شاشة «هو كويس؟» في آخرها. بنفس اسم وأيقونة تبويب الأب.
+  static const tabs = ['متابعة', 'الأدوية', 'الملف الصحي', 'الإعدادات'];
 
   /// تبويبات البيانات — السؤال الدوري شغّال وواحد منهم ظاهر.
-  static const dataTabs = {0, 1};
+  static const dataTabs = {0, 1, 2};
 
   @override
   State<CaregiverShell> createState() => _CaregiverShellState();
@@ -227,13 +230,19 @@ class _CaregiverShellState extends State<CaregiverShell> {
             onNotLinked: widget.onNotLinked,
             holder: holder,
           ),
+          CaregiverMedicationsScreen(holder: holder),
           CaregiverHealthScreen(holder: holder),
           const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
         ],
       ),
       bottomNavigationBar: _TabBar(
         labels: CaregiverShell.tabs,
-        icons: const [Icons.visibility_outlined, Icons.folder_outlined, Icons.settings_outlined],
+        icons: const [
+          Icons.visibility_outlined,
+          Icons.medication_outlined,
+          Icons.folder_outlined,
+          Icons.settings_outlined,
+        ],
         gapForAdd: false,
         current: _tab,
         onSelect: _select,

@@ -228,10 +228,11 @@ lib/
   features/settings/          SettingsScreen + NotificationsScreen (rung switches)
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
   features/entry/             EntryScreen «مين ماسك التليفون؟» (D4) — routes only
-  features/care/              CaregiverShell «متابعة» · «الملف الصحي» ·
-                              «الإعدادات» — the son's read-only app, one
-                              CaregiverSnapshotHolder (fetch + gated poll)
-                              read by both data tabs, straight from Supabase
+  features/care/              CaregiverShell «متابعة» · «الأدوية» ·
+                              «الملف الصحي» · «الإعدادات» — the son's
+                              read-only app, one CaregiverSnapshotHolder
+                              (fetch + gated poll) read by all three data
+                              tabs, straight from Supabase
   domain/wording/             rule_wording — «الفطار − ٣٠ د» text shared by
                               the scheduler and the son's side (no scheduling
                               import there)
@@ -248,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         969 passing
+test/                         970 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -867,14 +868,14 @@ line per `delivery_status`. Three decisions live there:
   a row he will not show — with `alert.open` as a second line for a stale
   row, and an unrecognised state counting as *not* open.
 - **Sections, each with the app's heading style** (round 28 order):
-  «تنبيهات» ← «آخر أسبوع» ← «جرعات النهارده» ← «الجديد» ← «أدويته».
+  «تنبيهات» ← «آخر أسبوع» ← «جرعات النهارده» ← «الجديد».
   Alerts stay first because an open one means a dose is being missed *now*;
   what stopped them filling the screen is that closed ones no longer exist,
   not demoting them. The alerts heading counts the **open** alerts, or a
   filtered row would leave a heading over nothing.
-  **Medicines are last on purpose**: that list is *reference* («what is he
-  on»), not *state* («is he OK today»). Between the day's doses and
-  «الجديد» it split the question from its answer.
+  **Medicines are no longer here at all** (round 29): that list is
+  *reference*, not *state*, and it became its own dock tab — see «The son
+  is not a patient» below.
   «جرعات النهارده», not «النهارده» — the week panel's today row says
   «النهارده» too, and one word for two things on one screen confuses.
 - **The week strip is seven rows, not seven columns** (round 28). «٤/١٦»
@@ -2784,7 +2785,7 @@ device-verified)**
   tomorrow either, the old «مفيش جرعات متسجّلة النهارده لسه.» stays. A week
   strip with seven empty days is one sentence instead of seven dashes:
   «لسه بدري. أول جرعة هتبان هنا أول ما تتسجّل».
-- `caregiver_shell_test` walks every tappable widget on all three tabs and
+- `caregiver_shell_test` walks every tappable widget on all four tabs and
   still allows only the tab labels and «تسجيل الخروج».
 - **The father is told.** A line under «دائرة الرعاية» (`caregiverCanSee`)
   lists exactly what a linked son sees and what he does not (emergency
@@ -2862,16 +2863,29 @@ device-verified)**
   the escalation push cannot show on Android 13+) — outside the redeem
   `try`, so a failed permission request never turns a successful link
   into «مقدرناش نكمّل».
-- **The son is not a patient.** `CaregiverShell`: two tabs, «متابعة» and
-  «الإعدادات»; no «يومك», «ضيف», dose editor, Ramadan, or «طوارئ»
-  shortcut (the father's emergency data lives on the father's phone).
-  «متابعة» shows the alert cards, the week strip, today's doses and — new —
-  the father's medicines with their rules, read from `dose_schedules` /
+- **The son is not a patient.** `CaregiverShell`: **four tabs** (round 29)
+  — «متابعة», «الأدوية», «الملف الصحي», «الإعدادات»; no «يومك», «ضيف», dose
+  editor, Ramadan, or «طوارئ» shortcut (the father's emergency data lives
+  on the father's phone).
+  «متابعة» is about **state** — alerts, the week, today's doses, «الجديد».
+  **«الأدوية» is its own dock tab, not a section on it**: that list is
+  *reference* («what is he on»), and at the foot of the state screen the
+  two crowded each other — whoever came to check on his father scrolled
+  past it, and whoever came for the medicines scrolled past everything
+  else. It carries the same label and `medication_outlined` icon as the
+  father's own dock tab; the rules are read from `dose_schedules` /
   `fixed_timings` in the cloud and worded by `domain/wording/rule_wording`
   (the same text the patient sees; the son's side still never resolves an
-  anchor). «الإعدادات» is the account (sign-out clears the push token
-  first) and «اللغة: عربي». `caregiver_shell_test` walks every tappable
-  widget on both tabs and allows only the two tabs and «تسجيل الخروج» —
+  anchor). **The section was moved, not copied** — one door per room, the
+  same rule that keeps «الملف الصحي» out of Settings, and a test asserts
+  the list does not appear on «متابعة».
+  **It is a data tab**: `dataTabs` is `{0, 1, 2}`, so entering it fetches
+  at once and the ten-second poll keeps running while it is visible. Left
+  out of that set it would show a frozen list with nothing saying so, which
+  is why `caregiver_poll_test` covers it like the other two.
+  «الإعدادات» is the account (sign-out clears the push token first) and
+  «اللغة: عربي». `caregiver_shell_test` walks every tappable widget on all
+  four tabs and allows only the tab labels and «تسجيل الخروج» —
   mutation-checked with a planted button.
 - **Not linked vs offline:** `snapshot()` returning null means "no linked
   patient" → back to the entry screen (a son whose code failed and who

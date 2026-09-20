@@ -112,7 +112,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
             padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               if (error != null) ...[
-                _Panel(text: error),
+                CaregiverPanel(text: error),
                 const SizedBox(height: F.gap),
               ],
               if (_holder.loading)
@@ -151,17 +151,6 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // «الجديد» (D5.2): تحت اللي بيجاوب «هو كويس؟» — تحليل اتضاف
                 // مش أعجل من جرعة النهارده. مترتب بالوصول، وكل سطر بتاريخه.
                 ..._newest(snapshot),
-                // أدويته وقواعدها — **آخر قسم**: دي مرجع («هو بياخد إيه»)
-                // مش حالة («هو كويس النهارده؟»). كانت واقفة بين النهارده
-                // و«الجديد»، فبتفصل السؤال عن إجابته.
-                // للقراية بس: مفيش «عدّل» ولا «وقّف» — أي زرار بيغيّر بيانات
-                // الأب مش موجود هنا خالص، مش متعطّل.
-                const FSectionHead('أدويته'),
-                if (snapshot.medications.isEmpty)
-                  const _Panel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
-                else
-                  for (final m in snapshot.medications) _MedicationRow(medication: m),
-                const SizedBox(height: F.gap),
                 if (snapshot.lastUpdated != null)
                   () {
                     // تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل
@@ -187,7 +176,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                     );
                   }(),
               ] else
-                const _Panel(
+                const CaregiverPanel(
                   text: 'لسه مفيش حاجة وصلت من موبايل والدك. '
                       'أول ما يفتح التطبيق وهو متوصّل بالنت، هتلاقي كل حاجة هنا.',
                 ),
@@ -259,10 +248,10 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
         if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == tomorrow) e,
     ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     if (tomorrows.isEmpty) {
-      return const [_Panel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
+      return const [CaregiverPanel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
     }
     return [
-      _Panel(
+      CaregiverPanel(
         key: const ValueKey('tomorrow-first'),
         text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة ${spokenTime(tomorrows.first.scheduledAt)}',
       ),
@@ -390,8 +379,8 @@ class _WeekStrip extends StatelessWidget {
   }
 }
 
-class _MedicationRow extends StatelessWidget {
-  const _MedicationRow({required this.medication});
+class CaregiverMedicationRow extends StatelessWidget {
+  const CaregiverMedicationRow({required this.medication, super.key});
 
   final CaregiverMedication medication;
 
@@ -565,8 +554,8 @@ class _AlertCard extends StatelessWidget {
   }
 }
 
-class _Panel extends StatelessWidget {
-  const _Panel({required this.text, super.key});
+class CaregiverPanel extends StatelessWidget {
+  const CaregiverPanel({required this.text, super.key});
 
   final String text;
 

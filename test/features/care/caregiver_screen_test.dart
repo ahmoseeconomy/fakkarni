@@ -376,7 +376,7 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
-    screenTest('الأقسام بترتيبها: تنبيهات ← آخر أسبوع ← جرعات النهارده ← الجديد ← أدويته',
+    screenTest('الأقسام بترتيبها: تنبيهات ← آخر أسبوع ← جرعات النهارده ← الجديد (والأدوية بقت تبويب)',
         (tester) async {
       final base = snapshot(
         [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
@@ -407,8 +407,9 @@ void main() {
       expect(y('آخر أسبوع'), lessThan(y('جرعات النهارده')));
       // وجرعات اليوم قبل «الجديد» — ده اللي الابن فاتح الشاشة عشانه.
       expect(y('جرعات النهارده'), lessThan(y('الجديد')));
-      // والأدوية آخر قسم: مرجع، مش حالة.
-      expect(y('الجديد'), lessThan(y('أدويته')));
+      // **والأدوية مابقتش قسم هنا خالص** — بقت تبويب في الدوك (جولة ٢٩).
+      // باب واحد للأوضة: القسم اتشال، ما اتنسخش.
+      expect(find.text('أدويته'), findsNothing);
       expectNoRedAndMinSize(tester);
     });
 

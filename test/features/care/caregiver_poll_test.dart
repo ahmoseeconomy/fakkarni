@@ -19,7 +19,7 @@ import 'caregiver_screen_test.dart' show FakeCaregiverRemote, event, now;
 
 /// شاشة الابن كانت بتتجمّد: موبايل الأب دفع، والابن فاضل باصص على الصورة
 /// القديمة لحد ما يقفل التطبيق ويفتحه. السؤال كل [refreshEvery] هو العلاج —
-/// بس **وتبويب بيانات ظاهر («متابعة» أو «الملف الصحي» — D5.2) والتطبيق في
+/// بس **وتبويب بيانات ظاهر («متابعة» أو «الأدوية» أو «الملف الصحي») والتطبيق في
 /// المقدمة**. `CaregiverShell` بيحتفظ بالتبويبات حية، فمن غير الشرط ده كان
 /// هيفضل يسأل السحابة وهو على الإعدادات أو والموبايل في جيبه.
 void main() {
@@ -114,6 +114,20 @@ void main() {
     expect(remote.calls, before + 1, reason: 'دخل تبويب بيانات → صورة طازة');
 
     expect(await callsOver(tester, remote, 2), 2, reason: 'سحبة واحدة لكل دورة — التبويبين بيقروا نفس الصورة');
+  });
+
+  screenTest('«الأدوية» تبويب بيانات برضه — الدخول بيسأل، والدورة شغّالة', (tester) async {
+    // تبويب جديد (جولة ٢٩) — لو اتنسي من `dataTabs`، الابن بيبص على
+    // قايمة واقفة والسؤال الدوري ساكت، من غير ما حاجة تقول له.
+    final remote = await pumpShell(tester);
+
+    final before = remote.calls;
+    await tester.tap(find.text('الأدوية'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(remote.calls, before + 1, reason: 'دخل تبويب بيانات → صورة طازة');
+
+    expect(await callsOver(tester, remote, 2), 2);
   });
 
   screenTest('التطبيق في الخلفية: ولا نداء — والرجوع للمقدمة بيرجّعه', (tester) async {
