@@ -13,7 +13,7 @@ import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
 import '../../data/services/checkup_service.dart';
 import '../../data/services/reminder_plan.dart';
-import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -344,15 +344,19 @@ class _TodayScreenState extends State<TodayScreen> {
                       // وعدّى أسبوع. حد عرض — مش حكم على المعمل.
                       final stalled = [
                         for (final r in followSnap.data ?? const <RecordRow>[])
-                          if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
-                            if (checkupIsStalled(
+                          if (CheckupService.stageOf(r) case final stage?)
+                            if (followIsStalled(
                               stage: stage,
                               stageSince: r.checkupStageSince,
                               stageDate: CheckupService.stageDateOf(r, stage),
                               now: _now,
                             ))
                               (
-                                label: 'متابعة ${r.title} واقفة عند ${stage.label}',
+                                // النوع بالاسم: «متابعة زيارة د. حسام واقفة»
+                                // تتقري صح، و«متابعة تحليل صورة دم واقفة»
+                                // كمان — قايمة واحدة فيها الاتنين.
+                                label: 'متابعة ${CheckupService.kindOf(r).word} ${r.title} '
+                                    'واقفة عند ${stage.label}',
                                 onTap: () => _openCheckup(r.id),
                               ),
                       ];
@@ -736,7 +740,7 @@ class _OpenFollowUps extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'متابعة التحاليل',
+            'المتابعات',
             style: TextStyle(
               fontFamily: F.displayFamily,
               fontSize: F.subtitleSize,
@@ -777,9 +781,12 @@ class _OpenFollowUps extends StatelessWidget {
                                     color: F.ink,
                                   ),
                                 ),
-                                if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
+                                if (CheckupService.stageOf(r) case final stage?)
                                   Text(
-                                    stage.label,
+                                    // النوع جنب المرحلة — القايمة فيها
+                                    // تحاليل وزيارات، و«الزيارة تمت» لوحدها
+                                    // ما بتقولش دي متابعة إيه.
+                                    '${CheckupService.kindOf(r).word} — ${stage.label}',
                                     style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                                   ),
                               ],

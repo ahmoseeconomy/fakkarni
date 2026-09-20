@@ -5459,6 +5459,31 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _followKindMeta = const VerificationMeta(
+    'followKind',
+  );
+  @override
+  late final GeneratedColumn<String> followKind = GeneratedColumn<String>(
+    'follow_kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _followSourceIdMeta = const VerificationMeta(
+    'followSourceId',
+  );
+  @override
+  late final GeneratedColumn<int> followSourceId = GeneratedColumn<int>(
+    'follow_source_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES records (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -5480,6 +5505,8 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
     labBookingAt,
     resultReadyAt,
     doctorVisitAt,
+    followKind,
+    followSourceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5631,6 +5658,21 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         ),
       );
     }
+    if (data.containsKey('follow_kind')) {
+      context.handle(
+        _followKindMeta,
+        followKind.isAcceptableOrUnknown(data['follow_kind']!, _followKindMeta),
+      );
+    }
+    if (data.containsKey('follow_source_id')) {
+      context.handle(
+        _followSourceIdMeta,
+        followSourceId.isAcceptableOrUnknown(
+          data['follow_source_id']!,
+          _followSourceIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5718,6 +5760,14 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}doctor_visit_at'],
       ),
+      followKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}follow_kind'],
+      ),
+      followSourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}follow_source_id'],
+      ),
     );
   }
 
@@ -5772,7 +5822,24 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
   /// بسطر هادي مش بتحذير. مفيش تخمين لأي واحد فيهم.
   final DateTime? labBookingAt;
   final DateTime? resultReadyAt;
+
+  /// وبرضه ميعاد **الزيارة** في متابعة زيارة: العمود واحد لأن المعنى واحد
+  /// («معاد الدكتور»)، والصف نوعه واحد مش الاتنين.
   final DateTime? doctorVisitAt;
+
+  /// نسخة ١٩ — نوع المتابعة: `lab` أو `visit` (أسماء [FollowKind]).
+  ///
+  /// null على صف ليه `checkup_stage` = **متابعة تحليل**، مش تخمين: قبل
+  /// الجولة دي مكانش فيه نوع تاني أصلاً. وnull على صف من غير مرحلة معناها
+  /// إن ده سجل عادي مش متابعة.
+  final String? followKind;
+
+  /// نسخة ١٩ — السجل اللي المتابعة دي اتبدت منه (تقرير تحليل، أو روشتة).
+  ///
+  /// **محلي خالص، زي `attachment_path`**: ده `id` داخلي، ومالوش معنى برّه
+  /// الموبايل ده — فمش بيترفع للسحابة ومفيش له عمود هناك. بيه بنعرف إن
+  /// التقرير ده **ليه متابعة شغّالة خلاص** فما ينفعش يبدأ تانية.
+  final int? followSourceId;
   const RecordRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -5793,6 +5860,8 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     this.labBookingAt,
     this.resultReadyAt,
     this.doctorVisitAt,
+    this.followKind,
+    this.followSourceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5842,6 +5911,12 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     if (!nullToAbsent || doctorVisitAt != null) {
       map['doctor_visit_at'] = Variable<DateTime>(doctorVisitAt);
     }
+    if (!nullToAbsent || followKind != null) {
+      map['follow_kind'] = Variable<String>(followKind);
+    }
+    if (!nullToAbsent || followSourceId != null) {
+      map['follow_source_id'] = Variable<int>(followSourceId);
+    }
     return map;
   }
 
@@ -5890,6 +5965,12 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       doctorVisitAt: doctorVisitAt == null && nullToAbsent
           ? const Value.absent()
           : Value(doctorVisitAt),
+      followKind: followKind == null && nullToAbsent
+          ? const Value.absent()
+          : Value(followKind),
+      followSourceId: followSourceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(followSourceId),
     );
   }
 
@@ -5924,6 +6005,8 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       labBookingAt: serializer.fromJson<DateTime?>(json['labBookingAt']),
       resultReadyAt: serializer.fromJson<DateTime?>(json['resultReadyAt']),
       doctorVisitAt: serializer.fromJson<DateTime?>(json['doctorVisitAt']),
+      followKind: serializer.fromJson<String?>(json['followKind']),
+      followSourceId: serializer.fromJson<int?>(json['followSourceId']),
     );
   }
   @override
@@ -5951,6 +6034,8 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       'labBookingAt': serializer.toJson<DateTime?>(labBookingAt),
       'resultReadyAt': serializer.toJson<DateTime?>(resultReadyAt),
       'doctorVisitAt': serializer.toJson<DateTime?>(doctorVisitAt),
+      'followKind': serializer.toJson<String?>(followKind),
+      'followSourceId': serializer.toJson<int?>(followSourceId),
     };
   }
 
@@ -5974,6 +6059,8 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     Value<DateTime?> labBookingAt = const Value.absent(),
     Value<DateTime?> resultReadyAt = const Value.absent(),
     Value<DateTime?> doctorVisitAt = const Value.absent(),
+    Value<String?> followKind = const Value.absent(),
+    Value<int?> followSourceId = const Value.absent(),
   }) => RecordRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -6004,6 +6091,10 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     doctorVisitAt: doctorVisitAt.present
         ? doctorVisitAt.value
         : this.doctorVisitAt,
+    followKind: followKind.present ? followKind.value : this.followKind,
+    followSourceId: followSourceId.present
+        ? followSourceId.value
+        : this.followSourceId,
   );
   RecordRow copyWithCompanion(RecordsCompanion data) {
     return RecordRow(
@@ -6046,6 +6137,12 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
       doctorVisitAt: data.doctorVisitAt.present
           ? data.doctorVisitAt.value
           : this.doctorVisitAt,
+      followKind: data.followKind.present
+          ? data.followKind.value
+          : this.followKind,
+      followSourceId: data.followSourceId.present
+          ? data.followSourceId.value
+          : this.followSourceId,
     );
   }
 
@@ -6070,13 +6167,15 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
           ..write('checkupStageSince: $checkupStageSince, ')
           ..write('labBookingAt: $labBookingAt, ')
           ..write('resultReadyAt: $resultReadyAt, ')
-          ..write('doctorVisitAt: $doctorVisitAt')
+          ..write('doctorVisitAt: $doctorVisitAt, ')
+          ..write('followKind: $followKind, ')
+          ..write('followSourceId: $followSourceId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     uuid,
     updatedAtMs,
     syncedAtMs,
@@ -6096,7 +6195,9 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
     labBookingAt,
     resultReadyAt,
     doctorVisitAt,
-  );
+    followKind,
+    followSourceId,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6119,7 +6220,9 @@ class RecordRow extends DataClass implements Insertable<RecordRow> {
           other.checkupStageSince == this.checkupStageSince &&
           other.labBookingAt == this.labBookingAt &&
           other.resultReadyAt == this.resultReadyAt &&
-          other.doctorVisitAt == this.doctorVisitAt);
+          other.doctorVisitAt == this.doctorVisitAt &&
+          other.followKind == this.followKind &&
+          other.followSourceId == this.followSourceId);
 }
 
 class RecordsCompanion extends UpdateCompanion<RecordRow> {
@@ -6142,6 +6245,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
   final Value<DateTime?> labBookingAt;
   final Value<DateTime?> resultReadyAt;
   final Value<DateTime?> doctorVisitAt;
+  final Value<String?> followKind;
+  final Value<int?> followSourceId;
   const RecordsCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -6162,6 +6267,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     this.labBookingAt = const Value.absent(),
     this.resultReadyAt = const Value.absent(),
     this.doctorVisitAt = const Value.absent(),
+    this.followKind = const Value.absent(),
+    this.followSourceId = const Value.absent(),
   });
   RecordsCompanion.insert({
     this.uuid = const Value.absent(),
@@ -6183,6 +6290,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     this.labBookingAt = const Value.absent(),
     this.resultReadyAt = const Value.absent(),
     this.doctorVisitAt = const Value.absent(),
+    this.followKind = const Value.absent(),
+    this.followSourceId = const Value.absent(),
   }) : patientId = Value(patientId),
        kind = Value(kind),
        title = Value(title),
@@ -6207,6 +6316,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     Expression<DateTime>? labBookingAt,
     Expression<DateTime>? resultReadyAt,
     Expression<DateTime>? doctorVisitAt,
+    Expression<String>? followKind,
+    Expression<int>? followSourceId,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -6228,6 +6339,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
       if (labBookingAt != null) 'lab_booking_at': labBookingAt,
       if (resultReadyAt != null) 'result_ready_at': resultReadyAt,
       if (doctorVisitAt != null) 'doctor_visit_at': doctorVisitAt,
+      if (followKind != null) 'follow_kind': followKind,
+      if (followSourceId != null) 'follow_source_id': followSourceId,
     });
   }
 
@@ -6251,6 +6364,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     Value<DateTime?>? labBookingAt,
     Value<DateTime?>? resultReadyAt,
     Value<DateTime?>? doctorVisitAt,
+    Value<String?>? followKind,
+    Value<int?>? followSourceId,
   }) {
     return RecordsCompanion(
       uuid: uuid ?? this.uuid,
@@ -6272,6 +6387,8 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
       labBookingAt: labBookingAt ?? this.labBookingAt,
       resultReadyAt: resultReadyAt ?? this.resultReadyAt,
       doctorVisitAt: doctorVisitAt ?? this.doctorVisitAt,
+      followKind: followKind ?? this.followKind,
+      followSourceId: followSourceId ?? this.followSourceId,
     );
   }
 
@@ -6337,6 +6454,12 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
     if (doctorVisitAt.present) {
       map['doctor_visit_at'] = Variable<DateTime>(doctorVisitAt.value);
     }
+    if (followKind.present) {
+      map['follow_kind'] = Variable<String>(followKind.value);
+    }
+    if (followSourceId.present) {
+      map['follow_source_id'] = Variable<int>(followSourceId.value);
+    }
     return map;
   }
 
@@ -6361,7 +6484,9 @@ class RecordsCompanion extends UpdateCompanion<RecordRow> {
           ..write('checkupStageSince: $checkupStageSince, ')
           ..write('labBookingAt: $labBookingAt, ')
           ..write('resultReadyAt: $resultReadyAt, ')
-          ..write('doctorVisitAt: $doctorVisitAt')
+          ..write('doctorVisitAt: $doctorVisitAt, ')
+          ..write('followKind: $followKind, ')
+          ..write('followSourceId: $followSourceId')
           ..write(')'))
         .toString();
   }
@@ -12520,6 +12645,8 @@ typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
   Value<DateTime?> labBookingAt,
   Value<DateTime?> resultReadyAt,
   Value<DateTime?> doctorVisitAt,
+  Value<String?> followKind,
+  Value<int?> followSourceId,
 });
 typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<String> uuid,
@@ -12541,6 +12668,8 @@ typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<DateTime?> labBookingAt,
   Value<DateTime?> resultReadyAt,
   Value<DateTime?> doctorVisitAt,
+  Value<String?> followKind,
+  Value<int?> followSourceId,
 });
 
 final class $$RecordsTableReferences
@@ -12558,6 +12687,23 @@ final class $$RecordsTableReferences
       $_db.patients,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $RecordsTable _followSourceIdTable(_$AppDatabase db) =>
+      db.records.createAlias('records__follow_source_id__records__id');
+
+  $$RecordsTableProcessedTableManager? get followSourceId {
+    final $_column = $_itemColumn<int>('follow_source_id');
+    if ($_column == null) return null;
+    final manager = $$RecordsTableTableManager(
+      $_db,
+      $_db.records,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_followSourceIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -12683,6 +12829,11 @@ class $$RecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get followKind => $composableBuilder(
+    column: $table.followKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$PatientsTableFilterComposer get patientId {
     final $$PatientsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -12697,6 +12848,29 @@ class $$RecordsTableFilterComposer
           }) => $$PatientsTableFilterComposer(
             $db: $db,
             $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecordsTableFilterComposer get followSourceId {
+    final $$RecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.followSourceId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.records,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -12831,6 +13005,11 @@ class $$RecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get followKind => $composableBuilder(
+    column: $table.followKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$PatientsTableOrderingComposer get patientId {
     final $$PatientsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12845,6 +13024,29 @@ class $$RecordsTableOrderingComposer
           }) => $$PatientsTableOrderingComposer(
             $db: $db,
             $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecordsTableOrderingComposer get followSourceId {
+    final $$RecordsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.followSourceId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableOrderingComposer(
+            $db: $db,
+            $table: $db.records,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -12938,6 +13140,11 @@ class $$RecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get followKind => $composableBuilder(
+    column: $table.followKind,
+    builder: (column) => column,
+  );
+
   $$PatientsTableAnnotationComposer get patientId {
     final $$PatientsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -12952,6 +13159,29 @@ class $$RecordsTableAnnotationComposer
           }) => $$PatientsTableAnnotationComposer(
             $db: $db,
             $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$RecordsTableAnnotationComposer get followSourceId {
+    final $$RecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.followSourceId,
+      referencedTable: $db.records,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.records,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -13000,7 +13230,11 @@ class $$RecordsTableTableManager
           $$RecordsTableUpdateCompanionBuilder,
           (RecordRow, $$RecordsTableReferences),
           RecordRow,
-          PrefetchHooks Function({bool patientId, bool labResultsRefs})
+          PrefetchHooks Function({
+            bool patientId,
+            bool followSourceId,
+            bool labResultsRefs,
+          })
         > {
   $$RecordsTableTableManager(_$AppDatabase db, $RecordsTable table)
     : super(
@@ -13034,6 +13268,8 @@ class $$RecordsTableTableManager
                 Value<DateTime?> labBookingAt = const Value.absent(),
                 Value<DateTime?> resultReadyAt = const Value.absent(),
                 Value<DateTime?> doctorVisitAt = const Value.absent(),
+                Value<String?> followKind = const Value.absent(),
+                Value<int?> followSourceId = const Value.absent(),
               }) => RecordsCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -13054,6 +13290,8 @@ class $$RecordsTableTableManager
                 labBookingAt: labBookingAt,
                 resultReadyAt: resultReadyAt,
                 doctorVisitAt: doctorVisitAt,
+                followKind: followKind,
+                followSourceId: followSourceId,
               ),
           createCompanionCallback:
               ({
@@ -13076,6 +13314,8 @@ class $$RecordsTableTableManager
                 Value<DateTime?> labBookingAt = const Value.absent(),
                 Value<DateTime?> resultReadyAt = const Value.absent(),
                 Value<DateTime?> doctorVisitAt = const Value.absent(),
+                Value<String?> followKind = const Value.absent(),
+                Value<int?> followSourceId = const Value.absent(),
               }) => RecordsCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -13096,6 +13336,8 @@ class $$RecordsTableTableManager
                 labBookingAt: labBookingAt,
                 resultReadyAt: resultReadyAt,
                 doctorVisitAt: doctorVisitAt,
+                followKind: followKind,
+                followSourceId: followSourceId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -13105,64 +13347,83 @@ class $$RecordsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({patientId = false, labResultsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (labResultsRefs) db.labResults],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (patientId) {
-                      state = state.withJoin(
-                        currentTable: table,
-                        currentColumn: table.patientId,
-                        referencedTable: $$RecordsTableReferences
-                            ._patientIdTable(db),
-                        referencedColumn: $$RecordsTableReferences
-                            ._patientIdTable(db)
-                            .id,
-                      ) as T;
-                    }
+          prefetchHooksCallback:
+              ({
+                patientId = false,
+                followSourceId = false,
+                labResultsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [if (labResultsRefs) db.labResults],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (patientId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.patientId,
+                            referencedTable: $$RecordsTableReferences
+                                ._patientIdTable(db),
+                            referencedColumn: $$RecordsTableReferences
+                                ._patientIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (followSourceId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.followSourceId,
+                            referencedTable: $$RecordsTableReferences
+                                ._followSourceIdTable(db),
+                            referencedColumn: $$RecordsTableReferences
+                                ._followSourceIdTable(db)
+                                .id,
+                          ) as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (labResultsRefs)
+                        await $_getPrefetchedData<
+                          RecordRow,
+                          $RecordsTable,
+                          LabResultRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$RecordsTableReferences
+                              ._labResultsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$RecordsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).labResultsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.recordId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (labResultsRefs)
-                    await $_getPrefetchedData<
-                      RecordRow,
-                      $RecordsTable,
-                      LabResultRow
-                    >(
-                      currentTable: table,
-                      referencedTable: $$RecordsTableReferences
-                          ._labResultsRefsTable(db),
-                      managerFromTypedResult: (p0) => $$RecordsTableReferences(
-                        db,
-                        table,
-                        p0,
-                      ).labResultsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.recordId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -13179,7 +13440,11 @@ typedef $$RecordsTableProcessedTableManager =
       $$RecordsTableUpdateCompanionBuilder,
       (RecordRow, $$RecordsTableReferences),
       RecordRow,
-      PrefetchHooks Function({bool patientId, bool labResultsRefs})
+      PrefetchHooks Function({
+        bool patientId,
+        bool followSourceId,
+        bool labResultsRefs,
+      })
     >;
 typedef $$ReadingsTableCreateCompanionBuilder = ReadingsCompanion Function({
   Value<String> uuid,

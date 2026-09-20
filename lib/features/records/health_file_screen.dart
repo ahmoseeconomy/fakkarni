@@ -8,7 +8,8 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/records_repository.dart';
-import '../../domain/health/checkup.dart';
+import '../../data/services/checkup_service.dart';
+import '../../domain/health/follow_up.dart';
 import '../doctor/doctor_page_screen.dart';
 import '../export/export_screen.dart';
 import 'calendar_screen.dart';
@@ -17,6 +18,7 @@ import 'records_empty.dart';
 import 'history_screen.dart';
 import 'manual_entry_screen.dart';
 import 'attachment_viewer.dart';
+import 'start_follow_up.dart';
 import 'record_kinds.dart';
 
 /// «الملف الصحي» (المخطط ١٣): بحث بالاسم والدكتور والتاريخ، و«⋯ خيارات»
@@ -68,15 +70,69 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
       );
 
   /// اسم الفحص (والدكتور لو معروف) → مرحلة ١ «طلب الطبيب».
-  Future<void> _startCheckup() async {
+  /// **تلات طرق تبدأ بيها متابعة** — من الملف، من صورة جديدة، أو بالإيد.
+  Future<void> _startFollowUp(FollowKind kind) async {
+    final way = await askStartWay(context, kind);
+    if (way == null || !mounted) return;
+    switch (way) {
+      case StartFollowUpWay.fromFile:
+        await _startFromFile(kind);
+      case StartFollowUpWay.fromPhoto:
+        await _startFromPhoto(kind);
+      case StartFollowUpWay.byHand:
+        await _startByHand(kind);
+    }
+  }
+
+  /// السجل اللي في الملف معاه بياناته خلاص — الاسم والدكتور والتاريخ —
+  /// فالمتابعة بتشيلهم وما بنسألش عن حاجة إحنا عارفينها.
+  Future<void> _startFromFile(FollowKind kind) async {
+    final picked = await pickSource(context, kind, today: widget.today);
+    if (picked == null || !mounted) return;
+    if (picked.alreadyFollowed) {
+      // ورقة واحدة بمتابعة واحدة — بنفتح اللي موجودة مش بنبدأ تانية.
+      final open = await AppScope.of(context).checkups.openFollowUpFor(picked.recordId);
+      if (open != null && mounted) _openCheckup(open.id);
+      return;
+    }
+    await _startFrom(picked.recordId, kind);
+  }
+
+  Future<void> _startFromPhoto(FollowKind kind) async {
+    final recordId = await scanForFollowUp(context, kind, today: widget.today);
+    if (recordId == null || !mounted) return;
+    await _startFrom(recordId, kind);
+  }
+
+  Future<void> _startFrom(int sourceId, FollowKind kind) async {
+    final services = AppScope.of(context);
+    final source = await (services.db.select(services.db.records)
+          ..where((t) => t.id.equals(sourceId)))
+        .getSingleOrNull();
+    if (source == null || !mounted) return;
+    final id = await services.checkups.start(
+      patientId: services.patientId,
+      kind: kind,
+      title: followTitleFrom(kind, source),
+      doctor: source.doctor,
+      place: source.place,
+      happenedAt: source.happenedAt,
+      fromRecordId: sourceId,
+      today: widget.today ?? DateTime.now(),
+    );
+    if (mounted) _openCheckup(id);
+  }
+
+  Future<void> _startByHand(FollowKind kind) async {
     final services = AppScope.of(context);
     final result = await showDialog<({String title, String doctor})>(
       context: context,
-      builder: (_) => const _StartCheckupDialog(),
+      builder: (_) => _StartCheckupDialog(kind: kind),
     );
     if (result == null || result.title.trim().isEmpty || !mounted) return;
     final id = await services.checkups.start(
       patientId: services.patientId,
+      kind: kind,
       title: result.title,
       doctor: result.doctor,
       today: widget.today ?? DateTime.now(),
@@ -201,14 +257,32 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     ),
                   ),
                   const SizedBox(width: F.s10),
-                  Expanded(child: FSecondaryButton(label: 'تابع تحليل', onPressed: _startCheckup)),
+                  Expanded(
+                    child: FSecondaryButton(
+                      key: const ValueKey('start-follow-lab'),
+                      label: FollowKind.lab.startLabel,
+                      onPressed: () => _startFollowUp(FollowKind.lab),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: F.s10),
+              Row(
+                children: [
+                  Expanded(
+                    child: FSecondaryButton(
+                      key: const ValueKey('start-follow-visit'),
+                      label: FollowKind.visit.startLabel,
+                      onPressed: () => _startFollowUp(FollowKind.visit),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: F.s6),
-              // سطر واحد بيقول الزرار بيعمل إيه — «تابع تحليل» لوحدها
+              // سطر واحد بيقول الزرارين بيعملوا إيه — «تابع تحليل» لوحدها
               // ممكن تتقري «سجّل تحليل».
               Text(
-                'نمشي معاك من طلب الدكتور لحد ما النتيجة توصله.',
+                'نمشي معاك من طلب الدكتور لحد ما النتيجة توصله، ومن حجز الزيارة لحد ما تتم.',
                 key: const ValueKey('follow-lab-why'),
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
@@ -326,9 +400,11 @@ class RecordSummary extends StatelessWidget {
         ),
         const SizedBox(height: F.s4),
         Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
-        if (CheckupStage.fromNumber(r.checkupStage) case final stage?)
+        // النوع بيحدد عدد المراحل: التحليل سبعة، والزيارة تلاتة.
+        if (CheckupService.stageOf(r) case final stage?)
           Text(
-            'متابعة — ${arabicNumber(stage.number)} من ${arabicNumber(CheckupStage.values.length)}: ${stage.label}',
+            'متابعة ${CheckupService.kindOf(r).word} — ${arabicNumber(stage.number)} '
+            'من ${arabicNumber(CheckupService.kindOf(r).stages.length)}: ${stage.label}',
             style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
           ),
       ],
@@ -337,7 +413,9 @@ class RecordSummary extends StatelessWidget {
 }
 
 class _StartCheckupDialog extends StatefulWidget {
-  const _StartCheckupDialog();
+  const _StartCheckupDialog({required this.kind});
+
+  final FollowKind kind;
 
   @override
   State<_StartCheckupDialog> createState() => _StartCheckupDialogState();
@@ -357,7 +435,10 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
         backgroundColor: F.dialogGround,
-        title: const Text('متابعة تحليل جديدة', style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+        title: Text(
+          widget.kind == FollowKind.lab ? 'متابعة تحليل جديدة' : 'متابعة زيارة جديدة',
+          style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -365,13 +446,18 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
               key: const ValueKey('checkup-title'),
               controller: _title,
               style: const TextStyle(fontSize: F.minBodySize),
-              decoration: const InputDecoration(labelText: 'اسم الفحص', hintText: 'مثلاً: صورة دم كاملة'),
+              decoration: InputDecoration(
+                labelText: widget.kind == FollowKind.lab ? 'اسم الفحص' : 'الزيارة عند مين؟',
+                hintText: widget.kind == FollowKind.lab ? 'مثلاً: صورة دم كاملة' : 'مثلاً: د. حسام',
+              ),
             ),
-            TextField(
-              controller: _doctor,
-              style: const TextStyle(fontSize: F.minBodySize),
-              decoration: const InputDecoration(labelText: 'الدكتور اللي طلبه'),
-            ),
+            // الزيارة اسمها هو الدكتور نفسه، فمفيش حقل تاني يتكتب مرتين.
+            if (widget.kind == FollowKind.lab)
+              TextField(
+                controller: _doctor,
+                style: const TextStyle(fontSize: F.minBodySize),
+                decoration: const InputDecoration(labelText: 'الدكتور اللي طلبه'),
+              ),
           ],
         ),
         actions: [
@@ -381,7 +467,10 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
               FPrimaryButton(
                 key: const ValueKey('checkup-start'),
                 label: 'ابدأ',
-                onPressed: () => Navigator.of(context).pop((title: _title.text, doctor: _doctor.text)),
+                onPressed: () => Navigator.of(context).pop((
+                  title: _title.text,
+                  doctor: widget.kind == FollowKind.lab ? _doctor.text : _title.text,
+                )),
               ),
             ],
           ),

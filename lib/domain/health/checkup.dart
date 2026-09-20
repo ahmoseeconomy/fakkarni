@@ -7,7 +7,9 @@
 // الأسماء في الكود (`CheckupStage`، `records.checkup_stage`) زي ما هي —
 // دي لغة الكود، والجولة دي كانت عن اللي الراجل بيقراه.
 
-enum CheckupStage {
+import 'follow_up.dart';
+
+enum CheckupStage implements FollowStage {
   doctorOrder('طلب الطبيب'),
   labBooking('حجز المعمل', dateQuestion: 'حجزت إمتى؟'),
   preparation('التحضير'),
@@ -18,6 +20,7 @@ enum CheckupStage {
 
   const CheckupStage(this.label, {this.dateQuestion});
 
+  @override
   final String label;
 
   /// المرحلة دي بتسأل عن تاريخ؟ والسؤال نفسه.
@@ -25,11 +28,14 @@ enum CheckupStage {
   /// **إحنا ما بنفترضش المرحلة بتاخد قد إيه** — ده رقم ماحدش قاله لنا.
   /// بدل ما نخمّن، الإنسان بيقول لنا، وساعتها بس بيبقى فيه تذكير.
   /// null = المرحلة دي مالهاش ميعاد نسأل عنه.
+  @override
   final String? dateQuestion;
 
+  @override
   bool get asksForDate => dateQuestion != null;
 
   /// ١..٧ — زي ما بيتخزّن في `records.checkup_stage`.
+  @override
   int get number => index + 1;
 
   static CheckupStage? fromNumber(int? n) =>

@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         923 passing
+test/                         945 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1436,6 +1436,31 @@ So: when you add a shared assertion, add the fixture that makes it fail on
 the same day. When you meet one that has never fired, treat it as untested
 code, because that is what it is.
 
+**The test harness has a required shape, and breaking it fails as a hang,
+not as an error.** `testWidgets` runs the body inside a fake-async zone.
+Step outside what that zone can drive and the test does not fail — it
+stops, with no message, no stack, and **no reaction to `--timeout`**. It
+looks exactly like a slow machine. Twice now:
+
+- **Real file IO awaited outside `tester.runAsync`.** `await store.save(…)`
+  in a test body never returns: the completion needs the real event loop,
+  which the fake zone is not pumping. Every direct file operation in a
+  widget test goes through a `runAsync` wrapper — see the `io()` helper in
+  `test/features/records/attachment_test.dart` and the comment above it.
+- **Plain `testWidgets` instead of the project's `screenTest`.** Any screen
+  holding a drift stream leaves a `StreamQueryStore` timer pending at
+  teardown; `screenTest` (in `test/features/scan/scan_test_support.dart`)
+  pumps an empty tree and drains it. Without it the round-24 follow-up
+  tests hung — all of them, silently. **Use `screenTest` for anything that
+  pumps a screen**; reach for bare `testWidgets` only for a widget with no
+  streams and no IO.
+
+The tell is the same in both cases: **a test that hangs is usually a test
+doing something the harness cannot drive, not a test that is slow.** Before
+hunting for an infinite loop in the code under test, check what the body
+awaits — and remember `pumpAndSettle` is a third way into this, which is
+why no test on a patient screen calls it (the water drop animates forever).
+
 ---
 
 ## Current state
@@ -2087,6 +2112,44 @@ screen — and they are different screens on purpose.**
   tapping through to the screen. Nothing renders when there are none — a
   follow-up nobody sees is a follow-up nobody does, and an empty section
   saying "none" is the opposite problem.
+- **متابعة زيارة جنب متابعة التحليل، وتلات طرق تبدأ بيهم (round 24).**
+  `FollowKind` (`lab` | `visit`, schema v19 `records.follow_kind`, cloud
+  `0017`) picks which stage list `records.checkup_stage` is read against —
+  the number 2 is «حجز المعمل» in a lab and «الزيارة تمت» in a visit.
+  **null means `lab`, and that is not a guess**: before this round no other
+  kind existed, so every old row with a stage was a lab follow-up.
+  `FollowStage` is the one interface both `CheckupStage` and `VisitStage`
+  implement, so the service and the screen branch once, not per line.
+- **A visit has three stages — «الزيارة اتحجزت» ← «الزيارة تمت» ←
+  «المتابعة» — and no more.** Copying the lab's seven would have invented a
+  preparation and a waiting the man does not live. «الزيارة اتحجزت» is the
+  only dated stage: same `DayPicker`, same `checkupIdFor(record, slot)`
+  (slot 0 — a row is one kind, so it cannot collide with «حجز المعمل»),
+  same `checkupPendingSlack` cap, same cancel on back / on advance / on
+  stop. Its instant reuses `doctor_visit_at` because the meaning is the
+  same one appointment.
+- **After «الزيارة تمت» it asks once whether the doctor ordered a test**,
+  and yes starts a «تابع تحليل» carrying the same doctor. «Once» needs no
+  column: the question lives in the *advance action*, not in the screen, so
+  reopening never re-asks. A visit that produced nothing stops at
+  «المتابعة» like any last stage — nothing is deleted.
+- **Three ways in, in this order: from the file, from a photo, by hand.**
+  A lab follow-up starts from a lab report, a visit from a prescription —
+  carrying its name/doctor/clinic and **the paper's date**, not today's.
+  The scan path returns the record it wrote through a new `onSaved(id)` on
+  `ScanLabScreen` / `ScanPrescriptionScreen`, so the confirmed report
+  starts the follow-up in the same step.
+  **The source record is never converted into the follow-up**: it holds
+  results that already happened, and a row starting at «طلب الطبيب» with
+  results on it contradicts itself. A new row points back through
+  `follow_source_id`, which is also how «this paper is already followed»
+  has an answer — a second follow-up on one paper would leave both of them
+  partial. `follow_source_id` is **local only** (an internal int id, like
+  `attachment_path`); `health_file_sync_guard_test` fails if the name
+  reaches any cloud payload, comments included.
+- **One «يومك» section for both**, «المتابعات», each row reading
+  «{النوع} — {المرحلة}», and one stalled line naming the kind so
+  «متابعة زيارة د. حسام واقفة عند الزيارة اتحجزت» reads correctly.
 - **Band `50_000_000` is claimed** (`checkupIdBase` / `checkupIdFor(recordId,
   stageSlot)` / `isCheckupId`), one id per (record, stage) — `base +
   recordId * 3 + slot`, throwing past the band, and deliberately **not** in

@@ -209,7 +209,24 @@ class Records extends Table with SyncIdentity {
   /// بسطر هادي مش بتحذير. مفيش تخمين لأي واحد فيهم.
   DateTimeColumn get labBookingAt => dateTime().nullable()();
   DateTimeColumn get resultReadyAt => dateTime().nullable()();
+
+  /// وبرضه ميعاد **الزيارة** في متابعة زيارة: العمود واحد لأن المعنى واحد
+  /// («معاد الدكتور»)، والصف نوعه واحد مش الاتنين.
   DateTimeColumn get doctorVisitAt => dateTime().nullable()();
+
+  /// نسخة ١٩ — نوع المتابعة: `lab` أو `visit` (أسماء [FollowKind]).
+  ///
+  /// null على صف ليه `checkup_stage` = **متابعة تحليل**، مش تخمين: قبل
+  /// الجولة دي مكانش فيه نوع تاني أصلاً. وnull على صف من غير مرحلة معناها
+  /// إن ده سجل عادي مش متابعة.
+  TextColumn get followKind => text().nullable()();
+
+  /// نسخة ١٩ — السجل اللي المتابعة دي اتبدت منه (تقرير تحليل، أو روشتة).
+  ///
+  /// **محلي خالص، زي `attachment_path`**: ده `id` داخلي، ومالوش معنى برّه
+  /// الموبايل ده — فمش بيترفع للسحابة ومفيش له عمود هناك. بيه بنعرف إن
+  /// التقرير ده **ليه متابعة شغّالة خلاص** فما ينفعش يبدأ تانية.
+  IntColumn get followSourceId => integer().nullable().references(Records, #id)();
 }
 
 /// سياق قياس السكر — الاتنين بس.

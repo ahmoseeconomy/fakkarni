@@ -8,6 +8,7 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/services/checkup_service.dart';
 import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../onboarding/time_wheel.dart';
 
@@ -65,23 +66,23 @@ class _CheckupScreenState extends State<CheckupScreen> {
       FastingResult.badHours => 'اكتب عدد الساعات اللي المعمل قالها.',
     };
     if (text != null) {
-      messenger.showSnackBar(SnackBar(content: Text(text, style: const TextStyle(fontSize: F.minBodySize))));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(text, style: const TextStyle(fontSize: F.minBodySize)),
+        ),
+      );
     }
   }
 
   /// ميعاد المرحلة — **نفس منتقي اليوم بتاع شيت الصيام**، مش تاني.
-  Future<void> _pickStageDate(RecordRow row, CheckupStage stage) async {
+  Future<void> _pickStageDate(RecordRow row, FollowStage stage) async {
     final checkups = _checkups;
     final messenger = ScaffoldMessenger.of(context);
     final day = await showModalBottomSheet<DateTime>(
       context: context,
       isScrollControlled: true,
       backgroundColor: F.pageGround,
-      builder: (_) => _StageDateSheet(
-        stage: stage,
-        now: _now,
-        initial: CheckupService.stageDateOf(row, stage),
-      ),
+      builder: (_) => _StageDateSheet(stage: stage, now: _now, initial: CheckupService.stageDateOf(row, stage)),
     );
     if (day == null) return;
     final result = await checkups.setStageDate(row.id, stage, day: day, now: _now);
@@ -91,7 +92,77 @@ class _CheckupScreenState extends State<CheckupScreen> {
       StageDateResult.tooMany => 'فيه ميعادين متظبطين في متابعات تانية — شيل واحد الأول.',
     };
     if (text != null) {
-      messenger.showSnackBar(SnackBar(content: Text(text, style: const TextStyle(fontSize: F.minBodySize))));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(text, style: const TextStyle(fontSize: F.minBodySize)),
+        ),
+      );
+    }
+  }
+
+  /// التقدّم خطوة. **وفي الزيارة فيه سؤال واحد بس**، مرة واحدة: بعد
+  /// «الزيارة تمت»، هل الدكتور طلب تحليل؟ أيوه → بتبدأ «تابع تحليل»
+  /// باسم نفس الدكتور. لأ → الزيارة بتقفل عند «المتابعة» وخلاص.
+  ///
+  /// السؤال جزء من الدوسة مش من الشاشة، فهو **بيتسأل مرة** بطبيعته —
+  /// مفيش عمود بيفتكر إننا سألنا، ومفيش سؤال بيتكرر كل مرة يفتحها.
+  Future<void> _advance(RecordRow row, FollowStage stage) async {
+    final checkups = _checkups;
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+    final asksAboutTest = CheckupService.kindOf(row) == FollowKind.visit && stage == VisitStage.done;
+    await checkups.advance(row.id, now: _now);
+    if (!asksAboutTest || !mounted) return;
+
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: F.dialogGround,
+        title: const Text(
+          'الدكتور طلب تحليل؟',
+          style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
+        ),
+        content: const Text(
+          'لو طلب، نبدأ معاك متابعة للتحليل على طول. ولو مطلبش، الزيارة كده خلصت.',
+          style: TextStyle(fontSize: F.minBodySize, height: 1.5),
+        ),
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FPrimaryButton(
+                key: const ValueKey('visit-test-yes'),
+                label: 'أيوه، طلب تحليل',
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: const ValueKey('visit-test-no'),
+                label: 'لأ، مطلبش',
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!(yes ?? false)) return;
+
+    // **الاسم بيتسأل بعدين على شاشة التحليل**: الورقة لسه في إيده، وإحنا
+    // ما بنخترعش اسم فحص. اللي بنشيله هو الدكتور — ده اللي إحنا عارفينه.
+    final id = await checkups.start(
+      patientId: services.patientId,
+      kind: FollowKind.lab,
+      title: row.doctor?.trim().isNotEmpty ?? false ? 'تحليل طلبه ${row.doctor!.trim()}' : 'تحليل',
+      doctor: row.doctor,
+      today: _now,
+    );
+    if (mounted) {
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => CheckupScreen(recordId: id, now: widget.now),
+        ),
+      );
     }
   }
 
@@ -102,7 +173,10 @@ class _CheckupScreenState extends State<CheckupScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: F.dialogGround,
-        title: Text('توقّف متابعة «${row.title}»؟', style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+        title: Text(
+          'توقّف متابعة «${row.title}»؟',
+          style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
+        ),
         content: const Text(
           'هتتمسح من الملف خالص ومش هتقدر ترجّعها، والتذكيرات بتاعتها — لو فيه — بتتلغي.',
           style: TextStyle(fontSize: F.minBodySize, height: 1.5),
@@ -111,7 +185,11 @@ class _CheckupScreenState extends State<CheckupScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FPrimaryButton(key: const ValueKey('stop-confirm'), label: 'أيوه، وقّفها', onPressed: () => Navigator.of(context).pop(true)),
+              FPrimaryButton(
+                key: const ValueKey('stop-confirm'),
+                label: 'أيوه، وقّفها',
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
               const SizedBox(height: F.s8),
               FSecondaryButton(label: 'لأ، كمّل', onPressed: () => Navigator.of(context).pop(false)),
             ],
@@ -127,97 +205,123 @@ class _CheckupScreenState extends State<CheckupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('متابعة التحليل')),
-      body: StreamBuilder<RecordRow?>(
-        stream: _row,
-        builder: (context, snap) {
-          final row = snap.data;
-          final stage = CheckupStage.fromNumber(row?.checkupStage);
-          if (row == null || stage == null) return const SizedBox.shrink();
-          final reminder = row.fastingReminderAt;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
-            children: [
-              Text(
-                '${row.title} — ${arabicNumber(CheckupStage.values.length)} مراحل',
-                textDirection: nameDirection(row.title),
-                style: TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize, fontWeight: FontWeight.w700, color: F.ink),
-              ),
-              const SizedBox(height: F.s4),
-              Text(
-                'التحليل مش ميعاد واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين.',
-                key: ValueKey('checkup-why'),
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-              ),
-              const SizedBox(height: F.gap),
-              for (final s in CheckupStage.values)
-                _StageRow(
-                  stage: s,
-                  current: stage,
-                  last: s == CheckupStage.values.last,
-                  detail: s == CheckupStage.sampleDraw && reminder != null
-                      ? '${arabicDate(row.happenedAt)} — ${arabicTime(row.happenedAt)}'
-                      : null,
-                  children: s != stage
-                      ? const []
-                      : [
-                          const SizedBox(height: F.s10),
-                          if (stage.next != null)
-                            FPrimaryButton(
-                              key: const ValueKey('checkup-advance'),
-                              label: 'خلصت — على «${stage.next!.label}»',
-                              onPressed: () => _checkups.advance(row.id),
-                            ),
-                          if (stage.next == null)
-                            const Text(
-                              'ده آخر مرحلة.',
-                              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.greenDeep),
-                            ),
-                          if (stage.asksForDate) ...[
-                            const SizedBox(height: F.s8),
-                            _StageDate(
-                              stage: stage,
-                              at: CheckupService.stageDateOf(row, stage),
-                              onPick: () => _pickStageDate(row, stage),
-                              onClear: () => _checkups.clearStageDate(row.id, stage),
-                            ),
-                          ],
-                          if (fastingReminderStillUseful(stage)) ...[
-                            const SizedBox(height: F.s8),
-                            if (reminder == null)
-                              FPrimaryButton(
-                                key: const ValueKey('fasting-set'),
-                                label: 'اضبط تذكير الصيام',
-                                gold: false,
-                                onPressed: () => _fasting(row),
-                              )
-                            else ...[
-                              Text(
-                                'تذكير الصيام متظبط: ${arabicDate(reminder)} — ${arabicTime(reminder)}',
-                                key: const ValueKey('fasting-set-line'),
-                                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
-                              ),
-                              const SizedBox(height: F.s6),
-                              FSecondaryButton(label: 'شيل تذكير الصيام', onPressed: () => _checkups.cancelFasting(row.id)),
+    // العنوان بيتقرا من الصف — «متابعة التحليل» ولا «متابعة الزيارة» —
+    // فالـStreamBuilder لفّ الشاشة كلها مش الجسم بس.
+    return StreamBuilder<RecordRow?>(
+      stream: _row,
+      builder: (context, snap) {
+        final row = snap.data;
+        final kind = row == null ? FollowKind.lab : CheckupService.kindOf(row);
+        final stage = row == null ? null : CheckupService.stageOf(row);
+        return Scaffold(
+          appBar: AppBar(title: Text(kind.screenTitle)),
+          body: Builder(
+            builder: (context) {
+              if (row == null || stage == null) return const SizedBox.shrink();
+              final stages = kind.stages;
+              final reminder = row.fastingReminderAt;
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
+                children: [
+                  Text(
+                    '${row.title} — ${arabicNumber(stages.length)} مراحل',
+                    textDirection: nameDirection(row.title),
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.screenTitleSize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                    ),
+                  ),
+                  const SizedBox(height: F.s4),
+                  Text(
+                    'التحليل مش ميعاد واحد — كل خطوة ليها وقتها، وهنا بتعرف وقفت فين.',
+                    key: ValueKey('checkup-why'),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                  ),
+                  const SizedBox(height: F.gap),
+                  for (final s in stages)
+                    _StageRow(
+                      stage: s,
+                      current: stage,
+                      last: s == stages.last,
+                      detail: s == CheckupStage.sampleDraw && reminder != null
+                          ? '${arabicDate(row.happenedAt)} — ${arabicTime(row.happenedAt)}'
+                          : null,
+                      children: s != stage
+                          ? const []
+                          : [
+                              const SizedBox(height: F.s10),
+                              if (kind.nextAfter(stage) case final next?)
+                                FPrimaryButton(
+                                  key: const ValueKey('checkup-advance'),
+                                  label: 'خلصت — على «${next.label}»',
+                                  onPressed: () => _advance(row, stage),
+                                ),
+                              if (kind.nextAfter(stage) == null)
+                                const Text(
+                                  'ده آخر مرحلة.',
+                                  style: TextStyle(
+                                    fontSize: F.minBodySize,
+                                    fontWeight: FontWeight.w600,
+                                    color: F.greenDeep,
+                                  ),
+                                ),
+                              if (stage.asksForDate) ...[
+                                const SizedBox(height: F.s8),
+                                _StageDate(
+                                  stage: stage,
+                                  at: CheckupService.stageDateOf(row, stage),
+                                  onPick: () => _pickStageDate(row, stage),
+                                  onClear: () => _checkups.clearStageDate(row.id, stage),
+                                ),
+                              ],
+                              // الصيام بتاع التحليل بس — الزيارة مالهاش صيام.
+                              if (stage is CheckupStage && fastingReminderStillUseful(stage)) ...[
+                                const SizedBox(height: F.s8),
+                                if (reminder == null)
+                                  FPrimaryButton(
+                                    key: const ValueKey('fasting-set'),
+                                    label: 'اضبط تذكير الصيام',
+                                    gold: false,
+                                    onPressed: () => _fasting(row),
+                                  )
+                                else ...[
+                                  Text(
+                                    'تذكير الصيام متظبط: ${arabicDate(reminder)} — ${arabicTime(reminder)}',
+                                    key: const ValueKey('fasting-set-line'),
+                                    style: TextStyle(
+                                      fontSize: F.minBodySize,
+                                      fontWeight: FontWeight.w600,
+                                      color: F.ink,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: F.s6),
+                                  FSecondaryButton(
+                                    label: 'شيل تذكير الصيام',
+                                    onPressed: () => _checkups.cancelFasting(row.id),
+                                  ),
+                                ],
+                              ],
+                              if (kind.beforeStage(stage) case final previous?) ...[
+                                const SizedBox(height: F.s8),
+                                FSecondaryButton(
+                                  key: const ValueKey('checkup-back'),
+                                  label: 'رجوع لـ«${previous.label}»',
+                                  onPressed: () => _checkups.back(row.id),
+                                ),
+                              ],
                             ],
-                          ],
-                          if (stage.previous != null) ...[
-                            const SizedBox(height: F.s8),
-                            FSecondaryButton(
-                              key: const ValueKey('checkup-back'),
-                              label: 'رجوع لـ«${stage.previous!.label}»',
-                              onPressed: () => _checkups.back(row.id),
-                            ),
-                          ],
-                        ],
-                ),
-              const SizedBox(height: F.gap),
-              FSecondaryButton(label: 'وقّف المتابعة', onPressed: () => _stop(row)),
-            ],
-          );
-        },
-      ),
+                    ),
+                  const SizedBox(height: F.gap),
+                  FSecondaryButton(label: 'وقّف المتابعة', onPressed: () => _stop(row)),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -231,8 +335,8 @@ class _StageRow extends StatelessWidget {
     this.detail,
   });
 
-  final CheckupStage stage;
-  final CheckupStage current;
+  final FollowStage stage;
+  final FollowStage current;
   final bool last;
   final List<Widget> children;
   final String? detail;
@@ -257,7 +361,11 @@ class _StageRow extends StatelessWidget {
           ? const Icon(Icons.check, size: 24, color: F.onDark)
           : Text(
               arabicNumber(stage.number),
-              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: later ? F.mutedLight : F.ink),
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                fontWeight: FontWeight.w700,
+                color: later ? F.mutedLight : F.ink,
+              ),
             ),
     );
 
@@ -291,7 +399,11 @@ class _StageRow extends StatelessWidget {
                         color: F.ink,
                       ),
                     ),
-                    if (detail != null) Text(detail!, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                    if (detail != null)
+                      Text(
+                        detail!,
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                      ),
                     ...children,
                   ],
                 ),
@@ -332,10 +444,12 @@ class _FastingSheetState extends State<_FastingSheet> {
     super.dispose();
   }
 
-  int? get _parsedHours => int.tryParse(_hours.text.trim().replaceAllMapped(
-        RegExp('[٠-٩]'),
-        (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0x660 + 0x30),
-      ));
+  int? get _parsedHours => int.tryParse(
+    _hours.text.trim().replaceAllMapped(
+      RegExp('[٠-٩]'),
+      (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0x660 + 0x30),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -351,13 +465,19 @@ class _FastingSheetState extends State<_FastingSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('تذكير الصيام', style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700)),
+              const Text(
+                'تذكير الصيام',
+                style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: F.s12),
               const SectionHead('ميعاد سحب العينة إمتى؟'),
               const SizedBox(height: F.s8),
               DayPicker(today: today, value: _day, onChanged: (d) => setState(() => _day = d)),
               const SizedBox(height: F.s8),
-              SizedBox(height: 180, child: TimeWheel(value: _time, onChanged: (t) => setState(() => _time = t))),
+              SizedBox(
+                height: 180,
+                child: TimeWheel(value: _time, onChanged: (t) => setState(() => _time = t)),
+              ),
               const SizedBox(height: F.s12),
               const SectionHead('المعمل قال صيام كام ساعة؟'),
               const SizedBox(height: F.s8),
@@ -387,10 +507,9 @@ class _FastingSheetState extends State<_FastingSheet> {
                 label: 'اضبط التذكير',
                 onPressed: !ok
                     ? null
-                    : () => Navigator.of(context).pop((
-                          draw: DateTime(_day.year, _day.month, _day.day, _time.hour, _time.minute),
-                          hours: hours,
-                        )),
+                    : () => Navigator.of(
+                        context,
+                      ).pop((draw: DateTime(_day.year, _day.month, _day.day, _time.hour, _time.minute), hours: hours)),
               ),
             ],
           ),
@@ -422,8 +541,7 @@ class DayPicker extends StatelessWidget {
       spacing: F.s8,
       runSpacing: F.s8,
       children: [
-        for (final (label, day) in quick)
-          AnchorChip(label: label, selected: value == day, onTap: () => onChanged(day)),
+        for (final (label, day) in quick) AnchorChip(label: label, selected: value == day, onTap: () => onChanged(day)),
         AnchorChip(
           key: const ValueKey('day-other'),
           label: onQuick ? 'يوم تاني' : arabicDate(value),
@@ -447,7 +565,7 @@ class DayPicker extends StatelessWidget {
 class _StageDate extends StatelessWidget {
   const _StageDate({required this.stage, required this.at, required this.onPick, required this.onClear});
 
-  final CheckupStage stage;
+  final FollowStage stage;
   final DateTime? at;
   final VoidCallback onPick;
   final VoidCallback onClear;
@@ -511,7 +629,7 @@ class _StageDate extends StatelessWidget {
 class _StageDateSheet extends StatefulWidget {
   const _StageDateSheet({required this.stage, required this.now, this.initial});
 
-  final CheckupStage stage;
+  final FollowStage stage;
   final DateTime now;
   final DateTime? initial;
 
@@ -520,8 +638,7 @@ class _StageDateSheet extends StatefulWidget {
 }
 
 class _StageDateSheetState extends State<_StageDateSheet> {
-  late DateTime _day = widget.initial ??
-      DateTime(widget.now.year, widget.now.month, widget.now.day + 1);
+  late DateTime _day = widget.initial ?? DateTime(widget.now.year, widget.now.month, widget.now.day + 1);
 
   @override
   Widget build(BuildContext context) {

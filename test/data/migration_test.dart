@@ -88,7 +88,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -164,12 +164,17 @@ void main() {
 
     // v18: أعمدة نطاق الورقة موجودة على `lab_results` — والجدول نفسه فاضي،
     // فمفيش سطر قديم اتحطّ له نطاق من عندنا.
+    final columnsOf = columns;
     final labColumns = await db
         .customSelect("SELECT name FROM pragma_table_info('lab_results')")
         .map((r) => r.read<String>('name'))
         .get();
     expect(labColumns, containsAll(['ref_low', 'ref_high', 'ref_text']));
     expect(await db.select(db.labResults).get(), isEmpty);
+
+    // v19: نوع المتابعة ومصدرها — موجودين وفاضيين. مفيش سجل قديم اتقال
+    // عليه إنه متابعة، ومفيش متابعة اتقال عليها إنها جت من ورقة.
+    expect(columnsOf, containsAll(['follow_kind', 'follow_source_id']));
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

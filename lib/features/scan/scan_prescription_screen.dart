@@ -55,10 +55,14 @@ class ScanPrescriptionScreen extends StatefulWidget {
     required this.reader,
     this.pickImage = pickWithSystemCamera,
     this.today,
+    this.onSaved,
     super.key,
   });
 
   final DayRoutine routine;
+
+  /// سجل الروشتة اللي اتكتب بعد التأكيد — «تابع زيارة» بتبدأ منه.
+  final void Function(int recordId)? onSaved;
 
   /// null = المفتاح مش متظبط. الشاشة بتقولها بوضوح ومش بتفتح الكاميرا.
   final PrescriptionReader? reader;
@@ -140,6 +144,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
             // اللي الكاميرا دته (٢٥٦٠ من المنتقي) — مش المصغّرة بتاعة الموديل
             image: image,
             today: widget.today,
+            onSaved: widget.onSaved,
           ),
         ),
       );

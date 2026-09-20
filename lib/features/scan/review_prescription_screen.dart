@@ -40,6 +40,7 @@ class ReviewPrescriptionScreen extends StatefulWidget {
     this.image,
     this.today,
     this.records,
+    this.onSaved,
     super.key,
   });
 
@@ -54,6 +55,9 @@ class ReviewPrescriptionScreen extends StatefulWidget {
 
   /// للاختبارات — الافتراضي مستودع على قاعدة التطبيق.
   final RecordsRepository? records;
+
+  /// بيتندَه بالـid بتاع سجل الروشتة اللي اتكتب — «تابع زيارة» بتبدأ منه.
+  final void Function(int recordId)? onSaved;
 
   @override
   State<ReviewPrescriptionScreen> createState() => _ReviewPrescriptionScreenState();
@@ -285,7 +289,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
     try {
       final issued = _issuedAt;
-      await (widget.records ?? RecordsRepository(services.db)).add(
+      final recordId = await (widget.records ?? RecordsRepository(services.db)).add(
         patientId: services.patientId,
         kind: RecordKind.prescription,
         title: prescriptionRecordTitle(names.length),
@@ -296,6 +300,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
         notes: names.join(' — '),
         attachmentPath: path,
       );
+      widget.onSaved?.call(recordId);
     } catch (error, stack) {
       // السبب الحقيقي في اللوج — والمستخدم بيشوف جملة، مش صمت.
       debugPrint('الروشتة اتحفظت بس ما اتسجّلتش في الملف الصحي: $error\n$stack');

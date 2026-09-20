@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_up.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../files/attachment_store.dart';
@@ -41,6 +42,13 @@ class CheckupService {
 
   RecordsRepository get _records => RecordsRepository(_db);
 
+  /// نوع المتابعة بتاعة الصف ده — null في العمود = تحليل (شوف [FollowKind]).
+  static FollowKind kindOf(RecordRow row) => FollowKind.fromStored(row.followKind);
+
+  /// المرحلة الحالية، مفسّرة **بنوعها**: الرقم ٢ في تحليل «حجز المعمل»،
+  /// وفي زيارة «الزيارة تمت».
+  static FollowStage? stageOf(RecordRow row) => kindOf(row).stageFromNumber(row.checkupStage);
+
   Future<RecordRow> _row(int id) => (_db.select(_db.records)..where((t) => t.id.equals(id))).getSingle();
 
   /// المتابعات المفتوحة للمريض ده — اللي ليها مرحلة ومش ممسوحة.
@@ -52,26 +60,24 @@ class CheckupService {
       .watch();
 
   /// الميعاد المتحفوظ للمرحلة دي على الصف ده.
-  static DateTime? stageDateOf(RecordRow row, CheckupStage stage) => switch (stage) {
+  ///
+  /// **ميعاد الزيارة بيقعد في نفس عمود «معاد الدكتور»** — المعنى واحد،
+  /// والصف نوعه واحد بس، فمستحيل الاتنين يتلاقوا على صف واحد.
+  static DateTime? stageDateOf(RecordRow row, FollowStage stage) => switch (stage) {
         CheckupStage.labBooking => row.labBookingAt,
         CheckupStage.waitingResult => row.resultReadyAt,
         CheckupStage.resultArrived => row.doctorVisitAt,
+        VisitStage.booked => row.doctorVisitAt,
         _ => null,
       };
 
-  static RecordsCompanion _stageDateCompanion(CheckupStage stage, DateTime? at) => switch (stage) {
+  static RecordsCompanion _stageDateCompanion(FollowStage stage, DateTime? at) => switch (stage) {
         CheckupStage.labBooking => RecordsCompanion(labBookingAt: Value(at)),
         CheckupStage.waitingResult => RecordsCompanion(resultReadyAt: Value(at)),
         CheckupStage.resultArrived => RecordsCompanion(doctorVisitAt: Value(at)),
+        VisitStage.booked => RecordsCompanion(doctorVisitAt: Value(at)),
         _ => const RecordsCompanion(),
       };
-
-  /// خانة المرحلة في نطاق الإشعارات — ترتيبها بين اللي بتسأل عن تاريخ.
-  static int _slotOf(CheckupStage stage) {
-    final slot = CheckupStage.dated.indexOf(stage);
-    if (slot < 0) throw ArgumentError.value(stage, 'stage', 'المرحلة دي ما بتسألش عن تاريخ');
-    return slot;
-  }
 
   /// ساعة الصحيان بتاعت المريض، وإلا ٩ الصبح.
   Future<int> _reminderMinute(int patientId) async {
@@ -81,33 +87,73 @@ class CheckupService {
 
   Stream<RecordRow?> watch(int id) => (_db.select(_db.records)..where((t) => t.id.equals(id))).watchSingleOrNull();
 
-  Future<int> start({required int patientId, required String title, String? doctor, required DateTime today}) async {
+  /// بيبدأ متابعة — بالإيد، أو من سجل موجود في الملف.
+  ///
+  /// **المتابعة صف جديد، والمصدر بيفضل زي ما هو.** التقرير اللي في الملف
+  /// حاجة حصلت خلاص، والمتابعة حاجة لسه بتحصل: لو حوّلنا التقرير نفسه
+  /// لمتابعة، صف فيه نتايج هيبدأ من «طلب الطبيب» ويناقض نفسه. الربط
+  /// بـ[fromRecordId] هو اللي بيخلّي «التقرير ده ليه متابعة خلاص» سؤال
+  /// له إجابة.
+  Future<int> start({
+    required int patientId,
+    required String title,
+    String? doctor,
+    String? place,
+    required DateTime today,
+    FollowKind kind = FollowKind.lab,
+    DateTime? happenedAt,
+    int? fromRecordId,
+  }) async {
     final id = await _records.add(
       patientId: patientId,
-      kind: RecordKind.lab,
+      kind: kind == FollowKind.lab ? RecordKind.lab : RecordKind.visit,
       title: title,
-      happenedAt: DateTime(today.year, today.month, today.day),
+      happenedAt: happenedAt ?? DateTime(today.year, today.month, today.day),
       doctor: doctor,
+      place: place,
     );
     await (_db.update(_db.records)..where((t) => t.id.equals(id))).write(RecordsCompanion(
-          checkupStage: Value(CheckupStage.doctorOrder.number),
+          checkupStage: const Value(1),
           checkupStageSince: Value(today),
+          followKind: Value(kind.name),
+          followSourceId: Value(fromRecordId),
         ));
     return id;
   }
 
+  /// المتابعة المفتوحة اللي اتبدت من السجل ده، أو null.
+  ///
+  /// بيه «تابع تحليل» بتعرف إن التقرير ده **متابَع خلاص** فتفتحه بدل ما
+  /// تبدأ تانية — متابعتين لنفس الورقة يبقى الاتنين ناقصين.
+  Future<RecordRow?> openFollowUpFor(int recordId) async {
+    final rows = await (_db.select(_db.records)
+          ..where((t) => t.followSourceId.equals(recordId) & t.deletedAt.isNull() & t.checkupStage.isNotNull()))
+        .get();
+    return rows.firstOrNull;
+  }
+
+  /// كل السجلات اللي اتبدت منها متابعة مفتوحة — بتتقرا مرة واحدة للقايمة.
+  Future<Set<int>> followedSourceIds(int patientId) async {
+    final rows = await (_db.select(_db.records)
+          ..where((t) => t.patientId.equals(patientId) & t.deletedAt.isNull() & t.checkupStage.isNotNull()))
+        .get();
+    return {for (final r in rows) ?r.followSourceId};
+  }
+
   Future<void> advance(int id, {DateTime? now}) async {
     final row = await _row(id);
-    final next = CheckupStage.fromNumber(row.checkupStage)?.next;
+    final kind = kindOf(row);
+    final current = stageOf(row);
+    final next = current == null ? null : kind.nextAfter(current);
     if (next == null) return;
     await (_db.update(_db.records)..where((t) => t.id.equals(id))).write(RecordsCompanion(
           checkupStage: Value(next.number),
           checkupStageSince: Value(now ?? DateTime.now()),
         ));
-    if (!fastingReminderStillUseful(next)) await cancelFasting(id);
+    if (next is CheckupStage && !fastingReminderStillUseful(next)) await cancelFasting(id);
     // تذكير بقى بلا معنى بيتشال — مش هنزنّ على حاجة اتعملت
-    for (final stage in CheckupStage.dated) {
-      if (!stageReminderStillUseful(stage, next)) await clearStageDate(id, stage);
+    for (final stage in kind.datedStages) {
+      if (!followReminderStillUseful(kind, stage, next)) await clearStageDate(id, stage);
     }
   }
 
@@ -118,8 +164,9 @@ class CheckupService {
   /// هيتسأل من جديد — نفس سلوك تذكير الصيام بالظبط.
   Future<void> back(int id, {DateTime? now}) async {
     final row = await _row(id);
-    final was = CheckupStage.fromNumber(row.checkupStage);
-    final previous = was?.previous;
+    final kind = kindOf(row);
+    final was = stageOf(row);
+    final previous = was == null ? null : kind.beforeStage(was);
     if (previous == null) return;
     await (_db.update(_db.records)..where((t) => t.id.equals(id))).write(RecordsCompanion(
           checkupStage: Value(previous.number),
@@ -138,7 +185,10 @@ class CheckupService {
         .get();
     var n = 0;
     for (final row in rows) {
-      for (final stage in CheckupStage.dated) {
+      // **بنعدّ بنوع الصف**: عمود «معاد الدكتور» بيشيل ميعاد الزيارة كمان،
+      // ولو عدّيناه مرتين على نفس الصف كنا هنقفل الباب على ميعاد سليم.
+      if (row.checkupStage == null) continue;
+      for (final stage in kindOf(row).datedStages) {
         final at = stageDateOf(row, stage);
         if (at != null && at.isAfter(now)) n++;
       }
@@ -152,12 +202,12 @@ class CheckupService {
   /// التذكير لأن الرقم مشتق من (الصف، المرحلة) — مش بتزوّد واحد.
   Future<StageDateResult> setStageDate(
     int id,
-    CheckupStage stage, {
+    FollowStage stage, {
     required DateTime day,
     required DateTime now,
   }) async {
-    final slot = _slotOf(stage);
     final row = await _row(id);
+    final slot = kindOf(row).slotOf(stage);
     final minute = await _reminderMinute(row.patientId);
     final at = DateTime(day.year, day.month, day.day, 0, minute);
     if (!at.isAfter(now)) return StageDateResult.inPast;
@@ -173,6 +223,7 @@ class CheckupService {
       body: switch (stage) {
         CheckupStage.labBooking => 'النهارده ميعادك في المعمل.',
         CheckupStage.waitingResult => 'النتيجة المفروض تبقى جاهزة النهارده.',
+        VisitStage.booked => 'النهارده معاد زيارتك.',
         _ => 'النهارده معادك مع الدكتور.',
       },
       payload: '',
@@ -184,8 +235,9 @@ class CheckupService {
   }
 
   /// بيلغي بالرقم المشتق — آمن حتى لو مفيش ميعاد متحطّ.
-  Future<void> clearStageDate(int id, CheckupStage stage) async {
-    await _sink.cancel(checkupIdFor(id, _slotOf(stage)));
+  Future<void> clearStageDate(int id, FollowStage stage) async {
+    final row = await _row(id);
+    await _sink.cancel(checkupIdFor(id, kindOf(row).slotOf(stage)));
     await (_db.update(_db.records)..where((t) => t.id.equals(id)))
         .write(_stageDateCompanion(stage, null));
   }
@@ -251,7 +303,7 @@ class CheckupService {
   Future<void> delete(int id, {DateTime? now, AttachmentStore? attachments}) async {
     final row = await _row(id);
     if (row.fastingReminderAt != null) await cancelFasting(id);
-    for (final stage in CheckupStage.dated) {
+    for (final stage in kindOf(row).datedStages) {
       if (stageDateOf(row, stage) != null) await clearStageDate(id, stage);
     }
     await _records.delete(id, now: now, attachments: attachments);

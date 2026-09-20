@@ -58,10 +58,14 @@ class _EditableLine {
 ///
 /// القاعدة ٤: ولا سطر بيتحفظ غير بعد «تمام، احفظه». «صوّر تاني» بنفس الوزن.
 class LabReportScreen extends StatefulWidget {
-  const LabReportScreen({required this.reading, this.image, this.today, super.key});
+  const LabReportScreen({required this.reading, this.image, this.today, this.onSaved, super.key});
 
   final LabReading reading;
   final Uint8List? image;
+
+  /// بيتندَه بالـid بتاع السجل اللي اتكتب، بعد «تمام، احفظه» بالظبط.
+  /// بيه «تابع تحليل» بتبدأ من نفس التقرير في نفس الخطوة.
+  final void Function(int recordId)? onSaved;
 
   /// للاختبارات.
   final DateTime? today;
@@ -139,7 +143,7 @@ class _LabReportScreenState extends State<LabReportScreen> {
       }
     }
 
-    await LabResultsRepository(services.db).saveReport(
+    final recordId = await LabResultsRepository(services.db).saveReport(
       patientId: services.patientId,
       happenedAt: reading.date.value != null && !reading.date.needsReview
           ? reading.date.value!
@@ -151,6 +155,7 @@ class _LabReportScreenState extends State<LabReportScreen> {
           ConfirmedLabLine(testName: l.name.trim(), value: l.value!, unit: l.unit, range: l.range),
       ],
     );
+    widget.onSaved?.call(recordId);
     if (mounted) navigator.pop(ReviewResult.confirmed);
   }
 

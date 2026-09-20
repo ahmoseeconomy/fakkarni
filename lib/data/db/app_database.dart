@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -364,6 +364,28 @@ class AppDatabase extends _$AppDatabase {
                 ).get();
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE lab_results ADD COLUMN $column $type NULL');
+                }
+              }
+            }
+            if (from < 19) {
+              // متابعة الزيارة جنب متابعة التحليل: نوع المتابعة، والسجل
+              // اللي اتبدت منه. الاتنين nullable — الصفوف القديمة كلها
+              // متابعات تحاليل اتبدت بالإيد، وما بنخترعلهاش مصدر ولا نوع
+              // تاني. بحماية وجود زي v13 وv15..v18، و**فوق** بلوك التطبيع.
+              //
+              // التعريف مكتوب بالحرف (مش من تعريف الجدول النهارده): خطوة
+              // الترحيل لازم تطلّع شكل **نسختها هي** للأبد، حتى لو الجدول
+              // كبر بعدين — درس خطوة v2→v3. وREFERENCES جزء من التعريف،
+              // فـADD COLUMN بيشيله معاه (SQLite بيسمح بيه والقيمة null).
+              for (final (column, definition) in [
+                ('follow_kind', 'TEXT NULL'),
+                ('follow_source_id', 'INTEGER NULL REFERENCES records (id)'),
+              ]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('records') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE records ADD COLUMN $column $definition');
                 }
               }
             }

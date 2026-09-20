@@ -24,11 +24,20 @@ import 'usual_words.dart';
 /// سطر متعلّم — «بيقرا التقرير…» بس. بعد ما الرد يوصل، الكشف بيمشي على
 /// السطور اللي رجعت فعلاً. صفحة واحدة لكل تصوير (المتعدد في المؤجَّل).
 class ScanLabScreen extends StatefulWidget {
-  const ScanLabScreen({required this.reader, this.pickImage = pickWithSystemCamera, this.today, super.key});
+  const ScanLabScreen({
+    required this.reader,
+    this.pickImage = pickWithSystemCamera,
+    this.today,
+    this.onSaved,
+    super.key,
+  });
 
   final LabReportReader? reader;
   final PickImage pickImage;
   final DateTime? today;
+
+  /// السجل اللي اتكتب بعد التأكيد — «تابع تحليل» بتبدأ منه في نفس الخطوة.
+  final void Function(int recordId)? onSaved;
 
   static const Duration revealPerLine = Duration(milliseconds: 450);
   static const Duration revealHold = Duration(milliseconds: 350);
@@ -90,7 +99,14 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
       }
       setState(() => _phase = _Phase.idle);
       final result = await Navigator.of(context).push<ReviewResult>(
-        MaterialPageRoute(builder: (_) => LabReportScreen(reading: reading, image: image, today: widget.today)),
+        MaterialPageRoute(
+          builder: (_) => LabReportScreen(
+            reading: reading,
+            image: image,
+            today: widget.today,
+            onSaved: widget.onSaved,
+          ),
+        ),
       );
       if (!mounted) return;
       switch (result) {

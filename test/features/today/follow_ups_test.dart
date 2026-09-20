@@ -45,7 +45,7 @@ void main() {
   screenTest('مفيش متابعات → مفيش قسم خالص', (tester) async {
     await pumpToday(tester);
     expect(find.byKey(const ValueKey('open-follow-ups')), findsNothing);
-    expect(find.text('متابعة التحاليل'), findsNothing);
+    expect(find.text('المتابعات'), findsNothing);
   });
 
   screenTest('متابعتين مفتوحين → الاتنين على «يومك» باسمهم ومرحلتهم', (tester) async {
@@ -56,11 +56,12 @@ void main() {
     await pumpToday(tester);
 
     expect(find.byKey(const ValueKey('open-follow-ups')), findsOneWidget);
-    expect(find.text('متابعة التحاليل'), findsOneWidget);
+    expect(find.text('المتابعات'), findsOneWidget);
     expect(find.text('صورة دم كاملة'), findsOneWidget);
     expect(find.text('تحليل سكر تراكمي'), findsOneWidget);
-    expect(find.text(CheckupStage.labBooking.label), findsOneWidget);
-    expect(find.text(CheckupStage.doctorOrder.label), findsOneWidget);
+    // النوع جنب المرحلة — القايمة فيها تحاليل وزيارات
+    expect(find.text('تحليل — ${CheckupStage.labBooking.label}'), findsOneWidget);
+    expect(find.text('تحليل — ${CheckupStage.doctorOrder.label}'), findsOneWidget);
     expect(find.byKey(ValueKey('follow-up-$blood')), findsOneWidget);
     expect(find.byKey(ValueKey('follow-up-$sugar')), findsOneWidget);
     expectNoRedAndMinSize(tester);
@@ -112,7 +113,7 @@ void main() {
       final id = await stuckSince(sep15);
       await pumpToday(tester, now: DateTime(2026, 9, 22, 10));
 
-      final line = find.text('متابعة صورة دم كاملة واقفة عند ${CheckupStage.labBooking.label}');
+      final line = find.text('متابعة تحليل صورة دم كاملة واقفة عند ${CheckupStage.labBooking.label}');
       expect(line, findsOneWidget);
       // هادي: نص باهت في اللوحة الموجودة، مش كارت ولا أحمر
       expect(tester.widget<Text>(line).style?.color, isNot(F.ink));

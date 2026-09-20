@@ -290,6 +290,9 @@ void main() {
         await settle(tester);
         await tester.tap(find.text('تابع تحليل'));
         await settle(tester);
+        // تلات طرق دلوقتي — دي بتاعة الكتابة بالإيد
+        await tester.tap(find.byKey(const ValueKey('follow-by-hand')));
+        await settle(tester);
         await tester.enterText(
           find.byKey(const ValueKey('checkup-title')),
           'صورة دم كاملة',
@@ -309,7 +312,7 @@ void main() {
         );
         await tester.pageBack();
         await settle(tester);
-        expect(find.textContaining('متابعة — ١ من ٧'), findsOneWidget);
+        expect(find.textContaining('متابعة تحليل — ١ من ٧'), findsOneWidget);
 
         await tester.tap(find.byKey(ValueKey('record-options-$id')));
         await settle(tester);

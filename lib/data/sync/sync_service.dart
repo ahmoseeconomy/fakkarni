@@ -437,6 +437,12 @@ class SyncService {
           'notes': r.notes,
           'deleted_at': r.deletedAt == null ? null : utcIso(r.deletedAt!),
           'checkup_stage': r.checkupStage,
+          // نوع المتابعة (نسخة ١٩ / 0017) — من غيره الرقم فوق ما ينفعش
+          // يتفسّر: ٢ في تحليل «حجز المعمل»، وفي زيارة «الزيارة تمت».
+          // **ومصدر المتابعة مش هنا عن قصد**: ده رقم صف داخلي، ومالوش أي
+          // معنى برّه الموبايل — نفس سبب مسار الصورة. (الحارس بيقرا الملف
+          // كله، فحتى الاسم في تعليق بيوقّعه — وده مقصود.)
+          'follow_kind': r.followKind,
           'fasting_reminder_at':
               r.fastingReminderAt == null ? null : utcIso(r.fastingReminderAt!),
           // نسخة ١٧ — مواعيد المتابعة اللي الإنسان قالها

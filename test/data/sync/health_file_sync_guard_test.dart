@@ -26,7 +26,16 @@ void main() {
   test('ولا حمولة سحابة فيها أرقام تليفونات الطوارئ ولا مسار الصورة المحلي', () {
     for (final file in cloudFiles) {
       final source = file.readAsStringSync();
-      for (final name in ['contactsJson', 'contacts_json', 'attachmentPath', 'attachment_path']) {
+      // `follow_source_id` انضم للقايمة في جولة ٢٤: ده `id` داخلي بتاع صف
+      // على الموبايل ده، ومالوش أي معنى في السحابة — نفس سبب مسار الصورة.
+      for (final name in [
+        'contactsJson',
+        'contacts_json',
+        'attachmentPath',
+        'attachment_path',
+        'followSourceId',
+        'follow_source_id',
+      ]) {
         expect(source.contains(name), isFalse, reason: '${file.path} → $name');
       }
     }
@@ -37,5 +46,7 @@ void main() {
     final tables = RegExp(r'create table if not exists[\s\S]*?\n\);').allMatches(sql).map((m) => m.group(0)!).join('\n');
     expect(tables, isNot(contains('contacts')));
     expect(tables, isNot(contains('attachment')));
+    final follow = File('supabase/migrations/0017_follow_kind.sql').readAsStringSync();
+    expect(follow.contains('add column if not exists follow_source_id'), isFalse);
   });
 }
