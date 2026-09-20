@@ -1082,6 +1082,48 @@ Consequences to handle:
    `pending` past +60 and the son is told. `syncSlack` covers a slow
    wire, not a dead one. Inherent to any server-side scan; his view
    corrects on the next refresh (rule 5).
+0c. **THE WORST FAILURE MODE, AND IT IS OPEN: when the reminder horizon
+   runs out the app goes quiet and says nothing.** The patient who
+   forgets most is the one the app stops speaking to first.
+   `planWindow` keeps the **nearest** `maxPendingReminders` (44) and
+   drops the rest, so coverage is contiguous from now to a horizon and
+   then simply ends — no gap, no last warning. Every renewal path needs
+   a human: launch (`main.dart`), foreground resume (`root.dart`), a
+   confirmation, or a lock-screen «أخدته»/«فكّرني بعدين» through the
+   background isolate. A patient who answers his notifications therefore
+   never reaches the horizon; **a patient who ignores every one of them
+   reaches it in about five days** and the reminders stop. The
+   pre-scheduled ladder stops with them, `materializeDay` stops running,
+   the cloud goes stale two days later, and the server-side scan has
+   nothing current to judge — so the last rung falls silent too. On his
+   phone nothing is wrong: a normal app that has gone quiet.
+   `coverageEnd()` in `reminder_plan.dart` computes the exact instant and
+   **is rendered on no screen** — it exists only in tests. The son's only
+   signal is debt 0's gold footer, which reports his father's phone being
+   silent, not his father's reminders having run out; they are different
+   facts and only one of them is shown.
+   **Measured, so the shape is not guessed at** (20 Sep 2026,
+   `DayRoutine.fallback`): what fills the queue is **distinct reminder
+   minutes per day**, not medications — the engine merges same-minute
+   doses, so 8 medications × 3 doses on the app's own convention (all
+   «قبل الأكل») is **3 notifications a day** and gets the full 7-day
+   window, exactly like 5 × 3 and 3 × 2. Only a patient whose offsets
+   were hand-edited so nothing merges gets near the cap: 9 distinct
+   minutes a day → ~5 days, 15 → ~3, 24 → ~2. The 46 → 44 drop for the
+   checkup band cost **no case a calendar day** — the largest loss is
+   about six hours, and the ladder paid nothing (`maxPendingEscalations`
+   is still 14).
+   **Not built, on purpose, and not a sizing problem.** Widening the cap
+   cannot fix it — iOS holds 64 and the horizon always ends somewhere.
+   The repair is to make the end **visible before it arrives** (the
+   father's screen, the son's screen, or both) rather than to push it
+   further away in silence, and the day the two slots are wanted back,
+   `checkupPendingSlack` and `fastingPendingSlack` can be borrowed only
+   while a follow-up is actually open — computed from `pendingIds()`
+   through `isCheckupId`/`isFastingId`, with `CheckupService` calling
+   `rescheduleAll` when it touches its band, and `maxPendingEscalations`
+   left a constant so the ladder never shrinks. That is a saving of
+   about six hours; it is not the fix for this item.
 1. **Sync deletes exactly one table, and has no second owner device — yet.**
    `SyncRemote.deleteByUuid` exists for `records` only, because deleting a
    record is the first thing a person does that *must* reach the cloud (see
