@@ -1125,22 +1125,53 @@ was reading the database and the audit was reading the repo.
 
 ### Migrations confirmed run on the live project
 
-Kept here so the next gap is **visible instead of discovered through a
-user-facing failure**. Update this list in the round that runs the file,
-not later. "Not confirmed" means nobody has checked — not that it failed.
+**Confirmed 20 Sep 2026 by `supabase/verify_migrations.sql` — 17/17 ok,
+161 checks, nothing missing.**
 
-| File | Live? | Evidence, or what breaks if it is not |
-|---|---|---|
-| `0001`-`0005` | yes | the son's screen reads patients / care_relationships / medications / dose_events under RLS |
-| `0006`-`0009` | yes | `ALL ESCALATION TESTS PASSED` after each; the cron ticks every 5 minutes |
-| `0010` dose_superseded | **not confirmed** | widens the `dose_events.state` CHECK. If absent, a push containing a `superseded` row is rejected and **the whole dose_events batch fails silently** |
-| `0011` escalate_missed | **not confirmed** | makes the scan pick `missed` as well as `pending`. If absent the son is **never told** about a dose the device swept - the exact silence 4.2b exists to prevent |
-| `0012` health_file | yes | the son's records + `lab_results` embed returns rows |
-| `0013` ai_reads | yes | recorded as applied; kept unused after the C2 revert |
-| `0014` soft_stop | yes - **run 20 Sep 2026** | this is the one that was missing, and the cause of round 25 |
-| `0015` checkup_dates | **not confirmed** | `_pushRecords` sends its four columns on **every** records push. If absent, every records push is failing right now, silently (sync never surfaces an error) - check this one first |
-| `0016` lab_ranges | yes | `lab_results` has `ref_low` / `ref_high` / `ref_text` |
-| `0017` follow_kind | yes | `records` has `follow_kind` and not `follow_source_id` |
+**This list is evidence from the database, not from the repo.** That
+distinction is the whole point of it: the previous version of this list was
+reasoned from migration files and said `0014` was applied when it was not.
+These rows come from `pg_class`, `pg_proc`, `pg_policies`, `pg_indexes`,
+`pg_trigger`, `pg_constraint`, `information_schema.columns` and `cron.job`
+on the live project.
+
+| Confirmed | Files |
+|---|---|
+| 20 Sep 2026 | `0001`-`0017`, all of them |
+
+**Re-run the script rather than trusting the date.** A row here goes stale
+the moment anyone touches the project; the script is one paste and it
+answers about today.
+
+**What the script does not cover, so the row above is not read as more
+than it is:**
+- **Whether RLS actually protects anything.** It checks that each policy
+  exists by name and that `relrowsecurity` is on. `0005` exists precisely
+  because `patients_select` existed *and was wrong* — every insert failed
+  42501. Behaviour is `tests/rls_test.sql`'s job, and that one writes
+  (inside a rollback), which is why it is a separate file.
+- **Triggers firing.** `set_updated_at` and its column are verified to
+  exist; proving `moddatetime` stamps a row needs an UPDATE.
+- **Grants and revokes.** `anon` being stripped, and EXECUTE granted to
+  `service_role` alone, are not checked — the aclitem shapes vary enough
+  between projects that a false red was the likelier outcome.
+- **Anything outside the database**: the `escalate` and `ai-read` Edge
+  Functions, their `verify_jwt` setting, and the Vault secrets `0008`'s
+  cron reads at run time. The script confirms the job is *scheduled*;
+  whether it *succeeds* lives in `cron.job_run_details` and
+  `net._http_response`.
+- **Column types and nullability.** A column of the wrong type still
+  passes — the check is existence.
+
+**Three checks are deliberately not existence checks**, because existence
+would have lied: `private.due_escalations` is created by `0006` and
+rewritten by `0009`, `0011` and `0014`, so those three are verified by what
+their bodies contain (`escalation_retry_after`, `missed`, `removed_at`);
+`0005` is verified by `patients_select` mentioning `is_accepted_caregiver`,
+since it replaces `0002`'s policy under the same name; and `0010` / `0017`
+only alter CHECK constraints, so the definition is searched for
+`superseded` / `visit`. **The `funcsrc` check on `removed_at` is the one
+that would have caught the `0014` gap.**
 
 **A self-check that inserts into `public.patients` must create the owner in
 `auth.users` first.** `patients.owner_id` is a foreign key onto
@@ -2260,9 +2291,8 @@ screen — and they are different screens on purpose.**
   changes **no policy and no `due_escalations`** — they are new columns on
   an existing table, and have nothing to do with escalation. Its self-check
   writes a full follow-up, asserts a plain record is still valid with them
-  null, exercises the delete, and rolls back. **Not confirmed run — see the
-  migrations table above; if it has not run, every records push is failing
-  silently.**
+  null, exercises the delete, and rolls back. **Confirmed applied
+  20 Sep 2026** (see the migrations table above).
 - **«اضبط تذكير الصيام» schedules a real notification — only from that
   tap (rule 4)**, at draw time minus the hours **the user types** (no
   default, rule 6), through `NotificationService.scheduleCheckup`: its own

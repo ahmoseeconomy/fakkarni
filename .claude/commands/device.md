@@ -48,6 +48,19 @@ most likely cause of a failure is:
    c. Either phone: confirm nothing else changed — the app must still ask
       for no contacts permission anywhere in system settings.
 
+0. **Before any round that touches the cloud — paste
+   `supabase/verify_migrations.sql` into the SQL editor.** It is read-only
+   (one SELECT; no DDL, no writes) and returns one row per migration
+   0001-0017 with `expected` / `found` / `ok` / `missing`. Everything must
+   be ok; anything else names the object that is absent.
+   Say this out loud when reporting: **`0014` had never been run on the
+   live project, and finding that cost an hour** — a caregiver screen that
+   would not load, a column audit that came back clean because it was
+   reading the repo rather than the database, and a debug log added just to
+   see the real error. This script answers the same question in one paste.
+   Run it **before** the steps below, not after: the rest of this checklist
+   assumes the schema is what the code expects.
+
 Step 4 is the one that fails silently in the real world. Say so.
 Step 8 fails silently too: an unlinked or signed-out device is meant to
 make zero network calls, so "nothing in Supabase" is a pass there, not a
