@@ -340,8 +340,8 @@ void main() {
     expect(find.byType(LabFlagBadge), findsNWidgets(3), reason: 'Sodium جوّه النطاق — من غير علامة');
 
     // ونطاق الورقة نفسه، وسطر الورقة اللي من غير نطاق
-    expect(find.text('نطاق الورقة: ٤–١١'), findsNWidgets(2));
-    expect(find.text('نطاق الورقة: ٣٠–٤٠٠'), findsOneWidget);
+    expect(find.text('نطاق الورقة: من ٤ إلى ١١'), findsNWidgets(2));
+    expect(find.text('نطاق الورقة: من ٣٠ إلى ٤٠٠'), findsOneWidget);
     expect(find.text(labNoRangeText), findsOneWidget);
 
     // الابن لسه ما بيحكمش: ولا كلمة نصيحة، والأحمر محبوس في العلامة

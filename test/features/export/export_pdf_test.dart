@@ -201,7 +201,7 @@ void main() {
         reason: 'Platelets ١٠.٥ على بعد أقل من ١٠٪ من الحد');
 
     // ونطاق الورقة نفسه — بنفس الطريقة: الترتيب في الملف بيتقلب (١١–٤)
-    expect(text.contains(await shaped('٤–١١', fonts)), isTrue);
+    expect(text.contains(await shaped('من ٤ إلى ١١', fonts)), isTrue);
     // والسطر اللي تحت القسم كله
     expect(text.contains(await shaped(labRangeFooter, fonts)), isTrue);
   });
@@ -235,7 +235,7 @@ void main() {
     expect(block.footnote, labRangeFooter);
 
     final wbc = block.tables.first.rows.firstWhere((r) => r.first == 'WBC');
-    expect(wbc, ['WBC', '١٢.٤ 10^3/uL', '٤–١١', labAboveWord]);
+    expect(wbc, ['WBC', '١٢.٤ 10^3/uL', 'من ٤ إلى ١١', labAboveWord]);
 
     // السطر اللي الورقة مفيهاش نطاق ليه: شرطة، وعمود الكلمة فاضي
     final hba1c = block.tables.first.rows.firstWhere((r) => r.first == 'HbA1c');

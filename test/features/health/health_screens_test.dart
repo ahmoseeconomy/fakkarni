@@ -345,7 +345,7 @@ void main() {
           lines: [line('WBC', 7.5, '10^3/uL', refLow: 4, refHigh: 11)],
         ),
       );
-      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.text('نطاق الورقة: من ٤ إلى ١١'), findsOneWidget);
       expect(find.byType(LabFlagBadge), findsNothing);
       expect(find.text(labAboveWord), findsNothing);
       expect(find.text(labBelowWord), findsNothing);
@@ -362,7 +362,7 @@ void main() {
           lines: [line('WBC', 12.4, '10^3/uL', refLow: 4, refHigh: 11)],
         ),
       );
-      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.text('نطاق الورقة: من ٤ إلى ١١'), findsOneWidget);
       expect(find.text(labAboveWord), findsOneWidget);
       expectNoAdvice(tester);
     });
@@ -391,6 +391,53 @@ void main() {
       );
       expect(find.text(labNearWord), findsOneWidget);
       expect(find.text(labAboveWord), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    // **النطاق من طرف واحد بيتقال زي ما الورقة بتقوله** — «من ٤٠» لوحدها
+    // كانت بتتقري كجملة مقطوعة، والواحد يفتكر إن الشاشة بلعت نص النطاق.
+    // وساعات يكون ده اللي حصل فعلاً، فالصياغة الواضحة بتخلّي النقص يبان.
+    screenTest('نطاق من حد أدنى بس: «أكتر من ٤٠»', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('HDL', 55, 'mg/dL', refLow: 40)],
+        ),
+      );
+      expect(find.text('نطاق الورقة: أكتر من ٤٠'), findsOneWidget);
+      expect(find.textContaining('إلى'), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('نطاق من حد أعلى بس: «أقل من ٢٠٠»', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('Triglycerides', 150, 'mg/dL', refHigh: 200)],
+        ),
+      );
+      expect(find.text('نطاق الورقة: أقل من ٢٠٠'), findsOneWidget);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('الطرفين: «من ٠.١ إلى ١.٢» — و«قريب من الحد» شغّالة معاهم',
+        (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          // ١.١٥ جوّه ٠.١..١.٢ وعلى بعد أقل من ١٠٪ من العرض
+          lines: [line('TSH', 1.15, 'mIU/L', refLow: 0.1, refHigh: 1.2)],
+        ),
+      );
+      expect(find.text('نطاق الورقة: من ٠.١ إلى ١.٢'), findsOneWidget);
+      expect(find.text(labNearWord), findsOneWidget,
+          reason: '«قريب من الحد» محتاجة الطرفين — الحد الناقص بيطفّيها في صمت');
       expectNoAdvice(tester);
     });
 
@@ -474,7 +521,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('edit-save')));
       await settle(tester);
 
-      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.text('نطاق الورقة: من ٤ إلى ١١'), findsOneWidget);
       expect(find.text(labAboveWord), findsNothing);
       expect(find.text(labNearWord), findsOneWidget);
     });

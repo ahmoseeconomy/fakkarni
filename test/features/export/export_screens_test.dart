@@ -142,7 +142,7 @@ void main() {
       await h.pump(tester, DoctorPageScreen(now: () => sep15));
       await settle(tester);
 
-      expect(find.text('نطاق الورقة: ٤–١١'), findsNWidgets(2));
+      expect(find.text('نطاق الورقة: من ٤ إلى ١١'), findsNWidgets(2));
       expect(find.text(labAboveWord), findsOneWidget, reason: 'WBC ١٢.٤');
       expect(find.text(labBelowWord), findsOneWidget, reason: 'Ferritin ٨');
       expect(find.text(labNearWord), findsOneWidget, reason: 'Platelets ١٠.٥');

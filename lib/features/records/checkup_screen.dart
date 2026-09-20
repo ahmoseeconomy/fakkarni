@@ -252,10 +252,16 @@ class _CheckupScreenState extends State<CheckupScreen> {
                           ? const []
                           : [
                               const SizedBox(height: F.s10),
-                              if (kind.nextAfter(stage) case final next?)
+                              // **«خلصت» وبس.** كان «خلصت — على «سحب
+                              // العينة»»: فكرتين في زرار واحد، والتانية
+                              // مكرّرة — الخط الزمني جنبه بيوري المرحلة
+                              // اللي جاية أصلاً. التقدّم **هو** معنى إنك
+                              // خلصت. و«رجوع لـ«حجز المعمل»» بيفضل بيسمّي
+                              // وجهته: الرجوع هو الاتجاه اللي بيفاجئ.
+                              if (kind.nextAfter(stage) != null)
                                 FPrimaryButton(
                                   key: const ValueKey('checkup-advance'),
-                                  label: 'خلصت — على «${next.label}»',
+                                  label: 'خلصت',
                                   onPressed: () => _advance(row, stage),
                                 ),
                               if (kind.nextAfter(stage) == null)

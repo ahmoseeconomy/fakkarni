@@ -71,6 +71,50 @@ void main() {
     }
   });
 
+  test('الحقول التلاتة مطلوبة — الموديل مش مسموح له يسيب حد منهم', () {
+    // حقل **ناقص** وحقل **null** معناهم مختلف عندنا: الناقص بيخلّي نطاق
+    // «٠.١ إلى ١.٢» يوصل الشاشة «أكتر من ٠.١»، والحد الأعلى بيضيع في
+    // صمت ومعاه «قريب من الحد» اللي محتاج الطرفين.
+    final items = ((labSchema['properties']! as Map)['results']! as Map)['items']! as Map;
+    expect(items['required'], containsAll(['refLow', 'refHigh', 'refText']));
+  });
+
+  test('رقم جاي كنص لسه بيتقرا — الحد ما بيضيعش عشان شكله', () {
+    // الـschema بيقول NUMBER، والموديل ساعات بيبعت "1.2". قراية النص مش
+    // اختراع قيمة: الرقم مكتوب، إحنا بس كنا بنرفض شكله ونرمي الحد كله.
+    final reading = LabReading.fromJson({
+      'results': [
+        {
+          'test': {'value': 'TSH', 'confidence': 0.95},
+          'value': {'value': 0.9, 'confidence': 0.95},
+          'unit': {'value': 'mIU/L', 'confidence': 0.95},
+          'refLow': {'value': 0.1, 'confidence': 0.95},
+          'refHigh': {'value': '1.2', 'confidence': 0.95},
+        },
+      ],
+    });
+    final range = reading.lines.single.range!;
+    expect((range.low, range.high), (0.1, 1.2));
+  });
+
+  test('حقل ناقص خالص لسه بيرجع طرف واحد — وده اللي الـrequired بيمنعه', () {
+    // لو موديل خالف الـschema، السلوك بيفضل معروف: الطرف اللي وصل بس.
+    final reading = LabReading.fromJson({
+      'results': [
+        {
+          'test': {'value': 'FT4', 'confidence': 0.95},
+          'value': {'value': 1.1, 'confidence': 0.95},
+          'unit': {'value': 'ng/dL', 'confidence': 0.95},
+          'refLow': {'value': 0.8, 'confidence': 0.95},
+        },
+      ],
+    });
+    final range = reading.lines.single.range!;
+    expect(range.low, 0.8);
+    expect(range.high, isNull);
+    expect(range.width, isNull, reason: 'من غير عرض مفيش «قريب من الحد»');
+  });
+
   test('نطاق مش متأكد = مفيش نطاق — أحسن من علامة على قراءة غلط', () {
     LabLine lineWith(double confidence) => LabLine(
           test: const ReadField(value: 'WBC', confidence: 0.95),

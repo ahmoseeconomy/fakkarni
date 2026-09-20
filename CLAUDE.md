@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         956 passing
+test/                         964 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1429,6 +1429,28 @@ Consequences to handle:
   same word**, from one wording file and one `LabFlagBadge`: the reading
   screen, the son's «الملف الصحي» (the range rides the cloud embed since
   `0016`; a row written before v18 simply has none), and «صفحة الطبيب».
+  **The range is worded the way the paper says it** (round 27): «من ٤ إلى
+  ١١» for two bounds, «أكتر من ٤٠» / «أقل من ٢٠٠» for one. Never «من ٤٠»
+  alone — that reads as a sentence cut in half, and sometimes it *is* one:
+  a two-sided range can reach the screen with one bound missing, and the
+  clear wording is what makes that visible instead of plausible.
+  **Three ways a bound goes missing, all on the extraction side** — found
+  by reproducing them, after proving the formatter renders both bounds
+  whenever both arrive: the model returned it below the confidence
+  threshold, returned it as a string (`"1.2"`) where the schema said
+  NUMBER, or **omitted the field entirely**, which the schema allowed
+  because `required` listed only test/value/unit. All three are fixed:
+  the three range fields are now required (nullable values, so absence is
+  a written `null` rather than a missing key), `_number` reads a numeric
+  string, and the prompt asks for both bounds of one printed range at one
+  confidence. `GeminiLabReader` logs the parsed range per line in debug
+  (`Gemini: نطاق TSH — low=…/… high=…/…`), because the three causes look
+  identical on screen.
+  **Still open**: a two-sided range with one bound below threshold keeps
+  the confident bound and drops the other, which silently disables
+  «قريب من الحد» on that line. The wording exposes it and «عدّل» fixes it;
+  the honest repair is a review mark that does not block «تمام» (rule 4's
+  shape for an unknown amount), and it is not built.
   A second wording here would be a second opinion — the father and the son
   are reading the same paper and must read the same sentence.
   `expectNoRedAndMinSize` allows red only inside that badge, scoped to the
@@ -2241,6 +2263,12 @@ screen — and they are different screens on purpose.**
   tapping through to the screen. Nothing renders when there are none — a
   follow-up nobody sees is a follow-up nobody does, and an empty section
   saying "none" is the opposite problem.
+- **«خلصت» is the whole button** (round 27). It read «خلصت — على «سحب
+  العينة»» — two ideas in one control, and the second one repeated: the
+  timeline beside it already shows where you land, and advancing *is* what
+  finishing means. **«رجوع لـ«حجز المعمل»» keeps naming its destination**:
+  going back is the surprising direction, and the name is what makes the
+  tap deliberate. Both follow-up kinds, one widget.
 - **متابعة زيارة جنب متابعة التحليل، وتلات طرق تبدأ بيهم (round 24).**
   `FollowKind` (`lab` | `visit`, schema v19 `records.follow_kind`, cloud
   `0017`) picks which stage list `records.checkup_stage` is read against —

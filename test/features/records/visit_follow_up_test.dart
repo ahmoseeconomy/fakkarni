@@ -298,6 +298,32 @@ void main() {
     });
   });
 
+  group('زرار التقدّم', () {
+    // «خلصت — على «سحب العينة»» كان فكرتين في زرار واحد، والتانية مكرّرة:
+    // الخط الزمني جنبه بيوري المرحلة اللي جاية أصلاً.
+    for (final (kind, title) in [(FollowKind.lab, 'صورة دم'), (FollowKind.visit, 'د. حسام')]) {
+      screenTest('«خلصت» وبس — في متابعة ${kind.word}', (tester) async {
+        final id = await checkups().start(
+          patientId: h.services.patientId,
+          kind: kind,
+          title: title,
+          today: sep15,
+        );
+        await h.pump(tester, CheckupScreen(recordId: id, now: () => sep15));
+        await settle(tester);
+
+        expect(find.text('خلصت'), findsOneWidget);
+        expect(find.textContaining('خلصت — على'), findsNothing);
+
+        // والرجوع لسه بيسمّي وجهته — ده الاتجاه اللي بيفاجئ
+        await tester.tap(find.byKey(const ValueKey('checkup-advance')));
+        await settle(tester);
+        final previous = kind.stages.first.label;
+        expect(find.text('رجوع لـ«$previous»'), findsOneWidget);
+      });
+    }
+  });
+
   group('بعد «الزيارة تمت»: سؤال واحد', () {
     screenTest('أيوه طلب تحليل → متابعة تحليل باسم نفس الدكتور', (tester) async {
       final id = await checkups().start(

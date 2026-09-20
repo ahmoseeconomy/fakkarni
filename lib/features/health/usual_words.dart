@@ -52,17 +52,23 @@ String? labFlagWord(LabFlag flag) => switch (flag) {
 /// سياق والواحد يفتكر إحنا اللي سكتنا.
 const labNoRangeText = 'الورقة ما فيهاش نطاق للتحليل ده';
 
-/// «نطاق الورقة: ٤–١١» / «لحد ١١» / «من ٤» / النص المطبوع زي ما هو.
+/// «نطاق الورقة: من ٤ إلى ١١» / «أقل من ٢٠٠» / «أكتر من ٤٠» / النص المطبوع.
 ///
 /// بنقول «نطاق الورقة» عن قصد: النطاق بتاع المعمل اللي طبع الورقة، مش
 /// بتاعنا، والجملة نفسها بتقول كده كل مرة.
+///
+/// **والنطاق من طرف واحد بيتقال زي ما الورقة بتقوله**: «أقل من ٥»،
+/// «أكتر من ٤٠». كان بيتكتب «من ٤٠» لوحدها، ودي بتتقري كجملة مقطوعة —
+/// الواحد بيستنى «إلى كام» وما بيلاقيهاش، فيفتكر إن الشاشة بلعت نص
+/// النطاق. وساعات يكون ده اللي حصل فعلاً (شوف [LabLine.range])، فالصياغة
+/// الواضحة هي اللي بتخلي النقص ده **يبان** بدل ما يعدّي.
 String? labRangeText(LabRange? range) {
   if (range == null || range.isEmpty) return null;
   final low = range.low, high = range.high;
   final body = switch ((low, high)) {
-    (final l?, final h?) => '${arabicDecimal(l)}–${arabicDecimal(h)}',
-    (final l?, null) => 'من ${arabicDecimal(l)}',
-    (null, final h?) => 'لحد ${arabicDecimal(h)}',
+    (final l?, final h?) => 'من ${arabicDecimal(l)} إلى ${arabicDecimal(h)}',
+    (final l?, null) => 'أكتر من ${arabicDecimal(l)}',
+    (null, final h?) => 'أقل من ${arabicDecimal(h)}',
     _ => range.text!.trim(),
   };
   return 'نطاق الورقة: $body';

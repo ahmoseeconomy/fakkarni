@@ -95,7 +95,14 @@ class LabReading {
   static ReadField<double> _number(dynamic field) {
     if (field is! Map) return const ReadField.missing();
     final v = field['value'];
-    final n = v is num ? v.toDouble() : null;
+    // الموديل ساعات بيبعت الرقم كنص («1.2») رغم إن الـschema بيقول NUMBER،
+    // وكنا بنرمي الحد كله ونخلّي النطاق من طرف واحد. قراية النص **مش**
+    // اختراع قيمة — الرقم مكتوب، إحنا بس كنا بنرفض شكله.
+    final n = switch (v) {
+      final num x => x.toDouble(),
+      final String x => num.tryParse(x.trim())?.toDouble(),
+      _ => null,
+    };
     return ReadField(value: n, confidence: n == null ? 0 : _confidence(field));
   }
 
@@ -151,7 +158,13 @@ const Map<String, dynamic> labSchema = {
           'refHigh': _numberField,
           'refText': _stringField,
         },
-        'required': ['test', 'value', 'unit'],
+        // **التلاتة الجداد مطلوبين برضه** — بقيمة null لو الورقة ما طبعتش.
+        // من غير كده الموديل مسموح له **يسيب الحقل خالص**، واللي بيحصل
+        // ساعتها إن النطاق المطبوع «٠.١ إلى ١.٢» بيوصل الشاشة «أكتر من
+        // ٠.١»: الحد الأعلى ضاع في صمت، ومعاه «قريب من الحد» اللي محتاج
+        // الطرفين. الإجبار على الحقل بيخلّي الغياب **قرار مكتوب** (null)
+        // مش سطر ناقص.
+        'required': ['test', 'value', 'unit', 'refLow', 'refHigh', 'refText'],
       },
     },
   },
