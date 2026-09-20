@@ -1,16 +1,45 @@
+import '../domain/health/lab_range.dart';
 import 'prescription_reading.dart' show ReadField, confidenceThreshold;
 
-/// اللي Gemini قراه من تقرير تحليل — **اقتراح**، وبس أرقام.
+/// اللي Gemini قراه من تقرير تحليل — **اقتراح**، وبس اللي مطبوع.
 ///
-/// مفيش هنا نطاق مرجعي، ولا علامة H/L، ولا تفسير، ولا نص حر من الموديل:
-/// الـschema ما بيطلبهمش، فمفيش طريق يوصلوا منه للشاشة (القاعدة ٦). دارت
-/// نقية عشان تتختبر من JSON من غير شبكة.
+/// النطاق اللي بيرجع هنا هو **نطاق الورقة منقول بالحرف**، مش نطاق من عندنا
+/// ولا من عند الموديل: الـsystem instruction بيقول ده صراحة، والسطر اللي
+/// الورقة مفيهاش نطاق ليه بيرجع null وبيفضل null. ولسه **مفيش** علامة H/L
+/// ولا تفسير ولا نص حر — الـschema ما بيطلبهمش، فمفيش طريق يوصلوا منه
+/// للشاشة (القاعدة ٦). دارت نقية عشان تتختبر من JSON من غير شبكة.
 class LabLine {
-  const LabLine({required this.test, required this.value, required this.unit});
+  const LabLine({
+    required this.test,
+    required this.value,
+    required this.unit,
+    this.refLow = const ReadField.missing(),
+    this.refHigh = const ReadField.missing(),
+    this.refText = const ReadField.missing(),
+  });
 
   final ReadField<String> test;
   final ReadField<double> value;
   final ReadField<String> unit;
+
+  /// طرفا النطاق المطبوع — واحد منهم ممكن يكون null («لحد ١١»).
+  final ReadField<double> refLow;
+  final ReadField<double> refHigh;
+
+  /// النطاق المطبوع لما ما يكونش رقم — «Negative»، «< 5».
+  final ReadField<String> refText;
+
+  /// النطاق زي ما الورقة طبعته، أو null لو ما طبعتش.
+  ///
+  /// **قراءة مش متأكدة = مفيش نطاق.** نطاق نصّه مش واضح أسوأ من غير نطاق:
+  /// من غيره الرقم بيتعرض عادي، وبيه بنعلّم على حاجة ما اتقريتش صح.
+  LabRange? get range {
+    final low = refLow.needsReview ? null : refLow.value;
+    final high = refHigh.needsReview ? null : refHigh.value;
+    final text = refText.needsReview ? null : refText.value;
+    final r = LabRange(low: low, high: high, text: text);
+    return r.isEmpty ? null : r;
+  }
 
   /// اسم أو رقم مش واضح بيقفل «تمام» — رقم غلط في ملف حد بيبوّظ المقارنة
   /// بتاعته بعدين. الوحدة مش بتقفل.
@@ -38,7 +67,15 @@ class LabReading {
       lines: [
         if (results is List)
           for (final r in results)
-            if (r is Map) LabLine(test: _string(r['test']), value: _number(r['value']), unit: _string(r['unit'])),
+            if (r is Map)
+              LabLine(
+                test: _string(r['test']),
+                value: _number(r['value']),
+                unit: _string(r['unit']),
+                refLow: _number(r['refLow']),
+                refHigh: _number(r['refHigh']),
+                refText: _string(r['refText']),
+              ),
       ],
     );
   }
@@ -76,6 +113,15 @@ class LabReading {
 /// ثقة الحد — نفس الروشتة.
 const double labConfidenceThreshold = confidenceThreshold;
 
+const Map<String, dynamic> _numberField = {
+  'type': 'OBJECT',
+  'properties': {
+    'value': {'type': 'NUMBER', 'nullable': true},
+    'confidence': {'type': 'NUMBER'},
+  },
+  'required': ['confidence'],
+};
+
 const Map<String, dynamic> _stringField = {
   'type': 'OBJECT',
   'properties': {
@@ -85,8 +131,9 @@ const Map<String, dynamic> _stringField = {
   'required': ['confidence'],
 };
 
-/// الـschema: اسم التحليل، الرقم، الوحدة — وبس. **مفيش** reference range،
-/// **مفيش** flag، **مفيش** interpretation.
+/// الـschema: اسم التحليل، الرقم، الوحدة، والنطاق **زي ما هو مطبوع على
+/// الورقة**. **مفيش** flag، **مفيش** interpretation، ومفيش نطاق من عند
+/// الموديل: الحقول دي نقل، والسطر اللي الورقة مفيهاش نطاق ليه بيرجع null.
 const Map<String, dynamic> labSchema = {
   'type': 'OBJECT',
   'properties': {
@@ -98,15 +145,11 @@ const Map<String, dynamic> labSchema = {
         'type': 'OBJECT',
         'properties': {
           'test': _stringField,
-          'value': {
-            'type': 'OBJECT',
-            'properties': {
-              'value': {'type': 'NUMBER', 'nullable': true},
-              'confidence': {'type': 'NUMBER'},
-            },
-            'required': ['confidence'],
-          },
+          'value': _numberField,
           'unit': _stringField,
+          'refLow': _numberField,
+          'refHigh': _numberField,
+          'refText': _stringField,
         },
         'required': ['test', 'value', 'unit'],
       },

@@ -10,10 +10,14 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
+import '../../data/repositories/lab_results_repository.dart' show rangeOfRow;
 import '../../data/repositories/medication_repository.dart';
 import '../../data/repositories/visit_questions_repository.dart';
 import '../../domain/health/glucose_summary.dart';
-import '../health/usual_words.dart' show GlucoseContextWords, arabicDecimal;
+import '../../domain/health/lab_range.dart';
+import '../health/lab_flag.dart';
+import '../health/usual_words.dart'
+    show GlucoseContextWords, arabicDecimal, labFlagWord, labNoRangeText, labRangeText;
 
 /// «ملخص زيارة الطبيب» (المخطط ١٦) — شاشة واحدة تتفتح قدام الدكتور.
 ///
@@ -42,12 +46,17 @@ class _Visit {
 }
 
 class _LabLine {
-  const _LabLine(this.name, this.value, this.unit, this.at, this.previous);
+  const _LabLine(this.name, this.value, this.unit, this.at, this.previous, this.range);
   final String name;
   final double value;
   final String? unit;
   final DateTime at;
   final (double, DateTime)? previous;
+
+  /// نطاق الورقة اللي الرقم ده اتقرا منها — null لو الورقة ما طبعتش نطاق.
+  final LabRange? range;
+
+  LabFlag get flag => labFlagFor(value, range);
 }
 
 class _DoctorPageScreenState extends State<DoctorPageScreen> {
@@ -150,6 +159,9 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           entries.first.$1.unit,
           entries.first.$2,
           entries.length > 1 ? (entries[1].$1.value, entries[1].$2) : null,
+          // نطاق **الورقة بتاعة القراية دي** — مش بتاع القراية اللي قبلها.
+          // كل ورقة بنطاقها، والمعمل ممكن يكون غيّره بين التقريرين.
+          rangeOfRow(entries.first.$1),
         ),
     ]..sort((a, b) => b.at.compareTo(a.at));
     _set(() => _labs = lines.take(8).toList());
@@ -291,12 +303,27 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              '${l.name} ${arabicDecimal(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
-                              textDirection: TextDirection.ltr,
-                              textAlign: TextAlign.right,
-                              style: body.copyWith(fontWeight: FontWeight.w700),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${l.name} ${arabicDecimal(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
+                                    textDirection: TextDirection.ltr,
+                                    textAlign: TextAlign.right,
+                                    style: body.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                // الشاشة دي بتتفتح والدكتور واقف — العلامة
+                                // جنب الرقم نفسه، مش تحته.
+                                if (labFlagWord(l.flag) != null) ...[
+                                  const SizedBox(width: F.s8),
+                                  LabFlagBadge(l.flag),
+                                ],
+                              ],
                             ),
+                            // نطاق الورقة في سطره — زي شاشة الابن بالظبط،
+                            // وسطر التاريخ فاضل زي ما هو.
+                            Text(labRangeText(l.range) ?? labNoRangeText, style: sub),
                             Text(
                               [
                                 arabicDate(l.at),

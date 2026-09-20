@@ -9,6 +9,7 @@ import 'package:fakkarni/ai/gemini_config.dart';
 import 'package:fakkarni/ai/lab_reader.dart';
 import 'package:fakkarni/ai/lab_reading.dart';
 import 'package:fakkarni/ai/prescription_reader.dart';
+import 'package:fakkarni/ai/prescription_reading.dart' show ReadField;
 
 final image = Uint8List.fromList(List<int>.generate(32, (i) => i));
 
@@ -39,7 +40,11 @@ void main() {
     final instruction = GeminiLabReader.systemInstruction;
     for (final phrase in [
       'not a doctor',
-      'Do NOT return reference ranges',
+      // النطاق بقى بيتنقل من الورقة — والجملتين دول هما اللي بيمنعوا
+      // إن الموديل يجيبه من معرفته هو.
+      'EXACTLY AS PRINTED ON THAT REPORT',
+      'never recalled, never inferred',
+      'A missing range\nis a correct answer',
       'Do NOT return H/L',
       'Do NOT interpret, diagnose, recommend, or advise',
       'Never say a value is high, low, normal, abnormal',
@@ -53,11 +58,29 @@ void main() {
     expect(sent!['generationConfig']['responseSchema'], labSchema);
   });
 
-  test('الـschema مفيهوش مكان لنطاق مرجعي ولا علامة ولا تفسير', () {
+  test('الـschema فيه نطاق الورقة — وما فيهوش علامة ولا تفسير ولا نص حر', () {
+    final results = ((labSchema['properties']! as Map)['results']! as Map);
+    final fields = (((results['items']! as Map)['properties']!) as Map).keys.toSet();
+    // نقل اللي مطبوع: الاسم والرقم والوحدة والنطاق.
+    expect(fields, {'test', 'value', 'unit', 'refLow', 'refHigh', 'refText'});
+
+    // ولا خانة يقدر يحكم أو يفسّر من خلالها.
     final text = jsonEncode(labSchema).toLowerCase();
-    for (final forbidden in ['range', 'reference', 'flag', 'interpret', 'normal', 'comment', 'note']) {
+    for (final forbidden in ['flag', 'interpret', 'normal', 'comment', 'note', 'advice', 'status']) {
       expect(text.contains(forbidden), isFalse, reason: forbidden);
     }
+  });
+
+  test('نطاق مش متأكد = مفيش نطاق — أحسن من علامة على قراءة غلط', () {
+    LabLine lineWith(double confidence) => LabLine(
+          test: const ReadField(value: 'WBC', confidence: 0.95),
+          value: const ReadField(value: 12.4, confidence: 0.95),
+          unit: const ReadField.missing(),
+          refLow: ReadField(value: 4, confidence: confidence),
+          refHigh: ReadField(value: 11, confidence: confidence),
+        );
+    expect(lineWith(0.95).range, isNotNull);
+    expect(lineWith(0.4).range, isNull);
   });
 
   test('القراءة: الأرقام بثقتها، والرقم اللي مش واضح بيقفل «تمام»', () async {

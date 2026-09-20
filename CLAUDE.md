@@ -90,7 +90,18 @@ These are product decisions, already settled. Do not "improve" them without aski
   and the top bar's filled `EmergencyPill` (mockup 04), all living in
   `lib/features/emergency/`, with `F.red` on the ambulance button. The pill
   is the only red outside those screens, and it holds its meaning **because
-  nothing else takes it**: the mockup's red card buttons are gold here. Other
+  nothing else takes it**: the mockup's red card buttons are gold here.
+  **One exception, decided in round 21 and bounded twice over:** a lab
+  value outside the range printed on its own report takes red as *text and
+  an outlined badge* — never a fill. The filled red pill stays unique to
+  emergency, which is the whole reason it still means something; this is a
+  comparison of two printed numbers, not a call for help. It lives in
+  `lib/features/health/lab_flag.dart` and nowhere else, `F.outOfRangeInk`
+  is a **getter** (plain `F.red` is 2.71:1 on a dark card — the night mode
+  takes a lighter red), and the guard test allows that one file while a
+  widget test asserts the badge's decoration carries a border and **no**
+  `color`. Near-boundary uses the existing gold, with ink text (gold text
+  is ~2:1, debt 5). Other
   screens *use* those widgets; they never paint red themselves. The
   mockups also spend red on the `طوارئ` shortcut in the top bar; ours is
   ink-outlined, because red on any other screen is wrong — including the
@@ -183,7 +194,9 @@ lib/
                               the +15/+30 rung switches), emergency_profile
                               (v10; pushed since D5.1 without contacts),
                               records (v11, soft delete), readings +
-                              lab_results (v12), visit_questions (v14) —
+                              lab_results (v12; the paper's printed range
+                              ref_low/ref_high/ref_text, v18),
+                              visit_questions (v14) —
                               the health file, pushed since D5.1,
                               dose_schedules.active_from (v15, local),
                               records checkup dates (v17),
@@ -235,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         863 passing
+test/                         905 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1031,6 +1044,28 @@ And when a test passes over a bug, fix the test's *shape* — ours exercised
 a different statement than the app, which is not thoroughness but a blind
 spot.
 
+**A self-check that inserts into `public.patients` must create the owner in
+`auth.users` first.** `patients.owner_id` is a foreign key onto
+`auth.users`, and a `gen_random_uuid()` is not a real user — so the first
+`insert into public.patients` fails the key, the exception escapes the
+sub-transaction, and **the whole script rolls back**: the migration you
+thought you ran was never applied. The failure does not read that way from
+either side. The error names the foreign key, not the columns you were
+adding, and a script that ends without `NOTICE ... OK` is easy to scroll
+past. One line, before the patient, as `0011`–`0015` all have it:
+
+```sql
+insert into auth.users (id, email) values (v_owner, 'owner-' || v_owner || '@00NN.check');
+```
+
+`0016` shipped without it and rolled back on the live project;
+`test/data/sync/migration_selfcheck_owner_test.dart` reads every file under
+`supabase/migrations/` and `supabase/tests/` and fails if one inserts a
+patient without creating an owner, or creates the owner **after** the
+patient. Mutation-checked both ways. Postgres does not run in `flutter
+test`, so this class of mistake is otherwise found only by the real project
+— after the time is spent.
+
 ---
 
 ## دين تقني
@@ -1242,9 +1277,33 @@ Consequences to handle:
   Glucose is typed. Its «المستهدف» line and «أعلى من المستهدف» chip are
   not built either: that is a textbook target dressed as an interface.
 - **Mockup 7's multi-page capture is not built** — one page per scan.
-- **Mockup 8's lab reference range, «أعلى» chips and red cards are not
-  built, and cannot be:** the Gemini schema has no field for a range, a
-  flag or an interpretation, so none can reach the screen.
+- **Mockup 8's reference range is built (round 21) — as the *paper's*
+  range, never ours.** `lab_results` carries `ref_low` / `ref_high` /
+  `ref_text` (v18, cloud `0016`), transcribed by the reader from that
+  report and by nobody else: the prompt says a missing range is a correct
+  answer and a remembered one is wrong «even when it is medically true»,
+  and an unsure read is stored as no range at all. A line whose report
+  printed none shows the plain number and says so
+  («الورقة ما فيهاش نطاق للتحليل ده»). The comparison is two printed
+  numbers and lives in `domain/health/lab_range.dart`; «قريب من الحد» is
+  **our display aid, not medicine** — one named constant,
+  `nearBoundaryFraction` (10% of the printed range's own width), needing
+  both bounds, and worded as nothing more than those three words.
+  `test/app/no_builtin_lab_ranges_test.dart` fails on any lab-test name
+  sitting next to a number anywhere in `lib/`, and pins that the rule file
+  holds no number but that fraction — there is **no table of normal
+  values**, and there must never be one.
+  The mockup's «أعلى» chips and red cards are still not built: the flag
+  words are «فوق المعدل» / «تحت المعدل» / «قريب من الحد» and nothing else,
+  and the red is text + an **outlined** badge — see the red rule above.
+  **All three places that show a lab value show the same range and the
+  same word**, from one wording file and one `LabFlagBadge`: the reading
+  screen, the son's «الملف الصحي» (the range rides the cloud embed since
+  `0016`; a row written before v18 simply has none), and «صفحة الطبيب».
+  A second wording here would be a second opinion — the father and the son
+  are reading the same paper and must read the same sentence.
+  `expectNoRedAndMinSize` allows red only inside that badge, scoped to the
+  widget, so red text anywhere else on those screens still fails.
 - **Mockup 11's rule box («قاعدة: لا يمكن للفحص أن يبقى…») and «المتوقع ٢٤
   ساعة» are not built** — an automatic judgment on delay and a number
   nobody gave us. The fasting duration is never ours either: the user types

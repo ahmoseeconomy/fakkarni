@@ -1,15 +1,19 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/health/lab_range.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 
 /// سطر نتيجة زي ما إنسان أكّده.
 class ConfirmedLabLine {
-  const ConfirmedLabLine({required this.testName, required this.value, this.unit});
+  const ConfirmedLabLine({required this.testName, required this.value, this.unit, this.range});
 
   final String testName;
   final double value;
   final String? unit;
+
+  /// نطاق الورقة زي ما اتقرا منها — null لو الورقة ما طبعتش نطاق للسطر ده.
+  final LabRange? range;
 }
 
 /// قيمة قديمة لنفس التحليل — للمقارنة بتاريخه هو.
@@ -19,6 +23,12 @@ class PastLabValue {
   final double value;
   final String? unit;
   final DateTime at;
+}
+
+/// نطاق الورقة من صف متخزّن، أو null لو التلاتة فاضيين.
+LabRange? rangeOfRow(LabResultRow row) {
+  final r = LabRange(low: row.refLow, high: row.refHigh, text: row.refText);
+  return r.isEmpty ? null : r;
 }
 
 /// تقارير التحاليل (D3.6) — بتتكتب بعد «تمام» بس.
@@ -63,6 +73,9 @@ class LabResultsRepository {
                 testName: l.testName.trim(),
                 value: l.value,
                 unit: Value(l.unit),
+                refLow: Value(l.range?.low),
+                refHigh: Value(l.range?.high),
+                refText: Value(l.range?.text),
               ));
         }
         return recordId;

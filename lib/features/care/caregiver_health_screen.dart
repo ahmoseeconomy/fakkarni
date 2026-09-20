@@ -4,6 +4,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../emergency/emergency_facts_card.dart';
+import '../health/lab_flag.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_words.dart';
 
@@ -231,11 +232,32 @@ class _RecordCard extends StatelessWidget {
                   margin: const EdgeInsets.only(top: F.s4),
                   padding: const EdgeInsetsDirectional.only(start: F.s12),
                   decoration: BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.line, width: 3))),
-                  child: Text(
-                    labLineText(line),
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        labLineText(line),
+                        textDirection: TextDirection.ltr,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+                      ),
+                      // نطاق الورقة والعلامة — نفس اللي على شاشة الأب
+                      // بالحرف. الابن بيشوف الورقة، مش رأينا فيها.
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              labRangeLine(line),
+                              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                            ),
+                          ),
+                          if (labFlagWordOf(line) != null) ...[
+                            const SizedBox(width: F.s8),
+                            LabFlagBadge(labFlagOf(line)),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
             ],

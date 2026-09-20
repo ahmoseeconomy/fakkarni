@@ -7,6 +7,8 @@
 /// هو اللي على موبايل الأب؛ إحنا بنعرض اللي كتبه، أو ما نعرضش.
 library;
 
+import '../../domain/health/lab_range.dart';
+
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
 
 class CaregiverPatient {
@@ -172,10 +174,15 @@ class CaregiverRecord {
 }
 
 class CaregiverLabLine {
-  const CaregiverLabLine({required this.testName, required this.value, this.unit});
+  const CaregiverLabLine({required this.testName, required this.value, this.unit, this.range});
   final String testName;
   final double value;
   final String? unit;
+
+  /// نطاق الورقة زي ما جهاز الأب رفعه — null لو الورقة ما طبعتش نطاق.
+  /// الابن بيشوف نفس اللي الأب شافه بنفس القاعدة؛ مفيش حساب تاني هنا، زي
+  /// ما مفيش حلّ مراسي.
+  final LabRange? range;
 }
 
 /// قياس سكر — `context` بالحرف: fasting | afterMeal.

@@ -245,6 +245,16 @@ class LabResults extends Table with SyncIdentity {
   TextColumn get testName => text().withLength(min: 1, max: 120)();
   RealColumn get value => real()();
   TextColumn get unit => text().nullable()();
+
+  /// النطاق **زي ما هو مطبوع على ورقة المعمل** (v18) — مش من عندنا أبداً.
+  ///
+  /// التلاتة nullable، وnull معناها الورقة ما طبعتش نطاق للسطر ده: الرقم
+  /// بيتعرض عادي من غير أي علامة، والشاشة بتقول إن الورقة مفيهاش نطاق.
+  /// [refText] للنطاق المطبوع اللي مش رقم («Negative»، «< 5») — بيتعرض
+  /// بالحرف وعمره ما بيتقارن. القاعدة كلها في `domain/health/lab_range.dart`.
+  RealColumn get refLow => real().nullable()();
+  RealColumn get refHigh => real().nullable()();
+  TextColumn get refText => text().nullable()();
 }
 
 /// أسئلة العيلة للدكتور (D3.8، المخطط ١٦) — بتتكتب على الموبايل ده.

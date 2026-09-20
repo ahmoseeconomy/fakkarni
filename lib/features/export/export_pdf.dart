@@ -99,6 +99,50 @@ Future<Uint8List> buildExportPdf(ExportDocument doc, PdfFonts fonts, {bool compr
             padding: const pw.EdgeInsets.symmetric(vertical: 2),
             child: arabicLine(l, const pw.TextStyle(fontSize: 12, color: ink)),
           ),
+        // الجداول (التحاليل): تقرير لكل جدول، وعنوانه تاريخه.
+        for (final table in block.tables) ...[
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 8, bottom: 3),
+            child: arabicLine(
+              table.caption,
+              pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: ink),
+            ),
+          ),
+          pw.Table(
+            border: pw.TableBorder.all(color: line, width: 0.5),
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF1EFE6)),
+                children: [
+                  for (final h in table.headers)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(4),
+                      child: arabicLine(
+                        h,
+                        pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: muted),
+                      ),
+                    ),
+                ],
+              ),
+              for (final row in table.rows)
+                pw.TableRow(
+                  children: [
+                    for (final cell in row)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: arabicLine(cell, const pw.TextStyle(fontSize: 11, color: ink)),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+        // سطر تحت القسم كله — نطاقات التحاليل بتاعة المعمل.
+        if (block.footnote case final note?)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 6),
+            child: arabicLine(note, const pw.TextStyle(fontSize: 10, color: muted)),
+          ),
       ],
       pw.SizedBox(height: 16),
       arabicLine('الملف ده أرقام ووقائع متسجّلة على موبايل المريض.', const pw.TextStyle(fontSize: 10, color: muted)),

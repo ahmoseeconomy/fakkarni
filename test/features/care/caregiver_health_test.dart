@@ -5,7 +5,11 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/care/supabase_caregiver_remote.dart'
     show emergencyFromRow, questionFromRow, readingFromRow, recordFromRow;
+import 'package:fakkarni/domain/health/lab_range.dart';
 import 'package:fakkarni/features/care/caregiver_health_screen.dart';
+import 'package:fakkarni/features/health/lab_flag.dart';
+import 'package:fakkarni/features/health/usual_words.dart'
+    show adviceWords, labAboveWord, labBelowWord, labNearWord, labNoRangeText;
 import 'package:fakkarni/features/care/caregiver_screen.dart';
 import 'package:fakkarni/features/care/caregiver_snapshot_holder.dart';
 
@@ -37,7 +41,8 @@ void main() {
         'deleted_at': null,
         'updated_at': '2026-08-31T09:00:00.000Z',
         'lab_results': [
-          {'test_name': 'HbA1c', 'value': 7.1, 'unit': '%'},
+          {'test_name': 'HbA1c', 'value': 7.1, 'unit': '%', 'ref_low': 4, 'ref_high': 5.6},
+          // صف اتكتب قبل نسخة ١٨ — الأعمدة مش موجودة أصلاً
           {'test_name': 'Glucose', 'value': 128, 'unit': 'mg/dL'},
         ],
       })!;
@@ -50,6 +55,31 @@ void main() {
         ('HbA1c', 7.1, '%'),
         ('Glucose', 128.0, 'mg/dL'),
       ]);
+      // نطاق الورقة جاي زي ما جهاز الأب رفعه…
+      expect((r.labLines[0].range!.low, r.labLines[0].range!.high), (4.0, 5.6));
+      // …والصف اللي مالوش نطاق بيفضل من غير نطاق. **مش** بنملاه من عندنا.
+      expect(r.labLines[1].range, isNull);
+    });
+
+    test('نطاق مطبوع بالحروف بيعدّي زي ما هو، والتلاتة null = مفيش نطاق', () {
+      Map<String, dynamic> withLines(List<Map<String, dynamic>> lines) => {
+            'uuid': 'r1',
+            'kind': 'lab',
+            'title': 'تحليل',
+            'happened_at': '2026-08-20T07:00:00.000Z',
+            'deleted_at': null,
+            'updated_at': '2026-08-31T09:00:00.000Z',
+            'lab_results': lines,
+          };
+      final textRange = recordFromRow(withLines([
+        {'test_name': 'CRP', 'value': 3, 'unit': null, 'ref_text': 'Negative'},
+      ]))!;
+      expect(textRange.labLines.single.range!.text, 'Negative');
+
+      final none = recordFromRow(withLines([
+        {'test_name': 'Uric acid', 'value': 5.1, 'unit': 'mg/dL', 'ref_low': null, 'ref_high': null, 'ref_text': null},
+      ]))!;
+      expect(none.labLines.single.range, isNull);
     });
 
     test('سجل ممسوح ناعم → null (عمره ما يتعرض، حتى لو الاستعلام فوّته)', () {
@@ -258,6 +288,67 @@ void main() {
 
     expect(find.text('زيارة شغّالة'), findsOneWidget);
     expect(find.textContaining('اتمسحت'), findsNothing);
+    holder.setActive(false);
+  });
+
+  screenTest('الابن بيشوف نطاق الورقة وعلامته — نفس كلام شاشة أبوه', (tester) async {
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final holder = CaregiverSnapshotHolder(
+      FakeCaregiverRemote()
+        ..next = CaregiverSnapshot(
+          patient: _patient,
+          medications: const [],
+          events: const [],
+          records: [
+            CaregiverRecord(
+              uuid: 'r1',
+              kind: 'lab',
+              title: 'صورة دم كاملة',
+              happenedAt: DateTime(2026, 9, 12),
+              updatedAt: DateTime(2026, 9, 12, 10),
+              labLines: const [
+                CaregiverLabLine(
+                    testName: 'WBC', value: 12.4, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+                CaregiverLabLine(
+                    testName: 'Ferritin', value: 8, unit: 'ng/mL', range: LabRange(low: 30, high: 400)),
+                CaregiverLabLine(
+                    testName: 'Platelets', value: 10.5, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+                CaregiverLabLine(
+                    testName: 'Sodium', value: 140, unit: 'mmol/L', range: LabRange(low: 135, high: 145)),
+                CaregiverLabLine(testName: 'Uric acid', value: 5.1, unit: 'mg/dL'),
+              ],
+            ),
+          ],
+        ),
+    );
+    addTearDown(holder.dispose);
+    holder.setActive(true);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(textDirection: TextDirection.rtl, child: CaregiverHealthScreen(holder: holder)),
+    ));
+    await settle(tester);
+
+    // نفس التلات كلمات بالحرف — مش نسخة تانية من الكلام
+    expect(find.text(labAboveWord), findsOneWidget);
+    expect(find.text(labBelowWord), findsOneWidget);
+    expect(find.text(labNearWord), findsOneWidget);
+    expect(find.byType(LabFlagBadge), findsNWidgets(3), reason: 'Sodium جوّه النطاق — من غير علامة');
+
+    // ونطاق الورقة نفسه، وسطر الورقة اللي من غير نطاق
+    expect(find.text('نطاق الورقة: ٤–١١'), findsNWidgets(2));
+    expect(find.text('نطاق الورقة: ٣٠–٤٠٠'), findsOneWidget);
+    expect(find.text(labNoRangeText), findsOneWidget);
+
+    // الابن لسه ما بيحكمش: ولا كلمة نصيحة، والأحمر محبوس في العلامة
+    for (final word in adviceWords) {
+      expect(find.textContaining(word), findsNothing, reason: '«$word» عند الابن');
+    }
+    expectNoRedAndMinSize(tester);
     holder.setActive(false);
   });
 }

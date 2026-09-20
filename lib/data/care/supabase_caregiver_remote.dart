@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
+import '../../domain/health/lab_range.dart';
 import '../../domain/wording/rule_wording.dart';
 import 'caregiver_remote.dart';
 
@@ -82,11 +83,22 @@ CaregiverRecord? recordFromRow(Map<String, dynamic> row) {
     notes: row['notes'] as String?,
     labLines: [
       for (final l in lines)
-        CaregiverLabLine(
-          testName: (l as Map)['test_name'] as String,
-          value: (l['value'] as num).toDouble(),
-          unit: l['unit'] as String?,
-        ),
+        () {
+          final map = l as Map;
+          // نطاق الورقة زي ما جهاز الأب رفعه. التلاتة null (ورقة من غير
+          // نطاق، أو صف اتكتب قبل نسخة ١٨) = مفيش نطاق، وبس.
+          final range = LabRange(
+            low: (map['ref_low'] as num?)?.toDouble(),
+            high: (map['ref_high'] as num?)?.toDouble(),
+            text: map['ref_text'] as String?,
+          );
+          return CaregiverLabLine(
+            testName: map['test_name'] as String,
+            value: (map['value'] as num).toDouble(),
+            unit: map['unit'] as String?,
+            range: range.isEmpty ? null : range,
+          );
+        }(),
     ],
   );
 }
@@ -218,7 +230,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
         final records = await _supabase
             .from('records')
             .select('uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
-                'lab_results(test_name, value, unit)')
+                'lab_results(test_name, value, unit, ref_low, ref_high, ref_text)')
             .eq('patient_uuid', patient.uuid)
             .isFilter('deleted_at', null)
             .order('updated_at', ascending: false)

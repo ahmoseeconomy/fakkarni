@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
@@ -13,11 +14,14 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/domain/health/lab_range.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/export/export_pdf.dart';
+import 'package:fakkarni/features/health/usual_words.dart'
+    show labAboveWord, labBelowWord, labNearWord, labRangeFooter;
 import 'package:fakkarni/features/records/record_kinds.dart';
 import '../../support/seeded_clock.dart';
 
@@ -50,6 +54,24 @@ String pdfText(Uint8List bytes) {
   return out.toString();
 }
 
+/// الكلمة العربي زي ما `pdf` بتكتبها فعلاً.
+///
+/// الحزمة بتكتب العربي **بأشكال العرض** (U+FExx) ومقلوبة، فالبحث عن
+/// «فوق المعدل» بالحرف في الملف بيرجع فاضي حتى وهي مكتوبة فيه. بدل ما
+/// نكتب الجليفات بإيدينا (وتبقى مربوطة بنسخة الحزمة)، بنمرّر الكلمة على
+/// **نفس** الكاتب ونقارن الناتج بالناتج.
+Future<String> shaped(String phrase, PdfFonts fonts) async {
+  final doc = pw.Document(compress: false);
+  doc.addPage(pw.Page(
+    pageTheme: pw.PageTheme(
+      textDirection: pw.TextDirection.rtl,
+      theme: pw.ThemeData.withFont(base: fonts.regular, bold: fonts.regular),
+    ),
+    build: (_) => arabicLine(phrase, const pw.TextStyle(fontSize: 12)),
+  ));
+  return pdfText(await doc.save()).trim();
+}
+
 void main() {
   late AppDatabase db;
   late int patientId;
@@ -73,7 +95,29 @@ void main() {
       patientId: patientId,
       happenedAt: DateTime(2026, 9, 12),
       place: 'Al Borg Lab',
-      lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%')],
+      lines: const [
+        ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%'),
+        // نطاق الورقة ٤–١١: ١٢.٤ فوقه، و١٠.٥ جوّه بس قريب من الحد
+        ConfirmedLabLine(
+          testName: 'WBC',
+          value: 12.4,
+          unit: '10^3/uL',
+          range: LabRange(low: 4, high: 11),
+        ),
+        ConfirmedLabLine(
+          testName: 'Platelets',
+          value: 10.5,
+          unit: '10^3/uL',
+          range: LabRange(low: 4, high: 11),
+        ),
+      ],
+    );
+    await LabResultsRepository(db).saveReport(
+      patientId: patientId,
+      happenedAt: DateTime(2026, 8, 3),
+      lines: const [
+        ConfirmedLabLine(testName: 'Ferritin', value: 8, unit: 'ng/mL', range: LabRange(low: 30, high: 400)),
+      ],
     );
     await RecordsRepository(db).add(
       patientId: patientId,
@@ -141,6 +185,61 @@ void main() {
     final text = pdfText(await build(ExportSection.values.toSet()));
     expect(text.contains('01001234567'), isFalse);
     expect(text.contains('Mohamed'), isFalse);
+  });
+
+  test('كل سطر متعلّم في الملف بياخد كلمته — الملف بيتطبع أبيض وأسود', () async {
+    final text = pdfText(await build(ExportSection.values.toSet()));
+
+    // ضابط إيجابي: الطريقة نفسها بتلاقي كلمة إحنا متأكدين إنها هناك.
+    expect(text.contains(await shaped('نتايج التحاليل', fonts)), isTrue,
+        reason: 'لو عنوان القسم مش بيتلاقى، باقي الاختبار مالوش معنى');
+
+    // فوق، تحت، وقريب — التلاتة بالكلمة، مش باللون
+    expect(text.contains(await shaped(labAboveWord, fonts)), isTrue, reason: 'WBC ١٢.٤ فوق ٤–١١');
+    expect(text.contains(await shaped(labBelowWord, fonts)), isTrue, reason: 'Ferritin ٨ تحت ٣٠–٤٠٠');
+    expect(text.contains(await shaped(labNearWord, fonts)), isTrue,
+        reason: 'Platelets ١٠.٥ على بعد أقل من ١٠٪ من الحد');
+
+    // ونطاق الورقة نفسه — بنفس الطريقة: الترتيب في الملف بيتقلب (١١–٤)
+    expect(text.contains(await shaped('٤–١١', fonts)), isTrue);
+    // والسطر اللي تحت القسم كله
+    expect(text.contains(await shaped(labRangeFooter, fonts)), isTrue);
+  });
+
+  test('السطر اللي الورقة مفيهاش نطاق ليه بيوصل الملف من غير ولا كلمة علامة', () async {
+    final doc = await collectExport(
+      db,
+      patientId: patientId,
+      options: ExportOptions(period: RecordPeriod.all, visible: {ExportSection.labs}),
+      now: now,
+    );
+    final hba1c = doc.blocks.single.tables
+        .expand((t) => t.rows)
+        .firstWhere((r) => r.first == 'HbA1c');
+    expect(hba1c.last, isEmpty);
+    expect([labAboveWord, labBelowWord, labNearWord].any(hba1c.contains), isFalse);
+  });
+
+  test('جدول التحاليل: أعمدة، ومجمّع بتاريخ التقرير', () async {
+    final doc = await collectExport(
+      db,
+      patientId: patientId,
+      options: ExportOptions(period: RecordPeriod.all, visible: {ExportSection.labs}),
+      now: now,
+    );
+    final block = doc.blocks.single;
+    expect(block.tables.length, 2, reason: 'تقريرين بتاريخين = جدولين');
+    expect(block.tables.first.caption, '١٢ سبتمبر ٢٠٢٦');
+    expect(block.tables.last.caption, '٣ أغسطس ٢٠٢٦');
+    expect(block.tables.first.headers, labExportHeaders);
+    expect(block.footnote, labRangeFooter);
+
+    final wbc = block.tables.first.rows.firstWhere((r) => r.first == 'WBC');
+    expect(wbc, ['WBC', '١٢.٤ 10^3/uL', '٤–١١', labAboveWord]);
+
+    // السطر اللي الورقة مفيهاش نطاق ليه: شرطة، وعمود الكلمة فاضي
+    final hba1c = block.tables.first.rows.firstWhere((r) => r.first == 'HbA1c');
+    expect(hba1c, ['HbA1c', '٧.٦ %', '—', '']);
   });
 
   test('الافتراضي: الطوارئ مخفية', () {

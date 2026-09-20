@@ -6992,6 +6992,37 @@ class $LabResultsTable extends LabResults
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _refLowMeta = const VerificationMeta('refLow');
+  @override
+  late final GeneratedColumn<double> refLow = GeneratedColumn<double>(
+    'ref_low',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refHighMeta = const VerificationMeta(
+    'refHigh',
+  );
+  @override
+  late final GeneratedColumn<double> refHigh = GeneratedColumn<double>(
+    'ref_high',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refTextMeta = const VerificationMeta(
+    'refText',
+  );
+  @override
+  late final GeneratedColumn<String> refText = GeneratedColumn<String>(
+    'ref_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -7002,6 +7033,9 @@ class $LabResultsTable extends LabResults
     testName,
     value,
     unit,
+    refLow,
+    refHigh,
+    refText,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7072,6 +7106,24 @@ class $LabResultsTable extends LabResults
         unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
       );
     }
+    if (data.containsKey('ref_low')) {
+      context.handle(
+        _refLowMeta,
+        refLow.isAcceptableOrUnknown(data['ref_low']!, _refLowMeta),
+      );
+    }
+    if (data.containsKey('ref_high')) {
+      context.handle(
+        _refHighMeta,
+        refHigh.isAcceptableOrUnknown(data['ref_high']!, _refHighMeta),
+      );
+    }
+    if (data.containsKey('ref_text')) {
+      context.handle(
+        _refTextMeta,
+        refText.isAcceptableOrUnknown(data['ref_text']!, _refTextMeta),
+      );
+    }
     return context;
   }
 
@@ -7113,6 +7165,18 @@ class $LabResultsTable extends LabResults
         DriftSqlType.string,
         data['${effectivePrefix}unit'],
       ),
+      refLow: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ref_low'],
+      ),
+      refHigh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ref_high'],
+      ),
+      refText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ref_text'],
+      ),
     );
   }
 
@@ -7138,6 +7202,16 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
   final String testName;
   final double value;
   final String? unit;
+
+  /// النطاق **زي ما هو مطبوع على ورقة المعمل** (v18) — مش من عندنا أبداً.
+  ///
+  /// التلاتة nullable، وnull معناها الورقة ما طبعتش نطاق للسطر ده: الرقم
+  /// بيتعرض عادي من غير أي علامة، والشاشة بتقول إن الورقة مفيهاش نطاق.
+  /// [refText] للنطاق المطبوع اللي مش رقم («Negative»، «< 5») — بيتعرض
+  /// بالحرف وعمره ما بيتقارن. القاعدة كلها في `domain/health/lab_range.dart`.
+  final double? refLow;
+  final double? refHigh;
+  final String? refText;
   const LabResultRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -7147,6 +7221,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     required this.testName,
     required this.value,
     this.unit,
+    this.refLow,
+    this.refHigh,
+    this.refText,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7163,6 +7240,15 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     if (!nullToAbsent || unit != null) {
       map['unit'] = Variable<String>(unit);
     }
+    if (!nullToAbsent || refLow != null) {
+      map['ref_low'] = Variable<double>(refLow);
+    }
+    if (!nullToAbsent || refHigh != null) {
+      map['ref_high'] = Variable<double>(refHigh);
+    }
+    if (!nullToAbsent || refText != null) {
+      map['ref_text'] = Variable<String>(refText);
+    }
     return map;
   }
 
@@ -7178,6 +7264,15 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       testName: Value(testName),
       value: Value(value),
       unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
+      refLow: refLow == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refLow),
+      refHigh: refHigh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refHigh),
+      refText: refText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refText),
     );
   }
 
@@ -7195,6 +7290,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       testName: serializer.fromJson<String>(json['testName']),
       value: serializer.fromJson<double>(json['value']),
       unit: serializer.fromJson<String?>(json['unit']),
+      refLow: serializer.fromJson<double?>(json['refLow']),
+      refHigh: serializer.fromJson<double?>(json['refHigh']),
+      refText: serializer.fromJson<String?>(json['refText']),
     );
   }
   @override
@@ -7209,6 +7307,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       'testName': serializer.toJson<String>(testName),
       'value': serializer.toJson<double>(value),
       'unit': serializer.toJson<String?>(unit),
+      'refLow': serializer.toJson<double?>(refLow),
+      'refHigh': serializer.toJson<double?>(refHigh),
+      'refText': serializer.toJson<String?>(refText),
     };
   }
 
@@ -7221,6 +7322,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     String? testName,
     double? value,
     Value<String?> unit = const Value.absent(),
+    Value<double?> refLow = const Value.absent(),
+    Value<double?> refHigh = const Value.absent(),
+    Value<String?> refText = const Value.absent(),
   }) => LabResultRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -7230,6 +7334,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     testName: testName ?? this.testName,
     value: value ?? this.value,
     unit: unit.present ? unit.value : this.unit,
+    refLow: refLow.present ? refLow.value : this.refLow,
+    refHigh: refHigh.present ? refHigh.value : this.refHigh,
+    refText: refText.present ? refText.value : this.refText,
   );
   LabResultRow copyWithCompanion(LabResultsCompanion data) {
     return LabResultRow(
@@ -7245,6 +7352,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       testName: data.testName.present ? data.testName.value : this.testName,
       value: data.value.present ? data.value.value : this.value,
       unit: data.unit.present ? data.unit.value : this.unit,
+      refLow: data.refLow.present ? data.refLow.value : this.refLow,
+      refHigh: data.refHigh.present ? data.refHigh.value : this.refHigh,
+      refText: data.refText.present ? data.refText.value : this.refText,
     );
   }
 
@@ -7258,7 +7368,10 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
           ..write('recordId: $recordId, ')
           ..write('testName: $testName, ')
           ..write('value: $value, ')
-          ..write('unit: $unit')
+          ..write('unit: $unit, ')
+          ..write('refLow: $refLow, ')
+          ..write('refHigh: $refHigh, ')
+          ..write('refText: $refText')
           ..write(')'))
         .toString();
   }
@@ -7273,6 +7386,9 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     testName,
     value,
     unit,
+    refLow,
+    refHigh,
+    refText,
   );
   @override
   bool operator ==(Object other) =>
@@ -7285,7 +7401,10 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
           other.recordId == this.recordId &&
           other.testName == this.testName &&
           other.value == this.value &&
-          other.unit == this.unit);
+          other.unit == this.unit &&
+          other.refLow == this.refLow &&
+          other.refHigh == this.refHigh &&
+          other.refText == this.refText);
 }
 
 class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
@@ -7297,6 +7416,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
   final Value<String> testName;
   final Value<double> value;
   final Value<String?> unit;
+  final Value<double?> refLow;
+  final Value<double?> refHigh;
+  final Value<String?> refText;
   const LabResultsCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -7306,6 +7428,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     this.testName = const Value.absent(),
     this.value = const Value.absent(),
     this.unit = const Value.absent(),
+    this.refLow = const Value.absent(),
+    this.refHigh = const Value.absent(),
+    this.refText = const Value.absent(),
   });
   LabResultsCompanion.insert({
     this.uuid = const Value.absent(),
@@ -7316,6 +7441,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     required String testName,
     required double value,
     this.unit = const Value.absent(),
+    this.refLow = const Value.absent(),
+    this.refHigh = const Value.absent(),
+    this.refText = const Value.absent(),
   }) : recordId = Value(recordId),
        testName = Value(testName),
        value = Value(value);
@@ -7328,6 +7456,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     Expression<String>? testName,
     Expression<double>? value,
     Expression<String>? unit,
+    Expression<double>? refLow,
+    Expression<double>? refHigh,
+    Expression<String>? refText,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -7338,6 +7469,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
       if (testName != null) 'test_name': testName,
       if (value != null) 'value': value,
       if (unit != null) 'unit': unit,
+      if (refLow != null) 'ref_low': refLow,
+      if (refHigh != null) 'ref_high': refHigh,
+      if (refText != null) 'ref_text': refText,
     });
   }
 
@@ -7350,6 +7484,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     Value<String>? testName,
     Value<double>? value,
     Value<String?>? unit,
+    Value<double?>? refLow,
+    Value<double?>? refHigh,
+    Value<String?>? refText,
   }) {
     return LabResultsCompanion(
       uuid: uuid ?? this.uuid,
@@ -7360,6 +7497,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
       testName: testName ?? this.testName,
       value: value ?? this.value,
       unit: unit ?? this.unit,
+      refLow: refLow ?? this.refLow,
+      refHigh: refHigh ?? this.refHigh,
+      refText: refText ?? this.refText,
     );
   }
 
@@ -7390,6 +7530,15 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
     }
+    if (refLow.present) {
+      map['ref_low'] = Variable<double>(refLow.value);
+    }
+    if (refHigh.present) {
+      map['ref_high'] = Variable<double>(refHigh.value);
+    }
+    if (refText.present) {
+      map['ref_text'] = Variable<String>(refText.value);
+    }
     return map;
   }
 
@@ -7403,7 +7552,10 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
           ..write('recordId: $recordId, ')
           ..write('testName: $testName, ')
           ..write('value: $value, ')
-          ..write('unit: $unit')
+          ..write('unit: $unit, ')
+          ..write('refLow: $refLow, ')
+          ..write('refHigh: $refHigh, ')
+          ..write('refText: $refText')
           ..write(')'))
         .toString();
   }
@@ -13409,6 +13561,9 @@ typedef $$LabResultsTableCreateCompanionBuilder = LabResultsCompanion Function({
   required String testName,
   required double value,
   Value<String?> unit,
+  Value<double?> refLow,
+  Value<double?> refHigh,
+  Value<String?> refText,
 });
 typedef $$LabResultsTableUpdateCompanionBuilder = LabResultsCompanion Function({
   Value<String> uuid,
@@ -13419,6 +13574,9 @@ typedef $$LabResultsTableUpdateCompanionBuilder = LabResultsCompanion Function({
   Value<String> testName,
   Value<double> value,
   Value<String?> unit,
+  Value<double?> refLow,
+  Value<double?> refHigh,
+  Value<String?> refText,
 });
 
 final class $$LabResultsTableReferences
@@ -13484,6 +13642,21 @@ class $$LabResultsTableFilterComposer
 
   ColumnFilters<String> get unit => $composableBuilder(
     column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get refLow => $composableBuilder(
+    column: $table.refLow,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get refHigh => $composableBuilder(
+    column: $table.refHigh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get refText => $composableBuilder(
+    column: $table.refText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13555,6 +13728,21 @@ class $$LabResultsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get refLow => $composableBuilder(
+    column: $table.refLow,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get refHigh => $composableBuilder(
+    column: $table.refHigh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get refText => $composableBuilder(
+    column: $table.refText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$RecordsTableOrderingComposer get recordId {
     final $$RecordsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13612,6 +13800,15 @@ class $$LabResultsTableAnnotationComposer
 
   GeneratedColumn<String> get unit =>
       $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<double> get refLow =>
+      $composableBuilder(column: $table.refLow, builder: (column) => column);
+
+  GeneratedColumn<double> get refHigh =>
+      $composableBuilder(column: $table.refHigh, builder: (column) => column);
+
+  GeneratedColumn<String> get refText =>
+      $composableBuilder(column: $table.refText, builder: (column) => column);
 
   $$RecordsTableAnnotationComposer get recordId {
     final $$RecordsTableAnnotationComposer composer = $composerBuilder(
@@ -13673,6 +13870,9 @@ class $$LabResultsTableTableManager
                 Value<String> testName = const Value.absent(),
                 Value<double> value = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
+                Value<double?> refLow = const Value.absent(),
+                Value<double?> refHigh = const Value.absent(),
+                Value<String?> refText = const Value.absent(),
               }) => LabResultsCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -13682,6 +13882,9 @@ class $$LabResultsTableTableManager
                 testName: testName,
                 value: value,
                 unit: unit,
+                refLow: refLow,
+                refHigh: refHigh,
+                refText: refText,
               ),
           createCompanionCallback:
               ({
@@ -13693,6 +13896,9 @@ class $$LabResultsTableTableManager
                 required String testName,
                 required double value,
                 Value<String?> unit = const Value.absent(),
+                Value<double?> refLow = const Value.absent(),
+                Value<double?> refHigh = const Value.absent(),
+                Value<String?> refText = const Value.absent(),
               }) => LabResultsCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -13702,6 +13908,9 @@ class $$LabResultsTableTableManager
                 testName: testName,
                 value: value,
                 unit: unit,
+                refLow: refLow,
+                refHigh: refHigh,
+                refText: refText,
               ),
           withReferenceMapper: (p0) => p0
               .map(

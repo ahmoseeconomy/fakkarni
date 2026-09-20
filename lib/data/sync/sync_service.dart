@@ -529,6 +529,11 @@ class SyncService {
                 'test_name': l.testName,
                 'value': l.value,
                 'unit': l.unit,
+                // نطاق الورقة (v18 / 0016) — عشان الابن يشوف نفس الرقم بنفس
+                // النطاق، مش رقم عريان.
+                'ref_low': l.refLow,
+                'ref_high': l.refHigh,
+                'ref_text': l.refText,
               }
             );
           }(),

@@ -88,7 +88,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -161,6 +161,15 @@ void main() {
       columns,
       containsAll(['checkup_stage_since', 'lab_booking_at', 'result_ready_at', 'doctor_visit_at']),
     );
+
+    // v18: أعمدة نطاق الورقة موجودة على `lab_results` — والجدول نفسه فاضي،
+    // فمفيش سطر قديم اتحطّ له نطاق من عندنا.
+    final labColumns = await db
+        .customSelect("SELECT name FROM pragma_table_info('lab_results')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(labColumns, containsAll(['ref_low', 'ref_high', 'ref_text']));
+    expect(await db.select(db.labResults).get(), isEmpty);
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

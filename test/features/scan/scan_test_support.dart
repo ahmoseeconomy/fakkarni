@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/features/health/lab_flag.dart';
 import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/app/app_scope.dart';
@@ -148,13 +149,23 @@ void screenTest(String name, Future<void> Function(WidgetTester) body) {
 }
 
 void expectNoRedAndMinSize(WidgetTester tester) {
+  // الاستثناء الوحيد المسموح (جولة ٢١): كلمة «برّه نطاق الورقة» جوّه
+  // [LabFlagBadge]. مقصورة على الودجت نفسه عن قصد — أحمر في أي نص تاني
+  // على نفس الشاشة لسه بيوقّع الاختبار، وحبّاية الطوارئ المليانة لسه
+  // لوحدها (اختبارها في `red_only_in_emergency_test`).
+  final inBadge = {
+    for (final e in find
+        .descendant(of: find.byType(LabFlagBadge), matching: find.byType(Text))
+        .evaluate())
+      e.widget,
+  };
   for (final text in tester.widgetList<Text>(find.byType(Text))) {
     final size = text.style?.fontSize;
     if (size != null) {
       expect(size, greaterThanOrEqualTo(F.minTextSize), reason: text.data);
     }
     final colour = text.style?.color;
-    if (colour == null) continue;
+    if (colour == null || inBadge.contains(text)) continue;
     final isRed = colour.r > 0.6 && colour.g < 0.35 && colour.b < 0.35;
     expect(isRed, isFalse, reason: 'مفيش أحمر: ${text.data}');
   }

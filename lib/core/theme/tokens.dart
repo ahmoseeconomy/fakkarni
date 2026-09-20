@@ -118,6 +118,17 @@ abstract final class F {
   static const onRed = Color(0xFFFFFFFF);
   static const onRedMuted = Color(0xE6FFFFFF);
 
+  /// **الاستثناء الوحيد للأحمر برّه الطوارئ**: قيمة تحليل برّه النطاق
+  /// المطبوع على ورقة المعمل — نص وإطار، **عمره ما يبقى حشو**. الحبّاية
+  /// الحمرا المليانة فاضلة للطوارئ لوحدها، وده اللي بيخلي معناها محفوظ؛
+  /// اللي هنا علامة على مقارنة بين رقمين مطبوعين، مش نداء استغاثة.
+  /// مكانه الوحيد في الكود `features/health/lab_flag.dart`.
+  ///
+  /// getter مش ثابت زي باقي ألوان النص: `red` نفسه ٢.٧١:١ على كارت الليل —
+  /// تحت AA بكتير — فالوضع الغامق بياخد أحمر فاتح (٥.٦٠:١ على الكارت،
+  /// ٦.٣٦:١ على الصفحة). في النهار `red` زي ما هو (٦.٠٢:١ و٥.٢٣:١).
+  static Color get outOfRangeInk => _mode(red, const Color(0xFFE8747B));
+
   /// اتأكدت / اتاخدت.
   static Color get greenOk => _mode(const Color(0xFF175E39), const Color(0xFF6BD39A));
   static Color get greenOkSoft => _mode(const Color(0xFFEAF5EE), const Color(0xFF17322A));

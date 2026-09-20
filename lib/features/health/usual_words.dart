@@ -1,5 +1,6 @@
 import '../../core/format/arabic_time.dart';
 import '../../data/db/tables.dart';
+import '../../domain/health/lab_range.dart';
 import '../../domain/health/usual_range.dart';
 
 /// الكلام اللي بيتقال عن رقم — **رقم ونطاق وفرق، ويقف.**
@@ -27,6 +28,48 @@ String comparisonText(UsualComparison c, UsualRange r) => switch (c) {
       AboveUsual(:final by) => 'أعلى من أعلى قياس معتاد ليك (${arabicDecimal(r.high)}) بـ ${arabicDecimal(by)}',
       BelowUsual(:final by) => 'أقل من أقل قياس معتاد ليك (${arabicDecimal(r.low)}) بـ ${arabicDecimal(by)}',
     };
+
+/// ===================================================== نطاق ورقة المعمل
+///
+/// كلمة مع كل علامة، مش لون بس: الملف بيتطبع وبيتصوّر أبيض وأسود، واللون
+/// لوحده بيختفي هناك — وبيختفي كمان عند حد ما بيفرّقش الألوان. الكلمات
+/// تلاتة وبس، ومفيش رابعة: مفيش «يعني إيه» ولا «اعمل إيه» ولا «قد إيه ده
+/// مستعجل» (القاعدة ٦).
+
+const labAboveWord = 'فوق المعدل';
+const labBelowWord = 'تحت المعدل';
+const labNearWord = 'قريب من الحد';
+
+/// الكلمة اللي بتتكتب جنب الرقم، أو null لو مفيش علامة.
+String? labFlagWord(LabFlag flag) => switch (flag) {
+      AboveRange() => labAboveWord,
+      BelowRange() => labBelowWord,
+      NearBoundary() => labNearWord,
+      InsideRange() || NoPrintedRange() || RangeNotNumeric() => null,
+    };
+
+/// الورقة ما طبعتش نطاق للسطر ده — بيتقال بصراحة بدل ما الرقم يقعد من غير
+/// سياق والواحد يفتكر إحنا اللي سكتنا.
+const labNoRangeText = 'الورقة ما فيهاش نطاق للتحليل ده';
+
+/// «نطاق الورقة: ٤–١١» / «لحد ١١» / «من ٤» / النص المطبوع زي ما هو.
+///
+/// بنقول «نطاق الورقة» عن قصد: النطاق بتاع المعمل اللي طبع الورقة، مش
+/// بتاعنا، والجملة نفسها بتقول كده كل مرة.
+String? labRangeText(LabRange? range) {
+  if (range == null || range.isEmpty) return null;
+  final low = range.low, high = range.high;
+  final body = switch ((low, high)) {
+    (final l?, final h?) => '${arabicDecimal(l)}–${arabicDecimal(h)}',
+    (final l?, null) => 'من ${arabicDecimal(l)}',
+    (null, final h?) => 'لحد ${arabicDecimal(h)}',
+    _ => range.text!.trim(),
+  };
+  return 'نطاق الورقة: $body';
+}
+
+/// سطر واحد تحت قسم التحاليل — في الشاشة وفي الملف.
+const labRangeFooter = 'النطاقات دي مكتوبة على ورق المعمل نفسه، والدكتور هو اللي بيقراها.';
 
 extension GlucoseContextWords on GlucoseContext {
   String get label => switch (this) {

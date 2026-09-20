@@ -16,6 +16,7 @@ import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/features/health/glucose_screen.dart';
+import 'package:fakkarni/features/health/lab_flag.dart';
 import 'package:fakkarni/features/health/lab_report_screen.dart';
 import 'package:fakkarni/features/health/scan_lab_screen.dart';
 import 'package:fakkarni/features/health/usual_words.dart';
@@ -37,12 +38,24 @@ class FakeLabReader implements LabReportReader {
 
 ReadField<T> sure<T>(T v) => ReadField(value: v, confidence: 0.95);
 
-LabLine line(String test, double? value, String? unit, {bool unsure = false}) => LabLine(
+LabLine line(
+  String test,
+  double? value,
+  String? unit, {
+  bool unsure = false,
+  double? refLow,
+  double? refHigh,
+  String? refText,
+}) =>
+    LabLine(
       test: sure(test),
       value: value == null
           ? const ReadField.missing()
           : ReadField(value: value, confidence: unsure ? 0.4 : 0.95),
       unit: unit == null ? const ReadField.missing() : sure(unit),
+      refLow: refLow == null ? const ReadField.missing() : sure(refLow),
+      refHigh: refHigh == null ? const ReadField.missing() : sure(refHigh),
+      refText: refText == null ? const ReadField.missing() : sure(refText),
     );
 
 /// كل النصوص المرسومة — Text وRichText.
@@ -220,7 +233,7 @@ void main() {
       await settle(tester);
     }
 
-    screenTest('أول تقرير: كل سطر «لسه ما عندناش…» والرقم من غير تعليم — ومفيش نطاق مرجعي ولا «أعلى»', (tester) async {
+    screenTest('أول تقرير والورقة من غير نطاق: «لسه ما عندناش…» والرقم من غير تعليم ولا علامة', (tester) async {
       await pumpReport(
         tester,
         LabReading(
@@ -317,6 +330,153 @@ void main() {
       expect(record.happenedAt, DateTime(2026, 9, 12));
       expect(record.attachmentPath, isNotNull);
       expect(await tester.runAsync(() => DirectoryAttachmentStore(root: tmp).fileFor(record.attachmentPath!)), isNotNull);
+    });
+
+    // ============================================ نطاق الورقة والعلامة
+    //
+    // الرقم والنطاق الاتنين من نفس الورقة. إحنا بنقارن وبنكتب كلمة، وبس.
+
+    screenTest('جوّه نطاق الورقة: النطاق بيبان ومفيش ولا علامة', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('WBC', 7.5, '10^3/uL', refLow: 4, refHigh: 11)],
+        ),
+      );
+      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.byType(LabFlagBadge), findsNothing);
+      expect(find.text(labAboveWord), findsNothing);
+      expect(find.text(labBelowWord), findsNothing);
+      expect(find.text(labNearWord), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('فوق نطاق الورقة: «فوق المعدل» بالكلمة', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('WBC', 12.4, '10^3/uL', refLow: 4, refHigh: 11)],
+        ),
+      );
+      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.text(labAboveWord), findsOneWidget);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('تحت نطاق الورقة: «تحت المعدل» بالكلمة', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('WBC', 3.2, '10^3/uL', refLow: 4, refHigh: 11)],
+        ),
+      );
+      expect(find.text(labBelowWord), findsOneWidget);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('على الحد: «قريب من الحد» — ومش «فوق»', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('WBC', 11, '10^3/uL', refLow: 4, refHigh: 11)],
+        ),
+      );
+      expect(find.text(labNearWord), findsOneWidget);
+      expect(find.text(labAboveWord), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('الورقة مفيهاش نطاق: بيتقال بصراحة ومفيش علامة', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('Uric acid', 5.1, 'mg/dL')],
+        ),
+      );
+      expect(find.text(labNoRangeText), findsOneWidget);
+      expect(find.byType(LabFlagBadge), findsNothing);
+      // ولا نطاق اتجاب من حتة تانية
+      expect(find.textContaining('نطاق الورقة:'), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('نطاق مكتوب بالحروف: بيتعرض بالحرف وعمره ما بيتقارن', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('CRP', 3, null, refText: 'Negative')],
+        ),
+      );
+      expect(find.text('نطاق الورقة: Negative'), findsOneWidget);
+      expect(find.byType(LabFlagBadge), findsNothing);
+      expectNoAdvice(tester);
+    });
+
+    screenTest('النطاق بيتحفظ مع السطر، والسطر اللي من غير نطاق بيفضل من غيره', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: sure(DateTime(2026, 9, 12)),
+          lines: [
+            line('WBC', 12.4, '10^3/uL', refLow: 4, refHigh: 11),
+            line('CRP', 3, null, refText: 'Negative'),
+            line('Uric acid', 5.1, 'mg/dL'),
+          ],
+        ),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'تمام، احفظه'));
+      // حفظ الصورة كتابة ملف حقيقية — بتحتاج وقت حقيقي برّه الساعة المزيّفة
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settle(tester);
+
+      final rows = await h.db.select(h.db.labResults).get();
+      expect(
+        [for (final r in rows) (r.testName, r.refLow, r.refHigh, r.refText)],
+        [
+          ('WBC', 4.0, 11.0, null),
+          ('CRP', null, null, 'Negative'),
+          ('Uric acid', null, null, null),
+        ],
+      );
+    });
+
+    screenTest('«عدّل» بيصلّح نطاق الورقة، والعلامة بتتغيّر معاه', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          // القراءة غلطت في الحد الأعلى: ١١ اتقرت ١٠
+          lines: [line('WBC', 10.5, '10^3/uL', refLow: 4, refHigh: 10)],
+        ),
+      );
+      expect(find.text(labAboveWord), findsOneWidget);
+
+      await tester.tap(find.text('عدّل').first);
+      await settle(tester);
+      await tester.enterText(find.byKey(const ValueKey('edit-ref-to')), '11');
+      await tester.tap(find.byKey(const ValueKey('edit-save')));
+      await settle(tester);
+
+      expect(find.text('نطاق الورقة: ٤–١١'), findsOneWidget);
+      expect(find.text(labAboveWord), findsNothing);
+      expect(find.text(labNearWord), findsOneWidget);
     });
 
     screenTest('«شيل السطر» بيشيل اللي مش واضح ويفتح «تمام»', (tester) async {

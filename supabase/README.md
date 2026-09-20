@@ -61,7 +61,15 @@
     `503 cap_check_failed` على كل قراية. (`0014` محجوز للفهرس والتنظيف.)
     بعده، بالترتيب: سر `GEMINI_API_KEY` في Edge Functions → Secrets، وبعدين
     الصق `functions/ai-read/index.ts` و`verify_jwt` **مفعّل**.
-15. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+15. أعمدة على جداول موجودة — مفيش فيهم سياسة جديدة ولا لمسة في
+    `private.due_escalations`، وكل واحد بيطبع `OK` بعد تأكيد بيترجع:
+    `migrations/0014_soft_stop.sql` (الإيقاف الناعم — بيعيد تعريف
+    `due_escalations` عشان الموقوف والمتشال ما يتصعّدوش)،
+    `migrations/0015_checkup_dates.sql` (مواعيد متابعة التحليل)،
+    و`migrations/0016_lab_ranges.sql` (نطاق ورقة المعمل: `ref_low` /
+    `ref_high` / `ref_text` على `lab_results` — نقل من الورقة، مش جدول قيم
+    طبيعية؛ السطر اللي الورقة مفيهاش نطاق ليه بيفضل null).
+16. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /

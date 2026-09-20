@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -346,6 +346,24 @@ class AppDatabase extends _$AppDatabase {
                 ).get();
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE records ADD COLUMN $column INTEGER NULL');
+                }
+              }
+            }
+            if (from < 18) {
+              // نطاق التحليل زي ما هو مطبوع على الورقة. التلاتة nullable —
+              // السطور القديمة اتقرت من غير نطاق وما بنخترعلهاش واحد، وده
+              // بالظبط اللي null معناه. بحماية وجود زي v13 وv15 وv16 وv17،
+              // و**فوق** بلوك التطبيع زي أي عمود جديد.
+              for (final (column, type) in [
+                ('ref_low', 'REAL'),
+                ('ref_high', 'REAL'),
+                ('ref_text', 'TEXT'),
+              ]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('lab_results') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE lab_results ADD COLUMN $column $type NULL');
                 }
               }
             }

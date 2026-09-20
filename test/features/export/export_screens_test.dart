@@ -18,6 +18,8 @@ import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/export/export_pdf.dart';
 import 'package:fakkarni/features/export/export_preview_screen.dart';
 import 'package:fakkarni/features/export/export_screen.dart';
+import 'package:fakkarni/domain/health/lab_range.dart';
+import 'package:fakkarni/features/health/lab_flag.dart';
 import 'package:fakkarni/features/health/usual_words.dart';
 
 import '../scan/scan_test_support.dart';
@@ -114,11 +116,41 @@ void main() {
       expect(find.text('متوسط ١٣٤ — أقل ١١٨ — أعلى ١٥٢ ملّيجرام/ديسيلتر'), findsOneWidget);
       expect(find.text('HbA1c ٧.٦ %'), findsOneWidget);
       expect(find.text('١٢ سبتمبر ٢٠٢٦ — كان ٧.٤ في ١ يونيو ٢٠٢٦'), findsOneWidget);
+      // الورقة دي ما طبعتش نطاق — بنقول كده، وما بنعلّمش
+      expect(find.text(labNoRangeText), findsOneWidget);
+      expect(find.byType(LabFlagBadge), findsNothing);
       expect(find.byKey(const ValueKey('next-booking')), findsOneWidget);
       expect(find.textContaining('↑'), findsNothing);
       expect(find.textContaining('↓'), findsNothing);
       expectNoAdvice(tester);
       expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('نطاق الورقة وعلامته على صفحة الطبيب — نطاق كل ورقة لوحدها', (tester) async {
+      final labs = LabResultsRepository(h.db);
+      await labs.saveReport(
+        patientId: h.services.patientId,
+        happenedAt: DateTime(2026, 9, 12),
+        lines: const [
+          ConfirmedLabLine(testName: 'WBC', value: 12.4, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+          ConfirmedLabLine(testName: 'Ferritin', value: 8, unit: 'ng/mL', range: LabRange(low: 30, high: 400)),
+          ConfirmedLabLine(testName: 'Platelets', value: 10.5, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
+          ConfirmedLabLine(testName: 'Sodium', value: 140, unit: 'mmol/L', range: LabRange(low: 135, high: 145)),
+          ConfirmedLabLine(testName: 'Uric acid', value: 5.1, unit: 'mg/dL'),
+        ],
+      );
+      await h.pump(tester, DoctorPageScreen(now: () => sep15));
+      await settle(tester);
+
+      expect(find.text('نطاق الورقة: ٤–١١'), findsNWidgets(2));
+      expect(find.text(labAboveWord), findsOneWidget, reason: 'WBC ١٢.٤');
+      expect(find.text(labBelowWord), findsOneWidget, reason: 'Ferritin ٨');
+      expect(find.text(labNearWord), findsOneWidget, reason: 'Platelets ١٠.٥');
+      // Sodium ١٤٠ في نص ١٣٥–١٤٥ — ولا لون ولا كلمة
+      expect(find.byType(LabFlagBadge), findsNWidgets(3));
+      // والورقة اللي ما طبعتش نطاق بتقول كده
+      expect(find.text(labNoRangeText), findsOneWidget);
+      expectNoAdvice(tester);
     });
 
     screenTest('أسئلة العيلة: بتتضاف، وبتتعلّم «اتسأل ✓»', (tester) async {

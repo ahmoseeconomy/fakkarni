@@ -1,7 +1,9 @@
 import '../../core/format/arabic_time.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../data/db/tables.dart' show GlucoseContext, RecordKind;
-import '../health/usual_words.dart' show GlucoseContextWords, arabicDecimal;
+import '../../domain/health/lab_range.dart';
+import '../health/usual_words.dart'
+    show GlucoseContextWords, arabicDecimal, labFlagWord, labNoRangeText, labRangeText;
 import '../records/record_kinds.dart' show RecordKindWords;
 
 /// كلام الابن عن الملف الصحي — **نفس الكلمات** اللي الأب بيشوفها (مفيش نسخة
@@ -25,6 +27,18 @@ String glucoseValue(int mgDl) => '${arabicNumber(mgDl)} ملّيجرام/ديس�
 /// «HbA1c ٧٫١ %».
 String labLineText(CaregiverLabLine line) =>
     '${line.testName} ${arabicDecimal(line.value)}${line.unit == null ? '' : ' ${line.unit}'}';
+
+/// سطر النطاق تحت الرقم — نطاق الورقة، أو إن الورقة مفيهاش نطاق.
+///
+/// **نفس الكلام اللي الأب شافه بالحرف** (`usual_words`)، مش نسخة تانية:
+/// الاتنين بيبصّوا على نفس الورقة، ولازم يقروا نفس الجملة.
+String labRangeLine(CaregiverLabLine line) => labRangeText(line.range) ?? labNoRangeText;
+
+/// العلامة زي ما الأب شافها — مقارنة رقمين مطبوعين، مش حكم من عندنا.
+LabFlag labFlagOf(CaregiverLabLine line) => labFlagFor(line.value, line.range);
+
+/// الكلمة، أو null لو السطر ما بياخدش علامة.
+String? labFlagWordOf(CaregiverLabLine line) => labFlagWord(labFlagOf(line));
 
 /// سطر «الجديد» — النوع والعنوان، والتاريخ تحته.
 String newItemTitle(CaregiverNewItem item) => switch (item.type) {
