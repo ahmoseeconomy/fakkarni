@@ -35,6 +35,7 @@ class HealthSnapshot {
     this.oldestDirtyAt,
     this.lastSyncedAt,
     this.exactAlarmsAllowed = true,
+    this.batteryUnrestricted = true,
     this.aiKeyPresent = true,
     this.rungFirstOn = true,
     this.rungSecondOn = true,
@@ -80,6 +81,9 @@ class HealthSnapshot {
   final DateTime? lastSyncedAt;
 
   final bool exactAlarmsAllowed;
+
+  /// أندرويد: التطبيق مستثنى من تحسين البطارية؟ **الشك بيتحسب سليم.**
+  final bool batteryUnrestricted;
   final bool aiKeyPresent;
 
   /// مفاتيح درجات السلّم (+١٥ و+٣٠) — المستخدم يقدر يقفلهم من الإعدادات.

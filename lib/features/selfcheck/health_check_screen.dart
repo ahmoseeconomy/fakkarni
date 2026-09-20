@@ -5,6 +5,7 @@ import '../../app/app_scope.dart';
 import '../../core/notifications/notification_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../data/battery/battery_optimisation.dart';
 import '../../data/health/health_collector.dart';
 import '../../domain/health/health_check.dart';
 import '../../domain/health/health_report.dart';
@@ -62,6 +63,8 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
           }
         case HealthFix.openExactAlarmSettings:
           await NotificationService.requestExactAlarmPermission();
+        case HealthFix.openBatterySettings:
+          await BatteryOptimisation.openSettings();
         case HealthFix.linkCaregiver:
           if (!mounted) return;
           await Navigator.of(context).push(MaterialPageRoute<void>(
@@ -210,6 +213,7 @@ class _FindingCard extends StatelessWidget {
         HealthFix.syncNow => 'ابعتها دلوقتي',
         HealthFix.openNotificationSettings => 'افتح إعدادات التنبيهات',
         HealthFix.openExactAlarmSettings => 'اسمح بالتنبيه في معاده',
+        HealthFix.openBatterySettings => 'افتح إعدادات البطارية',
         HealthFix.linkCaregiver => 'اربط حد يتابعك',
         HealthFix.none => '',
       };

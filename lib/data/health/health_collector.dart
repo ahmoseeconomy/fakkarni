@@ -7,6 +7,7 @@ import '../../app/app_scope.dart';
 import '../../core/notifications/notification_service.dart';
 import '../../domain/health/health_report.dart';
 import '../../domain/health/health_snapshot.dart';
+import '../battery/battery_optimisation.dart';
 import '../services/reminder_plan.dart';
 
 /// بيجمع اللقطة من الجهاز الحقيقي — **الطرف الوسخ من الفحص**.
@@ -74,6 +75,7 @@ class HealthCollector {
       oldestDirtyAt: stats?.oldestDirtyAt,
       lastSyncedAt: stats?.lastSyncedAt,
       exactAlarmsAllowed: await _exactAlarms(platform),
+      batteryUnrestricted: await BatteryOptimisation.isUnrestricted(),
       aiKeyPresent: services.prescriptionReader != null,
       rungFirstOn: settings.$1,
       rungSecondOn: settings.$2,

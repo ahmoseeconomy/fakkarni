@@ -17,6 +17,7 @@ enum HealthCode {
   staleSync,
   exactAlarms,
   aiKeyMissing,
+  batteryOptimisation,
   escalationRungsOff,
   noMedications,
 }
@@ -26,6 +27,7 @@ enum HealthCode {
 enum HealthFix {
   openNotificationSettings,
   openExactAlarmSettings,
+  openBatterySettings,
   rescheduleNow,
   syncNow,
   linkCaregiver,
@@ -197,14 +199,24 @@ HealthFinding? checkNoCaregiver(HealthSnapshot s) {
 ///
 /// على موبايل المريض التوكن مالوش علاقة بالسلّم: التنبيه بيروح لموبايل
 /// الابن، فغيابه هنا مش عيب وعرضه بيبقى ضوضا.
+///
+/// **ملاحظة، مش مكسور — طول ما APNs لسه ما اتظبطش** (الدين ٣: محتاج
+/// حساب Apple Developer مدفوع). الفرق مش تهوين: صف أحمر دايم مالوش زرار
+/// بيموّت معنى الأحمر نفسه — الابن بيشوفه كل يوم، بيتعلّم يعدّي عليه،
+/// وبعدين بيعدّي على واحد حقيقي. الأحمر لازم يفضل معناه «حاجة اتغيّرت
+/// النهارده وتقدر تتصرف فيها».
+///
+/// **يرجع `broken` أول ما APNs تشتغل** — ساعتها غياب التوكن يبقى عطل
+/// في جهاز بعينه، مش حالة معروفة في المنتج كله.
 HealthFinding? checkPushToken(HealthSnapshot s) {
   if (!s.isCaregiver || s.hasPushToken) return null;
   return const HealthFinding(
     code: HealthCode.pushToken,
-    severity: Severity.broken,
-    title: 'تنبيه الجرعة الفايتة مش هيوصل للموبايل ده',
-    why: 'الموبايل ده لسه ما اتسجّلش عند الخدمة اللي بتبعت التنبيه. '
-        'هتلاقي التنبيه جوّه التطبيق في «متابعة» لما تفتحه.',
+    severity: Severity.note,
+    title: 'تنبيه الجرعة الفايتة لسه ما بيوصلش على الآيفون',
+    why: 'النسخة دي لسه ما بتبعتش تنبيه على الآيفون. لو جرعة عدّت من غير '
+        'تأكيد، هتلاقي التنبيه مستنيك جوّه التطبيق في «متابعة» — بس '
+        'الموبايل مش هيرن لوحده.',
     fix: HealthFix.none,
   );
 }
@@ -246,6 +258,28 @@ HealthFinding? checkExactAlarms(HealthSnapshot s) {
     title: 'الموبايل مش مسموح له ينبّه في معاد بالظبط',
     why: 'التذكير ممكن يتأخّر ساعات عن معاد الجرعة.',
     fix: HealthFix.openExactAlarmSettings,
+  );
+}
+
+/// **أشهر سبب إن تذكير دوا ما يرنش على أندرويد.**
+///
+/// ملاحظة مش مكسور: التذكير بيرن فعلاً في الحالة العادية، والقيد بيضرب
+/// لما الموبايل يقعد من غير استعمال — وده بالظبط حال راجل بينام.
+///
+/// القراية من النظام (`isIgnoringBatteryOptimizations`)، والزرار بيفتح
+/// قايمة الإعدادات — **مش** الحوار المباشر، اللي بيطلب إذن مقيّد على
+/// Google Play. وفيه حاجة الفحص ده ما بيشوفهاش: قوايم «التشغيل
+/// التلقائي» بتاعة شاومي وأوپو وهواوي قفل تاني برّه العلم ده تماماً،
+/// فجهاز ممكن يعدّي الفحص ويفضل بيتقفل.
+HealthFinding? checkBatteryOptimisation(HealthSnapshot s) {
+  if (s.platform != HealthPlatform.android || s.batteryUnrestricted) return null;
+  return const HealthFinding(
+    code: HealthCode.batteryOptimisation,
+    severity: Severity.note,
+    title: 'توفير البطارية ماسك التطبيق',
+    why: 'ممكن يأخّر التذكير أو يمنعه لما الموبايل يقعد من غير استعمال — '
+        'زي وقت النوم بالظبط.',
+    fix: HealthFix.openBatterySettings,
   );
 }
 

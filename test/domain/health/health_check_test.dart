@@ -34,6 +34,7 @@ void main() {
     DateTime? oldestDirtyAt,
     DateTime? lastSyncedAt,
     bool exactAlarmsAllowed = true,
+    bool batteryUnrestricted = true,
     bool aiKeyPresent = true,
     bool rungFirstOn = true,
     bool rungSecondOn = true,
@@ -59,6 +60,7 @@ void main() {
         oldestDirtyAt: oldestDirtyAt,
         lastSyncedAt: lastSyncedAt ?? now.subtract(const Duration(minutes: 5)),
         exactAlarmsAllowed: exactAlarmsAllowed,
+        batteryUnrestricted: batteryUnrestricted,
         aiKeyPresent: aiKeyPresent,
         rungFirstOn: rungFirstOn,
         rungSecondOn: rungSecondOn,
@@ -209,9 +211,14 @@ void main() {
     test('عند الابن وفيه توكن → نضيف',
         () => expectClean(well(isCaregiver: true), HealthCode.pushToken));
 
-    test('عند الابن ومفيش توكن → مكسور', () {
-      expectRaised(well(isCaregiver: true, hasPushToken: false),
-          HealthCode.pushToken, Severity.broken);
+    test('عند الابن ومفيش توكن → **ملاحظة**، مش مكسور', () {
+      // صف أحمر دايم مالوش زرار بيموّت معنى الأحمر: الابن بيشوفه كل يوم،
+      // بيتعلّم يعدّي عليه، وبعدين بيعدّي على واحد حقيقي. يرجع مكسور أول
+      // ما APNs تشتغل (الدين ٣).
+      final finding = expectRaised(well(isCaregiver: true, hasPushToken: false),
+          HealthCode.pushToken, Severity.note);
+      expect(finding.why, contains('متابعة'),
+          reason: 'لازم يقول إن التنبيه مستنيه جوّه التطبيق');
     });
 
     test('عند المريض ومفيش توكن → ساكت: مش بتاعه أصلاً', () {
@@ -273,6 +280,22 @@ void main() {
 
     test('على iOS مش بيتسأل', () {
       expectClean(well(exactAlarmsAllowed: false), HealthCode.exactAlarms);
+    });
+
+    test('توفير البطارية ماسك → ملاحظة', () {
+      expectRaised(
+          well(platform: HealthPlatform.android, batteryUnrestricted: false),
+          HealthCode.batteryOptimisation,
+          Severity.note);
+    });
+
+    test('مستثنى → نضيف', () {
+      expectClean(
+          well(platform: HealthPlatform.android), HealthCode.batteryOptimisation);
+    });
+
+    test('على iOS مفيش تحسين بطارية أصلاً', () {
+      expectClean(well(batteryUnrestricted: false), HealthCode.batteryOptimisation);
     });
 
   });
@@ -369,6 +392,7 @@ HealthSnapshot _allBroken(DateTime now) => HealthSnapshot(
       oldestDirtyAt: now.subtract(const Duration(days: 2)),
       lastSyncedAt: now.subtract(const Duration(days: 2)),
       exactAlarmsAllowed: false,
+      batteryUnrestricted: false,
       aiKeyPresent: false,
       rungFirstOn: false,
       rungSecondOn: false,

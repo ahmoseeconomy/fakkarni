@@ -1347,16 +1347,12 @@ on the live project.
 
 | Confirmed | Files |
 |---|---|
-| 20 Sep 2026 | `0001`-`0017`, all of them |
-| **not yet run** | **`0018_device_health` — written this round, NOT applied** |
+| 20 Sep 2026 | `0001`-`0018`, all of them |
 
-**`0018` is in the repo and not in the database.** That is the exact gap
-this table exists to make visible, so it is written here rather than
-assumed away: nothing reads or writes `device_health` successfully until
-someone pastes the migration into the SQL editor and then re-runs
-`verify_migrations.sql` (already extended to cover it). Until then the
-heartbeat's upsert fails, is swallowed by design, and logs one
-`Health: النبضة ما اترفعتش` line — the app is otherwise unaffected.
+`0018_device_health` was run and verified the same day it was written —
+**18/18 rows true, and 13/13 on `0018` itself**. That is the rule working
+as intended: SQL is run against the real project in the round that writes
+it, and the row above is evidence from the database, not from the repo.
 
 **Re-run the script rather than trusting the date.** A row here goes stale
 the moment anyone touches the project; the script is one paste and it
@@ -1462,10 +1458,34 @@ test`, so this class of mistake is otherwise found only by the real project
 حسابات مكسورة دلوقتي وعلى إيه» — وبتحسب الجهاز **الساكت** كمان، لأن
 الغياب أخطر من أي كود: الجهاز مش بيقدر يقوله عن نفسه.
 
-**اللي اتشال عن قصد: `batteryOptimisation`.** مفيش API نقراه من غير كود
-أندرويد أصلي جديد، فالفحص كان هيفضل `batteryUnrestricted: true` للأبد —
-يعني حارس شرطه عمره ما بيتحقّق، وهو بالظبط اللي الأعراف بتحذّر منه.
-يرجع مع القناة اللي بتقراه، مش قبلها.
+**`batteryOptimisation` رجع ومعاه القناة اللي بتقراه.** أول نسخة اتشالت
+لأنها كانت بتحط `true` ثابتة — حارس شرطه عمره ما بيتحقّق. بس **الحل إننا
+نقرا الشرط، مش إننا نشيل الحارس**: قاتل البطارية بتاع الشركة المصنّعة هو
+أشهر سبب إن تذكير دوا ما يرنش على أندرويد، وأندرويد هو المنصة اللي مش
+بنقدر نجربها هنا — يعني ده بالظبط الفحص اللي الميزة موجودة عشانه.
+`MethodChannel('fakkarni/battery')` في `MainActivity.kt` بيقرا
+`PowerManager.isIgnoringBatteryOptimizations` (**مش محتاج أي إذن**).
+
+**والزرار بيفتح قايمة الإعدادات، مش الحوار المباشر — ده قرار سياسة مش
+ذوق.** `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (الحوار «اسمح؟»)
+بيشترط إذن `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`، وهو إذن **مقيّد** على
+Google Play بقايمة استخدامات مقبولة وبمراجعة. `ACTION_IGNORE_BATTERY_
+OPTIMIZATION_SETTINGS` بيوصل لنفس النتيجة بدوسة زيادة، **من غير أي إذن
+ومن غير أي تعرّض للمراجعة** — فمفيش سبب نراهن بالنشر على تصنيف.
+`test/app/battery_policy_test.dart` بيقفل على ده: القراية موجودة،
+والـintent المقيّد مش موجود، والإذن مش في الـmanifest (زي قاعدة
+`USE_EXACT_ALARM` القديمة بالظبط).
+
+**وحاجة الفحص ده ما بيشوفهاش**: قوايم «التشغيل التلقائي» بتاعة شاومي
+وأوپو وهواوي قفل تاني **برّه** العلم ده خالص، فجهاز ممكن يعدّي الفحص
+ويفضل بيتقفل. الفحص بيقول الحقيقة اللي يعرفها، مش كل الحقيقة.
+
+**و`pushToken` بقى ملاحظة، مش مكسور، طول ما APNs لسه ما اتظبطش** (الدين
+٣). مش تهوين: صف أحمر دايم مالوش زرار بيموّت معنى الأحمر نفسه — الابن
+بيشوفه كل يوم، بيتعلّم يعدّي عليه، وبعدين بيعدّي على واحد حقيقي. الجملة
+بتقول الحقيقة كاملة (الموبايل مش هيرن، والتنبيه مستنيه في «متابعة»)،
+و**بيرجع `broken` أول ما APNs تشتغل**: ساعتها غياب التوكن يبقى عطل في
+جهاز بعينه مش حالة معروفة في المنتج كله.
 
 ## دين تقني
 

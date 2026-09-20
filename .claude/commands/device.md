@@ -70,6 +70,15 @@ most likely cause of a failure is:
    they do, the local write did not happen either — the push is the last
    thing in the handler and the cancels are the second.
 
+8c. **فحص السلامة على أندرويد — القناة دي عمرها ما اشتغلت على جهاز.**
+   «الإعدادات» → «اطمن إن التذكير هيشتغل». المفروض تلاقي صف «توفير
+   البطارية ماسك التطبيق» على جهاز عادي (أغلب الأجهزة بتيجي مقيّدة).
+   دوس «افتح إعدادات البطارية» — لازم تفتح قايمة النظام، **من غير أي
+   حوار إذن**؛ لو ظهر حوار «اسمح؟» يبقى إحنا بنستعمل الـintent المقيّد
+   وده غلط. شيل القيد، ارجع، دوس «افحص تاني» — الصف لازم يختفي.
+   وعلى شاومي/أوپو/هواوي: حتى بعد ما الصف يختفي، «التشغيل التلقائي» قفل
+   تاني برّه العلم ده — جرّب تذكير بعد ساعة من غير ما تلمس الموبايل.
+
 9. Contact picker (round 23), on **both** phones — none of this has ever
    run on hardware, and both halves below are read from the plugin's
    source, not observed:

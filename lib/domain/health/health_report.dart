@@ -14,6 +14,7 @@ const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
   checkStaleSync,
   checkPushToken,
   checkPendingBandFull,
+  checkBatteryOptimisation,
   checkEscalationRungs,
   checkNoCaregiver,
   checkNoMedications,
