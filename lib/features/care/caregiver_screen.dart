@@ -120,42 +120,40 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
               else if (snapshot != null) ...[
-                // سجل اللي السيرفر عمله — فوق كل حاجة، ومن غير أي بطاقة
-                // «مفيش تنبيهات»: السكوت هنا خبر كويس. اللي لسه مفتوح
-                // (ذهبي) فوق، واللي اتحلّ تحته — بصّة واحدة تقول إيه
-                // اللي لسه محتاجه. جوّه كل مجموعة الأحدث الأول.
-                for (final alert in snapshot.alerts)
-                  if (!alert.takenLater) _AlertCard(alert: alert, when: _when),
-                // «الجديد» (D5.2): تحت التنبيهات المفتوحة — جرعة فاتت أهم من
-                // تحليل اتضاف — وفوق الباقي. مترتب بالوصول، وكل سطر بتاريخه.
-                ..._newest(snapshot),
-                for (final alert in snapshot.alerts)
-                  if (alert.takenLater) _AlertCard(alert: alert, when: _when),
+                // **قسم لكل فكرة، وكل قسم بعنوانه.** الابن بيفتح الشاشة دي
+                // عشان يجاوب «هو كويس؟» — فجرعات اليوم وحالتها قسم قائم
+                // بذاته، مش ذيل قايمة، والأدوية قسم تاني وراه مباشرةً بدل
+                // ما تكون آخر حاجة تحت.
+                //
+                // التنبيهات فاضلة فوق عن قصد: تنبيه مفتوح معناه جرعة
+                // فايتة **دلوقتي**، ودي أعجل من أي حاجة تانية على الشاشة.
+                // واللي خفّف الزحمة إن الجرعة المقفولة مابقاش ليها بطاقة
+                // أصلاً (بتتفلتر من الاستعلام).
+                // العنوان بيتحسب من **المفتوحة**، مش من طول القايمة: صف
+                // مقفول عدّى (صف قديم، أو حالة مش معروفة) كان هيسيب عنوان
+                // قسم فوق فراغ. خط الدفاع التاني ده جنب الفلتر اللي في
+                // السحابة — الاتنين بيقولوا نفس الحاجة.
+                if (snapshot.alerts.where((a) => a.open).toList() case final open
+                    when open.isNotEmpty) ...[
+                  const _SectionHead('تنبيهات'),
+                  for (final alert in open) _AlertCard(alert: alert, when: _when),
+                ],
+                const _SectionHead('النهارده'),
                 _WeekStrip(events: snapshot.events, now: _now),
-                const SizedBox(height: F.gap),
-                Text(
-                  'النهارده',
-                  style: TextStyle(
-                    fontSize: F.minBodySize,
-                    fontWeight: FontWeight.w700,
-                    color: F.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: F.s12),
                 ..._todayList(snapshot),
                 const SizedBox(height: F.gap),
                 // أدويته وقواعدها — للقراية بس. مفيش «عدّل» ولا «وقّف»: أي
                 // زرار بيغيّر بيانات الأب مش موجود هنا خالص، مش متعطّل.
-                Text(
-                  'أدويته',
-                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
-                ),
-                const SizedBox(height: 8),
+                const _SectionHead('أدويته'),
                 if (snapshot.medications.isEmpty)
                   const _Panel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
                 else
                   for (final m in snapshot.medications) _MedicationRow(medication: m),
                 const SizedBox(height: F.gap),
+                // «الجديد» (D5.2): تحت اللي بيجاوب «هو كويس؟» — تحليل اتضاف
+                // مش أعجل من جرعة النهارده. مترتب بالوصول، وكل سطر بتاريخه.
+                ..._newest(snapshot),
                 if (snapshot.lastUpdated != null)
                   () {
                     // تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل
@@ -196,11 +194,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final items = newestArrivals(snapshot);
     if (items.isEmpty) return const [];
     return [
-      Text(
-        'الجديد',
-        style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
-      ),
-      const SizedBox(height: 8),
+      const _SectionHead('الجديد'),
       Container(
         key: const ValueKey('newest'),
         margin: const EdgeInsets.only(bottom: F.gap),
@@ -489,9 +483,15 @@ class _DoseRow extends StatelessWidget {
   }
 }
 
-/// تنبيه السيرفر زي ما حصل. البطاقة ما بتتمسحش لما الأب يأكّد بعدين —
-/// التنبيه حصل فعلاً، والنتيجة سطر زيادة (القاعدة ٥: التصحيح عرض صحيح،
-/// مش حذف). الذهبي بس طول ما الجرعة لسه محتاجة انتباه؛ لما تتاخد بيهدى.
+/// تنبيه السيرفر عن جرعة **لسه مفتوحة**.
+///
+/// جولة ٤.٢ج كانت بتسيب البطاقة بعد ما الأب يأكّد وتزوّد «أكّدها بعدين ✓»
+/// — «التنبيه حصل، والنتيجة سطر زيادة». ده اتغيّر (جولة ٢٦) بقرار صاحب
+/// المنتج، والسبب أقوى من الاتساق: عنوان البطاقة بيقول «والدك ما أكّدش
+/// جرعة …»، وده بيفضل مكتوب بالبنط العريض فوق جرعة **اتاخدت**. الابن
+/// بيقرا الجملة، مش الـ✓ اللي تحتها؛ ولما يكتشف إنها مش صح بيبطّل يقرا
+/// التنبيهات كلها. الجرعة المقفولة بتتفلتر من الاستعلام نفسه، فالبطاقة
+/// دي دايماً مفتوحة ودايماً ذهبية.
 class _AlertCard extends StatelessWidget {
   const _AlertCard({required this.alert, required this.when});
 
@@ -500,7 +500,6 @@ class _AlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final attention = !alert.takenLater;
     // «بلّغك» بس لما FCM قبل الرسالة فعلاً. no_token مش فشل: السيرفر قرّر
     // وسجّل، والبطاقة دي هي التبليغ — قناة الجهاز بس لسه ما اتفعّلتش.
     // failed فشل حقيقي وبيتقال كده.
@@ -513,12 +512,10 @@ class _AlertCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: F.gap),
       padding: const EdgeInsets.all(F.gap),
-      // المحلولة بتتراجع: عاجي من غير إطار، عنوان رمادي — نفس المقاسات،
-      // لأن الحد الأدنى للخط حد، مش اقتراح. الذهبي هو الوحيد اللي بيبرز.
       decoration: BoxDecoration(
-        color: attention ? F.cardGround : F.railGround,
+        color: F.cardGround,
         borderRadius: BorderRadius.circular(F.radius),
-        border: attention ? Border.all(color: F.gold, width: 2) : null,
+        border: Border.all(color: F.gold, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,8 +525,8 @@ class _AlertCard extends StatelessWidget {
             'الساعة ${arabicTime(alert.scheduledAt)}',
             style: TextStyle(
               fontSize: F.minBodySize,
-              fontWeight: attention ? FontWeight.w700 : FontWeight.w500,
-              color: attention ? F.gold : F.mutedDark,
+              fontWeight: FontWeight.w700,
+              color: F.gold,
               height: 1.5,
             ),
           ),
@@ -542,22 +539,32 @@ class _AlertCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          if (alert.takenLater) ...[
-            const SizedBox(height: 4),
-            const Text(
-              'أكّدها بعدين ✓',
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: FontWeight.w700,
-                color: F.greenDeep,
-                height: 1.5,
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
+}
+
+/// عنوان قسم — **نفس ستايل العناوين في باقي التطبيق**، ومكان واحد يتغيّر
+/// منه. كان مكرر كـ`Text` في تلات حتت بنفس الأرقام.
+class _SectionHead extends StatelessWidget {
+  const _SectionHead(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: F.s8),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: F.displayFamily,
+            fontSize: F.subtitleSize,
+            fontWeight: FontWeight.w700,
+            color: F.ink,
+          ),
+        ),
+      );
 }
 
 class _Panel extends StatelessWidget {

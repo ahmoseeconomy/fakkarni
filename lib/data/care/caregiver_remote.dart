@@ -8,6 +8,7 @@
 library;
 
 import '../../domain/health/lab_range.dart';
+import '../dose_state.dart';
 
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
 
@@ -60,6 +61,34 @@ class CaregiverDoseEvent {
   bool get confirmed => state == 'taken' || state == 'skipped';
 }
 
+/// التنبيه لسه مفتوح والجرعة لسه محتاجة حد؟
+///
+/// **الحالتين المفتوحتين هما اللي السيرفر بيصعّد عليهم أصلاً** (`0011`):
+///   * `pending` — محدش عمل حاجة لسه.
+///   * `missed`  — جهاز الأب عدّى المهلة وكتبها. الاتنين معناهم واحد:
+///                 «ما اتاخدتش»، والفرق مين اللي علّم مش حالة تانية.
+///
+/// والتلاتة التانية مقفولة، وكل واحدة لسبب مختلف:
+///   * `taken`      — خدها. تنبيه بيقول «ما أكّدش» عن جرعة اتاخدت هو **كدب**،
+///                    والابن اللي يكتشف إن التنبيهات بتكدب بيبطّل يقراها.
+///   * `skipped`    — قرار إنسان: «مش هاخده». مش نسيان، ومش حاجة تتنبّه عليها.
+///   * `superseded` — القاعدة اتغيّرت، فالجرعة دي ما كانتش موجودة أصلاً
+///                    (`0010`)، والسيرفر نفسه ما بيختارهاش.
+///
+/// **والـswitch هنا شامل عن قصد**: حالة جديدة في [DoseState] بتكسر الترجمة
+/// هنا بالظبط، فحد لازم يقرر هي مفتوحة ولا مقفولة. من غير كده كانت
+/// هتتحسب مقفولة في صمت — أو أسوأ، تبقى تنبيه محدش قرره.
+bool isOpenDoseState(DoseState state) => switch (state) {
+      DoseState.pending || DoseState.missed => true,
+      DoseState.taken || DoseState.skipped || DoseState.superseded => false,
+    };
+
+/// نفس القايمة بأسماء السلك — دي اللي بتروح للاستعلام.
+final List<String> openDoseStateNames = [
+  for (final s in DoseState.values)
+    if (isOpenDoseState(s)) s.name,
+];
+
 /// صف من `escalations` — سجل اللي السيرفر عمله، مش حكم على الأب.
 ///
 /// بس الصفوف اللي اتقرّر مصيرها: `sent` (وصل FCM) أو `no_token`/`failed`
@@ -96,8 +125,13 @@ class CaregiverAlert {
 
   bool get delivered => deliveryStatus == 'sent' && sentAt != null;
 
-  /// اتاخدت بعد التنبيه. «مش هاخده» مش ✓ — ما خدهاش.
-  bool get takenLater => doseState == 'taken';
+  /// الجرعة لسه محتاجة حد؟ الاستعلام بيفلتر على ده في السحابة، والسطر ده
+  /// خط دفاع تاني لو صف قديم عدّى.
+  bool get open {
+    final s = DoseState.values.asNameMap()[doseState];
+    // اسم مش معروف = مش بنعرضه. تنبيه عن حالة محدش يعرفها مش تنبيه.
+    return s != null && isOpenDoseState(s);
+  }
 }
 
 class CaregiverSnapshot {

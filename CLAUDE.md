@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         949 passing
+test/                         956 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -842,13 +842,37 @@ line per `delivery_status`. Three decisions live there:
   and only `failed` says «الإشعار ما وصلش» — that one really did fail. A
   row still `claimed` is hidden: the send is in flight, and `0009` will
   settle or retry it within five minutes.
-- **A dose taken later keeps its card** and adds «أكّدها بعدين ✓» — the
-  alert happened; the outcome is the update, not a deletion (rule 5).
-  `skipped` gets no ✓; he did not take it. Open cards are gold and always
-  render above resolved ones even when the resolved alert is newer;
-  resolved cards drop to ivory with a muted header — same sizes, because
-  the header is body text at the 20px floor and fading it below the
-  assumed contrast would be the same violation by another route.
+- **A closed dose gets no card at all — reversed in round 26.**
+  4.2c kept the card after the father confirmed and added «أكّدها بعدين ✓»
+  («the alert happened; the outcome is the update, not a deletion»). That
+  was wrong in the only place it mattered: the card's headline stays
+  «⚠ والدك ما أكّدش جرعة …» in bold gold *above* the ✓, and the headline is
+  what gets read. **It told a son his father missed medicine he had
+  taken** — and a son who learns the alerts are wrong stops reading them,
+  which costs far more than a missing card.
+  **Rule 5 is untouched.** Its ban is on *recalling a delivered push*, and
+  nothing here unsends anything; the push stands, and «the repair is a
+  correct view» is exactly what this is — a dose that is closed has nothing
+  open to show.
+  **Open is `pending` and `missed`, and nothing else**, defined once in
+  `caregiver_remote.dart` as an **exhaustive switch over `DoseState`** with
+  the wire list derived from it, so a sixth state is a compile error rather
+  than a silent alert:
+  `pending` nobody acted; `missed` the device passed its grace and wrote it
+  — the same «ما اتاخدتش», differing only in who marked it (these two are
+  what `private.due_escalations` selects, so client and server agree);
+  `taken` he took it; `skipped` a human decision, not forgetting;
+  `superseded` the rule changed so the dose never existed (`0010`).
+  **The filter is in the query, not the widget** — the son never downloads
+  a row he will not show — with `alert.open` as a second line for a stale
+  row, and an unrecognised state counting as *not* open.
+- **Sections, each with the app's heading style**: «تنبيهات» ← «النهارده»
+  ← «أدويته» ← «الجديد». Alerts stay first because an open one means a dose
+  is being missed *now*; what stopped them filling the screen is that
+  closed ones no longer exist, not demoting them. The day's doses are their
+  own headed section rather than a tail, and the medicines moved off the
+  bottom. The alerts heading counts the **open** alerts, or a filtered row
+  would leave a heading over nothing.
 - **Filtered to `caregiver_id = me` for wording, not access.** RLS lets a
   brother read alerts sent to his siblings (decided in 4.2b part 2), and
   «بلّغك» must not point at the wrong person. RLS is still the only
@@ -2627,10 +2651,12 @@ device-verified)**
   «الإعدادات» and in the background, and entering a data tab (even from the
   other one) refreshes at once. `CaregiverScreen` still builds its own
   holder when opened on its own from the link screens.
-- **«الجديد»** (`newestArrivals`, cap 10) sits under the open escalation
-  cards — a missed dose outranks a new lab — and above everything else.
-  It mixes records, readings and questions ordered by cloud `updated_at`,
-  and each row shows the event's own date: a 2019 lab entered today is new
+- **«الجديد»** (`newestArrivals`, cap 10) mixes records, readings and
+  questions. It sat directly under the alert cards until round 26; it now
+  sits **below «النهارده» and «أدويته»** — a missed dose still outranks a
+  new lab, but so does today's dose list, which is what the son opened the
+  screen to read.
+  Ordered by cloud `updated_at`, each row showing the event's own date: a 2019 lab entered today is new
   to the son. Dose events are left out (their `updated_at` moves on every
   confirmation) and so are medications.
 - **«الملف الصحي»**: the red emergency card (blood type, allergies, chronic

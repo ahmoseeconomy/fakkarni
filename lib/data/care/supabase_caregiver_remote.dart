@@ -221,6 +221,13 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
                 'dose_events!inner(scheduled_at, state, '
                 'dose_schedules!inner(medications!inner(name, patient_uuid)))')
             .eq('caregiver_id', me)
+            // **الجرعة اللي اتقفلت مالهاش تنبيه — والفلتر في السحابة مش في
+            // الودجت.** تنبيه بيقول «والدك ما أكّدش» عن جرعة خدها هو أسوأ
+            // غلط ممكن على الشاشة دي: الابن اللي يكتشف إن التنبيهات بتكدب
+            // بيبطّل يقراها كلها. والفلترة هنا معناها إن الصفوف دي عمرها
+            // ما بتتحمّل أصلاً. ([openDoseStateNames] — والقايمة مشتقة من
+            // switch شامل، فحالة جديدة بتكسر الترجمة بدل ما تبقى تنبيه.)
+            .inFilter('dose_events.state', openDoseStateNames)
             .inFilter('delivery_status', ['sent', 'no_token', 'failed'])
             .gte('created_at', alertsSince)
             .eq('dose_events.dose_schedules.medications.patient_uuid',

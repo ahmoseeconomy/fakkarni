@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/care/caregiver_remote.dart';
+import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/features/care/caregiver_screen.dart';
 
 import '../scan/scan_test_support.dart' show settle, screenTest, expectNoRedAndMinSize;
@@ -282,29 +285,45 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
-    screenTest('اتاخدت بعد التنبيه → البطاقة بتفضل وبتزوّد «أكّدها بعدين ✓»، ومش ذهبية',
-        (tester) async {
-      remote.next = snapshot(
-        [
-          event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken',
-              actedAt: DateTime(2026, 8, 31, 9, 20)),
-        ],
-        alerts: [alert(doseState: 'taken')],
-      );
-      await pumpScreen(tester);
+    // **الجرعة المقفولة مالهاش تنبيه — ولا واحدة فيهم** (جولة ٢٦).
+    //
+    // الجولة ٤.٢ج كانت بتسيب البطاقة وتزوّد «أكّدها بعدين ✓». العنوان
+    // فضل «والدك ما أكّدش جرعة …» بالبنط العريض فوق جرعة اتاخدت، والابن
+    // بيقرا الجملة مش الـ✓. القرار اتغيّر: مفيش بطاقة خالص.
+    for (final state in ['taken', 'skipped', 'superseded']) {
+      screenTest('حالة «$state» → مفيش بطاقة تنبيه خالص', (tester) async {
+        remote.next = snapshot(
+          [event('Concor 5mg', DateTime(2026, 8, 31, 8), state)],
+          alerts: [alert(doseState: state)],
+        );
+        await pumpScreen(tester);
 
-      final header = find.textContaining('والدك ما أكّدش جرعة');
-      expect(header, findsOneWidget, reason: 'التنبيه حصل — ما بيتمسحش');
-      expect(tester.widget<Text>(header).style?.color, isNot(F.gold),
-          reason: 'الذهبي معناه «محتاج انتباهك دلوقتي» — ودي اتاخدت');
-      expect(find.text('أكّدها بعدين ✓'), findsOneWidget);
-      expectNoRedAndMinSize(tester);
-    });
+        expect(find.textContaining('والدك ما أكّدش جرعة'), findsNothing,
+            reason: 'جرعة اتقفلت — تنبيه عنها كدب');
+        expect(find.textContaining('أكّدها بعدين'), findsNothing);
+        expect(find.text('تنبيهات'), findsNothing, reason: 'قسم فاضي ما يتعرضش');
+        expectNoRedAndMinSize(tester);
+      });
+    }
 
-    screenTest('مفتوح ومحلول مع بعض → الذهبي فوق حتى لو أقدم، والمحلول رمادي',
-        (tester) async {
-      // المحلول أحدث (١٢ الضهر) — لكن المفتوح (٨ الصبح) هو اللي لسه محتاجه
-      final resolved = CaregiverAlert(
+    for (final state in ['pending', 'missed']) {
+      screenTest('حالة «$state» → بطاقة ذهبية مفتوحة', (tester) async {
+        remote.next = snapshot(
+          [event('Concor 5mg', DateTime(2026, 8, 31, 8), state)],
+          alerts: [alert(doseState: state)],
+        );
+        await pumpScreen(tester);
+
+        final header = find.textContaining('والدك ما أكّدش جرعة');
+        expect(header, findsOneWidget);
+        expect(tester.widget<Text>(header).style?.color, F.gold);
+        expect(find.text('تنبيهات'), findsOneWidget);
+        expectNoRedAndMinSize(tester);
+      });
+    }
+
+    screenTest('مقفولة ومفتوحة مع بعض → المفتوحة بس هي اللي بتبان', (tester) async {
+      final taken = CaregiverAlert(
         uuid: 'esc-2',
         medicationName: 'Telfast',
         scheduledAt: DateTime(2026, 8, 31, 12),
@@ -318,27 +337,69 @@ void main() {
           event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed'),
           event('Telfast', DateTime(2026, 8, 31, 12), 'taken'),
         ],
-        alerts: [resolved, alert()], // الأحدث الأول زي ما السيرفر بيرجّع
+        alerts: [taken, alert()],
       );
       await pumpScreen(tester);
 
-      final open = find.textContaining('جرعة Concor');
-      final done = find.textContaining('جرعة Telfast');
-      expect(tester.getTopLeft(open).dy, lessThan(tester.getTopLeft(done).dy),
-          reason: 'بصّة واحدة تقول إيه اللي لسه محتاجه');
-      expect(tester.widget<Text>(open).style?.color, F.gold);
-      expect(tester.widget<Text>(done).style?.color, F.mutedDark);
+      expect(find.textContaining('جرعة Concor'), findsOneWidget);
+      expect(find.textContaining('جرعة Telfast'), findsNothing,
+          reason: 'اتاخدت — مفيش تنبيه عنها');
       expectNoRedAndMinSize(tester);
     });
 
-    screenTest('«مش هاخده» بعد التنبيه مش ✓ — ما خدهاش', (tester) async {
-      remote.next = snapshot(
-        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'skipped')],
-        alerts: [alert(doseState: 'skipped')],
+    screenTest('الأقسام بترتيبها وبعناوينها: تنبيهات ← النهارده ← أدويته ← الجديد',
+        (tester) async {
+      final base = snapshot(
+        [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
+        alerts: [alert()],
+      );
+      remote.next = CaregiverSnapshot(
+        patient: base.patient,
+        medications: base.medications,
+        events: base.events,
+        alerts: base.alerts,
+        lastUpdated: base.lastUpdated,
+        // عشان قسم «الجديد» يبان أصلاً
+        readings: [
+          CaregiverReading(
+            uuid: 'g1',
+            valueMgDl: 128,
+            measuredAt: DateTime(2026, 8, 31, 8),
+            context: 'fasting',
+            updatedAt: DateTime(2026, 8, 31, 8, 5),
+          ),
+        ],
       );
       await pumpScreen(tester);
 
-      expect(find.textContaining('أكّدها بعدين'), findsNothing);
+      double y(String heading) => tester.getTopLeft(find.text(heading)).dy;
+      // التنبيه المفتوح فوق: جرعة فايتة دلوقتي أعجل من أي حاجة تانية.
+      expect(y('تنبيهات'), lessThan(y('النهارده')));
+      // وجرعات اليوم قسم قائم بذاته — ده اللي الابن فاتح الشاشة عشانه.
+      expect(y('النهارده'), lessThan(y('أدويته')));
+      // والأدوية مابقتش آخر حاجة في القايمة.
+      expect(y('أدويته'), lessThan(y('الجديد')));
+      expectNoRedAndMinSize(tester);
+    });
+
+    test('الحالات المفتوحة متعرّفة في مكان واحد، وشاملة', () {
+      // القايمة اللي بتروح للاستعلام مشتقة من switch شامل على [DoseState]،
+      // فحالة جديدة بتكسر الترجمة بدل ما تبقى تنبيه محدش قرره.
+      expect(openDoseStateNames, ['pending', 'missed']);
+      expect(isOpenDoseState(DoseState.pending), isTrue);
+      expect(isOpenDoseState(DoseState.missed), isTrue);
+      expect(isOpenDoseState(DoseState.taken), isFalse);
+      expect(isOpenDoseState(DoseState.skipped), isFalse);
+      expect(isOpenDoseState(DoseState.superseded), isFalse);
+      // وكل حالة موجودة اتقرر فيها — مفيش واحدة اتنست
+      expect(DoseState.values.length, 5);
+    });
+
+    test('الفلترة في الاستعلام نفسه — مش في الودجت', () {
+      // الابن ما يشيلش صفوف عمره ما هيعرضها. الاختبار بيقرا المصدر لأن
+      // الاستعلام ده ما بيتنفّذش في `flutter test`.
+      final source = File('lib/data/care/supabase_caregiver_remote.dart').readAsStringSync();
+      expect(source.contains("inFilter('dose_events.state', openDoseStateNames)"), isTrue);
     });
 
     screenTest('no_token → تنبيه داخل التطبيق، القناة محتاجة تفعيل — مش فشل ومش «بلّغك»',

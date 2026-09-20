@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/care/supabase_caregiver_remote.dart';
 
 /// شكل صف escalations زي ما PostgREST بيرجّعه بالـembed المتداخل.
-Map<String, dynamic> row({String status = 'sent', String? sentAt}) => {
+Map<String, dynamic> row({String status = 'sent', String? sentAt, String state = 'missed'}) => {
       'uuid': 'esc-1',
       'delivery_status': status,
       'created_at': '2026-08-31T06:00:00+00:00',
       'sent_at': sentAt,
       'dose_events': {
         'scheduled_at': '2026-08-31T05:00:00+00:00',
-        'state': 'taken',
+        'state': state,
         'dose_schedules': {
           'medications': {'name': 'Concor 5mg', 'patient_uuid': 'p1'},
         },
@@ -24,7 +24,17 @@ void main() {
     expect(a.scheduledAt.toUtc(), DateTime.utc(2026, 8, 31, 5));
     expect(a.sentAt!.toUtc(), DateTime.utc(2026, 8, 31, 6, 0, 5));
     expect(a.delivered, isTrue);
-    expect(a.takenLater, isTrue);
+    expect(a.open, isTrue, reason: 'missed لسه «ما اتاخدتش»');
+  });
+
+  test('الحالة المقفولة مش مفتوحة — خط الدفاع التاني لو صف قديم عدّى', () {
+    // الاستعلام بيفلترها في السحابة؛ الجيتر ده بيمسك اللي يعدّي منه.
+    for (final closed in ['taken', 'skipped', 'superseded']) {
+      expect(alertFromRow(row(state: closed)).open, isFalse, reason: closed);
+    }
+    expect(alertFromRow(row(state: 'pending')).open, isTrue);
+    // واسم مش معروف مش تنبيه — ما بنعرضش حاجة محدش يعرفها
+    expect(alertFromRow(row(state: 'حاجة-جديدة')).open, isFalse);
   });
 
   test('no_token → مش delivered حتى لو الحالة اتقرّرت', () {
