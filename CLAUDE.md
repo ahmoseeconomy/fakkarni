@@ -1075,6 +1075,49 @@ And when a test passes over a bug, fix the test's *shape* — ours exercised
 a different statement than the app, which is not thoroughness but a blind
 spot.
 
+**A migration file in the repo is not a migration in the database, and an
+audit that confuses the two is worse than no audit.** Round 25 spent a
+debugging session on a caregiver screen that would not load. Asked to check
+every column the son's query selects, I diffed the selects against the
+**migration files** and reported a clean table — a tick beside
+`medications.removed_at` and `dose_schedules.stopped_at`, both of them
+"added by `0014`". `0014` had never been run on the live project. The
+columns existed in git and not in Postgres, the tick was true of the wrong
+thing, and it sent the search away from the actual cause.
+
+So: **any answer to "does this column exist" must say which of the two it
+checked** — the file, or the database. They are different questions with
+different answers, and only one of them is what the app talks to. Checking
+the file is still useful (it catches a select that no migration ever
+wrote); it is simply not an answer about the cloud. To answer about the
+cloud, query `information_schema.columns` on the project, or run the
+migration's own self-check, which is written to be re-runnable for exactly
+this.
+
+**What actually named it was the debug log added the same round** — one
+line, `Care: ... PostgrestException code=... message=...`, naming the
+column Postgres could not find. A log beat a careful audit because the log
+was reading the database and the audit was reading the repo.
+
+### Migrations confirmed run on the live project
+
+Kept here so the next gap is **visible instead of discovered through a
+user-facing failure**. Update this list in the round that runs the file,
+not later. "Not confirmed" means nobody has checked — not that it failed.
+
+| File | Live? | Evidence, or what breaks if it is not |
+|---|---|---|
+| `0001`-`0005` | yes | the son's screen reads patients / care_relationships / medications / dose_events under RLS |
+| `0006`-`0009` | yes | `ALL ESCALATION TESTS PASSED` after each; the cron ticks every 5 minutes |
+| `0010` dose_superseded | **not confirmed** | widens the `dose_events.state` CHECK. If absent, a push containing a `superseded` row is rejected and **the whole dose_events batch fails silently** |
+| `0011` escalate_missed | **not confirmed** | makes the scan pick `missed` as well as `pending`. If absent the son is **never told** about a dose the device swept - the exact silence 4.2b exists to prevent |
+| `0012` health_file | yes | the son's records + `lab_results` embed returns rows |
+| `0013` ai_reads | yes | recorded as applied; kept unused after the C2 revert |
+| `0014` soft_stop | yes - **run 20 Sep 2026** | this is the one that was missing, and the cause of round 25 |
+| `0015` checkup_dates | **not confirmed** | `_pushRecords` sends its four columns on **every** records push. If absent, every records push is failing right now, silently (sync never surfaces an error) - check this one first |
+| `0016` lab_ranges | yes | `lab_results` has `ref_low` / `ref_high` / `ref_text` |
+| `0017` follow_kind | yes | `records` has `follow_kind` and not `follow_source_id` |
+
 **A self-check that inserts into `public.patients` must create the owner in
 `auth.users` first.** `patients.owner_id` is a foreign key onto
 `auth.users`, and a `gen_random_uuid()` is not a real user — so the first
@@ -2193,7 +2236,9 @@ screen — and they are different screens on purpose.**
   changes **no policy and no `due_escalations`** — they are new columns on
   an existing table, and have nothing to do with escalation. Its self-check
   writes a full follow-up, asserts a plain record is still valid with them
-  null, exercises the delete, and rolls back. **Not run yet.**
+  null, exercises the delete, and rolls back. **Not confirmed run — see the
+  migrations table above; if it has not run, every records push is failing
+  silently.**
 - **«اضبط تذكير الصيام» schedules a real notification — only from that
   tap (rule 4)**, at draw time minus the hours **the user types** (no
   default, rule 6), through `NotificationService.scheduleCheckup`: its own
