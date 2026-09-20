@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         981 passing
+test/                         994 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -521,6 +521,40 @@ this app is on the UIScene lifecycle, so both live in
 Android needs no equivalent. The two diagnostic `debugPrint`s that found
 this — at the isolate entry point and in `_onTap` — are kept on purpose:
 they are the only visibility into a path no test can reach.
+
+**السبب الجذري، بدليل من الجهاز (٢٠ سبتمبر ٢٠٢٦): على iOS مفيش callback
+بتتنده أصلاً — الرد بيستنى في `getNotificationAppLaunchDetails()`، و
+`init()` كانت بتاخد منه الـ`payload` وترمي الـ`actionId`.** يعني زرار
+«أخدته» كان بيتحوّل لدوسة عادية في صمت: التطبيق بيفتح على الجرعة والصف
+عمره ما اتكتب. من `fkdiag.log` لحظة الدوسة (نسخة profile، آيفون، التطبيق
+مقفول):
+
+```
+20:30:05.961  didFinishLaunching — launchOptions=nil state=background
+20:30:06.042  didInitializeImplicitFlutterEngine
+20:30:06.096  didReceive — action=taken category=fakkarni_dose
+```
+
+مفيش سطر `registerPlugins`، مفيش `Isolate:`، مفيش `_onTap`. النظام شغّل
+العملية وسلّم الرد، والإضافة ما ندهتش حاجة. وكمان `didFinishLaunching`
+تانية بعدها بـ٧ ثواني — العملية اللي النظام شغّلها ما عاشتش.
+
+الإصلاح كله في الطريق العادي، مش في الـisolate:
+- **`NotificationService.init()` بترجّع رد الإطلاق كامل** لما يكون زرار،
+  و`applyLaunchResponse` هي المكان الوحيد اللي بيتاخد فيه القرار: زرار
+  بيترجّع للمعالجة، ودوسة عادية بتنزل `lastPayload` زي ما كانت.
+  **زرار عمره ما ينزل في `lastPayload`** — ده كان العيب نفسه.
+- **`main` بتعالجه قبل أي حاجة بتستنى الشبكة.** الخدمات بتتبني محلية
+  بالكامل، الجرعة بتتكتب والسلّم بيتلغي، وبعدين بس بتيجي
+  `initSupabaseAuth()` و`FirebaseTokenSource.initialise()` — الاتنين
+  awaited وكانوا قبلها، على إطلاق خلفية عمره ثواني. الخدمات بتتبني تاني
+  ومعاها السحابة، والمزامنة بتاخد دفعة فورية عشان الصف المتوسّخ يلحق
+  السيرفر قبل مهلته. اختبار بيقارن مواضع السطور في `main.dart` نفسها.
+- **مرة واحدة بس لكل (جرعة، زرار).** `claimResponse` بتمسك المفتاح
+  `actionId|id|payload`، والبابين بيعدّوا عليها — رد الإطلاق و`_onTap` —
+  فلو النظام بعت الاتنين، الجرعة بتتعالج مرة.
+- **والـisolate بيفضل مكانه**: اللوج ده عن iOS بس؛ على أندرويد الصحوة دي
+  هي الطريق الحقيقي. الدليل متسجّل في `bootstrap.dart` بتاريخه.
 
 **صحوة شاشة القفل على iOS: مقروءة من مصدر الإضافة، ومش متشافة على جهاز
 ولا مرة.** A confirmation from a locked iPhone was reported on

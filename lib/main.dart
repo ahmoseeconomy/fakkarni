@@ -12,7 +12,10 @@ import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
 import 'core/widgets/patient_voice.dart';
+import 'core/diagnostics.dart';
 import 'core/notifications/notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    show NotificationResponse;
 import 'core/theme/theme_mode_store.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
@@ -25,6 +28,41 @@ Future<void> main() async {
   await ThemeModeStore.load();
 
   final db = AppDatabase(openConnection());
+
+  // ------------------------------------------------------- الوعد الأول
+  // **على iOS، دوسة «أخدته» من شاشة القفل والتطبيق مقفول بتوصل من هنا**
+  // — مش من الـisolate ولا من `_onTap`. النظام بيشغّل التطبيق عادي والرد
+  // بيستنى في `getNotificationAppLaunchDetails` لحد ما `init()` تسأل
+  // عليه (الدليل من الجهاز في bootstrap.dart بتاريخه).
+  //
+  // واللحظة دي **إطلاق في الخلفية عمره ثواني**: في اللوج، عملية اتشغّلت
+  // ٢٠:٣٠:٠٥ وواحدة تانية طلعت بعدها بـ٧ ثواني. فالكتابة المحلية لازم
+  // تسبق أي حاجة بتستنى الشبكة. `initSupabaseAuth()` و
+  // `FirebaseTokenSource.initialise()` الاتنين awaited وكانوا **قبل**
+  // `init()`، يعني تسجيل الجرعة كان مستني تهيئة سحابة وتوكن دفع على
+  // إطلاق ممكن ما يعيشش لحد ما يخلّصوا. القاعدة الخامسة، نفس ترتيب
+  // `onBackgroundNotificationAction`: الصف والإلغاء أولاً، السحابة آخر حاجة.
+  //
+  // فالخدمات بتتبني هنا **محلية بالكامل** عشان الوعد يتنفّذ، وبتتبني تاني
+  // تحت ومعاها السحابة. التانية هي اللي بتعيش في `AppScope`؛ الأولى
+  // بتتقفل عليها الجرعة وخلاص. الصف بيفضل متوسّخاً لحد ما المزامنة
+  // تشتغل بعد شوية — وده مقبول، الرفع مجاملة والكتابة هي الوعد.
+  final promise = actionHandlerFor(await buildServices(db));
+  NotificationService.onAction = (action, payload) => promise.handle(action, payload);
+  NotificationResponse? launched;
+  try {
+    launched = await NotificationService.init(
+      onBackgroundAction: onBackgroundNotificationAction,
+    );
+    if (launched != null) {
+      diag('Notif: رد الإطلاق زرار — action=${launched.actionId}');
+      await promise.handle(launched.actionId, launched.payload);
+    }
+  } catch (error, stack) {
+    diag('التذكيرات مقدرتش تتهيّأ عند الفتح: $error\n$stack');
+  }
+
+  // ---------------------------------------------------------- السحابة
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
   // إعداد ناقص، جلسة بايظة) بترجع null والتطبيق يفتح كامل زي ما هو.
   final cloud = await initSupabaseAuth();
@@ -69,10 +107,17 @@ Future<void> main() async {
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.
   await launchHousekeeping(services);
 
-  // زرار على الإشعار والتطبيق مفتوح — نفس المعالج، بنفس الخدمات.
+  // زرار على الإشعار والتطبيق مفتوح — من دلوقتي على الخدمات الكاملة،
+  // عشان التأكيد يرفع للسحابة كمان (٤.٢أ). قبل كده كانت على [promise]،
+  // اللي عن قصد مالهاش سحابة.
   final actions = actionHandlerFor(services);
   NotificationService.onAction =
       (action, payload) => actions.handle(action, payload);
+
+  // الجرعة اللي اتكتبت فوق لسه متوسّخة — المزامنة اتبنت بعديها. دفعة
+  // واحدة دلوقتي بتوصّلها للسحابة قبل ما السيرفر يوصل لمهلته ويصحّي الابن
+  // على جرعة أبوه خدها (٤.٢ب).
+  if (launched != null) sync?.onAppForeground();
 
   // التذكيرات مهمة، بس مش مهمة لدرجة إن التطبيق ما يفتحش من غيرها.
   //
@@ -80,15 +125,11 @@ Future<void> main() async {
   // ولو ده حصل قبل runApp، المريض هيلاقي شاشة سودا بدل تطبيقه. الشاشات
   // نفسها بتطلب الإذن وبتعيد الجدولة بعد الأسئلة.
   try {
-    await NotificationService.init(
-      onBackgroundAction: onBackgroundNotificationAction,
-    );
-
     // كل فتحة للتطبيق بتعيد بناء النافذة: الجهاز ممكن يكون اتقفل يومين، أو
     // المستخدم عدّى نص الليل. الأرقام مشتقة من الوقت فالإعادة مش بتكرّر حاجة.
     await services.scheduler.rescheduleAll();
   } catch (error, stack) {
-    debugPrint('التذكيرات مقدرتش تتجدول عند الفتح: $error\n$stack');
+    diag('التذكيرات مقدرتش تتجدول عند الفتح: $error\n$stack');
   }
 
   runApp(FakkarniApp(services: services));

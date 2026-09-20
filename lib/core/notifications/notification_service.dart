@@ -50,6 +50,52 @@ class NotificationService {
   /// للخلفية حتى والتطبيق مفتوح. لو وصلت هنا برضه، بنعالجها بدل ما نضيّعها.
   static void Function(String actionId, String? payload)? onAction;
 
+  /// الردود اللي اتعالجت خلاص — عشان رد واحد ما يتحسبش مرتين.
+  ///
+  /// نفس الدوسة ممكن توصل من بابين: رد الإطلاق اللي
+  /// `getNotificationAppLaunchDetails` بترجّعه، و[_onTap] لو النظام قرر
+  /// يبعتها كمان. تأكيد جرعة مرتين مش بيأذي الصف (نفس الحالة تتكتب تاني)
+  /// بس بيعيد الجدولة ويرفع للسحابة على الفاضي في إطلاق عمره ثواني.
+  static final Set<String> _handled = <String>{};
+
+  static String _keyOf(NotificationResponse r) =>
+      '${r.actionId}|${r.id}|${r.payload}';
+
+  /// بترجّع true مرة واحدة بس لكل (جرعة، زرار).
+  static bool claimResponse(NotificationResponse response) =>
+      _handled.add(_keyOf(response));
+
+  /// **القرار اللي رد الإطلاق بيتاخد عليه، في مكان واحد.**
+  ///
+  /// بترجّع الرد اللي محتاج يتعالج كزرار، أو null لو مفيش. الدوسة
+  /// العادية (من غير `actionId`) بتنزل في [lastPayload] زي ما كانت —
+  /// الجذر بيسمع لها ويفتح شاشة التذكير.
+  ///
+  /// **زرار عمره ما ينزل في [lastPayload]**: ساعتها كان بيتحوّل لدوسة
+  /// عادية، يعني التطبيق بيفتح على الجرعة والصف ما اتكتبش — وده بالظبط
+  /// اللي كان بيحصل على iOS (شوف [init]).
+  @visibleForTesting
+  static NotificationResponse? applyLaunchResponse(
+      NotificationResponse? response) {
+    if (response == null) return null;
+    if (!NotificationActions.isAction(response.actionId)) {
+      lastPayload.value = response.payload;
+      return null;
+    }
+    return claimResponse(response) ? response : null;
+  }
+
+  /// بيشغّل [_onTap] زي ما الإضافة بتعمل — الاختبار محتاج الباب التاني
+  /// عشان يثبت إن الرد الواحد ما بيتعالجش مرتين.
+  @visibleForTesting
+  static void tapForTest(NotificationResponse response) => _onTap(response);
+
+  @visibleForTesting
+  static void resetForTest() {
+    _handled.clear();
+    lastPayload.value = null;
+  }
+
   /// قناة الجرعات — أولوية عالية عشان تظهر فوق الشاشة وتصوّت.
   static const _doseChannel = AndroidNotificationChannel(
     'fakkarni_doses',
@@ -124,8 +170,15 @@ class NotificationService {
 
   /// [onBackgroundAction] لازم يكون دالة عليا معلّمة `@pragma('vm:entry-point')`
   /// — بتتنفذ في isolate منفصل والتطبيق ممكن يكون مقفول خالص.
-  static Future<void> init({BackgroundActionHandler? onBackgroundAction}) async {
-    if (_initialised) return;
+  ///
+  /// **بترجّع رد الإطلاق لو كان زرار** — لازم اللي بينده يعالجه، وفوراً.
+  /// على iOS والتطبيق مقفول خالص، دوسة «أخدته» **مش** بتعدّي لا على
+  /// [onBackgroundAction] ولا على [_onTap]: النظام بيشغّل التطبيق عادي
+  /// والرد بيستنى هنا في `getNotificationAppLaunchDetails`.
+  static Future<NotificationResponse?> init(
+      {BackgroundActionHandler? onBackgroundAction}) async {
+    // نداء تاني ما بيرجّعش الرد تاني — ده نص الحماية من المعالجة المكرّرة
+    if (_initialised) return null;
 
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation(await _deviceTimezone()));
@@ -164,12 +217,19 @@ class NotificationService {
 
     // لو التطبيق كان مقفول خالص واتفتح من الإشعار نفسه، الدوسة دي مش بتعدّي
     // على _onTap — لازم نسألوا عليها بإيدنا.
+    //
+    // **وكانت بتتقري ناقصة**: السطر ده كان بياخد `.payload` ويرمي
+    // `.actionId`، فزرار «أخدته» كان بيتحوّل لدوسة عادية في صمت —
+    // التطبيق بيفتح على الجرعة والصف عمره ما اتكتب. ده هو العيب اللي
+    // خلّى تأكيد شاشة القفل على iOS ما يعملش حاجة خالص.
     final launch = await _plugin.getNotificationAppLaunchDetails();
-    if (launch != null && launch.didNotificationLaunchApp) {
-      lastPayload.value = launch.notificationResponse?.payload;
-    }
+    final response = (launch != null && launch.didNotificationLaunchApp)
+        ? launch.notificationResponse
+        : null;
+    final action = applyLaunchResponse(response);
 
     _initialised = true;
+    return action;
   }
 
   static void _onTap(NotificationResponse response) {
@@ -177,7 +237,8 @@ class NotificationService {
     // تشخيص: بيقول لنا إن الضغطة وصلت دارت أصلاً، وبأي actionId.
     diag('Notif: _onTap action=$action payload=${response.payload}');
     if (NotificationActions.isAction(action) && onAction != null) {
-      onAction!(action!, response.payload);
+      // نفس الرد ممكن يكون اتعالج خلاص من رد الإطلاق
+      if (claimResponse(response)) onAction!(action!, response.payload);
       return;
     }
     lastPayload.value = response.payload;

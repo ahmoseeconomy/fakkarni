@@ -48,7 +48,15 @@ most likely cause of a failure is:
      response reached our delegate. Present without the next line means
      the plugin chain swallowed it.
    - `FKDIAG registerPlugins — المحرّك الخلفي بيتسجّل` — the second engine
-     came up and is being given its plugins.
+     came up and is being given its plugins. **On iOS this line does not
+     appear, and that is correct**: the 20 Sep 2026 run proved iOS invokes
+     no callback at all and parks the response in
+     `getNotificationAppLaunchDetails()`. The line to look for there is
+     instead:
+   - `FKDIAG Notif: رد الإطلاق زرار — action=taken` — `init()` found the
+     parked response and `main` is about to handle it. **This is the iOS
+     pass condition.** Its absence after a `didReceive` line means the
+     response was read as a plain tap again.
    - `Isolate: مهلة الخلفية — اتاخدت` — iOS gave us the assertion.
      «مفيش» means it refused; anything else means the channel is not
      registered on the background engine (`AppDelegate`).
