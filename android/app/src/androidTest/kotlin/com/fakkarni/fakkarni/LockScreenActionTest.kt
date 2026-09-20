@@ -13,6 +13,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * **سكّة أندرويد: زرار على الإشعار والتطبيق متقفول.**
@@ -27,14 +30,21 @@ import java.io.File
  *  ١. يزرع جرعة معادها في أقرب دقيقة جاية (باب خلفي debug بس)
  *  ٢. يقتل **العملية** — `am kill` مش `am force-stop`
  *  ٣. يستنى الإشعار، يفتح الستارة، يفرد، ويدوس «أخدته»
- *  ٤. يتأكد إن صف الجرعة اتكتب
+ *  ٤. يستنّى لحد ما صف الجرعة يظهر، **ويقول خد قد إيه**
  *  ٥. يفتح التطبيق تاني ويتأكد إن الحالة باينة مؤكَّدة
  *
  * **ليه `am kill` مش `am force-stop`:** الاتنين بيقتلوا العملية، بس
  * force-stop بيحط الحزمة في حالة «موقوفة» وبيلغي كل منبّهاتها في
  * AlarmManager. يعني الإشعار عمره ما هيرن، والاختبار كان هيقع لسبب غلط
  * خالص. و`am kill` بيقتل العمليات **اللي في الخلفية بس**، عشان كده
- * بنضغط Home الأول — لو التطبيق قدام، النداء ده ما بيعملش حاجة.
+ * بنضغط Home الأول.
+ *
+ * **تشغيلة ٢١ سبتمبر ٢٠٢٦ وصلت لآخر تأكيد ووقعت عنده**: الباب اتفتح
+ * (المنبّه عاش، الإشعار رن والعملية ميتة، الزرار كان موجود، والدوسة
+ * وصلت) والعدّ رجع صفر. تلات تفسيرات مفيش في التشغيلة دي حاجة تفرّق
+ * بينهم — WAL مش متشيك‑بوينت، أو الوقت قصير، أو الـisolate فعلاً بايظ —
+ * وعشان كده الملف ده بقى بيقيس بدل ما يفترض، وبيطبع كل اللي بيلزم
+ * للتفرقة قبل ما يقع.
  */
 @RunWith(AndroidJUnit4::class)
 class LockScreenActionTest {
@@ -46,6 +56,10 @@ class LockScreenActionTest {
         get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     private val pkg = "com.fakkarni.fakkarni"
+
+    /** الملف اللي التطبيق بيفتحه بالظبط — `connection.dart`. */
+    private val dbFile: File
+        get() = File(File(context.filesDir.parentFile, "app_flutter"), "fakkarni.sqlite")
 
     @Test
     fun lockScreenConfirmWritesTheDoseAndKillsTheLadder() {
@@ -87,10 +101,16 @@ class LockScreenActionTest {
         val taken = device.wait(Until.findObject(By.text("أخدته")), 10_000)
         assertTrue("زرار «أخدته» ما ظهرش في الستارة", taken != null)
         taken!!.click()
-        Thread.sleep(8_000)
+        val tappedAt = System.currentTimeMillis()
 
-        // ٤ — الصف اتكتب؟ بنقرا ملف drift نفسه بنفس الـUID.
-        assertEquals("الجرعة المفروض اتسجّلت taken", 1, takenDoseCount())
+        // ٤ — بنستنّى الصف بدل ما نفترض وقت. **الرقم ده اللي عايزينه**:
+        // قد إيه الـisolate بياخد فعلاً على محاكي — مش ثابت بنخمّنه.
+        val elapsed = awaitTakenDose(timeoutMs = 60_000, since = tappedAt)
+        if (elapsed == null) {
+            dumpEvidence(tappedAt)
+            assertEquals("الجرعة المفروض اتسجّلت taken", 1, takenDoseCount())
+        }
+        println("FKTEST: صف الجرعة ظهر بعد ${elapsed}ms من الدوسة")
 
         // ٥ — والتطبيق بيعرضها مؤكَّدة بعد ما يتفتح تاني
         launchWithSeed(0)
@@ -109,35 +129,116 @@ class LockScreenActionTest {
         context.startActivity(intent)
     }
 
-    /** الحزمة في حالة «موقوفة»؟ ده اللي force-stop بيعمله و`am kill` لأ. */
+    /**
+     * الحزمة في حالة «موقوفة»؟ ده اللي force-stop بيعمله و`am kill` لأ.
+     *
+     * **مفيش أنابيب هنا عن قصد.** `UiDevice.executeShellCommand` بيعدّي
+     * على `Runtime.exec(String)`، اللي بيقطّع النص على المسافات من غير
+     * صدفة — يعني `| grep` بيتبعت كوسيطة لـdumpsys ومش بيفلتر حاجة.
+     * النسخة الأولى كانت كده، فالتأكيد كان بيعدّي **وهو فاضي**: النص
+     * الراجع مكانش فيه `stopped=true` لأنه مكانش فيه حاجة أصلاً.
+     * دلوقتي بنجيب المخرج كامل وبنفلتره في كوتلن، وبنرمي لو ما لقيناش
+     * العلم أصلاً بدل ما نعدّي على الفاضي.
+     */
     private fun isPackageStopped(): Boolean {
-        val out = device.executeShellCommand("dumpsys package $pkg | grep -i stopped")
-        return out.contains("stopped=true", ignoreCase = true)
+        val out = device.executeShellCommand("dumpsys package $pkg")
+        val flags = out.lineSequence()
+            .filter { it.contains("stopped=", ignoreCase = true) }
+            .toList()
+        assertTrue(
+            "ما لقيناش علم stopped في dumpsys — التأكيد ده كان هيعدّي فاضي",
+            flags.isNotEmpty(),
+        )
+        println("FKTEST: حالة الحزمة — ${flags.joinToString(" / ") { it.trim() }}")
+        return flags.any { it.contains("stopped=true", ignoreCase = true) }
+    }
+
+    /** بيرجّع الوقت بالملي لما الصف يظهر، أو null لو المهلة عدّت. */
+    private fun awaitTakenDose(timeoutMs: Long, since: Long): Long? {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (takenDoseCount() >= 1) return System.currentTimeMillis() - since
+            Thread.sleep(500)
+        }
+        return null
     }
 
     /**
-     * عدد صفوف dose_events اللي حالتها taken — من ملف drift مباشرةً.
+     * عدد صفوف dose_events اللي حالتها taken.
      *
-     * الاختبار بيشتغل في عملية التطبيق نفسه، فنفس الـUID ونفس الصلاحيات.
+     * **بنفتح الملف زي ما التطبيق بيفتحه: قراية وكتابة، مش OPEN_READONLY.**
+     * القاعدة شغّالة على `journal_mode = WAL`، والكتابة بتقعد في
+     * `fakkarni.sqlite-wal` لحد ما يحصل checkpoint. اتصال **للقراية بس**
+     * ما بيقدرش يعمل استرجاع للـWAL، فبيرجّع اللقطة اللي قبله — **صفر، من
+     * غير أي خطأ**. يعني الصف ممكن يكون موجود والاختبار أعمى عنه.
+     *
+     * **وده مش تضعيف للتأكيد**: استرجاع الـWAL بيظهر المعاملات
+     * **المكتملة** بس؛ أي كتابة ناقصة بترجع لورا وبتفضل غير مرئية زي ما
+     * هي. يعني إحنا بنشيل سلبية كاذبة، مش بنخفّض السقف.
      */
-    private fun takenDoseCount(): Int {
-        val docs = File(context.filesDir.parentFile, "app_flutter")
-        val candidates = docs.listFiles { f -> f.name.endsWith(".sqlite") || f.name.endsWith(".db") }
-            ?: emptyArray()
-        assertTrue("ما لقيناش ملف قاعدة البيانات في ${docs.absolutePath}", candidates.isNotEmpty())
-
-        var total = 0
-        for (file in candidates) {
-            val db = SQLiteDatabase.openDatabase(
-                file.absolutePath, null, SQLiteDatabase.OPEN_READONLY,
-            )
-            db.use {
-                val cursor = it.rawQuery(
-                    "select count(*) from dose_events where state = 'taken'", null,
-                )
-                cursor.use { c -> if (c.moveToFirst()) total += c.getInt(0) }
+    private fun takenDoseCount(readOnly: Boolean = false): Int {
+        val file = dbFile
+        if (!file.exists()) return 0
+        return try {
+            val flags = if (readOnly) {
+                SQLiteDatabase.OPEN_READONLY
+            } else {
+                SQLiteDatabase.OPEN_READWRITE
             }
+            SQLiteDatabase.openDatabase(file.absolutePath, null, flags).use { db ->
+                db.rawQuery("select count(*) from dose_events where state = 'taken'", null)
+                    .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+            }
+        } catch (e: Exception) {
+            println("FKTEST: قراية القاعدة وقعت (readOnly=$readOnly): $e")
+            0
         }
-        return total
+    }
+
+    /**
+     * كل اللي بيلزم للتفرقة بين التلات تفسيرات — **قبل ما نقع، مش بعدها**.
+     *
+     * لو التشغيلة الجاية وقعت، التقرير نفسه المفروض يقول أنهي واحد فيهم:
+     *  أ — WAL: العدّ بالكتابة > العدّ بالقراية، أو `-wal` فيه بايتات
+     *  ب — الوقت: مفيش صف لكن اللوج بيقول إن الـisolate اشتغل ولسه ماشي
+     *  ج — الـisolate: مفيش سطر `Isolate:` في اللوج خالص
+     */
+    private fun dumpEvidence(tappedAt: Long) {
+        val stamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+        println("FKTEST: ======== الدليل ========")
+        println("FKTEST: الدوسة كانت ${stamp.format(Date(tappedAt))}")
+
+        for (name in listOf("fakkarni.sqlite", "fakkarni.sqlite-wal", "fakkarni.sqlite-shm")) {
+            val f = File(dbFile.parentFile, name)
+            println(
+                if (f.exists()) {
+                    "FKTEST: $name — ${f.length()} بايت، آخر تعديل ${stamp.format(Date(f.lastModified()))}"
+                } else {
+                    "FKTEST: $name — مش موجود"
+                },
+            )
+        }
+
+        val readWrite = takenDoseCount(readOnly = false)
+        val readOnly = takenDoseCount(readOnly = true)
+        println("FKTEST: taken بالقراية-والكتابة = $readWrite، بالقراية-بس = $readOnly")
+        if (readWrite > readOnly) {
+            println("FKTEST: >>> التفسير (أ): الصف في الـWAL والقراية-بس كانت عماها")
+        }
+
+        // زي فوق: مفيش أنابيب ولا `$(...)` — بنجيب اللوج كامل وبنفلتره
+        // في كوتلن. و`diag()` على أندرويد بتخرج من `debugPrint` للوج، يعني
+        // **اللوج هو أثر أندرويد** (الملف بتاع iOS مش موجود هنا).
+        println("FKTEST: ---- آخر ٢٠٠ سطر تخصّنا من اللوج ----")
+        val interesting = Regex("flutter|fakkarni|FKDIAG|Isolate|Handle", RegexOption.IGNORE_CASE)
+        val lines = device.executeShellCommand("logcat -d -v time")
+            .lineSequence()
+            .filter { interesting.containsMatchIn(it) }
+            .toList()
+        lines.takeLast(200).forEach { println("FKTEST| $it") }
+        if (lines.none { it.contains("Isolate:") }) {
+            println("FKTEST: >>> التفسير (ج): مفيش ولا سطر Isolate: — الـisolate ما اشتغلش")
+        }
+        println("FKTEST: ======== آخر الدليل ========")
     }
 }

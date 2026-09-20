@@ -80,9 +80,32 @@ jobs:
             adb shell pm grant com.fakkarni.fakkarni android.permission.POST_NOTIFICATIONS || true
             # المنبّه الدقيق على ١٢+
             adb shell appops set com.fakkarni.fakkarni SCHEDULE_EXACT_ALARM allow || true
-            cd android && ./gradlew :app:connectedDebugAndroidTest --info
 
-      - name: Upload the report
+            # **اللوج هو أثر أندرويد.** `diag()` بتكتب في ملف على iOS بس؛
+            # هنا السطر بيخرج من debugPrint للوج، فمن غير اللوج مفيش أي
+            # وسيلة نعرف بيها إذا الـisolate اشتغل ولا لأ. تشغيلة ٢١
+            # سبتمبر وقعت من غيره ومحدش عرف السبب.
+            mkdir -p artifacts
+            adb logcat -c || true
+            adb logcat -v time > artifacts/logcat-full.txt 2>&1 &
+            LOGCAT_PID=$!
+
+            set +e
+            cd android && ./gradlew :app:connectedDebugAndroidTest --info
+            STATUS=$?
+            cd ..
+            set -e
+
+            kill $LOGCAT_PID 2>/dev/null || true
+            sleep 2
+            # نسخة مفلترة جنب الكاملة — الكاملة فيها كل حاجة على الجهاز
+            grep -i -E 'flutter|fakkarni|FKDIAG|Isolate|Handle|TestHook' \
+              artifacts/logcat-full.txt > artifacts/logcat-ours.txt || true
+            echo "---- آخر ٨٠ سطر تخصّنا ----"
+            tail -80 artifacts/logcat-ours.txt || true
+            exit $STATUS
+
+      - name: Upload the report and the logcat
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -90,3 +113,5 @@ jobs:
           path: |
             android/app/build/reports/androidTests/
             android/app/build/outputs/androidTest-results/
+            artifacts/logcat-full.txt
+            artifacts/logcat-ours.txt
