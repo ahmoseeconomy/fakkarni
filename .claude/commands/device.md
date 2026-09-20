@@ -25,6 +25,24 @@ most likely cause of a failure is:
    a dose past 45 minutes and interact with any notification: the cloud
    row shows `missed`.
 
+8b. **The lock-screen wake-up on iOS has never been seen to run, and step
+   8 assumes it does.** Read it with **Console.app**, iPhone connected,
+   filtered to the app's process — not `flutter run`, which is not
+   attached to a terminated app. Tap «أخدته» on a locked phone with the
+   app force-quit, then read, in order:
+   - `Isolate: مهلة الخلفية — اتاخدت` — iOS gave us the assertion.
+     «مفيش» means it refused; anything else means the channel is not
+     registered on the background engine (`AppDelegate`).
+   - `Isolate: دخلنا المعالج — action=…` — Dart ran at all. **Missing
+     means the second engine never reached our code**, and no later line
+     will appear either.
+   - `Handle: الرفع للسحابة — …` — one line, always, naming which of
+     {مفيش إعداد سحابة, مفيش جلسة, مش مربوط, عدّى المهلة, اترفع N صف}
+     happened.
+   Then, on the phone itself: the +15 and +30 rungs must never ring. If
+   they do, the local write did not happen either — the push is the last
+   thing in the handler and the cancels are the second.
+
 9. Contact picker (round 23), on **both** phones — none of this has ever
    run on hardware, and both halves below are read from the plugin's
    source, not observed:

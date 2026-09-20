@@ -109,8 +109,9 @@ void main() {
         sink: device,
       ),
       patientId: patientId,
-      // زي الـisolate بالظبط: من غير start() — مفيش مستمعين ولا مؤقّتات
-      sync: SyncService(
+      // زي الـisolate بالظبط: من غير start() — مفيش مستمعين ولا مؤقّتات.
+      // ودالة، مش خدمة جاهزة: التهيئة نفسها وراء الوعد.
+      cloud: () async => SyncService(
         db: db,
         remote: remote,
         hasSession: () => signedIn,
@@ -163,6 +164,105 @@ void main() {
   /// الإشعار اللي هيرن ٧:٠٠ ص — حمولته زي ما اتجدولت.
   PlannedNotification firstReminder() => device.doses.values
       .reduce((a, b) => a.at.isBefore(b.at) ? a : b);
+
+  group('الوعد قبل أي حاجة سحابية أو قناة — ترتيب صحوة شاشة القفل', () {
+    // على iOS الصحوة دي مالهاش مهلة مضمونة: الإضافة بترجّع
+    // completionHandler قبل ما أول سطر دارت يشتغل، وما بتاخدش
+    // beginBackgroundTask. فأي حاجة بتتعمل قبل الوعد بتتصرف من وقته.
+    //
+    // ده كان الترتيب الحقيقي في bootstrap: تهيئة إشعارات ← تهيئة سحابة
+    // (لحد ثانيتين) ← بناء الخدمات ← **وبعدين** تسجيل الجرعة. على آيفون
+    // مقفول، ده تأكيد من شاشة القفل ما بيتسجّلش ودرجات السلّم بتفضل
+    // مسلّحة — راجل خد دواه وابنه بيتصحّى عليه.
+
+    NotificationActionHandler ordered({
+      Future<SyncService?> Function()? cloud,
+    }) {
+      final routines = RoutineRepository(db);
+      final meds = MedicationRepository(db, clock: seededLongAgo);
+      return NotificationActionHandler(
+        routines: routines,
+        medications: meds,
+        events: _TracingEvents(DoseEventRepository(db)),
+        scheduler: ReminderScheduler(
+          routines: routines,
+          medications: meds,
+          events: DoseEventRepository(db),
+          patientId: patientId,
+          sink: device,
+        ),
+        patientId: patientId,
+        prepareNotifications: () async => trace.add('prepareNotifications'),
+        cloud: cloud ??
+            () async {
+              trace.add('cloudInit');
+              return SyncService(
+                db: db,
+                remote: remote,
+                hasSession: () => signedIn,
+                localWrites: const Stream.empty(),
+              );
+            },
+      );
+    }
+
+    test('الجرعة بتتكتب قبل تهيئة الإشعارات وقبل أول إلغاء', () async {
+      final first = firstReminder();
+      trace.clear();
+
+      await ordered().handle(NotificationActions.taken, first.payload);
+
+      expect(trace.first, 'confirmDose',
+          reason: 'أي نداء قناة قبل الصف بياكل من وقت الصف نفسه');
+      expect(trace.indexOf('prepareNotifications'),
+          greaterThan(trace.indexOf('confirmDose')));
+      expect(trace.indexOf('cancel'),
+          greaterThan(trace.indexOf('prepareNotifications')),
+          reason: 'الإلغاء بيمرّ على الإضافة، فالتهيئة لازم تسبقه');
+    });
+
+    test('تهيئة السحابة ما بتحصلش غير بعد آخر إلغاء', () async {
+      final first = firstReminder();
+      await link();
+      trace.clear();
+
+      await ordered().handle(NotificationActions.taken, first.payload);
+
+      final cloudAt = trace.indexOf('cloudInit');
+      expect(cloudAt, isNot(-1));
+      expect(cloudAt, greaterThan(trace.lastIndexOf('cancel')),
+          reason: 'القاعدة الخامسة: مفيش شبكة قدام إلغاء درجة لسه ما رنّتش');
+      expect(trace.indexWhere((t) => t.startsWith('upsert:')),
+          greaterThan(cloudAt),
+          reason: 'والرفع بعد التهيئة طبعاً');
+    });
+
+    test('تهيئة السحابة وقعت → التأكيد مسجّل والإلغاء اتعمل', () async {
+      final first = firstReminder();
+      trace.clear();
+
+      // بيكمّل عادي: التهيئة مجاملة زيها زي الرفع
+      await ordered(cloud: () async => throw Exception('الشبكة ماتت'))
+          .handle(NotificationActions.taken, first.payload);
+
+      expect(trace, contains('confirmDose'));
+      expect(trace, contains('cancel'));
+      final taken = (await db.select(db.doseEvents).get())
+          .where((e) => e.state == DoseState.taken);
+      expect(taken, isNotEmpty);
+      expect(remote.tables, isEmpty, reason: 'مفيش خدمة، يبقى مفيش رفع');
+    });
+
+    test('«فكّرني بعدين» بيجهّز الإشعارات قبل ما يجدول التأجيل', () async {
+      final first = firstReminder();
+      trace.clear();
+
+      await ordered().handle(NotificationActions.snooze, first.payload);
+
+      expect(trace.first, 'prepareNotifications',
+          reason: 'التأجيل نفسه إشعار — هو ده الوعد كله هنا');
+    });
+  });
 
   group('تأكيد فشل عمره ما يشبه تأكيد نجح', () {
     // الإشعار بيختفي من شاشة القفل سواء الكتابة نجحت أو وقعت — النظام
@@ -534,6 +634,33 @@ class _ThrowingEvents implements DoseEventRepository {
   @override
   noSuchMethod(Invocation invocation) =>
       // الباقي بيعدّي للحقيقي عشان الاختبار يوصل لنقطة الكتابة أصلاً
+      (_real as dynamic).noSuchMethod(invocation);
+}
+
+/// بتسجّل لحظة كتابة صف الجرعة — عشان نقيس اللي قبلها واللي بعدها.
+class _TracingEvents implements DoseEventRepository {
+  _TracingEvents(this._real);
+
+  final DoseEventRepository _real;
+
+  @override
+  Future<void> confirmDose({
+    required int doseScheduleId,
+    required DateTime routineDay,
+    required DateTime scheduledAt,
+    required DoseState state,
+  }) async {
+    await _real.confirmDose(
+      doseScheduleId: doseScheduleId,
+      routineDay: routineDay,
+      scheduledAt: scheduledAt,
+      state: state,
+    );
+    trace.add('confirmDose');
+  }
+
+  @override
+  noSuchMethod(Invocation invocation) =>
       (_real as dynamic).noSuchMethod(invocation);
 }
 

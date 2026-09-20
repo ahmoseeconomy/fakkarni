@@ -31,6 +31,12 @@ import flutter_local_notifications
     // محرّكين مختلفين ومحتاجين تسجيل كل واحد لوحده.
     FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
+      // مهلة الخلفية — **على المحرّك الخلفي قبل أي حاجة تانية**. الإضافة
+      // بترجّع completionHandler فوراً وما بتاخدش assertion، فمن غير
+      // القناة دي الـisolate بيكتب الجرعة والنظام من حقه يوقّفه في نُصّها.
+      if let registrar = registry.registrar(forPlugin: "BackgroundTaskChannel") {
+        BackgroundTaskChannel.register(with: registrar.messenger())
+      }
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
@@ -38,6 +44,12 @@ import flutter_local_notifications
     // الخلفية ما بتدوّرش على صيدليات).
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PlacesChannel") {
       PlacesChannel.register(with: registrar.messenger())
+    }
+
+    // ونفس القناة على المحرّك الرئيسي كمان: لو نفس كود دارت اتنفّذ جوّه
+    // التطبيق، لازم يلاقي القناة بدل ما يرمي MissingPluginException.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BackgroundTaskChannel") {
+      BackgroundTaskChannel.register(with: registrar.messenger())
     }
   }
 }

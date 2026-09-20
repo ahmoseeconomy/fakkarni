@@ -23,7 +23,8 @@ class NotificationActionHandler {
     required this.events,
     required this.scheduler,
     required this.patientId,
-    this.sync,
+    this.prepareNotifications,
+    this.cloud,
   });
 
   final RoutineRepository routines;
@@ -32,8 +33,23 @@ class NotificationActionHandler {
   final ReminderScheduler scheduler;
   final int patientId;
 
-  /// المزامنة اختيارية: من غير جلسة أو من غير ربط، الجهاز أوفلاين ١٠٠٪.
-  final SyncService? sync;
+  /// تهيئة الإشعارات — بتتنده **بعد** ما صف الجرعة اتكتب، وقبل أول
+  /// نداء على الجدولة.
+  ///
+  /// كانت بتتعمل في `bootstrap` قبل المعالج كله. على iOS الصحوة دي
+  /// مالهاش مهلة مضمونة (شوف `BackgroundTask`)، فأي نداء قناة قبل
+  /// الكتابة بيتصرف من وقت الكتابة نفسها. الترتيب بقى: نكتب الأول،
+  /// وبعدين نجهّز اللي محتاجينه عشان نسكّت.
+  final Future<void> Function()? prepareNotifications;
+
+  /// السحابة — **دالة**، مش خدمة جاهزة، عن قصد.
+  ///
+  /// تهيئة Supabase بتاخد لحد ثانيتين، وكانت بتتعمل قبل تسجيل الجرعة.
+  /// القاعدة الخامسة بتقول إن التأكيد بيلغي كل درجة ما رنّتش **في
+  /// نفس اللحظة**؛ تهيئة سحابة قدام الكتابة المحلية هي القاعدة دي
+  /// مكسورة في الترتيب. دلوقتي الدالة دي ما بتتندهش غير في آخر سطر،
+  /// بعد ما كل وعد اتنفّذ.
+  final Future<SyncService?> Function()? cloud;
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
   Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
@@ -79,7 +95,9 @@ class NotificationActionHandler {
         }
 
         // القاعدة الخامسة — وعد كمان: التأكيد بيسكّت كل درجات السلّم
-        // للخانة دي في نفس اللحظة.
+        // للخانة دي في نفس اللحظة. الإلغاء بيمرّ على الإضافة، فالتهيئة
+        // بتحصل هنا — **بعد** الصف، مش قبله.
+        await prepareNotifications?.call();
         await scheduler.cancelReminderAt(at);
 
         // -------------------------------------------------- المجاملات
@@ -90,6 +108,9 @@ class NotificationActionHandler {
         await _courtesy('مدّ النافذة', () => scheduler.rescheduleAll(now: now));
 
       case NotificationActions.snooze:
+        // التأجيل نفسه إشعار، فمفيش حاجة تتكتب قبل التهيئة هنا — هو ده
+        // الوعد كله.
+        await prepareNotifications?.call();
         await scheduler.snooze(
           originalAt: at,
           body: reminderBodyFor([
@@ -109,7 +130,31 @@ class NotificationActionHandler {
     //
     // [SyncService.pushOnce] عمرها ما بترمي، فمفيش حاجة فوق ممكن تتلغي
     // بسببها — وهي كمان آخر سطر، فمفيش حاجة بعدها تتأثر.
-    await _courtesy('الرفع للسحابة', () async => sync?.pushOnce());
+    //
+    // **والنتيجة بتتقال في كل الحالات**، حتى لما مفيش سحابة أصلاً: ساعتها
+    // `pushOnce` ما بتتندهش خالص، فالسطر ده هو الوحيد اللي بيقول ليه.
+    // من غيره، الجرعة اللي اتأكدت من شاشة القفل وما وصلتش السحابة بتبان
+    // بالظبط زي الجهاز اللي مش مربوط — والاتنين ساكتين بنفس الشكل.
+    final build = cloud;
+    if (build == null) {
+      debugPrint(
+          'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
+      return;
+    }
+    SyncService? service;
+    try {
+      service = await build();
+    } catch (error, stack) {
+      debugPrint('Handle: ⚠ تهيئة السحابة فشلت (التأكيد اتسجّل برضه): '
+          '$error\n$stack');
+      return;
+    }
+    if (service == null) {
+      debugPrint(
+          'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
+      return;
+    }
+    await _courtesy('الرفع للسحابة', service.pushOnce);
   }
 
   /// خطوة مسموح لها تفشل — بس مش مسموح لها تفشل في صمت.

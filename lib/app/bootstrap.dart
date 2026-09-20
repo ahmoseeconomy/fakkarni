@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
 import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
 import '../ai/prescription_reader.dart';
+import '../core/notifications/background_task.dart';
 import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
 import '../data/auth/supabase_init.dart';
@@ -93,22 +94,34 @@ PrescriptionReader? _readerFromEnvironment() {
   return GeminiPrescriptionReader(config);
 }
 
-NotificationActionHandler actionHandlerFor(AppServices services) =>
-    NotificationActionHandler(
-      routines: services.routines,
-      medications: services.medications,
-      events: services.events,
-      scheduler: services.scheduler,
-      patientId: services.patientId,
-      sync: services.sync,
-    );
+NotificationActionHandler actionHandlerFor(
+  AppServices services, {
+  Future<void> Function()? prepareNotifications,
+  Future<SyncService?> Function()? cloud,
+}) {
+  final ready = services.sync;
+  return NotificationActionHandler(
+    routines: services.routines,
+    medications: services.medications,
+    events: services.events,
+    scheduler: services.scheduler,
+    patientId: services.patientId,
+    prepareNotifications: prepareNotifications,
+    // جوّه التطبيق المزامنة مبنية خلاص — الدالة بترجّعها زي ما هي.
+    cloud: cloud ?? (ready == null ? null : () async => ready),
+  );
+}
 
 /// زرار على الإشعار والتطبيق مقفول.
 ///
 /// النظام بيصحّي التطبيق على isolate منفصل ويندَه الدالة دي. مفيش واجهة
-/// ولا `runApp`: بنفتح قاعدة البيانات، نسجّل، نمدّ النافذة، **وبعدين بس**
-/// نرفع للسحابة، ونقفل. لازم تفضل دالة عليا بالـpragma ده وإلا المترجم
-/// بيشيلها.
+/// ولا `runApp`. لازم تفضل دالة عليا بالـpragma ده وإلا المترجم بيشيلها.
+///
+/// **الترتيب هنا هو الميزة، مش تفصيلة.** كان: تهيئة إشعارات ← تهيئة
+/// سحابة (لحد ثانيتين) ← خدمات ← تسجيل الجرعة. يعني نداءين قناة وتهيئة
+/// سحابة قدام الوعد، على منصة مش مضمون فيها إننا هنكمّل السطر اللي بعده.
+/// بقى: مهلة خلفية ← قاعدة البيانات ← **تسجيل الجرعة** ← تهيئة الإشعارات
+/// ← إلغاء درجات السلّم ← مدّ النافذة ← تهيئة السحابة والرفع.
 ///
 /// المزامنة هنا مش رفاهية: «أخدته» من شاشة القفل هي أكتر طريق بيأكّد بيه
 /// راجل عنده ٧٢ سنة، ومن غير الرفع ده الجرعة بتفضل على الجهاز لحد ما
@@ -121,30 +134,43 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   // تشخيص: أول سطر في الـisolate — لو ما ظهرش، الضغطة عمرها ما وصلت دارت.
   debugPrint('Isolate: دخلنا المعالج — action=${response.actionId} payload=${response.payload}');
 
+  // **أول نداء خالص، قبل قاعدة البيانات وقبل أي حاجة.** كل سطر تحت ده
+  // بيتنفّذ في وقت مستعار: الإضافة رجّعت completionHandler خلاص، والنظام
+  // من حقه يوقّف العملية في أي لحظة من غير ما يقول. شوف [BackgroundTask].
+  final task = await BackgroundTask.begin();
+
   final db = AppDatabase(openConnection());
   IsolateCloud? cloud;
   try {
-    await NotificationService.init();
-    // تهيئة محلية بتقرا الجلسة المحفوظة — من غير جلسة أو من غير إعداد
-    // بترجع null والصحوة بتفضل أوفلاين بالكامل.
-    cloud = await initSupabaseForIsolate();
-    final services = await buildServices(
-      db,
-      sync: cloud == null
-          ? null
-          // من غير start(): مفيش مستمعين ولا مؤقّتات في صحوة بتموت
-          // بعد ثواني — دفعة واحدة محدودة وبس.
-          : SyncService(
-              db: db,
-              remote: cloud.syncRemote,
-              hasSession: cloud.hasSession,
-            ),
-    );
-    await actionHandlerFor(services).handle(response.actionId, response.payload);
+    // **محلي بس.** الخدمات دي مش محتاجة لا إشعارات ولا سحابة عشان
+    // تتبني — والاتنين بقوا وراء الوعد، مش قدامه.
+    final services = await buildServices(db);
+    await actionHandlerFor(
+      services,
+      // بتتنده بعد صف الجرعة، قبل الإلغاء.
+      prepareNotifications: () => NotificationService.init(),
+      // بتتنده في آخر سطر خالص — تهيئة بثانيتين مالهاش أي حق تقف قدام
+      // تسجيل جرعة (القاعدة الخامسة).
+      cloud: () async {
+        final ready = await initSupabaseForIsolate();
+        cloud = ready;
+        return ready == null
+            ? null
+            // من غير start(): مفيش مستمعين ولا مؤقّتات في صحوة بتموت
+            // بعد ثواني — دفعة واحدة محدودة وبس.
+            : SyncService(
+                db: db,
+                remote: ready.syncRemote,
+                hasSession: ready.hasSession,
+              );
+      },
+    ).handle(response.actionId, response.payload);
   } catch (error, stack) {
     debugPrint('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {
     await cloud?.shutdown();
     await db.close();
+    // من غير ده النظام بيقفل التطبيق قفل لما المهلة تخلص.
+    await BackgroundTask.end(task);
   }
 }

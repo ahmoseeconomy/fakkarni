@@ -501,6 +501,43 @@ void main() {
 
     expect(remote.rowCount('medications'), 1);
   });
+  group('الدفعة بتقول نتيجتها — كل مرة', () {
+    // «ساكت لأنه مظبوط كده» و«ساكت لأنه بايظ» كانوا شكلهم واحد من برّه،
+    // وده اللي خلّى جرعة اتأكدت من شاشة القفل وما وصلتش السحابة تعدّي من
+    // غير ما حد ياخد باله. النتيجة بقت قيمة بتترجع، والكلام متثبّت هنا.
+    test('الجُمل بتسمّي كل حالة بالاسم', () {
+      expect(describePushOutcome(PushOutcome.noConfig),
+          'مفيش إعداد سحابة — لا جلسة ولا مفاتيح، الجهاز أوفلاين بالكامل');
+      expect(describePushOutcome(PushOutcome.noSession), 'مفيش جلسة — الجهاز مش مسجّل دخول');
+      expect(describePushOutcome(PushOutcome.notLinked), 'الجهاز مش مربوط بحد — مفيش رفع أصلاً');
+      expect(describePushOutcome(PushOutcome.pushed), 'مفيش صفوف متوسّخة — مفيش حاجة تترفع');
+      expect(describePushOutcome(PushOutcome.pushed, rows: 3), 'اترفع ٣ صف');
+      expect(describePushOutcome(PushOutcome.timedOut, timeout: const Duration(seconds: 5)),
+          'عدّى المهلة (٥ ث) — الصفوف بتفضل متوسّخة');
+      expect(describePushOutcome(PushOutcome.failed), 'فشل — الصفوف بتفضل متوسّخة');
+      // ولا حالة اتنست
+      expect(PushOutcome.values.length, 7);
+    });
+
+    test('من غير جلسة → noSession، ومفيش نداء شبكة', () async {
+      signedIn = false;
+      expect(await sync.pushOnce(), PushOutcome.noSession);
+      expect(remote.tables, isEmpty);
+    });
+
+    test('مش مربوط → notLinked، ومفيش نداء شبكة', () async {
+      // مفيش confirmLinked — الجهاز لسه ما اتربطش
+      expect(await sync.pushOnce(), PushOutcome.notLinked);
+      expect(remote.tables, isEmpty);
+    });
+
+    test('مربوط وفيه متوسّخ → pushed', () async {
+      await sync.confirmLinked();
+      expect(await sync.pushOnce(), PushOutcome.pushed);
+      expect(remote.tables, isNotEmpty);
+    });
+  });
+
   group('دفعة الخلفية المحدودة (pushOnce)', () {
     /// نفس ما تعمله شاشة الربط: أول رفع لصف المريض هو علامة «مربوط».
     Future<void> link() => sync.confirmLinked();

@@ -249,7 +249,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         969 passing
+test/                         977 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -522,6 +522,64 @@ Android needs no equivalent. The two diagnostic `debugPrint`s that found
 this — at the isolate entry point and in `_onTap` — are kept on purpose:
 they are the only visibility into a path no test can reach.
 
+**صحوة شاشة القفل على iOS: مقروءة من مصدر الإضافة، ومش متشافة على جهاز
+ولا مرة.** A confirmation from a locked iPhone was reported on
+20 Sep 2026 to leave the +15/+30 rungs ringing — which means the **local**
+write and the cancels did not happen either, not just the push. What the
+installed sources (`flutter_local_notifications` 22.3.0) actually say
+about that path, so nobody has to guess again:
+- An action **without** `.foreground` (ours) is routed by
+  `FlutterLocalNotificationsPlugin.m` to a second headless
+  `FlutterEngine`, via `FOREGROUND_ACTION_IDENTIFIERS` in
+  `NSUserDefaults` — so the routing is right and the category is right.
+- **The plugin calls `completionHandler()` immediately**, before any Dart
+  runs, and takes **no `beginBackgroundTask` assertion anywhere**. That
+  completion handler is the only thing telling iOS we are still working.
+  Once it returns, the process may be suspended at any moment; nothing in
+  the plugin, and nothing in our code, holds the app awake while the
+  isolate writes.
+- The engine starts inside `dispatch_async(main queue)` — one runloop turn
+  *after* that — then runs the plugin's `callbackDispatcher`, which makes a
+  `getCallbackHandle` method-channel round trip and only then attaches the
+  event stream that replays our tap. Three hops before our first line.
+- So the budget is small, unbounded from our side, and **everything we do
+  before the promise is spent out of it**.
+**Both halves are fixed; neither is verified on a phone yet.**
+- **`BackgroundTask.begin()` is the first line of the wake-up**, and
+  `end()` is in the `finally`. It is a `MethodChannel('fakkarni/background_task')`
+  onto `UIApplication.beginBackgroundTask`
+  (`ios/Runner/BackgroundTaskChannel.swift`), registered on **both**
+  engines from `AppDelegate` — the background one inside
+  `setPluginRegistrantCallback`, beside `GeneratedPluginRegistrant`.
+  **The `end` is not optional: iOS kills an app that holds an expired
+  assertion**, so the Swift side also ends it from its own
+  `expirationHandler` and the Dart side keeps it in a `finally`. Android
+  has no equivalent (its wake-up is a `BroadcastReceiver` holding a wake
+  lock) and `flutter test` has no channel: both get `null` back and `end`
+  is a no-op. Every call is bounded by 500 ms — a hang in the call that
+  buys time would spend the time it was buying.
+- **And the order was wrong for exactly the same reason.**
+  `NotificationService.init()` (timezone channel + plugin initialize) and
+  `initSupabaseForIsolate()` (up to `isolateCloudInitTimeout`, 2 s) both
+  ran **before** `confirmDose` and `cancelReminderAt`. Rule 5 says a
+  confirmation cancels every unfired rung *immediately*; a cloud init in
+  front of the local write is that rule broken in the ordering, not in the
+  wording. The order is now: assertion → database → **the dose row** →
+  notifications init → the cancels → `rescheduleAll` → cloud init → push.
+**The ordering lives in the handler, not in `bootstrap`, so a test can
+hold it.** `NotificationActionHandler` no longer takes a built
+`SyncService`; it takes `cloud`, a **function** it calls in its last
+statement, plus `prepareNotifications`, which it calls after the dose row
+and before the first cancel. `test/data/notification_actions_test.dart`
+asserts `confirmDose` is the first thing that happens and that the cloud
+factory runs after the last cancel — mutation-checked both ways (moving
+the channel init in front of the write fails one test; calling `cloud` at
+the top of `handle` fails four).
+**Never put anything between the tap and the dose row that is not needed
+to write it.** The cloud, the timezone database and the notification
+plugin are all needed *after* — the cancels, `rescheduleAll` and
+`pushOnce` — never before.
+
 **The window must renew without the app ever being opened.** The patient
 has no reason to open it — the app exists to remind *him*. At 48 pending and
 12 doses a day that is four days of coverage; on day five reminders would
@@ -681,10 +739,13 @@ into a local `_signOut`, so the isolate would sign the patient out of the
 whole app while recording a dose. The shutdown is skipped when
 `_initialisedByApp` is set, so if the background path ever runs inside the
 app's own isolate it cannot stop a live client's token refresh. The init
-itself carries `isolateCloudInitTimeout` (2s) because it runs *before* the
-local write: it is local plugin-channel work that should finish instantly,
-but a channel that hangs there would delay recording the dose and
-cancelling the ladder, and those are the promise.
+keeps `isolateCloudInitTimeout` (2s), but its reason changed: **it no
+longer runs before the local write.** It used to, and the timeout was the
+mitigation; the whole cloud step is now a function the handler calls in
+its last statement, after the dose row and after the cancels (see «صحوة
+شاشة القفل على iOS»). The timeout stays because the wake-up is short and
+a hung channel would still spend what is left of it — but nothing the
+patient was promised sits behind it any more.
 
 **The push token is cleared BEFORE sign-out, never after.** Deleting the
 `device_tokens` row needs the session that owns it; call `signOut()` first
@@ -1342,9 +1403,18 @@ Consequences to handle:
    `updated_at` — neither exists today, and nothing may pretend to handle
    them until they do. Do not read the records delete as permission to
    delete elsewhere: each table that needs one needs its own thinking about
-   what the absent row means to the son. A dose confirmed from the lock
-   screen stays dirty until the next app open/foreground (the background
-   isolate builds no SyncService).
+   what the absent row means to the son.
+   **The lock-screen note that used to sit here was false, and it sent the
+   next reader — me — down the wrong path.** It said a dose confirmed from
+   the lock screen stays dirty until the next app open «because the
+   background isolate builds no SyncService». Round 4.2a made that untrue:
+   `onBackgroundNotificationAction` builds one whenever
+   `initSupabaseForIsolate()` returns non-null, and `pushOnce` runs as the
+   handler's last statement. What is actually true is narrower and is not a
+   sync debt at all: the isolate pushes **if it runs**, and on iOS whether
+   it runs at all has never been observed on hardware (see «صحوة شاشة
+   القفل على iOS» under Architecture). A note that contradicts the code
+   costs more than no note.
 2b. **The Gemini key is inside the binary (since the C2 revert,
    18 Sep 2026). Shipping to any store in this state is forbidden.**
    Same shelf as anonymous auth, same absolute rule. Paying it back is

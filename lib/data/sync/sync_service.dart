@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../../core/format/arabic_time.dart';
 import '../db/app_database.dart';
 
 /// السحابة نسخة، والمحلي هو الحقيقة — اتجاه واحد.
@@ -33,6 +34,45 @@ abstract interface class SyncRemote {
 /// بطيئة، مش لمحاولة عنيدة. أطول من كده معناه إن الـisolate بيتقفل وهو
 /// مستني، وأقصر معناه إننا بنفشل على شبكة مصرية عادية.
 const Duration backgroundPushTimeout = Duration(seconds: 5);
+
+/// نتيجة دفعة واحدة — **كل الحالات، مش اللي بترمي بس**.
+///
+/// الحالتين `noSession` و`notLinked` كانتا بترجّعا من `push()` في صمت عن
+/// قصد (جهاز مش مربوط لازم ما يعملش ولا نداء شبكة). المشكلة إن «ساكت لأنه
+/// مظبوط كده» و«ساكت لأنه بايظ» بقوا شكلهم واحد من برّه: جرعة اتأكدت من
+/// شاشة القفل وما وصلتش السحابة، ومفيش سطر واحد بيقول ليه. النتيجة بقت
+/// قيمة بتترجع وبتتقال، فالفرق بان.
+enum PushOutcome {
+  /// مفيش `SyncService` أصلاً — إعداد ناقص، أو تهيئة السحابة فشلت.
+  noConfig,
+
+  /// فيه دفعة شغّالة؛ اللي بعدها هيتعاد تلقائياً.
+  busy,
+
+  noSession,
+  notLinked,
+
+  /// وصل — شوف عدد الصفوف.
+  pushed,
+
+  timedOut,
+  failed,
+}
+
+/// جملة واحدة بتوصف النتيجة — دالة نقية عشان الاختبار يثبّت الكلام نفسه.
+String describePushOutcome(PushOutcome outcome, {int rows = 0, Duration? timeout}) =>
+    switch (outcome) {
+      PushOutcome.noConfig => 'مفيش إعداد سحابة — لا جلسة ولا مفاتيح، الجهاز أوفلاين بالكامل',
+      PushOutcome.busy => 'فيه دفعة شغّالة — هتتعاد بعدها',
+      PushOutcome.noSession => 'مفيش جلسة — الجهاز مش مسجّل دخول',
+      PushOutcome.notLinked => 'الجهاز مش مربوط بحد — مفيش رفع أصلاً',
+      PushOutcome.pushed when rows == 0 => 'مفيش صفوف متوسّخة — مفيش حاجة تترفع',
+      PushOutcome.pushed => 'اترفع ${arabicNumber(rows)} صف',
+      PushOutcome.timedOut =>
+        'عدّى المهلة (${arabicNumber(timeout?.inSeconds ?? backgroundPushTimeout.inSeconds)} ث) '
+              '— الصفوف بتفضل متوسّخة',
+      PushOutcome.failed => 'فشل — الصفوف بتفضل متوسّخة',
+    };
 
 /// وقت على السلك: UTC ISO دايماً — المحطة المحلية بتفضل على الجهاز.
 String utcIso(DateTime local) => local.toUtc().toIso8601String();
@@ -94,16 +134,27 @@ class SyncService {
   ///
   /// المهلة مش بتلغي النداء اللي في السكة — دارت ما بتقدرش — هي بتحرّرنا
   /// إحنا بس. وده كفاية: الكتابة المحلية وإلغاء الإشعارات خلصوا قبلها.
-  Future<void> pushOnce({Duration? timeout}) async {
+  /// دفعة واحدة محدودة — **وبتقول نتيجتها في كل مرة**.
+  ///
+  /// السطر ده هو الفرق بين «الجرعة وصلت» و«الجرعة قاعدة على الموبايل»،
+  /// وقبل كده مكانش فيه غيره غير السكوت. بيتطبع بسابقة `Handle:` زي باقي
+  /// سطور صحوة شاشة القفل، عشان يتلاقوا مع بعض في Console.app.
+  Future<PushOutcome> pushOnce({Duration? timeout}) async {
+    final limit = timeout ?? _backgroundTimeout;
+    PushOutcome outcome;
     try {
-      await push().timeout(timeout ?? _backgroundTimeout);
+      outcome = await push().timeout(limit);
     } on TimeoutException {
-      debugPrint('Sync: دفعة الخلفية عدّت المهلة — الصفوف بتفضل متوسّخة');
+      outcome = PushOutcome.timedOut;
     } catch (error, stack) {
       // push() بتبلع أخطاءها جوّه، فده للنادر اللي بيفلت — ومش هنوقّع
       // isolate بيسجّل جرعة عشان السحابة اتعبت.
+      outcome = PushOutcome.failed;
       debugPrint('Sync: دفعة الخلفية فشلت: $error\n$stack');
     }
+    debugPrint('Handle: الرفع للسحابة — '
+        '${describePushOutcome(outcome, rows: _rowsPushed, timeout: limit)}');
+    return outcome;
   }
 
   Future<void> dispose() async {
@@ -134,15 +185,17 @@ class SyncService {
   ///
   /// العلامة هي updated_at_ms **اللي اتدفعت** مش now(): صف اتعدّل أثناء
   /// الدفع بتبقى ساعته أحدث من العلامة فبيفضل متوسّخاً للمحاولة الجاية.
-  Future<void> push() async {
+  Future<PushOutcome> push() async {
     if (_pushing) {
       _pushAgain = true;
-      return;
+      return PushOutcome.busy;
     }
-    if (!_hasSession()) return;
-    if (!await _linked()) return;
+    if (!_hasSession()) return PushOutcome.noSession;
+    if (!await _linked()) return PushOutcome.notLinked;
 
     _pushing = true;
+    _rowsPushed = 0;
+    var failed = false;
     try {
       await _pushPatients();
       await _pushDayRoutines();
@@ -158,6 +211,7 @@ class SyncService {
       await _pushEmergencyProfile();
     } catch (error, stack) {
       // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز.
+      failed = true;
       debugPrint('Sync: push فشلت وهتتعاد: $error\n$stack');
     } finally {
       _pushing = false;
@@ -166,7 +220,12 @@ class SyncService {
         unawaited(push());
       }
     }
+    return failed ? PushOutcome.failed : PushOutcome.pushed;
   }
+
+  /// كام صف اترفع في آخر دفعة — بيتصفّر مع كل دفعة، وبيتعدّ في المكان
+  /// الوحيد اللي بيرفع ([_upsertAndMark]).
+  int _rowsPushed = 0;
 
   Expression<bool> _dirty(SyncIdentityColumns t) =>
       t.syncedAtMs.isNull() | t.syncedAtMs.isSmallerThan(t.updatedAtMs);
@@ -180,6 +239,7 @@ class SyncService {
       final chunk = rows.sublist(
           i, i + _batchSize > rows.length ? rows.length : i + _batchSize);
       await _remote.upsert(table, [for (final r in chunk) r.json]);
+      _rowsPushed += chunk.length;
       for (final r in chunk) {
         await mark(r.uuid, r.updatedAtMs);
       }
