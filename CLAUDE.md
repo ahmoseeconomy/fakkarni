@@ -248,7 +248,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         945 passing
+test/                         949 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -860,6 +860,37 @@ Supabase — but the `!inner` embed filter on `patient_uuid` has **never
 run against the live project**; if a card fails to appear on a device it
 is the first suspect, and dropping that `.eq` is safe for a son with one
 linked father.
+
+**«مقدرناش نكمّل» is what the son reads; the log is what you read.**
+The caregiver fetch swallowed every failure into that one sentence — a
+missing column, an RLS refusal and a dead socket all looked identical from
+the outside, so a real bug could not be told from a flaky network.
+`SupabaseCaregiverRemote._guard` now logs the cause under `kDebugMode`
+with the `Care:` prefix, and for a `PostgrestException` it prints
+**`code`, `message`, `details`, `hint`** — those are the fields that name
+the column, the table or the relationship — plus the stack;
+`CaregiverSnapshotHolder`'s bare `catch (_)` does the same. **The sentence
+on screen is unchanged and no raw error ever reaches it.** When a caregiver
+screen misbehaves, that log line is the first thing to read; guessing from
+the sentence is guessing.
+
+**No session means «not linked», never «something went wrong»** (round 25).
+The query built its filter as `currentUser?.id ?? ''`, so a device with no
+session sent `caregiver_id=eq.` — and Postgres rejects `''` as a uuid
+(22P02). That threw inside `linkedPatient()`, which `snapshot()` calls
+first, so **every later query never ran**: the son saw «مقدرناش نكمّل»
+*and* an empty health file, from one empty string. A wiped install or an
+expired token is an ordinary state, and the answer to it is the entry
+screen. `no_session_not_linked_test` points at an unreachable host, so
+"returns null" can only mean no request was attempted.
+
+**And a guard must not re-classify what an inner guard already
+classified.** `snapshot()` and `linkedPatient()` are both wrapped, and the
+outer one was catching the inner one's `CareCircleException` and relabelling
+it `other` — so an ordinary **offline** failure inside `linkedPatient`
+reached the son as «مقدرناش نكمّل» instead of the offline sentence. Since
+`linkedPatient` runs first, that was the common path, not an edge. `_guard`
+now rethrows an already-classified exception untouched.
 
 **The son's side never resolves anchors** (round 3.5). Resolving needs
 the father's routine plus the engine — a second scheduler that can silently

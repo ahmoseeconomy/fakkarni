@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
@@ -149,11 +150,22 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
         // (اختبارات، أو ابن بيتابع أبوه وأمه). من غير order بيرجّع Postgres
         // أي صف — فالعنوان ييجي من أب والأدوية من أب تاني، والشاشة تبان
         // فاضية من غير أي خطأ. الأحدث هو المقصود: آخر كود اتفكّ.
+        // **مفيش جلسة = مفيش ربط، مش «حصل خطأ».**
+        //
+        // كان هنا `?? ''`، وده كان بيبعت `caregiver_id=eq.` — وPostgres
+        // بيرفض `''` كـuuid (22P02). الرمية دي كانت بتترجم لـ«مقدرناش
+        // نكمّل. جرّب تاني.»، وبتقع **قبل** أي استعلام تاني، فشاشة الابن
+        // كلها تفضل فاضية كمان. مفيش جلسة حالة عادية — جهاز اتمسح، أو
+        // توكن انتهى — ومعناها «ما اتربطش»، واللي بيتعمل معاها إنه يرجع
+        // لشاشة البداية، مش رسالة عطل.
+        final me = _supabase.auth.currentUser?.id;
+        if (me == null) return null;
+
         final links = await _supabase
             .from('care_relationships')
             .select('patient_uuid')
             .eq('status', 'accepted')
-            .eq('caregiver_id', _supabase.auth.currentUser?.id ?? '')
+            .eq('caregiver_id', me)
             .order('created_at', ascending: false)
             .limit(1);
         if (links.isEmpty) return null;
@@ -174,6 +186,10 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
   Future<CaregiverSnapshot?> snapshot() => _guard(() async {
         final patient = await linkedPatient();
         if (patient == null) return null;
+        // وصلنا لهنا يعني فيه جلسة ([linkedPatient] بترجع null من غيرها) —
+        // بس بنقراها مرة واحدة بدل ما كل استعلام يعمل `?? ''` لوحده.
+        final me = _supabase.auth.currentUser?.id;
+        if (me == null) return null;
 
         // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
         // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
@@ -204,7 +220,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
             .select('uuid, delivery_status, created_at, sent_at, '
                 'dose_events!inner(scheduled_at, state, '
                 'dose_schedules!inner(medications!inner(name, patient_uuid)))')
-            .eq('caregiver_id', _supabase.auth.currentUser?.id ?? '')
+            .eq('caregiver_id', me)
             .inFilter('delivery_status', ['sent', 'no_token', 'failed'])
             .gte('created_at', alertsSince)
             .eq('dose_events.dose_schedules.medications.patient_uuid',
@@ -299,14 +315,43 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
   Future<T> _guard<T>(Future<T> Function() body) async {
     try {
       return await body();
+    } on CareCircleException {
+      // **اتصنّفت خلاص — تعدّي زي ما هي.**
+      //
+      // `snapshot()` بتنده `linkedPatient()`، والاتنين متلفّفين. من غير
+      // السطر ده، اللفّة البرّانية كانت بتمسك الاستثناء اللي الجوّانية
+      // رمته وتعيد تصنيفه `other` — يعني **عطل الشبكة جوّه
+      // `linkedPatient` كان بيوصل الابن كـ«مقدرناش نكمّل» بدل جملة
+      // «إنت مش متصل»**. ودي الحالة الشايعة، لأن `linkedPatient` أول
+      // حاجة بتتنفّذ.
+      rethrow;
     } on SocketException catch (e) {
       throw CareCircleException(CareCircleFailure.offline, e);
     } on AuthRetryableFetchException catch (e) {
       throw CareCircleException(CareCircleFailure.offline, e);
-    } on PostgrestException catch (e) {
+    } on PostgrestException catch (e, st) {
+      // **الشاشة بتقول جملة واحدة — واللوج بيقول اللي حصل فعلاً.**
+      // من غير السطر ده، «مقدرناش نكمّل» هي كل اللي قدام اللي بيصلّح:
+      // عمود ناقص، أو علاقة PostgREST مش لاقياها، أو RLS رافضة — التلاتة
+      // شكلهم واحد على الشاشة. `code` و`details` و`hint` هي اللي بتسمّي
+      // العمود أو الجدول، فبتترمي هنا كلها.
+      _logFailure(
+        'PostgrestException code=${e.code} message=${e.message} '
+        'details=${e.details} hint=${e.hint}',
+        st,
+      );
       throw CareCircleException(CareCircleFailure.other, e);
-    } catch (e) {
+    } catch (e, st) {
+      _logFailure('${e.runtimeType}: $e', st);
       throw CareCircleException(CareCircleFailure.other, e);
     }
+  }
+
+  /// بيطبع في نسخ التطوير بس. **عمره ما بيوصل الشاشة**: الجملة اللي
+  /// المستخدم بيقراها هي هي، والنص الخام ده للمطوّر لوحده.
+  void _logFailure(String what, StackTrace st) {
+    if (!kDebugMode) return;
+    debugPrint('Care: قراية بيانات الأب فشلت — $what');
+    debugPrintStack(stackTrace: st, label: 'Care');
   }
 }

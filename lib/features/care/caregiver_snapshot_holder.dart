@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
 import 'package:flutter/widgets.dart';
 
 import '../../data/care/caregiver_remote.dart';
@@ -97,7 +98,14 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
       if (_disposed) return;
       loading = false;
       error = e.message;
-    } catch (_) {
+    } catch (e, st) {
+      // أي حاجة تانية: الجملة للمستخدم زي ما هي، والسبب الحقيقي في اللوج.
+      // (الاستعلامات نفسها بتطبع تفاصيلها في `SupabaseCaregiverRemote`؛
+      // السطر ده بيمسك اللي بيقع برّه — تحويل صف، أو خطأ مش متوقع.)
+      if (kDebugMode) {
+        debugPrint('Care: تحديث شاشة الابن فشل — ${e.runtimeType}: $e');
+        debugPrintStack(stackTrace: st, label: 'Care');
+      }
       if (_disposed) return;
       loading = false;
       error = 'مقدرناش نكمّل. جرّب تاني.';
