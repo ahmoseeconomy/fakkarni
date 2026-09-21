@@ -8,8 +8,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -18,7 +18,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * **سكّة أندرويد: زرار على الإشعار والتطبيق متقفول.**
+ * **سكّة أندرويد: زرار على الإشعار.**
  *
  * دي السكّة الوحيدة في الوعد اللي عمرها ما اشتغلت على أي جهاز. على iOS
  * اتثبت يوم ٢٠ سبتمبر إن الطريق ده **مش** بيتنفّذ خالص (النظام بيفتح
@@ -26,25 +26,32 @@ import java.util.Locale
  * أندرويد — ومفيش جهاز أندرويد هنا والمحاكي بيقع على مستوى QEMU على
  * الماك ده. فالاختبار بيتشغّل على محاكي في CI.
  *
- * بيعيد بالحرف اللي اتعمل بالإيد على الآيفون:
- *  ١. يزرع جرعة معادها في أقرب دقيقة جاية (باب خلفي debug بس)
- *  ٢. يقتل **العملية** — `am kill` مش `am force-stop`
- *  ٣. يستنى الإشعار، يفتح الستارة، يفرد، ويدوس «أخدته»
- *  ٤. يستنّى لحد ما صف الجرعة يظهر، **ويقول خد قد إيه**
- *  ٥. يفتح التطبيق تاني ويتأكد إن الحالة باينة مؤكَّدة
+ * **تشغيلة ٢٢ سبتمبر ٢٠٢٦ أثبتت المستقبِل الناقص**: أول مرة في التاريخ
+ * دوسة على زرار أندرويد توصل دارت (`Isolate: دخلنا المعالج`). وبعدين
+ * وقعت عند **فتح** القاعدة، قبل أي كتابة:
+ * `SqliteException(5): database is locked … pragma journal_mode = WAL`.
  *
- * **ليه `am kill` مش `am force-stop`:** الاتنين بيقتلوا العملية، بس
- * force-stop بيحط الحزمة في حالة «موقوفة» وبيلغي كل منبّهاتها في
- * AlarmManager. يعني الإشعار عمره ما هيرن، والاختبار كان هيقع لسبب غلط
- * خالص. و`am kill` بيقتل العمليات **اللي في الخلفية بس**، عشان كده
- * بنضغط Home الأول.
+ * **ومين ماسك الاتصال التاني كان مجهول — والمتّهم الأول هو الاختبار ده
+ * نفسه.** النسخة القديمة كانت بتفتح `fakkarni.sqlite` بـ`SQLiteDatabase`
+ * بتاع إطار أندرويد، `OPEN_READWRITE`، من ٣٠ ملّي بعد الدوسة وكل نص
+ * ثانية. وكان مكتوب فوقها إنها «بتفتح الملف زي ما التطبيق بيفتحه» —
+ * **وده كان غلط**: التطبيق بيفتح عن طريق sqlite3 بتاع drift بالـpragmas
+ * بتاعته (WAL + busy_timeout)، والإطار بيفتح باتصال تاني خالص بإعداد
+ * journal بتاعه وأقفاله بتاعته. يعني أداة القياس كانت قاعدة على الملف
+ * وهو بيتكتب.
  *
- * **تشغيلة ٢١ سبتمبر ٢٠٢٦ وصلت لآخر تأكيد ووقعت عنده**: الباب اتفتح
- * (المنبّه عاش، الإشعار رن والعملية ميتة، الزرار كان موجود، والدوسة
- * وصلت) والعدّ رجع صفر. تلات تفسيرات مفيش في التشغيلة دي حاجة تفرّق
- * بينهم — WAL مش متشيك‑بوينت، أو الوقت قصير، أو الـisolate فعلاً بايظ —
- * وعشان كده الملف ده بقى بيقيس بدل ما يفترض، وبيطبع كل اللي بيلزم
- * للتفرقة قبل ما يقع.
+ * فالنسخة دي **ما بتفتحش الملف الحي خالص**:
+ *  أ. بتستنّى على **اللوج**: سطر النهاية بتاع المعالج، نجاح أو فشل.
+ *  ب. وبعد السطر ده بس، بتاخد **نسخة** من الملفات التلاتة وتقرا النسخة
+ *     `OPEN_READONLY` — بما فيها `pragma journal_mode`.
+ *  ج. ولقطة الملفات (موجود/حجم/تاريخ) بتتاخد **قبل** أي قراية بتاعتنا،
+ *     على الجهتين: قبل الدوسة وبعد سطر النهاية.
+ *
+ * **لسه مفتوح، ومتسجّل مش متصلّح:** `am kill` مش بيقتل العملية هنا.
+ * الاختبار المُجهَّز بيجري **جوّه** عملية التطبيق، والـinstrumentation
+ * بيثبّتها على `adj 0`، و`am kill` بيقتل عمليات الخلفية بس. يعني سيناريو
+ * «التطبيق مقتول» لسه ما اتجرّبش. اللي الملف ده بيثبته هو إن دوسة على
+ * زرار في الستارة بتوصل دارت وبتكتب الصف — مش أكتر.
  */
 @RunWith(AndroidJUnit4::class)
 class LockScreenActionTest {
@@ -61,6 +68,23 @@ class LockScreenActionTest {
     private val dbFile: File
         get() = File(File(context.filesDir.parentFile, "app_flutter"), "fakkarni.sqlite")
 
+    private val dbNames =
+        listOf("fakkarni.sqlite", "fakkarni.sqlite-wal", "fakkarni.sqlite-shm")
+
+    private val stamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+
+    /**
+     * سطر النهاية بتاع المعالج في `bootstrap.dart`.
+     *
+     * `handled=ok` علامة **لاتينية** عن قصد: مقارنة عربية على مخرج
+     * `logcat` ماشية على ترميز ماشي على أكتر من طبقة، والسطر ده هو اللي
+     * الاختبار كله بيستنّاه.
+     */
+    private val handledOk = "handled=ok"
+
+    /** سطر الفشل — موجود من قبل، وبيتقري كما هو. */
+    private val handleFailed = "مقدرش يتعالج"
+
     @Test
     fun lockScreenConfirmWritesTheDoseAndKillsTheLadder() {
         // ١ — زرع جرعة في أقرب دقيقة جاية، من برّه التطبيق
@@ -69,7 +93,11 @@ class LockScreenActionTest {
         // الجدولة بتحصل في main بعد الزرع
         Thread.sleep(5_000)
 
-        // ٢ — Home، وبعدين قتل العملية. المنبّه بيفضل عند النظام.
+        // ٢ — Home، وبعدين `am kill`. المنبّه بيفضل عند النظام.
+        //
+        // **مش بيقتل العملية فعلاً** (شوف الشرح فوق) — التأكيد اللي تحت
+        // بيقيس علم الحزمة، مش موت العملية، والفرق ده متسجّل في CLAUDE.md
+        // عشان يتصلّح لوحده.
         device.pressHome()
         Thread.sleep(2_000)
         device.executeShellCommand("am kill $pkg")
@@ -100,19 +128,45 @@ class LockScreenActionTest {
 
         val taken = device.wait(Until.findObject(By.text("أخدته")), 10_000)
         assertTrue("زرار «أخدته» ما ظهرش في الستارة", taken != null)
+
+        // **اللقطة الأولى: قبل الدوسة وقبل أي قراية بتاعتنا.** الفرق بينها
+        // وبين اللقطة اللي بعد سطر النهاية هو اللي بيقول هل الـWAL اتعمل
+        // أصلاً، ومين غيّر إيه.
+        printSnapshot("قبل الدوسة")
+
+        val baseline = handlerLines().size
         taken!!.click()
         val tappedAt = System.currentTimeMillis()
 
-        // ٤ — بنستنّى الصف بدل ما نفترض وقت. **الرقم ده اللي عايزينه**:
-        // قد إيه الـisolate بياخد فعلاً على محاكي — مش ثابت بنخمّنه.
-        val elapsed = awaitTakenDose(timeoutMs = 60_000, since = tappedAt)
-        if (elapsed == null) {
-            dumpEvidence(tappedAt)
-            assertEquals("الجرعة المفروض اتسجّلت taken", 1, takenDoseCount())
-        }
-        println("FKTEST: صف الجرعة ظهر بعد ${elapsed}ms من الدوسة")
+        // ٤ — الانتظار على **اللوج**، مش على القاعدة. الملف الحي ما
+        // بيتفتحش هنا خالص: الاختبار كان أول متّهم في زحمة القفل.
+        val outcome = awaitHandlerOutcome(timeoutMs = 60_000, baseline = baseline)
+        val elapsed = System.currentTimeMillis() - tappedAt
 
-        // ٥ — والتطبيق بيعرضها مؤكَّدة بعد ما يتفتح تاني
+        if (outcome == null) {
+            printSnapshot("بعد المهلة")
+            dumpLog()
+            fail("مفيش سطر نهاية من المعالج خلال ٦٠ ثانية بعد الدوسة")
+        }
+        println("FKTEST: سطر نهاية المعالج بعد ${elapsed}ms — $outcome")
+
+        // **اللقطة التانية: بعد سطر النهاية، ولسه قبل أي قراية بتاعتنا.**
+        printSnapshot("بعد سطر النهاية")
+
+        if (!outcome!!.contains(handledOk)) {
+            dumpLog()
+            fail("المعالج وقع: $outcome")
+        }
+
+        // ٥ — وبعد كده بس، القاعدة — و**نسخة منها**، مش الملف الحي
+        val (mode, count) = readCopy()
+        println("FKTEST: journal_mode في النسخة = $mode، taken = $count")
+        if (count != 1) {
+            dumpLog()
+            fail("الجرعة المفروض اتسجّلت taken — العدّ في النسخة = $count")
+        }
+
+        // ٦ — والتطبيق بيعرضها مؤكَّدة بعد ما يتفتح تاني
         launchWithSeed(0)
         device.wait(Until.hasObject(By.pkg(pkg).depth(0)), 20_000)
         Thread.sleep(6_000)
@@ -135,10 +189,10 @@ class LockScreenActionTest {
      * **مفيش أنابيب هنا عن قصد.** `UiDevice.executeShellCommand` بيعدّي
      * على `Runtime.exec(String)`، اللي بيقطّع النص على المسافات من غير
      * صدفة — يعني `| grep` بيتبعت كوسيطة لـdumpsys ومش بيفلتر حاجة.
-     * النسخة الأولى كانت كده، فالتأكيد كان بيعدّي **وهو فاضي**: النص
-     * الراجع مكانش فيه `stopped=true` لأنه مكانش فيه حاجة أصلاً.
-     * دلوقتي بنجيب المخرج كامل وبنفلتره في كوتلن، وبنرمي لو ما لقيناش
-     * العلم أصلاً بدل ما نعدّي على الفاضي.
+     * النسخة الأولى كانت كده، فالتأكيد كان بيعدّي **وهو فاضي**.
+     *
+     * **وهو لسه بيقيس علم الحزمة، مش موت العملية** — حارس تاني شكله
+     * بيقيس حاجة وبيقيس غيرها. متسجّل في CLAUDE.md للّفة الجاية.
      */
     private fun isPackageStopped(): Boolean {
         val out = device.executeShellCommand("dumpsys package $pkg")
@@ -153,62 +207,42 @@ class LockScreenActionTest {
         return flags.any { it.contains("stopped=true", ignoreCase = true) }
     }
 
-    /** بيرجّع الوقت بالملي لما الصف يظهر، أو null لو المهلة عدّت. */
-    private fun awaitTakenDose(timeoutMs: Long, since: Long): Long? {
+    /** سطور النهاية اللي في مخزن اللوج دلوقتي — نجاح أو فشل. */
+    private fun handlerLines(): List<String> =
+        device.executeShellCommand("logcat -d -v time")
+            .lineSequence()
+            .filter { it.contains(handledOk) || it.contains(handleFailed) }
+            .toList()
+
+    /**
+     * بيستنّى سطر نهاية **جديد** (بعد [baseline])، ويرجّعه — أو null لو
+     * المهلة عدّت.
+     *
+     * الأساس عدد مش وقت: `logcat -v time` بيدّي طابع من غير سنة، ومقارنة
+     * التواريخ كانت هتبقى تخمين تاني. ومخزن اللوج ممكن يلفّ، عشان كده
+     * `coerceAtLeast`.
+     */
+    private fun awaitHandlerOutcome(timeoutMs: Long, baseline: Int): String? {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
-            if (takenDoseCount() >= 1) return System.currentTimeMillis() - since
+            val lines = handlerLines()
+            if (lines.size > baseline) {
+                return lines[baseline.coerceAtMost(lines.size - 1)].trim()
+            }
             Thread.sleep(500)
         }
         return null
     }
 
     /**
-     * عدد صفوف dose_events اللي حالتها taken.
+     * موجود/حجم/تاريخ للملفات التلاتة — **stat بس، مفيش فتح للقاعدة**.
      *
-     * **بنفتح الملف زي ما التطبيق بيفتحه: قراية وكتابة، مش OPEN_READONLY.**
-     * القاعدة شغّالة على `journal_mode = WAL`، والكتابة بتقعد في
-     * `fakkarni.sqlite-wal` لحد ما يحصل checkpoint. اتصال **للقراية بس**
-     * ما بيقدرش يعمل استرجاع للـWAL، فبيرجّع اللقطة اللي قبله — **صفر، من
-     * غير أي خطأ**. يعني الصف ممكن يكون موجود والاختبار أعمى عنه.
-     *
-     * **وده مش تضعيف للتأكيد**: استرجاع الـWAL بيظهر المعاملات
-     * **المكتملة** بس؛ أي كتابة ناقصة بترجع لورا وبتفضل غير مرئية زي ما
-     * هي. يعني إحنا بنشيل سلبية كاذبة، مش بنخفّض السقف.
+     * ده اللي خلّى التشغيلة اللي فاتت تكدب علينا: تاريخ `.sqlite` كان
+     * فتح الاستطلاع بتاع الاختبار نفسه، مش كتابة من التطبيق.
      */
-    private fun takenDoseCount(readOnly: Boolean = false): Int {
-        val file = dbFile
-        if (!file.exists()) return 0
-        return try {
-            val flags = if (readOnly) {
-                SQLiteDatabase.OPEN_READONLY
-            } else {
-                SQLiteDatabase.OPEN_READWRITE
-            }
-            SQLiteDatabase.openDatabase(file.absolutePath, null, flags).use { db ->
-                db.rawQuery("select count(*) from dose_events where state = 'taken'", null)
-                    .use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
-            }
-        } catch (e: Exception) {
-            println("FKTEST: قراية القاعدة وقعت (readOnly=$readOnly): $e")
-            0
-        }
-    }
-
-    /**
-     * كل اللي بيلزم للتفرقة بين التلات تفسيرات — **قبل ما نقع، مش بعدها**.
-     *
-     * لو التشغيلة الجاية وقعت، التقرير نفسه المفروض يقول أنهي واحد فيهم:
-     *  أ — WAL: العدّ بالكتابة > العدّ بالقراية، أو `-wal` فيه بايتات
-     *  ب — الوقت: مفيش صف لكن اللوج بيقول إن الـisolate اشتغل ولسه ماشي
-     *  ج — الـisolate: مفيش سطر `Isolate:` في اللوج خالص
-     */
-    private fun dumpEvidence(tappedAt: Long) {
-        val stamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-        println("FKTEST: ======== الدليل ========")
-        println("FKTEST: الدوسة كانت ${stamp.format(Date(tappedAt))}")
-
-        for (name in listOf("fakkarni.sqlite", "fakkarni.sqlite-wal", "fakkarni.sqlite-shm")) {
+    private fun printSnapshot(label: String) {
+        println("FKTEST: ---- لقطة الملفات ($label) ${stamp.format(Date())} ----")
+        for (name in dbNames) {
             val f = File(dbFile.parentFile, name)
             println(
                 if (f.exists()) {
@@ -218,17 +252,47 @@ class LockScreenActionTest {
                 },
             )
         }
+    }
 
-        val readWrite = takenDoseCount(readOnly = false)
-        val readOnly = takenDoseCount(readOnly = true)
-        println("FKTEST: taken بالقراية-والكتابة = $readWrite، بالقراية-بس = $readOnly")
-        if (readWrite > readOnly) {
-            println("FKTEST: >>> التفسير (أ): الصف في الـWAL والقراية-بس كانت عماها")
+    /**
+     * بينسخ التلاتة لمجلد مؤقت وبيقرا **النسخة** `OPEN_READONLY`.
+     *
+     * النسخ بيحصل بعد سطر النهاية بس، يعني المعالج خلص معاملته. وأي حاجة
+     * الإطار يعملها في الملف بتاعه هنا بتحصل على **نسخة** — الملف الحي
+     * عمره ما بيتفتح من الاختبار.
+     */
+    private fun readCopy(): Pair<String, Int> {
+        val dir = File(context.cacheDir, "fkdbsnap-${System.currentTimeMillis()}")
+        dir.mkdirs()
+        for (name in dbNames) {
+            val src = File(dbFile.parentFile, name)
+            if (src.exists()) src.copyTo(File(dir, name), overwrite = true)
         }
+        val copy = File(dir, "fakkarni.sqlite")
+        if (!copy.exists()) return "مفيش-ملف" to -1
+        return try {
+            SQLiteDatabase
+                .openDatabase(copy.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                .use { db ->
+                    val mode = db.rawQuery("pragma journal_mode", null)
+                        .use { c -> if (c.moveToFirst()) c.getString(0) else "?" }
+                    val count = db
+                        .rawQuery("select count(*) from dose_events where state = 'taken'", null)
+                        .use { c -> if (c.moveToFirst()) c.getInt(0) else -1 }
+                    mode to count
+                }
+        } catch (e: Exception) {
+            println("FKTEST: قراية النسخة وقعت: $e")
+            "قراية-وقعت" to -1
+        }
+    }
 
-        // زي فوق: مفيش أنابيب ولا `$(...)` — بنجيب اللوج كامل وبنفلتره
-        // في كوتلن. و`diag()` على أندرويد بتخرج من `debugPrint` للوج، يعني
-        // **اللوج هو أثر أندرويد** (الملف بتاع iOS مش موجود هنا).
+    /**
+     * آخر ٢٠٠ سطر تخصّنا. **مفيش أنابيب** — بنجيب اللوج كامل وبنفلتر في
+     * كوتلن. و`diag()` على أندرويد بتخرج من `debugPrint` للوج، يعني
+     * **اللوج هو أثر أندرويد** (ملف iOS مش موجود هنا).
+     */
+    private fun dumpLog() {
         println("FKTEST: ---- آخر ٢٠٠ سطر تخصّنا من اللوج ----")
         val interesting = Regex("flutter|fakkarni|FKDIAG|Isolate|Handle", RegexOption.IGNORE_CASE)
         val lines = device.executeShellCommand("logcat -d -v time")
@@ -237,8 +301,8 @@ class LockScreenActionTest {
             .toList()
         lines.takeLast(200).forEach { println("FKTEST| $it") }
         if (lines.none { it.contains("Isolate:") }) {
-            println("FKTEST: >>> التفسير (ج): مفيش ولا سطر Isolate: — الـisolate ما اشتغلش")
+            println("FKTEST: >>> مفيش ولا سطر Isolate: — الدوسة عمرها ما وصلت دارت")
         }
-        println("FKTEST: ======== آخر الدليل ========")
+        println("FKTEST: ---- آخر اللوج ----")
     }
 }
