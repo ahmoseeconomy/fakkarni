@@ -52,6 +52,14 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+        <!-- أزرار الإشعار («أخدته» / «فكّرني بعدين»): الدوسة بتتبعت
+             كـbroadcast للمكوّن ده. الإضافة نفسها ما بتعلنهوش في
+             manifest بتاعها — التطبيق هو اللي لازم يعلنه، ولو ناقص
+             الدوسة بتروح لمكوّن مش موجود: الإشعار بيختفي، ومفيش أي
+             خطأ في أي مكان، والمريض فاكر إنه أكّد. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

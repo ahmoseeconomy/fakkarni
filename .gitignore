@@ -55,3 +55,6 @@ secrets.json
 # ملف التصميم المضغوط — المفكوك في design/handoff هو المرجع
 design/design_handoff.zip
 design/*.pdf
+
+# أرشيفات لوجات الـCI وسكربتات التجربة المحلية — ولا حاجة منهم بتاعة الريبو
+tools/
