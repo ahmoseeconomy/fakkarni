@@ -15,6 +15,9 @@ import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
+import '../core/format/arabic_time.dart';
+import 'package:drift/drift.dart' show Value;
+
 import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
 import '../data/repositories/dose_event_repository.dart';
@@ -71,12 +74,34 @@ Future<AppServices> buildServices(
 
 /// شغل البيت عند فتح التطبيق — مش في صحوة الخلفية.
 ///
-/// **فاضي دلوقتي، ومتساب عن قصد.** كان بيمسح السجلات اللي عدّى على مسحها
-/// ٣٠ يوم، عشان الجملة «هيتمسح نهائي بعد ٣٠ يوم» تبقى حقيقية. المهلة دي
-/// اتشالت: المسح بقى بيمسح المحتوى في لحظته، واللي فاضل شاهدة فاضية
-/// المزامنة محتاجاها. الدالة بتفضل مكانها لأن أول حاجة محتاجة تنضيف عند
-/// الفتح هتلاقي بابها مفتوح ومربوط ومتغطّي باختبار.
-Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {}
+/// كان بيمسح السجلات اللي عدّى على مسحها ٣٠ يوم؛ المهلة دي اتشالت
+/// (المسح بقى بيمسح في لحظته). الباب فضل مفتوح ومربوط ومتغطّي باختبار
+/// **لأول حاجة تحتاجه** — ودي أهي.
+///
+/// **أرقام لاتينية جوّه عناوين عربية متخزّنة.** عنوان تقرير التحليل
+/// كان بيتكتب `'تقرير تحليل — $count نتايج'` برقم لاتيني، فالعنوان
+/// اتخزّن كده وبيتعرض كده على «يومك» وفي الملف الصحي وعلى شاشة الابن.
+/// المصدر اتصلّح؛ ودي بتظبّط اللي اتكتب قبله.
+///
+/// **وبتلمس العناوين اللي إحنا كتبناها بالشكل ده وبس** — بنمط مقفول.
+/// عنوان كتبه إنسان بإيده ما بيتلمسش: الأرقام اللي جواه بتاعته هو، وفيه
+/// أسماء تحاليل فيها أرقام لاتينية (`HbA1c`) تحويلها بيبوّظها.
+Future<void> launchHousekeeping(AppServices services, {DateTime? now}) async {
+  await normaliseLabReportTitles(services.db);
+}
+
+/// النمط: «تقرير تحليل — ‹رقم لاتيني› نتايج» — ولا حاجة تانية.
+final RegExp labReportTitlePattern = RegExp(r'^تقرير تحليل — (\d+) نتايج$');
+
+Future<void> normaliseLabReportTitles(AppDatabase db) async {
+  final rows = await db.select(db.records).get();
+  for (final row in rows) {
+    final match = labReportTitlePattern.firstMatch(row.title);
+    if (match == null) continue;
+    await (db.update(db.records)..where((t) => t.id.equals(row.id)))
+        .write(RecordsCompanion(title: Value('تقرير تحليل — ${arabicDigits(match.group(1)!)} نتايج')));
+  }
+}
 
 /// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.
 LabReportReader? _labReaderFromEnvironment() {

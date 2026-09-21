@@ -254,7 +254,39 @@ class _TodayScreenState extends State<TodayScreen> {
                   onOpenCircle: _openCircle,
                 ),
               ),
-              const SizedBox(height: F.gap),
+              SizedBox(height: nowCards.isNotEmpty ? F.s8 : F.gap),
+              // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
+              //
+              // الإشعارين (هادي امبارحه وواحد بيرن في يومه) ممكن يكونوا
+              // لسه برّه نافذة iOS المتدحرجة — الكارت ده هو شبكة الأمان:
+              // بيعرض الميعاد **دايماً**، وبيعدّ التنازلي، وبيقول إن
+              // الموبايل هيفكّره امبارحه. عمره ما يرن.
+              //
+              // **وتحت «الآن» عن قصد**: الجرعة هي اللي بتفضل أول حاجة
+              // على الشاشة، والميعاد اللي بعد تلات أيام مش أعجل منها.
+              StreamBuilder<List<RecordRow>>(
+                stream: _followUps,
+                builder: (context, snap) {
+                  final soon = upcomingAppointments(snap.data ?? const [], now: _now);
+                  if (soon.isEmpty) return const SizedBox.shrink();
+                  // في الوضع المضغوط مفيش فجوة زيادة: القياس على SE
+                  // بيقول إن كل ١٠ بكسل هنا بتفرق مع زرار «ضيف» العايم.
+                  return Padding(
+                    padding: EdgeInsets.only(
+                        bottom: nowCards.isNotEmpty ? F.s6 : F.gap),
+                    child: _AppointmentsCard(
+                      appointments: soon,
+                      now: _now,
+                      onOpen: _openCheckup,
+                      // **جرعة مستنية تأكيد = الكتلة بتتقلّص.** المواعيد
+                      // فوق كارت الجرعة بقرار المالك، والضمانة إن القرار
+                      // ده ما يزقّش «تأكيد الجرعة» برّه أول شاشة على
+                      // أصغر آيفون. لما مفيش جرعة مستنية، فيه مكان.
+                      compact: nowCards.isNotEmpty,
+                    ),
+                  );
+                },
+              ),
               if (nowCards.isNotEmpty || glucoseNow) ...[
                 const _SectionTitle('الآن', attention: true),
                 const SizedBox(height: F.s8),
@@ -281,63 +313,6 @@ class _TodayScreenState extends State<TodayScreen> {
                 const _AllDonePanel(),
                 const SizedBox(height: F.gap),
               ],
-              StreamBuilder<List<DoseEventView>>(
-                stream: _tomorrow,
-                builder: (context, snap) {
-                  final tomorrow = _group(snap.data ?? const []);
-                  if (tomorrow.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: F.gap),
-                    child: _Upcoming(groups: tomorrow),
-                  );
-                },
-              ),
-              if (_readings.isNotEmpty && !glucoseNow) ...[
-                GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
-                const SizedBox(height: F.gap),
-              ],
-              // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
-              //
-              // الإشعارين (هادي امبارحه وواحد بيرن في يومه) ممكن يكونوا
-              // لسه برّه نافذة iOS المتدحرجة — الكارت ده هو شبكة الأمان:
-              // بيعرض الميعاد **دايماً**، وبيعدّ التنازلي، وبيقول إن
-              // الموبايل هيفكّره امبارحه. عمره ما يرن.
-              //
-              // **وتحت «الآن» عن قصد**: الجرعة هي اللي بتفضل أول حاجة
-              // على الشاشة، والميعاد اللي بعد تلات أيام مش أعجل منها.
-              StreamBuilder<List<RecordRow>>(
-                stream: _followUps,
-                builder: (context, snap) {
-                  final soon = upcomingAppointments(snap.data ?? const [], now: _now);
-                  if (soon.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: F.gap),
-                    child: _AppointmentsCard(
-                      appointments: soon,
-                      now: _now,
-                      onOpen: _openCheckup,
-                    ),
-                  );
-                },
-              ),
-              // متابعات التحاليل المفتوحة: اسم التحليل والمرحلة، والدوسة
-              // بتفتحها. مفيش حاجة بتتعرض لما مفيش متابعات.
-              StreamBuilder<List<RecordRow>>(
-                stream: _followUps,
-                builder: (context, snap) {
-                  final open = snap.data ?? const <RecordRow>[];
-                  if (open.isEmpty) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: F.gap),
-                    child: _OpenFollowUps(
-                      records: open,
-                      onOpen: _openCheckup,
-                    ),
-                  );
-                },
-              ),
-              const WaterWidget(),
-              const SizedBox(height: F.gap),
               Text(
                 'جدول النهاردة',
                 style: TextStyle(
@@ -363,6 +338,46 @@ class _TodayScreenState extends State<TodayScreen> {
                   ruleLabelFor: _ruleLabelFor,
                   onOpen: _openReminder,
                 ),
+              StreamBuilder<List<DoseEventView>>(
+                stream: _tomorrow,
+                builder: (context, snap) {
+                  final tomorrow = _group(snap.data ?? const []);
+                  if (tomorrow.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _Upcoming(groups: tomorrow),
+                  );
+                },
+              ),
+              // متابعات التحاليل المفتوحة: اسم التحليل والمرحلة، والدوسة
+              // بتفتحها. مفيش حاجة بتتعرض لما مفيش متابعات.
+              StreamBuilder<List<RecordRow>>(
+                stream: _followUps,
+                builder: (context, snap) {
+                  // **مفيش تكرار بين الكتلتين.** متابعة ليها ميعاد جاي
+                  // بتتعرض في «مواعيدك الجاية» وبس؛ اللي فاضل هنا هو اللي
+                  // مستني حركة من الأب ومالوش ميعاد — يحطّ ميعاد، يضيف
+                  // نتيجة… ولما مايفضلش حاجة، القسم بيختفي خالص.
+                  final open = needsActionFollowUps(
+                    snap.data ?? const <RecordRow>[],
+                    now: _now,
+                  );
+                  if (open.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _OpenFollowUps(
+                      records: open,
+                      onOpen: _openCheckup,
+                    ),
+                  );
+                },
+              ),
+              if (_readings.isNotEmpty && !glucoseNow) ...[
+                GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
+                const SizedBox(height: F.gap),
+              ],
+              const WaterWidget(),
+              const SizedBox(height: F.gap),
               // القاعدة ٤: مجهول اتسجّل لازم يفضل ظاهر هنا — سؤال هادي للصيدلي
               StreamBuilder<List<MedicationRow>>(
                 stream: _amountUnknown,
@@ -770,67 +785,131 @@ class _AppointmentsCard extends StatelessWidget {
     required this.appointments,
     required this.now,
     required this.onOpen,
+    this.compact = false,
   });
+
+  /// جرعة مستنية تأكيد على نفس الشاشة — ميعاد واحد بس، ومن غير سطر الشرح.
+  final bool compact;
 
   final List<UpcomingAppointment> appointments;
   final DateTime now;
   final ValueChanged<int> onOpen;
 
+  /// **الكارت بيفضل قصير عشان «تأكيد الجرعة» يفضل باين من غير سكرول.**
+  ///
+  /// المواعيد فوق كارت الجرعة بقرار المالك؛ والضمانة إن القرار ده ما
+  /// ياكلش الشاشة هي إن الكتلة دي مقصوصة. اللي زيادة بيبقى سطر واحد
+  /// بيفتح القايمة الكاملة. اختبار على أصغر آيفون بيثبت إن الزرار
+  /// كامل جوّه أول شاشة.
+  static const maxShown = 2;
+
+  int get _shown => compact ? 1 : maxShown;
+
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    // **لما فيه جرعة مستنية تأكيد، الكتلة بتبقى سطر واحد.**
+    //
+    // القياس على آيفون SE هو اللي فرض ده: الترويسة لوحدها ٢٦٠ بكسل
+    // وكارت الجرعة ~٢٣٠، فاللي فاضل قبل الدوك أقل من ١٠٠. كارت فيه
+    // عنوان وصف وسطر شرح بياخد ١٥٥ — يعني «تأكيد الجرعة» كان بينزل
+    // تحت الشاشة. السطر الواحد بياخد ~٤٠ وبيسيب الزرار كامل فوق الدوك.
+    if (compact) return _line(context);
+    return _full(context);
+  }
+
+  /// سطر واحد: أقرب ميعاد وعدّه التنازلي، وعدد الباقي.
+  Widget _line(BuildContext context) {
+    final first = appointments.first;
+    final rest = appointments.length - 1;
+    return InkWell(
+      key: const ValueKey('appointments-card'),
+      onTap: () => onOpen(first.recordId),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: F.minTapTarget),
+        padding: const EdgeInsets.symmetric(horizontal: F.s12),
+        decoration: BoxDecoration(
+          color: F.cardGround,
+          borderRadius: BorderRadius.circular(F.radius),
+          border: Border.all(color: F.gold, width: 2),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.event_outlined, size: 20, color: F.gold),
+            const SizedBox(width: F.s8),
+            Expanded(
+              child: Text(
+                rest > 0
+                    ? '${first.headline} — ${countdownWord(now, first.at)}'
+                        ' +${arabicNumber(rest)}'
+                    : '${first.headline} — ${first.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: F.minTextSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: F.s8),
+            if (rest == 0)
+              Text(
+                countdownWord(now, first.at),
+                style: TextStyle(
+                  fontSize: F.minTextSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _full(BuildContext context) => Column(
         key: const ValueKey('appointments-card'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'مواعيدك الجاية',
-            style: TextStyle(
-              fontFamily: F.displayFamily,
-              fontSize: F.subtitleSize,
-              fontWeight: FontWeight.w700,
-              color: F.ink,
-            ),
-          ),
-          const SizedBox(height: F.s8),
+          // العنوان بمقاس عنوان القسم مش عنوان الشاشة — الكتلة دي فوق
+          // كارت الجرعة، والفرق بين ٢٣ و١٩ بكسل بيتحسب في الآخر.
+          const _SectionTitle('مواعيدك الجاية', attention: true),
+          const SizedBox(height: F.s6),
           Container(
             decoration: BoxDecoration(
               color: F.cardGround,
               borderRadius: BorderRadius.circular(F.radius),
-              border: Border.all(color: F.line),
+              // **ذهبي زي كارت «الآن»** — «التذكير والحالة النشطة بس».
+              // مش كهرماني: الكهرماني لدرجات السلّم ٣ و٤ وبس.
+              border: Border.all(color: F.gold, width: 2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final (i, a) in appointments.indexed) ...[
+                for (final (i, a) in appointments.take(_shown).indexed) ...[
                   if (i > 0) Divider(height: 1, color: F.lineSoft),
                   InkWell(
                     onTap: () => onOpen(a.recordId),
                     child: Container(
+                      // **سطر واحد لكل ميعاد.** الكتلة فوق كارت الجرعة،
+                      // فكل بكسل هنا بيزقّ «تأكيد الجرعة» لتحت — واختبار
+                      // على أصغر آيفون بيقيس ده.
                       constraints: const BoxConstraints(minHeight: F.minTapTarget),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: F.gap, vertical: F.s12),
+                      padding: const EdgeInsets.symmetric(horizontal: F.gap),
                       child: Row(
                         children: [
-                          Icon(Icons.event_outlined, size: 22, color: F.green),
-                          const SizedBox(width: F.s10),
+                          Icon(Icons.event_outlined, size: 20, color: F.gold),
+                          const SizedBox(width: F.s8),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  a.headline,
-                                  style: TextStyle(
-                                    fontSize: F.minBodySize,
-                                    fontWeight: FontWeight.w700,
-                                    color: F.ink,
-                                    height: 1.4,
-                                  ),
-                                ),
-                                Text(
-                                  a.title,
-                                  style: TextStyle(
-                                      fontSize: F.minTextSize, color: F.mutedDark),
-                                ),
-                              ],
+                            child: Text(
+                              '${a.headline} — ${a.title}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: F.minTextSize,
+                                fontWeight: FontWeight.w700,
+                                color: F.ink,
+                              ),
                             ),
                           ),
                           const SizedBox(width: F.s8),
@@ -847,13 +926,35 @@ class _AppointmentsCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s12),
-                  child: Text(
-                    'الموبايل هيفكّرك امبارح الميعاد بالليل، وفي يومه الصبح.',
-                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                if (appointments.length > _shown) ...[
+                  Divider(height: 1, color: F.lineSoft),
+                  InkWell(
+                    key: const ValueKey('appointments-more'),
+                    onTap: () => onOpen(appointments[_shown].recordId),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      padding: const EdgeInsets.symmetric(horizontal: F.gap),
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        '+${arabicNumber(appointments.length - _shown)} مواعيد تانية',
+                        style: TextStyle(
+                          fontSize: F.minTextSize,
+                          fontWeight: FontWeight.w700,
+                          color: F.green,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
+                if (!compact)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s10),
+                    child: Text(
+                      'هنفكّرك امبارحه وفي يومه.',
+                      maxLines: 1,
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    ),
+                  ),
               ],
             ),
           ),

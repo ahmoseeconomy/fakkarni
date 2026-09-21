@@ -27,6 +27,7 @@ import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
+import 'package:fakkarni/features/today/widgets/day_rail.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../../support/seeded_clock.dart';
@@ -325,7 +326,10 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await pumpToday(tester);
 
-    await tester.tap(find.text('Telfast').last);
+    // **السكة بالاسم مش بـ`.last`**: الترتيب اتغيّر، و«خلال ٤٨ ساعة» بقت
+    // تحت السكة — فآخر «Telfast» على الشاشة بقى صف بكرة، وهو مش بيفتح
+    // شاشة تذكير. الاختبار بيسمّي اللي بيدوس عليه بدل ما يعتمد على مكانه.
+    await tester.tap(find.descendant(of: find.byType(DayRail), matching: find.text('Telfast')));
     await settle(tester);
     expect(find.byType(ReminderScreen), findsOneWidget);
   });
@@ -465,8 +469,10 @@ void main() {
       await addDose('Antodine', DayAnchor.lunch, offset: -30);
       await pumpToday(tester);
 
+      // **الترتيب اتغيّر بقرار المالك**: «جدول النهاردة» طلع فوق، جنب
+      // «الآن» — وكارت المية نزل تحته مع باقي الشاشة الهادية.
       expect(tester.getCenter(find.text('الآن')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
-      expect(tester.getCenter(find.text('المية')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
+      expect(tester.getCenter(find.text('جدول النهاردة')).dy, lessThan(tester.getCenter(find.text('المية')).dy));
       expectNoRedAndMinSize(tester);
     });
   });

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/health/lab_range.dart';
+import '../../core/format/arabic_time.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 
@@ -55,11 +56,16 @@ class LabResultsRepository {
     String? attachmentPath,
   }) =>
       _db.transaction(() async {
+        // **الرقم عربي.** `$count` بيحقن رقم لاتيني جوّه جملة عربية،
+        // والعنوان ده بيتخزّن ويتعرض على «يومك» وفي الملف الصحي وعلى
+        // شاشة الابن — يعني «٦» بتبقى «6» في كل مكان. الإصلاح في
+        // المصدر، والصفوف اللي اتكتبت قبل كده بتتظبط في
+        // [launchHousekeeping].
         final count = lines.length;
         final title = switch (count) {
           1 => 'تقرير تحليل — ${lines.single.testName}',
           2 => 'تقرير تحليل — نتيجتين',
-          _ => 'تقرير تحليل — $count نتايج',
+          _ => 'تقرير تحليل — ${arabicNumber(count)} نتايج',
         };
         final recordId = await _db.into(_db.records).insert(RecordsCompanion.insert(
               patientId: patientId,

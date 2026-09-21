@@ -87,3 +87,21 @@ List<UpcomingAppointment> upcomingAppointments(
   });
   return out;
 }
+
+
+/// **المتابعات اللي لسه مستنية حركة من الأب — ومالهاش ميعاد جاي.**
+///
+/// اللي ليها ميعاد جاي بتتعرض في «مواعيدك الجاية»، فعرضها هنا كمان
+/// بيخلّي نفس الحاجة على الشاشة مرتين — والراجل بيفضل يدوّر أي واحدة
+/// الحقيقية. القايمة الكاملة في «زيارات» و«تحاليل» زي ما هي؛ ده عن
+/// الشاشة الرئيسية بس.
+List<RecordRow> needsActionFollowUps(
+  List<RecordRow> rows, {
+  required DateTime now,
+}) {
+  final dated = {for (final a in upcomingAppointments(rows, now: now)) a.recordId};
+  return [
+    for (final row in rows)
+      if (row.deletedAt == null && row.checkupStage != null && !dated.contains(row.id)) row,
+  ];
+}
