@@ -1836,6 +1836,52 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 `android/app/build/…`، وهو مسار مش موجود ولا مرة. مجلد مش موجود في
 `upload-artifact` بيعدّي بتحذير، مش بخطأ — فالنقص كان ساكت زي الباقي.
 
+**التشغيلة السابعة: إصلاح السكربت اشتغل.** لأول مرة الأرتيفاكت فيه
+تقرير جرادل، والـXML، و`verdict.txt`، و`logcat-ours.txt` — الأربعة اللي
+عمرهم ما وصلوا في ست تشغيلات.
+
+**ووقعت أبدري، في خطوة عدّت تلات مرات ورا بعض** — وده **سادس** عطل في
+أداة القياس، وأول واحد **متقطّع**:
+
+```
+09:48:04.253  UiObject2: Long-clicking on (535, 702)
+              W/UiObject2: Long-clicking on non-long-clickable object
+09:48:05.010  FKDIAG Notif: _onTap action=null payload={"v":1,…}
+              وبعدها ١٠ ثواني «Node not found» على «أخدته»
+```
+
+الضغطة المطوّلة اللي كانت بتفرد الإشعار نزلت **دوسة عادية** على محاكي
+مشغول. **والتطبيق عمل الصح بالظبط**: دوسة على جسم الإشعار المفروض
+تفتحه. النظام شال الإشعار، وراح معاه زرار الأكشن — فالرسالة قرت «الزرار
+ما ظهرش»، وهي كدب عن التطبيق.
+
+**فالقاعدة: أي إيماءة على واجهة النظام معلّقة على التوقيت. استهدف
+عنصر بعينه بمعرّفه، مش منطقة بإيماءة.** ضغطة مطوّلة ممكن تنزل دوسة،
+وسحبة ممكن تنزل ضغطة، ومفيش أي منهم بيقول لك إنه اتحوّل — بيديك نتيجة
+مختلفة وخلاص.
+
+اللي اتعمل: الضغطة المطوّلة **اتشالت خالص** (مفيش أي لمسة على جسم
+الإشعار)، والاختبار بيدوّر على «أخدته» **الأول** (أحدث إشعار في الستارة
+بيبقى مفرود غالباً)، ولو مش موجود بيفرد من **زرار الفرد نفسه**.
+
+**وزرار الفرد على صورة API 34 دي — مقروء من موارد المنصة المثبّتة
+(`platforms/android-34/data/res`)، مش من الذاكرة:**
+`layout/notification_expand_button.xml` بيعلن
+`android:id="@+id/expand_button"` على
+`com.android.internal.widget.NotificationExpandButton`،
+و`notification_template_header.xml` بيضمّه — فالمعرّف اللي UiAutomator
+بيشوفه هو **`android:id/expand_button`**، ووصف محتواه
+`@string/expand_button_content_description_collapsed` = **«Expand»**
+(ومفرود «Collapse»). **الصورة بتعرض الاتنين**، والمعرّف هو الأساس
+والوصف بديل — الوصف نص متُرجم بيتغيّر مع لغة الجهاز والمعرّف لأ.
+(`expand_button` مش في `public-final.xml`، وده ما يفرقش:
+`getViewIdResourceName()` بيرجّع المعرّفات الداخلية برضه.)
+
+**وفيه حارس دلوقتي بيمنع العطل ده يتنكّر تاني:** لو سطر
+`Notif: _onTap action=null` ظهر في اللوج بين فتح الستارة ودوسة الزرار،
+الاختبار بيقع فوراً برسالة بتقول إن **الاختبار** لمس الجسم — مش إن
+الزرار ما اترسمش.
+
 ## دين تقني
 
 Debts we took on knowingly. Each one blocks something specific — check this
@@ -2237,13 +2283,16 @@ code, because that is what it is.
 
 **And the sibling failure: the instrument measuring something other than
 what its name says.** On the Android lock-screen test this happened
-**five times in six runs** — an `executeShellCommand` assertion that
+**six times in seven runs** — an `executeShellCommand` assertion that
 passed over empty output, a framework database read that flipped the file
 out of WAL, an assertion on a name that appears in both states, a matcher
 reading `text` on a Flutter screen that publishes through `content-desc`,
-and finally the CI harness itself, which runs each `script:` line in its
-own shell so the test's exit status never reached the job. Each one
-accused the app; the app was innocent every time. **Before suspecting
+the CI harness itself (each `script:` line in its own shell, so the test's
+exit status never reached the job), and a long-press on a notification
+that landed as a plain tap on a busy emulator — dismissing the very button
+it was reaching for. Each one accused the app; the app was innocent every
+time. **A gesture on system UI is timing-dependent: target a control by
+id, never a region by gesture.** **Before suspecting
 `lib/`, ask whether the tool measures what it claims to** — and remember
 a red job is not a red test: read `TestRunner: run finished` first. The
 five cases and their evidence are under «اللي لسه مش متأكَّد منه على

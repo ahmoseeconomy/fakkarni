@@ -55,6 +55,12 @@ import java.util.regex.Pattern
  *  ج. ولقطة الملفات (موجود/حجم/تاريخ) بتتاخد **قبل** أي قراية بتاعتنا،
  *     على الجهتين: قبل الدوسة وبعد سطر النهاية.
  *
+ * **وعمرنا ما نلمس جسم الإشعار.** تشغيلة ٢٣ سبتمبر وقعت بـ«الزرار ما
+ * ظهرش» لأن الضغطة المطوّلة اللي كانت بتفرد الإشعار نزلت **دوسة عادية**
+ * على محاكي مشغول: التطبيق اتفتح (وده الصح — دوسة على الجسم المفروض
+ * تفتحه)، والنظام شال الإشعار وراح معاه الزرار. أي إيماءة على واجهة
+ * النظام معلّقة على التوقيت؛ الاستهداف بيبقى على **عنصر بمعرّفه**.
+ *
  * **لسه مفتوح، ومتسجّل مش متصلّح:** `am kill` مش بيقتل العملية هنا.
  * الاختبار المُجهَّز بيجري **جوّه** عملية التطبيق، والـinstrumentation
  * بيثبّتها على `adj 0`، و`am kill` بيقتل عمليات الخلفية بس. يعني سيناريو
@@ -99,6 +105,102 @@ class LockScreenActionTest {
     /** سطر الفشل — موجود من قبل، وبيتقري كما هو. */
     private val handleFailed = "مقدرش يتعالج"
 
+    /** نص زرار التأكيد في ستارة الإشعارات. */
+    private val takenButton = "أخدته"
+
+    /**
+     * السطر اللي بيقول إن **جسم** الإشعار اتلمس بدل الزرار.
+     *
+     * `NotificationService._onTap` بتسجّل
+     * `Notif: _onTap action=<id> payload=…`؛ دوسة على الجسم بتيجي
+     * بـ`action=null` وبتفتح التطبيق وبتشيل الإشعار.
+     */
+    private val bodyTapMarker = "Notif: _onTap action=null"
+
+    private fun bodyTapLines(): List<String> =
+        device.executeShellCommand("logcat -d -v time")
+            .lineSequence()
+            .filter { it.contains(bodyTapMarker) }
+            .toList()
+
+    /**
+     * **العطل ده بتاع الاختبار، ولازم يقول كده بصوت.**
+     *
+     * تشغيلة ٢٣ سبتمبر وقعت بـ«زرار أخدته ما ظهرش في الستارة» — والسبب
+     * إن الضغطة المطوّلة اللي كانت بتفرد الإشعار نزلت **دوسة عادية** على
+     * محاكي مشغول:
+     *
+     * ```
+     * UiObject2: Long-clicking on (535, 702)
+     * W/UiObject2: Long-clicking on non-long-clickable object
+     * FKDIAG Notif: _onTap action=null payload={"v":1,…}
+     * ```
+     *
+     * التطبيق عمل الصح بالظبط: دوسة على الجسم **المفروض** تفتحه. والنظام
+     * شال الإشعار، وراح معاه الزرار. الرسالة القديمة كانت بتقرا كإن
+     * الزرار ما اترسمش — فبقى فيه حارس بيقول مين لمس إيه.
+     */
+    private fun failIfBodyTapped(before: Int) {
+        val now = bodyTapLines()
+        if (now.size <= before) return
+        dumpLog()
+        fail(
+            "**الاختبار** لمس جسم الإشعار مش الزرار: التطبيق اتفتح " +
+                "والإشعار اتشال، فالزرار مبقاش موجود. ده عطل في الاختبار، " +
+                "مش في الزرار. آخر سطر: ${now.last().trim()}",
+        )
+    }
+
+    /**
+     * بيفرد الإشعار **من زراره هو** — عمرنا ما نلمس الجسم.
+     *
+     * مقروء من موارد المنصة المثبّتة على الجهاز ده
+     * (`platforms/android-34/data/res`):
+     *  - `layout/notification_expand_button.xml` بيعلن
+     *    `android:id="@+id/expand_button"` على
+     *    `com.android.internal.widget.NotificationExpandButton`، و
+     *    `notification_template_header.xml` بيضمّه — فالمعرّف اللي
+     *    UiAutomator بيشوفه هو **`android:id/expand_button`**.
+     *  - وصف محتواه `@string/expand_button_content_description_collapsed`
+     *    = **«Expand»** (ومفرود = «Collapse»).
+     * فالصورة دي بتعرض الاتنين، والمعرّف هو الأساس والوصف بديل: الوصف
+     * نص متُرجم بيتغيّر مع لغة الجهاز، والمعرّف لأ.
+     * (`expand_button` مش في `public-final.xml` — بس ده ما يفرقش:
+     *  `AccessibilityNodeInfo.getViewIdResourceName()` بيرجّع المعرّفات
+     *  الداخلية برضه.)
+     *
+     * والبحث بيبدأ من **إشعارنا إحنا** وبيطلع لفوق في الآباء، عشان ما
+     * نفردش إشعار حد تاني لو الستارة فيها أكتر من واحد.
+     */
+    private fun expandNewestNotification(): Boolean {
+        var node = device.findObject(By.textContains("TestDose"))
+        var hops = 0
+        while (node != null && hops < 6) {
+            val button = node.findObject(By.res("android", "expand_button"))
+                ?: node.findObject(By.desc("Expand"))
+            if (button != null) {
+                println("FKTEST: بنفرد الإشعار من زرار الفرد (بعد $hops أب)")
+                button.click()
+                Thread.sleep(1_000)
+                return true
+            }
+            node = node.parent
+            hops++
+        }
+        // آخر محاولة: زرار الفرد في الستارة كلها — على CI إشعارنا هو
+        // الوحيد غالباً. ولسه **زرار**، مش جسم.
+        val any = device.findObject(By.res("android", "expand_button"))
+            ?: device.findObject(By.desc("Expand"))
+        if (any != null) {
+            println("FKTEST: بنفرد من زرار الفرد العام")
+            any.click()
+            Thread.sleep(1_000)
+            return true
+        }
+        println("FKTEST: ما لقيناش زرار فرد — الإشعار غالباً مفرود أصلاً")
+        return false
+    }
+
     @Test
     fun lockScreenConfirmWritesTheDoseAndKillsTheLadder() {
         // ١ — زرع جرعة في أقرب دقيقة جاية، من برّه التطبيق
@@ -123,6 +225,9 @@ class LockScreenActionTest {
         )
 
         // ٣ — الإشعار، الستارة، والزرار
+        //
+        // الستارة `TextView` أصلي مش فلاتر، فالمقارنة هنا بـ`By.text` صح
+        // — على عكس شاشة «يومك» تحت.
         val appeared = device.wait(Until.hasObject(By.textContains("TestDose")), 90_000)
         if (!appeared) {
             device.openNotification()
@@ -131,16 +236,19 @@ class LockScreenActionTest {
         device.openNotification()
         device.wait(Until.hasObject(By.textContains("TestDose")), 15_000)
 
-        // الأزرار ممكن تكون مطويّة — الفرد بيختلف بين النسخ، فبنجرب
-        // الاتنين: ضغطة مطوّلة على الإشعار، وبعدين السهم لو موجود.
-        device.findObject(By.textContains("TestDose"))?.let { notification ->
-            notification.longClick()
-            Thread.sleep(1_000)
-        }
-        device.findObject(By.desc("Expand"))?.click()
-        Thread.sleep(1_000)
+        val bodyTapsBefore = bodyTapLines().size
 
-        val taken = device.wait(Until.findObject(By.text("أخدته")), 10_000)
+        // **الزرار الأول.** أحدث إشعار في الستارة بيبقى مفرود غالباً،
+        // فالفرد أصلاً مش لازم في أغلب التشغيلات.
+        var taken = device.wait(Until.findObject(By.text(takenButton)), 5_000)
+        if (taken == null) {
+            expandNewestNotification()
+            taken = device.wait(Until.findObject(By.text(takenButton)), 10_000)
+        }
+
+        // (ج) لو الاختبار لمس جسم الإشعار، ده بيبان في اللوج على طول —
+        // ولازم يقع باسمه، مش كإن الزرار ما اترسمش.
+        failIfBodyTapped(bodyTapsBefore)
         assertTrue("زرار «أخدته» ما ظهرش في الستارة", taken != null)
 
         // **اللقطة الأولى: قبل الدوسة وقبل أي قراية بتاعتنا.** الفرق بينها
