@@ -16,6 +16,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.regex.Pattern
 
 /**
  * **سكّة أندرويد: زرار على الإشعار.**
@@ -31,14 +32,21 @@ import java.util.Locale
  * وقعت عند **فتح** القاعدة، قبل أي كتابة:
  * `SqliteException(5): database is locked … pragma journal_mode = WAL`.
  *
- * **ومين ماسك الاتصال التاني كان مجهول — والمتّهم الأول هو الاختبار ده
- * نفسه.** النسخة القديمة كانت بتفتح `fakkarni.sqlite` بـ`SQLiteDatabase`
- * بتاع إطار أندرويد، `OPEN_READWRITE`، من ٣٠ ملّي بعد الدوسة وكل نص
- * ثانية. وكان مكتوب فوقها إنها «بتفتح الملف زي ما التطبيق بيفتحه» —
- * **وده كان غلط**: التطبيق بيفتح عن طريق sqlite3 بتاع drift بالـpragmas
- * بتاعته (WAL + busy_timeout)، والإطار بيفتح باتصال تاني خالص بإعداد
- * journal بتاعه وأقفاله بتاعته. يعني أداة القياس كانت قاعدة على الملف
- * وهو بيتكتب.
+ * **والقفل اتحسم في التشغيلة الرابعة: الاختبار هو اللي كان ماسكه.**
+ * النسخة القديمة كانت بتفتح `fakkarni.sqlite` بـ`SQLiteDatabase` بتاع
+ * إطار أندرويد، `OPEN_READWRITE`، من ٣٠ ملّي بعد الدوسة وكل نص ثانية —
+ * وكان مكتوب فوقها إنها «بتفتح الملف زي ما التطبيق بيفتحه»، وده كان
+ * غلط: ده اتصال **تاني خالص** بإعداد journal بتاعه وأقفاله بتاعته، مش
+ * sqlite3 بتاع drift بالـpragmas بتاعتنا. **والدليل إنه كان بيقلب الملف
+ * برّه WAL**: قبل التغيير ما كانش فيه `-wal` ولا `-shm` في أي لقطة؛
+ * بعده الاتنين موجودين قبل الدوسة (`-wal` ٤٢٨ كيلو)، والقفل راح، والصف
+ * اتكتب (`journal_mode = wal، taken = 1`). أداة القياس كانت بتكسّر اللي
+ * بتقيسه.
+ *
+ * **والسكّة نفسها اتثبتت يوم ٢٢ سبتمبر ٢٠٢٦**: دوسة ← معالج ← صف جرعة
+ * على أندرويد، من غير أي شك. ٩.٦ ثانية من الدوسة لسطر النهاية — آمنة
+ * هنا لأن العملية حية ومثبّتة على `adj 0`؛ مش آمنة بالضرورة في السكّة
+ * المقتولة، شوف آخر الشرح.
  *
  * فالنسخة دي **ما بتفتحش الملف الحي خالص**:
  *  أ. بتستنّى على **اللوج**: سطر النهاية بتاع المعالج، نجاح أو فشل.
@@ -52,6 +60,12 @@ import java.util.Locale
  * بيثبّتها على `adj 0`، و`am kill` بيقتل عمليات الخلفية بس. يعني سيناريو
  * «التطبيق مقتول» لسه ما اتجرّبش. اللي الملف ده بيثبته هو إن دوسة على
  * زرار في الستارة بتوصل دارت وبتكتب الصف — مش أكتر.
+ *
+ * **والتسعة ونص ثانية دي متعلّقة بالسكّة دي بالظبط.** العملية هنا حية
+ * ومثبّتة، فالشغل بياخد وقته. في السكّة المقتولة الـ`BroadcastReceiver`
+ * بيرجع والعملية بتنزل لأولوية «مخزّنة» — ٩.٦ ثانية شغل هناك ممكن
+ * تتقطع في نصها. الرقم ده اتسجّل هنا عشان يتقرا مع اختبار السكّة
+ * المقتولة لما يتكتب، مش عشان يتقرا كإنه «تمام».
  */
 @RunWith(AndroidJUnit4::class)
 class LockScreenActionTest {
@@ -166,14 +180,120 @@ class LockScreenActionTest {
             fail("الجرعة المفروض اتسجّلت taken — العدّ في النسخة = $count")
         }
 
-        // ٦ — والتطبيق بيعرضها مؤكَّدة بعد ما يتفتح تاني
+        // ٦ — و«يومك» بيعرضها **مؤكَّدة**
+        //
+        // النسخة القديمة كانت بتدوّر على «TestDose» في أي مكان — والاسم ده
+        // موجود في الحالتين (السطر الهادي والكارت الذهبي)، فالتأكيد كان
+        // بيعدّي على شاشة بتقول «لسه ما اتأكدتش». حارس ما يقدرش يقع
+        // للسبب اللي في اسمه = مش حارس.
         launchWithSeed(0)
         device.wait(Until.hasObject(By.pkg(pkg).depth(0)), 20_000)
         Thread.sleep(6_000)
-        assertTrue(
-            "«يومك» المفروض تعرض الجرعة مؤكَّدة",
-            device.wait(Until.hasObject(By.textContains("TestDose")), 15_000),
-        )
+
+        when (val shown = doseOnScreen()) {
+            DoseOnScreen.TAKEN -> Unit
+            DoseOnScreen.UNCONFIRMED -> {
+                captureScreen("stale")
+                dumpLog()
+                fail(
+                    "«يومك» بايتة (stale): الصف مكتوب taken في القاعدة، " +
+                        "والشاشة لسه بتقول «$unconfirmedText». الـisolate كتب " +
+                        "من نسخة قاعدة تانية، والاستعلامات المتدفّقة بتاعة " +
+                        "الـmain isolate ما سمعتش بالكتابة.",
+                )
+            }
+            DoseOnScreen.NOT_FOUND -> {
+                captureScreen("not-found")
+                dumpLog()
+                fail(
+                    "«يومك» مش بتعرض الجرعة لا مؤكَّدة ولا مش مؤكَّدة بعد " +
+                        "${maxSwipes} تمريرة — مش بايتة، مستخبية أو الشاشة " +
+                        "أصلاً مش «يومك». شوف اللقطة وشجرة النوافذ ($shown).",
+                )
+            }
+        }
+    }
+
+    /** الحالة اللي «يومك» بتعرضها للجرعة المزروعة. */
+    private enum class DoseOnScreen { TAKEN, UNCONFIRMED, NOT_FOUND }
+
+    /**
+     * **إزاي «يومك» بتعرض جرعة اتأكّدت — مقروء من `day_rail.dart`.**
+     *
+     *  - **مأخوذة** → `_quietLine`: علامة ✓ (أيقونة، مفيش نص)، اسم الدوا،
+     *    و`say.takenAt(time)` = «أخدته ٧:٣٠ ص» (المريض المزروع `Sex.m`).
+     *    **السطر ده ما بيتشالش من السكة أبداً** — بقرار مكتوب في الملف:
+     *    المريض لازم يشوف إنه خدها.
+     *  - **لسه** → `_card` بحافة ذهبية + «لسه ما اتأكدتش»، و«الآن»
+     *    (`now_card.dart`) بيقول «لسه ما اتأكدتش — كان معادها …» لنفس
+     *    الحالة. يعني الجملة دي هي علامة «مش مؤكّدة» في الاتنين.
+     *
+     * فالتفرقة اللي الخطوة دي محتاجاها:
+     *  - «لسه ما اتأكدتش» ظاهرة → الشاشة شايفاها **مش** مؤكّدة = **بايتة**.
+     *  - «أخدته <حاجة>» ظاهرة → **مؤكّدة**.
+     *  - ولا الاتنين بعد ما نلف الصفحة كلها → **مستخبية** أو مش «يومك».
+     *
+     * **ليه نمط مش نص:** زرار الستارة نصه «أخدته» بالظبط ومن غير أي حاجة
+     * بعده؛ السطر الهادي «أخدته» + وقت. النمط بيطلب الكلمة التانية، فمفيش
+     * خلط بين الزرار والسطر.
+     *
+     * **وليه تمرير:** «جدول النهاردة» تحت الترويسة و«خلال ٤٨ ساعة» وكارت
+     * المية — يعني السطر الهادي غالباً تحت حد الشاشة، وUiAutomator بيشوف
+     * اللي معروض بس.
+     */
+    private val unconfirmedText = "لسه ما اتأكدتش"
+    private val takenLine: Pattern =
+        Pattern.compile("^\\s*أخدت(ه|يه)\\s+\\S+.*$", Pattern.DOTALL)
+    private val maxSwipes = 8
+
+    private fun doseOnScreen(): DoseOnScreen {
+        for (i in 0..maxSwipes) {
+            // «مش مؤكّدة» بتتشاف الأول: لو الشاشة بايتة، ده أول اللي بيبان
+            // وفوق خالص، ومحتاجينه يقع باسمه مش بـ«مش موجودة».
+            if (device.hasObject(By.textContains(unconfirmedText))) {
+                return DoseOnScreen.UNCONFIRMED
+            }
+            if (device.hasObject(By.text(takenLine))) return DoseOnScreen.TAKEN
+            if (i == maxSwipes) break
+            swipeUpOnce()
+        }
+        return DoseOnScreen.NOT_FOUND
+    }
+
+    private fun swipeUpOnce() {
+        val w = device.displayWidth
+        val h = device.displayHeight
+        device.swipe(w / 2, (h * 0.75).toInt(), w / 2, (h * 0.30).toInt(), 12)
+        Thread.sleep(600)
+    }
+
+    /**
+     * **اللقطة وشجرة النوافذ — الشاشة نفسها، مش وصف ليها من الكود.**
+     *
+     * التشغيلة اللي فاتت وقعت عند «مش موجودة» ومحدش عرف الشاشة كانت
+     * بتقول إيه. الشجرة نص فبتتطبع كمان على stdout، فحتى لو السحب من
+     * الجهاز فشل، الدليل بيبقى في تقرير الاختبار.
+     */
+    private fun captureScreen(label: String) {
+        val dir = File(context.externalCacheDir ?: context.cacheDir, "fkshots")
+        dir.mkdirs()
+        val xml = File(dir, "hierarchy-$label.xml")
+        val png = File(dir, "screen-$label.png")
+        try {
+            device.dumpWindowHierarchy(xml)
+            println("FKTEST: شجرة النوافذ → ${xml.absolutePath} (${xml.length()} بايت)")
+            println("FKTEST: ---- شجرة النوافذ ($label) ----")
+            xml.readLines().forEach { println("FKXML| $it") }
+            println("FKTEST: ---- آخر الشجرة ----")
+        } catch (e: Exception) {
+            println("FKTEST: شجرة النوافذ فشلت: $e")
+        }
+        try {
+            val ok = device.takeScreenshot(png)
+            println("FKTEST: اللقطة → ${png.absolutePath} ok=$ok (${png.length()} بايت)")
+        } catch (e: Exception) {
+            println("FKTEST: اللقطة فشلت: $e")
+        }
     }
 
     private fun launchWithSeed(seconds: Int) {

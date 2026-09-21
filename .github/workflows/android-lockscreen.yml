@@ -98,8 +98,21 @@ jobs:
 
             kill $LOGCAT_PID 2>/dev/null || true
             sleep 2
+
+            # الشاشة نفسها لما الخطوة الأخيرة تقع — اللقطة وشجرة النوافذ.
+            # التشغيلة اللي فاتت وقعت عند «الاسم مش موجود على الشاشة»
+            # ومحدش عرف الشاشة كانت بتقول إيه أصلاً. الاختبار بيكتبهم في
+            # الكاش الخارجي بتاع التطبيق، ودي بتسحبهم.
+            # (الشجرة بتتطبع في تقرير الاختبار كمان، عشان لو السحب فشل
+            #  الدليل ما يضيعش.)
+            adb root >/dev/null 2>&1 || true
+            adb wait-for-device || true
+            mkdir -p artifacts/screen
+            adb pull /sdcard/Android/data/com.fakkarni.fakkarni/cache/fkshots \
+              artifacts/screen >/dev/null 2>&1 || true
+            ls -la artifacts/screen || true
             # نسخة مفلترة جنب الكاملة — الكاملة فيها كل حاجة على الجهاز
-            grep -i -E 'flutter|fakkarni|FKDIAG|Isolate|Handle|TestHook' \
+            grep -i -E 'flutter|fakkarni|FKDIAG|FKTEST|Isolate|Handle|TestHook' \
               artifacts/logcat-full.txt > artifacts/logcat-ours.txt || true
             echo "---- آخر ٨٠ سطر تخصّنا ----"
             tail -80 artifacts/logcat-ours.txt || true
@@ -115,3 +128,4 @@ jobs:
             android/app/build/outputs/androidTest-results/
             artifacts/logcat-full.txt
             artifacts/logcat-ours.txt
+            artifacts/screen/
