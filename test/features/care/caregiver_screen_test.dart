@@ -111,10 +111,13 @@ void main() {
     expect(find.text('مفيش جرعات متسجّلة النهارده لسه.'), findsNothing);
 
     // قايمة بكرة — متعلّمة بكرة، ومرتبة بالوقت
-    expect(find.text('بكرة ٧:٠٠ ص'), findsOneWidget);
-    expect(find.text('بكرة ٩:٠٠ م'), findsOneWidget);
-    final concorTop = tester.getTopLeft(find.text('بكرة ٧:٠٠ ص')).dy;
-    final glucophageTop = tester.getTopLeft(find.text('بكرة ٩:٠٠ م')).dy;
+    // **«بكرة» بقت عنوان يوم فوق المجموعة، والصف بيكتفي بساعته** (ملحق
+    // المالك: «بكرة تحت عنوان تاريخه»). قبل كده كل صف كان شايل الكلمة.
+    expect(find.textContaining('بكرة'), findsWidgets);
+    expect(find.text('٧:٠٠ ص'), findsOneWidget);
+    expect(find.text('٩:٠٠ م'), findsOneWidget);
+    final concorTop = tester.getTopLeft(find.text('٧:٠٠ ص')).dy;
+    final glucophageTop = tester.getTopLeft(find.text('٩:٠٠ م')).dy;
     expect(concorTop, lessThan(glucophageTop));
     expect(find.text('لسه ما اتأكدتش'), findsNothing, reason: 'بكرة مش متأخرة');
 
@@ -138,7 +141,7 @@ void main() {
 
     expect(find.text('مفيش جرعات النهارده — أول جرعة بكرة الساعة ٧:٠٠ الصبح'), findsOneWidget,
         reason: 'أول جرعة بكرة — مش ٦ الصبح بتاعة بعد بكرة');
-    expect(find.text('بكرة ٧:٠٠ ص'), findsOneWidget);
+    expect(find.text('٧:٠٠ ص'), findsOneWidget);
     expect(find.textContaining('Glucophage'), findsNothing);
     expect(find.textContaining('Telfast'), findsNothing);
   });
@@ -286,7 +289,7 @@ void main() {
       // فوق لوحة الأسبوع — الأحدث الأول يعني أوّل حاجة في الصفحة
       expect(
         tester.getTopLeft(header).dy,
-        lessThan(tester.getTopLeft(find.text('جرعات النهارده')).dy),
+        lessThan(tester.getTopLeft(find.text('ما اتأكدتش')).dy),
       );
       expectCaregiverDensity(tester);
     });
@@ -361,7 +364,7 @@ void main() {
       expectCaregiverDensity(tester);
     });
 
-    screenTest('الأقسام بترتيبها: تنبيهات ← جرعات النهارده ← الجديد (والأدوية بقت تبويب)',
+    screenTest('الأقسام بترتيبها: تنبيهات ← ما اتأكدتش ← الجديد (والأدوية بقت تبويب)',
         (tester) async {
       final base = snapshot(
         [event('Concor 5mg', DateTime(2026, 8, 31, 8), 'missed')],
@@ -387,10 +390,10 @@ void main() {
       await pumpScreen(tester);
 
       double y(String heading) => tester.getTopLeft(find.text(heading)).dy;
-      // التنبيه المفتوح فوق: جرعة فايتة دلوقتي أعجل من أي حاجة تانية.
-      expect(y('تنبيهات'), lessThan(y('جرعات النهارده')));
+      // التنبيه المفتوح فوق: جرعة محدش أكّدها دلوقتي أعجل من أي حاجة تانية.
+      expect(y('تنبيهات'), lessThan(y('ما اتأكدتش')));
       // وجرعات اليوم قبل «الجديد» — ده اللي الابن فاتح الشاشة عشانه.
-      expect(y('جرعات النهارده'), lessThan(y('الجديد')));
+      expect(y('ما اتأكدتش'), lessThan(y('الجديد')));
       // **والأدوية مابقتش قسم هنا خالص** — بقت تبويب في الدوك (جولة ٢٩).
       // باب واحد للأوضة: القسم اتشال، ما اتنسخش.
       expect(find.text('أدويته'), findsNothing);

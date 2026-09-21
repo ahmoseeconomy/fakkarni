@@ -67,6 +67,10 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
 
 DateTime _local(Object? iso) => DateTime.parse(iso! as String).toLocal();
 
+/// نفس ده، بس العمود ممكن يكون فاضي — عمود متابعة على صف مش متابعة.
+DateTime? _localOrNull(Object? iso) =>
+    iso == null ? null : DateTime.parse(iso as String).toLocal();
+
 /// صف records بسطور تحاليله المضمّنة → [CaregiverRecord]. سجل ممسوح ناعم
 /// بيرجع null — الاستعلام بيفلتره، وده خط دفاع تاني: الأب مسحه، يبقى ما
 /// يتعرضش عند الابن أبداً.
@@ -82,6 +86,12 @@ CaregiverRecord? recordFromRow(Map<String, dynamic> row) {
     doctor: row['doctor'] as String?,
     place: row['place'] as String?,
     notes: row['notes'] as String?,
+    checkupStage: row['checkup_stage'] as int?,
+    followKind: row['follow_kind'] as String?,
+    checkupStageSince: _localOrNull(row['checkup_stage_since']),
+    labBookingAt: _localOrNull(row['lab_booking_at']),
+    resultReadyAt: _localOrNull(row['result_ready_at']),
+    doctorVisitAt: _localOrNull(row['doctor_visit_at']),
     labLines: [
       for (final l in lines)
         () {
@@ -252,7 +262,12 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
         // (delta) ييجي — مفيش select من غير حد.
         final records = await _supabase
             .from('records')
+            // أعمدة المتابعة (`0015`/`0017`) على **نفس الصف** اللي الابن
+            // بيقراه أصلاً — RLS في بوستجرس على مستوى الصف مش العمود،
+            // فمفيش سياسة جديدة ولا هجرة. قراية بس زي باقي الشاشة.
             .select('uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
+                'checkup_stage, follow_kind, checkup_stage_since, '
+                'lab_booking_at, result_ready_at, doctor_visit_at, '
                 'lab_results(test_name, value, unit, ref_low, ref_high, ref_text)')
             .eq('patient_uuid', patient.uuid)
             .isFilter('deleted_at', null)

@@ -74,6 +74,7 @@ CaregiverSnapshot _full() => CaregiverSnapshot(
         event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken', actedAt: DateTime(2026, 8, 31, 8, 5)),
         event('Glucophage', DateTime(2026, 8, 31, 9), 'missed'),
         event('Telfast', DateTime(2026, 8, 31, 20), 'pending'),
+        event('Zestril', DateTime(2026, 9, 1, 7), 'pending'),
         // امبارح كامل — عشان سطر الأسبوع يبان
         event('Concor 5mg', DateTime(2026, 8, 30, 8), 'taken', actedAt: DateTime(2026, 8, 30, 8, 3)),
       ],
@@ -87,6 +88,30 @@ CaregiverSnapshot _full() => CaregiverSnapshot(
           happenedAt: DateTime(2026, 8, 20),
           updatedAt: DateTime(2026, 8, 31, 12),
           labLines: const [CaregiverLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
+        ),
+        // متابعة تحليل واقفة عند «حجز المعمل» من غير ميعاد من ١١ يوم
+        CaregiverRecord(
+          uuid: 'f-lab',
+          kind: 'lab',
+          title: 'صورة دم كاملة',
+          happenedAt: DateTime(2026, 8, 18),
+          updatedAt: DateTime(2026, 8, 20),
+          doctor: 'د. سامي',
+          checkupStage: 2,
+          checkupStageSince: DateTime(2026, 8, 20),
+        ),
+        // متابعة زيارة ليها ميعاد بعد ٣ أيام
+        CaregiverRecord(
+          uuid: 'f-visit',
+          kind: 'visit',
+          title: 'متابعة الضغط',
+          happenedAt: DateTime(2026, 8, 25),
+          updatedAt: DateTime(2026, 8, 25),
+          doctor: 'د. حسام',
+          followKind: 'visit',
+          checkupStage: 1,
+          checkupStageSince: DateTime(2026, 8, 25),
+          doctorVisitAt: DateTime(2026, 9, 3, 10),
         ),
       ],
       readings: [
@@ -204,7 +229,35 @@ void main() {
       // وآخر جرعة مؤكَّدة تحتها — «تمام» من غير دليل كلمة
       expect(find.textContaining('آخر جرعة مؤكَّدة — Concor 5mg'), findsOneWidget);
 
-      // ٢ — الأسبوع في سطر، مش شبكة سبع خانات
+      // ٢ — الأقسام بترتيبها، وكل واحد بعدّاده بين قوسين (مش «·»:
+      // «٠» العربية هي نقطة، وفيه اختبار بيقرا كل نص في lib ويوقع عليها)
+      double y(String head) => tester.getTopLeft(find.text(head)).dy;
+      for (final head in ['ما اتأكدتش', 'جاية', 'اتاخدت', 'زيارات', 'تحاليل']) {
+        expect(find.text(head), findsOneWidget, reason: 'القسم «$head» ناقص');
+      }
+      expect(y('ما اتأكدتش'), lessThan(y('جاية')), reason: 'المحتاجة انتباه فوق');
+      expect(y('جاية'), lessThan(y('اتاخدت')));
+      expect(y('اتاخدت'), lessThan(y('زيارات')));
+      expect(y('زيارات'), lessThan(y('تحاليل')));
+      expect(find.text('(١)'), findsWidgets, reason: 'العدّاد جنب العنوان');
+
+      // ٣ — «جاية»: النهارده الأول، وبعدين بكرة تحت عنوان يومها
+      expect(find.text('كمان ٦ ساعات'), findsOneWidget);
+      expect(find.textContaining('بكرة — '), findsOneWidget, reason: 'عنوان يوم بكرة');
+      expect(
+        tester.getTopLeft(find.text('كمان ٦ ساعات')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('بكرة — ')).dy),
+        reason: 'الأقرب الأول',
+      );
+
+      // ٤ — المتابعات: المرحلة بكلمتها، والميعاد وقد إيه فاضل، والواقفة
+      expect(find.text('الزيارة اتحجزت'), findsOneWidget);
+      expect(find.textContaining('د. حسام'), findsOneWidget);
+      expect(find.text('حجز المعمل'), findsOneWidget);
+      expect(find.textContaining('لسه مفيش ميعاد متحطّ'), findsOneWidget);
+      expect(find.textContaining('واقفة عند «حجز المعمل»'), findsOneWidget);
+
+      // ٥ — الأسبوع في سطر، مش شبكة سبع خانات
       expect(find.byKey(const ValueKey('care-week')), findsOneWidget);
       expect(find.text('١ من ١ أيام كل الجرعات فيها اتقفلت'), findsOneWidget);
 
@@ -223,8 +276,10 @@ void main() {
       expect(find.text('لسه مفيش خبر النهارده'), findsOneWidget);
       expect(find.text('لسه مفيش جرعة مؤكَّدة'), findsOneWidget);
       expect(find.text('مفيش جرعات متسجّلة النهارده لسه.'), findsOneWidget);
-      // مفيش قسم فاضي
-      expect(find.text('تنبيهات'), findsNothing);
+      // **مفيش قسم فاضي** — سطر الحالة فوق قال خلاص
+      for (final head in ['تنبيهات', 'ما اتأكدتش', 'جاية', 'اتاخدت', 'متخطّية', 'زيارات', 'تحاليل']) {
+        expect(find.text(head), findsNothing, reason: 'قسم «$head» فاضي المفروض يختفي');
+      }
       expect(find.byKey(const ValueKey('care-week')), findsNothing,
           reason: 'أسبوع من غير جرعات مالوش سطر');
       expect(find.byKey(const ValueKey('newest')), findsNothing);
@@ -238,11 +293,12 @@ void main() {
   screenTest('الحالة بأيقونة وكلمة — مش لون لوحده', (tester) async {
     await pump(tester, _full(), dark: false);
 
-    // كل صف جرعة فيه أيقونة حالة جنب كلمتها
+    // كل صف جرعة فيه أيقونة حالة جنب كلمتها. والصف اللي في «جاية»
+    // بيقول قد إيه فاضل بدل ما يكرّر اسم القسم — ومعاه ساعته برضه.
     for (final (label, icon) in [
-      ('اتاخد ٨:٠٥ ص', Icons.check_circle_outline),
+      ('اتأكّدت ٨:٠٥ ص', Icons.check_circle_outline),
       ('اتنست — لسه ما اتأكدتش', Icons.error_outline),
-      ('جاي ٨:٠٠ م', Icons.schedule),
+      ('كمان ٦ ساعات', Icons.schedule),
     ]) {
       final row = find.ancestor(of: find.text(label), matching: find.byType(Row)).first;
       expect(find.descendant(of: row, matching: find.byIcon(icon)), findsOneWidget,

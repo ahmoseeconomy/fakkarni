@@ -190,6 +190,12 @@ class CaregiverRecord {
     this.place,
     this.notes,
     this.labLines = const [],
+    this.checkupStage,
+    this.followKind,
+    this.checkupStageSince,
+    this.labBookingAt,
+    this.resultReadyAt,
+    this.doctorVisitAt,
   });
 
   final String uuid;
@@ -205,6 +211,31 @@ class CaregiverRecord {
   final String? place;
   final String? notes;
   final List<CaregiverLabLine> labLines;
+
+  // ----------------------------------------------------------- المتابعات
+  // **قراية بس، وجوّه اللي الابن بيشوفه أصلاً.** الأعمدة دي على
+  // `public.records` نفسه — نفس الصف اللي `records_select` بيسمح له بيه
+  // من `0012` عن طريق `private.can_access_patient`. سياسات RLS في
+  // بوستجرس على مستوى **الصف** مش العمود، و`0015`/`0017` زوّدوا أعمدة
+  // على نفس الجدول من غير ما يلمسوا ولا سياسة. يعني مفيش هجرة ولا سياسة
+  // جديدة محتاجة هنا — الاستعلام بس هو اللي كان ناقصهم.
+
+  /// رقم المرحلة زي ما جهاز الأب كتبه. null = الصف ده مش متابعة أصلاً.
+  final int? checkupStage;
+
+  /// `lab` / `visit`. **null معناها `lab`** — قبل الجولة ٢٤ ما كانش فيه
+  /// نوع تاني، فده مش تخمين.
+  final String? followKind;
+
+  /// ساعة دخول المرحلة الحالية — منها بس بيتحسب «واقفة من أسبوع».
+  final DateTime? checkupStageSince;
+
+  final DateTime? labBookingAt;
+  final DateTime? resultReadyAt;
+
+  /// معاد الدكتور — **وهو نفسه معاد الزيارة** في متابعة الزيارة: المعنى
+  /// واحد، والصف نوعه واحد بس.
+  final DateTime? doctorVisitAt;
 }
 
 class CaregiverLabLine {

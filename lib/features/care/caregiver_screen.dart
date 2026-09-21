@@ -4,6 +4,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
 import '../../data/care/caregiver_remote.dart';
+import '../../domain/health/follow_up.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
@@ -145,12 +146,14 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   const CareHead('تنبيهات'),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
-                // ٣ — يوم النهارده في سطور مضغوطة.
-                // «جرعات النهارده» مش «النهارده» وبس: كلمة واحدة لحاجتين
-                // على نفس الشاشة بتلغبط.
-                const CareHead('جرعات النهارده'),
-                ..._todayList(snapshot),
-                // ٤ — الأسبوع في سطر واحد. الشبكة القديمة كانت سبع أعمدة
+                // ٣ — اليوم في أقسام بترتيب طلب المالك: اللي ما اتأكدتش ←
+                // جاية ← اتاخدت. **وكل قسم فاضي بيختفي** — سطر الحالة فوق
+                // قال خلاص إن كل حاجة تمام، فعنوان فوق فراغ زيادة بتشغل
+                // شاشة الهدف منها الكثافة.
+                ..._doseSections(snapshot),
+                // ٤ — المتابعات: زيارات، وبعدين تحاليل.
+                ..._followSections(snapshot),
+                // ٥ — الأسبوع في سطر واحد. الشبكة القديمة كانت سبع أعمدة
                 // كسور، والابن مكانش بيقرا منها حاجة (جولة ٣٠ شالتها).
                 ..._week(status),
                 // ٥ — «الجديد»: تحليل اتضاف مش أعجل من جرعة النهارده.
@@ -275,33 +278,88 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     ];
   }
 
-  List<Widget> _todayList(CaregiverSnapshot snapshot) {
-    final today = DateTime(_now.year, _now.month, _now.day);
-    final todays = [
-      for (final e in snapshot.events)
-        if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) ==
-            today)
-          e,
-    ];
-    if (todays.isNotEmpty) return [for (final e in todays) _DoseRow(event: e, now: _now)];
-
-    // أب ظبّط أدويته بالليل: النهارده فاضي وبكرة مليان. «مفيش حاجة» كانت
-    // هتبقى صح بالحرف وغلط في المعنى — نقول اللي جاي. جهاز الأب بينزّل بكرة
-    // مقدماً (rescheduleAll)، فالصفوف دي في الصورة أصلاً؛ مفيش سحبة زيادة.
-    final tomorrow = DateTime(today.year, today.month, today.day + 1);
-    final tomorrows = [
-      for (final e in snapshot.events)
-        if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == tomorrow) e,
-    ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    if (tomorrows.isEmpty) {
+  /// **ما اتأكدتش ← جاية ← اتاخدت** — وقسم رابع صغير للي اتخطّى.
+  ///
+  /// أول قسم فوق خالص لأنه السبب اللي الابن فاتح التطبيق عشانه؛ دفنه بين
+  /// «اتاخدت» و«جاية» بيخلّيه يدوّر على اللي جاي يدوّر عليه.
+  ///
+  /// **والعنوان بعدّاده بين قوسين، مش بنقطة وسطية** — «جاية · ٣» ممنوعة
+  /// في التطبيق كله: «٠» العربية *هي* نقطة، فـ«جاية · ٣» بتتقري «جاية ٠٣»
+  /// جنب الأرقام العربية. فيه اختبار بيقرا كل نص في `lib/` ويوقع عليها.
+  List<Widget> _doseSections(CaregiverSnapshot snapshot) {
+    final s = careDoseSections(snapshot, _now);
+    final nothingAtAll = s.missed.isEmpty &&
+        s.upcomingToday.isEmpty &&
+        s.tomorrow.isEmpty &&
+        s.taken.isEmpty &&
+        s.skipped.isEmpty;
+    if (nothingAtAll) {
       return const [CarePanel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
     }
+
+    final todayEmpty =
+        s.missed.isEmpty && s.upcomingToday.isEmpty && s.taken.isEmpty && s.skipped.isEmpty;
+
     return [
-      CarePanel(
-        key: const ValueKey('tomorrow-first'),
-        text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة ${spokenTime(tomorrows.first.scheduledAt)}',
-      ),
-      for (final e in tomorrows) _DoseRow(event: e, now: _now, tomorrow: true),
+      // **العنوان «ما اتأكدتش» مش «فاتت» — وده الحتة الوحيدة اللي خرجت
+      // عن نص المالك في الملحق، عن قصد.** القاعدة المكتوبة في CLAUDE.md:
+      // جرعة عدّى وقتها من غير تأكيد بتتقال «لسه ما اتأكدتش» — عمرها ما
+      // تبقى «فاتت» ولا حمرا، «إحنا بنبلّغ مش بنحكم». وفيه اختبار بيقرا
+      // الشاشة ويوقع على كلمة «فاتت» بالسبب ده مكتوب جواه. وعنوان «فاتت»
+      // فوق صف بيقول «لسه ما اتأكدتش» بيناقض نفسه على شاشة واحدة.
+      // لو المالك عايز «فاتت» فعلاً، دي كلمة واحدة هنا وسطر في الاختبار.
+      if (s.missed.isNotEmpty) ...[
+        CareHead('ما اتأكدتش', count: s.missed.length),
+        for (final e in s.missed) _DoseRow(event: e, now: _now),
+      ],
+      if (s.upcomingToday.isNotEmpty || s.tomorrow.isNotEmpty) ...[
+        CareHead('جاية', count: s.upcomingToday.length + s.tomorrow.length),
+        // أب ظبّط أدويته بالليل: النهارده فاضي وبكرة مليان. «مفيش حاجة»
+        // كانت هتبقى صح بالحرف وغلط في المعنى — بنقول اللي جاي.
+        if (todayEmpty && s.tomorrow.isNotEmpty)
+          CarePanel(
+            key: const ValueKey('tomorrow-first'),
+            text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة '
+                '${spokenTime(s.tomorrow.first.scheduledAt)}',
+          ),
+        for (final e in s.upcomingToday) _DoseRow(event: e, now: _now, ahead: true),
+        if (s.tomorrow.isNotEmpty) ...[
+          // **بكرة تحت عنوان يومها** — فالصف نفسه بيكتفي بساعته.
+          _DayHead(day: s.tomorrow.first.scheduledAt, now: _now),
+          for (final e in s.tomorrow) _DoseRow(event: e, now: _now, ahead: true),
+        ],
+      ],
+      if (s.taken.isNotEmpty) ...[
+        CareHead('اتاخدت', count: s.taken.length),
+        for (final e in s.taken) _DoseRow(event: e, now: _now),
+      ],
+      if (s.skipped.isNotEmpty) ...[
+        CareHead('متخطّية', count: s.skipped.length),
+        for (final e in s.skipped) _DoseRow(event: e, now: _now),
+      ],
+    ];
+  }
+
+  /// **زيارات** و**تحاليل** — المتابعات المفتوحة، كل نوع في قسمه.
+  ///
+  /// دي قراية لصف الأب زي كل حاجة هنا: المرحلة اللي هو واقف عندها،
+  /// وميعادها لو حطّه. **ومفيش حساب من عندنا** — لا بنقول التحليل ياخد
+  /// قد إيه ولا بنحكم على تأخير؛ «واقفة من أسبوع» واقعة عن الشاشة،
+  /// بنفس الحساب اللي على موبايل الأب بالظبط (`followIsStalled`).
+  List<Widget> _followSections(CaregiverSnapshot snapshot) {
+    final all = careFollowUps(snapshot, _now);
+    if (all.isEmpty) return const [];
+    final visits = [for (final f in all) if (f.kind == FollowKind.visit) f];
+    final labs = [for (final f in all) if (f.kind == FollowKind.lab) f];
+    return [
+      if (visits.isNotEmpty) ...[
+        CareHead('زيارات', count: visits.length),
+        for (final f in visits) _FollowRow(follow: f, now: _now),
+      ],
+      if (labs.isNotEmpty) ...[
+        CareHead('تحاليل', count: labs.length),
+        for (final f in labs) _FollowRow(follow: f, now: _now),
+      ],
     ];
   }
 
@@ -352,10 +410,11 @@ class CaregiverMedicationRow extends StatelessWidget {
 }
 
 class _DoseRow extends StatelessWidget {
-  const _DoseRow({required this.event, required this.now, this.tomorrow = false});
+  const _DoseRow({required this.event, required this.now, this.ahead = false});
 
-  /// جرعة بكرة — الوقت بيتكتب «بكرة …» عشان محدش يفتكرها النهارده.
-  final bool tomorrow;
+  /// جرعة جاية — بدل كلمة الحالة بنكتب «كمان ٤٠ دقيقة»، وده اللي الابن
+  /// بيقراه فعلاً. اليوم نفسه بيتقال في عنوان القسم مش في كل سطر.
+  final bool ahead;
 
   final CaregiverDoseEvent event;
   final DateTime now;
@@ -365,7 +424,11 @@ class _DoseRow extends StatelessWidget {
     // الحالة بالحرف زي ما جهاز الأب كتبها — بنترجم للعربي، مش بنحكم
     final look = doseLook(event, now);
     final label = switch (event.state) {
-      'taken' => 'اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}',
+      // **وقت التأكيد الحقيقي، مش وقت الجدولة** — وده اللي المالك طلبه
+      // في القسم ده: «الدوا، ميعاده، والوقت اللي اتأكّد فيه». والساعة
+      // المجدولة موجودة في عمود الوقت على أول الصف. و«اتأكّدت» مش
+      // «اتاخد»: العنوان فوق اسمه «اتاخدت» خلاص، والتكرار زحمة.
+      'taken' => 'اتأكّدت ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}',
       'skipped' => 'قال مش هياخده',
       // جهاز الأب هو اللي قال «اتنست» بعد المهلة — إحنا بننقل، مش بنحكم
       'missed' => 'اتنست — لسه ما اتأكدتش',
@@ -384,7 +447,7 @@ class _DoseRow extends StatelessWidget {
             SizedBox(
               width: 64,
               child: Text(
-                tomorrow ? 'بكرة ${arabicTime(event.scheduledAt)}' : arabicTime(event.scheduledAt),
+                arabicTime(event.scheduledAt),
                 style: TextStyle(
                   fontSize: F.careMicroSize,
                   fontWeight: FontWeight.w700,
@@ -409,9 +472,124 @@ class _DoseRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: F.s8),
-            CareStateMark(look: look, label: label.trim()),
+            if (ahead)
+              // القسم اسمه «جاية» خلاص، فالسطر ما بيكرّرش الحالة —
+              // بيقول **قد إيه فاضل**، وده الرقم اللي بيتقري.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.schedule, size: 16, color: F.mutedDark),
+                  const SizedBox(width: F.s4),
+                  Text(
+                    timeAhead(now, event.scheduledAt),
+                    style: TextStyle(
+                      fontSize: F.careTextSize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              )
+            else
+              CareStateMark(look: look, label: label.trim()),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// عنوان يوم جوّه قسم «جاية» — «بكرة — ١ سبتمبر».
+///
+/// جرعة بكرة كانت بتكتب «بكرة» في كل سطر. مع عنوان اليوم بقت الكلمة
+/// مكتوبة مرة واحدة، والسطر بيكتفي بساعته — وده كان الفرق الوحيد اللي
+/// كان بيخلّي صف بكرة أطول من صف النهارده.
+class _DayHead extends StatelessWidget {
+  const _DayHead({required this.day, required this.now});
+
+  final DateTime day;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: F.s4, bottom: F.s6),
+        child: Text(
+          '${timeAhead(now, day)} — ${arabicDate(day)}',
+          style: TextStyle(
+            fontSize: F.careMicroSize,
+            fontWeight: FontWeight.w700,
+            color: F.mutedDark,
+          ),
+        ),
+      );
+}
+
+/// متابعة مفتوحة — **قراية لصف الأب، ومفيش حكم**.
+///
+/// السطر بيقول: اسم المتابعة، المرحلة اللي هو واقف عندها، وميعادها لو
+/// حطّه — ومعاه «كمان ٣ أيام». مفيش ميعاد؟ بنقول كده بالحرف بدل ما
+/// نخترع تاريخ. وواقفة من أسبوع؟ بنقول إنها واقفة — دي واقعة عن الشاشة
+/// مش عن الجسم ولا عن المعمل، وبنفس الحساب اللي على موبايل الأب.
+class _FollowRow extends StatelessWidget {
+  const _FollowRow({required this.follow, required this.now});
+
+  final CareFollowUp follow;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = follow.stageDate;
+    final doctor = follow.record.doctor?.trim();
+    return CareCard(
+      edge: follow.stalled ? F.gold : null,
+      padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  follow.record.title,
+                  style: TextStyle(
+                    fontSize: F.careBodySize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: F.s8),
+              CareStateMark(look: DoseLook.upcoming, label: follow.stage.label),
+            ],
+          ),
+          const SizedBox(height: F.s4),
+          Text(
+            [
+              if (doctor != null && doctor.isNotEmpty) doctor,
+              if (date != null)
+                '${arabicDate(date)} — ${timeAhead(now, date)}'
+              else
+                'لسه مفيش ميعاد متحطّ',
+            ].join(' — '),
+            style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark, height: 1.4),
+          ),
+          if (follow.stalled)
+            Padding(
+              padding: const EdgeInsets.only(top: F.s4),
+              child: Text(
+                'واقفة عند «${follow.stage.label}» '
+                '${timeSince(now, follow.record.checkupStageSince!)}',
+                style: TextStyle(
+                  fontSize: F.careMicroSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
+                  height: 1.4,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

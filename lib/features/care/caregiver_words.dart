@@ -71,3 +71,59 @@ String newItemTitle(CaregiverNewItem item) => switch (item.type) {
         'قياس سكر ${glucoseContextLabel(item.reading!.context)}: ${glucoseValue(item.reading!.valueMgDl)}',
       NewItemType.question => 'سؤال للدكتور: ${item.question!.body}',
     };
+
+// ---------------------------------------------------------------- «كمان …»
+//
+// **الوقت النسبي هو اللي الابن بيقراه فعلاً.** «٨:٠٠ م» بيخلّيه يحسب؛
+// «كمان ٦ ساعات» بيدّيه الإجابة. الساعة بتفضل مكتوبة جنبها — هو بيبص
+// بسرعة، بس ساعات بيحتاج الرقم نفسه.
+//
+// العربي بيعدّ تلات صيغ (واحد، اتنين، جمع)، والكسر بينهم بيخلّي الجملة
+// تقرا غلط. الصيغ هنا مكتوبة بالإيد لكل وحدة بدل قاعدة عامة بتغلط.
+
+String _count(int n, String one, String two, String few, String many) => switch (n) {
+      1 => one,
+      2 => two,
+      >= 3 && <= 10 => '${arabicNumber(n)} $few',
+      _ => '${arabicNumber(n)} $many',
+    };
+
+/// «كمان ٤٠ دقيقة» — أو «دلوقتي» لو باقي أقل من دقيقة.
+///
+/// بتتحسب بالأيام التقويمية مش بالضرب في ٢٤ ساعة: مصر بتغيّر الساعة،
+/// و«كمان يومين» المفروض تعدّ أيام مش ساعات.
+String timeAhead(DateTime from, DateTime to) {
+  final minutes = to.difference(from).inMinutes;
+  if (minutes < 1) return 'دلوقتي';
+  if (minutes < 60) {
+    return 'كمان ${_count(minutes, 'دقيقة', 'دقيقتين', 'دقايق', 'دقيقة')}';
+  }
+  final days = DateTime(to.year, to.month, to.day)
+      .difference(DateTime(from.year, from.month, from.day))
+      .inDays;
+  if (days == 0) {
+    final hours = minutes ~/ 60;
+    return 'كمان ${_count(hours, 'ساعة', 'ساعتين', 'ساعات', 'ساعة')}';
+  }
+  if (days == 1) return 'بكرة';
+  if (days == 2) return 'بعد بكرة';
+  return 'كمان ${_count(days, 'يوم', 'يومين', 'أيام', 'يوم')}';
+}
+
+/// «من ٣ أيام» — للي عدّى. بتتنده على متابعة واقفة وعلى جرعة فاتت.
+String timeSince(DateTime from, DateTime at) {
+  final minutes = from.difference(at).inMinutes;
+  if (minutes < 1) return 'دلوقتي';
+  if (minutes < 60) {
+    return 'من ${_count(minutes, 'دقيقة', 'دقيقتين', 'دقايق', 'دقيقة')}';
+  }
+  final days = DateTime(from.year, from.month, from.day)
+      .difference(DateTime(at.year, at.month, at.day))
+      .inDays;
+  if (days == 0) {
+    final hours = minutes ~/ 60;
+    return 'من ${_count(hours, 'ساعة', 'ساعتين', 'ساعات', 'ساعة')}';
+  }
+  if (days == 1) return 'من امبارح';
+  return 'من ${_count(days, 'يوم', 'يومين', 'أيام', 'يوم')}';
+}

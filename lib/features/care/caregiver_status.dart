@@ -1,5 +1,7 @@
 import '../../data/care/caregiver_remote.dart';
 import '../../data/dose_state.dart';
+import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_up.dart';
 
 /// **الحساب اللي شاشة الابن بتبدأ بيه — دوال نقية، من غير أي ودجت.**
 ///
@@ -135,4 +137,150 @@ CareStatus careStatus(CaregiverSnapshot snapshot, DateTime now) {
     completeDays: complete,
     daysWithDoses: withDoses,
   );
+}
+
+// ===========================================================================
+// أقسام «متابعة» — الترتيب اللي المالك طلبه، محسوب هنا مش في الودجت.
+// ===========================================================================
+
+/// جرعات اليوم متقسّمة زي ما الشاشة بتعرضها.
+class CareDoseSections {
+  const CareDoseSections({
+    required this.missed,
+    required this.upcomingToday,
+    required this.tomorrow,
+    required this.taken,
+    required this.skipped,
+  });
+
+  /// **فاتت** — عدّى وقتها من غير تأكيد، أو جهاز الأب كتبها «اتنست».
+  /// الأقدم الأول: اللي فاتت من ساعتين أهم من اللي فاتت من عشر دقايق.
+  final List<CaregiverDoseEvent> missed;
+
+  /// **جاية** — باقي النهارده، **الأقرب الأول**.
+  final List<CaregiverDoseEvent> upcomingToday;
+
+  /// وبكرة تحت عنوان يومها، الأقرب الأول برضه.
+  final List<CaregiverDoseEvent> tomorrow;
+
+  /// **اتاخدت** النهارده، **الأحدث الأول** — السؤال هو «خد آخر واحدة؟».
+  final List<CaregiverDoseEvent> taken;
+
+  /// **قرار إنسان، مش نسيان.** القايمة اللي المالك كتبها فيها تلات أقسام
+  /// بس، و«مش هاخده» مش واحد فيهم: هي مش فايتة (حد قرر) ومش اتاخدت. إخفاؤها
+  /// كان هيضيّع معلومة كانت بتتعرض قبل كده، وحطّها تحت «اتاخدت» كان
+  /// هيخلّي العنوان يكدب. فقسم صغير لوحدها لحد ما المالك يقول.
+  final List<CaregiverDoseEvent> skipped;
+}
+
+DateTime _actedOrScheduled(CaregiverDoseEvent e) => e.actedAt ?? e.scheduledAt;
+
+CareDoseSections careDoseSections(CaregiverSnapshot snapshot, DateTime now) {
+  final today = _day(now);
+  final tomorrowDay = today.add(const Duration(days: 1));
+  final missed = <CaregiverDoseEvent>[];
+  final upcoming = <CaregiverDoseEvent>[];
+  final tomorrow = <CaregiverDoseEvent>[];
+  final taken = <CaregiverDoseEvent>[];
+  final skipped = <CaregiverDoseEvent>[];
+
+  for (final e in snapshot.events) {
+    final day = _day(e.scheduledAt);
+    if (day == tomorrowDay) {
+      tomorrow.add(e);
+      continue;
+    }
+    if (day != today) continue;
+    switch (doseLook(e, now)) {
+      case DoseLook.unconfirmed:
+        missed.add(e);
+      case DoseLook.upcoming:
+        upcoming.add(e);
+      case DoseLook.taken:
+        taken.add(e);
+      case DoseLook.skipped:
+        skipped.add(e);
+    }
+  }
+
+  missed.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  upcoming.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  tomorrow.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  skipped.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  // الأحدث الأول — بوقت التأكيد الحقيقي، مش بوقت الجدولة.
+  taken.sort((a, b) => _actedOrScheduled(b).compareTo(_actedOrScheduled(a)));
+
+  return CareDoseSections(
+    missed: missed,
+    upcomingToday: upcoming,
+    tomorrow: tomorrow,
+    taken: taken,
+    skipped: skipped,
+  );
+}
+
+/// متابعة مفتوحة زي ما الابن بيشوفها — **قراية لصف الأب، مش حساب تاني**.
+class CareFollowUp {
+  const CareFollowUp({
+    required this.record,
+    required this.kind,
+    required this.stage,
+    required this.stageDate,
+    required this.stalled,
+  });
+
+  final CaregiverRecord record;
+  final FollowKind kind;
+  final FollowStage stage;
+
+  /// ميعاد المرحلة الحالية — null يعني الأب لسه ما حطّهوش.
+  final DateTime? stageDate;
+
+  /// واقفة عند مرحلة بتسأل عن ميعاد، ومفيش ميعاد، وعدّى أسبوع.
+  final bool stalled;
+}
+
+/// **نفس اختيار الأعمدة اللي `CheckupService.stageDateOf` بيعمله** —
+/// معاد الزيارة بيقعد في نفس عمود «معاد الدكتور»، والصف نوعه واحد بس.
+DateTime? careStageDate(CaregiverRecord r, FollowStage stage) => switch (stage) {
+      CheckupStage.labBooking => r.labBookingAt,
+      CheckupStage.waitingResult => r.resultReadyAt,
+      CheckupStage.resultArrived => r.doctorVisitAt,
+      VisitStage.booked => r.doctorVisitAt,
+      _ => null,
+    };
+
+/// المتابعات المفتوحة — أي صف جهاز الأب حاطط عليه مرحلة.
+///
+/// الترتيب: اللي ليه ميعاد الأول بالأقرب، وبعدين اللي من غير ميعاد.
+/// متابعة من غير ميعاد مش «بعيدة»، هي **مش متحدّدة** — ورميها آخر القايمة
+/// أصدق من اختراع تاريخ لها.
+List<CareFollowUp> careFollowUps(CaregiverSnapshot snapshot, DateTime now) {
+  final out = <CareFollowUp>[];
+  for (final r in snapshot.records) {
+    final kind = FollowKind.fromStored(r.followKind);
+    final stage = kind.stageFromNumber(r.checkupStage);
+    if (stage == null) continue;
+    final date = careStageDate(r, stage);
+    out.add(CareFollowUp(
+      record: r,
+      kind: kind,
+      stage: stage,
+      stageDate: date,
+      stalled: followIsStalled(
+        stage: stage,
+        stageSince: r.checkupStageSince,
+        stageDate: date,
+        now: now,
+      ),
+    ));
+  }
+  out.sort((a, b) {
+    final x = a.stageDate, y = b.stageDate;
+    if (x == null && y == null) return a.record.title.compareTo(b.record.title);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return x.compareTo(y);
+  });
+  return out;
 }
