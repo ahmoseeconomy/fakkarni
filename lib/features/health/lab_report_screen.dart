@@ -503,12 +503,14 @@ class _EditLineDialogState extends State<_EditLineDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
+            textInputAction: TextInputAction.next,
             key: const ValueKey('edit-test'),
             controller: _name,
             style: const TextStyle(fontSize: F.minBodySize),
             decoration: const InputDecoration(labelText: 'اسم التحليل زي ما هو في الورقة'),
           ),
           TextField(
+            textInputAction: TextInputAction.next,
             key: const ValueKey('edit-value'),
             controller: _value,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -516,6 +518,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
             decoration: const InputDecoration(labelText: 'الرقم'),
           ),
           TextField(
+            textInputAction: TextInputAction.next,
             key: const ValueKey('edit-unit'),
             controller: _unit,
             style: const TextStyle(fontSize: F.minBodySize),
@@ -530,6 +533,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
             children: [
               Expanded(
                 child: TextField(
+                  textInputAction: TextInputAction.next,
                   key: const ValueKey('edit-ref-from'),
                   controller: _low,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -540,6 +544,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
               const SizedBox(width: F.s10),
               Expanded(
                 child: TextField(
+                  textInputAction: TextInputAction.next,
                   key: const ValueKey('edit-ref-to'),
                   controller: _high,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -550,6 +555,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
             ],
           ),
           TextField(
+            textInputAction: TextInputAction.done,
             key: const ValueKey('edit-ref-text'),
             controller: _text,
             style: const TextStyle(fontSize: F.minBodySize),

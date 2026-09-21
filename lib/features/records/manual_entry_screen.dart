@@ -174,6 +174,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     Widget field(TextEditingController c, String label, {String? hint, Key? key, int? lines = 1}) => Padding(
           padding: const EdgeInsets.only(bottom: F.s12),
           child: TextField(
+            // **حقل متعدد السطور بياخد `newline`** — لو أخد `done` زرار
+            // السطر الجديد في الكيبورد بيتحوّل لـ«تم» والواحد ما يقدرش
+            // ينزل سطر أصلاً. الباقي `done`: مفيش حقل بعده.
+            textInputAction: lines == 1 ? TextInputAction.done : TextInputAction.newline,
             key: key,
             controller: c,
             style: body,

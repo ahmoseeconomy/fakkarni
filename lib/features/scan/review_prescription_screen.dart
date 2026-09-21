@@ -189,6 +189,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       title: title,
       children: [
         TextField(
+          textInputAction: TextInputAction.done,
           controller: controller,
           autofocus: true,
           style: const TextStyle(fontSize: F.minBodySize),

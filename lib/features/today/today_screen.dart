@@ -6,6 +6,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/keyboard_dismiss.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
@@ -216,10 +217,14 @@ class _TodayScreenState extends State<TodayScreen> {
       // «القريب مني» عايم في آخر السطر (ناحية الشمال في RTL) — ثانوي، مش
       // أساسي: الأساسي الوحيد على الشاشة دي «تأكيد الجرعة».
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: F.s10 + MediaQuery.of(context).padding.bottom),
-        child: _NearbyPill(onTap: _openNearby),
-      ),
+      // **وبيختفي والكيبورد مرفوع** — عايم يعني بيغطّي، والكيبورد بيرفعه
+      // لحد «تأكيد الجرعة». شوف `keyboard_dismiss.dart`.
+      floatingActionButton: keyboardIsUp(context)
+          ? null
+          : Padding(
+              padding: EdgeInsets.only(bottom: F.s10 + MediaQuery.of(context).padding.bottom),
+              child: _NearbyPill(onTap: _openNearby),
+            ),
       body: StreamBuilder<List<DoseEventView>>(
         stream: _events,
         builder: (context, snapshot) {

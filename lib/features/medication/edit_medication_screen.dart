@@ -272,6 +272,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         const SizedBox(height: 8),
                       ],
                       TextField(
+                        textInputAction: TextInputAction.done,
                         controller: _amount,
                         style: const TextStyle(fontSize: F.minBodySize),
                         decoration: InputDecoration(

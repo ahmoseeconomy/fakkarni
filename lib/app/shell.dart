@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
+import '../core/widgets/keyboard_dismiss.dart';
 import '../core/widgets/fa_mark.dart';
 import '../core/widgets/dark_mode_toggle.dart';
 import '../data/repositories/preferences_repository.dart';
@@ -113,7 +114,11 @@ class _AppShellState extends State<AppShell> {
             const SettingsScreen(),
           ],
         ),
-        bottomNavigationBar: _TabBar(
+        // **الدوك بيختفي والكيبورد مرفوع** — الكيبورد بيزقّه لفوق فبيقعد
+        // فوق المحتوى. شوف `keyboard_dismiss.dart`.
+        bottomNavigationBar: keyboardIsUp(context)
+            ? null
+            : _TabBar(
           labels: AppShell.elderTabs,
           icons: const [Icons.home_outlined, Icons.settings_outlined],
           gapForAdd: false,
@@ -135,9 +140,13 @@ class _AppShellState extends State<AppShell> {
       extendBody: true,
       appBar: _appBar(),
       body: IndexedStack(index: _tab, children: pages),
-      floatingActionButton: _AddButton(onPressed: _openAdd),
+      // **الدوك و«ضيف» بيختفوا والكيبورد مرفوع** — ده اللي كان بيحط «ضيف»
+      // فوق «تأكيد الجرعة».
+      floatingActionButton: keyboardIsUp(context) ? null : _AddButton(onPressed: _openAdd),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _TabBar(
+      bottomNavigationBar: keyboardIsUp(context)
+          ? null
+          : _TabBar(
         labels: AppShell.tabs,
         icons: const [
           Icons.today_outlined,
@@ -235,7 +244,10 @@ class _CaregiverShellState extends State<CaregiverShell> {
           const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
         ],
       ),
-      bottomNavigationBar: _TabBar(
+      // نفس القاعدة عند الابن: «الملف الصحي» عنده فيه بحث.
+      bottomNavigationBar: keyboardIsUp(context)
+          ? null
+          : _TabBar(
         labels: CaregiverShell.tabs,
         icons: const [
           Icons.visibility_outlined,

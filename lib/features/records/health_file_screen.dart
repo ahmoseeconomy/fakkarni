@@ -215,6 +215,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
             padding: EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               TextField(
+                textInputAction: TextInputAction.search,
                 key: const ValueKey('records-search'),
                 controller: _query,
                 style: TextStyle(fontSize: F.minBodySize, color: F.ink),
@@ -411,6 +412,7 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              textInputAction: TextInputAction.next,
               key: const ValueKey('checkup-title'),
               controller: _title,
               style: const TextStyle(fontSize: F.minBodySize),
@@ -422,6 +424,7 @@ class _StartCheckupDialogState extends State<_StartCheckupDialog> {
             // الزيارة اسمها هو الدكتور نفسه، فمفيش حقل تاني يتكتب مرتين.
             if (widget.kind == FollowKind.lab)
               TextField(
+                textInputAction: TextInputAction.done,
                 controller: _doctor,
                 style: const TextStyle(fontSize: F.minBodySize),
                 decoration: const InputDecoration(labelText: 'الدكتور اللي طلبه'),

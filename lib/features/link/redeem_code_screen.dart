@@ -176,6 +176,7 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                   ),
                   const SizedBox(height: F.gap),
                   TextField(
+                    textInputAction: TextInputAction.done,
                     controller: _code,
                     onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.number,

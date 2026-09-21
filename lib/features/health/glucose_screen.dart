@@ -121,6 +121,7 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                     const SectionHead('سجّل قراءة'),
                     const SizedBox(height: F.s8),
                     TextField(
+                      textInputAction: TextInputAction.done,
                       key: const ValueKey('glucose-value'),
                       controller: _value,
                       keyboardType: TextInputType.number,

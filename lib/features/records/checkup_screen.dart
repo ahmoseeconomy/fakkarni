@@ -488,6 +488,7 @@ class _FastingSheetState extends State<_FastingSheet> {
               const SectionHead('المعمل قال صيام كام ساعة؟'),
               const SizedBox(height: F.s8),
               TextField(
+                textInputAction: TextInputAction.done,
                 key: const ValueKey('fasting-hours'),
                 controller: _hours,
                 keyboardType: TextInputType.number,

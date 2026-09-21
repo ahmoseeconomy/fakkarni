@@ -12,6 +12,7 @@ import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
 import 'core/widgets/patient_voice.dart';
+import 'core/widgets/keyboard_dismiss.dart';
 import 'dart:async' show unawaited;
 
 import 'core/diagnostics.dart';
@@ -205,9 +206,15 @@ class FakkarniApp extends StatelessWidget {
           textDirection: TextDirection.rtl,
           // صوت المريض بجنسه فوق الـNavigator — كل شاشة بتتفتح بـpush بتشوفه
           child: PatientVoiceScope(
-            child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+            // ودوسة برّه أي حقل بتقفل الكيبورد — في الجذر، فوق كل شاشة.
+            child: KeyboardDismiss(
+              child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+            ),
           ),
         ),
+        // **تسليم التركيز عند كل تغيير مسار** — شاشة نسيت تقفل كيبوردها
+        // ما بتقدرش تورّثه للّي بعدها. شوف `keyboard_dismiss.dart`.
+        navigatorObservers: [FakkarniNavigatorObserver()],
         home: const AppRoot(),
       ),
     );

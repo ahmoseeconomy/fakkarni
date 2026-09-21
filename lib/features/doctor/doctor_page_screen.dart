@@ -375,6 +375,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                 ),
               const SizedBox(height: F.s8),
               TextField(
+                textInputAction: TextInputAction.done,
                 key: const ValueKey('question-field'),
                 controller: _newQuestion,
                 style: const TextStyle(fontSize: F.minBodySize),

@@ -481,6 +481,7 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
+        textInputAction: TextInputAction.next,
         controller: controller,
         onChanged: onChanged,
         keyboardType: number ? TextInputType.number : null,

@@ -75,6 +75,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: F.gap),
               const _Label('اسمك إيه؟'),
               TextField(
+                textInputAction: TextInputAction.done,
                 controller: _name,
                 onChanged: (_) => setState(() {}),
                 textCapitalization: TextCapitalization.words,

@@ -173,6 +173,37 @@ These are product decisions, already settled. Do not "improve" them without aski
   reads better); comments and docstrings may keep «·».
   `test/app/no_middle_dot_test.dart` reads every string literal under
   `lib/` and fails if one comes back.
+- **الكيبورد بيتقفل من الجذر — مش من كل شاشة.** على آيفون حقيقي:
+  «بيانات الطوارئ» بتحفظ وبتعمل `pop` وهي سايبة التركيز على حقل نص.
+  الحقل بيروح مع الشاشة والكيبورد بيفضل مفتوح على «يومك» **من غير أي
+  حقل يقفله بيه**. وأوحش: الكيبورد المرفوع بيزقّ الدوك لفوق، فـ«ضيف»
+  و«القريب مني» بيقعدوا **فوق «تأكيد الجرعة»** — وراجل عنده ٧٢ سنة مادّ
+  إيده للتأكيد بيدوس «ضيف». قبل الجولة دي كان فيه `unfocus` **واحدة** في
+  التطبيق كله (`glucose_screen`)، يعني كل فورم تاني كان ممكن يسرّب
+  كيبورد — فالعلاج في `lib/core/widgets/keyboard_dismiss.dart`، مش في
+  الشاشة:
+  - `FakkarniNavigatorObserver` بيسلّم التركيز عند كل `push` و`pop`
+    و`didReplace`. `push` كمان مش `pop` بس: شاشة بتفتح شاشة وهي كاتبة
+    بتسيب الكيبورد فوق الجديدة بنفس الطريقة.
+  - `KeyboardDismiss` في الجذر: دوسة برّه أي حقل بتقفله. `translucent`
+    فالدوسة بتعدّي، والزرار اللي تحت الصبع هو اللي بيكسب في ساحة
+    الإيماءات — اختبار بيثبت إنها ما بتاكلش دوسة على زرار شغّال.
+  - **وكل حقل في `lib/` له `textInputAction`**، فالكيبورد نفسه دايماً
+    فيه باب خروج. `test/app/keyboard_test.dart` بيمشي على الأقواس
+    المتوازنة لكل `TextField(` ويوقع لو واحد اتضاف من غيره — عدّ الكلمات
+    كان هيعدّي على حقل ناقص في وسط ملف. حقل متعدد السطور بياخد `newline`
+    مش `done`، وإلا زرار السطر الجديد بيتحوّل لـ«تم».
+  - **`keyboardIsUp` بتتقرا من مصدرين، ودي مش حزام وحمّالة.**
+    `MediaQuery.viewInsetsOf` هي اللي بتعمل إعادة البناء أصلاً — بس
+    `Scaffold` وهو `resizeToAvoidBottomInset` **بيصفّر الـinset لجسمه**،
+    فأي شاشة جوّه الشِل بتشوف صفر وهي مغطّاة بالكيبورد (ده اللي خلّى
+    «القريب مني» يفضل ظاهر). الرقم الخام من `View` هو الحقيقة هناك،
+    وإعادة البناء بتيجي من الشِل اللي فوقها.
+  - الدوك و«ضيف» و«القريب مني» بيختفوا وهو مرفوع — في الشِل العادي ونمط
+    كبار السن **وشِل الابن** («الملف الصحي» عنده فيه بحث).
+  - **وفي الاختبار**: `Scaffold` بيطلّع الزرار العايم بحركة تصغير، فنبضة
+    واحدة بعد تغيير الـinset بتلاقيه **لسه موجود**. لازم نبض محدود
+    (`settle`) مش `pump` واحدة.
 - **A sheet with a text field moves with the keyboard — and that lives in
   `FSheet`, not in the caller.** `showModalBottomSheet` is already
   `isScrollControlled`, but a sheet built at its natural height is simply
@@ -274,7 +305,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1136 passing
+test/                         1144 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is

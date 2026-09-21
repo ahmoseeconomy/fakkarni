@@ -193,6 +193,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
           ),
           const SizedBox(height: F.gap),
           TextField(
+            textInputAction: TextInputAction.newline,
             key: const ValueKey('allergies'),
             controller: _allergies,
             style: body,
@@ -201,6 +202,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
           ),
           const SizedBox(height: F.s12),
           TextField(
+            textInputAction: TextInputAction.newline,
             key: const ValueKey('chronic'),
             controller: _chronic,
             style: body,
@@ -224,12 +226,14 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
               child: Column(
                 children: [
                   TextField(
+                    textInputAction: TextInputAction.next,
                     controller: c.name,
                     style: body,
                     decoration: _field('الاسم'),
                   ),
                   const SizedBox(height: F.s8),
                   TextField(
+                    textInputAction: TextInputAction.next,
                     controller: c.phone,
                     style: body,
                     keyboardType: TextInputType.phone,
@@ -238,6 +242,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
                   ),
                   const SizedBox(height: F.s8),
                   TextField(
+                    textInputAction: TextInputAction.done,
                     controller: c.relation,
                     style: body,
                     decoration: _field(
