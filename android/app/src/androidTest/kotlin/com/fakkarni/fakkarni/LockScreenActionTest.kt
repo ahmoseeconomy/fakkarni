@@ -221,39 +221,60 @@ class LockScreenActionTest {
      * **إزاي «يومك» بتعرض جرعة اتأكّدت — مقروء من `day_rail.dart`.**
      *
      *  - **مأخوذة** → `_quietLine`: علامة ✓ (أيقونة، مفيش نص)، اسم الدوا،
-     *    و`say.takenAt(time)` = «أخدته ٧:٣٠ ص» (المريض المزروع `Sex.m`).
-     *    **السطر ده ما بيتشالش من السكة أبداً** — بقرار مكتوب في الملف:
-     *    المريض لازم يشوف إنه خدها.
+     *    و`say.takenAt(time)` = «أخدته ٨:٣٩ ص». **السطر ده ما بيتشالش من
+     *    السكة أبداً** — بقرار مكتوب في الملف: المريض لازم يشوف إنه خدها.
      *  - **لسه** → `_card` بحافة ذهبية + «لسه ما اتأكدتش»، و«الآن»
      *    (`now_card.dart`) بيقول «لسه ما اتأكدتش — كان معادها …» لنفس
      *    الحالة. يعني الجملة دي هي علامة «مش مؤكّدة» في الاتنين.
      *
      * فالتفرقة اللي الخطوة دي محتاجاها:
      *  - «لسه ما اتأكدتش» ظاهرة → الشاشة شايفاها **مش** مؤكّدة = **بايتة**.
-     *  - «أخدته <حاجة>» ظاهرة → **مؤكّدة**.
+     *  - «أخدته <وقت>» ظاهرة → **مؤكّدة**.
      *  - ولا الاتنين بعد ما نلف الصفحة كلها → **مستخبية** أو مش «يومك».
      *
-     * **ليه نمط مش نص:** زرار الستارة نصه «أخدته» بالظبط ومن غير أي حاجة
-     * بعده؛ السطر الهادي «أخدته» + وقت. النمط بيطلب الكلمة التانية، فمفيش
-     * خلط بين الزرار والسطر.
+     * **والقراية لازم تكون من `content-desc`، مش من `text`.** فلاتر
+     * بتطلّع نصها لـUiAutomator من خلال وصف المحتوى، **مدموج لكل عقدة
+     * دلالات** — يعني السكة كلها عقدة واحدة وصفها سطور مفصولة بأسطر
+     * جديدة. تشغيلة ٢٣ سبتمبر أثبتت ده بشجرة النوافذ نفسها:
+     *
+     * ```
+     * content-desc="الصحيان — ٦:٣٠ ص\nالفطار — ٧:٣٠ ص\nTestDose\nأخدته ٨:٣٩ ص…"
+     * ```
+     *
+     * النسخة اللي قبلها كانت بتقارن بـ`By.text`، فعمرها ما كانت هتلاقي
+     * أي حاجة رسمتها فلاتر. الخطوة ٣ نجحت لأن ستارة الإشعارات
+     * `TextView` أصلي، و«مش موجودة» في تشغيلة ٢٢ كانت نفس السبب ده.
+     *
+     * **والنمط بيلفّ الوصف كله** (`.*` + `DOTALL`) لأنه بلوك متعدد
+     * السطور — ودي نفس الطريقة اللي `By.descContains` شغّالة بيها جوّه
+     * (`Patterns.contains` = `^.*<quoted>.*$` بعلم `DOTALL`، مقروء من
+     * bytecode المكتبة).
+     *
+     * **وبيطلب بعد «أخدته» مسافة — مش سطر جديد — ورقم عربي.** زرار
+     * الستارة نصه «أخدته» بالظبط، وأي دمج بيحطه جنب كلام تاني ما يعديش.
+     * وعلامات عزل الاتجاه (U+202A…U+202C وإخواتها) مسموحة، لأن فلاتر
+     * بتلفّ بيها النصوص اللاتينية — عشان كده **مفيش أي مقارنة على اسم
+     * الدوا نفسه**.
      *
      * **وليه تمرير:** «جدول النهاردة» تحت الترويسة و«خلال ٤٨ ساعة» وكارت
-     * المية — يعني السطر الهادي غالباً تحت حد الشاشة، وUiAutomator بيشوف
-     * اللي معروض بس.
+     * المية، وUiAutomator بيشوف المعروض بس.
      */
     private val unconfirmedText = "لسه ما اتأكدتش"
-    private val takenLine: Pattern =
-        Pattern.compile("^\\s*أخدت(ه|يه)\\s+\\S+.*$", Pattern.DOTALL)
+    private val takenLine: Pattern = Pattern.compile(
+        ".*أخدت(ه|يه)[\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069 \\u00A0]+" +
+            "[\\u0660-\\u0669].*",
+        Pattern.DOTALL,
+    )
     private val maxSwipes = 8
 
     private fun doseOnScreen(): DoseOnScreen {
         for (i in 0..maxSwipes) {
             // «مش مؤكّدة» بتتشاف الأول: لو الشاشة بايتة، ده أول اللي بيبان
             // وفوق خالص، ومحتاجينه يقع باسمه مش بـ«مش موجودة».
-            if (device.hasObject(By.textContains(unconfirmedText))) {
+            if (device.hasObject(By.descContains(unconfirmedText))) {
                 return DoseOnScreen.UNCONFIRMED
             }
-            if (device.hasObject(By.text(takenLine))) return DoseOnScreen.TAKEN
+            if (device.hasObject(By.desc(takenLine))) return DoseOnScreen.TAKEN
             if (i == maxSwipes) break
             swipeUpOnce()
         }
@@ -270,9 +291,30 @@ class LockScreenActionTest {
     /**
      * **اللقطة وشجرة النوافذ — الشاشة نفسها، مش وصف ليها من الكود.**
      *
-     * التشغيلة اللي فاتت وقعت عند «مش موجودة» ومحدش عرف الشاشة كانت
-     * بتقول إيه. الشجرة نص فبتتطبع كمان على stdout، فحتى لو السحب من
-     * الجهاز فشل، الدليل بيبقى في تقرير الاختبار.
+     * الشجرة هي اللي خلّت تشغيلة ٢٣ سبتمبر تتقري أصلاً: هي اللي قالت إن
+     * فلاتر بيطلّع نصه في `content-desc`. فبتفضل زي ما هي، **وبتتطبع**
+     * كمان — لأن الطباعة هي اللي وصلت فعلاً، مش السحب من الجهاز.
+     *
+     * **واللقطة رجعت `ok=false` وصفر بايت. من bytecode المكتبة نفسها**
+     * (`UiDevice.takeScreenshot(File, float, int)`، uiautomator 2.3.0)
+     * فيه **طريقين بس** بيرجّعوا false:
+     *  ١. `UiAutomation.takeScreenshot()` رجّعت `null` — بتسجّل
+     *     `Failed to take screenshot.` (W) و**ما بتعملش الملف أصلاً**.
+     *  ٢. الكتابة وقعت — بتسجّل `Failed to save screenshot.` (E)،
+     *     والملف بيبقى **موجود** وفاضي.
+     * واللي كنا بنطبعه كان `length()` بس — وهي صفر في الحالتين، لأن ملف
+     * مش موجود بيرجّع صفر برضه. **يعني التسجيل نفسه مكانش يقدر يفرّق**.
+     * فبقى بيطبع `exists()` كمان، وبيجيب سطور المكتبة من اللوج عشان
+     * المكتبة تقول بلسانها هي راحت في أنهي فرع.
+     *
+     * **وفيه سبب تاني منفصل خلّى الملفات ما توصلش الأرتيفاكتس أصلاً:**
+     * الكاش الخارجي تحت `/sdcard/Android/data/<pkg>/`، وده بالظبط المسار
+     * اللي التخزين المحدود بيصعّب سحبه بـ`adb`. عشان كده فيه لقطة تانية
+     * بآلية **مختلفة خالص**: `screencap` من الشل — يوزر تاني وطريق تاني،
+     * وفي `/data/local/tmp` اللي `adb pull` بيوصله دايماً.
+     * **مش إعادة محاولة عمياء:** لو الاتنين رجعوا فاضي، يبقى مفيش حاجة
+     * على الشاشة تتصوّر؛ ولو الشل نجح والمكتبة لأ، يبقى العطل في طريق
+     * `UiAutomation` نفسه.
      */
     private fun captureScreen(label: String) {
         val dir = File(context.externalCacheDir ?: context.cacheDir, "fkshots")
@@ -281,20 +323,54 @@ class LockScreenActionTest {
         val png = File(dir, "screen-$label.png")
         try {
             device.dumpWindowHierarchy(xml)
-            println("FKTEST: شجرة النوافذ → ${xml.absolutePath} (${xml.length()} بايت)")
+            println(
+                "FKTEST: شجرة النوافذ → ${xml.absolutePath} " +
+                    "موجود=${xml.exists()} (${xml.length()} بايت)",
+            )
             println("FKTEST: ---- شجرة النوافذ ($label) ----")
             xml.readLines().forEach { println("FKXML| $it") }
             println("FKTEST: ---- آخر الشجرة ----")
         } catch (e: Exception) {
             println("FKTEST: شجرة النوافذ فشلت: $e")
         }
-        try {
-            val ok = device.takeScreenshot(png)
-            println("FKTEST: اللقطة → ${png.absolutePath} ok=$ok (${png.length()} بايت)")
+
+        val ok = try {
+            device.takeScreenshot(png)
         } catch (e: Exception) {
-            println("FKTEST: اللقطة فشلت: $e")
+            println("FKTEST: اللقطة رمت: $e")
+            false
         }
+        println(
+            "FKTEST: اللقطة (المكتبة) → ${png.absolutePath} ok=$ok " +
+                "موجود=${png.exists()} (${png.length()} بايت)",
+        )
+        if (!ok) {
+            // المكتبة بتسجّل السبب تحت الوسم UiDevice — ده اللي بيفرّق
+            // بين «الصورة رجعت null» و«الكتابة وقعت».
+            val why = device.executeShellCommand("logcat -d -s UiDevice:*")
+                .lineSequence()
+                .filter { it.contains("screenshot", ignoreCase = true) }
+                .toList()
+            if (why.isEmpty()) {
+                println("FKTEST: المكتبة ما سجّلتش أي سطر عن اللقطة")
+            } else {
+                why.takeLast(10).forEach { println("FKTEST| ${it.trim()}") }
+            }
+        }
+
+        // آلية تانية خالص: الشل، وفي مكان adb بيوصله دايماً.
+        val shellPng = "/data/local/tmp/fk-screen-$label.png"
+        device.executeShellCommand("screencap -p $shellPng")
+        val listing = device.executeShellCommand("ls -l $shellPng")
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .toList()
+        println(
+            "FKTEST: اللقطة (screencap) → " +
+                listing.joinToString(" / ") { it.trim() },
+        )
     }
+
 
     private fun launchWithSeed(seconds: Int) {
         val intent = context.packageManager.getLaunchIntentForPackage(pkg)!!

@@ -1730,6 +1730,60 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 ممكن يتقطع في نصه. الرقم متسجّل جنب اختبار السكّة المقتولة، مش كإنه
 «تمام».
 
+**التشغيلة الخامسة: التطبيق عدّى كل خطوة. الاختبار هو اللي مقدرش يشوفه.**
+شجرة النوافذ (اللي بتتطبع، والسبب الوحيد إن التشغيلة دي اتقرت أصلاً)
+بتقول إن الشاشة «يومك» والجرعة **مؤكَّدة**:
+
+```
+content-desc="الصحيان — ٦:٣٠ ص\nالفطار — ٧:٣٠ ص\nTestDose\nأخدته ٨:٣٩ ص\nالغدا — ٢:٠٠ م…"
+```
+
+**فلاتر بيطلّع نصه لـUiAutomator في `content-desc`، مش في `text`** —
+ومدموج لكل عقدة دلالات، يعني السكة كلها عقدة واحدة وصفها سطور بأسطر
+جديدة. الخطوة الخامسة كانت بتقارن بـ`By.text`، فعمرها ما كانت هتلاقي أي
+حاجة رسمتها فلاتر. الخطوة التالتة نجحت لأن ستارة الإشعارات `TextView`
+أصلي. و«TestDose مش موجودة» في تشغيلة ٢٢ كانت **نفس السبب** — مكانتش
+بايتة ولا مستخبية.
+
+**فالقاعدة: أي مقارنة على واجهة فلاتر بتبقى على `content-desc`
+(`By.desc` / `descContains` / نمط على الوصف)، وعمرها ما تبقى `By.text`.**
+والوصف بلوك متعدد السطور، فالنمط لازم يلفّه بـ`.*` وعلم `DOTALL` — وده
+بالظبط اللي `By.descContains` بتعمله جوّه (`Patterns.contains` =
+`^.*<quoted>.*$` بعلم `DOTALL`، مقروء من bytecode المكتبة مش من الذاكرة).
+**والاسم بيوصل ملفوف بعلامات عزل اتجاه** (U+202A…U+202C) لأن فلاتر بيلفّ
+النص اللاتيني — فمفيش مقارنة على اسم الدوا نفسه خالص؛ المقارنة على
+«أخدته <وقت>».
+
+**ودي رابع مرة تبقى أداة القياس هي العطل** — وده مش صدفة، ده نمط:
+١. تأكيد `dumpsys` اللي كان بيعدّي وهو فاضي (أنبوب في `executeShellCommand`).
+٢. قراية إطار أندرويد اللي كانت بتقلب الملف برّه WAL.
+٣. تأكيد بيدوّر على اسم موجود في الحالتين — ما كانش يقدر يقع لسببه.
+٤. ومقارنة على الخاصية الغلط، فعمرها ما شافت حاجة رسمتها فلاتر.
+**قبل ما تتهم `lib/`، اسأل الأول: هل الأداة بتقيس اللي بتقول إنها
+بتقيسه؟** في أربع تشغيلات، الإجابة كانت «لأ» أربع مرات.
+
+**واللقطة رجعت `ok=false` وصفر بايت، والسبب لسه مش متأكَّد — بس اتحصر في
+اتنين، بدليل من bytecode المكتبة.** في
+`UiDevice.takeScreenshot(File, float, int)` (uiautomator 2.3.0) فيه
+طريقين بس بيرجّعوا false: `UiAutomation.takeScreenshot()` ترجّع `null`
+(بتسجّل `Failed to take screenshot.` و**ما بتعملش الملف**)، أو الكتابة
+تقع (بتسجّل `Failed to save screenshot.` والملف بيبقى موجود وفاضي).
+السطر اللي كنا بنطبعه كان `length()` بس — **وهي صفر في الحالتين**، لأن
+ملف مش موجود بيرجّع صفر برضه. فالتسجيل نفسه مكانش يقدر يفرّق. دلوقتي
+بيطبع `exists()`، وبيجيب سطور المكتبة من اللوج عشان المكتبة تقول بلسانها
+هي راحت فين.
+**وفيه سبب تاني منفصل خلّى الملفات ما توصلش الأرتيفاكتس:** الكاش الخارجي
+تحت `/sdcard/Android/data/<pkg>/`، وده المسار اللي التخزين المحدود
+بيصعّب سحبه بـ`adb` — عشان كده الشجرة وصلت **بالطباعة** مش بالسحب. فبقى
+فيه لقطة تانية بآلية مختلفة خالص، `screencap` من الشل في
+`/data/local/tmp`، واللي `adb pull` بيوصله دايماً. لو الاتنين رجعوا
+فاضي يبقى مفيش حاجة تتصوّر؛ ولو الشل نجح والمكتبة لأ، يبقى العطل في
+طريق `UiAutomation`.
+
+**والزمن بيتحرّك: ٣.٩ ثانية من الدوسة لـ`handled=ok` في التشغيلة دي، بعد
+٩.٦ في اللي قبلها.** الرقمين على محاكي CI والعملية حية ومثبّتة — يعني
+مفيش رقم منهم قياس للسكّة المقتولة.
+
 ## دين تقني
 
 Debts we took on knowingly. Each one blocks something specific — check this
@@ -2128,6 +2182,16 @@ line and watching it go red.
 So: when you add a shared assertion, add the fixture that makes it fail on
 the same day. When you meet one that has never fired, treat it as untested
 code, because that is what it is.
+
+**And the sibling failure: the instrument measuring something other than
+what its name says.** On the Android lock-screen test this happened
+**four times in four runs** — an `executeShellCommand` assertion that
+passed over empty output, a framework database read that flipped the file
+out of WAL, an assertion on a name that appears in both states, and a
+matcher reading `text` on a Flutter screen that publishes through
+`content-desc`. Each one accused the app. **Before suspecting `lib/`, ask
+whether the tool measures what it claims to**; the four cases and their
+evidence are under «اللي لسه مش متأكَّد منه على أندرويد».
 
 **The test harness has a required shape, and breaking it fails as a hang,
 not as an error.** `testWidgets` runs the body inside a fake-async zone.
