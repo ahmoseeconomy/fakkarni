@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/features/care/caregiver_ui.dart';
 
 /// **لون لكل قسم — هوية محسوبة، مش زينة متخمّنة.**
 ///
@@ -183,6 +184,54 @@ void main() {
       expect(F.careAlertInk, F.outOfRangeInk);
       F.setDark(on: true);
       expect(F.careAlertInk, F.outOfRangeInk);
+    });
+  });
+
+  group('لون السجل حسب نوعه — مجموعة مقفولة، وثابت مش بالدور', () {
+    test('الأنواع الأربعة اللي بتاخد هوية متفرّقين عن بعض في الوضعين', () {
+      for (final dark in [false, true]) {
+        F.setDark(on: dark);
+        const kinds = ['lab', 'visit', 'prescription', 'imaging'];
+        for (var i = 0; i < kinds.length; i++) {
+          for (var j = i + 1; j < kinds.length; j++) {
+            final a = careRecordAccent(kinds[i]);
+            final b = careRecordAccent(kinds[j]);
+            // نفس تنازل الأخضرين: «روشتات» أخضر و«أشعة» أخضر غامق،
+            // فالزوج ده بيتفرق بالإضاءة زي ما «جاية» و«اتاخدت» بيعملوا.
+            final floor = {kinds[i], kinds[j]}
+                    .difference({'prescription', 'imaging'}).isEmpty
+                ? 8.0
+                : 15.0;
+            expect(_deltaE(a, b), greaterThanOrEqualTo(floor),
+                reason: '«${kinds[i]}» و«${kinds[j]}» قريبين — dark=$dark');
+          }
+        }
+      }
+    });
+
+    test('ثابت لكل نوع — مش بيتغيّر بترتيب المداخل', () {
+      F.setDark(on: false);
+      final first = careRecordAccent('lab');
+      expect(careRecordAccent('lab'), first);
+      expect(careRecordAccent('lab'), F.careAccentLab);
+      // ونفس لونه في «متابعة» — نفس الحاجة في المكانين
+      expect(careRecordAccent('visit'), F.careAccentVisit);
+    });
+
+    test('نوع مش معروف بياخد المحايد — مش استثناء ولا لون مخترع', () {
+      F.setDark(on: false);
+      expect(careRecordAccent('booking'), F.careAccentSkipped);
+      expect(careRecordAccent('حاجة-جديدة'), F.careAccentSkipped);
+    });
+
+    test('ولا نوع بياخد الدهبي ولا الأحمر — دول معناهم حالة مش صنف', () {
+      for (final dark in [false, true]) {
+        F.setDark(on: dark);
+        for (final k in ['lab', 'visit', 'prescription', 'imaging', 'booking']) {
+          expect(careRecordAccent(k), isNot(F.careAccentDue));
+          expect(careRecordAccent(k), isNot(F.careAlertInk));
+        }
+      }
     });
   });
 

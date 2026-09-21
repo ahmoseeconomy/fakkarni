@@ -387,6 +387,13 @@ class CaregiverMedicationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CareCard(
+        // **تبويب واحد، لون واحد.** القايمة دي **مرجع** («هو بياخد إيه»)
+        // مش حالة، فمفيش أقسام تتفرّق بينها. ولون لكل دوا كان هيبقى
+        // تلوين **بالدور** — اللون بيتغيّر لما دوا يتضاف أو يتوقف، يعني
+        // بيدّي معنى مش موجود. الأخضر هنا معناه معنى «اتاخدت» نفسه:
+        // الدوا اللي بيتاخد.
+        border: F.careAccentTaken,
+        edge: F.careAccentTaken,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

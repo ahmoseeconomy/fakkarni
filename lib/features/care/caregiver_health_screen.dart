@@ -118,6 +118,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           icon: Icons.water_drop_outlined,
           label: 'قياسات السكر — آخر ٣٠ يوم',
           count: snapshot.readings.length,
+          accent: F.careAccentSkipped,
           onTap: () => _open(CareListKind.readings),
         ),
       for (final kind in kinds)
@@ -126,6 +127,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           icon: recordKindOf(kind)?.icon ?? Icons.description_outlined,
           label: recordKindPlural(kind),
           count: byKind[kind]!.length,
+          accent: careRecordAccent(kind),
           onTap: () => _open(CareListKind.records, recordKind: kind),
         ),
       if (snapshot.questions.isNotEmpty)
@@ -134,6 +136,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           icon: Icons.help_outline,
           label: 'أسئلة للدكتور',
           count: snapshot.questions.length,
+          accent: F.careAccentSkipped,
           onTap: () => _open(CareListKind.questions),
         ),
     ];
@@ -247,6 +250,7 @@ class _Entry extends StatelessWidget {
     required this.label,
     required this.count,
     required this.onTap,
+    required this.accent,
     super.key,
   });
 
@@ -255,8 +259,13 @@ class _Entry extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
 
+  /// لون النوع — على الحد والشريط والأيقونة. شوف [careRecordAccent].
+  final Color accent;
+
   @override
   Widget build(BuildContext context) => CareCard(
+        border: accent,
+        edge: accent,
         padding: EdgeInsets.zero,
         child: InkWell(
           onTap: onTap,
@@ -266,7 +275,7 @@ class _Entry extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             child: Row(
               children: [
-                Icon(icon, size: 18, color: F.green),
+                Icon(icon, size: 18, color: accent),
                 const SizedBox(width: F.s10),
                 Expanded(
                   child: Text(
@@ -295,6 +304,9 @@ class _Box extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CareCard(
+        // القياسات والأسئلة صنف تاني عن ورقة في ملف — محايد، زي مدخلهم.
+        border: F.careAccentSkipped,
+        edge: F.careAccentSkipped,
         padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -379,7 +391,9 @@ class _RecordCardState extends State<_RecordCard> {
       decoration: BoxDecoration(
         color: F.cardGround,
         borderRadius: BorderRadius.circular(F.careRadius),
-        border: Border.all(color: F.line),
+        // نفس لون نوعه اللي على المدخل اللي فتح القايمة — اللون بيمشي
+        // مع الورقة، مش مع الشاشة.
+        border: Border.all(color: careRecordAccent(record.kind), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

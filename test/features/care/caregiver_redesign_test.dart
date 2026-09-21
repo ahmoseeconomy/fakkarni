@@ -101,6 +101,14 @@ CaregiverSnapshot _full() => CaregiverSnapshot(
           checkupStage: 2,
           checkupStageSince: DateTime(2026, 8, 20),
         ),
+        CaregiverRecord(
+          uuid: 'r2',
+          kind: 'prescription',
+          title: 'روشتة د. طارق',
+          happenedAt: DateTime(2026, 8, 22),
+          updatedAt: DateTime(2026, 8, 31, 11),
+          notes: 'Concor 5mg',
+        ),
         // متابعة زيارة ليها ميعاد بعد ٣ أيام
         CaregiverRecord(
           uuid: 'f-visit',
@@ -302,6 +310,45 @@ void main() {
       expect(find.descendant(of: row, matching: find.byIcon(icon)), findsOneWidget,
           reason: '«$label» من غير أيقونة = معنى محمول على اللون لوحده');
     }
+  });
+
+  screenTest('كروت «الأدوية» و«الملف الصحي» ملوّنة — والملف بلون نوعه',
+      (tester) async {
+    await pump(tester, _full(), dark: false);
+
+    // **الأدوية: تبويب واحد، لون واحد** — القايمة مرجع مش حالة.
+    await tester.tap(find.text('الأدوية'));
+    await settle(tester);
+    final medCard = tester.widget<Container>(
+      find
+          .ancestor(of: find.text('Concor 5mg'), matching: find.byType(Container))
+          .first,
+    );
+    expect(
+      ((medCard.decoration! as BoxDecoration).border! as Border).top.color,
+      F.careAccentTaken,
+    );
+
+    // **الملف: كل نوع بلونه** — وتحليل ≠ روشتة
+    await tester.tap(find.text('الملف الصحي'));
+    await settle(tester);
+    Color entryEdge(String key) {
+      final card = tester.widget<Container>(
+        find
+            .descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Container))
+            .first,
+      );
+      return ((card.decoration! as BoxDecoration).border! as Border).top.color;
+    }
+
+    expect(entryEdge('care-entry-lab'), F.careAccentLab);
+    expect(entryEdge('care-entry-prescription'), F.careAccentTaken);
+    expect(entryEdge('care-entry-lab'), isNot(entryEdge('care-entry-prescription')));
+    // والمداخل اللي مش سجل محايدة
+    expect(entryEdge('care-entry-readings'), F.careAccentSkipped);
+    expect(entryEdge('care-entry-questions'), F.careAccentSkipped);
+
+    expectCaregiverDensity(tester);
   });
 
   screenTest('الخطأ بيقول وبيدّي طريق — من غير قدرة جديدة', (tester) async {
