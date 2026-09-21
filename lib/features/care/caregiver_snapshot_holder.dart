@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
 import 'package:flutter/widgets.dart';
 
+import '../../core/diagnostics.dart';
+import '../../data/services/reminder_sink.dart';
+import 'caregiver_appointment_notices.dart';
+
 import '../../data/care/caregiver_remote.dart';
 
 /// كل قد إيه بيسأل السحابة وتبويب بيانات ظاهر قدامه.
@@ -19,11 +23,19 @@ const Duration refreshEvery = Duration(seconds: 10);
 /// السؤال الدوري هنا بس: شغّال ⇔ [active] (تبويب بيانات ظاهر) **و**التطبيق
 /// في المقدمة. في الخلفية أو على «الإعدادات» مقفول.
 class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver {
-  CaregiverSnapshotHolder(this.remote, {this.onNotLinked}) {
+  CaregiverSnapshotHolder(this.remote, {this.onNotLinked, this.sink}) {
     WidgetsBinding.instance.addObserver(this);
   }
 
   final CaregiverRemote remote;
+
+  /// جهاز الإشعارات بتاع **موبايل الابن** — null = مفيش جدولة (اختبارات،
+  /// أو شاشة مفتوحة من غير خدمات).
+  ///
+  /// مواعيد الأب بتتجدول محلياً هنا لأن مفيش دفع من السيرفر لسه. الجدولة
+  /// بتحصل **بعد** ما الصورة توصل، في `try/catch` بتاعها: إشعار ميعاد ما
+  /// اتجدولش ما ينفعش يمنع الشاشة من إنها تتعرض.
+  final ReminderSink? sink;
 
   /// السحابة قالت «مفيش مريض مربوط» → الجذر يرجّع لشاشة البداية. null =
   /// الجملة بتتقال على الشاشة (الطريق القديم من شاشة الربط).
@@ -78,6 +90,20 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
     }
   }
 
+  /// **بتتنده بعد كل سحبة، وبتبلع أي عطل.**
+  ///
+  /// نفس قاعدة موبايل الأب: سكّة المواعيد ما تقدرش توقّع اللي قبلها.
+  Future<void> _scheduleAppointments() async {
+    final device = sink;
+    final data = snapshot;
+    if (device == null || data == null) return;
+    try {
+      await syncCaregiverAppointments(data, sink: device, now: DateTime.now());
+    } catch (error, stack) {
+      diag('Care: جدولة مواعيد الأب على موبايل الابن فشلت: $error\n$stack');
+    }
+  }
+
   Future<void> refresh() async {
     if (_disposed) return;
     loading = snapshot == null;
@@ -93,6 +119,7 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
       snapshot = next ?? snapshot;
       loading = false;
       if (next == null) error = 'مفيش ربط شغّال دلوقتي.';
+      await _scheduleAppointments();
     } on CareCircleException catch (e) {
       // البيانات القديمة بتفضل معروضة — الجملة فوقها بتقول إنها قديمة
       if (_disposed) return;

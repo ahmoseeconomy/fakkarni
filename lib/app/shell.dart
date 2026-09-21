@@ -204,7 +204,13 @@ class _CaregiverShellState extends State<CaregiverShell> {
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.onNotLinked());
       return;
     }
-    _holder = CaregiverSnapshotHolder(remote, onNotLinked: widget.onNotLinked)
+    // جهاز الإشعارات بتاع موبايل الابن — مواعيد الأب بتتجدول عليه
+    // محلياً، لأن مفيش دفع من السيرفر لسه (iOS مستني APNs).
+    _holder = CaregiverSnapshotHolder(
+      remote,
+      onNotLinked: widget.onNotLinked,
+      sink: AppScope.of(context).scheduler.sink,
+    )
       ..setActive(CaregiverShell.dataTabs.contains(_tab));
   }
 

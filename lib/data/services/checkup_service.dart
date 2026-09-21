@@ -14,7 +14,8 @@ import 'reminder_sink.dart';
 enum FastingResult { scheduled, inPast, tooMany, badHours }
 
 /// نتيجة ضبط ميعاد مرحلة. التخطّي مش نتيجة — مفيش نداء أصلاً.
-enum StageDateResult { scheduled, inPast, tooMany }
+/// **مفيش `tooMany`**: الحجز عمره ما يترفض عشان خانات الإشعارات.
+enum StageDateResult { scheduled, inPast }
 
 /// متابعة التحليل وتذكير الصيام (D3.7).
 ///
@@ -211,24 +212,19 @@ class CheckupService {
     final minute = await _reminderMinute(row.patientId);
     final at = DateTime(day.year, day.month, day.day, 0, minute);
     if (!at.isAfter(now)) return StageDateResult.inPast;
-    if (stageDateOf(row, stage) == null &&
-        await activeStageDateCount(now: now, exceptRecord: id) >= checkupPendingSlack) {
-      return StageDateResult.tooMany;
-    }
+    // **الحجز عمره ما يترفض عشان الخانات** (مواصفة المواعيد). الخانتين
+    // بقوا **نافذة متدحرجة** على iOS: الميعاد البعيد بيستنى دوره فيها،
+    // وكارت «يومك» هو اللي بيقول إنه موجود لحد ما دوره يجي. الرفض القديم
+    // كان بيقول لراجل حاجز عند الدكتور «شيل ميعاد الأول» — وده مش قرارنا.
 
-    await _sink.schedule(PlannedNotification(
-      id: checkupIdFor(id, slot),
-      at: at,
-      title: 'متابعة ${row.title}',
-      body: switch (stage) {
-        CheckupStage.labBooking => 'النهارده ميعادك في المعمل.',
-        CheckupStage.waitingResult => 'النتيجة المفروض تبقى جاهزة النهارده.',
-        VisitStage.booked => 'النهارده معاد زيارتك.',
-        _ => 'النهارده معادك مع الدكتور.',
-      },
-      payload: '',
-      kind: NotificationKind.fasting,
-    ));
+    // **الجدولة مابقتش هنا.** الميعاد بقى إشعارين — هادي امبارحه ويوم
+    // بيرن — والاتنين بيتحسبوا في [AppointmentScheduler] مع كل المواعيد
+    // التانية، عشان نافذة iOS تشوفهم كلهم مع بعض. اللي بيتكتب هنا هو
+    // **الميعاد**؛ الإشعارات بتتبني منه.
+    //
+    // والرقم القديم (`checkupIdFor`) بيتلغي: الصف ده كان له إشعار واحد
+    // بالنطاق القديم، ولو سِبناه هيفضل معلّق ويرن لوحده جنب الجديدين.
+    await _sink.cancel(checkupIdFor(id, slot));
     await (_db.update(_db.records)..where((t) => t.id.equals(id)))
         .write(_stageDateCompanion(stage, at));
     return StageDateResult.scheduled;
@@ -237,7 +233,12 @@ class CheckupService {
   /// بيلغي بالرقم المشتق — آمن حتى لو مفيش ميعاد متحطّ.
   Future<void> clearStageDate(int id, FollowStage stage) async {
     final row = await _row(id);
-    await _sink.cancel(checkupIdFor(id, kindOf(row).slotOf(stage)));
+    final slot = kindOf(row).slotOf(stage);
+    // الرقم القديم (لو لسه معلّق من نسخة قديمة) والاتنين الجداد.
+    await _sink.cancel(checkupIdFor(id, slot));
+    for (final notice in AppointmentNotice.values) {
+      await _sink.cancel(appointmentIdFor(id, slot, notice));
+    }
     await (_db.update(_db.records)..where((t) => t.id.equals(id)))
         .write(_stageDateCompanion(stage, null));
   }

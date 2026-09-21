@@ -64,10 +64,14 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       final services = AppScope.of(context);
       services.sync?.onAppForeground();
       unawaited(
-        services.scheduler.rescheduleAll().catchError(
+        services.scheduler
+            .rescheduleAll()
+            .catchError(
               (Object error) =>
                   debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),
-            ),
+            )
+            // المواعيد **بعدها**، ومن غير ما تقدر توقّعها.
+            .then((_) => services.refreshAppointments()),
       );
     }
   }

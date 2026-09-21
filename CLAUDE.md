@@ -315,7 +315,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1154 passing
+test/                         1188 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -510,7 +510,9 @@ for days — that waste is now the patient dimension.
 | Escalation rung 2 (+30) | `30_000_000` – `35_898_239` | **Phase 4.1**, live. `escalationSecondIdBase`. One band per rung because a band holds exactly one ID per (patient, slot) — a second rung needs a second band |
 | Fasting reminder | `40_000_000` – `45_898_239` | **D3.7**, live. `fastingIdBase` / `fastingIdFor(recordId)` / `isFastingId()`. Derived from the `records` row id (not a slot — one reminder per checkup cycle), throws past the band. **Not** in `isRescheduledId`: rebuilding doses never cancels it, and a dose confirmation never touches it. `test/data/checkup_fasting_test.dart` proves it overlaps no dose band — mutation-checked: moving the base into the dose band fails three tests |
 | Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**, live. `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. One id per (record, stage): `base + recordId * 3 + slot`, three stages ask for a date. **Not** in `isRescheduledId`, like fasting |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`60_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
+| Appointment notices | `60_000_000` – `65_898_239` | **مواصفة المواعيد**, live. `appointmentIdBase` / `appointmentIdFor(recordId, stageSlot, notice)` / `isAppointmentId()`. `base + recordId * 6 + stageSlot * 2 + notice` — إشعارين لكل مرحلة ليها ميعاد (هادي امبارحه، وواحد بيرن في يومه). **Not** in `isRescheduledId` |
+| Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(index, notice)`. مواعيد الأب على **موبايل الابن**؛ الرقم من مكان الميعاد في القايمة المقصوصة عند `caregiverAppointmentCap` (٤) |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`80_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -3298,6 +3300,60 @@ screen — and they are different screens on purpose.**
   writes a full follow-up, asserts a plain record is still valid with them
   null, exercises the delete, and rolls back. **Confirmed applied
   20 Sep 2026** (see the migrations table above).
+- **مواعيد الزيارات والتحاليل — إشعارين وكارت، وسكّة بعيدة عن الدوا.**
+  الميعاد كان إشعار واحد في يومه على الصحيان. بقى: **إشعار هادي امبارحه**
+  (من غير صوت ولا هزاز) **على العشا** — المرساة المسائية اللي الراجل نفسه
+  قالها في «ظبّط يومك»، ساعتها هو قاعد في البيت وخلاص يومه؛ **وإشعار في
+  يومه بيرن على الصحيان**، مرة واحدة من غير تكرار؛ **وكارت ثابت على
+  «يومك»** من ساعة الحجز لحد ما اليوم يعدّي، بيعدّ تنازلي («بعد ٣ أيام» /
+  «بكرة» / «النهارده») وعمره ما يرن. الكارت **تحت «الآن»** عن قصد:
+  الجرعة بتفضل أول حاجة على الشاشة.
+- **والقيد الأول كان «ما تلمسش تذكير الدوا» — والضمانة فصل، مش نية.**
+  `appointment_scheduler.dart` ما بيعرفش حاجة عن الجرعات ولا السلّم ولا
+  التأجيل، وبيتنده **بعد** ما `rescheduleAll` ترجع في `try/catch` بتاعه
+  (`AppServices.refreshAppointments`). **و`reminder_scheduler.dart` و
+  `domain/escalation/` فرقهم عن قبل الجولة دي صفر سطر**، و
+  `reminder_plan.dart` إضافة صافية. `test/data/appointment_guard_test.dart`
+  (١١ حالة) بيثبت ده وقت الاختبار: **اختبار الخطة الذهبية** بيحسب خطة
+  الجرعات كاملة لـ٨ أدوية × ٣ جرعات **من غير مواعيد وبخمس مواعيد** ويقارن
+  المجموعتين حرفياً؛ وكمان إن `rescheduleAll` ما فيهاش كلمة «appointment»،
+  وإن نداء المواعيد **بعد** نداء الجرعات في `main.dart` و`root.dart`، وإن
+  الأسقف بأرقامها، وإن النطاقات متفصّلة **عند أقصى قيمة**، وإن مفيش
+  `cancelAll`، وإن سكّة المواعيد ما بتستعملش المنبّه الدقيق.
+- **القناة لوحدها**: `fakkarni_appointment` — مواعيد الدكتور تتسكّت من غير
+  ما تذكير الدوا يتسكّت. وهدوء إشعار امبارحه جاي من `silent: true` على
+  الإشعار نفسه (`NotificationCompat.Builder.setSilent`) مش من قناة تانية،
+  فالقناة واحدة زي ما المواصفة طلبت.
+- **والمنصّتين بيختلفوا عن قصد.** **iOS** بيمسك ٦٤ إشعار معلّق **وبيرمي
+  الزيادة في صمت** — وممكن تبقى جرعة على حدّ النافذة؛ فالمواعيد بتاخد
+  **نفس الخانتين** بتوع `checkupPendingSlack` (ولا خانة اتاخدت من
+  الجرعات) كـ**نافذة متدحرجة** على أقرب إشعارين، **والإلغاء قبل الجدولة**
+  عشان ما يبقاش فيه لحظة العدد فيها ٣ (اختبار بيقيس الأقصى **اللحظي**).
+  **أندرويد** مفيهوش السقف ده فكل الإشعارات بتتجدول **من ساعة الحجز**:
+  النافذة المتدحرجة بتعتمد على فتح التطبيق، وده أقل حاجة مضمونة هناك
+  بسبب قتلة البطارية. **والمنبّه غير دقيق** في الحالتين — الدقيق مورد
+  مقنّن ومحجوز للجرعات.
+- **والحجز عمره ما يترفض.** الرفض القديم («فيه ميعادين متظبطين — شيل واحد
+  الأول») اتشال: الميعاد البعيد بيستنى دوره، **والكارت هو شبكة الأمان**.
+- **واللي بيحصل لو الأب ما فتحش التطبيق ولا أكّد جرعة كام يوم (iOS):
+  النافذة ما بتتدحرجش.** الخانتين بيفضلوا على أقرب إشعارين وقت آخر فتحة؛
+  لما يرنّوا، اللي بعدهم ما بيدخلش لحد ما حاجة تصحّي التطبيق — يعني
+  **ميعاد تالت أو رابع ممكن يعدّي من غير إشعار**. نفس شكل الدين ٠ج وبنفس
+  السبب. **ومفيش فحص سلامة بيقوله لسه، والمفروض يبقى فيه**: نظير
+  `horizonFromPendingDoseIds` هنا هو «فيه ميعاد جاي مالوش إشعار معلّق».
+  متسجّل مش متعمول.
+- **وعلى موبايل الابن: إشعارات محلية من السحبة، مش دفع.**
+  `CaregiverSnapshotHolder` بينده `syncCaregiverAppointments` بعد كل
+  سحبة — نفس تقسيمة هادي/بيرن، نفس القناة، أرقام من نطاق الابن، وبتتعاد
+  بلا أثر. **والحد**: ميعاد اتحجز بعد آخر سحبة عمره ما يوصل موبايل الابن
+  غير لما **يفتح التطبيق تاني**؛ الحل الحقيقي دفع من السيرفر (FCM شغّال
+  لابن على أندرويد، وiOS مستني APNs — الدين ٣). **والساعة على موبايله رقم
+  ثابت** (٨ مساءً / ٨ صباحاً) مش مرساة الأب: الابن **ما بيحلّش مراسي**
+  (`no_scheduling_imports_test`)، ومحرّك تاني على جهازه معناه جدولين
+  ممكن يختلفوا في صمت.
+- **وإشعارات المواعيد على أندرويد متختبرة بالوحدات، مش على جهاز.** اختبار
+  المحاكي في CI بيغطّي سكّة زرار الجرعة وبس؛ مدّه للمواعيد بيحتاج ينتظر
+  يوم كامل أو يزوّر ساعة الجهاز، فما اتعملش.
 - **«اضبط تذكير الصيام» schedules a real notification — only from that
   tap (rule 4)**, at draw time minus the hours **the user types** (no
   default, rule 6), through `NotificationService.scheduleCheckup`: its own

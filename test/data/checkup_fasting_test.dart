@@ -8,6 +8,7 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
+import 'package:fakkarni/data/services/appointment_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
@@ -138,6 +139,18 @@ void main() {
     group('مواعيد المراحل', () {
       Set<int> checkupIds() => sink.scheduled.keys.where(isCheckupId).toSet();
 
+      /// **الميعاد بيتكتب، والإشعارات بتتبني منه في نداء لوحده.**
+      ///
+      /// `setStageDate` مابقتش بتجدول: القيد الأول في مواصفة المواعيد إن
+      /// سكّة المواعيد تفضل بعيدة عن سكّة الجرعات، فالجدولة بقت في
+      /// [AppointmentScheduler] وبتتنده **بعد** `rescheduleAll`.
+      /// `rolling: false` هنا = سلوك أندرويد (كل الإشعارات مرة واحدة).
+      Future<void> refreshAppointments({bool rolling = false}) =>
+          AppointmentScheduler(db: db, patientId: patientId, sink: sink, rolling: rolling)
+              .refresh(now: now);
+
+      Set<int> appointmentIds() => sink.scheduled.keys.where(isAppointmentId).toSet();
+
       /// بيوصل المتابعة للمرحلة [stage] بالتقدّم خطوة خطوة.
       Future<int> at(CheckupStage stage) async {
         final id = await checkups.start(patientId: patientId, title: 'صورة دم كاملة', today: now);
@@ -165,22 +178,39 @@ void main() {
           expect(checkupIds(), isEmpty, reason: 'مفيش تذكير قبل ما حد يقول ميعاد');
 
           final result = await checkups.setStageDate(id, stage, day: day, now: now);
+          await refreshAppointments();
 
           expect(result, StageDateResult.scheduled);
-          expect(checkupIds(), {checkupIdFor(id, CheckupStage.dated.indexOf(stage))},
-              reason: 'تذكير واحد بالظبط');
-          final at_ = sink.scheduled[checkupIdFor(id, CheckupStage.dated.indexOf(stage))]!.at;
-          expect(DateTime(at_.year, at_.month, at_.day), day, reason: 'في نفس اليوم');
-          // الساعة من صحيان المريض، مش رقم مخترع
-          expect(at_.hour * 60 + at_.minute, normalDay.wake.minutes);
-          expect(CheckupService.stageDateOf(await row(id), stage), at_);
+          final slot = CheckupStage.dated.indexOf(stage);
+          // **إشعارين بقى**: هادي امبارحه، وواحد بيرن في يومه.
+          expect(appointmentIds(), {
+            appointmentIdFor(id, slot, AppointmentNotice.dayBefore),
+            appointmentIdFor(id, slot, AppointmentNotice.dayOf),
+          });
+          expect(checkupIds(), isEmpty, reason: 'النطاق القديم مابقاش بيتستعمل');
+
+          final dayOf = sink.scheduled[appointmentIdFor(id, slot, AppointmentNotice.dayOf)]!;
+          expect(DateTime(dayOf.at.year, dayOf.at.month, dayOf.at.day), day);
+          // الصبح — من صحيان المريض، مش رقم مخترع
+          expect(dayOf.at.hour * 60 + dayOf.at.minute, normalDay.wake.minutes);
+          expect(dayOf.kind, NotificationKind.appointmentAlert);
+
+          final before = sink.scheduled[appointmentIdFor(id, slot, AppointmentNotice.dayBefore)]!;
+          expect(DateTime(before.at.year, before.at.month, before.at.day),
+              DateTime(day.year, day.month, day.day - 1));
+          // بالليل — على العشا، المرساة المسائية اللي هو نفسه قالها
+          expect(before.at.hour * 60 + before.at.minute, normalDay.dinner.minutes);
+          expect(before.kind, NotificationKind.appointmentQuiet);
+
+          expect(CheckupService.stageDateOf(await row(id), stage), dayOf.at);
         });
       }
 
       test('التخطّي مفيش وراه تذكير — والمرحلة بتعدّي عادي', () async {
         final id = await at(CheckupStage.labBooking);
         await checkups.advance(id, now: now);
-        expect(checkupIds(), isEmpty);
+        await refreshAppointments();
+        expect(appointmentIds(), isEmpty);
         expect((await row(id)).labBookingAt, isNull, reason: 'مفيش ميعاد اتخترع');
         expect((await row(id)).checkupStage, CheckupStage.preparation.number);
       });
@@ -189,9 +219,10 @@ void main() {
         final id = await at(CheckupStage.labBooking);
         await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now);
         await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 22), now: now);
+        await refreshAppointments();
 
-        expect(checkupIds(), hasLength(1), reason: 'الرقم مشتق، فالتاني بيستبدل الأول');
-        final at_ = sink.scheduled[checkupIdFor(id, 0)]!.at;
+        expect(appointmentIds(), hasLength(2), reason: 'الرقم مشتق، فالتاني بيستبدل الأول');
+        final at_ = sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayOf)]!.at;
         expect(DateTime(at_.year, at_.month, at_.day), DateTime(2026, 9, 22));
         expect((await row(id)).labBookingAt, at_);
       });
@@ -201,17 +232,21 @@ void main() {
         final result = await checkups.setStageDate(
             id, CheckupStage.labBooking, day: DateTime(2026, 9, 14), now: now);
         expect(result, StageDateResult.inPast);
-        expect(checkupIds(), isEmpty);
+        await refreshAppointments();
+        expect(appointmentIds(), isEmpty);
         expect((await row(id)).labBookingAt, isNull);
       });
 
       test('«شيل الميعاد» بيلغي ويصفّر', () async {
         final id = await at(CheckupStage.labBooking);
         await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now);
+        await refreshAppointments();
         await checkups.clearStageDate(id, CheckupStage.labBooking);
+        await refreshAppointments();
 
-        expect(checkupIds(), isEmpty);
-        expect(sink.cancelled, contains(checkupIdFor(id, 0)));
+        expect(appointmentIds(), isEmpty);
+        expect(sink.cancelled,
+            contains(appointmentIdFor(id, 0, AppointmentNotice.dayOf)));
         expect((await row(id)).labBookingAt, isNull);
       });
 
@@ -219,10 +254,13 @@ void main() {
         final id = await at(CheckupStage.labBooking);
         await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now);
 
+        await refreshAppointments();
         await checkups.back(id, now: now);
+        await refreshAppointments();
 
-        expect(sink.cancelled, contains(checkupIdFor(id, 0)));
-        expect(checkupIds(), isEmpty);
+        expect(sink.cancelled,
+            contains(appointmentIdFor(id, 0, AppointmentNotice.dayBefore)));
+        expect(appointmentIds(), isEmpty);
         expect((await row(id)).labBookingAt, isNull);
         expect((await row(id)).checkupStage, CheckupStage.doctorOrder.number);
       });
@@ -231,15 +269,20 @@ void main() {
         final id = await at(CheckupStage.labBooking);
         await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now);
 
+        await refreshAppointments();
+
         // الواحد بيعدّي على «التحضير» **قبل** ما يروح المعمل
         await checkups.advance(id, now: now);
-        expect(checkupIds(), hasLength(1), reason: 'الميعاد لسه جاي');
+        await refreshAppointments();
+        expect(appointmentIds(), hasLength(2), reason: 'الميعاد لسه جاي');
 
         await checkups.advance(id, now: now); // سحب العينة
-        expect(checkupIds(), hasLength(1));
+        await refreshAppointments();
+        expect(appointmentIds(), hasLength(2));
 
         await checkups.advance(id, now: now); // انتظار النتيجة — خلاص راح
-        expect(checkupIds(), isEmpty, reason: 'مش هنزنّ على ميعاد عدّى');
+        await refreshAppointments();
+        expect(appointmentIds(), isEmpty, reason: 'مش هنزنّ على ميعاد عدّى');
         expect((await row(id)).labBookingAt, isNull);
       });
 
@@ -256,21 +299,20 @@ void main() {
         expect(sink.scheduled.keys.where(isFastingId), isEmpty);
       });
 
-      test('تالت ميعاد في متابعة تالتة بيترفض — سقف iOS', () async {
+      // **الحجز عمره ما يترفض بقى** (مواصفة المواعيد). الخانتين على iOS
+      // بقوا نافذة متدحرجة بتتحسب في `AppointmentScheduler`، والميعاد
+      // البعيد بيستنى دوره فيها — والكارت على «يومك» بيقول إنه موجود.
+      // الرفض القديم كان بيقول لراجل حاجز عند الدكتور «شيل ميعاد الأول».
+      test('تالت ميعاد في متابعة تالتة **بيتقبل** — الخانات مش سبب رفض', () async {
         final a = await at(CheckupStage.labBooking);
         final b = await at(CheckupStage.labBooking);
         final c = await at(CheckupStage.labBooking);
-        for (final id in [a, b]) {
+        for (final id in [a, b, c]) {
           expect(
             await checkups.setStageDate(id, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now),
             StageDateResult.scheduled,
           );
         }
-        expect(
-          await checkups.setStageDate(c, CheckupStage.labBooking, day: DateTime(2026, 9, 18), now: now),
-          StageDateResult.tooMany,
-        );
-        expect(checkupIds(), hasLength(checkupPendingSlack));
       });
 
       test('«واقفة» بتبقى صح في اليوم السابع بالظبط، مش السادس', () async {

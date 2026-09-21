@@ -123,6 +123,81 @@ int checkupIdFor(int recordId, int stageSlot) {
 
 bool isCheckupId(int id) => id >= checkupIdBase && id < checkupIdLimit;
 
+// ---------------------------------------------------------- المواعيد
+/// **نطاق إشعارات المواعيد — الخانة الجاية على حد ١٠ مليون.**
+///
+/// ميعاد المتابعة بقى **إشعارين**: واحد هادي امبارح الميعاد، وواحد
+/// بيرن الصبح بتاعه. النطاق القديم (`checkupIdBase`) بيدّي رقم واحد لكل
+/// (صف، مرحلة)، فالتاني محتاج مكانه.
+///
+/// **ولازم يكون منفصل تماماً عن كل نطاق تاني**: جدولة إشعار برقم موجود
+/// **بتستبدله في صمت** — يعني ميعاد ممكن يمسح تذكير دوا من غير أي خطأ في
+/// أي مكان. `appointment_ids_test` بيقارن النطاقات عند **أقصى قيمة** كل
+/// واحد فيها يقدر يوصلها، مش عند قيم عيّنة.
+const int appointmentIdBase = 60000000;
+const int appointmentIdLimit = appointmentIdBase + maxPatients * patientIdSpan;
+
+/// إشعارين لكل مرحلة ليها ميعاد: ٠ = امبارح الميعاد، ١ = يومه.
+const int appointmentNoticesPerStage = 2;
+
+/// عرض الخانة لكل صف — تلات مراحل × إشعارين.
+const int appointmentIdsPerRecord = checkupDatedStages * appointmentNoticesPerStage;
+
+/// نوع الإشعار: الهادي امبارح، واللي بيرن في اليوم نفسه.
+enum AppointmentNotice { dayBefore, dayOf }
+
+/// رقم إشعار الميعاد — مشتق من (الصف، المرحلة، النوع)، مش متخزّن.
+///
+/// نفس التلاتة بيدّوا نفس الرقم للأبد، فإعادة الضبط بتستبدل الإشعار بدل
+/// ما تزوّد واحد. برّه النطاق بيرمي — اللفّ هو بالظبط التصادم اللي
+/// النطاق موجود عشان يمنعه.
+int appointmentIdFor(int recordId, int stageSlot, AppointmentNotice notice) {
+  if (stageSlot < 0 || stageSlot >= checkupDatedStages) {
+    throw RangeError.range(stageSlot, 0, checkupDatedStages - 1, 'stageSlot');
+  }
+  final id = appointmentIdBase +
+      recordId * appointmentIdsPerRecord +
+      stageSlot * appointmentNoticesPerStage +
+      notice.index;
+  if (recordId < 0 || id >= appointmentIdLimit) {
+    throw RangeError.range(recordId, 0,
+        (appointmentIdLimit - appointmentIdBase) ~/ appointmentIdsPerRecord - 1, 'recordId');
+  }
+  return id;
+}
+
+bool isAppointmentId(int id) => id >= appointmentIdBase && id < appointmentIdLimit;
+
+/// **نطاق مواعيد الأب على موبايل الابن** — نطاق تاني خالص.
+///
+/// الابن مالوش `id` محلي للصف (هو بيقرا من السحابة)، فالرقم بيتاخد من
+/// **مكان الميعاد في القايمة المرتّبة** بعد ما تتقص عند [caregiverAppointmentCap].
+/// ده آمن لأن الجدولة بتتعاد بالكامل مع كل سحبة: الموجود اللي مش في
+/// القايمة الجديدة بيتلغي، واللي فيها بيتجدول — فالرقم عمره ما يشير
+/// لميعادين في نفس اللحظة.
+///
+/// **ومش بيلمس نطاق تنبيهات التصعيد بتاعة الابن ولا قناتها** — دي آخر
+/// درجة في السلّم، وميعاد دكتور مالوش أي حق يقرّب منها.
+const int caregiverAppointmentIdBase = 70000000;
+const int caregiverAppointmentIdLimit =
+    caregiverAppointmentIdBase + maxPatients * patientIdSpan;
+
+/// أقصى عدد مواعيد بيتجدولوا على موبايل الابن.
+///
+/// سقف ثابت عن قصد: موبايل الابن مالوش نافذة بتتجدد زي موبايل الأب،
+/// والقايمة بتيجي من سحبة السحابة. أربعة مواعيد = تمن إشعارات.
+const int caregiverAppointmentCap = 4;
+
+int caregiverAppointmentIdFor(int index, AppointmentNotice notice) {
+  if (index < 0 || index >= caregiverAppointmentCap) {
+    throw RangeError.range(index, 0, caregiverAppointmentCap - 1, 'index');
+  }
+  return caregiverAppointmentIdBase + index * appointmentNoticesPerStage + notice.index;
+}
+
+bool isCaregiverAppointmentId(int id) =>
+    id >= caregiverAppointmentIdBase && id < caregiverAppointmentIdLimit;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
 /// ومكان التأجيل والصيام: ٦٤ − ٤٦ − ٢ − ٢ = ١٤.
 ///
@@ -245,6 +320,11 @@ enum NotificationKind {
 
   /// تذكير صيام قبل سحب عينة (D3.7) — قناة لوحدها ومن غير أزرار «أخدته».
   fasting,
+
+  /// ميعاد متابعة (زيارة أو معمل) — قناة لوحدها، ومنبّه **غير دقيق**
+  /// على أندرويد. الهادي بيتبعت `silent`، واللي في اليوم نفسه بيرن.
+  appointmentQuiet,
+  appointmentAlert,
 }
 
 /// تذكير جاهز للجدولة على الجهاز.

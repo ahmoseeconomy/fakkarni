@@ -128,6 +128,26 @@ class NotificationService {
     vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
   );
 
+  /// قناة المواعيد — مكشوفة عشان الاختبار يقارنها بقناة الجرعات.
+  static const appointmentChannelId = 'fakkarni_appointment';
+
+  /// **قناة المواعيد — لوحدها عن الجرعات وعن الصيام.**
+  ///
+  /// السبب مش ترتيب: الابن والأب ممكن يسكّتوا مواعيد الدكتور من غير ما
+  /// يسكّتوا تذكير الدوا — ولو كانوا قناة واحدة، إسكات واحدة بيسكّت
+  /// التانية. وهي كمان مش قناة الصيام: نغمة الصيام مش نغمة ميعاد.
+  ///
+  /// **وإشعار امبارح الميعاد بيتبعت `silent` على مستوى الإشعار نفسه**
+  /// (`NotificationCompat.Builder.setSilent`) مش بقناة تانية: القناة
+  /// واحدة زي ما المواصفة طلبت، والهدوء بيتحدد لكل إشعار. إشعار صامت
+  /// ما بيطلعش فوق الشاشة كمان، فالراجل بيلاقيه في الستارة لما يبص.
+  static const _appointmentChannel = AndroidNotificationChannel(
+    appointmentChannelId,
+    'مواعيد الدكتور والمعمل',
+    description: 'تنبيه امبارح الميعاد وفي يومه',
+    importance: Importance.high,
+  );
+
   /// الـid بتاع قناة الابن، مكشوف عشان الاختبار يقارنه بالـTypeScript.
   static const caregiverChannelId = 'fakkarni_caregiver';
 
@@ -215,6 +235,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_checkupChannel);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_appointmentChannel);
 
     // لو التطبيق كان مقفول خالص واتفتح من الإشعار نفسه، الدوسة دي مش بتعدّي
     // على _onTap — لازم نسألوا عليها بإيدنا.
@@ -460,6 +484,53 @@ class NotificationService {
         iOS: const DarwinNotificationDetails(interruptionLevel: InterruptionLevel.active),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  /// **ميعاد متابعة — قناته هو، ومنبّه غير دقيق.**
+  ///
+  /// `inexactAllowWhileIdle` عن قصد: المنبّه الدقيق مورد مقنّن على
+  /// أندرويد ومحجوز للجرعات. إشعار ميعاد بيتأخر دقايق مالوش أي ضرر،
+  /// وجرعة بتتأخر دقايق ليها ضرر — فالمواعيد **عمرها ما تزاحم** الجرعة
+  /// على المورد ده. اختبار بيقفل على السطر ده.
+  ///
+  /// و[quiet] بيخلّي إشعار امبارح الميعاد صامت تماماً — من غير صوت ولا
+  /// هزاز ولا ظهور فوق الشاشة — من غير ما يحتاج قناة تانية.
+  ///
+  /// **مفيش أزرار ومفيش payload**: ده مش جرعة، والدوسة بتفتح التطبيق وبس.
+  static Future<void> scheduleAppointment({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime at,
+    required bool quiet,
+  }) async {
+    await init();
+    final when = tz.TZDateTime.from(at, tz.local);
+    if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _appointmentChannel.id,
+          _appointmentChannel.name,
+          channelDescription: _appointmentChannel.description,
+          importance: quiet ? Importance.low : Importance.high,
+          priority: quiet ? Priority.low : Priority.high,
+          silent: quiet,
+          category: AndroidNotificationCategory.event,
+        ),
+        iOS: DarwinNotificationDetails(
+          // iOS: الهادي `passive` — بيدخل مركز الإشعارات من غير ما يقاطع.
+          // واللي في اليوم نفسه `active` زي أي تنبيه عادي.
+          interruptionLevel: quiet ? InterruptionLevel.passive : InterruptionLevel.active,
+          presentSound: !quiet,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 

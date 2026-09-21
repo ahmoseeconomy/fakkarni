@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../ai/lab_reader.dart';
+import '../core/diagnostics.dart';
 import '../ai/prescription_reader.dart';
 import '../data/contacts/contact_picker.dart';
 import '../data/contacts/native_contact_picker.dart';
@@ -15,6 +16,7 @@ import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../data/repositories/routine_repository.dart';
+import '../data/services/appointment_scheduler.dart';
 import '../data/services/checkup_service.dart';
 import '../data/services/reminder_scheduler.dart';
 
@@ -56,6 +58,26 @@ class AppServices {
 
   /// دورة الفحص وتذكير الصيام (D3.7) — نفس جهاز الإشعارات بتاع الجدولة.
   CheckupService get checkups => CheckupService(db, scheduler.sink);
+
+  /// **إشعارات المواعيد — سكّة لوحدها، بتتنده بعد الجرعات مش معاها.**
+  ///
+  /// القيد الأول في مواصفة المواعيد: **ما نلمسش تذكير الدوا**. عشان كده
+  /// دي خدمة تانية بتنده `refresh()` **بعد** ما `rescheduleAll` ترجع،
+  /// في `try/catch` بتاعها — فاستثناء في المواعيد مستحيل يمنع جرعة.
+  AppointmentScheduler get appointments =>
+      AppointmentScheduler(db: db, patientId: patientId, sink: scheduler.sink);
+
+  /// بتتنده بعد كل `rescheduleAll` — **وبتبلع أي عطل**.
+  ///
+  /// ميعاد دكتور ما اتجدولش حاجة وحشة؛ جرعة ما اتجدولتش حاجة تانية خالص.
+  /// السطر ده هو اللي بيفصل بينهم.
+  Future<void> refreshAppointments({DateTime? now}) async {
+    try {
+      await appointments.refresh(now: now);
+    } catch (error, stack) {
+      diag('Appointments: الجدولة فشلت — التذكيرات مش متأثرة: $error\n$stack');
+    }
+  }
 
   /// آخر إشعار المستخدم دَس عليه — بيجي من [NotificationService.lastPayload].
   ///

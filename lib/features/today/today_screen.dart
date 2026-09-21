@@ -7,6 +7,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/keyboard_dismiss.dart';
+import '../../data/services/appointment_card.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
@@ -295,6 +296,30 @@ class _TodayScreenState extends State<TodayScreen> {
                 GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
                 const SizedBox(height: F.gap),
               ],
+              // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
+              //
+              // الإشعارين (هادي امبارحه وواحد بيرن في يومه) ممكن يكونوا
+              // لسه برّه نافذة iOS المتدحرجة — الكارت ده هو شبكة الأمان:
+              // بيعرض الميعاد **دايماً**، وبيعدّ التنازلي، وبيقول إن
+              // الموبايل هيفكّره امبارحه. عمره ما يرن.
+              //
+              // **وتحت «الآن» عن قصد**: الجرعة هي اللي بتفضل أول حاجة
+              // على الشاشة، والميعاد اللي بعد تلات أيام مش أعجل منها.
+              StreamBuilder<List<RecordRow>>(
+                stream: _followUps,
+                builder: (context, snap) {
+                  final soon = upcomingAppointments(snap.data ?? const [], now: _now);
+                  if (soon.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _AppointmentsCard(
+                      appointments: soon,
+                      now: _now,
+                      onOpen: _openCheckup,
+                    ),
+                  );
+                },
+              ),
               // متابعات التحاليل المفتوحة: اسم التحليل والمرحلة، والدوسة
               // بتفتحها. مفيش حاجة بتتعرض لما مفيش متابعات.
               StreamBuilder<List<RecordRow>>(
@@ -736,6 +761,106 @@ class _NearbyPill extends StatelessWidget {
 ///
 /// مش كارت ومش ذهبي — دي حاجة بتتعمل على مهل، مش جرعة فاتت. والدوسة
 /// بتفتح شاشة المتابعة نفسها.
+/// **كارت المواعيد الجاية** — «بعد ٣ أيام» / «بكرة» / «النهارده».
+///
+/// أكتر من ميعاد = قايمة واحدة مضغوطة، الأقرب الأول. ولا سطر هنا بيرن:
+/// الرنّة بتاعة الإشعار، ودي شاشة.
+class _AppointmentsCard extends StatelessWidget {
+  const _AppointmentsCard({
+    required this.appointments,
+    required this.now,
+    required this.onOpen,
+  });
+
+  final List<UpcomingAppointment> appointments;
+  final DateTime now;
+  final ValueChanged<int> onOpen;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const ValueKey('appointments-card'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'مواعيدك الجاية',
+            style: TextStyle(
+              fontFamily: F.displayFamily,
+              fontSize: F.subtitleSize,
+              fontWeight: FontWeight.w700,
+              color: F.ink,
+            ),
+          ),
+          const SizedBox(height: F.s8),
+          Container(
+            decoration: BoxDecoration(
+              color: F.cardGround,
+              borderRadius: BorderRadius.circular(F.radius),
+              border: Border.all(color: F.line),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, a) in appointments.indexed) ...[
+                  if (i > 0) Divider(height: 1, color: F.lineSoft),
+                  InkWell(
+                    onTap: () => onOpen(a.recordId),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: F.gap, vertical: F.s12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.event_outlined, size: 22, color: F.green),
+                          const SizedBox(width: F.s10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  a.headline,
+                                  style: TextStyle(
+                                    fontSize: F.minBodySize,
+                                    fontWeight: FontWeight.w700,
+                                    color: F.ink,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                Text(
+                                  a.title,
+                                  style: TextStyle(
+                                      fontSize: F.minTextSize, color: F.mutedDark),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: F.s8),
+                          Text(
+                            countdownWord(now, a.at),
+                            style: TextStyle(
+                              fontSize: F.minTextSize,
+                              fontWeight: FontWeight.w700,
+                              color: F.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s12),
+                  child: Text(
+                    'الموبايل هيفكّرك امبارح الميعاد بالليل، وفي يومه الصبح.',
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+}
+
 class _OpenFollowUps extends StatelessWidget {
   const _OpenFollowUps({required this.records, required this.onOpen});
 

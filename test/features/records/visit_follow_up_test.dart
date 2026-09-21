@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
+import 'package:fakkarni/data/services/appointment_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
 import 'package:fakkarni/domain/health/follow_up.dart';
@@ -242,13 +243,31 @@ void main() {
         now: sep15,
       );
       expect(result, StageDateResult.scheduled);
-      final planned = h.sink.scheduled.values.single;
-      expect(planned.id, checkupIdFor(id, 0));
-      expect(isCheckupId(planned.id), isTrue);
-      expect(planned.body, 'النهارده معاد زيارتك.');
-      // ومش في نطاق الجرعات ولا التصعيد
-      expect(isDoseId(planned.id), isFalse);
-      expect(isRescheduledId(planned.id), isFalse);
+
+      // **الجدولة في نداء لوحده بعد الجرعات** (مواصفة المواعيد):
+      // `setStageDate` بتكتب الميعاد، و`AppointmentScheduler` بيبني منه
+      // الإشعارين — هادي امبارحه وواحد بيرن في يومه.
+      await AppointmentScheduler(
+        db: h.db,
+        patientId: h.services.patientId,
+        sink: h.sink,
+        rolling: false,
+      ).refresh(now: sep15);
+
+      final before = h.sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayBefore)]!;
+      final dayOf = h.sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayOf)]!;
+      expect(before.title, 'بكرة عندك زيارة');
+      expect(dayOf.title, 'النهارده عندك زيارة');
+      expect(before.kind, NotificationKind.appointmentQuiet);
+      expect(dayOf.kind, NotificationKind.appointmentAlert);
+      // ومش في نطاق الجرعات ولا التصعيد ولا الصيام ولا المتابعات القديم
+      for (final n in [before, dayOf]) {
+        expect(isAppointmentId(n.id), isTrue);
+        expect(isDoseId(n.id), isFalse);
+        expect(isRescheduledId(n.id), isFalse);
+        expect(isFastingId(n.id), isFalse);
+        expect(isCheckupId(n.id), isFalse);
+      }
     });
 
     test('الرجوع مرحلة بيلغي الميعاد ويصفّره — الخطة اتغيّرت', () async {
@@ -285,8 +304,12 @@ void main() {
           StageDateResult.scheduled);
       expect(await checkups().setStageDate(b, VisitStage.booked, day: DateTime(2026, 9, 21), now: sep15),
           StageDateResult.scheduled);
+      // **مفيش رفض بسبب الخانات بقى** (مواصفة المواعيد): الخانتين على
+      // iOS نافذة متدحرجة، والميعاد البعيد بيستنى دوره — والكارت على
+      // «يومك» بيقول إنه موجود. راجل حاجز عند الدكتور ما يتقالش له
+      // «شيل ميعاد الأول».
       expect(await checkups().setStageDate(c, VisitStage.booked, day: DateTime(2026, 9, 22), now: sep15),
-          StageDateResult.tooMany, reason: 'سقف الإشعارات المعلّقة زي التحليل بالظبط');
+          StageDateResult.scheduled);
     });
 
     test('يوم عدّى مش ميعاد', () async {

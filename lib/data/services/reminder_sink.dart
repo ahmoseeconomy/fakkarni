@@ -28,6 +28,15 @@ class NotificationReminderSink implements ReminderSink {
             body: notification.body,
             at: notification.at,
           ),
+        // ميعاد متابعة: قناته هو، منبّه غير دقيق، والهادي صامت تماماً
+        NotificationKind.appointmentQuiet || NotificationKind.appointmentAlert =>
+          NotificationService.scheduleAppointment(
+            id: notification.id,
+            title: notification.title,
+            body: notification.body,
+            at: notification.at,
+            quiet: notification.kind == NotificationKind.appointmentQuiet,
+          ),
         _ => NotificationService.scheduleDose(
             id: notification.id,
             title: notification.title,

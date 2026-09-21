@@ -274,13 +274,15 @@ void main() {
 
       expect(find.byKey(ValueKey('stage-date-line-${stage.number}')), findsOneWidget);
       expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsNothing);
-      expect(h.sink.scheduled.keys.where(isCheckupId), hasLength(1));
+      // **إشعارين بقى**: هادي امبارح الميعاد، وواحد بيرن في يومه.
+      expect(h.sink.scheduled.keys.where(isAppointmentId), hasLength(2));
 
       // و«شيل الميعاد» بترجّع السؤال
       await tester.tap(find.byKey(ValueKey('stage-date-clear-${stage.number}')));
       await settle(tester);
       expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsOneWidget);
-      expect(h.sink.cancelled, contains(checkupIdFor(id, 0)));
+      expect(h.sink.cancelled,
+          contains(appointmentIdFor(id, 0, AppointmentNotice.dayOf)));
     });
 
     screenTest(

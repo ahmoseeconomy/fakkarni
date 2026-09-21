@@ -77,6 +77,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
   /// ميعاد المرحلة — **نفس منتقي اليوم بتاع شيت الصيام**، مش تاني.
   Future<void> _pickStageDate(RecordRow row, FollowStage stage) async {
     final checkups = _checkups;
+    final scope = AppScope.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final day = await showModalBottomSheet<DateTime>(
       context: context,
@@ -86,10 +87,11 @@ class _CheckupScreenState extends State<CheckupScreen> {
     );
     if (day == null) return;
     final result = await checkups.setStageDate(row.id, stage, day: day, now: _now);
+    // الميعاد اتكتب؛ الإشعارات بتتبني منه في نداء لوحده بعد كده.
+    if (result == StageDateResult.scheduled) await scope.refreshAppointments(now: _now);
     final text = switch (result) {
       StageDateResult.scheduled => null,
       StageDateResult.inPast => 'اليوم ده عدّى — اختار يوم جاي.',
-      StageDateResult.tooMany => 'فيه ميعادين متظبطين في متابعات تانية — شيل واحد الأول.',
     };
     if (text != null) {
       messenger.showSnackBar(
@@ -279,7 +281,13 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                   stage: stage,
                                   at: CheckupService.stageDateOf(row, stage),
                                   onPick: () => _pickStageDate(row, stage),
-                                  onClear: () => _checkups.clearStageDate(row.id, stage),
+                                  onClear: () async {
+                                    // الخدمة بتتمسك **قبل** أي await —
+                                    // نفس قاعدة `context` عبر الفجوات.
+                                    final scope = AppScope.of(context);
+                                    await _checkups.clearStageDate(row.id, stage);
+                                    await scope.refreshAppointments(now: _now);
+                                  },
                                 ),
                               ],
                               // الصيام بتاع التحليل بس — الزيارة مالهاش صيام.
