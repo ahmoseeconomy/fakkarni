@@ -143,7 +143,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // **دلوقتي**، وده أعجل من أي حاجة تانية على الشاشة.
                 if (snapshot.alerts.where((a) => a.open).toList() case final open
                     when open.isNotEmpty) ...[
-                  const CareHead('تنبيهات'),
+                  const CareHead('تنبيهات', accent: F.gold),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
                 // ٣ — اليوم في أقسام بترتيب طلب المالك: اللي ما اتأكدتش ←
@@ -219,6 +219,9 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
       const CareHead('آخر أسبوع'),
       CareCard(
         key: const ValueKey('care-week'),
+        border: status.completeDays == status.daysWithDoses
+            ? F.careAccentTaken
+            : F.careAccentSkipped,
         child: Row(
           children: [
             Icon(
@@ -246,9 +249,10 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final items = newestArrivals(snapshot);
     if (items.isEmpty) return const [];
     return [
-      const CareHead('الجديد'),
+      CareHead('الجديد', count: items.length, accent: F.careAccentSkipped),
       CareCard(
         key: const ValueKey('newest'),
+        border: F.careAccentSkipped,
         padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -309,11 +313,13 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
       // فوق صف بيقول «لسه ما اتأكدتش» بيناقض نفسه على شاشة واحدة.
       // لو المالك عايز «فاتت» فعلاً، دي كلمة واحدة هنا وسطر في الاختبار.
       if (s.missed.isNotEmpty) ...[
-        CareHead('ما اتأكدتش', count: s.missed.length),
-        for (final e in s.missed) _DoseRow(event: e, now: _now),
+        CareHead('ما اتأكدتش', count: s.missed.length, accent: F.careAccentDue),
+        for (final e in s.missed) _DoseRow(event: e, now: _now, accent: F.careAccentDue),
       ],
       if (s.upcomingToday.isNotEmpty || s.tomorrow.isNotEmpty) ...[
-        CareHead('جاية', count: s.upcomingToday.length + s.tomorrow.length),
+        CareHead('جاية',
+            count: s.upcomingToday.length + s.tomorrow.length,
+            accent: F.careAccentUpcoming),
         // أب ظبّط أدويته بالليل: النهارده فاضي وبكرة مليان. «مفيش حاجة»
         // كانت هتبقى صح بالحرف وغلط في المعنى — بنقول اللي جاي.
         if (todayEmpty && s.tomorrow.isNotEmpty)
@@ -322,20 +328,22 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
             text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة '
                 '${spokenTime(s.tomorrow.first.scheduledAt)}',
           ),
-        for (final e in s.upcomingToday) _DoseRow(event: e, now: _now, ahead: true),
+        for (final e in s.upcomingToday)
+          _DoseRow(event: e, now: _now, ahead: true, accent: F.careAccentUpcoming),
         if (s.tomorrow.isNotEmpty) ...[
           // **بكرة تحت عنوان يومها** — فالصف نفسه بيكتفي بساعته.
           _DayHead(day: s.tomorrow.first.scheduledAt, now: _now),
-          for (final e in s.tomorrow) _DoseRow(event: e, now: _now, ahead: true),
+          for (final e in s.tomorrow)
+            _DoseRow(event: e, now: _now, ahead: true, accent: F.careAccentUpcoming),
         ],
       ],
       if (s.taken.isNotEmpty) ...[
-        CareHead('اتاخدت', count: s.taken.length),
-        for (final e in s.taken) _DoseRow(event: e, now: _now),
+        CareHead('اتاخدت', count: s.taken.length, accent: F.careAccentTaken),
+        for (final e in s.taken) _DoseRow(event: e, now: _now, accent: F.careAccentTaken),
       ],
       if (s.skipped.isNotEmpty) ...[
-        CareHead('متخطّية', count: s.skipped.length),
-        for (final e in s.skipped) _DoseRow(event: e, now: _now),
+        CareHead('متخطّية', count: s.skipped.length, accent: F.careAccentSkipped),
+        for (final e in s.skipped) _DoseRow(event: e, now: _now, accent: F.careAccentSkipped),
       ],
     ];
   }
@@ -353,12 +361,13 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final labs = [for (final f in all) if (f.kind == FollowKind.lab) f];
     return [
       if (visits.isNotEmpty) ...[
-        CareHead('زيارات', count: visits.length),
-        for (final f in visits) _FollowRow(follow: f, now: _now),
+        CareHead('زيارات', count: visits.length, accent: F.careAccentVisit),
+        for (final f in visits)
+          _FollowRow(follow: f, now: _now, accent: F.careAccentVisit),
       ],
       if (labs.isNotEmpty) ...[
-        CareHead('تحاليل', count: labs.length),
-        for (final f in labs) _FollowRow(follow: f, now: _now),
+        CareHead('تحاليل', count: labs.length, accent: F.careAccentLab),
+        for (final f in labs) _FollowRow(follow: f, now: _now, accent: F.careAccentLab),
       ],
     ];
   }
@@ -410,7 +419,15 @@ class CaregiverMedicationRow extends StatelessWidget {
 }
 
 class _DoseRow extends StatelessWidget {
-  const _DoseRow({required this.event, required this.now, this.ahead = false});
+  const _DoseRow({
+    required this.event,
+    required this.now,
+    required this.accent,
+    this.ahead = false,
+  });
+
+  /// لون القسم اللي الصف ده جواه — على الحد والشريط الجانبي.
+  final Color accent;
 
   /// جرعة جاية — بدل كلمة الحالة بنكتب «كمان ٤٠ دقيقة»، وده اللي الابن
   /// بيقراه فعلاً. اليوم نفسه بيتقال في عنوان القسم مش في كل سطر.
@@ -437,7 +454,8 @@ class _DoseRow extends StatelessWidget {
     };
 
     return CareCard(
-      edge: look == DoseLook.unconfirmed ? F.gold : null,
+      border: accent,
+      edge: accent,
       padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s10),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: F.careTapTarget - 2 * F.s10),
@@ -532,7 +550,9 @@ class _DayHead extends StatelessWidget {
 /// نخترع تاريخ. وواقفة من أسبوع؟ بنقول إنها واقفة — دي واقعة عن الشاشة
 /// مش عن الجسم ولا عن المعمل، وبنفس الحساب اللي على موبايل الأب.
 class _FollowRow extends StatelessWidget {
-  const _FollowRow({required this.follow, required this.now});
+  const _FollowRow({required this.follow, required this.now, required this.accent});
+
+  final Color accent;
 
   final CareFollowUp follow;
   final DateTime now;
@@ -542,7 +562,10 @@ class _FollowRow extends StatelessWidget {
     final date = follow.stageDate;
     final doctor = follow.record.doctor?.trim();
     return CareCard(
-      edge: follow.stalled ? F.gold : null,
+      // متابعة واقفة بتاخد الدهبي بدل لون قسمها — «دي محتاجاك» بتغلب
+      // الهوية، ودي نفس القاعدة اللي الدهبي موجود عشانها.
+      border: follow.stalled ? F.gold : accent,
+      edge: follow.stalled ? F.gold : accent,
       padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -630,7 +653,10 @@ class _StatusCard extends StatelessWidget {
 
     return CareCard(
       key: const ValueKey('care-status'),
-      edge: status.state == CareState.needsAttention ? F.gold : null,
+      // كارت الحالة بياخد لون حالته — دهبي لما فيه حاجة محتاجاه، أخضر
+      // لما كله تمام. الأيقونة والكلمة فوق اللون زي أي حالة تانية.
+      border: colour,
+      edge: colour,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -695,6 +721,7 @@ class _AlertCard extends StatelessWidget {
     };
 
     return CareCard(
+      border: F.gold,
       edge: F.gold,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

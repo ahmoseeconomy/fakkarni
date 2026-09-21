@@ -27,16 +27,28 @@ AppBar careAppBar(String title, {List<Widget> actions = const []}) => AppBar(
 
 /// عنوان قسم — أصغر وأهدى من `FSectionHead` بتاع الأب، وبعدّاد اختياري.
 class CareHead extends StatelessWidget {
-  const CareHead(this.text, {this.count, super.key});
+  const CareHead(this.text, {this.count, this.accent, super.key});
 
   final String text;
   final int? count;
+
+  /// لون القسم — **علامة صغيرة قبل الكلمة، مش لون الكلمة**. النص بياخد
+  /// لون نص دايماً؛ اللون على العلامة عشان يفضل مقروء في الوضعين.
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: F.careRowGap, bottom: F.s6),
         child: Row(
           children: [
+            if (accent != null) ...[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: F.s6),
+            ],
             Text(
               text,
               style: TextStyle(
@@ -68,10 +80,14 @@ class CareCard extends StatelessWidget {
     required this.child,
     this.edge,
     this.padding,
+    this.border,
     super.key,
   });
 
   final Widget child;
+
+  /// حد الكارت — لون قسمه، أو `F.line` لو مفيش قسم.
+  final Color? border;
 
   /// حد جانبي ملوّن — للتنبيه. اللون **مش** الحامل الوحيد للمعنى؛ جنبه
   /// دايماً أيقونة وكلمة.
@@ -89,7 +105,10 @@ class CareCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: F.cardGround,
         borderRadius: BorderRadius.circular(F.careRadius),
-        border: Border.all(color: F.line),
+        // **الحد بلون القسم، والأرضية زي ما هي.** تلوين الأرضية كان
+        // هيحط نص على سطح جديد في كل قسم، ويحتاج فحص تباين لكل واحد؛
+        // الحد بيدّي نفس الفصل البصري من غير ما يلمس قراية الكلام.
+        border: Border.all(color: border ?? F.line, width: border == null ? 1 : 1.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: edge == null
