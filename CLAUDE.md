@@ -133,6 +133,28 @@ These are product decisions, already settled. Do not "improve" them without aski
   and the splash would replay on every toggle, so it now runs once per
   launch. `dark_mode_test` computes the contrast of the real tokens and
   fails if a colour drops under AA in either mode.
+  **The son has the same switch, and it is the same switch** — one
+  `DarkModeToggle`, one `ui.dark` key, no caregiver flag: it is a setting
+  for *this phone*, whichever role runs on it. It sits in **two** places
+  on his side and that is not a second door: the patient's toggle lives in
+  the shell's top bar, which every tab is under, while `CaregiverShell`
+  has no shell bar at all — each tab carries its own `AppBar` and
+  «الإعدادات» has none. So «متابعة»'s bar covers the tab he lands on, and
+  the settings row is the only one reachable from any tab. The row is the
+  same widget with a word beside it («الوضع الليلي» — «شغّال»/«مقفول»),
+  not a `Switch`: a switch there would trip `caregiver_shell_test`, which
+  proves the son's side writes nothing.
+  **A constant colour is a dark-mode bug waiting to happen, and `F.gold`
+  is the only one that earns its constancy.** `F.greenDeep` was the text
+  colour of «اتاخد» on «متابعة» and «اتسأل ✓» in his health file: 9.38:1
+  on a light card, **1.51:1 on a dark one** — the confirmed dose and the
+  asked question simply vanished at night. Both now use `F.green`, which
+  flips (5.15 light / 7.24 dark). `caregiver_dark_mode_test` walks every
+  rendered `Text` on **each** tab in dark mode and fails under 4.5:1.
+  That check was written wrong first and caught by mutation: one pass at
+  the end of the walk only sees the *current* tab, because
+  `find.byType(Text)` skips offstage — restoring `F.greenDeep` stayed
+  green. It now runs after every tab and asserts it inspected something.
 - **A screen never names a surface colour; it names the surface's job.**
   `F.pageGround` (white), `F.cardGround` (`#EFEFEF`, the mockups' card
   grey), `F.railGround` (`#F6F6F6`, a quiet panel inside a card, a chip, a
@@ -249,7 +271,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1082 passing
+test/                         1086 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -2196,6 +2218,28 @@ Consequences to handle:
    one. **The correct long-term shape is A1:** create the row only when
    «نتعرّف عليك» saves, and build the patient-bound services after that.
    It is a refactor of everything that reads `patientId`, not a tweak.
+6. **Two dark-mode faults found in the caregiver round, reported and NOT
+   fixed — both are app-wide, not caregiver-specific.**
+   - **`FSecondaryButton` and `FPrimaryButton` outline in `F.greenDeep`**
+     (`primitives.dart:112` and `:144`), a constant. On the night page
+     ground that is **1.71:1** — the outline is invisible, so a secondary
+     button reads as bare text with no boundary. The label itself is
+     `F.ink` (16:1) so nothing is unreadable; what is lost is the button's
+     edge. Not text, so AA's 4.5 does not apply, but WCAG 1.4.11 wants 3:1
+     for a control boundary. The fix is one token, and it repaints **every
+     button in the app** — it belongs in its own round with a look at the
+     patient screens, not in a round about the son's switch.
+   - **Toggling the mode drops you back on the first tab.** `main` keys
+     the whole app on the mode (`KeyedSubtree(key: ValueKey(dark))`)
+     because a `const` subtree will not rebuild otherwise — and that key
+     discards every `State`, including the shell's selected tab and the
+     caregiver's snapshot holder. Mild for the patient, whose toggle is in
+     a bar he is usually looking at from «اليوم»; visible for the son,
+     who taps it **in Settings** and lands on «متابعة».
+     `caregiver_dark_mode_test` pins this by name rather than hiding it.
+     The repair is to stop keying on the mode (make the few `const`
+     subtrees non-const, or lift the tab index above the key), which is a
+     root change.
 5. **PAID (with the white-ground round).** `F.muted` (`#6E7F76`) was the
    secondary text colour and measured 3.68:1 on ivory — under the 4.5:1 AA
    needs at this size. All 65 text uses moved to `F.mutedDark` (`#43544C`):

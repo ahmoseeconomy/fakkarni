@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/dark_mode_toggle.dart';
 import '../../core/widgets/primitives.dart';
 import '../selfcheck/health_check_screen.dart';
 
@@ -76,6 +77,30 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => const HealthCheckScreen(isCaregiver: true),
             )),
+          ),
+          const SizedBox(height: F.s12),
+          // **نفس مفتاح الأب، ونفس الويدجت.** الشريط العلوي بتاع «متابعة»
+          // مش شريط الهيكل زي عند الأب — كل تبويب هنا ليه شريطه، و
+          // «الإعدادات» مالهاش شريط أصلاً. فالصف ده هو المكان الوحيد اللي
+          // بيتوصّل له من أي تبويب. الكلمة جنب الزرار عشان «مفيش زرار
+          // أيقونة من غير كلمة».
+          FCard(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('الوضع الليلي',
+                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: F.darkMode,
+                  builder: (context, dark, _) => Text(
+                    dark ? 'شغّال' : 'مقفول',
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                  ),
+                ),
+                const DarkModeToggle(),
+              ],
+            ),
           ),
           const SizedBox(height: F.s12),
           FCard(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/dark_mode_toggle.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import 'caregiver_snapshot_holder.dart';
@@ -102,6 +103,9 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(snapshot == null ? 'المتابعة' : 'متابعة ${snapshot.patient.name}'),
+        // نفس مفتاح الأب بالظبط — **مفيش آلية تانية ولا مفتاح تخزين
+        // تاني**: إعداد واحد للموبايل ده، أي دور اشتغل عليه.
+        actions: const [DarkModeToggle()],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -320,7 +324,7 @@ class _DoseRow extends StatelessWidget {
   Widget build(BuildContext context) {
     // الحالة بالحرف زي ما جهاز الأب كتبها — بنترجم للعربي، مش بنحكم
     final (label, colour) = switch (event.state) {
-      'taken' => ('اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}', F.greenDeep),
+      'taken' => ('اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}', F.green),
       'skipped' => ('قال مش هياخده', F.mutedDark),
       // جهاز الأب هو اللي قال «اتنست» بعد المهلة — إحنا بننقل، مش بنحكم
       'missed' => ('اتنست — لسه ما اتأكدتش', F.gold),

@@ -549,7 +549,7 @@ class _QuestionRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: F.minTextSize,
                 fontWeight: FontWeight.w600,
-                color: question.asked ? F.greenDeep : F.mutedDark,
+                color: question.asked ? F.green : F.mutedDark,
               ),
             ),
           ],
