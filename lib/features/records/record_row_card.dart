@@ -5,6 +5,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
+import '../../data/repositories/records_repository.dart';
+import '../../data/services/checkup_service.dart';
+import '../../domain/health/follow_display.dart';
 import 'attachment_viewer.dart';
 import 'checkup_screen.dart';
 import 'health_file_screen.dart' show RecordSummary;
@@ -19,6 +22,8 @@ class RecordRowCard extends StatelessWidget {
   const RecordRowCard({required this.record, this.today, super.key});
 
   final RecordRow record;
+
+  /// «دلوقتي» — بتتحقن من الاختبارات؛ بتحدد «بكرة» / «بعد بكرة».
   final DateTime? today;
 
   void _openCheckup(BuildContext context, int id) => Navigator.of(context).push(
@@ -29,10 +34,27 @@ class RecordRowCard extends StatelessWidget {
     final record = this.record;
     final checkups = AppScope.of(context).checkups;
     final attachments = AppScope.of(context).attachments;
+    final records = RecordsRepository(AppScope.of(context).db);
+    final isFollow = record.checkupStage != null;
     await FSheet.show<void>(
       context,
-      title: record.title,
+      title: isFollow
+          ? followDisplayTitle(CheckupService.kindOf(record), record.title)
+          : record.title,
       children: [
+        // **الاسم بتاع المتابعة بيتعدّل من هنا.** بيتولد من الورقة أول ما
+        // تبدأ، والورقة ساعات مافيهاش اسم دكتور أصلاً — فالراجل بيفضل
+        // قاعد قدّام «متابعة زيارة» مالهاش اسم يعرفها بيه. المسح مش
+        // البديل: ده بيرمي المراحل والمواعيد معاها.
+        if (isFollow)
+          FSecondaryButton(
+            key: const ValueKey('record-rename'),
+            label: 'عدّل الاسم والدكتور',
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _rename(context, records);
+            },
+          ),
         FSecondaryButton(
           key: const ValueKey('record-delete'),
           label: 'امسحه',
@@ -85,6 +107,24 @@ class RecordRowCard extends StatelessWidget {
   }
 
 
+  /// ورقة صغيرة بحقلين — الاسم والدكتور. اسم فاضي مش بيتحفظ.
+  ///
+  /// المتحكّمات عايشة جوه [_RenameBody] مش هنا: ورقة بتتقفل لسه ليها
+  /// كادرات بتتبني، والتخلّص منها أول ما `show` ترجّع بيرمي
+  /// «A TextEditingController was used after being disposed» — نفس
+  /// العطل اللي ورقة ترويسة الروشتة دفعته في الجولة ١٦.
+  Future<void> _rename(BuildContext context, RecordsRepository records) => FSheet.show<void>(
+        context,
+        title: 'اسم المتابعة',
+        children: [
+          _RenameBody(
+            initialTitle: followDisplayTitle(CheckupService.kindOf(record), record.title),
+            initialDoctor: record.doctor ?? '',
+            onSave: (title, doctor) => records.rename(record.id, title: title, doctor: doctor),
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final r = record;
@@ -102,7 +142,10 @@ class RecordRowCard extends StatelessWidget {
                 (final int _, _) => InkWell(
                     key: ValueKey('checkup-open-${r.id}'),
                     onTap: () => _openCheckup(context, r.id),
-                    child: RecordSummary(record: r),
+                    // المفتوحة بتتعرض بميعاد مرحلتها؛ اللي خلصت سجل عادي.
+                    child: followIsOpen(CheckupService.kindOf(r), CheckupService.stageOf(r))
+                        ? RecordSummary.follow(record: r, now: today ?? DateTime.now())
+                        : RecordSummary(record: r),
                   ),
                 (null, final String _) => InkWell(
                     key: ValueKey('record-photo-${r.id}'),
@@ -130,4 +173,73 @@ class RecordRowCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RenameBody extends StatefulWidget {
+  const _RenameBody({
+    required this.initialTitle,
+    required this.initialDoctor,
+    required this.onSave,
+  });
+
+  final String initialTitle;
+  final String initialDoctor;
+  final Future<void> Function(String title, String doctor) onSave;
+
+  @override
+  State<_RenameBody> createState() => _RenameBodyState();
+}
+
+class _RenameBodyState extends State<_RenameBody> {
+  late final _title = TextEditingController(text: widget.initialTitle);
+  late final _doctor = TextEditingController(text: widget.initialDoctor);
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _doctor.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _deco(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+        filled: true,
+        fillColor: F.fieldGround,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+      );
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('rename-title'),
+            controller: _title,
+            textInputAction: TextInputAction.next,
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+            decoration: _deco('الاسم'),
+          ),
+          const SizedBox(height: F.s12),
+          TextField(
+            key: const ValueKey('rename-doctor'),
+            controller: _doctor,
+            textInputAction: TextInputAction.done,
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+            decoration: _deco('الدكتور'),
+          ),
+          const SizedBox(height: F.s12),
+          FPrimaryButton(
+            key: const ValueKey('rename-save'),
+            label: 'احفظ',
+            onPressed: () async {
+              // اسم فاضي مش اسم: الزرار بيسكت بدل ما يحفظ فراغ.
+              if (_title.text.trim().isEmpty) return;
+              final nav = Navigator.of(context);
+              await widget.onSave(_title.text, _doctor.text);
+              if (mounted) nav.pop();
+            },
+          ),
+        ],
+      );
 }

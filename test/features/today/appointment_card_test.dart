@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/db/tables.dart' show RecordKind;
 import 'package:fakkarni/data/services/appointment_card.dart';
+import 'package:fakkarni/domain/health/follow_display.dart';
 
 /// **الكارت الثابت — شبكة الأمان بتاعة نافذة iOS.**
 ///

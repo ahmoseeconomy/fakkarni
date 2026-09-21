@@ -16,6 +16,7 @@ import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
+import 'package:fakkarni/domain/health/follow_display.dart';
 import 'package:fakkarni/features/records/checkup_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
@@ -59,9 +60,13 @@ void main() {
     expect(find.text('المتابعات'), findsOneWidget);
     expect(find.text('صورة دم كاملة'), findsOneWidget);
     expect(find.text('تحليل سكر تراكمي'), findsOneWidget);
-    // النوع جنب المرحلة — القايمة فيها تحاليل وزيارات
-    expect(find.text('تحليل — ${CheckupStage.labBooking.label}'), findsOneWidget);
-    expect(find.text('تحليل — ${CheckupStage.doctorOrder.label}'), findsOneWidget);
+    // النوع جنب المرحلة — القايمة فيها تحاليل وزيارات — **والميعاد**.
+    // الصفوف دي كلها مالهاش ميعاد جاي (اللي ليها بتطلع في «مواعيدك
+    // الجاية»)، فالسطر بيقول كده بالحرف بدل ما يعرض تاريخ الورقة.
+    expect(find.text('تحليل — ${CheckupStage.labBooking.label} — $noFollowDateText'),
+        findsOneWidget);
+    expect(find.text('تحليل — ${CheckupStage.doctorOrder.label} — $noFollowDateText'),
+        findsOneWidget);
     expect(find.byKey(ValueKey('follow-up-$blood')), findsOneWidget);
     expect(find.byKey(ValueKey('follow-up-$sugar')), findsOneWidget);
     expectNoRedAndMinSize(tester);

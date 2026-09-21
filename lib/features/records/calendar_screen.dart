@@ -9,6 +9,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
+import '../../data/services/checkup_service.dart';
+import '../../domain/health/follow_display.dart';
 import '../../data/dose_state.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
@@ -77,14 +79,26 @@ List<CalendarEntry> calendarEntries({
         },
         attention: !d.isDone && d.scheduledAt.isBefore(now),
       ),
+    // **المتابعة المفتوحة بتقع على ميعاد مرحلتها، مش على `happenedAt`.**
+    // `happenedAt` بتاعة صف متابعة هو يوم ما بدأت (أو تاريخ الورقة)، ولو
+    // اتحط على التقويم بيقرا كأنه ميعاد — وده بالظبط العطل اللي الجولة
+    // دي عن. ومتابعة مالهاش ميعاد لسه مالهاش يوم على التقويم أصلاً.
     for (final r in records)
       if (r.deletedAt == null)
-        CalendarEntry(
-          kind: recordKind(r.kind)!,
-          at: r.happenedAt,
-          title: r.title,
-          detail: [?r.doctor, ?r.place].join(' — '),
-        ),
+        if (_followStageDate(r) case (final DateTime at, final String stage))
+          CalendarEntry(
+            kind: recordKind(r.kind)!,
+            at: at,
+            title: followDisplayTitle(CheckupService.kindOf(r), r.title),
+            detail: stage,
+          )
+        else if (!followIsOpen(CheckupService.kindOf(r), CheckupService.stageOf(r)))
+          CalendarEntry(
+            kind: recordKind(r.kind)!,
+            at: r.happenedAt,
+            title: r.title,
+            detail: [?r.doctor, ?r.place].join(' — '),
+          ),
     for (final g in readings)
       CalendarEntry(
         kind: CalendarKind.glucose,
@@ -93,6 +107,15 @@ List<CalendarEntry> calendarEntries({
         detail: '${g.context.label} — ${arabicTime(g.measuredAt)}',
       ),
   ]..sort((a, b) => a.at.compareTo(b.at));
+}
+
+/// ميعاد المرحلة الحالية لمتابعة مفتوحة، مع اسم المرحلة — أو null.
+(DateTime, String)? _followStageDate(RecordRow r) {
+  final kind = CheckupService.kindOf(r);
+  final stage = CheckupService.stageOf(r);
+  if (!followIsOpen(kind, stage)) return null;
+  final at = CheckupService.stageDateOf(r, stage!);
+  return at == null ? null : (at, stage.label);
 }
 
 /// «التقويم» (المخطط ١٢): شهر أو أسبوع، من dose_events وrecords وقياسات

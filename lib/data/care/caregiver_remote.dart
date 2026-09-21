@@ -7,6 +7,8 @@
 /// هو اللي على موبايل الأب؛ إحنا بنعرض اللي كتبه، أو ما نعرضش.
 library;
 
+import '../../domain/health/follow_display.dart';
+import '../../domain/health/follow_up.dart';
 import '../../domain/health/lab_range.dart';
 import '../dose_state.dart';
 
@@ -318,8 +320,13 @@ class CaregiverNewItem {
 /// تأكيد، وليها «النهارده» والأسبوع.
 List<CaregiverNewItem> newestArrivals(CaregiverSnapshot snapshot, {int limit = 10}) {
   final items = [
+    // **المتابعة المفتوحة مش «جديد»، هي حاجة شغّالة** — وليها قسمها فوق.
+    // وكل ما الأب يقدّم مرحلة بيتغيّر `updated_at`، فكانت بتطلع أول
+    // «الجديد» كأنها حاجة وصلت دلوقتي، بتاريخ ورقتها القديم جنبها.
     for (final r in snapshot.records)
-      CaregiverNewItem(type: NewItemType.record, arrivedAt: r.updatedAt, happenedAt: r.happenedAt, record: r),
+      if (!followIsOpen(FollowKind.fromStored(r.followKind),
+          FollowKind.fromStored(r.followKind).stageFromNumber(r.checkupStage)))
+        CaregiverNewItem(type: NewItemType.record, arrivedAt: r.updatedAt, happenedAt: r.happenedAt, record: r),
     for (final r in snapshot.readings)
       CaregiverNewItem(type: NewItemType.reading, arrivedAt: r.updatedAt, happenedAt: r.measuredAt, reading: r),
     for (final q in snapshot.questions)

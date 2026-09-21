@@ -61,12 +61,7 @@ class LabResultsRepository {
         // شاشة الابن — يعني «٦» بتبقى «6» في كل مكان. الإصلاح في
         // المصدر، والصفوف اللي اتكتبت قبل كده بتتظبط في
         // [launchHousekeeping].
-        final count = lines.length;
-        final title = switch (count) {
-          1 => 'تقرير تحليل — ${lines.single.testName}',
-          2 => 'تقرير تحليل — نتيجتين',
-          _ => 'تقرير تحليل — ${arabicNumber(count)} نتايج',
-        };
+        final title = labReportTitle([for (final l in lines) l.testName]);
         final recordId = await _db.into(_db.records).insert(RecordsCompanion.insert(
               patientId: patientId,
               kind: RecordKind.lab,
@@ -114,3 +109,14 @@ class LabResultsRepository {
 
   static String _number(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 }
+
+/// عنوان تقرير التحاليل — **بأرقام عربية، دايماً**.
+///
+/// مستخرجة عشان تتختبر لوحدها: ده نص بيتخزّن في القاعدة وبيتعرض على
+/// «يومك» وفي الملف الصحي وعلى شاشة الابن، ورقم لاتيني واحد جوّه بيفضل
+/// في كل مكان فيهم. `${count}` كان بيعمل بالظبط كده.
+String labReportTitle(List<String> testNames) => switch (testNames.length) {
+      1 => 'تقرير تحليل — ${testNames.single}',
+      2 => 'تقرير تحليل — نتيجتين',
+      final n => 'تقرير تحليل — ${arabicNumber(n)} نتايج',
+    };

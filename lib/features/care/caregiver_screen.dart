@@ -4,6 +4,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
 import '../../data/care/caregiver_remote.dart';
+import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
@@ -146,7 +147,11 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   CareHead('تنبيهات', accent: F.careAlertInk),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
-                // ٣ — اليوم في أقسام بترتيب طلب المالك: اللي ما اتأكدتش ←
+                // ٣ — المواعيد الجاية. تحت سطر الحالة على طول لما مفيش
+                // تنبيه مفتوح — والتنبيه المفتوح بيفضل فوقها، لأنه جرعة
+                // بتفوت **دلوقتي** وده قرار مكتوب من جولة ٢٨.
+                ..._upcomingSection(snapshot),
+                // ٤ — اليوم في أقسام بترتيب طلب المالك: اللي ما اتأكدتش ←
                 // جاية ← اتاخدت. **وكل قسم فاضي بيختفي** — سطر الحالة فوق
                 // قال خلاص إن كل حاجة تمام، فعنوان فوق فراغ زيادة بتشغل
                 // شاشة الهدف منها الكثافة.
@@ -350,8 +355,21 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
   /// وميعادها لو حطّه. **ومفيش حساب من عندنا** — لا بنقول التحليل ياخد
   /// قد إيه ولا بنحكم على تأخير؛ «واقفة من أسبوع» واقعة عن الشاشة،
   /// بنفس الحساب اللي على موبايل الأب بالظبط (`followIsStalled`).
+  /// **المواعيد الجاية فوق.** ميعاد قدّام الأب دلوقتي حاجة الابن عايز
+  /// يشوفها أول ما يفتح، مش في آخر الشاشة جنب حاجات عدّت. ذهبي لأنه
+  /// «ده محتاج انتباهك»، وبنفس العدّ اللي الأب بيشوفه بالحرف.
+  List<Widget> _upcomingSection(CaregiverSnapshot snapshot) {
+    final upcoming = careUpcoming(careFollowUps(snapshot, _now), _now);
+    if (upcoming.isEmpty) return const [];
+    return [
+      CareHead('مواعيده الجاية', count: upcoming.length, accent: F.gold),
+      for (final f in upcoming) _FollowRow(follow: f, now: _now, accent: F.gold),
+    ];
+  }
+
   List<Widget> _followSections(CaregiverSnapshot snapshot) {
-    final all = careFollowUps(snapshot, _now);
+    // اللي فوق مش بيتعاد هنا — تكرار بيخلّي الواحد يعدّ الميعاد مرتين.
+    final all = careRemaining(careFollowUps(snapshot, _now), _now);
     if (all.isEmpty) return const [];
     final visits = [for (final f in all) if (f.kind == FollowKind.visit) f];
     final labs = [for (final f in all) if (f.kind == FollowKind.lab) f];
@@ -552,7 +570,7 @@ class _FollowRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  follow.record.title,
+                  followDisplayTitle(follow.kind, follow.record.title),
                   style: TextStyle(
                     fontSize: F.careBodySize,
                     fontWeight: FontWeight.w700,
@@ -567,12 +585,13 @@ class _FollowRow extends StatelessWidget {
           ),
           const SizedBox(height: F.s4),
           Text(
+            // **نفس السطر اللي الأب بيشوفه، من نفس الدالة.** نسختين
+            // من نفس الجملة معناها شاشتين يقدروا يختلفوا في صمت — وده
+            // العطل اللي الجولة دي عن: الأب شاف «بكرة» والابن شاف تاريخ
+            // ورقة من ٢٠٢٣.
             [
               if (doctor != null && doctor.isNotEmpty) doctor,
-              if (date != null)
-                '${arabicDate(date)} — ${timeAhead(now, date)}'
-              else
-                'لسه مفيش ميعاد متحطّ',
+              followDateFull(date, now),
             ].join(' — '),
             style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark, height: 1.4),
           ),

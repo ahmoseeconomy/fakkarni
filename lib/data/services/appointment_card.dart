@@ -34,23 +34,9 @@ class UpcomingAppointment {
       };
 }
 
-/// «النهارده» / «بكرة» / «بعد ٣ أيام» — بأيام تقويمية مش بضرب في ٢٤.
-///
-/// مصر بتغيّر الساعة، والعدّ بالأيام لازم يمشي بساعة الحيطة.
-String countdownWord(DateTime now, DateTime at) {
-  final days = DateTime(at.year, at.month, at.day)
-      .difference(DateTime(now.year, now.month, now.day))
-      .inDays;
-  if (days <= 0) return 'النهارده';
-  if (days == 1) return 'بكرة';
-  if (days == 2) return 'بعد بكرة';
-  return 'بعد ${_arabic(days)} أيام';
-}
-
-String _arabic(int v) {
-  const digits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-  return v.toString().split('').map((c) => digits[int.parse(c)]).join();
-}
+// `countdownWord` عاشت هنا نسخة تانية لحد الجولة دي. بقت واحدة في
+// `domain/health/follow_display.dart`: الكارت والشاشات والابن كلهم
+// بيقروا نفس الجملة، ونسختين معناها اتنين يختلفوا في صمت.
 
 /// المواعيد اللي الكارت بيعرضها — **الأقرب الأول**.
 ///

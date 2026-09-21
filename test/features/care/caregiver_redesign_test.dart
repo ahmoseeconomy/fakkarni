@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/health/follow_display.dart';
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
@@ -242,13 +243,18 @@ void main() {
       // «٠» العربية هي نقطة، وفيه اختبار بيقرا كل نص في lib ويوقع عليها)
       double y(String head) => tester.getTopLeft(find.text(head)).dy;
       expect(find.textContaining('Zestril'), findsNothing, reason: 'جرعة بكرة اترسمت');
-      for (final head in ['ما اتأكدتش', 'جاية', 'اتاخدت', 'زيارات', 'تحاليل']) {
+      // **الزيارة المحجوزة فوق، مع المواعيد** — ميعاد قدّام الأب حاجة
+      // الابن عايز يشوفها أول ما يفتح، مش في آخر الشاشة. واللي فضل في
+      // «زيارات»/«تحاليل» هو اللي مالوش ميعاد جاي — ومفيش تكرار.
+      for (final head in ['مواعيده الجاية', 'ما اتأكدتش', 'جاية', 'اتاخدت', 'تحاليل']) {
         expect(find.text(head), findsOneWidget, reason: 'القسم «$head» ناقص');
       }
+      expect(find.text('زيارات'), findsNothing,
+          reason: 'الزيارة الوحيدة ليها ميعاد جاي، فطلعت فوق ومااتكرّرتش');
+      expect(y('مواعيده الجاية'), lessThan(y('ما اتأكدتش')));
       expect(y('ما اتأكدتش'), lessThan(y('جاية')), reason: 'المحتاجة انتباه فوق');
       expect(y('جاية'), lessThan(y('اتاخدت')));
-      expect(y('اتاخدت'), lessThan(y('زيارات')));
-      expect(y('زيارات'), lessThan(y('تحاليل')));
+      expect(y('اتاخدت'), lessThan(y('تحاليل')));
       expect(find.text('(١)'), findsWidgets, reason: 'العدّاد جنب العنوان');
 
       // ٣ — «جاية»: النهارده وبس. **قسم بكرة اتشال** (طلب المالك)،
@@ -259,8 +265,24 @@ void main() {
       // ٤ — المتابعات: المرحلة بكلمتها، والميعاد وقد إيه فاضل، والواقفة
       expect(find.text('الزيارة اتحجزت'), findsOneWidget);
       expect(find.textContaining('د. حسام'), findsOneWidget);
+      // **والميعاد ميعاد المرحلة — نفس جملة الأب بالحرف.** الزيارة
+      // محجوزة ٣ سبتمبر، والصف اتبدأ ٢٥ أغسطس: تاريخ البداية ده عمره ما
+      // يتعرض كأنه ميعاد (ده العطل اللي جه من جهاز حقيقي).
+      expect(find.textContaining('بعد ٣ أيام — ٣ سبتمبر ٢٠٢٦'), findsOneWidget);
+      for (final t in tester.widgetList<Text>(find.byType(Text))) {
+        expect(t.data ?? '', isNot(contains('٢٥ أغسطس ٢٠٢٦')),
+            reason: 'تاريخ بداية المتابعة رجع يتعرض');
+      }
+      // **والمتابعة المفتوحة مش «جديد»** — هي حاجة شغّالة وليها قسمها فوق
+      expect(
+        tester
+            .widgetList<Text>(find.byType(Text))
+            .where((t) => (t.data ?? '').contains('زيارة: متابعة الضغط')),
+        isEmpty,
+        reason: 'المتابعة المفتوحة طلعت في «الجديد» كمان',
+      );
       expect(find.text('حجز المعمل'), findsOneWidget);
-      expect(find.textContaining('لسه مفيش ميعاد متحطّ'), findsOneWidget);
+      expect(find.textContaining(noFollowDateText), findsOneWidget);
       expect(find.textContaining('واقفة عند «حجز المعمل»'), findsOneWidget);
 
       // ٥ — الأسبوع في سطر، مش شبكة سبع خانات

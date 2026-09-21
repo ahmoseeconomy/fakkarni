@@ -97,7 +97,12 @@ void main() {
       expect(follow.title, 'د. حسام', reason: 'الزيارة اسمها الدكتور');
       expect(follow.doctor, 'د. حسام');
       expect(follow.place, 'عيادة النزهة');
-      expect(follow.happenedAt, DateTime(2026, 9, 10), reason: 'تاريخ الورقة مش النهارده');
+      // **تاريخ الورقة بيفضل على الورقة.** المتابعة صف لحاجة **لسه
+      // بتحصل**، وتاريخ بدايتها هو النهارده؛ نسخ تاريخ الروشتة عليها
+      // كان بيخلّي كل شاشة بتعرض `happenedAt` تقول «١٠ سبتمبر» عن زيارة
+      // محجوزة بكرة. المصدر متربوط بـ`followSourceId`، فالورقة مش ضايعة.
+      expect(follow.happenedAt, DateTime(2026, 9, 15),
+          reason: 'المتابعة بدأت النهارده — تاريخ الورقة بيفضل على الورقة');
       expect(follow.followSourceId, source);
       // **الورقة نفسها بتفضل زي ما هي** — مش بتتحوّل لمتابعة
       expect(rows.firstWhere((r) => r.id == source).checkupStage, isNull);
@@ -117,9 +122,11 @@ void main() {
       final follow = (await RecordsRepository(h.db).all(h.services.patientId))
           .firstWhere((r) => r.checkupStage != null);
       expect(CheckupService.kindOf(follow), FollowKind.lab);
-      expect(follow.title, 'تقرير تحليل — CBC');
+      // الاسم باللي بنتابعه، مش بوصف الورقة: «تقرير تحليل — CBC» بيوصف
+      // ورقة قديمة، و«متابعة CBC» بتوصف الحاجة اللي لسه بتحصل.
+      expect(follow.title, 'متابعة CBC');
       expect(follow.doctor, 'د. طارق');
-      expect(follow.happenedAt, DateTime(2026, 9, 11));
+      expect(follow.happenedAt, DateTime(2026, 9, 15));
       expect(follow.followSourceId, source);
     });
 
@@ -164,7 +171,10 @@ void main() {
 
       final follow = (await RecordsRepository(h.db).all(h.services.patientId))
           .firstWhere((r) => r.checkupStage != null);
-      expect(follow.title, 'من غير اسم دكتور');
+      // من غير اسم على الورقة بنقول «متابعة زيارة» — وصف صادق للي بيحصل،
+      // مش اسم مخترع ومش وصف لغياب («من غير اسم دكتور» كعنوان بتتقري
+      // كأنها اسم الحاجة).
+      expect(follow.title, 'متابعة زيارة');
     });
   });
 

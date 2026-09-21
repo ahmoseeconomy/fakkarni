@@ -14,6 +14,7 @@ import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
 import '../../data/services/checkup_service.dart';
+import '../../domain/health/follow_display.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -367,6 +368,7 @@ class _TodayScreenState extends State<TodayScreen> {
                     padding: const EdgeInsets.only(bottom: F.gap),
                     child: _OpenFollowUps(
                       records: open,
+                      now: _now,
                       onOpen: _openCheckup,
                     ),
                   );
@@ -401,7 +403,7 @@ class _TodayScreenState extends State<TodayScreen> {
                                 // النوع بالاسم: «متابعة زيارة د. حسام واقفة»
                                 // تتقري صح، و«متابعة تحليل صورة دم واقفة»
                                 // كمان — قايمة واحدة فيها الاتنين.
-                                label: 'متابعة ${CheckupService.kindOf(r).word} ${r.title} '
+                                label: '${followRowName(CheckupService.kindOf(r), r.title)} '
                                     'واقفة عند ${stage.label}',
                                 onTap: () => _openCheckup(r.id),
                               ),
@@ -963,9 +965,10 @@ class _AppointmentsCard extends StatelessWidget {
 }
 
 class _OpenFollowUps extends StatelessWidget {
-  const _OpenFollowUps({required this.records, required this.onOpen});
+  const _OpenFollowUps({required this.records, required this.now, required this.onOpen});
 
   final List<RecordRow> records;
+  final DateTime now;
   final ValueChanged<int> onOpen;
 
   @override
@@ -1007,7 +1010,7 @@ class _OpenFollowUps extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  r.title,
+                                  followDisplayTitle(CheckupService.kindOf(r), r.title),
                                   textDirection: nameDirection(r.title),
                                   style: TextStyle(
                                     fontSize: F.minBodySize,
@@ -1019,8 +1022,12 @@ class _OpenFollowUps extends StatelessWidget {
                                   Text(
                                     // النوع جنب المرحلة — القايمة فيها
                                     // تحاليل وزيارات، و«الزيارة تمت» لوحدها
-                                    // ما بتقولش دي متابعة إيه.
-                                    '${CheckupService.kindOf(r).word} — ${stage.label}',
+                                    // ما بتقولش دي متابعة إيه. والميعاد
+                                    // ميعاد **المرحلة**: الصفوف دي كلها
+                                    // مالهاش ميعاد جاي، فالسطر بيقول كده
+                                    // بالحرف بدل ما يعرض تاريخ الورقة.
+                                    '${CheckupService.kindOf(r).word} — ${stage.label} — '
+                                    '${followDateLine(CheckupService.stageDateOf(r, stage), now)}',
                                     style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                                   ),
                               ],

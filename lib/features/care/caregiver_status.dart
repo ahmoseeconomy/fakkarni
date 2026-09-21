@@ -1,6 +1,6 @@
 import '../../data/care/caregiver_remote.dart';
 import '../../data/dose_state.dart';
-import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 
 /// **الحساب اللي شاشة الابن بتبدأ بيه — دوال نقية، من غير أي ودجت.**
@@ -242,13 +242,12 @@ class CareFollowUp {
 
 /// **نفس اختيار الأعمدة اللي `CheckupService.stageDateOf` بيعمله** —
 /// معاد الزيارة بيقعد في نفس عمود «معاد الدكتور»، والصف نوعه واحد بس.
-DateTime? careStageDate(CaregiverRecord r, FollowStage stage) => switch (stage) {
-      CheckupStage.labBooking => r.labBookingAt,
-      CheckupStage.waitingResult => r.resultReadyAt,
-      CheckupStage.resultArrived => r.doctorVisitAt,
-      VisitStage.booked => r.doctorVisitAt,
-      _ => null,
-    };
+DateTime? careStageDate(CaregiverRecord r, FollowStage stage) => followStageDate(
+      stage,
+      labBookingAt: r.labBookingAt,
+      resultReadyAt: r.resultReadyAt,
+      doctorVisitAt: r.doctorVisitAt,
+    );
 
 /// المتابعات المفتوحة — أي صف جهاز الأب حاطط عليه مرحلة.
 ///
@@ -283,4 +282,24 @@ List<CareFollowUp> careFollowUps(CaregiverSnapshot snapshot, DateTime now) {
     return x.compareTo(y);
   });
   return out;
+}
+
+/// المتابعات اللي ليها **ميعاد جاي** — النهارده أو بعده، الأقرب الأول.
+///
+/// دي اللي بتطلع فوق في «متابعة»: الابن عايز يعرف إن فيه حاجة قدّامهم،
+/// مش يدوّر عليها في آخر الشاشة.
+List<CareFollowUp> careUpcoming(List<CareFollowUp> all, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  return [
+    for (final f in all)
+      if (f.stageDate case final at?)
+        if (!DateTime(at.year, at.month, at.day).isBefore(today)) f,
+  ];
+}
+
+/// الباقي — من غير ميعاد، أو ميعاده عدّى. **مفيش تكرار**: اللي فوق مش
+/// بيتعاد تحت، زي ما شاشة الأب بالظبط بتعمل.
+List<CareFollowUp> careRemaining(List<CareFollowUp> all, DateTime now) {
+  final upcoming = {for (final f in careUpcoming(all, now)) f.record.uuid};
+  return [for (final f in all) if (!upcoming.contains(f.record.uuid)) f];
 }

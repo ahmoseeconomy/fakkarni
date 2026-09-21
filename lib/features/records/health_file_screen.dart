@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
+import '../../domain/health/follow_display.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
@@ -117,7 +118,11 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
       title: followTitleFrom(kind, source),
       doctor: source.doctor,
       place: source.place,
-      happenedAt: source.happenedAt,
+      // **تاريخ الورقة بتاع الورقة.** كان بيتنسخ على صف المتابعة، فزيارة
+      // محجوزة بكرة كانت بتتعرض «١٣ سبتمبر ٢٠٢٣» على كل شاشة بتقرا
+      // `happenedAt`. المتابعة بتبدأ **النهارده** (الافتراضي في
+      // `CheckupService.start`)، والورقة بتتقال كأصل في سطر تاني عن
+      // طريق `followSourceId`.
       fromRecordId: sourceId,
       today: widget.today ?? DateTime.now(),
     );
@@ -341,16 +346,35 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   }
 }
 
-/// سطرين للسجل: العنوان (بأيقونة نوعه)، و«النوع · الدكتور · التاريخ».
+/// سطرين للسجل: العنوان (بأيقونة نوعه)، و«النوع — الدكتور — التاريخ».
+///
+/// **المتابعة المفتوحة بتتعرض بقواعدها هي** ([RecordSummary.follow]):
+/// الاسم باللي بنتابعه، والميعاد ميعاد **المرحلة الحالية** — مش
+/// `happenedAt`، اللي هو تاريخ بداية المتابعة ومش ميعاد حاجة جاية.
 class RecordSummary extends StatelessWidget {
-  const RecordSummary({required this.record, super.key});
+  const RecordSummary({required this.record, super.key})
+      : follow = false,
+        now = null;
+
+  /// صف متابعة مفتوحة. [now] مطلوبة عشان «بكرة» / «بعد بكرة».
+  const RecordSummary.follow({required this.record, required DateTime this.now, super.key})
+      : follow = true;
 
   final RecordRow record;
+  final bool follow;
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
     final r = record;
-    final meta = [r.kind.label, ?r.doctor, arabicDate(r.happenedAt)].join(' — ');
+    final stage = follow ? CheckupService.stageOf(r) : null;
+    final kind = CheckupService.kindOf(r);
+    // **متابعة مفتوحة ما بتعرضش `happenedAt` أبداً.** ده تاريخ بداية
+    // المتابعة (أو تاريخ الورقة في الصفوف القديمة)، ومفيش شاشة المفروض
+    // تقوله كأنه ميعاد جاي. المصدر واحد للناحيتين: [followDateLine].
+    final meta = stage == null
+        ? [r.kind.label, ?r.doctor, arabicDate(r.happenedAt)].join(' — ')
+        : (r.doctor ?? '');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -360,7 +384,7 @@ class RecordSummary extends StatelessWidget {
             const SizedBox(width: F.s6),
             Flexible(
               child: Text(
-                r.title,
+                follow ? followDisplayTitle(kind, r.title) : r.title,
                 textDirection: nameDirection(r.title),
                 style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
               ),
@@ -368,13 +392,23 @@ class RecordSummary extends StatelessWidget {
           ],
         ),
         const SizedBox(height: F.s4),
-        Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+        if (meta.isNotEmpty)
+          Text(meta, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
         // النوع بيحدد عدد المراحل: التحليل سبعة، والزيارة تلاتة.
-        if (CheckupService.stageOf(r) case final stage?)
+        if (stage != null)
           Text(
-            'متابعة ${CheckupService.kindOf(r).word} — ${arabicNumber(stage.number)} '
-            'من ${arabicNumber(CheckupService.kindOf(r).stages.length)}: ${stage.label}',
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
+            'متابعة ${kind.word} — ${arabicNumber(stage.number)} '
+            'من ${arabicNumber(kind.stages.length)}: ${stage.label} — '
+            '${followDateLine(CheckupService.stageDateOf(r, stage), now!)}',
+            style: const TextStyle(
+                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
+          )
+        else if (CheckupService.stageOf(r) case final closed?)
+          // متابعة خلصت: المرحلة الأخيرة، من غير ميعاد جاي.
+          Text(
+            'متابعة ${kind.word} — ${closed.label}',
+            style: const TextStyle(
+                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
           ),
       ],
     );

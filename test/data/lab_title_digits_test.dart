@@ -93,8 +93,20 @@ void main() {
 
   test('المصدر ما بيحقنش رقم خام في جملة عربية', () {
     // الحارس على المصدر نفسه: `$count` جوّه نص عربي هو اللي عمل العطل.
+    // العنوان اتطلّع في [labReportTitle] عشان يتختبر لوحده، فالحارس
+    // بيتأكد إن الدالة دي هي المكان الوحيد وإنها بتعدّي على arabicNumber.
     final source = File('lib/data/repositories/lab_results_repository.dart').readAsStringSync();
-    expect(source.contains(r"'تقرير تحليل — $count نتايج'"), isFalse);
-    expect(source, contains('arabicNumber(count)'));
+    expect(source.contains(r"$count نتايج"), isFalse);
+    expect(source, contains('String labReportTitle('));
+    expect(source, contains(r'${arabicNumber(n)} نتايج'));
+    expect('تقرير تحليل — '.allMatches(source), hasLength(3),
+        reason: 'العنوان بيتبني في مكان واحد — [labReportTitle]');
+  });
+
+  test('وبأرقام عربية لأي عدد', () {
+    for (var n = 1; n <= 30; n++) {
+      final title = labReportTitle([for (var i = 0; i < n; i++) 'اسم']);
+      expect(RegExp(r'[0-9]').hasMatch(title), isFalse, reason: 'رقم لاتيني في «$title»');
+    }
   });
 }

@@ -9,6 +9,7 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
+import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../health/scan_lab_screen.dart';
@@ -36,12 +37,19 @@ RecordKind sourceKindFor(FollowKind kind) =>
 /// «متابعة زيارة د. حسام» هي الجملة اللي الراجل بيقراها بعدين، وعنوان
 /// زي «روشتة — ٣ أدوية» كان هيخلّيها بلا معنى. ومن غير اسم على الورقة
 /// بنقول كده بالحرف بدل ما نخترع اسم.
-String followTitleFrom(FollowKind kind, RecordRow source) => switch (kind) {
-      FollowKind.lab => source.title,
-      FollowKind.visit => source.doctor?.trim().isNotEmpty ?? false
-          ? source.doctor!.trim()
-          : 'من غير اسم دكتور',
-    };
+/// اسم المتابعة **باللي بنتابعه، مش بالورقة**.
+///
+/// كان بياخد عنوان الورقة بالحرف، فمتابعة كانت بتتسمّى «تقرير تحليل —
+/// ٦ نتايج» — وده وصف ورقة قديمة مش وصف حاجة لسه بتحصل.
+/// [followDisplayTitle] بتعمل نفس التحويل **وقت العرض** كمان، فالصفوف
+/// اللي اتكتبت قبل كده بتتعرض صح من غير ما نلمسها.
+String followTitleFrom(FollowKind kind, RecordRow source) => followDisplayTitle(
+      kind,
+      switch (kind) {
+        FollowKind.lab => source.title,
+        FollowKind.visit => source.doctor?.trim() ?? '',
+      },
+    );
 
 /// بيسأل: تبدأ منين؟ وبيرجّع الاختيار، أو null لو قفلها.
 Future<StartFollowUpWay?> askStartWay(BuildContext context, FollowKind kind) => FSheet.show<StartFollowUpWay>(

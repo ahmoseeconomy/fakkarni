@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../domain/health/checkup.dart';
+import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
@@ -64,13 +65,12 @@ class CheckupService {
   ///
   /// **ميعاد الزيارة بيقعد في نفس عمود «معاد الدكتور»** — المعنى واحد،
   /// والصف نوعه واحد بس، فمستحيل الاتنين يتلاقوا على صف واحد.
-  static DateTime? stageDateOf(RecordRow row, FollowStage stage) => switch (stage) {
-        CheckupStage.labBooking => row.labBookingAt,
-        CheckupStage.waitingResult => row.resultReadyAt,
-        CheckupStage.resultArrived => row.doctorVisitAt,
-        VisitStage.booked => row.doctorVisitAt,
-        _ => null,
-      };
+  static DateTime? stageDateOf(RecordRow row, FollowStage stage) => followStageDate(
+        stage,
+        labBookingAt: row.labBookingAt,
+        resultReadyAt: row.resultReadyAt,
+        doctorVisitAt: row.doctorVisitAt,
+      );
 
   static RecordsCompanion _stageDateCompanion(FollowStage stage, DateTime? at) => switch (stage) {
         CheckupStage.labBooking => RecordsCompanion(labBookingAt: Value(at)),
