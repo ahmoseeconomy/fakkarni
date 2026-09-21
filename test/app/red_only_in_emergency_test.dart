@@ -18,10 +18,19 @@ import 'package:fakkarni/features/health/lab_flag.dart';
 /// التاني ده مش بيتقاس بقراية كود؛ بيتقاس بضغط الودجت نفسه تحت.
 const _labFlagFile = 'lib/features/health/lab_flag.dart';
 
+/// **الاستثناء التاني، بقرار صاحب المنتج**: بطاقة تنبيه التصعيد على
+/// شاشة الابن. وبنفس الحدّين بالظبط — ملف واحد، و**من غير حشو**: حد
+/// الكارت وشريطه وأيقونة ⚠، والنص بلون النص والأرضية زي ما هي.
+///
+/// والاسم `F.careAlertInk` مضاف للنمط الممنوع تحت **عن قصد**: لو اتكتب
+/// في أي ملف تاني الاختبار ده بيوقع. اللون ما اتسرّبش من ورا الحارس —
+/// الحارس شايفه ومسامح في مكان واحد.
+const _caregiverAlertFile = 'lib/features/care/caregiver_screen.dart';
+
 void main() {
   test('F.red / F.redDeep / F.redPanel / F.onRed وقيمهم ما بيظهروش برّه شاشات الطوارئ', () {
     final forbidden = RegExp(
-      r'F\.(red|redDeep|redPanel|onRed|onRedMuted|outOfRangeInk)\b'
+      r'F\.(red|redDeep|redPanel|onRed|onRedMuted|outOfRangeInk|careAlertInk)\b'
       r'|0xFFC0202F|0xFFA81E26|0xFF8C1820|0xFFE8747B|Colors\.red',
       caseSensitive: false,
     );
@@ -31,7 +40,8 @@ void main() {
       final path = entity.path.replaceAll(r'\', '/');
       if (path.startsWith('lib/features/emergency/')) continue;
       if (path == 'lib/core/theme/tokens.dart') continue; // التعريف نفسه
-      if (path == _labFlagFile) continue; // الاستثناء الوحيد — وبشروطه تحت
+      if (path == _labFlagFile) continue; // استثناء ١ — وبشروطه تحت
+      if (path == _caregiverAlertFile) continue; // استثناء ٢ — وبشروطه تحت
       final lines = entity.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i].trimLeft();

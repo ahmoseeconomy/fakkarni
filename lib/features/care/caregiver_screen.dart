@@ -143,7 +143,7 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // **دلوقتي**، وده أعجل من أي حاجة تانية على الشاشة.
                 if (snapshot.alerts.where((a) => a.open).toList() case final open
                     when open.isNotEmpty) ...[
-                  const CareHead('تنبيهات', accent: F.gold),
+                  CareHead('تنبيهات', accent: F.careAlertInk),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
                 // ٣ — اليوم في أقسام بترتيب طلب المالك: اللي ما اتأكدتش ←
@@ -317,9 +317,8 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
         for (final e in s.missed) _DoseRow(event: e, now: _now, accent: F.careAccentDue),
       ],
       if (s.upcomingToday.isNotEmpty || s.tomorrow.isNotEmpty) ...[
-        CareHead('جاية',
-            count: s.upcomingToday.length + s.tomorrow.length,
-            accent: F.careAccentUpcoming),
+        if (s.upcomingToday.isNotEmpty)
+          CareHead('جاية', count: s.upcomingToday.length, accent: F.careAccentUpcoming),
         // أب ظبّط أدويته بالليل: النهارده فاضي وبكرة مليان. «مفيش حاجة»
         // كانت هتبقى صح بالحرف وغلط في المعنى — بنقول اللي جاي.
         if (todayEmpty && s.tomorrow.isNotEmpty)
@@ -328,14 +327,11 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
             text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة '
                 '${spokenTime(s.tomorrow.first.scheduledAt)}',
           ),
+        // **مفيش صفوف بكرة** (طلب المالك). الشاشة بقت عن النهارده وبس؛
+        // اللي فاضل من بكرة هو الجملة اللي فوق لما النهارده يبقى فاضي —
+        // دي بتقول «ليه الشاشة فاضية» مش بتعرض جدول بكرة.
         for (final e in s.upcomingToday)
           _DoseRow(event: e, now: _now, ahead: true, accent: F.careAccentUpcoming),
-        if (s.tomorrow.isNotEmpty) ...[
-          // **بكرة تحت عنوان يومها** — فالصف نفسه بيكتفي بساعته.
-          _DayHead(day: s.tomorrow.first.scheduledAt, now: _now),
-          for (final e in s.tomorrow)
-            _DoseRow(event: e, now: _now, ahead: true, accent: F.careAccentUpcoming),
-        ],
       ],
       if (s.taken.isNotEmpty) ...[
         CareHead('اتاخدت', count: s.taken.length, accent: F.careAccentTaken),
@@ -518,31 +514,6 @@ class _DoseRow extends StatelessWidget {
   }
 }
 
-/// عنوان يوم جوّه قسم «جاية» — «بكرة — ١ سبتمبر».
-///
-/// جرعة بكرة كانت بتكتب «بكرة» في كل سطر. مع عنوان اليوم بقت الكلمة
-/// مكتوبة مرة واحدة، والسطر بيكتفي بساعته — وده كان الفرق الوحيد اللي
-/// كان بيخلّي صف بكرة أطول من صف النهارده.
-class _DayHead extends StatelessWidget {
-  const _DayHead({required this.day, required this.now});
-
-  final DateTime day;
-  final DateTime now;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: F.s4, bottom: F.s6),
-        child: Text(
-          '${timeAhead(now, day)} — ${arabicDate(day)}',
-          style: TextStyle(
-            fontSize: F.careMicroSize,
-            fontWeight: FontWeight.w700,
-            color: F.mutedDark,
-          ),
-        ),
-      );
-}
-
 /// متابعة مفتوحة — **قراية لصف الأب، ومفيش حكم**.
 ///
 /// السطر بيقول: اسم المتابعة، المرحلة اللي هو واقف عندها، وميعادها لو
@@ -721,15 +692,18 @@ class _AlertCard extends StatelessWidget {
     };
 
     return CareCard(
-      border: F.gold,
-      edge: F.gold,
+      // **أحمر، بقرار المالك — وبنفس حدود استثناء جولة ٢١**: حد وشريط
+      // وأيقونة، **من غير أي حشو**. الحبّاية الحمرا المليانة فاضلة
+      // للطوارئ لوحدها، وده اللي بيخلّي معناها محفوظ.
+      border: F.careAlertInk,
+      edge: F.careAlertInk,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.error_outline, size: 18, color: F.gold),
+              Icon(Icons.error_outline, size: 18, color: F.careAlertInk),
               const SizedBox(width: F.s8),
               Expanded(
                 child: Text(

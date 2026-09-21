@@ -91,7 +91,17 @@ These are product decisions, already settled. Do not "improve" them without aski
   `lib/features/emergency/`, with `F.red` on the ambulance button. The pill
   is the only red outside those screens, and it holds its meaning **because
   nothing else takes it**: the mockup's red card buttons are gold here.
-  **One exception, decided in round 21 and bounded twice over:** a lab
+  **Two exceptions, each decided by the owner and each bounded the same
+  way — one file, and never a fill.** The second is the son's escalation
+  alert card (`caregiver_screen.dart`): border, start bar and a ⚠ icon in
+  `F.careAlertInk`, with the text in ink and the ground untouched. Same
+  values as `F.outOfRangeInk` (5.23:1 light / 5.09:1 dark on the worst
+  ground), and **the guard was widened deliberately, not bypassed**:
+  `careAlertInk` is *added* to the forbidden pattern in
+  `red_only_in_emergency_test` and allowed in that one file, so writing
+  it anywhere else still fails — mutation-checked. The filled red pill is
+  still emergency's alone, which is the whole reason it means anything.
+  **The first exception, decided in round 21 and bounded twice over:** a lab
   value outside the range printed on its own report takes red as *text and
   an outlined badge* — never a fill. The filled red pill stays unique to
   emergency, which is the whole reason it still means something; this is a
@@ -305,7 +315,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1144 passing
+test/                         1149 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1199,6 +1209,28 @@ linked father.
   اتدفع)؛ `CaregiverEmergency` مالهاش عمود تليفون. زرار اتصال محتاج
   يا إما عمود جديد في السحابة يا إما قرار خصوصية جديد — والاتنين
   مش شغل جولة عرض.
+- **ألوان الأقسام، النسخة اللي المالك طلبها**: «تنبيهات» أحمر،
+  «ما اتأكدتش» دهبي، «جاية» أخضر غامق، «اتاخدت» أخضر، «متخطّية» رمادي،
+  «زيارات» بنفسجي، «تحاليل» برونزي.
+  - **الأخضر الغامق لازم يفتح في الليل**: `greenDeep` بيقيس **١٫٥١:١**
+    على كارت الليل، يعني القسم كان هيختفي — نفس الفخ بالظبط اللي خد
+    «اتاخد» قبل كده. الليل بياخد `#2E9E85`.
+  - **والأخضرين ولاد عم، والرقم مكتوب**: «جاية» و«اتاخدت» بينهم **١٤٫٠
+    ΔE نهاري و١٠٫٢ ليلي** — تحت أرضية الـ١٥، وباقي الأزواج كلها فوقها.
+    ده ناتج مباشر للطلب (لونين من نفس العيلة جنب بعض)، وبيتفرقوا
+    بالإضاءة وبالعنوان المكتوب فوق كل قسم. لو الفصل مطلوب أوضح،
+    «اتاخدت» بتتنقل للون تاني — كلمة واحدة في `tokens.dart`.
+  - **والأحمر لما دخل، «زيارات» و«تحاليل» اضطروا يتنقلوا.** الأحمر
+    الجديد كان **١٢٫٢ ΔE** من بنفسجي الليل القديم، والأخضر الغامق كان
+    **١٠٫٧** من برونزي النهار القديم. بدل ما نفضل ننحت استثناءات لحد ما
+    الحارس يفضى، اتعاد البحث: بعد الأحمر والأزرق والدهبي والأخضرين، اللي
+    فاضل **عايلتين بس** بيشتغلوا في الوضعين — بنفسجي (٢٧٦°) وبرونزي
+    (٣٨–٤٠°)، وهما اللي اتاخدوا. **الحساب هو اللي طلّعهم، مش الذوق.**
+- **«بكرة» مابقاش ليها قسم** (طلب المالك): «متابعة» بقت عن النهارده وبس.
+  اللي فاضل من بكرة هو الجملة اللي بتظهر لما النهارده يبقى فاضي («أول
+  جرعة بكرة الساعة …») — دي بتقول «ليه الشاشة فاضية»، مش بتعرض جدول.
+  الصفوف لسه في الصورة (جهاز الأب بينزّل بكرة مقدماً)، بس ما بتترسمش —
+  واختبار بيثبت إن جرعة بكرة ما بتظهرش.
 - **بنية «متابعة» بترتيب المالك** (ملحق نفس الجولة): سطر الحالة ←
   **ما اتأكدتش** ← **جاية** ← **اتاخدت** ← **متخطّية** ← **زيارات** ←
   **تحاليل** ← الأسبوع ← الجديد ← سطر التحديث. كل قسم بعدّاده، والفاضي

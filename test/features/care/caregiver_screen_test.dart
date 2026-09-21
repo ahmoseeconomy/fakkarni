@@ -111,14 +111,12 @@ void main() {
     expect(find.text('مفيش جرعات متسجّلة النهارده لسه.'), findsNothing);
 
     // قايمة بكرة — متعلّمة بكرة، ومرتبة بالوقت
-    // **«بكرة» بقت عنوان يوم فوق المجموعة، والصف بيكتفي بساعته** (ملحق
-    // المالك: «بكرة تحت عنوان تاريخه»). قبل كده كل صف كان شايل الكلمة.
-    expect(find.textContaining('بكرة'), findsWidgets);
-    expect(find.text('٧:٠٠ ص'), findsOneWidget);
-    expect(find.text('٩:٠٠ م'), findsOneWidget);
-    final concorTop = tester.getTopLeft(find.text('٧:٠٠ ص')).dy;
-    final glucophageTop = tester.getTopLeft(find.text('٩:٠٠ م')).dy;
-    expect(concorTop, lessThan(glucophageTop));
+    // **قسم بكرة اتشال خالص** (طلب المالك): الشاشة بقت عن النهارده وبس.
+    // اللي فاضل هو الجملة اللي فوق — بتقول «ليه الشاشة فاضية» وبتسمّي
+    // أول جرعة جاية، من غير ما تعرض جدول بكرة.
+    expect(find.text('٧:٠٠ ص'), findsNothing, reason: 'صف بكرة اتشال');
+    expect(find.text('٩:٠٠ م'), findsNothing);
+    expect(find.text('جاية'), findsNothing, reason: 'مفيش جرعات النهارده');
     expect(find.text('لسه ما اتأكدتش'), findsNothing, reason: 'بكرة مش متأخرة');
 
     expect(find.text('—'), findsNothing);
@@ -141,7 +139,6 @@ void main() {
 
     expect(find.text('مفيش جرعات النهارده — أول جرعة بكرة الساعة ٧:٠٠ الصبح'), findsOneWidget,
         reason: 'أول جرعة بكرة — مش ٦ الصبح بتاعة بعد بكرة');
-    expect(find.text('٧:٠٠ ص'), findsOneWidget);
     expect(find.textContaining('Glucophage'), findsNothing);
     expect(find.textContaining('Telfast'), findsNothing);
   });

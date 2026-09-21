@@ -74,6 +74,7 @@ CaregiverSnapshot _full() => CaregiverSnapshot(
         event('Concor 5mg', DateTime(2026, 8, 31, 8), 'taken', actedAt: DateTime(2026, 8, 31, 8, 5)),
         event('Glucophage', DateTime(2026, 8, 31, 9), 'missed'),
         event('Telfast', DateTime(2026, 8, 31, 20), 'pending'),
+        // بكرة — موجودة في الصورة، ومش المفروض تترسم بعد ما القسم اتشال
         event('Zestril', DateTime(2026, 9, 1, 7), 'pending'),
         // امبارح كامل — عشان سطر الأسبوع يبان
         event('Concor 5mg', DateTime(2026, 8, 30, 8), 'taken', actedAt: DateTime(2026, 8, 30, 8, 3)),
@@ -232,6 +233,7 @@ void main() {
       // ٢ — الأقسام بترتيبها، وكل واحد بعدّاده بين قوسين (مش «·»:
       // «٠» العربية هي نقطة، وفيه اختبار بيقرا كل نص في lib ويوقع عليها)
       double y(String head) => tester.getTopLeft(find.text(head)).dy;
+      expect(find.textContaining('Zestril'), findsNothing, reason: 'جرعة بكرة اترسمت');
       for (final head in ['ما اتأكدتش', 'جاية', 'اتاخدت', 'زيارات', 'تحاليل']) {
         expect(find.text(head), findsOneWidget, reason: 'القسم «$head» ناقص');
       }
@@ -241,14 +243,10 @@ void main() {
       expect(y('زيارات'), lessThan(y('تحاليل')));
       expect(find.text('(١)'), findsWidgets, reason: 'العدّاد جنب العنوان');
 
-      // ٣ — «جاية»: النهارده الأول، وبعدين بكرة تحت عنوان يومها
+      // ٣ — «جاية»: النهارده وبس. **قسم بكرة اتشال** (طلب المالك)،
+      // فالصف بيقول قد إيه فاضل ومفيش عنوان يوم ولا صفوف بكرة.
       expect(find.text('كمان ٦ ساعات'), findsOneWidget);
-      expect(find.textContaining('بكرة — '), findsOneWidget, reason: 'عنوان يوم بكرة');
-      expect(
-        tester.getTopLeft(find.text('كمان ٦ ساعات')).dy,
-        lessThan(tester.getTopLeft(find.textContaining('بكرة — ')).dy),
-        reason: 'الأقرب الأول',
-      );
+      expect(find.textContaining('بكرة — '), findsNothing, reason: 'قسم بكرة اتشال');
 
       // ٤ — المتابعات: المرحلة بكلمتها، والميعاد وقد إيه فاضل، والواقفة
       expect(find.text('الزيارة اتحجزت'), findsOneWidget);

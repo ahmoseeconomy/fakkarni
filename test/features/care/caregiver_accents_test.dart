@@ -63,11 +63,31 @@ void main() {
     group('ألوان الأقسام — $mode', () {
       setUp(() => F.setDark(on: dark));
 
+      /// **الأخضرين ولاد عم، بقرار المالك — والرقم مكتوب هنا مش متخبّي.**
+      ///
+      /// «جاية» بقت أخضر غامق بطلب صريح، و«اتاخدت» أخضر أصلاً. النتيجة
+      /// إن الزوج ده **١٤٫٠ ΔE في النهار و١٠٫٢ في الليل** — تحت أرضية
+      /// الـ١٥. ده مش سهو: الأخضر الغامق والأخضر بيختلفوا في الإضاءة
+      /// أكتر ما بيختلفوا في اللون، وباقي الأزواج كلها فوق ١٥.
+      ///
+      /// اللي بيخلّيه مقبول هو نفس اللي بيخلّي المجموعة كلها مقبولة عند
+      /// عمى الألوان: **العنوان مكتوب فوق كل قسم**، وكل صف فيه أيقونة
+      /// وكلمة. لو المالك عايز فصل أوضح، «اتاخدت» بتتنقل للون تاني —
+      /// كلمة واحدة في `tokens.dart`.
+      const greens = {'اتاخدت', 'جاية'};
+
       test('كل لونين متفرّقين برؤية عادية — الحد ١٥ ΔE', () {
         final all = identity();
         for (var i = 0; i < all.length; i++) {
           for (var j = i + 1; j < all.length; j++) {
+            final pair = {all[i].$1, all[j].$1};
             final d = _deltaE(all[i].$2, all[j].$2);
+            if (pair.difference(greens).isEmpty) {
+              // الأخضرين: بيتفرقوا بالإضاءة، والعنوان هو الحامل
+              expect(d, greaterThanOrEqualTo(8.0),
+                  reason: 'الأخضرين بقوا نفس اللون تقريباً — $d');
+              continue;
+            }
             expect(d, greaterThanOrEqualTo(15.0),
                 reason: '«${all[i].$1}» و«${all[j].$1}» قريبين من بعض — $d');
           }
@@ -93,8 +113,11 @@ void main() {
         // مش حاجة الجولة دي عملتها — والرمادي (`careAccentSkipped`)
         // تشبّعه أقل من ٠٫٠٦ يعني بيتقري رمادي، والـΔE بيقارن الإضاءة
         // كمان فبيدّي رقم صغير لحاجة عمرها ما هتتلخبط مع أزرق مشبّع.
+        // **«جاية» برّه الفحص ده بقى**: بعد ما بقت أخضر غامق هي من عيلة
+        // الأخضر، وأخضر الليل أصلاً ١٢٫٥ ΔE من أزرق المية — علاقة موجودة
+        // من قبل الجولة دي ومش حاجة اللون الجديد عملها. والأزرق ده مش
+        // موجود على شاشة الابن خالص (كارت المية عند الأب).
         for (final (name, colour) in [
-          ('جاية', F.careAccentUpcoming),
           ('زيارات', F.careAccentVisit),
           ('تحاليل', F.careAccentLab),
         ]) {
@@ -130,6 +153,38 @@ void main() {
       });
     });
   }
+
+  group('أحمر التنبيهات — استثناء مبوّظ من ناحيتين', () {
+    for (final (mode, dark) in [('نهاري', false), ('ليلي', true)]) {
+      test('باين على أرضيته — $mode', () {
+        F.setDark(on: dark);
+        for (final ground in [F.pageGround, F.cardGround, F.railGround]) {
+          expect(_contrast(F.careAlertInk, ground), greaterThanOrEqualTo(3.0));
+        }
+      });
+
+      test('ومتفرّق عن كل لون قسم تاني — $mode', () {
+        F.setDark(on: dark);
+        for (final (name, colour) in [
+          ('جاية', F.careAccentUpcoming),
+          ('اتاخدت', F.careAccentTaken),
+          ('زيارات', F.careAccentVisit),
+          ('تحاليل', F.careAccentLab),
+          ('محتاجة انتباه', F.careAccentDue),
+        ]) {
+          expect(_deltaE(F.careAlertInk, colour), greaterThanOrEqualTo(15.0),
+              reason: 'الأحمر قريب من «$name»');
+        }
+      });
+    }
+
+    test('ولسه أحمر — نفس قيم الاستثناء الأول، مش لون تاني', () {
+      F.setDark(on: false);
+      expect(F.careAlertInk, F.outOfRangeInk);
+      F.setDark(on: true);
+      expect(F.careAlertInk, F.outOfRangeInk);
+    });
+  });
 
   test('كل قسم لونه مختلف — مفيش لونين على قسمين', () {
     final used = [
