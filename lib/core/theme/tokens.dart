@@ -180,6 +180,37 @@ abstract final class F {
   /// تباعد حروف الـkicker — ‎.14em. **للاتيني بس** — العربي متصل ومش بيتتبّع.
   static const kickerTracking = 0.14;
 
+  // ------------------------------------------- تدرّج الابن (كثافة أعلى)
+  /// **مقاسات الابن، جنب مقاسات الأب — مش بدالها.**
+  ///
+  /// «المريض ~٧٢ سنة… ومقدّم الرعاية شاب شغّال بيبص بسرعة» — دول مستخدمين
+  /// مختلفين على نفس الهوية. الحدود اللي فوق (`minBodySize` ٢٠،
+  /// `minTapTarget` ٥٦) اتكتبت لراجل بنضارة قراية تحت ضغط، وهي **حدود
+  /// دنيا مش اقتراح** — فما بتصغرش. الابن بيفتح التطبيق تلات ثواني بين
+  /// اجتماعين وعايز يشوف اليوم كله من غير ما يلفّ.
+  ///
+  /// **نفس اللوحة، نفس الخطوط العربية، نفس الـRTL** — الكثافة بس هي اللي
+  /// بتتغيّر، والقيم دي مأخوذة من سلّم الخط اللي فوق (`body2`، `body4`،
+  /// `rowLabel2`، `secondary2`) مش مخترعة.
+  ///
+  /// **وما تتكتبش برّه `lib/features/care/`** — اختبار بيقرا `lib/` ويوقع
+  /// لو `F.care…` ظهر في أي شاشة تخص المريض.
+  static const careTitleSize = sectionHeadSize; // ١٩ — عنوان الشاشة
+  static const careHeadSize = body4; // ١٥ — عنوان قسم
+  static const careBodySize = body2; // ١٦ — المتن
+  static const careTextSize = rowLabel2; // ١٤ — الثانوي
+  static const careMicroSize = secondary2; // ١٢٫٥ — التاريخ والوحدة
+
+  /// أصغر نص مسموح عند الابن — نظير [minTextSize] في تدرّجه هو.
+  static const careMinTextSize = careMicroSize;
+
+  /// هدف اللمس عند الابن — قياسي للمنصّة، مش [minTapTarget] (٥٦).
+  static const careTapTarget = 46.0;
+
+  static const carePad = s12;
+  static const careRowGap = s8;
+  static const careRadius = radiusTile;
+
   /// مقاسات موروثة من المرحلة الأولى — لسه مستعملة.
   static const questionSize = 27.0;
   static const bigTimeSize = 40.0;

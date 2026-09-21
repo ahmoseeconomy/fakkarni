@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
-import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
+import 'caregiver_status.dart';
+import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_words.dart';
 
@@ -100,9 +101,11 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     final snapshot = _holder.snapshot;
     final error = _holder.error;
 
+    final status = snapshot == null ? null : careStatus(snapshot, _now);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(snapshot == null ? 'المتابعة' : 'متابعة ${snapshot.patient.name}'),
+      appBar: careAppBar(
+        snapshot == null ? 'المتابعة' : 'متابعة ${snapshot.patient.name}',
         // نفس مفتاح الأب بالظبط — **مفيش آلية تانية ولا مفتاح تخزين
         // تاني**: إعداد واحد للموبايل ده، أي دور اشتغل عليه.
         actions: const [DarkModeToggle()],
@@ -113,71 +116,48 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
           onRefresh: _holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+              F.carePad,
+              F.careRowGap,
+              F.carePad,
+              F.carePad + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
-              if (error != null) ...[
-                CaregiverPanel(text: error),
-                const SizedBox(height: F.gap),
-              ],
+              // **الخطأ فوق خالص، ومعاه إعادة السؤال.** «حاول تاني» مش
+              // قدرة جديدة — هو نفس السحب اللي في الشاشة أصلاً.
+              if (error != null)
+                CarePanel(text: error, action: 'حاول تاني', onAction: _holder.refresh),
               if (_holder.loading)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
+                  padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
-              else if (snapshot != null) ...[
-                // **قسم لكل فكرة، وكل قسم بعنوانه.** الابن بيفتح الشاشة دي
-                // عشان يجاوب «هو كويس؟» — فجرعات اليوم وحالتها قسم قائم
-                // بذاته، مش ذيل قايمة، والأدوية قسم تاني وراه مباشرةً بدل
-                // ما تكون آخر حاجة تحت.
-                //
-                // التنبيهات فاضلة فوق عن قصد: تنبيه مفتوح معناه جرعة
-                // فايتة **دلوقتي**، ودي أعجل من أي حاجة تانية على الشاشة.
-                // واللي خفّف الزحمة إن الجرعة المقفولة مابقاش ليها بطاقة
-                // أصلاً (بتتفلتر من الاستعلام).
-                // العنوان بيتحسب من **المفتوحة**، مش من طول القايمة: صف
-                // مقفول عدّى (صف قديم، أو حالة مش معروفة) كان هيسيب عنوان
-                // قسم فوق فراغ. خط الدفاع التاني ده جنب الفلتر اللي في
-                // السحابة — الاتنين بيقولوا نفس الحاجة.
+              else if (snapshot != null && status != null) ...[
+                // ١ — **الإجابة الأول.** الابن بيفتح الشاشة عشان سؤال
+                // واحد، فأول حاجة يشوفها هي الرد عليه: كله تمام، ولا فيه
+                // حاجة محتاجاه. وتحتها آخر جرعة مؤكَّدة وإمتى — دي اللي
+                // بتخلّي «تمام» تبقى مصدّقة بدل ما تبقى كلمة.
+                _StatusCard(status: status, when: _when),
+                // ٢ — التنبيهات المفتوحة. تنبيه مفتوح معناه جرعة فايتة
+                // **دلوقتي**، وده أعجل من أي حاجة تانية على الشاشة.
                 if (snapshot.alerts.where((a) => a.open).toList() case final open
                     when open.isNotEmpty) ...[
-                  const FSectionHead('تنبيهات'),
+                  const CareHead('تنبيهات'),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
-                // «جرعات النهارده» مش «النهارده» وبس: صف النهارده في لوحة
-                // الأسبوع فوق بيقول «النهارده» كمان، وكلمة واحدة لحاجتين
+                // ٣ — يوم النهارده في سطور مضغوطة.
+                // «جرعات النهارده» مش «النهارده» وبس: كلمة واحدة لحاجتين
                 // على نفس الشاشة بتلغبط.
-                const FSectionHead('جرعات النهارده'),
+                const CareHead('جرعات النهارده'),
                 ..._todayList(snapshot),
-                const SizedBox(height: F.gap),
-                // «الجديد» (D5.2): تحت اللي بيجاوب «هو كويس؟» — تحليل اتضاف
-                // مش أعجل من جرعة النهارده. مترتب بالوصول، وكل سطر بتاريخه.
+                // ٤ — الأسبوع في سطر واحد. الشبكة القديمة كانت سبع أعمدة
+                // كسور، والابن مكانش بيقرا منها حاجة (جولة ٣٠ شالتها).
+                ..._week(status),
+                // ٥ — «الجديد»: تحليل اتضاف مش أعجل من جرعة النهارده.
                 ..._newest(snapshot),
-                if (snapshot.lastUpdated != null)
-                  () {
-                    // تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل
-                    // عايش، بس إن حاجة اتغيّرت ووصلت.
-                    //
-                    // عدّى يوم من غير ما يوصل حاجة؟ يبقى ده بالظبط اللي
-                    // الابن المفروض يبص له: السحابة بقت قديمة، والتصعيد
-                    // بيشتغل على صفوف قديمة أو ما بيشتغلش. الذهبي معناه
-                    // «ده محتاج انتباهك دلوقتي» — ومش محتاج معنى تاني هنا.
-                    final stale = _now.difference(snapshot.lastUpdated!) > staleAfter;
-                    return Text(
-                      stale
-                          ? 'آخر تحديث من موبايل والدك: '
-                              '${_when(snapshot.lastUpdated!)} — عدّى يوم من غير جديد. '
-                              'اطمن عليه.'
-                          : 'آخر تحديث من موبايل والدك: ${_when(snapshot.lastUpdated!)}',
-                      style: TextStyle(
-                        fontSize: F.minTextSize,
-                        color: stale ? F.gold : F.mutedDark,
-                        fontWeight: stale ? FontWeight.w600 : FontWeight.w400,
-                        height: 1.6,
-                      ),
-                    );
-                  }(),
+                if (snapshot.lastUpdated != null) _freshness(snapshot.lastUpdated!),
               ] else
-                const CaregiverPanel(
+                const CarePanel(
                   text: 'لسه مفيش حاجة وصلت من موبايل والدك. '
                       'أول ما يفتح التطبيق وهو متوصّل بالنت، هتلاقي كل حاجة هنا.',
                 ),
@@ -188,37 +168,102 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
     );
   }
 
+  /// **سطر الثقة.** الابن لازم يقدر يصدّق اللي قدامه، فبيشوف آخر مرة وصل
+  /// فيها جديد من موبايل الأب — ومعاه «حدّث» بدل ما يفضل يسحب ويستنى.
+  ///
+  /// تحديث بيانات — مش «آخر ظهور»: مفيش دليل إن الموبايل عايش، بس إن حاجة
+  /// اتغيّرت ووصلت. وعدّى يوم من غير ما يوصل حاجة؟ ده بالظبط اللي المفروض
+  /// يبص له: السحابة بقت قديمة، والتصعيد بيشتغل على صفوف قديمة أو ما
+  /// بيشتغلش. الذهبي معناه «ده محتاج انتباهك دلوقتي».
+  Widget _freshness(DateTime at) {
+    final stale = _now.difference(at) > staleAfter;
+    return Padding(
+      padding: const EdgeInsets.only(top: F.s6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              stale
+                  ? 'آخر تحديث من موبايل والدك: ${_when(at)} — عدّى يوم من غير جديد. اطمن عليه.'
+                  : 'آخر تحديث من موبايل والدك: ${_when(at)}',
+              style: TextStyle(
+                fontSize: F.careMicroSize,
+                color: stale ? F.gold : F.mutedDark,
+                fontWeight: stale ? FontWeight.w700 : FontWeight.w400,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: F.s8),
+          CareTextAction(label: 'حدّث', icon: Icons.refresh, onPressed: _holder.refresh),
+        ],
+      ),
+    );
+  }
+
+  /// **الأسبوع في سطر يتقرا بنظرة** — «٦ من ٧ أيام كل الجرعات اتقفلت».
+  ///
+  /// الشبكة القديمة كانت سبع خانات فيها كسور و«—»، والكسر مكانش بيقول
+  /// لحد حاجة، والشرطة كانت بتخلط «مفيش جرعات» بـ«مفيش خبر». المالك
+  /// شالها في جولة ٣٠. الرجوع بقى **رقم واحد بجملته**، ومن غير أي رسم:
+  /// سبع نقط مش بيانات تستاهل رسمة، والجملة أسرع في القراية من أي شكل.
+  ///
+  /// و«النهارده» **مش** محسوب: اليوم لسه ماشي، وعدّه ناقص بيخلّي كل يوم
+  /// يبان مش كامل لحد آخره. مفيش أيام فيها جرعات؟ مفيش سطر خالص.
+  List<Widget> _week(CareStatus status) {
+    if (status.daysWithDoses == 0) return const [];
+    return [
+      const CareHead('آخر أسبوع'),
+      CareCard(
+        key: const ValueKey('care-week'),
+        child: Row(
+          children: [
+            Icon(
+              status.completeDays == status.daysWithDoses
+                  ? Icons.check_circle_outline
+                  : Icons.calendar_today_outlined,
+              size: 18,
+              color: status.completeDays == status.daysWithDoses ? F.green : F.mutedDark,
+            ),
+            const SizedBox(width: F.s8),
+            Expanded(
+              child: Text(
+                '${arabicNumber(status.completeDays)} من '
+                '${arabicNumber(status.daysWithDoses)} أيام كل الجرعات فيها اتقفلت',
+                style: TextStyle(fontSize: F.careTextSize, color: F.ink, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _newest(CaregiverSnapshot snapshot) {
     final items = newestArrivals(snapshot);
     if (items.isEmpty) return const [];
     return [
-      const FSectionHead('الجديد'),
-      Container(
+      const CareHead('الجديد'),
+      CareCard(
         key: const ValueKey('newest'),
-        margin: const EdgeInsets.only(bottom: F.gap),
-        padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(color: F.line),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, item) in items.indexed) ...[
-              if (i > 0) Divider(height: F.s12, color: F.lineSoft),
+              if (i > 0) Divider(height: F.s10, color: F.lineSoft),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: F.s4),
+                padding: const EdgeInsets.symmetric(vertical: F.s6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
                       newItemTitle(item),
-                      style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.4),
+                      style: TextStyle(fontSize: F.careTextSize, color: F.ink, height: 1.4),
                     ),
                     Text(
                       arabicDate(item.happenedAt),
-                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                      style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark),
                     ),
                   ],
                 ),
@@ -249,14 +294,13 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
         if (DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day) == tomorrow) e,
     ]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     if (tomorrows.isEmpty) {
-      return const [CaregiverPanel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
+      return const [CarePanel(text: 'مفيش جرعات متسجّلة النهارده لسه.')];
     }
     return [
-      CaregiverPanel(
+      CarePanel(
         key: const ValueKey('tomorrow-first'),
         text: 'مفيش جرعات النهارده — أول جرعة بكرة الساعة ${spokenTime(tomorrows.first.scheduledAt)}',
       ),
-      const SizedBox(height: 8),
       for (final e in tomorrows) _DoseRow(event: e, now: _now, tomorrow: true),
     ];
   }
@@ -279,32 +323,28 @@ class CaregiverMedicationRow extends StatelessWidget {
   final CaregiverMedication medication;
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(F.gap),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(color: F.line),
-        ),
+  Widget build(BuildContext context) => CareCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               medication.name,
               style: TextStyle(
-                fontSize: F.minBodySize,
+                fontSize: F.careBodySize,
                 fontWeight: FontWeight.w700,
                 color: F.ink,
                 fontFamily: F.monoFamily,
                 fontFamilyFallback: F.monoFallback,
-                height: 1.4,
+                height: 1.3,
               ),
             ),
             if (medication.amountLabel != null || medication.rules.isNotEmpty)
-              Text(
-                [?medication.amountLabel, ...medication.rules].join(' — '),
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              Padding(
+                padding: const EdgeInsets.only(top: F.s4),
+                child: Text(
+                  [?medication.amountLabel, ...medication.rules].join(' — '),
+                  style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.4),
+                ),
               ),
           ],
         ),
@@ -323,61 +363,125 @@ class _DoseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // الحالة بالحرف زي ما جهاز الأب كتبها — بنترجم للعربي، مش بنحكم
-    final (label, colour) = switch (event.state) {
-      'taken' => ('اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}', F.green),
-      'skipped' => ('قال مش هياخده', F.mutedDark),
+    final look = doseLook(event, now);
+    final label = switch (event.state) {
+      'taken' => 'اتاخد ${event.actedAt == null ? '' : arabicTime(event.actedAt!)}',
+      'skipped' => 'قال مش هياخده',
       // جهاز الأب هو اللي قال «اتنست» بعد المهلة — إحنا بننقل، مش بنحكم
-      'missed' => ('اتنست — لسه ما اتأكدتش', F.gold),
-      _ when event.scheduledAt.isBefore(now) => ('لسه ما اتأكدتش', F.gold),
-      _ => ('جاي ${arabicTime(event.scheduledAt)}', F.mutedDark),
+      'missed' => 'اتنست — لسه ما اتأكدتش',
+      _ when event.scheduledAt.isBefore(now) => 'لسه ما اتأكدتش',
+      _ => 'جاي ${arabicTime(event.scheduledAt)}',
     };
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(F.gap),
-      decoration: BoxDecoration(
-        color: F.cardGround,
-        borderRadius: BorderRadius.circular(F.radius),
-        border: Border.all(
-          color: colour == F.gold ? F.gold : F.line,
-          width: colour == F.gold ? 2 : 1,
+    return CareCard(
+      edge: look == DoseLook.unconfirmed ? F.gold : null,
+      padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s10),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: F.careTapTarget - 2 * F.s10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text(
+                tomorrow ? 'بكرة ${arabicTime(event.scheduledAt)}' : arabicTime(event.scheduledAt),
+                style: TextStyle(
+                  fontSize: F.careMicroSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.mutedDark,
+                  height: 1.3,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                event.amountLabel == null
+                    ? event.medicationName
+                    : '${event.medicationName} — ${event.amountLabel}',
+                style: TextStyle(
+                  fontSize: F.careBodySize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
+                  fontFamily: F.monoFamily,
+                  fontFamilyFallback: F.monoFallback,
+                  height: 1.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: F.s8),
+            CareStateMark(look: look, label: label.trim()),
+          ],
         ),
       ),
-      child: Row(
+    );
+  }
+}
+
+/// **الإجابة على «هو كويس؟» — أول حاجة على الشاشة.**
+///
+/// سطر واحد بيرد، وتحته آخر جرعة مؤكَّدة وإمتى. الجرعة المؤكَّدة هي اللي
+/// بتخلّي «كل حاجة تمام» مصدّقة: الجملة لوحدها ممكن تبقى شاشة واقفة،
+/// والوقت جنبها بيقول إن فيه حاجة بتحصل فعلاً.
+///
+/// **الأيقونة والكلمة هما اللي بيشيلوا المعنى**، واللون تأكيد — نفس قاعدة
+/// [CareStateMark].
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({required this.status, required this.when});
+
+  final CareStatus status;
+  final String Function(DateTime) when;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, colour, headline) = switch (status.state) {
+      CareState.needsAttention => (
+          Icons.error_outline,
+          F.gold,
+          status.openAlerts > 0
+              ? 'فيه ${arabicNumber(status.openAlerts)} محتاجة انتباهك'
+              : 'فيه ${arabicNumber(status.unconfirmedToday)} جرعة من غير تأكيد',
+        ),
+      CareState.allGood => (Icons.check_circle_outline, F.green, 'كل حاجة تمام'),
+      CareState.noData => (Icons.cloud_off_outlined, F.mutedDark, 'لسه مفيش خبر النهارده'),
+    };
+
+    final last = status.lastTaken;
+    final second = last == null
+        ? 'لسه مفيش جرعة مؤكَّدة'
+        : 'آخر جرعة مؤكَّدة — ${last.medicationName} ${when(last.actedAt ?? last.scheduledAt)}';
+
+    return CareCard(
+      key: const ValueKey('care-status'),
+      edge: status.state == CareState.needsAttention ? F.gold : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.amountLabel == null
-                      ? event.medicationName
-                      : '${event.medicationName} — ${event.amountLabel}',
+          Row(
+            children: [
+              Icon(icon, size: 20, color: colour),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: Text(
+                  headline,
                   style: TextStyle(
-                    fontSize: F.minBodySize,
+                    fontSize: F.careBodySize,
                     fontWeight: FontWeight.w700,
+                    // **النص بلون النص، والعلامة هي اللي بتشيل الحالة.**
+                    // ده بيخلّي السطر يقرا في الوضعين من غير ما يتعلّق
+                    // بلون واحد، وبيسيب الذهبي لحاجة واحدة على الشاشة.
                     color: F.ink,
-                    fontFamily: F.monoFamily,
-                    fontFamilyFallback: F.monoFallback,
-                    height: 1.4,
+                    height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  tomorrow ? 'بكرة ${arabicTime(event.scheduledAt)}' : arabicTime(event.scheduledAt),
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            label.trim(),
-            style: TextStyle(
-              fontSize: F.minTextSize,
-              fontWeight: FontWeight.w700,
-              color: colour,
-              height: 1.4,
+          const SizedBox(height: F.s4),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 28),
+            child: Text(
+              second,
+              style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.4),
             ),
           ),
         ],
@@ -412,34 +516,41 @@ class _AlertCard extends StatelessWidget {
       _ => 'السيرفر حاول يبلّغك ${when(alert.createdAt)} — الإشعار ما وصلش',
     };
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: F.gap),
-      padding: const EdgeInsets.all(F.gap),
-      decoration: BoxDecoration(
-        color: F.cardGround,
-        borderRadius: BorderRadius.circular(F.radius),
-        border: Border.all(color: F.gold, width: 2),
-      ),
+    return CareCard(
+      edge: F.gold,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '⚠ والدك ما أكّدش جرعة ${alert.medicationName} '
-            'الساعة ${arabicTime(alert.scheduledAt)}',
-            style: TextStyle(
-              fontSize: F.minBodySize,
-              fontWeight: FontWeight.w700,
-              color: F.gold,
-              height: 1.5,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline, size: 18, color: F.gold),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: Text(
+                  'والدك ما أكّدش جرعة ${alert.medicationName} '
+                  'الساعة ${arabicTime(alert.scheduledAt)}',
+                  style: TextStyle(
+                    fontSize: F.careBodySize,
+                    fontWeight: FontWeight.w700,
+                    // **النص بلون النص، والذهبي في العلامة والحد.**
+                    // العنوان كان ذهبي — ٢٫٠٦:١ على كارت نهاري، يعني أهم
+                    // سطر على الشاشة كان أصعب سطر يتقرا. الانتباه دلوقتي
+                    // محمول على الأيقونة والحد الجانبي وعنوان القسم، وهي
+                    // تلاتة بتشتغل لحد مش بيفرّق الألوان كمان.
+                    color: F.ink,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            line,
-            style: TextStyle(
-              fontSize: F.minTextSize,
-              color: F.mutedDark,
-              height: 1.5,
+          const SizedBox(height: F.s4),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 26),
+            child: Text(
+              line,
+              style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark, height: 1.4),
             ),
           ),
         ],
@@ -454,15 +565,5 @@ class CaregiverPanel extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(F.s14),
-        decoration: BoxDecoration(
-          color: F.railGround,
-          borderRadius: BorderRadius.circular(F.radiusCard),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
-        ),
-      );
+  Widget build(BuildContext context) => CarePanel(text: text);
 }

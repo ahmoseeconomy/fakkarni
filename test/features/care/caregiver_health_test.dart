@@ -13,7 +13,7 @@ import 'package:fakkarni/features/health/usual_words.dart'
 import 'package:fakkarni/features/care/caregiver_screen.dart';
 import 'package:fakkarni/features/care/caregiver_snapshot_holder.dart';
 
-import '../scan/scan_test_support.dart' show expectNoRedAndMinSize, screenTest, settle;
+import '../scan/scan_test_support.dart' show expectCaregiverDensity, screenTest, settle;
 import 'caregiver_screen_test.dart' show FakeCaregiverRemote, now;
 
 const _patient = CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد');
@@ -218,7 +218,7 @@ void main() {
       final alertTop = tester.getTopLeft(find.textContaining('والدك ما أكّدش')).dy;
       final newestTop = tester.getTopLeft(find.byKey(const ValueKey('newest'))).dy;
       expect(alertTop, lessThan(newestTop), reason: 'جرعة فاتت أهم من سجل اتضاف');
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
   });
 
@@ -356,7 +356,7 @@ void main() {
     await settle(tester);
     expect(find.text('صورة دم'), findsOneWidget);
     expect(find.text('وظايف كلى'), findsOneWidget);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
     holder.setActive(false);
   });
 
@@ -408,7 +408,7 @@ void main() {
     expect(find.text('Telfast 180mg'), findsOneWidget);
     expect(find.text('Augmentin 1g'), findsOneWidget);
     expect(find.text('Concor 5mg — Telfast 180mg — Augmentin 1g'), findsNothing);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
     holder.setActive(false);
   });
 
@@ -453,7 +453,7 @@ void main() {
     expect(find.text('تاريخ التقرير'), findsOneWidget);
     expect(find.text('معمل البرج'), findsOneWidget);
     expect(find.text('النتايج (٢)'), findsOneWidget);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
     holder.setActive(false);
   });
 
@@ -619,7 +619,7 @@ void main() {
     for (final word in adviceWords) {
       expect(find.textContaining(word), findsNothing, reason: '«$word» عند الابن');
     }
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
     holder.setActive(false);
   });
 }

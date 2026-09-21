@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../emergency/emergency_facts_card.dart';
 import '../health/lab_flag.dart';
 import '../../data/db/tables.dart' show RecordKind;
 import '../records/record_kinds.dart' show RecordKindWords;
 import 'caregiver_snapshot_holder.dart';
+import 'caregiver_ui.dart';
 import 'caregiver_words.dart';
 
 /// «الملف الصحي» عند الابن (D5.2) — نفس الصورة اللي «متابعة» بتقرا منها.
@@ -61,18 +61,18 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
     final holder = widget.holder;
     final snapshot = holder.snapshot;
     return Scaffold(
-      appBar: AppBar(title: const Text('الملف الصحي')),
+      appBar: careAppBar('الملف الصحي'),
       body: SafeArea(
         child: RefreshIndicator(
           color: F.green,
           onRefresh: holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(F.carePad, F.careRowGap, F.carePad,
+                F.carePad + MediaQuery.of(context).padding.bottom),
             children: [
               if (holder.error != null) ...[
-                _Panel(text: holder.error!),
-                const SizedBox(height: F.gap),
+                CarePanel(text: holder.error!, action: 'حاول تاني', onAction: holder.refresh),
               ],
               if (holder.loading)
                 Padding(
@@ -82,7 +82,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
               else if (snapshot != null)
                 ..._sections(snapshot)
               else
-                const _Panel(text: 'لسه مفيش حاجة وصلت من موبايل والدك.'),
+                const CarePanel(text: 'لسه مفيش حاجة وصلت من موبايل والدك.'),
             ],
           ),
         ),
@@ -144,9 +144,9 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         allergies: emergency?.allergies,
         chronicConditions: emergency?.chronicConditions,
       ),
-      const SizedBox(height: F.gap),
+      const SizedBox(height: F.careRowGap),
       if (entries.isEmpty)
-        const _Panel(text: 'لسه مفيش حاجة هنا.')
+        const CarePanel(text: 'لسه مفيش حاجة هنا.')
       else
         ...entries,
     ];
@@ -211,14 +211,15 @@ class _CareListScreenState extends State<CareListScreen> {
         if (r.kind == widget.recordKind) r,
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+      appBar: careAppBar(_title),
       body: SafeArea(
         child: RefreshIndicator(
           color: F.green,
           onRefresh: widget.holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(F.carePad, F.careRowGap, F.carePad,
+                F.carePad + MediaQuery.of(context).padding.bottom),
             children: switch (widget.kind) {
               CareListKind.readings => [
                   _Box(children: [
@@ -255,31 +256,33 @@ class _Entry extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s10),
-        child: FCard(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(F.radiusCard),
-            onTap: onTap,
-            child: Container(
-              constraints: const BoxConstraints(minHeight: F.minTapTarget),
-              alignment: AlignmentDirectional.centerStart,
-              child: Row(
-                children: [
-                  Icon(icon, size: 22, color: F.green),
-                  const SizedBox(width: F.s10),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
-                    ),
+  Widget build(BuildContext context) => CareCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: F.careTapTarget),
+            padding: const EdgeInsets.symmetric(horizontal: F.carePad),
+            alignment: AlignmentDirectional.centerStart,
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: F.green),
+                const SizedBox(width: F.s10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                        fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink),
                   ),
-                  Text(
-                    arabicNumber(count),
-                    style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.mutedDark),
-                  ),
-                ],
-              ),
+                ),
+                Text(
+                  arabicNumber(count),
+                  style: TextStyle(
+                      fontSize: F.careTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                ),
+                const SizedBox(width: F.s4),
+                Icon(Icons.chevron_left, size: 18, color: F.mutedDark),
+              ],
             ),
           ),
         ),
@@ -291,18 +294,13 @@ class _Box extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(color: F.line),
-        ),
+  Widget build(BuildContext context) => CareCard(
+        padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, child) in children.indexed) ...[
-              if (i > 0) Divider(height: F.s12, color: F.lineSoft),
+              if (i > 0) Divider(height: F.s10, color: F.lineSoft),
               child,
             ],
           ],
@@ -316,17 +314,17 @@ class _ReadingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: F.s4),
+        padding: const EdgeInsets.symmetric(vertical: F.s6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               glucoseValue(reading.valueMgDl),
-              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink),
             ),
             Text(
               '${glucoseContextLabel(reading.context)} — ${arabicDate(reading.measuredAt)} ${arabicTime(reading.measuredAt)}',
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark),
             ),
           ],
         ),
@@ -376,17 +374,18 @@ class _RecordCardState extends State<_RecordCard> {
         : const <String>[];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: F.s8),
-      padding: const EdgeInsets.all(F.gap),
+      margin: const EdgeInsets.only(bottom: F.careRowGap),
+      padding: const EdgeInsets.all(F.carePad),
       decoration: BoxDecoration(
         color: F.cardGround,
-        borderRadius: BorderRadius.circular(F.radius),
+        borderRadius: BorderRadius.circular(F.careRadius),
         border: Border.all(color: F.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(record.title, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+          Text(record.title,
+              style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
           // **ترويسة بحقول مسمّاة، مش سطر واحد مربوط بشَرطات.**
           // «١٢ سبتمبر — د. طارق — معمل البرج» بيسيب اللي بيقرا يخمّن إيه
           // إيه؛ والاسم بيختلف بنوع الورقة كمان: «المعمل» على تقرير تحليل،
@@ -410,7 +409,7 @@ class _RecordCardState extends State<_RecordCard> {
                   m,
                   textDirection: nameDirection(m),
                   textAlign: TextAlign.right,
-                  style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+                  style: TextStyle(fontSize: F.careTextSize, color: F.ink),
                 ),
               ),
           ]
@@ -418,7 +417,8 @@ class _RecordCardState extends State<_RecordCard> {
           else if (lines.isEmpty && record.notes != null && record.notes!.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: F.s8),
-              child: Text(record.notes!, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5)),
+              child: Text(record.notes!,
+                  style: TextStyle(fontSize: F.careTextSize, color: F.ink, height: 1.5)),
             ),
           if (lines.isNotEmpty) ...[
             const SizedBox(height: F.s8),
@@ -427,9 +427,10 @@ class _RecordCardState extends State<_RecordCard> {
             if (hidden > 0)
               Padding(
                 padding: const EdgeInsets.only(top: F.s8),
-                child: FSecondaryButton(
+                child: CareTextAction(
                   key: ValueKey('all-results-${record.uuid}'),
                   label: 'كل النتايج (${arabicNumber(lines.length)})',
+                  icon: Icons.expand_more,
                   onPressed: () => setState(() => _expanded = true),
                 ),
               ),
@@ -457,7 +458,7 @@ class _Field extends StatelessWidget {
               width: 96,
               child: Text(
                 label,
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark, height: 1.4),
               ),
             ),
             Expanded(
@@ -465,7 +466,7 @@ class _Field extends StatelessWidget {
                 value,
                 textDirection: nameDirection(value),
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.4),
+                style: TextStyle(fontSize: F.careTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.4),
               ),
             ),
           ],
@@ -487,7 +488,7 @@ class _BodyHead extends StatelessWidget {
         padding: const EdgeInsets.only(top: F.s6, bottom: F.s4),
         child: Text(
           '$text (${arabicNumber(count)})',
-          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+          style: TextStyle(fontSize: F.careHeadSize, fontWeight: FontWeight.w700, color: F.green),
         ),
       );
 }
@@ -510,7 +511,7 @@ class _LabLineRow extends StatelessWidget {
               labLineText(line),
               textDirection: TextDirection.ltr,
               textAlign: TextAlign.right,
-              style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+              style: TextStyle(fontSize: F.careBodySize, color: F.ink),
             ),
             // نطاق الورقة والعلامة — نفس اللي على شاشة الأب بالحرف.
             // الابن بيشوف الورقة، مش رأينا فيها.
@@ -519,7 +520,7 @@ class _LabLineRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     labRangeLine(line),
-                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                    style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark, height: 1.5),
                   ),
                 ),
                 if (labFlagWordOf(line) != null) ...[
@@ -543,28 +544,16 @@ class _QuestionRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(question.body, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+            Text(question.body, style: TextStyle(fontSize: F.careBodySize, color: F.ink, height: 1.4)),
             Text(
               question.asked ? 'اتسأل ✓' : 'لسه ما اتسألش',
               style: TextStyle(
-                fontSize: F.minTextSize,
+                fontSize: F.careTextSize,
                 fontWeight: FontWeight.w600,
                 color: question.asked ? F.green : F.mutedDark,
               ),
             ),
           ],
         ),
-      );
-}
-
-class _Panel extends StatelessWidget {
-  const _Panel({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(F.s14),
-        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
-        child: Text(text, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6)),
       );
 }

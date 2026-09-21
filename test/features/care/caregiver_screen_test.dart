@@ -8,7 +8,7 @@ import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/features/care/caregiver_screen.dart';
 
-import '../scan/scan_test_support.dart' show settle, screenTest, expectNoRedAndMinSize;
+import '../scan/scan_test_support.dart' show settle, screenTest, expectCaregiverDensity;
 
 /// «دلوقتي» ثابتة للاختبارات: ٣١ أغسطس ٢٠٢٦، ٢ الضهر.
 final now = DateTime(2026, 8, 31, 14);
@@ -123,7 +123,7 @@ void main() {
     // قراية بس
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('عدّل'), findsNothing);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
   });
 
   screenTest('«بكرة» يعني تاريخ بكرة بالظبط: جرعات بعد بكرة ما بتدخلش القايمة', (tester) async {
@@ -167,7 +167,7 @@ void main() {
     expect(find.text('قال مش هياخده'), findsOneWidget);
     expect(find.text('لسه ما اتأكدتش'), findsNothing);
     expect(find.textContaining('آخر تحديث من موبايل والدك'), findsOneWidget);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
   });
 
   screenTest('جرعة عدّى وقتها من غير تأكيد → «لسه ما اتأكدتش» بالذهبي — مش «فاتت» ومفيش أحمر',
@@ -178,11 +178,18 @@ void main() {
     ]);
     await pumpScreen(tester);
 
-    final flag = tester.widget<Text>(find.text('لسه ما اتأكدتش'));
-    expect(flag.style?.color, F.gold);
+    // **الذهبي على العلامة، مش على النص** (جولة إعادة تصميم شاشة الابن):
+    // ذهبي على كارت نهاري ٢٫٠٦:١، فأهم سطر كان أصعب واحد يتقرا. الكلمة
+    // بقت بلون المتن، والذهبي على أيقونة ⚠ وعلى حد الصف الجانبي.
+    final flag = find.text('لسه ما اتأكدتش');
+    expect(tester.widget<Text>(flag).style?.color, F.ink);
+    final mark = find.ancestor(of: flag, matching: find.byType(Row)).first;
+    final icon = tester.widget<Icon>(
+        find.descendant(of: mark, matching: find.byIcon(Icons.error_outline)));
+    expect(icon.color, F.gold);
     expect(find.textContaining('فاتت'), findsNothing, reason: 'بنبلّغ مش بنحكم');
     expect(find.textContaining('جاي'), findsOneWidget);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
   });
 
 
@@ -193,9 +200,16 @@ void main() {
     ]);
     await pumpScreen(tester);
 
-    final flag = tester.widget<Text>(find.text('اتنست — لسه ما اتأكدتش'));
-    expect(flag.style?.color, F.gold);
-    expectNoRedAndMinSize(tester);
+    // **الذهبي على العلامة، مش على النص** (جولة إعادة تصميم شاشة الابن):
+    // ذهبي على كارت نهاري ٢٫٠٦:١، فأهم سطر كان أصعب واحد يتقرا. الكلمة
+    // بقت بلون المتن، والذهبي على أيقونة ⚠ وعلى حد الصف الجانبي.
+    final flag = find.text('اتنست — لسه ما اتأكدتش');
+    expect(tester.widget<Text>(flag).style?.color, F.ink);
+    final mark = find.ancestor(of: flag, matching: find.byType(Row)).first;
+    final icon = tester.widget<Icon>(
+        find.descendant(of: mark, matching: find.byIcon(Icons.error_outline)));
+    expect(icon.color, F.gold);
+    expectCaregiverDensity(tester);
   });
 
   screenTest('مفيش جرعات خالص → رسالة هادية والشاشة شغّالة', (tester) async {
@@ -240,7 +254,7 @@ void main() {
 
     expect(find.textContaining('مفيش نت'), findsOneWidget);
     expect(find.byType(CaregiverScreen), findsOneWidget);
-    expectNoRedAndMinSize(tester);
+    expectCaregiverDensity(tester);
   });
 
   group('تنبيهات السيرفر — سجل اللي حصل، فوق الشاشة', () {
@@ -251,9 +265,21 @@ void main() {
       );
       await pumpScreen(tester);
 
-      final header = find.text('⚠ والدك ما أكّدش جرعة Concor 5mg الساعة ٨:٠٠ ص');
+      final header = find.text('والدك ما أكّدش جرعة Concor 5mg الساعة ٨:٠٠ ص');
       expect(header, findsOneWidget);
-      expect(tester.widget<Text>(header).style?.color, F.gold);
+      // **الانتباه في العلامة والحد، مش في لون النص** (جولة إعادة تصميم
+      // شاشة الابن). العنوان كان `F.gold` — ٢٫٠٦:١ على كارت نهاري، يعني
+      // أهم سطر على الشاشة كان أصعب واحد يتقرا. دلوقتي نص بلون النص،
+      // والذهبي على أيقونة ⚠ وحد الكارت الجانبي وعنوان القسم — تلاتة
+      // بتوصل كمان لحد مش بيفرّق الألوان.
+      expect(tester.widget<Text>(header).style?.color, F.ink);
+      expect(
+        find.descendant(
+          of: find.ancestor(of: header, matching: find.byType(Row)).first,
+          matching: find.byIcon(Icons.error_outline),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('السيرفر بلّغك النهارده ٩:٠٠ ص'), findsOneWidget);
       expect(find.textContaining('أكّدها بعدين'), findsNothing);
 
@@ -262,7 +288,7 @@ void main() {
         tester.getTopLeft(header).dy,
         lessThan(tester.getTopLeft(find.text('جرعات النهارده')).dy),
       );
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     // **الجرعة المقفولة مالهاش تنبيه — ولا واحدة فيهم** (جولة ٢٦).
@@ -282,7 +308,7 @@ void main() {
             reason: 'جرعة اتقفلت — تنبيه عنها كدب');
         expect(find.textContaining('أكّدها بعدين'), findsNothing);
         expect(find.text('تنبيهات'), findsNothing, reason: 'قسم فاضي ما يتعرضش');
-        expectNoRedAndMinSize(tester);
+        expectCaregiverDensity(tester);
       });
     }
 
@@ -296,9 +322,17 @@ void main() {
 
         final header = find.textContaining('والدك ما أكّدش جرعة');
         expect(header, findsOneWidget);
-        expect(tester.widget<Text>(header).style?.color, F.gold);
+        // الانتباه في العلامة والحد مش في لون النص — شوف الاختبار اللي فوق
+        expect(tester.widget<Text>(header).style?.color, F.ink);
+        expect(
+          find.descendant(
+            of: find.ancestor(of: header, matching: find.byType(Row)).first,
+            matching: find.byIcon(Icons.error_outline),
+          ),
+          findsOneWidget,
+        );
         expect(find.text('تنبيهات'), findsOneWidget);
-        expectNoRedAndMinSize(tester);
+        expectCaregiverDensity(tester);
       });
     }
 
@@ -324,7 +358,7 @@ void main() {
       expect(find.textContaining('جرعة Concor'), findsOneWidget);
       expect(find.textContaining('جرعة Telfast'), findsNothing,
           reason: 'اتاخدت — مفيش تنبيه عنها');
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     screenTest('الأقسام بترتيبها: تنبيهات ← جرعات النهارده ← الجديد (والأدوية بقت تبويب)',
@@ -360,7 +394,7 @@ void main() {
       // **والأدوية مابقتش قسم هنا خالص** — بقت تبويب في الدوك (جولة ٢٩).
       // باب واحد للأوضة: القسم اتشال، ما اتنسخش.
       expect(find.text('أدويته'), findsNothing);
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     test('الحالات المفتوحة متعرّفة في مكان واحد، وشاملة', () {
@@ -396,7 +430,7 @@ void main() {
       expect(find.textContaining('السيرفر بلّغك'), findsNothing);
       expect(find.textContaining('ما وصلش'), findsNothing,
           reason: 'السيرفر قرّر وسجّل — ده مش فشل');
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     screenTest('failed → فشل حقيقي، بيتقال كده', (tester) async {
@@ -409,7 +443,7 @@ void main() {
       expect(find.text('السيرفر حاول يبلّغك النهارده ٩:٠٠ ص — الإشعار ما وصلش'),
           findsOneWidget);
       expect(find.textContaining('السيرفر بلّغك'), findsNothing);
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     screenTest('مفيش تنبيهات → مفيش بطاقة ولا جملة فاضية', (tester) async {
@@ -437,7 +471,7 @@ void main() {
       );
       expect(footer.style?.color, F.mutedDark);
       expect(find.textContaining('عدّى يوم'), findsNothing);
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     screenTest('عدّى يوم من غير أي جديد → التذييل ذهبي وبيقول اطمن عليه',
@@ -456,7 +490,7 @@ void main() {
       expect(find.textContaining('اطمن عليه'), findsOneWidget);
       // بيولّع قبل ما تغطية السحابة (يومين) تخلص، مش بعدها
       expect(staleAfter, lessThan(const Duration(days: 2)));
-      expectNoRedAndMinSize(tester);
+      expectCaregiverDensity(tester);
     });
 
     screenTest('على حد الـ٢٤ ساعة بالظبط لسه هادي', (tester) async {

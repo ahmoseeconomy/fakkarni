@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
-import '../../core/widgets/primitives.dart';
+import 'caregiver_ui.dart';
 import '../selfcheck/health_check_screen.dart';
 
 /// «الإعدادات» عند الابن (D4) — الحساب واللغة وبس.
@@ -34,19 +34,20 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
 
   @override
   Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+        padding: EdgeInsets.fromLTRB(F.carePad, F.careRowGap, F.carePad,
+            F.carePad + MediaQuery.of(context).padding.bottom),
         children: [
           Text(
             'الإعدادات',
             style: TextStyle(
               fontFamily: F.displayFamily,
-              fontSize: F.screenTitleSize,
+              fontSize: F.careTitleSize,
               fontWeight: FontWeight.w700,
               color: F.ink,
             ),
           ),
-          const SizedBox(height: F.gap),
-          FCard(
+          const SizedBox(height: F.careRowGap),
+          CareCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -54,63 +55,87 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                   children: [
                     Expanded(
                       child: Text('حسابك',
-                          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                          style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
                     ),
-                    StatusChip(label: 'حساب تجريبي'),
+                    Text('حساب تجريبي',
+                    style: TextStyle(fontSize: F.careMicroSize, color: F.mutedDark)),
                   ],
                 ),
                 const SizedBox(height: F.s8),
                 Text(
                   'بتتابع من الموبايل ده. مفيش أدوية ولا مواعيد بتتسجّل هنا — كل حاجة جاية من موبايل والدك.',
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+                  style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 const SizedBox(height: F.s12),
-                FSecondaryButton(label: _busy ? 'ثواني…' : 'تسجيل الخروج', onPressed: _busy ? null : _signOut),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: CareTextAction(
+                    label: _busy ? 'ثواني…' : 'تسجيل الخروج',
+                    icon: Icons.logout,
+                    onPressed: _busy ? () {} : _signOut,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: F.s12),
           // نص الوعد التاني: التنبيه اللي بيوصل للموبايل ده. الفحص هنا
           // بيتشغّل كابن، فبيسأل عن التوكن بدل مدى التذكير.
-          FSecondaryButton(
-            label: 'اطمن إن التنبيه هيوصلك',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => const HealthCheckScreen(isCaregiver: true),
-            )),
+          CareCard(
+            padding: EdgeInsets.zero,
+            child: InkWell(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const HealthCheckScreen(isCaregiver: true),
+              )),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: F.careTapTarget),
+                padding: const EdgeInsets.symmetric(horizontal: F.carePad),
+                child: Row(
+                  children: [
+                    Icon(Icons.verified_outlined, size: 18, color: F.green),
+                    const SizedBox(width: F.s10),
+                    Expanded(
+                      child: Text('اطمن إن التنبيه هيوصلك',
+                          style: TextStyle(
+                              fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                    ),
+                    Icon(Icons.chevron_left, size: 18, color: F.mutedDark),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: F.s12),
           // **نفس مفتاح الأب، ونفس الويدجت.** الشريط العلوي بتاع «متابعة»
           // مش شريط الهيكل زي عند الأب — كل تبويب هنا ليه شريطه، و
           // «الإعدادات» مالهاش شريط أصلاً. فالصف ده هو المكان الوحيد اللي
           // بيتوصّل له من أي تبويب. الكلمة جنب الزرار عشان «مفيش زرار
           // أيقونة من غير كلمة».
-          FCard(
+          CareCard(
             child: Row(
               children: [
                 Expanded(
                   child: Text('الوضع الليلي',
-                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
                 ),
                 ValueListenableBuilder<bool>(
                   valueListenable: F.darkMode,
                   builder: (context, dark, _) => Text(
                     dark ? 'شغّال' : 'مقفول',
-                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark),
                   ),
                 ),
                 const DarkModeToggle(),
               ],
             ),
           ),
-          const SizedBox(height: F.s12),
-          FCard(
+          CareCard(
             child: Row(
               children: [
                 Expanded(
                   child: Text('اللغة',
-                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
                 ),
-                Text('عربي — النسخة دي عربي بس', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                Text('عربي — النسخة دي عربي بس', style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
               ],
             ),
           ),

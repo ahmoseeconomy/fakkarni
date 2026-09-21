@@ -254,7 +254,10 @@ lib/
                               «الملف الصحي» · «الإعدادات» — the son's
                               read-only app, one CaregiverSnapshotHolder
                               (fetch + gated poll) read by all three data
-                              tabs, straight from Supabase
+                              tabs, straight from Supabase; its own density
+                              tier — caregiver_status (pure: the answer to
+                              «هو كويس؟» + 7-day adherence) and caregiver_ui
+                              (CareCard/CareHead/CarePanel/CareStateMark)
   domain/wording/             rule_wording — «الفطار − ٣٠ د» text shared by
                               the scheduler and the son's side (no scheduling
                               import there)
@@ -271,7 +274,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1086 passing
+test/                         1112 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1116,6 +1119,58 @@ Supabase — but the `!inner` embed filter on `patient_uuid` has **never
 run against the live project**; if a card fails to appear on a device it
 is the first suspect, and dropping that `.eq` is safe for a son with one
 linked father.
+
+**الابن مش أبوه — نفس الهوية، كثافة تانية** (جولة إعادة تصميم شاشة
+الابن). شاشات الابن كانت ورثت مقاسات اتكتبت لراجل عنده ٧٢ سنة بنضارة
+قراية: متن ٢٠، هدف لمس ٥٦، حشو ١٦. ده صح للأب وغلط لواحد شغّال بيفتح
+التطبيق تلات ثواني بين اجتماعين.
+- **تدرّج جنب التدرّج، مش بداله.** `F.care…` في `tokens.dart` (متن ١٦،
+  ثانوي ١٤، دقيق ١٢٫٥، هدف لمس ٤٦، حشو ١٢) — والقيم مأخوذة من سلّم الخط
+  اللي في الـREADME (`body2`, `rowLabel2`, `secondary2`) مش مخترعة. **ولا
+  قيمة واحدة من مقاسات الأب اتغيّرت** — الفرق في `tokens.dart` إضافة
+  صافية، صفر سطر متشال. نفس اللوحة، نفس الخطوط العربية، نفس الـRTL.
+- **والتدرّج محبوس.** `test/app/caregiver_density_test.dart` بيقرا `lib/`
+  ويوقع لو `F.care…` أو أي ودجت من `caregiver_ui.dart` ظهرت برّه
+  `lib/features/care/`، **ولو** شاشة ابن استعملت `F.minTextSize` /
+  `F.minBodySize` / `F.minTapTarget` / `F.elder…`، **ولو** قيمة مشتركة
+  اتغيّرت (الأرقام مكتوبة بالحرف هناك — قرايتها من `F` كانت هتخلّي
+  الاختبار يقارن الحاجة بنفسها). مُتحقَّق بالطفرة في الاتجاهين.
+- **الحد الأدنى للنص بقى حدّين**: `expectNoRedAndMinSize` أخد بارامتر،
+  و`expectCaregiverDensity` هو اللي شاشات الابن بتتنده بيه. حد الأب ١٧
+  زي ما هو على شاشاته.
+- **الإجابة الأول.** أول كارت على «متابعة» بيرد على السؤال اللي الابن
+  فاتح الشاشة عشانه: «كل حاجة تمام» / «فيه N محتاجة انتباهك»، وتحتها
+  آخر جرعة **مؤكَّدة** وإمتى — الجملة لوحدها ممكن تبقى شاشة واقفة،
+  والوقت جنبها هو اللي بيخلّيها مصدّقة. الحساب نقي في
+  `caregiver_status.dart` ومتختبر بالأرقام من غير ما نرسم شاشة.
+- **الأسبوع سطر واحد**: «٦ من ٧ أيام كل الجرعات فيها اتقفلت». جولة ٣٠
+  شالت شبكة السبع خانات لأن الكسور مكانتش بتقول حاجة، والرجوع بقى رقم
+  بجملته **من غير أي رسم**: سبع نقط مش بيانات تستاهل رسمة، والجملة أسرع
+  في القراية. **والنهارده مش محسوب** — اليوم لسه ماشي، وعدّه ناقص بيخلّي
+  كل يوم يبان مش كامل لحد آخره.
+- **الحالة أيقونة وكلمة، واللون على العلامة مش على النص.** كل صف جرعة
+  فيه `CareStateMark`: أيقونة + كلمة + لون. ده بيتقري لحد مش بيفرّق
+  الألوان وبيتقري في الوضعين. **ودي صلّحت دين قديم**: العنوان
+  «⚠ والدك ما أكّدش جرعة …» و«اتنست — لسه ما اتأكدتش» كانوا `F.gold`
+  **نص** — ٢٫٠٦:١ على كارت نهاري، يعني أهم سطرين على الشاشة كانوا أصعب
+  سطرين يتقروا. دلوقتي الكلمة بلون المتن والذهبي على الأيقونة وعلى حد
+  الكارت الجانبي (نفس فكرة `GoldNote`). تلات تأكيدات في الاختبارات
+  القديمة كانت مثبّتة على `style?.color == F.gold` واتغيّرت لتثبّت
+  العقد الجديد (النص ink + أيقونة ذهبية) — ده التغيير الوحيد في اختبار
+  قديم، ومقصود.
+- **أفعال عملية، من غير قدرة جديدة**: «حدّث» جنب سطر آخر تحديث،
+  و«حاول تاني» على لوحة الخطأ. الاتنين بيندهوا نفس `holder.refresh` اللي
+  السحب لتحت بينده عليه — قراية وخلاص، وحارس `caregiver_shell_test` لسه
+  بيثبت إن مفيش ولا زرار بيكتب في بيانات الأب.
+- **فجوة داتا، متسجّلة مش متعمولة: «اتصل بوالدك» مش ممكن.** أرقام
+  التليفونات في `emergency_profile.contacts_json`، و**ده مش بيتدفع
+  للسحابة أصلاً** (قرار D5.1، و`health_file_sync_guard_test` بيوقع لو
+  اتدفع)؛ `CaregiverEmergency` مالهاش عمود تليفون. زرار اتصال محتاج
+  يا إما عمود جديد في السحابة يا إما قرار خصوصية جديد — والاتنين
+  مش شغل جولة عرض.
+- **وشورت-كت لـ«الملف الصحي» من «متابعة» ما اتعملش عن قصد**: هو تبويب
+  في الدوك، وباب تاني لنفس الأوضة بيخلّي الواحد يسأل هما أوضتين ولا
+  واحدة — نفس القاعدة اللي شالت القايمة من «متابعة» في جولة ٢٩.
 
 **«مقدرناش نكمّل» is what the son reads; the log is what you read.**
 The caregiver fetch swallowed every failure into that one sentence — a

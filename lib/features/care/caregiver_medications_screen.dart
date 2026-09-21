@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../data/care/caregiver_remote.dart';
-import 'caregiver_screen.dart' show CaregiverMedicationRow, CaregiverPanel;
+import 'caregiver_screen.dart' show CaregiverMedicationRow;
 import 'caregiver_snapshot_holder.dart';
+import 'caregiver_ui.dart';
 
 /// «الأدوية» عند الابن — **تبويب لوحده في الدوك**.
 ///
@@ -48,20 +49,25 @@ class _CaregiverMedicationsScreenState extends State<CaregiverMedicationsScreen>
     final snapshot = widget.holder.snapshot;
     final meds = snapshot?.medications ?? const <CaregiverMedication>[];
     return Scaffold(
-      appBar: AppBar(title: const Text('أدويته')),
+      appBar: careAppBar('أدويته'),
       body: SafeArea(
         child: RefreshIndicator(
           color: F.green,
           onRefresh: widget.holder.refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(F.carePad, F.careRowGap, F.carePad,
+                F.carePad + MediaQuery.of(context).padding.bottom),
             children: [
+              if (widget.holder.error case final error?)
+                CarePanel(text: error, action: 'حاول تاني', onAction: widget.holder.refresh),
               if (snapshot == null)
-                const CaregiverPanel(text: 'لسه مفيش حاجة وصلت من موبايل والدك.')
+                const CarePanel(text: 'لسه مفيش حاجة وصلت من موبايل والدك.')
               else if (meds.isEmpty)
-                const CaregiverPanel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
+                const CarePanel(text: 'مفيش أدوية متسجّلة على موبايل والدك لسه.')
               else
+                // مفيش عنوان قسم هنا: الشريط العلوي بيقول «أدويته» خلاص،
+                // وسطر تاني بنفس الكلمة زحمة على شاشة الهدف منها الكثافة.
                 for (final m in meds) CaregiverMedicationRow(medication: m),
             ],
           ),

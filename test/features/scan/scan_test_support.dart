@@ -148,7 +148,16 @@ void screenTest(String name, Future<void> Function(WidgetTester) body) {
   });
 }
 
-void expectNoRedAndMinSize(WidgetTester tester) {
+/// **الحد الأدنى للنص عند الابن — تدرّجه هو، مش تدرّج الأب.**
+///
+/// شاشات الابن ليها كثافة أعلى عن قصد (`F.care…` في `tokens.dart`): هو
+/// شاب شغّال بيبص تلات ثواني، مش راجل عنده ٧٢ سنة بنضارة قراية. الحدود
+/// بتاعة الأب (`F.minTextSize` ١٧) ما اتغيّرتش ولا واحد منها — الاختبار
+/// ده بيتنده بحدّ الابن على شاشاته هو بس.
+void expectCaregiverDensity(WidgetTester tester) =>
+    expectNoRedAndMinSize(tester, min: F.careMinTextSize);
+
+void expectNoRedAndMinSize(WidgetTester tester, {double min = F.minTextSize}) {
   // الاستثناء الوحيد المسموح (جولة ٢١): كلمة «برّه نطاق الورقة» جوّه
   // [LabFlagBadge]. مقصورة على الودجت نفسه عن قصد — أحمر في أي نص تاني
   // على نفس الشاشة لسه بيوقّع الاختبار، وحبّاية الطوارئ المليانة لسه
@@ -162,7 +171,7 @@ void expectNoRedAndMinSize(WidgetTester tester) {
   for (final text in tester.widgetList<Text>(find.byType(Text))) {
     final size = text.style?.fontSize;
     if (size != null) {
-      expect(size, greaterThanOrEqualTo(F.minTextSize), reason: text.data);
+      expect(size, greaterThanOrEqualTo(min), reason: text.data);
     }
     final colour = text.style?.color;
     if (colour == null || inBadge.contains(text)) continue;
