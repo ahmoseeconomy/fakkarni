@@ -1784,6 +1784,58 @@ content-desc="الصحيان — ٦:٣٠ ص\nالفطار — ٧:٣٠ ص\nTestDo
 ٩.٦ في اللي قبلها.** الرقمين على محاكي CI والعملية حية ومثبّتة — يعني
 مفيش رقم منهم قياس للسكّة المقتولة.
 
+**التشغيلة السادسة: الاختبار نجح. الشغلانة حمرا لسبب في سكربت الـCI.**
+
+```
+09:16:09.886  Isolate: دخلنا المعالج — action=taken
+09:16:11.913  Isolate: خلص المعالج — handled=ok action=taken
+FKTEST: journal_mode في النسخة = wal، taken = 1
+09:16:53.539  I/TestRunner: run finished: 1 tests, 0 failed, 0 ignored
+```
+
+**فالسلسلة اتثبتت على أندرويد والعملية حية**: إشعار ← «أخدته» ← دارت ←
+صف الجرعة ← «يومك» بتعرضها مؤكَّدة. ~٦ ثواني من الدوسة لـ`handled=ok`.
+
+**وده خامس عطل في أداة القياس — والمرة دي الأداة هي الـCI نفسه.**
+`reactivecircus/android-emulator-runner` بينفّذ **كل سطر** من `script:`
+في صدفة لوحده. ده متأكَّد من لوج الشغلانة نفسها، مش من التوثيق:
+
+```
+[command]/usr/bin/sh -c adb shell settings put global window_animation_scale 0
+[command]/usr/bin/sh -c adb install -r -g … || true
+[command]/usr/bin/sh -c cd android && ./gradlew :app:connectedDebugAndroidTest --info
+```
+
+أربع نتايج، كلها كانت شغّالة في صمت:
+- `set +e` / `set -e` ما بيعدّوش للسطر اللي بعده.
+- `STATUS=$?` بيضيع، فـ`exit $STATUS` **عمره ما نقل نتيجة الاختبار**.
+- `cd android` ما بيفضلش.
+- وسطر متقسّم بـ`\` بيتنفّذ **نصّين**: النص التاني — اللي فيه
+  `|| true` — بيروح، فالنص الأول بيقع لوحده.
+وأي سطر بيقع بينهي الخطوة فوراً، فاللي بعده عمره ما بيجري: عشان كده
+`logcat-ours.txt` ما اتعملش ولا مرة، مع إن سطره منتهي بـ`|| true` ومش
+ممكن يقع. والسبب المباشر للأحمر كان `adb pull` على مجلد لقطات **مش
+موجود في تشغيلة ناجحة** → بيرجّع ١.
+
+**فالقاعدة: شغلانة حمرا مش معناها اختبار أحمر.** أول حاجة تتقري هي سطر
+`TestRunner: run finished` — هو اللي بيقول نجح ولا لأ. السكربت بقى
+بيطبعه في `artifacts/verdict.txt` وفي مخرج الشغلانة، فوق كل حاجة.
+
+اللي اتعمل: المنطق كله اتنقل لـ`.github/scripts/android-lockscreen.sh`
+(**مش `tools/`** — دي في `.gitignore` دلوقتي)، `set -uo pipefail` من غير
+`-e`، حالة جرادل بتتمسك في متغيّر، جمع الأدلة كله `|| true` وما يقدرش
+يحمّر الشغلانة، والخروج بحالة جرادل وبس. والـ`script:` في الـworkflow
+بقى **سطر واحد** بينده الملف. متأكَّد بمنصّة تجربة بـ`adb` بيقع دايماً
+و`gradlew` بحالة خروج مختارة: الحالة بتوصل كما هي (٠ و١ و٧)، والأدلة
+بتتجمع في الحالتين.
+
+**وتقرير الاختبار عمره ما اترفع، لسبب تاني منفصل: مجلد البناء منقول.**
+`android/build.gradle.kts` بيحط `rootProject.layout.buildDirectory` على
+`../../build`، فتقارير وحدة app في `build/app/reports/androidTests/` و
+`build/app/outputs/androidTest-results/` — والـworkflow كان بيرفع
+`android/app/build/…`، وهو مسار مش موجود ولا مرة. مجلد مش موجود في
+`upload-artifact` بيعدّي بتحذير، مش بخطأ — فالنقص كان ساكت زي الباقي.
+
 ## دين تقني
 
 Debts we took on knowingly. Each one blocks something specific — check this
@@ -2185,13 +2237,17 @@ code, because that is what it is.
 
 **And the sibling failure: the instrument measuring something other than
 what its name says.** On the Android lock-screen test this happened
-**four times in four runs** — an `executeShellCommand` assertion that
+**five times in six runs** — an `executeShellCommand` assertion that
 passed over empty output, a framework database read that flipped the file
-out of WAL, an assertion on a name that appears in both states, and a
-matcher reading `text` on a Flutter screen that publishes through
-`content-desc`. Each one accused the app. **Before suspecting `lib/`, ask
-whether the tool measures what it claims to**; the four cases and their
-evidence are under «اللي لسه مش متأكَّد منه على أندرويد».
+out of WAL, an assertion on a name that appears in both states, a matcher
+reading `text` on a Flutter screen that publishes through `content-desc`,
+and finally the CI harness itself, which runs each `script:` line in its
+own shell so the test's exit status never reached the job. Each one
+accused the app; the app was innocent every time. **Before suspecting
+`lib/`, ask whether the tool measures what it claims to** — and remember
+a red job is not a red test: read `TestRunner: run finished` first. The
+five cases and their evidence are under «اللي لسه مش متأكَّد منه على
+أندرويد».
 
 **The test harness has a required shape, and breaking it fails as a hang,
 not as an error.** `testWidgets` runs the body inside a fake-async zone.

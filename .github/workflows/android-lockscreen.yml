@@ -71,69 +71,23 @@ jobs:
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
             -camera-back none
-          script: |
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            # إذن الإشعارات على ١٣+ — من غيره مفيش إشعار أصلاً
-            adb install -r -g build/app/outputs/flutter-apk/app-debug.apk || true
-            adb shell pm grant com.fakkarni.fakkarni android.permission.POST_NOTIFICATIONS || true
-            # المنبّه الدقيق على ١٢+
-            adb shell appops set com.fakkarni.fakkarni SCHEDULE_EXACT_ALARM allow || true
-
-            # **اللوج هو أثر أندرويد.** `diag()` بتكتب في ملف على iOS بس؛
-            # هنا السطر بيخرج من debugPrint للوج، فمن غير اللوج مفيش أي
-            # وسيلة نعرف بيها إذا الـisolate اشتغل ولا لأ. تشغيلة ٢١
-            # سبتمبر وقعت من غيره ومحدش عرف السبب.
-            mkdir -p artifacts
-            adb logcat -c || true
-            adb logcat -v time > artifacts/logcat-full.txt 2>&1 &
-            LOGCAT_PID=$!
-
-            set +e
-            cd android && ./gradlew :app:connectedDebugAndroidTest --info
-            STATUS=$?
-            cd ..
-            set -e
-
-            kill $LOGCAT_PID 2>/dev/null || true
-            sleep 2
-
-            # الشاشة نفسها لما الخطوة الأخيرة تقع — اللقطة وشجرة النوافذ.
-            # التشغيلة اللي فاتت وقعت عند «الاسم مش موجود على الشاشة»
-            # ومحدش عرف الشاشة كانت بتقول إيه أصلاً. الاختبار بيكتبهم في
-            # الكاش الخارجي بتاع التطبيق، ودي بتسحبهم.
-            # (الشجرة بتتطبع في تقرير الاختبار كمان، عشان لو السحب فشل
-            #  الدليل ما يضيعش.)
-            mkdir -p artifacts/screen
-            # `/data/local/tmp` بيوزر الشل — `adb pull` بيوصله دايماً.
-            # ده الطريق اللي `screencap` بيكتب فيه.
-            adb pull /data/local/tmp/. artifacts/screen >/dev/null 2>&1 || true
-            # والكاش الخارجي بتاع التطبيق — تحت التخزين المحدود، فالسحب
-            # منه مش مضمون. عشان كده الشجرة بتتطبع في التقرير كمان.
-            adb root >/dev/null 2>&1 || true
-            adb wait-for-device || true
-            adb pull /sdcard/Android/data/com.fakkarni.fakkarni/cache/fkshots \
-              artifacts/screen >/dev/null 2>&1 || true
-            # حاجتنا بس — `/data/local/tmp` فيه حاجات تانية
-            find artifacts/screen -type f ! -name 'fk-*' ! -name 'hierarchy-*' \
-              ! -name 'screen-*' -delete 2>/dev/null || true
-            ls -la artifacts/screen || true
-            # نسخة مفلترة جنب الكاملة — الكاملة فيها كل حاجة على الجهاز
-            grep -i -E 'flutter|fakkarni|FKDIAG|FKTEST|Isolate|Handle|TestHook' \
-              artifacts/logcat-full.txt > artifacts/logcat-ours.txt || true
-            echo "---- آخر ٨٠ سطر تخصّنا ----"
-            tail -80 artifacts/logcat-ours.txt || true
-            exit $STATUS
+          # **سطر واحد، عن قصد.** الأكشن بينفّذ كل سطر من `script:` في
+          # `/usr/bin/sh -c` لوحده (متأكَّد من لوج الشغلانة نفسه) — فـ
+          # `set -e` و`$?` و`cd` ما بيعيشوش، وسطر متقسّم بـ`\` بيتنفّذ
+          # نصّين. المنطق كله في الملف.
+          script: bash .github/scripts/android-lockscreen.sh
 
       - name: Upload the report and the logcat
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: android-test-report
+          # **مجلد البناء منقول.** `android/build.gradle.kts` بيحط
+          # `rootProject.layout.buildDirectory` على `../../build`، يعني
+          # تقارير وحدة app في `build/app/` مش في `android/app/build/`.
+          # المسار القديم مكانش موجود ولا مرة، عشان كده التقرير عمره ما
+          # اترفع في أي تشغيلة.
           path: |
-            android/app/build/reports/androidTests/
-            android/app/build/outputs/androidTest-results/
-            artifacts/logcat-full.txt
-            artifacts/logcat-ours.txt
-            artifacts/screen/
+            build/app/reports/androidTests/
+            build/app/outputs/androidTest-results/
+            artifacts/
