@@ -54,7 +54,7 @@ revoke all on public.caregiver_preferences from anon, public;
 drop trigger if exists set_updated_at on public.caregiver_preferences;
 create trigger set_updated_at
   before update on public.caregiver_preferences
-  for each row execute function extensions.moddatetime (updated_at);
+  for each row execute procedure moddatetime (updated_at);
 
 -- ------------------------------------------------------------- السياسات
 --
