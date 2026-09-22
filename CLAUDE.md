@@ -1589,40 +1589,40 @@ on the live project.
 | Confirmed | Files |
 |---|---|
 | 20 Sep 2026 | `0001`-`0018`, all of them |
+| **22 Sep 2026** | **`0020_caregiver_preferences`** — اتشغّلت واتأكّدت في نفس اليوم: **١٥/١٥ عليها، و٢٠ صف كلهم `ok = true`** |
 | **not yet run** | **`0019_battery_state`** — one column |
-| **not yet run** | **`0020_caregiver_preferences`** — written ٢٢ سبتمبر ٢٠٢٦، **ما اتشغّلتش على المشروع الحقيقي**: مفيش بيانات اعتماد على الماكينة دي. شوف «اللي لازم يتلزق» تحت |
 
 `0018_device_health` was run and verified the same day it was written —
 **18/18 rows true, and 13/13 on `0018` itself**. That is the rule working
 as intended: SQL is run against the real project in the round that writes
 it, and the row above is evidence from the database, not from the repo.
 
-**اللي لازم يتلزق لـ`0020` — وشكل «تمام».**
+**`0020` اتشغّلت — وغلطة واحدة فيها تستاهل تتكتب.**
 
-**الهجرة دي ما اتشغّلتش على المشروع الحقيقي**: الماكينة دي مفيهاش بيانات
-اعتماد Supabase، والقاعدة المكتوبة («SQL migrations are run against the
-real project in the same round that writes them») **اتكسرت هنا عن
-اضطرار، مش عن سهو**. ملف في المستودع مش هجرة في القاعدة — ولحد ما
-الخطوتين دول يتعملوا، تفضيلات المتابع بتتحفظ في العدم:
-`caregiver_preferences` مش موجود، فـ`save` بترمي والشاشة بتبلعها
-(بتصميمها)، والابن بيخلّص الأسئلة الأربعة ومحدش سجّل حاجة.
+الملف كان بيقول `execute function extensions.moddatetime (updated_at)`،
+والمشروع الحقيقي ردّ **`function extensions.moddatetime() does not exist`**.
+الامتداد متركّب في سكيما تانية عنده، وكل الملفات اللي قبله (`0004`،
+`0006`، `0012`، `0018`) بتكتبها **من غير سكيما**: `execute procedure
+moddatetime (updated_at)`. الملف بقى زيهم، واختبار بيقفل على ده
+(`no_qualified_moddatetime`) — الغلطة دي ما بتظهرش غير على مشروع حقيقي،
+وهي بالظبط الصنف اللي القاعدة «ملف في المستودع مش هجرة في القاعدة»
+موجودة عشانه.
 
-١. في SQL editor بتاع المشروع، الزق **كل** `supabase/migrations/0020_caregiver_preferences.sql`.
-   **«تمام» = سطر `NOTICE: 0020 OK — الابن يقرا صفّه، الأب الاسم والصلة
-   بس، والجرعة الفايتة بتعدّي`**، وبعده `ERROR: rollback_0020` — ده
-   الاستثناء المقصود اللي بيرجّع بيانات الفحص. **أي رسالة `FAIL 0020:`
-   معناها الهجرة ما اتطبّقتش**، واللي بعد النقطتين بيقول إيه بالظبط.
-   وسكربت **من غير** سطر `0020 OK` معناه إنه رجع من غير ما يوصل — اقرا
-   أول `ERROR` فيه، متعدّيش عليه.
+**وشكل «تمام» لما تتشغّل تاني** (الملف idempotent، فإعادته آمنة):
+
+١. في SQL editor، الزق **كل** `supabase/migrations/0020_caregiver_preferences.sql`.
+   **«تمام» = `Success. No rows returned`.** الاستثناء `rollback_0020`
+   **مش بيطلع كـ`ERROR`**: هو متمسوك جوّه `exception when others` في نفس
+   البلوك، وشغلته الوحيدة إنه يرجّع بيانات الفحص المؤقتة. وسطر
+   `NOTICE: 0020 OK — …` بيظهر في لوحة الرسايل لو المحرّر بيعرضها، بس
+   **مش هو العلامة** — العلامة هي النجاح، وبعده الخطوة ٢.
+   **أي `ERROR: FAIL 0020:` معناها الهجرة ما اتطبّقتش**، واللي بعد
+   النقطتين بيقول إيه بالظبط.
 
 ٢. بعدها الزق `supabase/verify_migrations.sql` كله. **«تمام» = الصف
-   `0020_caregiver_preferences` بـ`ok = true` و`expected = found = 14`
+   `0020_caregiver_preferences` بـ`ok = true` و`expected = found = 15`
    و`missing` فاضي**، وباقي الصفوف زي ما هي. لو `missing` فيه حاجة، هي
    بالحرف اللي ناقص.
-
-٣. وبعدها بس حدّث الجدول فوق: `0020` بيتنقل من «not yet run» لصف بتاريخه.
-   **الصف ده دليل من القاعدة، مش من المستودع** — ودي القاعدة اللي جولة
-   ٢٥ اتعلمتها بالطريقة الصعبة.
 
 **Re-run the script rather than trusting the date.** A row here goes stale
 the moment anyone touches the project; the script is one paste and it
