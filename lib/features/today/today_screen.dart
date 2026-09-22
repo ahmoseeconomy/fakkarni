@@ -99,6 +99,7 @@ class _TodayScreenState extends State<TodayScreen> {
       DateTime(_routineDay.year, _routineDay.month, _routineDay.day + 1),
     );
     _patient = services.routines.watchPatient(services.patientId);
+    unawaited(_loadFollowers(services));
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
     _followUps = services.checkups.watchOpen(services.patientId);
     _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
@@ -143,6 +144,28 @@ class _TodayScreenState extends State<TodayScreen> {
     _readingsSub?.cancel();
     super.dispose();
   }
+
+  /// **مين بيتابعه** — الاسم والصلة من السحابة، مرة عند الفتح.
+  ///
+  /// بتفشل في صمت زي المزامنة: الأب بيقرا «محدش بيتابعك لسه» زي ما كان،
+  /// والتذكير مش متعلّق بيها في أي اتجاه. الدالة على السيرفر بترجّع
+  /// **الاسم والصلة وبس** — سياسة عمود مش ممكنة في بوستجرس، فالحد
+  /// متفروض بالدالة.
+  Future<void> _loadFollowers(AppServices services) async {
+    final preferences = services.caregiverPreferences;
+    if (preferences == null) return;
+    final patient = await services.routines.getPatient(services.patientId);
+    final uuid = patient?.uuid;
+    if (uuid == null) return;
+    try {
+      final followers = await preferences.followers(uuid);
+      if (mounted) setState(() => _followers = followers);
+    } catch (_) {
+      // مفيش جلسة، أوفلاين، أو مش مالك — كلهم «محدش بيتابعك لسه».
+    }
+  }
+
+  List<FollowerProfile> _followers = const [];
 
   Future<void> _markTaken(List<DoseEventView> group) =>
       confirmGroup(AppScope.of(context), _routineDay, group);
@@ -289,6 +312,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 builder: (context, snap) => _HomeHeader(
                   patient: snap.data,
                   now: _now,
+                  followers: _followers,
                   onOpenCircle: _openCircle,
                 ),
               ),
@@ -528,10 +552,16 @@ class _FollowUpPanel extends StatelessWidget {
 /// التحية بتوصّل للأقسام على طول. الشاشة دي بتاعة صاحب الموبايل، فالكلام
 /// كله بيخاطبه هو («مين بيتابعك»)، مش «ملف والدك» بتاع التصميم.
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.patient, required this.now, required this.onOpenCircle});
+  const _HomeHeader({
+    required this.patient,
+    required this.now,
+    required this.onOpenCircle,
+    this.followers = const [],
+  });
 
   final PatientRow? patient;
   final DateTime now;
+  final List<FollowerProfile> followers;
   final VoidCallback onOpenCircle;
 
   @override
@@ -568,7 +598,7 @@ class _HomeHeader extends StatelessWidget {
         const SizedBox(height: F.s12),
         // عطل ساكت بيبقى مسموع هنا — ومفيش حاجة بتتعرض لما كله تمام.
         const HealthBar(),
-        CareCircleRow(onOpen: onOpenCircle),
+        CareCircleRow(onOpen: onOpenCircle, followers: followers),
       ],
     );
   }

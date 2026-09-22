@@ -129,6 +129,44 @@ void main() {
     });
   });
 
+  group('سطر الترحيب في حساب المتابع', () {
+    test('الاسم والصلة للابن والبنت', () {
+      expect(
+        welcomeLine(
+            const FollowerProfile(name: 'محمد', relation: FollowerRelation.son),
+            'الحاج أحمد'),
+        'أهلاً يا محمد — ابن الحاج أحمد',
+      );
+      expect(
+        welcomeLine(
+            const FollowerProfile(name: 'سارة', relation: FollowerRelation.daughter),
+            'الحاج أحمد'),
+        'أهلاً يا سارة — بنت الحاج أحمد',
+      );
+    });
+
+    test('**و«حد تاني» بالاسم بس** — نصّه حر، وتركيبه في جملة بيطلّع عربي غلط', () {
+      expect(
+        welcomeLine(
+          const FollowerProfile(
+              name: 'أحمد', relation: FollowerRelation.other, relationOther: 'أخوه'),
+          'الحاج أحمد',
+        ),
+        'أهلاً يا أحمد',
+      );
+    });
+
+    test('ومن غير صلة: الاسم لوحده', () {
+      expect(welcomeLine(const FollowerProfile(name: 'نور'), 'الحاج أحمد'),
+          'أهلاً يا نور');
+    });
+
+    test('**ومن غير اسم: ترحيب من غير اسم** — مفيش اسم مخترع', () {
+      expect(welcomeLine(null, 'الحاج أحمد'), 'أهلاً بيك');
+      expect(welcomeLine(const FollowerProfile(name: '   '), 'الحاج أحمد'), 'أهلاً بيك');
+    });
+  });
+
   test('الوعد مكتوب مرة واحدة، وبيقول اللي بيحصل', () {
     expect(quietHoursPromise, contains('أي جرعة تفوت هتوصلك في أي وقت'));
     expect(quietHoursPromise, contains('للمواعيد والملخصات بس'));

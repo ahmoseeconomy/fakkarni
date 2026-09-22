@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
+import 'dart:async';
+
+import '../../data/care/caregiver_preferences.dart';
+import '../../data/care/caregiver_remote.dart';
+import '../../domain/care/follower_profile.dart';
+import 'onboarding/caregiver_onboarding_screen.dart';
 import 'caregiver_ui.dart';
 import '../selfcheck/health_check_screen.dart';
 
@@ -12,7 +18,11 @@ import '../selfcheck/health_check_screen.dart';
 /// الملف الصحي، الطوارئ، قريب منك) بتخص مريض على الموبايل ده، والابن مش
 /// مريض. صف بيفتح على حاجة مالهاش معنى أوحش من صف مش موجود.
 class CaregiverSettingsScreen extends StatefulWidget {
-  const CaregiverSettingsScreen({super.key});
+  const CaregiverSettingsScreen({this.patient, super.key});
+
+  /// المريض المربوط — منه الـuuid اللي التفضيلات متعلّقة بيه.
+  /// null قبل ما أول صورة توصل: الصف ساعتها ما بيظهرش.
+  final CaregiverPatient? patient;
 
   @override
   State<CaregiverSettingsScreen> createState() => _CaregiverSettingsScreenState();
@@ -20,6 +30,70 @@ class CaregiverSettingsScreen extends StatefulWidget {
 
 class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
   bool _busy = false;
+
+  /// اللي هو كتبه عن نفسه — منه سطر الترحيب. null لحد ما يوصل، ومن غيره
+  /// الترحيب بيبقى من غير اسم بدل ما نخترع واحد.
+  FollowerProfile? _me;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_loadMe()));
+  }
+
+  @override
+  void didUpdateWidget(CaregiverSettingsScreen old) {
+    super.didUpdateWidget(old);
+    // **الشاشة جوّه `IndexedStack`**، يعني بتتبني قبل ما أول صورة توصل
+    // والمريض لسه `null`. من غير السطر ده الترحيب بيفضل من غير اسم
+    // للأبد — قراية واحدة في `initState` بتحصل بدري أوي.
+    if (old.patient?.uuid != widget.patient?.uuid) unawaited(_loadMe());
+  }
+
+  Future<void> _loadMe() async {
+    final service = AppScope.of(context).caregiverPreferences;
+    final patient = widget.patient;
+    if (service == null || patient == null) return;
+    try {
+      final row = await service.load(patient.uuid);
+      if (mounted) setState(() => _me = row.profile);
+    } catch (_) {
+      // أوفلاين — «أهلاً بيك» من غير اسم. مفيش حاجة بتتعطّل.
+    }
+  }
+
+  /// بيفتح نفس شاشة الأسئلة، متعبّية باللي في السحابة.
+  ///
+  /// بيقرا الصف الأول: شاشة بتفتح فاضية على واحد جاوب قبل كده بتخلّيه
+  /// يفتكر إن اللي كتبه راح.
+  Future<void> _openPreferences() async {
+    final scope = AppScope.of(context);
+    final service = scope.caregiverPreferences;
+    final patient = widget.patient;
+    if (service == null || patient == null || _busy) return;
+    setState(() => _busy = true);
+    CaregiverPreferences? current;
+    try {
+      current = await service.load(patient.uuid);
+    } catch (_) {
+      // القراءة فشلت — بنفتح على الافتراضي بدل ما نمنعه. الحفظ هو اللي
+      // بيتكلّم لو فشل، وده اللي بيهم.
+      current = const CaregiverPreferences();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => CaregiverOnboardingScreen(
+        patientUuid: patient.uuid,
+        patientName: patient.name,
+        preferences: service,
+        initial: current!,
+        onDone: () => Navigator.of(context).maybePop(),
+      ),
+    ));
+    // رجع من الأسئلة — الاسم ممكن يكون اتغيّر، فالترحيب بيتقرا تاني.
+    await _loadMe();
+  }
 
   Future<void> _signOut() async {
     if (_busy) return;
@@ -51,6 +125,21 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // **سطر الترحيب باسمه** — أول حاجة في كارت حسابه.
+                // الاسم بيتقرا من اللي هو كتبه في الأسئلة، والصلة بتتضاف
+                // للابن والبنت بس (صيغتهم مؤكّدة).
+                Text(
+                  welcomeLine(_me, widget.patient?.name ?? ''),
+                  key: const ValueKey('care-welcome'),
+                  style: TextStyle(
+                    fontFamily: F.displayFamily,
+                    fontSize: F.careTitleSize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: F.s8),
                 Row(
                   children: [
                     Expanded(
@@ -105,6 +194,37 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
               ),
             ),
           ),
+          // **المدخل (ج): نفس الشاشة، متعبّية من السحابة.**
+          //
+          // الأسئلة الأربعة مش حاجة بتتسأل مرة وتخلص: الاسم بيتغيّر،
+          // وساعات الهدوء بتتغيّر مع الشغل. الصف بيتقرا الأول فالشاشة
+          // بتفتح على اللي هو كاتبه، مش فاضية.
+          if (AppScope.of(context).caregiverPreferences != null)
+            CareCard(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                key: const ValueKey('care-settings-onboarding'),
+                onTap: _busy ? null : _openPreferences,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: F.careTapTarget),
+                  padding: const EdgeInsets.symmetric(horizontal: F.carePad),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, size: 18, color: F.green),
+                      const SizedBox(width: F.s10),
+                      Expanded(
+                        child: Text('بياناتك وتنبيهاتك',
+                            style: TextStyle(
+                                fontSize: F.careBodySize,
+                                fontWeight: FontWeight.w700,
+                                color: F.ink)),
+                      ),
+                      Icon(Icons.chevron_left, size: 18, color: F.mutedDark),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           // **نفس مفتاح الأب، ونفس الويدجت.** الشريط العلوي بتاع «متابعة»
           // مش شريط الهيكل زي عند الأب — كل تبويب هنا ليه شريطه، و
           // «الإعدادات» مالهاش شريط أصلاً. فالصف ده هو المكان الوحيد اللي

@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../care/care_circle_service.dart';
 import '../care/caregiver_remote.dart';
 import '../care/supabase_care_circle_service.dart';
+import '../care/caregiver_preferences.dart';
+import '../care/supabase_caregiver_preferences.dart';
 import '../care/supabase_caregiver_remote.dart';
 import '../push/push_tokens.dart';
 import '../health/health_heartbeat.dart';
@@ -127,6 +129,7 @@ typedef CloudServices = ({
   AuthService auth,
   CareCircleService care,
   CaregiverRemote caregiver,
+  CaregiverPreferencesService caregiverPreferences,
   SyncRemote syncRemote,
   PushTokenRemote pushTokens,
   HealthRemote health,
@@ -156,6 +159,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       auth: AnonymousAuthService(supabase.client),
       care: SupabaseCareCircleService(supabase.client),
       caregiver: SupabaseCaregiverRemote(supabase.client),
+      caregiverPreferences: SupabaseCaregiverPreferences(supabase.client),
       syncRemote: SupabaseSyncRemote(supabase.client),
       pushTokens: SupabasePushTokenRemote(supabase.client),
       health: SupabaseHealthRemote(supabase.client),

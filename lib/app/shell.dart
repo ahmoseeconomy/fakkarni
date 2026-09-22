@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
+import '../features/care/onboarding/caregiver_onboarding_screen.dart';
+import '../features/care/onboarding/onboarding_gate.dart';
 import '../features/care/caregiver_snapshot_holder.dart';
 import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
@@ -211,7 +214,46 @@ class _CaregiverShellState extends State<CaregiverShell> {
       onNotLinked: widget.onNotLinked,
       sink: AppScope.of(context).scheduler.sink,
     )
+      ..addListener(_onSnapshot)
       ..setActive(CaregiverShell.dataTabs.contains(_tab));
+  }
+
+  /// **الشِل بيسمع للصورة عشان البوابة تعرف المريض.**
+  ///
+  /// التبويبات بتسمع كل واحد لوحده، فالشِل نفسه ماكانش بيسمع — يعني كان
+  /// بيتبني مرة والصورة لسه `null`، والبوابة عمرها ما تشوف uuid المريض.
+  /// ده كان هيخلّي التوصيل «موجود» وهو مش شغّال.
+  void _onSnapshot() {
+    final patient = _holder?.snapshot?.patient;
+    if (patient != null) unawaited(_checkOnboarding(patient.uuid));
+  }
+
+  /// **بوابة أسئلة المتابع — ودي هي المدخل (أ) و(ب) مع بعض.**
+  ///
+  /// مكان واحد عن قصد: «بعد استبدال الكود» و«أول ما يفتح المتابعة» هما
+  /// نفس اللحظة من ناحية الشاشة — الجذر بيبني الشِل في الحالتين. مدخلين
+  /// منفصلين كانوا هيبقوا مكانين لنفس القرار، حر إن واحد فيهم يتنسي —
+  /// وده بالظبط اللي حصل في الجولة اللي فاتت لما الشاشة اتبنت وما
+  /// اتوصّلتش بحاجة.
+  OnboardingDecision _onboarding = OnboardingDecision.unknown;
+  String? _askedFor;
+
+  /// بيسأل مرة لكل مريض في عمر الشاشة دي.
+  Future<void> _checkOnboarding(String patientUuid) async {
+    if (_askedFor == patientUuid) return;
+    _askedFor = patientUuid;
+    final decision = await decideOnboarding(
+      patientUuid: patientUuid,
+      preferences: AppScope.of(context).caregiverPreferences,
+      seenLocally: onboardingSeen,
+    );
+    if (!mounted) return;
+    // **القراءة فشلت؟ ما بنسألش وما بنسجّلش** — نجرّب تاني المرة الجاية.
+    if (decision == OnboardingDecision.unknown) {
+      _askedFor = null;
+      return;
+    }
+    setState(() => _onboarding = decision);
   }
 
   void _select(int i) {
@@ -226,6 +268,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
 
   @override
   void dispose() {
+    _holder?.removeListener(_onSnapshot);
     _holder?.dispose();
     super.dispose();
   }
@@ -234,6 +277,27 @@ class _CaregiverShellState extends State<CaregiverShell> {
   Widget build(BuildContext context) {
     final holder = _holder;
     if (holder == null) return const Scaffold();
+
+    // المريض بيوصل مع أول صورة من السحابة — البوابة بتستنّاه.
+    final patient = holder.snapshot?.patient;
+    if (patient != null) {
+      if (_onboarding == OnboardingDecision.ask) {
+        // **قبل ما يشوف البيت، مش فوقه**: الشِل بيرسم الأسئلة بدل
+        // التبويبات، فالمدخل (أ) «قبل ما يوصل شاشة المتابعة» متحقّق.
+        return CaregiverOnboardingScreen(
+          patientUuid: patient.uuid,
+          patientName: patient.name,
+          preferences: AppScope.of(context).caregiverPreferences!,
+          onDone: () async {
+            // خلّص — سواء جاوب أو تخطّى. **التسجيل المحلي هو اللي بيمنع
+            // النقّ** كل فتحة على اللي تخطّى.
+            await markOnboardingSeen(patient.uuid);
+            if (mounted) setState(() => _onboarding = OnboardingDecision.skip);
+          },
+        );
+      }
+    }
+
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
@@ -247,7 +311,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
           ),
           CaregiverMedicationsScreen(holder: holder),
           CaregiverHealthScreen(holder: holder, now: widget.now),
-          const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
+          Scaffold(body: SafeArea(child: CaregiverSettingsScreen(patient: patient))),
         ],
       ),
       // نفس القاعدة عند الابن: «الملف الصحي» عنده فيه بحث.

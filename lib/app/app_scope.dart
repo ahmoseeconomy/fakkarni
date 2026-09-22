@@ -8,6 +8,7 @@ import '../data/contacts/contact_picker.dart';
 import '../data/contacts/native_contact_picker.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
+import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
@@ -42,6 +43,7 @@ class AppServices {
     this.auth,
     this.care,
     this.caregiver,
+    this.caregiverPreferences,
     this.sync,
     this.push,
   });
@@ -100,6 +102,13 @@ class AppServices {
 
   /// نافذة الابن — قراءة مباشرة من السحابة، مفيش نسخة محلية.
   final CaregiverRemote? caregiver;
+
+  /// تفضيلات المتابع — اسمه وصلته ونطاق تنبيهه وساعات هدوئه.
+  ///
+  /// null من غير سحابة: ساعتها أسئلة المتابع ما بتظهرش أصلاً، والتطبيق
+  /// شغّال زي ما هو. **مش global**: بتتبني جنب باقي خدمات السحابة
+  /// وبتتمرّر من `AppScope` زي أي حاجة تانية.
+  final CaregiverPreferencesService? caregiverPreferences;
 
   /// المزامنة — اتجاه واحد، صامتة، والمستخدم مش المفروض يعرف إنها موجودة.
   final SyncService? sync;

@@ -57,13 +57,22 @@ class _CaregiverOnboardingScreenState extends State<CaregiverOnboardingScreen> {
     super.dispose();
   }
 
-  /// **الحفظ بعد كل خطوة.** لو قفل الشاشة في النص، اللي جاوبه بيفضل —
-  /// والباقي بيفضل على افتراضه الآمن (كل جرعة تفوت، من غير هدوء).
+  /// **الحفظ بعد كل خطوة، والفشل بيتقال.**
+  ///
+  /// لو قفل الشاشة في النص، اللي جاوبه بيفضل — والباقي بيفضل على افتراضه
+  /// الآمن (كل جرعة تفوت، من غير هدوء).
+  ///
+  /// **وعمرها ما بتقول «تمام» والصف ما اتكتبش.** الكتابة دي مش مزامنة
+  /// صامتة: الابن قاعد قدّام الشاشة مستني، ولو بلعنا العطل بيقفل وهو
+  /// فاكر إن اسمه وصل لوالده وهو ما وصلش.
   Future<void> _advance({bool keep = true}) async {
     if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      if (keep) {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    if (keep) {
+      try {
         // **اللي في الحقول بيدخل المسوّدة هنا**، مش مع كل حرف: الكتابة
         // بتحصل مرة عند الحفظ، فالحقل مش محتاج يعيد بناء الشاشة.
         final typed = _name.text.trim();
@@ -73,10 +82,14 @@ class _CaregiverOnboardingScreenState extends State<CaregiverOnboardingScreen> {
           relationOther: other.isEmpty ? null : other,
         );
         await widget.preferences.save(widget.patientUuid, _prefs);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _busy = false;
+          _error = saveFailedMessage;
+        });
+        return;
       }
-    } catch (_) {
-      // نفس سياسة المزامنة: بنسكت وبنسيبه يكمّل. الإعداد مش وعد للمريض،
-      // والافتراضي آمن — «كل جرعة تفوت» من غير هدوء.
     }
     if (!mounted) return;
     setState(() {
@@ -89,6 +102,8 @@ class _CaregiverOnboardingScreenState extends State<CaregiverOnboardingScreen> {
     });
     if (_done) widget.onDone?.call();
   }
+
+  String? _error;
 
   bool _done = false;
 
@@ -134,6 +149,17 @@ class _CaregiverOnboardingScreenState extends State<CaregiverOnboardingScreen> {
               padding: const EdgeInsets.all(F.carePad),
               child: Column(
                 children: [
+                  // **العطل بيفضل قدّامه مع زرار يعيد** — مش بيعدّي، ومش
+                  // بيتحوّل لـ«تمام».
+                  if (_error case final message?) ...[
+                    CarePanel(
+                      key: const ValueKey('onboarding-error'),
+                      text: message,
+                      action: 'حاول تاني',
+                      onAction: _busy ? () {} : () => _advance(),
+                    ),
+                    const SizedBox(height: F.s6),
+                  ],
                   SizedBox(
                     height: F.careTapTarget,
                     width: double.infinity,
@@ -394,6 +420,10 @@ class _InviteStep extends StatelessWidget {
 /// **الجملة الوحيدة اللي بتقول مين بيدفع** — قرار المالك ٢٢ سبتمبر ٢٠٢٦.
 ///
 /// مكتوبة مرة واحدة عشان شاشتين ما يوعدوش بحاجتين.
+/// **الجملة اللي بتظهر لما الحفظ يفشل** — مصدر واحد للشاشة وللاختبار.
+const String saveFailedMessage =
+    'مقدرناش نحفظ دلوقتي. اتأكد إنك متوصّل بالنت وحاول تاني.';
+
 const String followerPaysLine =
     'لما الاشتراك يشتغل، كل واحد بيتابع بيدفع اشتراكه هو — والدك بيدفع بتاعه، '
     'وإنت بتدفع بتاعك.';

@@ -116,3 +116,19 @@ DateTime heldUntil(DateTime at, QuietHours? quiet) =>
 /// واحد منهم بيوعد بحاجة التاني ما بيعملهاش.
 const String quietHoursPromise =
     'أي جرعة تفوت هتوصلك في أي وقت — الهدوء للمواعيد والملخصات بس.';
+
+/// **سطر الترحيب في حساب المتابع** — «أهلاً يا محمد — ابن الحاج أحمد».
+///
+/// الاسم بيتقال زي ما هو كتبه. والصلة بتتضاف **للابن والبنت وبس**: دول
+/// اللي صيغتهم مؤكّدة («ابن فلان» / «بنت فلان»). «حد تاني» نصّه حر —
+/// «أخوه» مثلاً — وتركيبه في جملة عن المريض بيطلّع عربي غلط، فبنكتفي
+/// بالاسم. **مفيش تخمين، ومفيش اسم مخترع**: من غير اسم، ترحيب من غير اسم.
+String welcomeLine(FollowerProfile? profile, String patientName) {
+  final name = profile?.name.trim() ?? '';
+  if (name.isEmpty) return 'أهلاً بيك';
+  return switch (profile!.relation) {
+    FollowerRelation.son => 'أهلاً يا $name — ابن $patientName',
+    FollowerRelation.daughter => 'أهلاً يا $name — بنت $patientName',
+    _ => 'أهلاً يا $name',
+  };
+}

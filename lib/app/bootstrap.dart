@@ -13,6 +13,7 @@ import '../core/notifications/notification_service.dart';
 import '../data/auth/auth_service.dart';
 import '../data/auth/supabase_init.dart';
 import '../data/care/care_circle_service.dart';
+import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
@@ -39,6 +40,7 @@ Future<AppServices> buildServices(
   AuthService? auth,
   CareCircleService? care,
   CaregiverRemote? caregiver,
+  CaregiverPreferencesService? caregiverPreferences,
   SyncService? sync,
   PushTokens? push,
 }) async {
@@ -63,6 +65,7 @@ Future<AppServices> buildServices(
     ),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
+    caregiverPreferences: caregiverPreferences,
     prescriptionReader: _readerFromEnvironment(),
     labReader: _labReaderFromEnvironment(),
     packageReader: _packageReaderFromEnvironment(),

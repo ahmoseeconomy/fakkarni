@@ -111,6 +111,7 @@ Future<void> main() async {
     auth: cloud?.auth,
     care: cloud?.care,
     caregiver: cloud?.caregiver,
+    caregiverPreferences: cloud?.caregiverPreferences,
     sync: sync,
     push: push,
   );
