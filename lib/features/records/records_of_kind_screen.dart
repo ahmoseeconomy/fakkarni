@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/db/app_database.dart';
-import '../../core/format/arabic_time.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/tables.dart';
 import '../../data/services/checkup_service.dart';
@@ -56,23 +55,21 @@ class _RecordsOfKindScreenState extends State<RecordsOfKindScreen> {
             if (all == null) return const SizedBox.shrink();
             final now = widget.today ?? DateTime.now();
             final shown = [for (final r in all) if (r.kind == widget.kind) r];
-            // **اللي لسه مستنّي فوق، واللي حصل تحت.** القايمة كانت مرتّبة
-            // بتاريخ الورقة، فزيارة محجوزة بكرة كانت بتنزل تحت تقرير من
-            // ٢٠٢٣ — الحاجة الوحيدة اللي محتاجة فعل بتختفي وسط الأرشيف.
-            final waiting = [
-              for (final r in shown)
-                if (followIsOpen(CheckupService.kindOf(r), CheckupService.stageOf(r))) r,
-            ]..sort((a, b) {
-                final x = _stageDate(a), y = _stageDate(b);
-                // من غير ميعاد بينزل آخر الخانة دي — لسه مفتوح، بس مفيش
-                // رقم نرتّبه بيه، والسطر نفسه بيقول «لسه ما اتحددش ميعاد».
-                if (x == null && y == null) return b.id.compareTo(a.id);
-                if (x == null) return 1;
-                if (y == null) return -1;
-                return x.compareTo(y);
-              });
-            final waitingIds = {for (final r in waiting) r.id};
-            final done = [for (final r in shown) if (!waitingIds.contains(r.id)) r];
+            // **اللي لسه مستنّي فوق، واللي حصل تحت** — والتقسيمة دي
+            // مشتركة مع شاشة الابن حرفياً ([followSections]). نسختين
+            // منها معناهم قايمتين يترتبوا بشكل مختلف على نفس الداتا.
+            final sections = followSections<RecordRow>(
+              shown,
+              kindOf: CheckupService.kindOf,
+              stageOf: CheckupService.stageOf,
+              stageDateOf: _stageDate,
+              newestFirst: (a, b) {
+                final byDate = b.happenedAt.compareTo(a.happenedAt);
+                return byDate != 0 ? byDate : b.id.compareTo(a.id);
+              },
+            );
+            final waiting = sections.waiting;
+            final done = sections.done;
             return ListView(
               padding: EdgeInsets.fromLTRB(
                 F.gap,
@@ -85,12 +82,12 @@ class _RecordsOfKindScreenState extends State<RecordsOfKindScreen> {
                   const RecordsEmpty(how: 'اللي تسجّله هنا هتلاقيه في المكان ده.'),
                 // قسم فاضي ما بيظهرش: غيابه هو «مفيش حاجة هنا».
                 if (waiting.isNotEmpty) ...[
-                  FSectionHead('منتظر (${arabicNumber(waiting.length)})'),
+                  FSectionHead(waitingSectionLabel(waiting.length)),
                   for (final r in waiting) RecordRowCard(record: r, today: now),
                   const SizedBox(height: F.s12),
                 ],
                 if (done.isNotEmpty) ...[
-                  if (waiting.isNotEmpty) FSectionHead('تمت (${arabicNumber(done.length)})'),
+                  if (waiting.isNotEmpty) FSectionHead(doneSectionLabel(done.length)),
                   for (final r in done) RecordRowCard(record: r, today: now),
                 ],
               ],

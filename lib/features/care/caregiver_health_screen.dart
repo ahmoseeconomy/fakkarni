@@ -4,11 +4,14 @@ import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/care/caregiver_remote.dart';
+import '../../domain/health/follow_display.dart';
+import '../../domain/health/follow_up.dart';
 import '../emergency/emergency_facts_card.dart';
 import '../health/lab_flag.dart';
 import '../../data/db/tables.dart' show RecordKind;
 import '../records/record_kinds.dart' show RecordKindWords;
 import 'caregiver_snapshot_holder.dart';
+import 'caregiver_status.dart' show careStageDate;
 import 'caregiver_ui.dart';
 import 'caregiver_words.dart';
 
@@ -19,9 +22,12 @@ import 'caregiver_words.dart';
 /// بتتقال زي ما هي، من غير «المعتاد» ولا حكم (قاعدة D3.6). الصور جاية في
 /// D5.3 — سجل ليه صورة ما بيعرضش مكان فاضي ولا صورة مكسورة.
 class CaregiverHealthScreen extends StatefulWidget {
-  const CaregiverHealthScreen({required this.holder, super.key});
+  const CaregiverHealthScreen({required this.holder, this.now, super.key});
 
   final CaregiverSnapshotHolder holder;
+
+  /// «دلوقتي» — بتتحقن من الاختبارات وبتتمرّر للقايمة اللي بتتفتح منها.
+  final DateTime? now;
 
   /// ترتيب الأنواع على الشاشة — التحاليل والزيارات الأول.
   static const kindOrder = ['lab', 'visit', 'imaging', 'prescription', 'booking'];
@@ -157,7 +163,12 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
 
   void _open(CareListKind kind, {String? recordKind}) => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => CareListScreen(holder: widget.holder, kind: kind, recordKind: recordKind),
+          builder: (_) => CareListScreen(
+            holder: widget.holder,
+            kind: kind,
+            recordKind: recordKind,
+            now: widget.now,
+          ),
         ),
       );
 }
@@ -171,7 +182,16 @@ enum CareListKind { readings, records, questions }
 /// على تبويب بيانات) بيحدّثها وهي مفتوحة. لو كانت بتاخد نسخة ثابتة وقت
 /// الفتح، الابن كان هيبص على قايمة واقفة من غير ما حاجة تقول له.
 class CareListScreen extends StatefulWidget {
-  const CareListScreen({required this.holder, required this.kind, this.recordKind, super.key});
+  const CareListScreen({
+    required this.holder,
+    required this.kind,
+    this.recordKind,
+    this.now,
+    super.key,
+  });
+
+  /// «دلوقتي» — بتتحقن من الاختبارات؛ منها «بكرة» و«بعد بكرة».
+  final DateTime? now;
 
   final CaregiverSnapshotHolder holder;
   final CareListKind kind;
@@ -206,6 +226,8 @@ class _CareListScreenState extends State<CareListScreen> {
         CareListKind.records => recordKindPlural(widget.recordKind ?? ''),
       };
 
+  DateTime get _now => widget.now ?? DateTime.now();
+
   @override
   Widget build(BuildContext context) {
     final snapshot = widget.holder.snapshot;
@@ -213,6 +235,20 @@ class _CareListScreenState extends State<CareListScreen> {
       for (final r in snapshot?.records ?? const <CaregiverRecord>[])
         if (r.kind == widget.recordKind) r,
     ];
+    // **نفس تقسيمة قايمة الأب بالحرف** — دالة واحدة، مش نسخة تانية.
+    final sections = followSections<CaregiverRecord>(
+      records,
+      kindOf: (r) => FollowKind.fromStored(r.followKind),
+      stageOf: (r) => FollowKind.fromStored(r.followKind).stageFromNumber(r.checkupStage),
+      stageDateOf: (r) {
+        final stage = FollowKind.fromStored(r.followKind).stageFromNumber(r.checkupStage);
+        return stage == null ? null : careStageDate(r, stage);
+      },
+      newestFirst: (a, b) {
+        final byDate = b.happenedAt.compareTo(a.happenedAt);
+        return byDate != 0 ? byDate : b.uuid.compareTo(a.uuid);
+      },
+    );
     return Scaffold(
       appBar: careAppBar(_title),
       body: SafeArea(
@@ -234,7 +270,20 @@ class _CareListScreenState extends State<CareListScreen> {
                     for (final q in snapshot?.questions ?? const <CaregiverQuestion>[]) _QuestionRow(question: q),
                   ]),
                 ],
-              CareListKind.records => [for (final r in records) _RecordCard(record: r)],
+              // قسم فاضي ما بيظهرش: غيابه هو «مفيش حاجة هنا».
+              CareListKind.records => [
+                  if (sections.waiting.isNotEmpty) ...[
+                    CareHead(waitingSectionLabel(sections.waiting.length),
+                        accent: careRecordAccent(widget.recordKind ?? '')),
+                    for (final r in sections.waiting) _RecordCard(record: r, now: _now),
+                  ],
+                  if (sections.done.isNotEmpty) ...[
+                    if (sections.waiting.isNotEmpty)
+                      CareHead(doneSectionLabel(sections.done.length),
+                          accent: careRecordAccent(widget.recordKind ?? '')),
+                    for (final r in sections.done) _RecordCard(record: r, now: _now),
+                  ],
+                ],
             },
           ),
         ),
@@ -351,8 +400,9 @@ class _ReadingRow extends StatelessWidget {
 /// يكون فيه سطور تحاليل؛ السجل اللي مالوش سطور (زيارة، أشعة) لسه بيعرض
 /// ملاحظته عادي — هي المحتوى الوحيد عنده.
 class _RecordCard extends StatefulWidget {
-  const _RecordCard({required this.record});
+  const _RecordCard({required this.record, required this.now});
   final CaregiverRecord record;
+  final DateTime now;
 
   /// كام سطر سليم بيبانوا قبل ما نطوي.
   ///
@@ -370,6 +420,11 @@ class _RecordCardState extends State<_RecordCard> {
   @override
   Widget build(BuildContext context) {
     final record = widget.record;
+    final kind = FollowKind.fromStored(record.followKind);
+    // المتابعة **المفتوحة** بس هي اللي بتتعرض بقواعدها؛ اللي خلصت سجل
+    // عادي بتاريخه، زي أي ورقة في الأرشيف.
+    final openStage = kind.stageFromNumber(record.checkupStage);
+    final stage = followIsOpen(kind, openStage) ? openStage : null;
     final lines = record.labLines;
 
     // **المتعلّم عمره ما بينطوي.** قيمة برّه نطاق الورقة لازم تبان من غير
@@ -398,14 +453,30 @@ class _RecordCardState extends State<_RecordCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(record.title,
-              style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+          Text(
+            // **الاسم باللي بنتابعه** لو ده متابعة مفتوحة — «متابعة CBC»
+            // مش «تقرير تحليل — ٦ نتايج».
+            stage == null ? record.title : followDisplayTitle(kind, record.title),
+            style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink),
+          ),
           // **ترويسة بحقول مسمّاة، مش سطر واحد مربوط بشَرطات.**
           // «١٢ سبتمبر — د. طارق — معمل البرج» بيسيب اللي بيقرا يخمّن إيه
           // إيه؛ والاسم بيختلف بنوع الورقة كمان: «المعمل» على تقرير تحليل،
           // و«العيادة» على روشتة.
           const SizedBox(height: F.s6),
-          _Field(label: labels.date, value: arabicDate(record.happenedAt)),
+          // **متابعة مفتوحة عمرها ما تعرض `happenedAt`.** ده تاريخ بداية
+          // المتابعة (أو تاريخ الورقة في الصفوف القديمة)، ومن جهاز حقيقي:
+          // زيارة محجوزة بكرة كانت بتتعرض بتاريخ الروشتة. الميعاد ميعاد
+          // المرحلة، ومن **نفس الدالة** اللي الأب و«متابعة» بيقروا منها.
+          if (stage != null)
+            _Field(
+              label: 'الميعاد',
+              value: followDateFull(careStageDate(record, stage), widget.now),
+            )
+          else
+            _Field(label: labels.date, value: arabicDate(record.happenedAt)),
+          if (stage != null)
+            _Field(label: 'المرحلة', value: 'متابعة ${kind.word} — ${stage.label}'),
           if (record.doctor?.trim().isNotEmpty ?? false)
             _Field(label: labels.doctor, value: record.doctor!),
           if (record.place?.trim().isNotEmpty ?? false)

@@ -246,7 +246,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
             holder: holder,
           ),
           CaregiverMedicationsScreen(holder: holder),
-          CaregiverHealthScreen(holder: holder),
+          CaregiverHealthScreen(holder: holder, now: widget.now),
           const Scaffold(body: SafeArea(child: CaregiverSettingsScreen())),
         ],
       ),

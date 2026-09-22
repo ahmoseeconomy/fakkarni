@@ -127,3 +127,50 @@ String followRowName(FollowKind kind, String stored) {
   final title = followDisplayTitle(kind, stored);
   return title.startsWith('متابعة') ? title : 'متابعة ${kind.word} $title';
 }
+
+// ------------------------------------------------- «منتظر» و«تمت»
+//
+// **قايمة الزيارات والتحاليل قسمين، والناحيتين بيقروا نفس الدالة.**
+// القايمة كانت مرتّبة بتاريخ الورقة، فزيارة محجوزة بكرة بتنزل تحت تقرير
+// من ٢٠٢٣ — الحاجة الوحيدة اللي محتاجة فعل بتختفي وسط الأرشيف.
+//
+// نسخة عند الأب ونسخة عند الابن كانت هتبقى تقسيمتين حرّتين يختلفوا —
+// ودي بالظبط الغلطة اللي الجولة اللي فاتت صلّحتها في التواريخ، فاتكرّرت
+// هنا لما شاشة الابن اتنسيت.
+
+/// قايمة متقسّمة: اللي لسه مفتوح، واللي خلص.
+typedef FollowSections<T> = ({List<T> waiting, List<T> done});
+
+/// بتقسّم أي قايمة سجلات — صفوف الأب أو صفوف السحابة — لقسمين.
+///
+/// [newestFirst] هو ترتيب «تمت»، **وكمان** فاصل التعادل بين المتابعات
+/// المفتوحة اللي مالهاش ميعاد: دي مش «بعيدة»، هي **مش متحدّدة**، فبتنزل
+/// آخر «منتظر» وبيفضل ترتيبها بينها ثابت.
+FollowSections<T> followSections<T>(
+  Iterable<T> items, {
+  required FollowKind Function(T) kindOf,
+  required FollowStage? Function(T) stageOf,
+  required DateTime? Function(T) stageDateOf,
+  required Comparator<T> newestFirst,
+}) {
+  final waiting = <T>[];
+  final done = <T>[];
+  for (final item in items) {
+    (followIsOpen(kindOf(item), stageOf(item)) ? waiting : done).add(item);
+  }
+  waiting.sort((a, b) {
+    final x = stageDateOf(a), y = stageDateOf(b);
+    if (x == null && y == null) return newestFirst(a, b);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return x.compareTo(y);
+  });
+  done.sort(newestFirst);
+  return (waiting: waiting, done: done);
+}
+
+/// «منتظر (٣)» — العدّاد بين قوسين، مش بنقطة وسطية.
+String waitingSectionLabel(int count) => 'منتظر (${arabicNumber(count)})';
+
+/// «تمت (٥)».
+String doneSectionLabel(int count) => 'تمت (${arabicNumber(count)})';
