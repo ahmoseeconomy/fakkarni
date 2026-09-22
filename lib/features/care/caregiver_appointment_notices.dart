@@ -2,6 +2,7 @@ import '../../data/care/caregiver_remote.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../data/services/reminder_sink.dart';
 import '../../data/services/appointment_plan.dart' show appointmentsNamedInTitle;
+import '../../domain/care/follower_profile.dart';
 import '../../domain/health/follow_display.dart';
 import 'caregiver_status.dart';
 
@@ -37,6 +38,13 @@ const int caregiverMorningMinute = 8 * 60;
 Map<int, PlannedNotification> caregiverAppointmentNotices(
   CaregiverSnapshot snapshot, {
   required DateTime now,
+
+  /// نافذة هدوء الابن — **بتأجّل إشعارات المواعيد دي وبس**.
+  ///
+  /// تنبيه الجرعة الفايتة مش هنا أصلاً: بيجي دفع من السيرفر، و**بيعدّي في
+  /// أي وقت** (قرار المالك ٢٢ سبتمبر ٢٠٢٦). تأجيله لحد الصبح هو بالظبط
+  /// اللي السلّم موجود عشان يمنعه.
+  QuietHours? quiet,
 }) {
   final byDay = <DateTime, List<CareFollowUp>>{};
   for (final f in careFollowUps(snapshot, now)) {
@@ -52,15 +60,18 @@ Map<int, PlannedNotification> caregiverAppointmentNotices(
       ..sort((a, b) => a.stageDate!.compareTo(b.stageDate!));
     final before = DateTime(day.year, day.month, day.day - 1, 0, caregiverEveningMinute);
     final of = DateTime(day.year, day.month, day.day, 0, caregiverMorningMinute);
-    for (final (notice, fireAt, lead, quiet) in [
+    for (final (notice, fireAt, lead, silent) in [
       (AppointmentNotice.dayBefore, before, 'بكرة', true),
       (AppointmentNotice.dayOf, of, 'النهارده', false),
     ]) {
       if (!fireAt.isAfter(now)) continue;
+      // **بيتأجّل لآخر النافذة، ما بيتلغيش**: الابن لازم يعرف إن في ميعاد
+      // بكرة، بس مش الساعة اتنين بالليل.
+      final at = heldUntil(fireAt, quiet);
       final id = caregiverAppointmentIdFor(day, notice);
       out[id] = PlannedNotification(
         id: id,
-        at: fireAt,
+        at: at,
         title: list.length == 1
             // «تحليل» / «زيارة» — كلمة النوع زي ما الأب بيقراها.
             ? '$lead عند والدك ${list.single.kind.word}'
@@ -71,7 +82,7 @@ Map<int, PlannedNotification> caregiverAppointmentNotices(
             followDisplayTitle(f.kind, f.record.title),
         ].join(' — '),
         payload: '',
-        kind: quiet ? NotificationKind.appointmentQuiet : NotificationKind.appointmentAlert,
+        kind: silent ? NotificationKind.appointmentQuiet : NotificationKind.appointmentAlert,
       );
     }
   }
@@ -93,8 +104,9 @@ Future<void> syncCaregiverAppointments(
   CaregiverSnapshot snapshot, {
   required ReminderSink sink,
   required DateTime now,
+  QuietHours? quiet,
 }) async {
-  final wanted = caregiverAppointmentNotices(snapshot, now: now);
+  final wanted = caregiverAppointmentNotices(snapshot, now: now, quiet: quiet);
   final pending = await sink.pendingIds();
   for (final id in pending) {
     // **نطاقنا وبس** — تنبيهات التصعيد بتاعة الابن مالهاش أي علاقة بده.

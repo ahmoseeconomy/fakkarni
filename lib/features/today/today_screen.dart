@@ -14,6 +14,7 @@ import '../../data/db/app_database.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
 import '../../data/services/checkup_service.dart';
+import '../../domain/care/follower_profile.dart';
 import '../../domain/health/follow_display.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/health/follow_up.dart';
@@ -580,10 +581,10 @@ class _HomeHeader extends StatelessWidget {
 /// اللمسة بتفتح القايمة. الشارة اللي في التصميم جنب الصور مش مبنية — مش
 /// واضح بتعدّ إيه.
 class CareCircleRow extends StatelessWidget {
-  const CareCircleRow({required this.onOpen, this.names = const [], super.key});
+  const CareCircleRow({required this.onOpen, this.followers = const [], super.key});
 
-  /// أسماء اللي بيتابعوا — فاضية لحد ما الربط يحصل.
-  final List<String> names;
+  /// اللي بيتابعوا — فاضية لحد ما الربط يحصل، ولحد ما المتابع يكتب اسمه.
+  final List<FollowerProfile> followers;
   final VoidCallback onOpen;
 
   @override
@@ -602,20 +603,22 @@ class CareCircleRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s8),
             child: Row(
               children: [
-                if (names.isEmpty)
+                if (followers.isEmpty)
                   Icon(Icons.person_add_alt, size: 26, color: F.green)
                 else
-                  for (final (i, name) in names.indexed)
+                  for (final (i, follower) in followers.indexed)
                     Padding(
                       padding: EdgeInsetsDirectional.only(start: i == 0 ? 0 : F.s4),
-                      child: _Avatar(name: name),
+                      child: _Avatar(name: follower.name),
                     ),
                 const SizedBox(width: F.s10),
                 Expanded(
                   child: Text(
-                    names.isEmpty
-                        ? 'محدش بيتابعك لسه — اربط ابنك أو بنتك'
-                        : 'بيتابعوك: ${names.join('، ')}',
+                    // **الصيغة بتمشي مع الصلة**: «محمد ابنك بيتابعك» /
+                    // «سارة بنتك بتتابعك». الاسم ما بيقولش ولد ولا بنت،
+                    // والتخمين منه غلط في ناس حقيقيين — فالابن هو اللي
+                    // بيقول صلته وقت ما بيتابع.
+                    followersLine(followers),
                     style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
                   ),
                 ),

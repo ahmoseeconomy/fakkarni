@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
+import 'package:fakkarni/domain/care/follower_profile.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/features/care/caregiver_appointment_notices.dart';
 
@@ -182,6 +183,52 @@ void main() {
         expect(latin.hasMatch(n.title), isFalse, reason: 'عنوان: «\${n.title}»');
         expect(latin.hasMatch(n.body), isFalse, reason: 'متن: «\${n.body}»');
       }
+    });
+  });
+
+  group('ساعات الهدوء — بتأجّل المواعيد، ومفيش حاجة بتتلغي', () {
+    // نافذة ٦م → ٩ص: إشعار امبارح الميعاد بيتجدول ٨م، يعني جوّه النافذة.
+    const evening = QuietHours(fromMinute: 18 * 60, toMinute: 9 * 60);
+
+    Map<int, PlannedNotification> notices({QuietHours? quiet}) =>
+        caregiverAppointmentNotices(
+          _snapshot([
+            _follow(uuid: 'r1', title: 'صورة دم', labBookingAt: DateTime(2026, 9, 20, 7)),
+          ]),
+          now: now,
+          quiet: quiet,
+        );
+
+    test('من غير هدوء: الإشعار في وقته', () {
+      final before = notices()[caregiverAppointmentIdFor(
+          DateTime(2026, 9, 20), AppointmentNotice.dayBefore)]!;
+      expect(before.at, DateTime(2026, 9, 19, 20));
+    });
+
+    test('**وبهدوء: بيتأجّل لآخر النافذة، ما بيتلغيش**', () {
+      final held = notices(quiet: evening);
+      final before = held[caregiverAppointmentIdFor(
+          DateTime(2026, 9, 20), AppointmentNotice.dayBefore)]!;
+      // ٨م جوّه النافذة → بيستنى لـ٩ص بكرة
+      expect(before.at, DateTime(2026, 9, 20, 9));
+      expect(held, hasLength(2), reason: 'ولا إشعار اتشال');
+    });
+
+    test('واللي برّه النافذة بيعدّي بوقته', () {
+      final held = notices(quiet: evening);
+      final dayOf = held[caregiverAppointmentIdFor(
+          DateTime(2026, 9, 20), AppointmentNotice.dayOf)]!;
+      // ٨ص برّه النافذة (٦م → ٩ص بتنتهي ٩)
+      expect(dayOf.at, DateTime(2026, 9, 20, 9),
+          reason: '٨ص لسه جوّه النافذة، فبيستنى ٩');
+    });
+
+    test('ونافذة الليل ما بتلمسش إشعار الصبح', () {
+      const night = QuietHours(fromMinute: 0, toMinute: 7 * 60);
+      final held = notices(quiet: night);
+      final dayOf = held[caregiverAppointmentIdFor(
+          DateTime(2026, 9, 20), AppointmentNotice.dayOf)]!;
+      expect(dayOf.at, DateTime(2026, 9, 20, 8), reason: '٨ص برّه ١٢→٧');
     });
   });
 

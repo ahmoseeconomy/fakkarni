@@ -7,7 +7,11 @@ the patient is never left alone with a notification he already missed.
 
 Two users, different needs:
 - **The patient** — ~72 years old, reading glasses, uses the app under pressure.
-- **The caregiver** — working adult, checks briefly, pays for the subscription.
+- **The caregiver** — working adult, checks briefly, and **pays for his
+  own subscription** (see «Pricing»). *Superseded 22 Sep 2026: this line used
+  to read «pays for the subscription», i.e. the son paying for the father's
+  account. He does not — the father pays for his, and every follower pays for
+  his own.*
 
 ---
 
@@ -318,7 +322,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1315 passing
+test/                         1363 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -1585,12 +1589,40 @@ on the live project.
 | Confirmed | Files |
 |---|---|
 | 20 Sep 2026 | `0001`-`0018`, all of them |
-| **not yet run** | **`0019_battery_state`** — one column, written this round |
+| **not yet run** | **`0019_battery_state`** — one column |
+| **not yet run** | **`0020_caregiver_preferences`** — written ٢٢ سبتمبر ٢٠٢٦، **ما اتشغّلتش على المشروع الحقيقي**: مفيش بيانات اعتماد على الماكينة دي. شوف «اللي لازم يتلزق» تحت |
 
 `0018_device_health` was run and verified the same day it was written —
 **18/18 rows true, and 13/13 on `0018` itself**. That is the rule working
 as intended: SQL is run against the real project in the round that writes
 it, and the row above is evidence from the database, not from the repo.
+
+**اللي لازم يتلزق لـ`0020` — وشكل «تمام».**
+
+**الهجرة دي ما اتشغّلتش على المشروع الحقيقي**: الماكينة دي مفيهاش بيانات
+اعتماد Supabase، والقاعدة المكتوبة («SQL migrations are run against the
+real project in the same round that writes them») **اتكسرت هنا عن
+اضطرار، مش عن سهو**. ملف في المستودع مش هجرة في القاعدة — ولحد ما
+الخطوتين دول يتعملوا، تفضيلات المتابع بتتحفظ في العدم:
+`caregiver_preferences` مش موجود، فـ`save` بترمي والشاشة بتبلعها
+(بتصميمها)، والابن بيخلّص الأسئلة الأربعة ومحدش سجّل حاجة.
+
+١. في SQL editor بتاع المشروع، الزق **كل** `supabase/migrations/0020_caregiver_preferences.sql`.
+   **«تمام» = سطر `NOTICE: 0020 OK — الابن يقرا صفّه، الأب الاسم والصلة
+   بس، والجرعة الفايتة بتعدّي`**، وبعده `ERROR: rollback_0020` — ده
+   الاستثناء المقصود اللي بيرجّع بيانات الفحص. **أي رسالة `FAIL 0020:`
+   معناها الهجرة ما اتطبّقتش**، واللي بعد النقطتين بيقول إيه بالظبط.
+   وسكربت **من غير** سطر `0020 OK` معناه إنه رجع من غير ما يوصل — اقرا
+   أول `ERROR` فيه، متعدّيش عليه.
+
+٢. بعدها الزق `supabase/verify_migrations.sql` كله. **«تمام» = الصف
+   `0020_caregiver_preferences` بـ`ok = true` و`expected = found = 14`
+   و`missing` فاضي**، وباقي الصفوف زي ما هي. لو `missing` فيه حاجة، هي
+   بالحرف اللي ناقص.
+
+٣. وبعدها بس حدّث الجدول فوق: `0020` بيتنقل من «not yet run» لصف بتاريخه.
+   **الصف ده دليل من القاعدة، مش من المستودع** — ودي القاعدة اللي جولة
+   ٢٥ اتعلمتها بالطريقة الصعبة.
 
 **Re-run the script rather than trusting the date.** A row here goes stale
 the moment anyone touches the project; the script is one paste and it
@@ -2119,6 +2151,113 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 الاختبار بيقع فوراً برسالة بتقول إن **الاختبار** لمس الجسم — مش إن
 الزرار ما اترسمش.
 
+## تفضيلات المتابع (٢٢ سبتمبر ٢٠٢٦)
+
+أربع أسئلة بعد ما الابن يستبدل الكود، كل واحد على شاشته، وكلهم بيتخطّوا —
+و**الأربعة بيتغيّروا بعدين من إعداداته**. الإعدادات دي بتغيّر **اللي بيوصل
+الابن وبس**: تذكير الأب، وتوقيت السلّم، وأي حاجة على جهاز الأب ما
+بتتلمسش (اختبار الخطة الذهبية أخضر).
+
+**وتلات قرارات صحّحت المواصفة نفسها، كلها بتاريخ النهارده:**
+
+- **مفيش «الأدوية المهمة بس».** المواصفة كانت بتفترض علامة «دوا مهم»؛
+  البحث في `lib/` و`supabase/` طلّع إن **العلامة دي مش موجودة خالص** —
+  اتشالت عن قصد في ٢ سبتمبر ٢٠٢٦ لأن اختيار إن دوا مهم وتاني لأ حكم طبي
+  (القاعدة ٦). فالاختيار التاني مكانش هيلاقي حاجة يفلتر عليها، ومعناه
+  الحقيقي «مفيش تنبيهات خالص» — إعداد بيسكت في صمت، وده اللي المواصفة
+  نفسها بتمنعه. **المالك شال الاختيار**: سؤال ٢ بقى اختيار واحد («أي
+  جرعة تفوت») بسببه مكتوب قدّام الابن. `AlertScope` فيها قيمة واحدة،
+  والعمود والقيد في السحابة موجودين — فاليوم اللي تبقى فيه العلامة
+  موجودة، فتح التاني سطر واحد مش هجرة.
+- **ساعات الهدوء للمواعيد والملخصات بس.** التعريف القديم («اهدى إلا لو
+  الدوا مهم») كان بيعتمد على نفس العلامة المش موجودة — فهو يا فاضي يا
+  **خطر**: جرعة فايتة تتحجز لحد الصبح هي بالظبط الحاجة اللي السلّم موجود
+  عشان يمنعها. التعريف الجديد: الهدوء بيمسك **إشعارات المواعيد والملخصات
+  على موبايل الابن وبس**، وتنبيه الجرعة الفايتة بيعدّي في أي وقت.
+  والسطر ده مكتوب على الشاشة نفسها من مصدر واحد (`quietHoursPromise`):
+  «أي جرعة تفوت هتوصلك في أي وقت — الهدوء للمواعيد والملخصات بس.»
+  **واللي بيتأجّل بيتأجّل لآخر النافذة، ما بيتلغيش** (`heldUntil`).
+- **الدعوة: الابن بيبعت طلب، والأب بيوافق.** المواصفة كانت بتقول الابن
+  يعمل كود زي الأب؛ بس `create_invite` بيرفض أي حد غير المالك
+  (`private.owns_patient`)، وده «الباب الوحيد في الحيطة». فتحه للمتابعين
+  كان معناه إن ابن يقدر يدخّل ناس على بيانات أبوه الصحية من غير ما
+  الأب يعرف. **قرار المالك**: الابن بيشارك، والأب بيوافق على موبايله،
+  والمنع على السيرفر مش مخبّي في الواجهة. دي **جولة لوحدها بعد دي**؛
+  النهارده سؤال ٤ بيقول «هنبعت طلب لوالدك يوافق عليه» ويقف — **مفيش كود
+  بيتعمل، وبوابة `create_invite` زي ما هي**. والسقف (٥ متابعين) مكتوب
+  على الشاشة بما يحصل عنده.
+
+**التخزين في السحابة، مش في drift** (`0020_caregiver_preferences`): جهاز
+الابن مالوش نسخة محلية من أي حاجة (قاعدة ٣.٥)، والتفضيلات لازم تعيش بعد
+إعادة التنصيب و**الأب لازم يقرا منها الاسم والصلة**.
+- RLS على قاعدة ٠٠٠٥: كل سياسة بتقارن `caregiver_id` بتاع الصف نفسه —
+  مفيش دالة بتستعلم نفس الجدول. والإدخال كمان بيشترط
+  `private.is_accepted_caregiver`، وإلا صاحب مفتاح عرف uuid مريض يقدر
+  يرمي صفوف على الجدول من برّه الدائرة.
+- **والأب بيعدّي على دالة، مش على سياسة**: `public.followers_of_patient`
+  بترجّع **الاسم والصلة وبس**. سياسات بوستجرس على مستوى **الصف** مش
+  العمود، فلو اتسمح له بالصف كان هيقرا ساعات هدوء ابنه ونطاق تنبيهه
+  كمان. الفحص الذاتي بيثبت الاتنين: الأب `count(*) = 0` على الجدول،
+  و`count(*) = 1` من الدالة.
+- **و`due_escalations` ما بتقراش ساعات الهدوء خالص** — اختبار بيقرا جسم
+  الدالة ويوقع لو اسم أي عمود هدوء ظهر فيها. ده الفرق بين «الهدوء
+  للمواعيد» و«الهدوء بيحجز جرعة فايتة».
+
+**الصيغة بتمشي مع الصلة، مش مع الاسم** (`domain/care/follower_profile`):
+«محمد ابنك بيتابعك» / «سارة بنتك بتتابعك» / «أحمد (أخوه) بيتابعك». الاسم
+ما بيقولش ولد ولا بنت، والتخمين منه بيغلط في ناس حقيقيين — فالابن هو اللي
+بيقول صلته. من غير صلة: الاسم لوحده، من غير أي افتراض.
+
+**سكّة الاشتراك — `private.follower_subscription_active`.** ده **المكان
+الوحيد** اللي فحص الاشتراك هيتحط فيه، وبيرجّع `true` دايماً النهارده
+لأن مفيش كود دفع (مستني حساب Apple Developer، الدين ٣). بيتنده من
+`due_escalations` — تعريف «مين يستاهل تنبيه» الواحد — وموثّق عنده إنه
+كمان المكان اللي بيعرف إمتى الخبرين بتوع سؤال السلامة ٢ في «Pricing»
+يتبعتوا. `verify_migrations.sql` بيتأكد من وجوده **بالاسم** ومن إن
+`due_escalations` بتنده عليه (`funcsrc`) — وجود الدالة لوحده بيكدب،
+لأنها بتتكتب من جديد في خمس هجرات.
+
+## Pricing
+
+**Decided by the owner, 22 Sep 2026. Nothing is built for it yet.**
+
+> **The patient account owner pays for his own subscription, and every person
+> who wants a follow code pays for his own subscription.**
+>
+> - the patient account (the father) = **one** subscription
+> - each follower (first son, brother, sister…) = **a separate subscription
+>   each**
+
+**This replaces every other model that was ever written down here.** The
+guide's opening used to say the caregiver «pays for the subscription» — meaning
+the son paid for his father's account. That is wrong now and the line says so
+in place. There is **no** free extra follower: a second son is a second
+subscription, not a guest on the first one.
+
+**No payment code exists and none is written this round** — no paywall, no
+entitlement check, no store product. Payment waits for the paid Apple Developer
+account (debt 3), and on the day it lands it arrives behind a single named
+seam, not sprinkled through the screens.
+
+### Two safety questions that must be answered before payment ships
+
+These are not billing details. They are the two places where money can silence
+the thing the product exists to do, so they are written down now, while nobody
+is under delivery pressure.
+
+1. **If the father's subscription lapses, do his medication reminders keep
+   working?** A dose reminder that stops because a card expired is a
+   patient-safety failure, not a dunning event — and it fails silently, which
+   is this product's worst failure mode (debt 0c). The answer has to be
+   decided deliberately; the default of «the app stops working» is the answer
+   nobody chose and everybody ships.
+
+2. **If a follower's subscription lapses, two people must be told, not one.**
+   The follower must know he will no longer be alerted. **And the father must
+   know this person no longer follows him** — otherwise the father believes
+   someone is watching while nobody is, which is worse than his having never
+   linked anyone. The father's «مين بيتابعك» row is where that shows.
+
 ## دين تقني
 
 Debts we took on knowingly. Each one blocks something specific — check this
@@ -2145,7 +2284,9 @@ rung, and it must behave like one.
 Consequences to handle:
 - The executive plan given to management describes a **paid subscription for
   the calls feature**. That subscription now has no feature behind it. The
-  plan document needs updating before it is shown again.
+  plan document needs updating before it is shown again — **and the model it
+  should describe is «Pricing» below** (22 Sep 2026): the patient pays for his
+  account, every follower pays for his own.
 - `escalations.channel` stays in the schema with value `push`. It is a
   generic audit column, not a placeholder for calls.
 - iOS **Critical Alerts** entitlement (bypasses silent mode and Focus) is now

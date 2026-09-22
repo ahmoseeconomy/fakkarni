@@ -193,7 +193,33 @@ with expected(migration, kind, ident) as (
     ('0018_device_health', 'constraintdef', 'public.device_health|device_health_pkey|install_id'),
     ('0019_battery_state', 'column', 'public.device_health.battery_state'),
     ('0019_battery_state', 'constraintdef',
-       'public.device_health|device_health_battery_state_check|unknown')
+       'public.device_health|device_health_battery_state_check|unknown'),
+    -- 0020 — تفضيلات المتابع
+    ('0020_caregiver_preferences', 'table',  'public.caregiver_preferences'),
+    ('0020_caregiver_preferences', 'rls',    'public.caregiver_preferences'),
+    ('0020_caregiver_preferences', 'column', 'public.caregiver_preferences.display_name'),
+    ('0020_caregiver_preferences', 'column', 'public.caregiver_preferences.relation'),
+    ('0020_caregiver_preferences', 'column', 'public.caregiver_preferences.alert_scope'),
+    ('0020_caregiver_preferences', 'column', 'public.caregiver_preferences.quiet_from_minute'),
+    ('0020_caregiver_preferences', 'column', 'public.caregiver_preferences.quiet_to_minute'),
+    ('0020_caregiver_preferences', 'policy',
+       'public.caregiver_preferences|caregiver_preferences_select'),
+    ('0020_caregiver_preferences', 'policy',
+       'public.caregiver_preferences|caregiver_preferences_insert'),
+    ('0020_caregiver_preferences', 'policy',
+       'public.caregiver_preferences|caregiver_preferences_update'),
+    ('0020_caregiver_preferences', 'policy',
+       'public.caregiver_preferences|caregiver_preferences_delete'),
+    ('0020_caregiver_preferences', 'trigger',
+       'public.caregiver_preferences|set_updated_at'),
+    ('0020_caregiver_preferences', 'function', 'public.followers_of_patient'),
+    -- **سكّة الاشتراك** — وجودها بالاسم هو اللي بيخلّي «Pricing» مكان واحد
+    ('0020_caregiver_preferences', 'function', 'private.follower_subscription_active'),
+    -- **مش فحص وجود**: `due_escalations` بتتكتب من جديد في ٠٠٠٦ و٠٠٠٩
+    -- و٠٠١١ و٠٠١٤ و٠٠٢٠، فوجودها بيكدب. اللي بيتأكد هو إن جسمها بينده
+    -- السكّة — يعني نسخة ٠٠٢٠ هي اللي شغّالة فعلاً.
+    ('0020_caregiver_preferences', 'funcsrc',
+       'private.due_escalations|follower_subscription_active')
 ),
 checked as (
   select
