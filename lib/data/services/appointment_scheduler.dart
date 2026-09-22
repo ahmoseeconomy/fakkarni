@@ -81,22 +81,33 @@ class AppointmentScheduler {
 
     final all = appointmentNotices(appointments: appointments, routine: routine, now: from);
     final wanted = rolling ? rollingWindow(all) : all;
-
-    final wantedIds = <int, AppointmentNoticePlan>{
-      for (final n in wanted)
-        appointmentIdFor(n.recordId, n.stageSlot, n.notice): n,
-    };
+    final wantedIds = {for (final n in wanted) n.id: n};
 
     // **الإلغاء الأول.** أي رقم من نطاقنا معلّق ومش في الخطة الجديدة
     // بيتشال قبل ما نجدول أي حاجة.
     final pending = await sink.pendingIds();
     for (final id in pending) {
+      // **والنطاق القديم بيتفضّى كل تشغيلة — ده إصلاح ترقية، مش تنضيف.**
+      //
+      // قبل نسخة المواعيد، ميعاد المرحلة كان بيتجدول برقم من نطاق
+      // `checkupIdFor`. النسخة الجديدة بتلغي الرقم ده في `setStageDate`
+      // — يعني **بس لما الميعاد يتظبط تاني**. صف اتحطّ ميعاده قبل
+      // الترقية بيفضل ماسك إشعاره القديم للأبد، فبيرن جنب الجديدين:
+      // أربع إشعارات بدل واحد على آيفون حقيقي (٢٢ سبتمبر ٢٠٢٦).
+      //
+      // ومفيش حاجة بتجدول في النطاق ده خالص دلوقتي (تذكير الصيام نطاقه
+      // `fastingIdBase`)، فتفضيته بالكامل آمن — إلغاء وبس، بالرقم، من
+      // نطاق واحد. لا `cancelAll` ولا اقتراب من أي نطاق تاني.
+      if (isCheckupId(id)) {
+        await sink.cancel(id);
+        continue;
+      }
       if (!isAppointmentId(id)) continue;
       if (wantedIds.containsKey(id)) continue;
       await sink.cancel(id);
     }
-    for (final MapEntry(key: id, value: plan) in wantedIds.entries) {
-      await sink.schedule(plan.toPlanned(id));
+    for (final plan in wantedIds.values) {
+      await sink.schedule(plan.toPlanned());
     }
   }
 }

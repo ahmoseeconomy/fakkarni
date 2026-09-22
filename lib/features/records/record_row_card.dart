@@ -99,7 +99,11 @@ class RecordRowCard extends StatelessWidget {
               ),
             );
             // عن طريق المتابعة: لو السجل ده عليه تذكيرات بتتلغي معاه
-            if (yes ?? false) await checkups.delete(record.id, attachments: attachments);
+            if (yes ?? false) {
+              await checkups.delete(record.id, attachments: attachments);
+              // المسح ممكن يشيل ميعاد — والتوفيق هو اللي بيلغي إشعاره.
+              if (context.mounted) await AppScope.of(context).refreshAppointments();
+            }
           },
         ),
       ],

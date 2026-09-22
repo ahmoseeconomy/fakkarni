@@ -1,6 +1,8 @@
 import '../../data/care/caregiver_remote.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../data/services/reminder_sink.dart';
+import '../../data/services/appointment_plan.dart' show appointmentsNamedInTitle;
+import '../../domain/health/follow_display.dart';
 import 'caregiver_status.dart';
 
 /// **مواعيد الأب على موبايل الابن — إشعارات محلية، من السحبة.**
@@ -28,39 +30,59 @@ const int caregiverMorningMinute = 8 * 60;
 
 /// إشعارات مواعيد الأب اللي المفروض تبقى متجدولة على موبايل الابن.
 ///
-/// بترجّع خريطة رقم → إشعار، مقصوصة عند [caregiverAppointmentCap] ميعاد.
+/// بترجّع خريطة رقم → إشعار، مقصوصة عند [caregiverAppointmentCap] **يوم**.
+///
+/// **إشعار واحد لكل يوم، زي موبايل الأب بالظبط** — أب عنده زيارة وميعاد
+/// معمل في يوم واحد كان بيرنّ على ابنه مرتين بنفس الخبر مقسوم نصّين.
 Map<int, PlannedNotification> caregiverAppointmentNotices(
   CaregiverSnapshot snapshot, {
   required DateTime now,
 }) {
-  final dated = [
-    for (final f in careFollowUps(snapshot, now))
-      if (f.stageDate case final at? when at.isAfter(now)) (f, at),
-  ]..sort((a, b) => a.$2.compareTo(b.$2));
+  final byDay = <DateTime, List<CareFollowUp>>{};
+  for (final f in careFollowUps(snapshot, now)) {
+    if (f.stageDate case final at? when at.isAfter(now)) {
+      byDay.putIfAbsent(DateTime(at.year, at.month, at.day), () => []).add(f);
+    }
+  }
+  final days = byDay.keys.toList()..sort();
 
   final out = <int, PlannedNotification>{};
-  for (final (index, entry) in dated.take(caregiverAppointmentCap).indexed) {
-    final (follow, at) = entry;
-    final day = DateTime(at.year, at.month, at.day);
+  for (final day in days.take(caregiverAppointmentCap)) {
+    final list = byDay[day]!
+      ..sort((a, b) => a.stageDate!.compareTo(b.stageDate!));
     final before = DateTime(day.year, day.month, day.day - 1, 0, caregiverEveningMinute);
     final of = DateTime(day.year, day.month, day.day, 0, caregiverMorningMinute);
-    final what = follow.kind.word; // «تحليل» / «زيارة»
-    for (final (notice, fireAt, title, quiet) in [
-      (AppointmentNotice.dayBefore, before, 'بكرة عند والدك $what', true),
-      (AppointmentNotice.dayOf, of, 'النهارده عند والدك $what', false),
+    for (final (notice, fireAt, lead, quiet) in [
+      (AppointmentNotice.dayBefore, before, 'بكرة', true),
+      (AppointmentNotice.dayOf, of, 'النهارده', false),
     ]) {
       if (!fireAt.isAfter(now)) continue;
-      out[caregiverAppointmentIdFor(index, notice)] = PlannedNotification(
-        id: caregiverAppointmentIdFor(index, notice),
+      final id = caregiverAppointmentIdFor(day, notice);
+      out[id] = PlannedNotification(
+        id: id,
         at: fireAt,
-        title: title,
-        body: follow.record.title,
+        title: list.length == 1
+            // «تحليل» / «زيارة» — كلمة النوع زي ما الأب بيقراها.
+            ? '$lead عند والدك ${list.single.kind.word}'
+            : '$lead عند والدك ${_kindsLine(list)}',
+        // نفس قاعدة الأب: الاسم باللي بنتابعه، مش عنوان الورقة الخام.
+        body: [
+          for (final f in list.take(appointmentsNamedInTitle))
+            followDisplayTitle(f.kind, f.record.title),
+        ].join(' — '),
         payload: '',
         kind: quiet ? NotificationKind.appointmentQuiet : NotificationKind.appointmentAlert,
       );
     }
   }
   return out;
+}
+
+/// «زيارة وتحليل» — أو «زيارة وتحليل وحاجة كمان» من تلاتة وفوق.
+String _kindsLine(List<CareFollowUp> day) {
+  final names = [for (final f in day.take(appointmentsNamedInTitle)) f.kind.word];
+  final more = day.length > appointmentsNamedInTitle;
+  return '${names.first} و${names.last}${more ? ' وحاجة كمان' : ''}';
 }
 
 /// بيطابق اللي على الجهاز مع اللي المفروض يكون — **إلغاء قبل جدولة**.

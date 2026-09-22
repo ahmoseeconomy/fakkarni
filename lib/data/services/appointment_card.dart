@@ -1,5 +1,8 @@
+import '../../core/format/arabic_time.dart';
+import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../db/app_database.dart';
+import 'appointment_plan.dart' show appointmentHeadline;
 import 'checkup_service.dart';
 
 /// **الكارت الثابت على الشاشة — من ساعة الحجز لحد ما اليوم يعدّي.**
@@ -15,23 +18,25 @@ class UpcomingAppointment {
   const UpcomingAppointment({
     required this.recordId,
     required this.title,
+    required this.kind,
     required this.stage,
     required this.at,
   });
 
   final int recordId;
+
+  /// عنوان الصف زي ما هو متخزّن — [displayTitle] هي اللي بتتعرض.
   final String title;
+  final FollowKind kind;
   final FollowStage stage;
   final DateTime at;
 
-  /// «زيارة الدكتور» / «ميعاد المعمل» — الكلمة اللي بتقول ده إيه.
-  String get headline => switch (stage.label) {
-        'حجز المعمل' => 'ميعاد المعمل',
-        'انتظار النتيجة' => 'النتيجة تجهز',
-        'النتيجة وصلت' => 'معاد الدكتور',
-        'الزيارة اتحجزت' => 'زيارة الدكتور',
-        _ => 'ميعاد',
-      };
+  /// «زيارة الدكتور» / «ميعاد المعمل» — **من نفس الدالة اللي الإشعار
+  /// بيقراها**. كانت نسخة تانية هنا بتقارن على `stage.label` كنص.
+  String get headline => appointmentHeadline(stage);
+
+  /// «متابعة CBC» — الاسم باللي بنتابعه، وبأرقام عربية.
+  String get displayTitle => followDisplayTitle(kind, title);
 }
 
 // `countdownWord` عاشت هنا نسخة تانية لحد الجولة دي. بقت واحدة في
@@ -62,6 +67,7 @@ List<UpcomingAppointment> upcomingAppointments(
       out.add(UpcomingAppointment(
         recordId: row.id,
         title: row.title,
+        kind: kind,
         stage: stage,
         at: at,
       ));
@@ -74,6 +80,17 @@ List<UpcomingAppointment> upcomingAppointments(
   return out;
 }
 
+
+/// **اللي زيادة بيتقال بالكلام** — «+ ميعاد تاني» / «+ ٢ مواعيد تانية».
+///
+/// «+١» لوحده رقم مالوش سياق: راجل عنده ٧٢ سنة بيقرا كارت فيه ميعاد
+/// واحد ورقم صغير جنبه، فبيفتكر الرقم زينة — والميعاد التاني بيعدّي.
+/// العربي بيعدّ تلات صيغ، فالمفرد والمثنى مكتوبين بالإيد.
+String moreAppointmentsLabel(int rest) => switch (rest) {
+      1 => '+ ميعاد تاني',
+      2 => '+ ميعادين تانيين',
+      _ => '+ ${arabicNumber(rest)} مواعيد تانية',
+    };
 
 /// **المتابعات اللي لسه مستنية حركة من الأب — ومالهاش ميعاد جاي.**
 ///

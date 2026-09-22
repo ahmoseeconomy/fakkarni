@@ -85,11 +85,13 @@ void main() {
 
   group('الإشعارين', () {
     test('الهادي امبارحه على العشا، واللي بيرن في يومه على الصحيان', () async {
-      final id = await book(DateTime(2026, 9, 20));
+      final day = DateTime(2026, 9, 20);
+      await book(day);
       await refresh(rolling: false);
 
-      final before = sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayBefore)]!;
-      final dayOf = sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayOf)]!;
+      // **الرقم مشتق من اليوم** — كل مواعيد اليوم الواحد إشعارهم واحد.
+      final before = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayBefore)]!;
+      final dayOf = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayOf)]!;
 
       expect(before.at, DateTime(2026, 9, 19, 20));
       expect(before.kind, NotificationKind.appointmentQuiet);
@@ -102,7 +104,8 @@ void main() {
     });
 
     test('الاتنين بيتلغوا لما المرحلة تعدّي', () async {
-      final id = await book(DateTime(2026, 9, 20));
+      final day = DateTime(2026, 9, 20);
+      final id = await book(day);
       await refresh(rolling: false);
       expect(sink.live.where(isAppointmentId), hasLength(2));
 
@@ -113,8 +116,8 @@ void main() {
       await refresh(rolling: false);
 
       expect(sink.live.where(isAppointmentId), isEmpty);
-      expect(sink.cancelled, contains(appointmentIdFor(id, 0, AppointmentNotice.dayBefore)));
-      expect(sink.cancelled, contains(appointmentIdFor(id, 0, AppointmentNotice.dayOf)));
+      expect(sink.cancelled, contains(appointmentIdFor(day, AppointmentNotice.dayBefore)));
+      expect(sink.cancelled, contains(appointmentIdFor(day, AppointmentNotice.dayOf)));
     });
 
     test('ميعاد بكرة: الهادي عدّى خلاص، فاللي بيرن بس هو اللي بيتجدول', () async {
@@ -172,7 +175,9 @@ void main() {
       await refresh(rolling: true);
 
       // مفيش إشعار له لسه…
-      expect(sink.live.contains(appointmentIdFor(far, 0, AppointmentNotice.dayOf)), isFalse);
+      expect(
+          sink.live.contains(appointmentIdFor(DateTime(2026, 10, 20), AppointmentNotice.dayOf)),
+          isFalse);
       // …بس الميعاد نفسه **متكتوب**، والكارت بيقراه من هنا
       final rows = await RecordsRepository(db).all(patientId);
       final row = rows.firstWhere((r) => r.id == far);

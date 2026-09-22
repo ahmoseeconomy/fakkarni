@@ -209,7 +209,23 @@ void main() {
       expect(find.textContaining('متابعة 0'), findsOneWidget);
       expect(find.textContaining('متابعة 1'), findsOneWidget);
       expect(find.textContaining('متابعة 2'), findsNothing, reason: 'التالت اتطوى');
-      expect(find.text('+٢ مواعيد تانية'), findsOneWidget);
+      expect(find.text('+ ميعادين تانيين'), findsOneWidget,
+          reason: 'اللي زيادة بيتقال بالكلام، مش برقم لوحده');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    // **الحالة دي مش زيادة**: المفرد العربي صيغة لوحده، ولو ماحدش
+    // جرّبه بيفضل خط مكتوب محدش عدّى عليه.
+    testWidgets('وواحد زيادة بيتقال بالمفرد', (tester) async {
+      for (var i = 0; i < 3; i++) {
+        await book(DateTime(2026, 9, 5 + i), title: 'متابعة $i');
+      }
+      await pump(tester);
+
+      expect(find.text('+ ميعاد تاني'), findsOneWidget);
+      expect(find.textContaining('+١'), findsNothing, reason: 'رقم لوحده مش كلام');
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 100));
@@ -256,8 +272,11 @@ void main() {
       final button = find.text('تأكيد الجرعة');
       expect(button, findsOneWidget);
       final box = tester.getRect(button);
-      expect(box.bottom, lessThanOrEqualTo(se.height),
-          reason: 'الزرار تحت حد الشاشة — لازم سكرول عشان يتأكّد');
+
+      // **والصفّين معروضين، مش واحد** (طلب المالك): التحليل كان
+      // بيستخبى ورا «+١» على نفس الشاشة دي بالظبط.
+      expect(find.textContaining('صورة دم'), findsOneWidget);
+      expect(find.textContaining('أشعة'), findsOneWidget);
 
       // والدوك و«ضيف» مش فوقه
       // **ولا الدوك ولا «ضيف» العايم فوقه.**

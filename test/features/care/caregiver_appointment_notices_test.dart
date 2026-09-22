@@ -67,8 +67,10 @@ void main() {
     );
 
     expect(notices, hasLength(2));
-    final before = notices[caregiverAppointmentIdFor(0, AppointmentNotice.dayBefore)]!;
-    final dayOf = notices[caregiverAppointmentIdFor(0, AppointmentNotice.dayOf)]!;
+    // **الرقم مشتق من اليوم** — زي موبايل الأب بالظبط.
+    final day = DateTime(2026, 9, 20);
+    final before = notices[caregiverAppointmentIdFor(day, AppointmentNotice.dayBefore)]!;
+    final dayOf = notices[caregiverAppointmentIdFor(day, AppointmentNotice.dayOf)]!;
 
     expect(before.at, DateTime(2026, 9, 19, 20));
     expect(before.kind, NotificationKind.appointmentQuiet);
@@ -108,8 +110,9 @@ void main() {
       now: now,
     );
     expect(notices, hasLength(caregiverAppointmentCap * 2));
-    // خانة ٠ = الأقرب
-    final first = notices[caregiverAppointmentIdFor(0, AppointmentNotice.dayOf)]!;
+    // السقف بقى **عدّ أيام**: أقرب يوم هو ١٤ أكتوبر (i = cap + 2).
+    final nearest = DateTime(2026, 10, 20 - (caregiverAppointmentCap + 2));
+    final first = notices[caregiverAppointmentIdFor(nearest, AppointmentNotice.dayOf)]!;
     expect(first.body, 'متابعة ${caregiverAppointmentCap + 2}');
   });
 
@@ -119,6 +122,67 @@ void main() {
       now: now,
     );
     expect(notices, isEmpty);
+  });
+
+  group('إشعار واحد لكل لحظة — زي موبايل الأب', () {
+    final day = DateTime(2026, 9, 20);
+
+    test('ميعادين في يوم واحد = إشعارين لليوم، مش أربعة', () {
+      final notices = caregiverAppointmentNotices(
+        _snapshot([
+          _follow(uuid: 'r1', title: 'صورة دم', labBookingAt: DateTime(2026, 9, 20, 7)),
+          _follow(
+            uuid: 'v1',
+            title: 'متابعة الضغط',
+            kind: 'visit',
+            stage: 1,
+            doctorVisitAt: DateTime(2026, 9, 20, 10),
+          ),
+        ]),
+        now: now,
+      );
+
+      expect(notices, hasLength(2));
+      expect(notices.keys.toSet(), {
+        caregiverAppointmentIdFor(day, AppointmentNotice.dayBefore),
+        caregiverAppointmentIdFor(day, AppointmentNotice.dayOf),
+      });
+      expect(notices[caregiverAppointmentIdFor(day, AppointmentNotice.dayOf)]!.title,
+          'النهارده عند والدك تحليل وزيارة');
+    });
+
+    test('ومن تلاتة وفوق «وحاجة كمان»', () {
+      final notices = caregiverAppointmentNotices(
+        _snapshot([
+          for (var i = 0; i < 3; i++)
+            _follow(uuid: 'r\$i', title: 'متابعة \$i', labBookingAt: DateTime(2026, 9, 20, 7 + i)),
+        ]),
+        now: now,
+      );
+      expect(notices[caregiverAppointmentIdFor(day, AppointmentNotice.dayOf)]!.title,
+          endsWith(' وحاجة كمان'));
+    });
+
+    test('**والمتن بيقول اسم المتابعة، مش عنوان الورقة الخام**', () {
+      // نفس العنوان اللي جه من الجهاز الحقيقي، برقمه اللاتيني.
+      final notices = caregiverAppointmentNotices(
+        _snapshot([
+          _follow(
+            uuid: 'r1',
+            title: 'تقرير تحليل — 6 نتايج',
+            labBookingAt: DateTime(2026, 9, 20, 7),
+          ),
+        ]),
+        now: now,
+      );
+      final latin = RegExp(r'[0-9]');
+      expect(notices, isNotEmpty, reason: 'الحارس عدّى فاضي');
+      for (final n in notices.values) {
+        expect(n.body, 'متابعة تحليل');
+        expect(latin.hasMatch(n.title), isFalse, reason: 'عنوان: «\${n.title}»');
+        expect(latin.hasMatch(n.body), isFalse, reason: 'متن: «\${n.body}»');
+      }
+    });
   });
 
   group('المزامنة مع الجهاز', () {

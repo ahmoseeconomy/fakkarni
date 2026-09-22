@@ -137,31 +137,45 @@ bool isCheckupId(int id) => id >= checkupIdBase && id < checkupIdLimit;
 const int appointmentIdBase = 60000000;
 const int appointmentIdLimit = appointmentIdBase + maxPatients * patientIdSpan;
 
-/// إشعارين لكل مرحلة ليها ميعاد: ٠ = امبارح الميعاد، ١ = يومه.
-const int appointmentNoticesPerStage = 2;
-
-/// عرض الخانة لكل صف — تلات مراحل × إشعارين.
-const int appointmentIdsPerRecord = checkupDatedStages * appointmentNoticesPerStage;
+/// إشعارين لكل **يوم** فيه مواعيد: ٠ = امبارحه، ١ = يومه.
+const int appointmentNoticesPerDay = 2;
 
 /// نوع الإشعار: الهادي امبارح، واللي بيرن في اليوم نفسه.
 enum AppointmentNotice { dayBefore, dayOf }
 
-/// رقم إشعار الميعاد — مشتق من (الصف، المرحلة، النوع)، مش متخزّن.
+/// رقم اليوم من ١٩٧٠-٠١-٠١ — **بالـUTC عن قصد**.
 ///
-/// نفس التلاتة بيدّوا نفس الرقم للأبد، فإعادة الضبط بتستبدل الإشعار بدل
-/// ما تزوّد واحد. برّه النطاق بيرمي — اللفّ هو بالظبط التصادم اللي
-/// النطاق موجود عشان يمنعه.
-int appointmentIdFor(int recordId, int stageSlot, AppointmentNotice notice) {
-  if (stageSlot < 0 || stageSlot >= checkupDatedStages) {
-    throw RangeError.range(stageSlot, 0, checkupDatedStages - 1, 'stageSlot');
+/// الفرق بين تاريخين محليين بيغلط يوم كامل حوالين تغيير الساعة في مصر:
+/// يوم بـ٢٣ ساعة بيتقسم على ٢٤ ويطلع صفر. الـUTC مالهاش توقيت صيفي،
+/// فالحساب مضبوط دايماً. اللي بيتاخد منه هو (سنة، شهر، يوم) بس.
+int epochDayOf(DateTime day) =>
+    DateTime.utc(day.year, day.month, day.day).millisecondsSinceEpoch ~/
+        Duration.millisecondsPerDay;
+
+/// عدد الأيام اللي النطاق سايعها — أكتر من ثمن آلاف سنة من ١٩٧٠.
+const int appointmentDaySpan = (maxPatients * patientIdSpan) ~/ appointmentNoticesPerDay;
+
+/// رقم إشعار المواعيد — مشتق من (**اليوم**، النوع)، مش متخزّن.
+///
+/// **الرقم بقى لليوم مش للميعاد** (طلب المالك): كل المواعيد اللي في يوم
+/// واحد بيطلعوا في إشعار واحد، فالرقم لازم يبقى مفتاحه اليوم. اللي كان
+/// قبل كده مشتق من (الصف، المرحلة، النوع) — فأربع مواعيد في يوم كانوا
+/// تمن إشعارات، والراجل بيصحى على أربع رنّات عن نفس الصبح.
+///
+/// نفس اليوم بيدّي نفس الرقم للأبد، فإعادة الجدولة بتستبدل بدل ما تزوّد.
+/// برّه النطاق بيرمي — اللفّ هو بالظبط التصادم اللي النطاق موجود عشان
+/// يمنعه، وإشعار ميعاد بيدوس على تذكير دوا هو أسوأ باج ممكن.
+int appointmentIdFor(DateTime day, AppointmentNotice notice) =>
+    _dayNoticeId(appointmentIdBase, appointmentIdLimit, day, notice, 'appointmentIdFor');
+
+int _dayNoticeId(int base, int limit, DateTime day, AppointmentNotice notice, String what) {
+  final epochDay = epochDayOf(day);
+  if (epochDay < 0) {
+    throw RangeError.value(epochDay, 'day', '$what: يوم قبل ١٩٧٠');
   }
-  final id = appointmentIdBase +
-      recordId * appointmentIdsPerRecord +
-      stageSlot * appointmentNoticesPerStage +
-      notice.index;
-  if (recordId < 0 || id >= appointmentIdLimit) {
-    throw RangeError.range(recordId, 0,
-        (appointmentIdLimit - appointmentIdBase) ~/ appointmentIdsPerRecord - 1, 'recordId');
+  final id = base + epochDay * appointmentNoticesPerDay + notice.index;
+  if (id >= limit) {
+    throw RangeError.value(epochDay, 'day', '$what: برّه النطاق');
   }
   return id;
 }
@@ -182,18 +196,24 @@ const int caregiverAppointmentIdBase = 70000000;
 const int caregiverAppointmentIdLimit =
     caregiverAppointmentIdBase + maxPatients * patientIdSpan;
 
-/// أقصى عدد مواعيد بيتجدولوا على موبايل الابن.
+/// أقصى عدد **أيام** فيها مواعيد بتتجدول على موبايل الابن.
 ///
 /// سقف ثابت عن قصد: موبايل الابن مالوش نافذة بتتجدد زي موبايل الأب،
-/// والقايمة بتيجي من سحبة السحابة. أربعة مواعيد = تمن إشعارات.
+/// والقايمة بتيجي من سحبة السحابة. أربع أيام = تمن إشعارات.
+/// **بقى عدّ أيام مش عدّ مواعيد** بعد ما الإشعار بقى واحد لليوم.
 const int caregiverAppointmentCap = 4;
 
-int caregiverAppointmentIdFor(int index, AppointmentNotice notice) {
-  if (index < 0 || index >= caregiverAppointmentCap) {
-    throw RangeError.range(index, 0, caregiverAppointmentCap - 1, 'index');
-  }
-  return caregiverAppointmentIdBase + index * appointmentNoticesPerStage + notice.index;
-}
+/// نفس اشتقاق الأب بالظبط، من نطاق تاني — واليوم هو المفتاح.
+///
+/// كان مشتق من **مكان** الميعاد في القايمة، وده كان بيخلّي نفس الرقم
+/// يشير لميعاد مختلف لما القايمة تتغيّر. اليوم ثابت، فالرقم ثابت.
+int caregiverAppointmentIdFor(DateTime day, AppointmentNotice notice) => _dayNoticeId(
+      caregiverAppointmentIdBase,
+      caregiverAppointmentIdLimit,
+      day,
+      notice,
+      'caregiverAppointmentIdFor',
+    );
 
 bool isCaregiverAppointmentId(int id) =>
     id >= caregiverAppointmentIdBase && id < caregiverAppointmentIdLimit;

@@ -181,21 +181,22 @@ void main() {
           await refreshAppointments();
 
           expect(result, StageDateResult.scheduled);
-          final slot = CheckupStage.dated.indexOf(stage);
-          // **إشعارين بقى**: هادي امبارحه، وواحد بيرن في يومه.
+          // **إشعارين بقى**: هادي امبارحه، وواحد بيرن في يومه —
+          // **والرقم مشتق من اليوم**، مش من (الصف، المرحلة): كل مواعيد
+          // اليوم الواحد إشعارهم واحد.
           expect(appointmentIds(), {
-            appointmentIdFor(id, slot, AppointmentNotice.dayBefore),
-            appointmentIdFor(id, slot, AppointmentNotice.dayOf),
+            appointmentIdFor(day, AppointmentNotice.dayBefore),
+            appointmentIdFor(day, AppointmentNotice.dayOf),
           });
           expect(checkupIds(), isEmpty, reason: 'النطاق القديم مابقاش بيتستعمل');
 
-          final dayOf = sink.scheduled[appointmentIdFor(id, slot, AppointmentNotice.dayOf)]!;
+          final dayOf = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayOf)]!;
           expect(DateTime(dayOf.at.year, dayOf.at.month, dayOf.at.day), day);
           // الصبح — من صحيان المريض، مش رقم مخترع
           expect(dayOf.at.hour * 60 + dayOf.at.minute, normalDay.wake.minutes);
           expect(dayOf.kind, NotificationKind.appointmentAlert);
 
-          final before = sink.scheduled[appointmentIdFor(id, slot, AppointmentNotice.dayBefore)]!;
+          final before = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayBefore)]!;
           expect(DateTime(before.at.year, before.at.month, before.at.day),
               DateTime(day.year, day.month, day.day - 1));
           // بالليل — على العشا، المرساة المسائية اللي هو نفسه قالها
@@ -222,7 +223,7 @@ void main() {
         await refreshAppointments();
 
         expect(appointmentIds(), hasLength(2), reason: 'الرقم مشتق، فالتاني بيستبدل الأول');
-        final at_ = sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayOf)]!.at;
+        final at_ = sink.scheduled[appointmentIdFor(DateTime(2026, 9, 22), AppointmentNotice.dayOf)]!.at;
         expect(DateTime(at_.year, at_.month, at_.day), DateTime(2026, 9, 22));
         expect((await row(id)).labBookingAt, at_);
       });
@@ -246,7 +247,7 @@ void main() {
 
         expect(appointmentIds(), isEmpty);
         expect(sink.cancelled,
-            contains(appointmentIdFor(id, 0, AppointmentNotice.dayOf)));
+            contains(appointmentIdFor(DateTime(2026, 9, 18), AppointmentNotice.dayOf)));
         expect((await row(id)).labBookingAt, isNull);
       });
 
@@ -259,7 +260,7 @@ void main() {
         await refreshAppointments();
 
         expect(sink.cancelled,
-            contains(appointmentIdFor(id, 0, AppointmentNotice.dayBefore)));
+            contains(appointmentIdFor(DateTime(2026, 9, 18), AppointmentNotice.dayBefore)));
         expect(appointmentIds(), isEmpty);
         expect((await row(id)).labBookingAt, isNull);
         expect((await row(id)).checkupStage, CheckupStage.doctorOrder.number);

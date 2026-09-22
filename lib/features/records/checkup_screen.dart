@@ -114,6 +114,9 @@ class _CheckupScreenState extends State<CheckupScreen> {
     final navigator = Navigator.of(context);
     final asksAboutTest = CheckupService.kindOf(row) == FollowKind.visit && stage == VisitStage.done;
     await checkups.advance(row.id, now: _now);
+    // التقدّم ممكن يشيل ميعاد بقى بلا لازمة — والتوفيق هو اللي بيلغي
+    // إشعاراته، عشان مواعيد اليوم الواحد إشعارهم واحد ومشترك.
+    if (mounted) await AppScope.of(context).refreshAppointments(now: _now);
     if (!asksAboutTest || !mounted) return;
 
     final yes = await showDialog<bool>(
@@ -201,6 +204,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
     );
     if (yes ?? false) {
       await checkups.delete(row.id);
+      if (mounted) await AppScope.of(context).refreshAppointments(now: _now);
       navigator.pop();
     }
   }
@@ -323,7 +327,13 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                 FSecondaryButton(
                                   key: const ValueKey('checkup-back'),
                                   label: 'رجوع لـ«${previous.label}»',
-                                  onPressed: () => _checkups.back(row.id),
+                                  onPressed: () async {
+                                    await _checkups.back(row.id);
+                                    if (context.mounted) {
+                                      await AppScope.of(context)
+                                          .refreshAppointments(now: _now);
+                                    }
+                                  },
                                 ),
                               ],
                             ],

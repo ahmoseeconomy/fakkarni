@@ -264,8 +264,10 @@ void main() {
         rolling: false,
       ).refresh(now: sep15);
 
-      final before = h.sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayBefore)]!;
-      final dayOf = h.sink.scheduled[appointmentIdFor(id, 0, AppointmentNotice.dayOf)]!;
+      // **الرقم مشتق من يوم الميعاد**، مش من (الصف، المرحلة).
+      final day = DateTime(2026, 9, 20);
+      final before = h.sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayBefore)]!;
+      final dayOf = h.sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayOf)]!;
       expect(before.title, 'بكرة عندك زيارة');
       expect(dayOf.title, 'النهارده عندك زيارة');
       expect(before.kind, NotificationKind.appointmentQuiet);

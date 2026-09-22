@@ -315,7 +315,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1234 passing
+test/                         1255 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -509,9 +509,9 @@ for days — that waste is now the patient dimension.
 | Snooze | `20_000_000` – `25_898_239` | live. `snoozeIdBase` / `snoozeIdFor()` / `isSnoozeId()`. Derived from the **original** dose slot, not the snooze time — so a snooze can never overwrite a real dose that happens to fall on the same minute, and «أخدته» cancels it without storing anything |
 | Escalation rung 2 (+30) | `30_000_000` – `35_898_239` | **Phase 4.1**, live. `escalationSecondIdBase`. One band per rung because a band holds exactly one ID per (patient, slot) — a second rung needs a second band |
 | Fasting reminder | `40_000_000` – `45_898_239` | **D3.7**, live. `fastingIdBase` / `fastingIdFor(recordId)` / `isFastingId()`. Derived from the `records` row id (not a slot — one reminder per checkup cycle), throws past the band. **Not** in `isRescheduledId`: rebuilding doses never cancels it, and a dose confirmation never touches it. `test/data/checkup_fasting_test.dart` proves it overlaps no dose band — mutation-checked: moving the base into the dose band fails three tests |
-| Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**, live. `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. One id per (record, stage): `base + recordId * 3 + slot`, three stages ask for a date. **Not** in `isRescheduledId`, like fasting |
-| Appointment notices | `60_000_000` – `65_898_239` | **مواصفة المواعيد**, live. `appointmentIdBase` / `appointmentIdFor(recordId, stageSlot, notice)` / `isAppointmentId()`. `base + recordId * 6 + stageSlot * 2 + notice` — إشعارين لكل مرحلة ليها ميعاد (هادي امبارحه، وواحد بيرن في يومه). **Not** in `isRescheduledId` |
-| Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(index, notice)`. مواعيد الأب على **موبايل الابن**؛ الرقم من مكان الميعاد في القايمة المقصوصة عند `caregiverAppointmentCap` (٤) |
+| Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**; **now legacy — nothing schedules into it.** `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. Every `AppointmentScheduler.refresh` cancels **every pending id in this band** — that is the upgrade fix for phones whose dates were set before the appointments round |
+| Appointment notices | `60_000_000` – `65_898_239` | **مواصفة المواعيد**, live. `appointmentIdBase` / `appointmentIdFor(day, notice)` / `isAppointmentId()`. **`base + epochDay * 2 + notice`** — إشعارين لكل **يوم** فيه مواعيد (هادي امبارحه، وواحد بيرن في يومه)، مش لكل ميعاد. `epochDayOf` بيتحسب بالـUTC. **Not** in `isRescheduledId` |
+| Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(day, notice)` — **نفس اشتقاق الأب من نطاق تاني**؛ `caregiverAppointmentCap` (٤) بقى عدّ **أيام** مش عدّ مواعيد |
 | — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`80_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
@@ -3366,6 +3366,8 @@ screen — and they are different screens on purpose.**
   مستنية حركة ومالهاش ميعاد، وبتختفي خالص لما مايفضلش حاجة
   (`needsActionFollowUps`). القوايم الكاملة في «زيارات»/«تحاليل» زي ما هي.
 - **والكتلة بتتقلّص لما فيه جرعة مستنية تأكيد — والقياس هو اللي فرض ده.**
+  **(الأرقام دي اتغيّرت في جولة «إشعار واحد لكل لحظة» — شوفها فوق:
+  سطرين مضغوطين دلوقتي، والزرار بيخلص عند ٥٩٦.)**
   على آيفون SE (٣٧٥×٦٦٧): الترويسة لوحدها **٢٦٠ بكسل**، وكارت الجرعة
   ~٢٣٠. كارت مواعيد بعنوان وصفّين وسطر شرح بياخد **١٥٥** → «تأكيد
   الجرعة» كان بينزل عند ٧٥٢، يعني **برّه الشاشة**. النسخة المضغوطة
@@ -3457,6 +3459,82 @@ screen — and they are different screens on purpose.**
   Entry: «التقويم» on «الملف الصحي». Day cells are 64 tall but ≈53 wide on
   a 402pt phone — seven columns do not fit 56 each; the whole cell is the
   target.
+
+**إشعار واحد لكل لحظة، ومعاه إصلاح ترقية** (٢٢ سبتمبر ٢٠٢٦، من آيفون
+حقيقي — **أربع إشعارات عن نفس الصبح**):
+
+```
+«النهارده ميعادك في المعمل» / «تقرير تحليل — 6 نتايج»      ← الجديد
+«النهارده عندك زيارة»       / «من غير اسم دكتور»            ← الجديد
+«متابعة تقرير تحليل — 6 نتايج» / «النهارده ميعادك في المعمل.» ← القديم
+«متابعة من غير اسم دكتور»      / «النهارده معاد زيارتك.»      ← القديم
+```
+
+تلات أعطال في الأربعة دول:
+- **بقايا النسخة القديمة — دي ترقية بايظة، مش وسخ.** قبل جولة المواعيد
+  كان ميعاد المرحلة بيتجدول برقم من نطاق `checkupIdFor`. النسخة الجديدة
+  بتلغي الرقم ده جوّه `setStageDate` — يعني **بس لما الميعاد يتظبط
+  تاني**. أي صف اتحطّ ميعاده قبل الترقية بيفضل ماسك إشعاره القديم
+  **للأبد**، فبيرن جنب الجديد. ده بيحصل لكل مستخدم حقيقي بيحدّث ومعاه
+  متابعة بميعاد. الإصلاح في **التوفيق**: `AppointmentScheduler.refresh`
+  بيمشي على `pendingIds()` وبيلغي **كل** رقم في نطاق `isCheckupId` كل
+  تشغيلة — إلغاء وبس، بالرقم، من نطاق **مفيش حاجة بتجدول فيه خالص**
+  (تذكير الصيام نطاقه `fastingIdBase`). بلا أثر، رخيص، ومش محتاج يعرف
+  الصفوف أصلاً — فبيمسك كمان إشعار لصف اتمسح.
+- **الإشعار بقى لليوم، مش للميعاد** (طلب المالك). كل مواعيد اليوم
+  الواحد بيطلعوا في إشعار واحد: «النهارده عندك: زيارة الدكتور، وميعاد
+  المعمل»، و«بكرة عندك: …» للهادي. ميعاد واحد بيفضل بكلامه القديم
+  («النهارده ميعادك في المعمل»)، ومن تلاتة وفوق بنسمّي الأولين ونقول
+  «وحاجة كمان» — عنوان بيعدّ كل حاجة بيتقصّ في شريط الإشعارات.
+  **والمتن بيسمّي اللي العنوان سمّاه بس**: عنوان بيقول «وحاجة كمان» ومتن
+  بيعدّ التلاتة بيتناقضوا قدّام عين بتقرا بسرعة.
+- **والمتن كان بيعرض عنوان الورقة الخام** («تقرير تحليل — 6 نتايج»، برقم
+  لاتيني). إصلاح العناوين (`0e7991c`) غطّى الشاشات وما غطّاش الإشعارات.
+  دلوقتي الإشعار بيعدّي على نفس `followDisplayTitle` — الأب والابن.
+
+**والرقم اتغيّر معاه: `appointmentIdFor(day, notice)`.** المفتاح بقى
+اليوم، فالرقم لازم يبقى مفتاحه اليوم كمان — `base + epochDay * 2 +
+notice`، و`epochDayOf` بتتحسب **بالـUTC** لأن الفرق بين تاريخين محليين
+بيغلط يوم كامل حوالين تغيير الساعة في مصر (يوم بـ٢٣ ساعة بيتقسم على ٢٤
+ويطلع صفر). النطاق سايع `appointmentDaySpan` يوم — أكتر من ثمن آلاف سنة
+— فمفيش لفّ ممكن، والدالة بترمي برّه الحد وعلى أي يوم قبل ١٩٧٠.
+**ونطاق الابن اتغيّر لنفس الشكل**: كان مشتق من **مكان** الميعاد في
+القايمة، وده كان بيخلّي نفس الرقم يشير لميعاد مختلف لما القايمة تتغيّر.
+
+**واللي التجميع عمله في نافذة iOS: الخانتين بقوا يغطّوا يوم كامل.**
+`checkupPendingSlack` لسه **٢** و`maxPendingReminders` لسه **٤٤** — ولا
+خانة اتاخدت من الجرعات ولا من السلّم. اللي اتغيّر إن الخانتين كانوا
+بيشيلوا **ميعاد واحد** (هادي + بيرن)، وبقوا يشيلوا **كل مواعيد أقرب
+يوم**. يعني أب عنده تلات مواعيد في صبح واحد كان محتاج ست خانات وبقى
+محتاج اتنين.
+
+**والتوفيق بقى صاحب النطاق لوحده.** `clearStageDate` كانت بتلغي رقم
+الميعاد بنفسها؛ دلوقتي الرقم مشتق من اليوم، فالإلغاء ده كان هيطفّي إشعار
+ميعاد **تاني** واقع في نفس اليوم. فهي بتكتب `null` وبس، و`refresh` هو
+اللي بيحسب ويلغي — و`advance` و`back` و«امسحه» بقوا بيندهوا
+`refreshAppointments` زي `setStageDate`.
+
+**وكارت «يومك» بيعرض سطرين حتى وهو مضغوط**، واللي زيادة بقى بكلامه
+(«+ ميعاد تاني» / «+ ميعادين تانيين» / «+ ٣ مواعيد تانية») — «+١» جنب
+كارت ذهبي بتتقري كأنها زينة، والتحليل كان بيستخبى وراها.
+**والقياس على SE هو اللي حدّد شكل الصف**: الصف المضغوط مابقاش له حد
+أدنى، فبياخد ارتفاع سطره العربي (~٢٩ على ١٧ بكسل)، ومفيش فاصل بين
+الصفّين ولا فجوة تحت الكتلة. النتيجة: **زرار «تأكيد الجرعة» بيخلص عند
+٥٩٦ و«ضيف» العايم بيبدأ عند ٥٩٧٫٤** — نفس فرق البكسل ونص بالظبط، بسطرين
+بدل سطر. **وقاعدة «هدف اللمس ٥٦» محفوظة**: الكتلة المضغوطة ٦٢ بكسل وكل
+حتة فيها بتفتح متابعة — الهدف هو الكارت، مش السطر.
+
+**وحارس الأرقام اللاتينية مقصور على اللي إحنا بنولّده.** عناوين
+الإشعارات كلها بتاعتنا، فولا رقم لاتيني فيها؛ والمتن بيعدّي على
+`followDisplayTitle`. **لكن عنوان كتبه إنسان بيعدّي زي ما هو** («CBC
+2026») — نفس قرار `lab_title_digits_test`، وفيه اختبار باسمه عشان
+مايتقراش كثغرة.
+
+الاختبارات: `appointment_grouping_test` (١٦ حالة — البقايا، التجميع،
+الأسماء، والأرقام) وإضافات في `caregiver_appointment_notices_test` و
+`today_appointments_test`. **ست طفرات**: شيل كنس النطاق القديم، كسر
+التجميع باليوم، رجوع المتن لعنوان الورقة الخام (عند الأب وعند الابن)،
+رجوع الكارت المضغوط لسطر واحد، ورجوع «+١» مكان الكلام — كلها بتوقّع.
 
 **D3.8 — doctor page + export (built)**
 - Schema v14 `visit_questions` (body, created_at, asked; SyncIdentity +

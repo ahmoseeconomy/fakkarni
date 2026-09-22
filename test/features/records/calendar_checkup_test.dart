@@ -281,8 +281,11 @@ void main() {
       await tester.tap(find.byKey(ValueKey('stage-date-clear-${stage.number}')));
       await settle(tester);
       expect(find.byKey(ValueKey('stage-date-set-${stage.number}')), findsOneWidget);
-      expect(h.sink.cancelled,
-          contains(appointmentIdFor(id, 0, AppointmentNotice.dayOf)));
+      // «بكرة» من منتقي اليوم — والرقم مشتق من اليوم ده.
+      expect(
+          h.sink.cancelled,
+          contains(appointmentIdFor(
+              DateTime(sep15.year, sep15.month, sep15.day + 1), AppointmentNotice.dayOf)));
     });
 
     screenTest(

@@ -230,15 +230,20 @@ class CheckupService {
     return StageDateResult.scheduled;
   }
 
-  /// بيلغي بالرقم المشتق — آمن حتى لو مفيش ميعاد متحطّ.
+  /// بيشيل ميعاد المرحلة. **إشعاراته بيشيلهم التوفيق، مش الدالة دي.**
+  ///
+  /// رقم إشعار المواعيد بقى مشتق من **اليوم** مش من (الصف، المرحلة)،
+  /// عشان كل مواعيد اليوم يطلعوا في إشعار واحد. يعني إلغاء الرقم من هنا
+  /// كان هيطفّي الإشعار بتاع ميعاد **تاني** واقع في نفس اليوم — ولده
+  /// مالوش أي ذنب. فالنطاق بقى ملك [AppointmentScheduler.refresh] لوحده:
+  /// بيحسب الخطة من الصفوف كلها وبيلغي اللي برّه الخطة. كل نداء هنا
+  /// بيتبعه توفيق (شاشة المتابعة، وصف السجل).
+  ///
+  /// الرقم **القديم** (`checkupIdFor`) لسه بيتلغي: هو مشتق من الصف
+  /// والمرحلة فمالوش جار يتأذى، والتوفيق بيفضّي نطاقه كله برضه.
   Future<void> clearStageDate(int id, FollowStage stage) async {
     final row = await _row(id);
-    final slot = kindOf(row).slotOf(stage);
-    // الرقم القديم (لو لسه معلّق من نسخة قديمة) والاتنين الجداد.
-    await _sink.cancel(checkupIdFor(id, slot));
-    for (final notice in AppointmentNotice.values) {
-      await _sink.cancel(appointmentIdFor(id, slot, notice));
-    }
+    await _sink.cancel(checkupIdFor(id, kindOf(row).slotOf(stage)));
     await (_db.update(_db.records)..where((t) => t.id.equals(id)))
         .write(_stageDateCompanion(stage, null));
   }

@@ -211,19 +211,36 @@ void main() {
       }
     });
 
-    test('وأقصى رقم ميعاد لسه جوّه نطاقه', () {
-      final maxRecord = (appointmentIdLimit - appointmentIdBase) ~/ appointmentIdsPerRecord - 1;
-      final top = appointmentIdFor(maxRecord, checkupDatedStages - 1, AppointmentNotice.dayOf);
+    test('وأقصى يوم لسه جوّه نطاقه، واللي بعده بيرمي', () {
+      // الرقم بقى مشتق من **اليوم**: النطاق سايع `appointmentDaySpan` يوم
+      // من ١٩٧٠ — أكتر من ثمن آلاف سنة، فمفيش يوم حقيقي بيوصل حدّه.
+      final lastDay = DateTime.fromMillisecondsSinceEpoch(
+          (appointmentDaySpan - 1) * Duration.millisecondsPerDay,
+          isUtc: true);
+      final top = appointmentIdFor(lastDay, AppointmentNotice.dayOf);
       expect(isAppointmentId(top), isTrue);
       expect(top, lessThan(appointmentIdLimit));
-      expect(() => appointmentIdFor(maxRecord + 1, 0, AppointmentNotice.dayOf), throwsRangeError);
-      expect(() => appointmentIdFor(0, checkupDatedStages, AppointmentNotice.dayOf),
+
+      final past = DateTime.fromMillisecondsSinceEpoch(
+          appointmentDaySpan * Duration.millisecondsPerDay,
+          isUtc: true);
+      expect(() => appointmentIdFor(past, AppointmentNotice.dayOf), throwsRangeError);
+      // ويوم قبل ١٩٧٠ بيرمي كمان — مفيش ميعاد هناك، والسالب بيلفّ لبرّه
+      expect(() => appointmentIdFor(DateTime(1969, 12, 31), AppointmentNotice.dayOf),
           throwsRangeError);
     });
 
+    test('ونطاق الابن بيرمي عند نفس الحد', () {
+      final past = DateTime.fromMillisecondsSinceEpoch(
+          appointmentDaySpan * Duration.millisecondsPerDay,
+          isUtc: true);
+      expect(() => caregiverAppointmentIdFor(past, AppointmentNotice.dayOf), throwsRangeError);
+    });
+
     test('ومش في نطاق إعادة الجدولة — إعادة بناء الجرعات ما بتلغيهاش', () {
-      expect(isRescheduledId(appointmentIdFor(3, 1, AppointmentNotice.dayBefore)), isFalse);
-      expect(isRescheduledId(caregiverAppointmentIdFor(0, AppointmentNotice.dayOf)), isFalse);
+      final day = DateTime(2026, 9, 20);
+      expect(isRescheduledId(appointmentIdFor(day, AppointmentNotice.dayBefore)), isFalse);
+      expect(isRescheduledId(caregiverAppointmentIdFor(day, AppointmentNotice.dayOf)), isFalse);
     });
   });
 

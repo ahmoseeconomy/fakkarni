@@ -273,8 +273,11 @@ class _TodayScreenState extends State<TodayScreen> {
                   // في الوضع المضغوط مفيش فجوة زيادة: القياس على SE
                   // بيقول إن كل ١٠ بكسل هنا بتفرق مع زرار «ضيف» العايم.
                   return Padding(
+                    // في الوضع المضغوط مفيش فجوة زيادة خالص: الكارت
+                    // الذهبي بحدوده هو الفاصل، والستّة بكسل دي هي الفرق
+                    // بين زرار التأكيد كامل وزرار مقطوع على SE.
                     padding: EdgeInsets.only(
-                        bottom: nowCards.isNotEmpty ? F.s6 : F.gap),
+                        bottom: nowCards.isNotEmpty ? 0 : F.gap),
                     child: _AppointmentsCard(
                       appointments: soon,
                       now: _now,
@@ -805,78 +808,38 @@ class _AppointmentsCard extends StatelessWidget {
   /// كامل جوّه أول شاشة.
   static const maxShown = 2;
 
-  int get _shown => compact ? 1 : maxShown;
+  /// **اتنين حتى وهو مضغوط** (طلب المالك). كان بيعرض ميعاد واحد و«+١»،
+  /// فالتحليل كان بيستخبى ورا رقم — ورقم لوحده ما بيقولش لراجل عنده ٧٢
+  /// سنة أي حاجة.
+  int get _shown => maxShown;
+
+  /// **الصف المضغوط بيتقاس بنصّه، والكتلة كلها هي هدف اللمس.**
+  ///
+  /// القياس على آيفون SE هو اللي فرض ده: الشاشة ٦٦٧ نقطة، الترويسة
+  /// لوحدها ٢٥٢، وزرار «ضيف» العايم بيبدأ عند ٥٩٧٫٤. صفّين على ٥٦ كانوا
+  /// بينزّلوا «تأكيد الجرعة» تحته. من غير حد أدنى، الصف بياخد ارتفاع
+  /// سطره العربي (~٢٩ على ١٧ بكسل) — وصفّين بكده أطول من الصف الواحد
+  /// القديم بتلات بكسل بس.
+  ///
+  /// **وقاعدة «هدف اللمس ٥٦» محفوظة**: الكتلة المضغوطة كلها ٦٢ بكسل
+  /// وكل حتة فيها بتفتح متابعة — الهدف هو الكارت، مش السطر.
+  double? get _rowHeight => compact ? null : F.minTapTarget;
 
   @override
-  Widget build(BuildContext context) {
-    // **لما فيه جرعة مستنية تأكيد، الكتلة بتبقى سطر واحد.**
-    //
-    // القياس على آيفون SE هو اللي فرض ده: الترويسة لوحدها ٢٦٠ بكسل
-    // وكارت الجرعة ~٢٣٠، فاللي فاضل قبل الدوك أقل من ١٠٠. كارت فيه
-    // عنوان وصف وسطر شرح بياخد ١٥٥ — يعني «تأكيد الجرعة» كان بينزل
-    // تحت الشاشة. السطر الواحد بياخد ~٤٠ وبيسيب الزرار كامل فوق الدوك.
-    if (compact) return _line(context);
-    return _full(context);
-  }
+  Widget build(BuildContext context) => _card(context);
 
-  /// سطر واحد: أقرب ميعاد وعدّه التنازلي، وعدد الباقي.
-  Widget _line(BuildContext context) {
-    final first = appointments.first;
-    final rest = appointments.length - 1;
-    return InkWell(
-      key: const ValueKey('appointments-card'),
-      onTap: () => onOpen(first.recordId),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: F.minTapTarget),
-        padding: const EdgeInsets.symmetric(horizontal: F.s12),
-        decoration: BoxDecoration(
-          color: F.cardGround,
-          borderRadius: BorderRadius.circular(F.radius),
-          border: Border.all(color: F.gold, width: 2),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.event_outlined, size: 20, color: F.gold),
-            const SizedBox(width: F.s8),
-            Expanded(
-              child: Text(
-                rest > 0
-                    ? '${first.headline} — ${countdownWord(now, first.at)}'
-                        ' +${arabicNumber(rest)}'
-                    : '${first.headline} — ${first.title}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: F.minTextSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
-            ),
-            const SizedBox(width: F.s8),
-            if (rest == 0)
-              Text(
-                countdownWord(now, first.at),
-                style: TextStyle(
-                  fontSize: F.minTextSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _full(BuildContext context) => Column(
+  Widget _card(BuildContext context) => Column(
         key: const ValueKey('appointments-card'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // العنوان بمقاس عنوان القسم مش عنوان الشاشة — الكتلة دي فوق
           // كارت الجرعة، والفرق بين ٢٣ و١٩ بكسل بيتحسب في الآخر.
-          const _SectionTitle('مواعيدك الجاية', attention: true),
-          const SizedBox(height: F.s6),
+          // ومع جرعة مستنية تأكيد العنوان بيتشال: الكارت الذهبي بحدوده
+          // وأيقونته بيقول إنه مواعيد، والبكسلات دي بتروح للزرار.
+          if (!compact) ...[
+            const _SectionTitle('مواعيدك الجاية', attention: true),
+            const SizedBox(height: F.s6),
+          ],
           Container(
             decoration: BoxDecoration(
               color: F.cardGround,
@@ -889,14 +852,14 @@ class _AppointmentsCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final (i, a) in appointments.take(_shown).indexed) ...[
-                  if (i > 0) Divider(height: 1, color: F.lineSoft),
+                  if (i > 0 && !compact) Divider(height: 1, color: F.lineSoft),
                   InkWell(
                     onTap: () => onOpen(a.recordId),
                     child: Container(
                       // **سطر واحد لكل ميعاد.** الكتلة فوق كارت الجرعة،
                       // فكل بكسل هنا بيزقّ «تأكيد الجرعة» لتحت — واختبار
                       // على أصغر آيفون بيقيس ده.
-                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      constraints: BoxConstraints(minHeight: _rowHeight ?? 0),
                       padding: const EdgeInsets.symmetric(horizontal: F.gap),
                       child: Row(
                         children: [
@@ -904,7 +867,7 @@ class _AppointmentsCard extends StatelessWidget {
                           const SizedBox(width: F.s8),
                           Expanded(
                             child: Text(
-                              '${a.headline} — ${a.title}',
+                              '${a.headline} — ${a.displayTitle}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -928,17 +891,20 @@ class _AppointmentsCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                // **اللي زيادة بيتقال بالكلام، مش برقم لوحده.**
+                // «+١» جنب كارت ذهبي مش بتقول لحد إن فيه ميعاد تاني
+                // مستخبي — بتتقري كأنها زينة.
                 if (appointments.length > _shown) ...[
                   Divider(height: 1, color: F.lineSoft),
                   InkWell(
                     key: const ValueKey('appointments-more'),
                     onTap: () => onOpen(appointments[_shown].recordId),
                     child: Container(
-                      constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                      constraints: BoxConstraints(minHeight: _rowHeight ?? 0),
                       padding: const EdgeInsets.symmetric(horizontal: F.gap),
                       alignment: AlignmentDirectional.centerStart,
                       child: Text(
-                        '+${arabicNumber(appointments.length - _shown)} مواعيد تانية',
+                        moreAppointmentsLabel(appointments.length - _shown),
                         style: TextStyle(
                           fontSize: F.minTextSize,
                           fontWeight: FontWeight.w700,
