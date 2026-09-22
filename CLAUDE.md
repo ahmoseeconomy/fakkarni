@@ -251,7 +251,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v17: patients (sex, age — local),
+  data/db/                    drift (SQLite) v20: patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -263,7 +263,8 @@ lib/
                               the health file, pushed since D5.1,
                               dose_schedules.active_from (v15, local),
                               records checkup dates (v17),
-                              medications (amount_unknown), dose_schedules
+                              medications (amount_unknown, active_ingredient
+                              — local، من العلبة بس), dose_schedules
                               (timing_kind), fixed_timings, dose_events — every
                               synced table carries a device-minted `uuid`
                               (SyncIdentity mixin)
@@ -315,7 +316,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1255 passing
+test/                         1291 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -3138,6 +3139,80 @@ screen — and they are different screens on purpose.**
   dismiss animation still had frames to build — «A TextEditingController
   was used after being disposed» on every edit, on a real phone too. The
   controller now belongs to the State and dies with the screen.
+
+**صوّر العلبة أو الشريط (built)** — «ضيف دوا» بقى تلات اختيارات،
+**الصورة الأولانية**: «صوّر العلبة أو الشريط» / «صوّر روشتة» /
+«أكتبها بإيدي».
+
+- **العلبة بتقول الدوا إيه — مش إمتى، ولا قد إيه.** ده مش فلتر بعد
+  القراية: `packageSchema` **مالوش خانة توقيت ولا جرعة أصلاً** (خمس حقول
+  بس: `brand`, `activeIngredient`, `strength`, `form`, `packSize`)، و
+  `responseSchema` بتاعة Gemini بتمنع أي حقل زيادة. والـsystem instruction
+  بيقولها للموديل بالنص: «The packaging cannot know what THIS patient was
+  told to take — only their doctor knows that». اختبار بيبعت رد فيه
+  `dose` و`frequency` و`timings` و`durationDays` ويتأكد إن ولا واحدة
+  وصلت أي حقل بيتعرض.
+- **الطريق: صورة ← نفس فورم الإدخال اليدوي، متعبّي.** `ScanPackageScreen`
+  بتنده القراية وبتفتح `AddMedicationScreen` نفسها بـ`packageReading`،
+  فاللي بعد الصورة هو **نفس** الشاشة اللي بيكتب فيها بإيده — مش شاشة
+  مراجعة تانية. خانة «اسم الدوا والتركيز» بتتملا («Concor 5 mg»)،
+  و**خانة الجرعة والمواعيد بتفضل فاضية**، ولوحة فوق الفورم بتقول اللي
+  اتقرا («المادة الفعّالة»، «الشكل»، «في العلبة») وبتقول السطر اللي
+  الميزة كلها حواليه: «العلبة ما بتقولش الجرعة ولا المواعيد — دي من
+  الدكتور، وإنت اللي بتكتبها تحت». القاعدة ٤ زي ما هي: مفيش صف بيتكتب
+  ولا إشعار بيتجدول غير بدوسة «احفظ الجرعة».
+- **الثقة الواطية = فراغ، مش تخمين.** حقل تحت `confidenceThreshold`
+  بيرجع null. **واسم مش واضح معناه مفيش فورم خالص** — الشاشة بترجع
+  «مقدرناش نقرا ده بوضوح — صوّر تاني أو اكتبه بإيدك» (`unreadablePackage`،
+  جملة واحدة الشاشة والفورم بيقروا منها). حقل تاني مش واضح بيسيب الفورم
+  مفتوح والحقل فاضي **ومتسمّى** تحت. نص اسم بثقة عالية هو أوحش ناتج
+  ممكن: بيبقى دوا في قايمة راجل عنده ٧٢ سنة.
+- **والشريط له فقرته في البرومبت**: الاسم على ورق قصدير بيلمع ومقطوع بين
+  الحبوب، فالبرومبت بيطلب الضهر، وبيقول «return null rather than
+  completing it» و«Partial text is a reason for low confidence, not for
+  inference». اختبار بيثبّت الجمل دي — مش اللي الموديل بيرجّعه، الجملة
+  نفسها.
+- **«الدوا ده عندك خلاص؟» — وده محتاج عمود.**
+  `domain/medication/duplicate_check.dart` (دارت نقية): بيطابق بالاسم
+  **من غير تركيزه** (فـ«Concor 5mg» و«Concor 10 mg» نفس الدوا)، وبعدين
+  بالمادة الفعّالة (فـPanadol وParamol بيتمسكوا). الجملة بتتقال والزرار
+  بيفضل شغّال — **بنقول، مش بنمنع**: ممكن الدكتور كتب تركيزين فعلاً،
+  والقرار قراره (نفس روح القاعدة ٤).
+  **ومادة مش متسجّلة مش «مادة مختلفة»**: بنعدّي عليها بدل ما ندّعي إننا
+  قارنّا — وده حد الفحص المكتوب، فيه اختبار باسمه.
+- **schema v20: `medications.active_ingredient`** (nullable، **محلي** —
+  مالوش عمود في السحابة والابن ما بيقراهوش، زي `attachment_path`).
+  اتكتب أحمر الأول زي القاعدة: الفاحص وقع بـ«unexpected entries:
+  active_ingredient»، وبعدين الخطوة اتحطّت **فوق** بلوك التطبيع بحماية
+  وجود. من غير العمود ده فحص المادة بيبقى حارس شرطه عمره ما بيتحقّق —
+  بالظبط النمط اللي «Testing conventions» بيحذّر منه. الأدوية القديمة
+  كلها `null`، ومفيش مادة اتخترعت لواحد منهم (اختبار v19→v20 واختبار
+  ملف v2).
+- **نفس نقل Gemini بالحرف** (`GeminiPrescriptionReader.generate`): نفس
+  الموديل، نفس `shrinkForAi`، نفس المهلة، نفس الرجوع للبديل على
+  ٥٠٣/٤٢٩/تقاعد، نفس `x-goog-api-key`. **سطح شبكة جديد مش موجود** —
+  برومبت و`responseSchema` مختلفين وبس. ورسالة العطل بتقول «العلبة» مش
+  «التقرير».
+- **الصورة ما بتتخزّنش، وده قرار مكتوب مش نسيان.** مسار العلبة بيعمل
+  **دوا** مش **سجل**، و`medications` مالهاش عمود مرفقات — فحفظها كان
+  هيحتاج عمود تاني. اللي المواصفة طلبته («تفضل على الجهاز زي الروشتات»)
+  محفوظ بالمعنى اللي بيهم: الصورة عمرها ما بتترفع، وبتروح لـGemini بنفس
+  الطريق بالظبط. لو المطلوب تتحفظ فعلاً، ده عمود على `medications` وجولة
+  لوحده.
+- الاختبارات: `package_reader_test` (١١ — التسريب، الـschema، الثقة،
+  الشريط، النقل)، `duplicate_check_test` (١٢ نقية)، `scan_package_test`
+  (١١ شاشة). **ست طفرات**: الثقة الواطية تعدّي، خانة جرعة في الـschema،
+  المادة ما تتخزّنش، التطبيع ما يشيلش التركيز، «صوّر تاني» يتشال، وتحذير
+  التكرار يتشال — كلها بتوقّع.
+- **البرومبت لسه ما اتجربش على صورة حقيقية** — مفيش ولا صورة علبة في
+  `test/assets/` ومفيش مفتاح على الماكينة دي.
+  `test/ai/package_prompt_live_test.dart` مكتوب ومتخطّي لوحده، وبيشتغل
+  بأمر واحد أول ما الصور تبقى موجودة:
+  `GEMINI_API_KEY=… PACKAGE_PHOTOS=test/assets/packages flutter test
+  test/ai/package_prompt_live_test.dart`. بيتأكد إن ولا حقل فيه كلام
+  جرعات وإن علبة واضحة بتتقرا. **والفولدر في `.gitignore`** — صورة
+  شريط متصرّف ممكن يكون عليها ستيكر باسم مريض، والقاعدة أسهل ما تتبع
+  لما تبقى «ولا صورة تتكوميت».
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

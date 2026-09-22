@@ -88,7 +88,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 19);
+    expect(version.read<int>('user_version'), 20);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -175,6 +175,17 @@ void main() {
     // v19: نوع المتابعة ومصدرها — موجودين وفاضيين. مفيش سجل قديم اتقال
     // عليه إنه متابعة، ومفيش متابعة اتقال عليها إنها جت من ورقة.
     expect(columnsOf, containsAll(['follow_kind', 'follow_source_id']));
+
+    // v20: المادة الفعّالة موجودة كعمود وفاضية في كل دوا قديم — الأدوية
+    // دي اتكتبت بالإيد أو من روشتة، وولا واحدة فيهم حد قال مادتها.
+    final medColumns = await db
+        .customSelect("SELECT name FROM pragma_table_info('medications')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(medColumns, contains('active_ingredient'));
+    for (final m in await db.select(db.medications).get()) {
+      expect(m.activeIngredient, isNull, reason: 'مادة مخترعة لدوا قديم');
+    }
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

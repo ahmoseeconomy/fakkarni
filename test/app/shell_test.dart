@@ -169,7 +169,7 @@ void main() {
     expect(find.byType(MedicationsScreen), findsNothing);
   });
 
-  screenTest('«ضيف» بيفتح شيت فيه «صوّر روشتة» و«أكتبها بإيدي»', (tester) async {
+  screenTest('«ضيف» بيفتح شيت الصورة فيه أول اختيار', (tester) async {
     await pumpShell(tester);
 
     await tester.tap(find.byType(FloatingActionButton));
@@ -178,7 +178,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.byType(FSheet), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'صوّر روشتة'), findsOneWidget);
+    // **الصورة الأول** — الزرار الأساسي الوحيد في الشيت.
+    expect(find.widgetWithText(FilledButton, 'صوّر العلبة أو الشريط'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'صوّر روشتة'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'أكتبها بإيدي'), findsOneWidget);
     // نفس القايمة اللي كارت «ضيف دوا» بيفتحها — الشيت معرّف مرة واحدة
     for (final label in addSheetLabels) {

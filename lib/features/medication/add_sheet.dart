@@ -9,6 +9,7 @@ import '../health/scan_lab_screen.dart';
 import '../records/manual_entry_screen.dart';
 import '../scan/scan_prescription_screen.dart';
 import 'add_medication_screen.dart';
+import 'scan_package_screen.dart';
 
 /// شيت «ضيف دوا» — **معرّف هنا مرة واحدة**، وبيتفتح من مكانين: «+ ضيف» في
 /// الدوك، وكارت «ضيف دوا» فوق جدول الأدوية. مدخل جديد هنا بيظهر في الاتنين
@@ -28,22 +29,29 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
     context,
     title: addSheetTitle,
     children: [
+      // **الصورة الأول** (طلب المالك): العلبة في إيده دلوقتي، وده
+      // أقصر طريق بين حاجة موجودة قدّامه وحاجة متسجّلة.
       FPrimaryButton(
         label: addSheetLabels[0],
-        onPressed: () => open(ScanPrescriptionScreen(routine: routine, reader: services.prescriptionReader)),
+        onPressed: () =>
+            open(ScanPackageScreen(routine: routine, reader: services.packageReader)),
       ),
       FSecondaryButton(
         label: addSheetLabels[1],
+        onPressed: () => open(ScanPrescriptionScreen(routine: routine, reader: services.prescriptionReader)),
+      ),
+      FSecondaryButton(
+        label: addSheetLabels[2],
         onPressed: () => open(AddMedicationScreen(routine: routine)),
       ),
       // سكر الدم وتقارير التحاليل (D3.6)
-      FSecondaryButton(label: addSheetLabels[2], onPressed: () => open(const GlucoseScreen())),
+      FSecondaryButton(label: addSheetLabels[3], onPressed: () => open(const GlucoseScreen())),
       FSecondaryButton(
-        label: addSheetLabels[3],
+        label: addSheetLabels[4],
         onPressed: () => open(ScanLabScreen(reader: services.labReader)),
       ),
       // الملف الصحي (D3.5) — مش دوا، فمش بيتجدول
-      FSecondaryButton(label: addSheetLabels[4], onPressed: () => open(const ManualEntryScreen())),
+      FSecondaryButton(label: addSheetLabels[5], onPressed: () => open(const ManualEntryScreen())),
     ],
   );
 }
@@ -52,6 +60,7 @@ const addSheetTitle = 'ضيف دوا';
 
 /// مداخل الشيت بالترتيب — الاختبارات بتقارن الدوك والكارت على القايمة دي.
 const addSheetLabels = [
+  'صوّر العلبة أو الشريط',
   'صوّر روشتة',
   'أكتبها بإيدي',
   'قيس السكر',

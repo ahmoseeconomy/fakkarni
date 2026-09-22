@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -387,6 +387,18 @@ class AppDatabase extends _$AppDatabase {
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE records ADD COLUMN $column $definition');
                 }
+              }
+            }
+            if (from < 20) {
+              // المادة الفعّالة من العلبة — nullable، لأن الأدوية اللي
+              // اتضافت بالإيد أو من روشتة عمرها ما اتقالت. بحماية وجود
+              // زي v13 وv15..v19، و**فوق** بلوك التطبيع زي أي عمود جديد.
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('medications') WHERE name = 'active_ingredient'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement(
+                    'ALTER TABLE medications ADD COLUMN active_ingredient TEXT NULL');
               }
             }
             if (from < 6) {

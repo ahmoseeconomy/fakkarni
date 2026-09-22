@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
 
 import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
+import '../ai/package_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/background_task.dart';
 import '../core/notifications/notification_service.dart';
@@ -64,6 +65,7 @@ Future<AppServices> buildServices(
     tapPayload: NotificationService.lastPayload,
     prescriptionReader: _readerFromEnvironment(),
     labReader: _labReaderFromEnvironment(),
+    packageReader: _packageReaderFromEnvironment(),
     auth: auth,
     care: care,
     caregiver: caregiver,
@@ -101,6 +103,12 @@ Future<void> normaliseLabReportTitles(AppDatabase db) async {
     await (db.update(db.records)..where((t) => t.id.equals(row.id)))
         .write(RecordsCompanion(title: Value('تقرير تحليل — ${arabicDigits(match.group(1)!)} نتايج')));
   }
+}
+
+/// نفس المفتاح ونفس النقل — سطح شبكة جديد مش موجود هنا.
+MedicinePackageReader? _packageReaderFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  return config == null ? null : GeminiPackageReader(config);
 }
 
 /// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.

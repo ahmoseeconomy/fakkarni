@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../ai/package_reading.dart';
+import 'scan_package_screen.dart' show unreadablePackage;
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/medication/duplicate_check.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import 'dose_editor.dart';
@@ -33,6 +36,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialAmount,
     this.initialTimings = const [],
     this.initialDurationDays,
+    this.packageReading,
     this.draft = false,
     super.key,
   });
@@ -56,6 +60,13 @@ class AddMedicationScreen extends StatefulWidget {
   /// اليوم يتعدّل = تذكير واحد. القايمة هي اللي بتقفل الباب ده.
   final List<DoseTiming> initialTimings;
   final int? initialDurationDays;
+
+  /// اللي اتقرا من صورة علبة — **حقول وبس، ولا موعد فيهم**.
+  ///
+  /// بيتعرض في لوحة فوق الفورم عشان الراجل يراجع اللي قريناه قبل ما
+  /// يحفظ، والمادة الفعّالة بتتخزّن معاه عشان فحص التكرار بعدين.
+  /// null في الإدخال اليدوي وفي طريق الروشتة.
+  final PackageReading? packageReading;
 
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
@@ -85,6 +96,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   int _days = 7;
   bool _busy = false;
 
+  /// دوا في القايمة بنفس الاسم أو نفس المادة — بيتعرض، ومش بيمنع.
+  DuplicateMatch? _duplicate;
+  bool _duplicateChecked = false;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +117,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       if (_customCount) _count.text = '$_timesPerDay';
     }
     _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
+    // **الفحص بيجري على طول لما القراية جاية من علبة** — الراجل لسه
+    // ماسك العلبة التانية في إيده، ودي أحسن لحظة يعرف إنها عنده خلاص.
+    if (widget.packageReading != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkDuplicate());
+    }
     if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
       _food = offsetMinutes == 0
           ? FoodRelation.with_
@@ -109,6 +129,30 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               ? FoodRelation.before
               : FoodRelation.after;
     }
+  }
+
+  /// **بيسأل القايمة: الدوا ده عندك خلاص؟** — قبل الحفظ، مش بعده.
+  ///
+  /// بيتنده لما الاسم يتغيّر ولما الشاشة تفتح من صورة علبة. القراية من
+  /// القاعدة مرة واحدة كل نداء؛ القايمة دي أدوية راجل، مش جدول كبير.
+  Future<void> _checkDuplicate() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      if (mounted && _duplicate != null) setState(() => _duplicate = null);
+      return;
+    }
+    final services = AppScope.of(context);
+    final rows = await services.medications.currentMedicines(services.patientId);
+    if (!mounted) return;
+    final match = findDuplicate(
+      name: name,
+      activeIngredient: widget.packageReading?.ingredientField,
+      existing: rows,
+    );
+    setState(() {
+      _duplicate = match;
+      _duplicateChecked = true;
+    });
   }
 
   @override
@@ -260,6 +304,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       timings: result.timings,
       startDate: today,
       durationDays: result.durationDays,
+      // المادة الفعّالة من العلبة بتتخزّن مع الدوا — منها بس فحص
+      // التكرار بيقدر يشوف علبتين اسمهم مختلف ونفس المادة.
+      activeIngredient: widget.packageReading?.ingredientField,
     );
     await services.scheduler.rescheduleAll();
 
@@ -280,7 +327,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
                 children: [
-                  const Kicker('إضافة يدوية'),
+                  Kicker(widget.packageReading == null ? 'إضافة يدوية' : 'من صورة العلبة'),
                   const SizedBox(height: F.s4),
                   Text(
                     'ضيف دوا وجرعته',
@@ -292,6 +339,18 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                   ),
                   const SizedBox(height: F.gap),
+                  if (widget.packageReading case final read?) ...[
+                    _FromPhoto(reading: read),
+                    const SizedBox(height: F.s12),
+                  ],
+                  if (_duplicate case final dup?) ...[
+                    GoldNote(
+                      key: const ValueKey('duplicate-warning'),
+                      '${dup.message} لو ده نفس الدوا، ارجع وكمّل على اللي '
+                      'عندك بدل ما تضيفه تاني.',
+                    ),
+                    const SizedBox(height: F.s12),
+                  ],
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -301,7 +360,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           controller: _name,
                           hint: 'زي Concor 5mg',
                           mono: true,
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            setState(() {});
+                            if (_duplicateChecked) _checkDuplicate();
+                          },
                         ),
                         const SizedBox(height: F.gap),
                         const _FieldLabel('الجرعة في المرة (اختياري)'),
@@ -506,4 +568,72 @@ class _Field extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// **اللي اتقرا من الصورة، معلّم إنه اتقرا** — عشان يراجعه قبل ما يحفظ.
+///
+/// الحقول اللي القراية مكانتش واضحة فيها **بتفضل فاضية** وبتتسمّى في سطر
+/// تحت: حقل فاضي بيتملا، وحقل فيه تخمين بيتاخد كأنه صح.
+class _FromPhoto extends StatelessWidget {
+  const _FromPhoto({required this.reading});
+
+  final PackageReading reading;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(String, String)>[
+      if (reading.ingredientField case final v?) ('المادة الفعّالة', v),
+      if (reading.formField case final v?) ('الشكل', v),
+      if (reading.packSizeField case final v?) ('في العلبة', v),
+    ];
+    final unclear = reading.unclear;
+    return FCard(
+      key: const ValueKey('from-photo'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.photo_camera_outlined, size: 20, color: F.green),
+              const SizedBox(width: F.s8),
+              Expanded(
+                child: Text(
+                  'ده اللي قريناه من العلبة — راجعه',
+                  style: TextStyle(
+                    fontSize: F.minBodySize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: F.s8),
+          for (final (label, value) in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: F.s4),
+              child: Text(
+                '$label: $value',
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              ),
+            ),
+          if (unclear.isNotEmpty)
+            Text(
+              // نفس جملة شاشة التصوير بالحرف — مصدر واحد.
+              '$unreadablePackage (${unclear.join('، ')})',
+              key: const ValueKey('unclear-fields'),
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+            ),
+          const SizedBox(height: F.s8),
+          Text(
+            // **أهم سطر في الشاشة.** العلبة ما بتعرفش الراجل ده بياخد
+            // إيه امتى — ده كلام الدكتور، والحقول دي بتتملا بإيده.
+            'العلبة ما بتقولش الجرعة ولا المواعيد — دي من الدكتور، وإنت '
+            'اللي بتكتبها تحت.',
+            style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.6),
+          ),
+        ],
+      ),
+    );
+  }
 }

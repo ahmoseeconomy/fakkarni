@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../ai/lab_reader.dart';
+import '../ai/package_reader.dart';
 import '../core/diagnostics.dart';
 import '../ai/prescription_reader.dart';
 import '../data/contacts/contact_picker.dart';
@@ -35,6 +36,7 @@ class AppServices {
     this.tapPayload,
     this.prescriptionReader,
     this.labReader,
+    this.packageReader,
     this.attachments = const DirectoryAttachmentStore(),
     this.contacts = const NativeContactPicker(),
     this.auth,
@@ -109,6 +111,10 @@ class AppServices {
 
   /// قارئ تقارير التحاليل (D3.6) — نفس مفتاح Gemini. null = المفتاح مش متظبط.
   final LabReportReader? labReader;
+
+  /// قارئ علب الأدوية — نفس المفتاح ونفس النقل. null = المفتاح مش متظبط،
+  /// وشاشة التصوير هي اللي بتقول كده؛ «أكتبه بإيدي» شغّال زي ما هو.
+  final MedicinePackageReader? packageReader;
 
   /// صور التقارير — فولدر التطبيق. الاختبارات بتحط فولدر مؤقت.
   final AttachmentStore attachments;

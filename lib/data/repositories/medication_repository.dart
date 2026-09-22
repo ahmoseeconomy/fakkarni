@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/medication/duplicate_check.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import '../db/app_database.dart';
@@ -103,6 +104,10 @@ class MedicationRepository {
     bool amountUnknown = false,
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
+
+    /// المادة الفعّالة زي ما اتقرت من العلبة — null في كل طريق تاني.
+    /// بيتقرا منها سؤال واحد بعدين: «الدوا ده عندك خلاص؟».
+    String? activeIngredient,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -114,6 +119,7 @@ class MedicationRepository {
               name: name,
               amountLabel: Value(amountLabel),
               amountUnknown: Value(amountUnknown),
+              activeIngredient: Value(activeIngredient),
             ),
           );
       for (final timing in timings) {
@@ -429,6 +435,21 @@ class MedicationRepository {
                   t.removedAt.isNull(),
             ))
           .watch();
+
+  /// أدويته اللي في القايمة دلوقتي — لفحص «الدوا ده عندك خلاص؟».
+  ///
+  /// **الموقوف داخل والممسوح خارج.** الموقوف لسه في القايمة تحت
+  /// «موقوفة» وبيرجع بدوسة، فعلبة تانية منه تكرار فعلاً؛ الممسوح خرج
+  /// من كل قايمة ومفيش رجوع، فالتحذير عنه بيبقى كلام عن حاجة مش موجودة.
+  Future<List<ExistingMedicine>> currentMedicines(int patientId) async {
+    final rows = await (_db.select(_db.medications)
+          ..where((t) => t.patientId.equals(patientId) & t.removedAt.isNull()))
+        .get();
+    return [
+      for (final r in rows)
+        ExistingMedicine(name: r.name, activeIngredient: r.activeIngredient),
+    ];
+  }
 
   Stream<List<MedicationRow>> watchMedications(int patientId) =>
       (_db.select(_db.medications)
