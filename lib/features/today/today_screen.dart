@@ -29,7 +29,7 @@ import '../reminder/reminder_screen.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/glucose_home_card.dart';
-import 'widgets/now_card.dart';
+import 'widgets/now_block.dart';
 import 'widgets/water_widget.dart';
 import '../selfcheck/health_bar.dart';
 
@@ -64,7 +64,15 @@ class _TodayScreenState extends State<TodayScreen> {
   Stream<PatientRow?>? _patient;
 
   /// مجموعات اتأجّلت من الشاشة دي — بنقول «هنفكّرك تاني» تحتها.
-  final Set<DateTime> _snoozed = {};
+  /// دقيقة الجرعة → الموبايل هيفكّره إمتى تاني.
+  ///
+  /// **قراية للي التأجيل عمله، مش قرار تاني**: اللحظة بتتحسب من
+  /// [snoozeTimeFrom]، نفس اللي `ReminderScheduler.snooze` بتجدول عليها،
+  /// ومفيش هنا أي تغيير في التأجيل نفسه.
+  ///
+  /// في الذاكرة زي ما كانت: الشاشة بتعرف اللي اتأجّل **من عندها**. تأجيل
+  /// من شاشة القفل ما بيوصلش هنا — ده حدّها، وهو زي ما هو من قبل.
+  final Map<DateTime, DateTime> _snoozed = {};
 
   /// الأدوية اللي جرعتها مش معروفة — سؤال هادي للصيدلي، مش تنبيه.
   Stream<List<MedicationRow>>? _amountUnknown;
@@ -141,7 +149,34 @@ class _TodayScreenState extends State<TodayScreen> {
   /// «لاحقًا» = التأجيل الحقيقي (ربع ساعة)، نفس «تأجيل ١٥ د» في شاشة التذكير.
   Future<void> _later(List<DoseEventView> group) async {
     await snoozeGroup(AppScope.of(context), _routineDay, group, now: _now);
-    if (mounted) setState(() => _snoozed.add(group.first.scheduledAt));
+    if (mounted) {
+      setState(() => _snoozed[group.first.scheduledAt] = snoozeTimeFrom(_now));
+    }
+  }
+
+  /// «لاحقًا» على الكتلة: كل مجموعة دقيقة لسه مستنية بتتأجّل — **نفس
+  /// النداء بالظبط** اللي الكارت الواحد كان بيعمله، بس الكتلة بقت واحدة
+  /// فالزرار بقى واحد.
+  Future<void> _laterAll(List<NowLine> due) async {
+    for (final group in _distinctGroups(due)) {
+      await _later(group);
+    }
+  }
+
+  /// «تأكيد الكل» — سطر سطر، عشان كل دوا ياخد قراره حتى لو في دقايق مختلفة.
+  Future<void> _confirmAll(List<NowLine> lines) async {
+    for (final group in _distinctGroups(lines)) {
+      await _markTaken(group);
+    }
+  }
+
+  /// مجموعات الدقايق اللي السطور دي فيها، كل واحدة مرة.
+  List<List<DoseEventView>> _distinctGroups(List<NowLine> lines) {
+    final seen = <DateTime>{};
+    return [
+      for (final line in lines)
+        if (seen.add(line.group.first.scheduledAt)) line.group,
+    ];
   }
 
   void _openEdit(int medicationId) => Navigator.of(context).push(
@@ -234,6 +269,7 @@ class _TodayScreenState extends State<TodayScreen> {
           final groups = _group(events);
 
           final nowCards = nowGroups(groups, _now);
+          final lines = nowLines(nowCards, _snoozed);
           final glucoseNow = latestOutsideUsual(_readings);
 
           return ListView(
@@ -292,17 +328,20 @@ class _TodayScreenState extends State<TodayScreen> {
                 },
               ),
               if (nowCards.isNotEmpty || glucoseNow) ...[
-                const _SectionTitle('الآن', attention: true),
+                // **العدد في العنوان.** تلات كروت مكدّسة كانت بتخلّي
+                // السؤال «هما كام؟» محتاج نزول وعدّ؛ دلوقتي الإجابة في
+                // أول سطر بيقع عليه العين.
+                _SectionTitle(nowCountLabel(lines.due.length + lines.postponed.length),
+                    attention: true),
                 const SizedBox(height: F.s8),
-                for (final (i, group) in nowCards.indexed) ...[
-                  NowCard(
-                    doses: group,
+                if (nowCards.isNotEmpty) ...[
+                  NowBlock(
+                    lines: lines,
                     now: _now,
-                    primary: i == 0,
-                    snoozed: _snoozed.contains(group.first.scheduledAt),
-                    onConfirm: () => _markTaken(group),
-                    onOpen: () => _openReminder(group),
-                    onLater: () => _later(group),
+                    onConfirmLine: (line) => _markTaken([line.dose]),
+                    onConfirmAll: () =>
+                        _confirmAll([...lines.due, ...lines.postponed]),
+                    onLater: () => _laterAll(lines.due),
                   ),
                   const SizedBox(height: F.s10),
                 ],
@@ -624,10 +663,16 @@ class _SectionTitle extends StatelessWidget {
             decoration: BoxDecoration(color: attention ? F.gold : F.green, shape: BoxShape.circle),
           ),
           const SizedBox(width: F.s8),
-          Text(
-            text,
-            style: TextStyle(fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green),
-            key: ValueKey('section-$text'),
+          // **`Flexible` مش زينة**: العنوان بقى بيشيل عدّاد («الآن — ٣
+          // أدوية»)، وعلى SE بخط ×١٫٣ الصف كان بيفيض ٢١ بكسل. النقطة
+          // مقاسها ثابت، والكلام هو اللي بيلفّ.
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                  fontSize: F.sectionHeadSize, fontWeight: FontWeight.w700, color: F.green),
+              key: ValueKey('section-$text'),
+            ),
           ),
         ],
       );

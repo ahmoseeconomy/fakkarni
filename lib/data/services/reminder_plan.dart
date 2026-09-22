@@ -45,6 +45,16 @@ const int snoozeIdLimit = snoozeIdBase + maxPatients * patientIdSpan;
 /// مدة التأجيل الافتراضية — ربع ساعة.
 const Duration snoozeDelay = Duration(minutes: 15);
 
+/// الموبايل هيفكّره إمتى بعد «لاحقًا» — **قراية للي التأجيل عمله، مش قرار
+/// تاني**.
+///
+/// `ReminderScheduler.snooze` بتجدول عند `now + delay`؛ الدالة دي بتحسب
+/// نفس اللحظة عشان «يومك» تقولها بالكلام («هيفكّرك ١٠:٣٠ ص»). نسختين من
+/// نفس الحساب معناهم شاشة بتقول ميعاد والإشعار بيرن في ميعاد تاني، فـ
+/// `snooze_time_mirror_test` بيشغّل الجدولة الحقيقية ويقارن الاتنين.
+DateTime snoozeTimeFrom(DateTime now, {Duration delay = snoozeDelay}) =>
+    now.add(delay);
+
 /// نطاقات التصعيد — نطاق كامل لكل درجة على السلّم.
 ///
 /// الدرجة بتاخد رقمها من **خانة الجرعة الأصلية** زي التأجيل بالظبط: «أخدته»

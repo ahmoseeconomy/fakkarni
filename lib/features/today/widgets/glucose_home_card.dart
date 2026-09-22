@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
 import '../../../core/theme/tokens.dart';
-import 'now_card.dart' show CardTypeIcon;
+import 'card_type_icon.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/db/app_database.dart';
 import '../../../domain/health/usual_range.dart';

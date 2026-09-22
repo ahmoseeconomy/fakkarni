@@ -1,4 +1,5 @@
 import '../../app/app_scope.dart';
+import '../../core/format/arabic_time.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/services/reminder_plan.dart';
 
@@ -50,3 +51,82 @@ Future<void> snoozeGroup(
       ),
       now: now,
     );
+
+// ---------------------------------------------------------- كتلة «الآن»
+//
+// **كتلة واحدة، مش كارت لكل جرعة.** تلات أدوية مأجّلة كانت بتبقى تلات
+// كروت مكدّسة: الراجل مش عارف هما كام ولا مين فيهم من غير ما ينزل ويعدّ.
+// الداتا هي هي — اللي اتغيّر إنها بتتعرض كسطور في كتلة بعدّادها.
+
+/// سطر واحد في «الآن» — دوا واحد، ومجموعة دقيقته اللي بيتأجّل معاها.
+class NowLine {
+  const NowLine({required this.dose, required this.group, this.remindAgainAt});
+
+  final DoseEventView dose;
+
+  /// مجموعة الدقيقة بتاعته — **التأجيل بيشتغل على الدقيقة**، زي ما هو.
+  final List<DoseEventView> group;
+
+  /// الموبايل هيفكّره إمتى تاني — null يعني لسه ما اتأجّلتش من الشاشة دي.
+  final DateTime? remindAgainAt;
+
+  bool get postponed => remindAgainAt != null;
+}
+
+/// سطور «الآن» متقسّمة: اللي مستنية دلوقتي، واللي هو أجّلها.
+typedef NowLines = ({List<NowLine> due, List<NowLine> postponed});
+
+/// بتفرد مجموعات [nowGroups] لسطور، وبتفصل اللي اتأجّل.
+///
+/// الترتيب جاي من [nowGroups] زي ما هو (الأقدم الأول)، والمأجّلة بتترتّب
+/// بميعاد التذكير الجاي — ده اللي الراجل بيسأل عنه فيها.
+NowLines nowLines(
+  List<List<DoseEventView>> groups,
+  Map<DateTime, DateTime> snoozedUntil,
+) {
+  final due = <NowLine>[];
+  final postponed = <NowLine>[];
+  for (final group in groups) {
+    final again = snoozedUntil[group.first.scheduledAt];
+    for (final dose in group) {
+      if (dose.isDone) continue;
+      final line = NowLine(dose: dose, group: group, remindAgainAt: again);
+      (again == null ? due : postponed).add(line);
+    }
+  }
+  postponed.sort((a, b) => a.remindAgainAt!.compareTo(b.remindAgainAt!));
+  return (due: due, postponed: postponed);
+}
+
+/// أقصى عدد سطور بتتعرض قبل ما الباقي يتطوى.
+///
+/// تلاتة مش رقم مخترع: الكتلة فوق «جدول النهاردة» وتحت الترويسة، وزرار
+/// «تأكيد الكل» لازم يفضل كامل فوق الدوك على أصغر آيفون — وده اللي
+/// بيحدّد السقف، مش الذوق.
+const int maxNowLines = 3;
+
+/// «+ دوا كمان» / «+ دواين كمان» / «+ ٣ أدوية كمان».
+///
+/// بالكلام مش برقم لوحده: «+٢» جنب كتلة ذهبية بتتقري كأنها زينة، والدوا
+/// المطوي بيعدّي. والعربي بيعدّ تلات صيغ، فالمفرد والمثنى مكتوبين بالإيد.
+String moreDosesLabel(int rest) => switch (rest) {
+      1 => '+ دوا كمان',
+      2 => '+ دواين كمان',
+      _ => '+ ${arabicNumber(rest)} أدوية كمان',
+    };
+
+/// «٣ أدوية» — عدّاد ترويسة «الآن».
+///
+/// **مفيش «·» في أي جملة بيقراها** (قاعدة مكتوبة واختبار بيقرا كل نص في
+/// `lib/`): «٠» العربية هي نقطة، فالنقطة الوسطية جنب رقم عربي بتتقري رقم.
+/// الفاصل « — ».
+String nowCountLabel(int doses) => switch (doses) {
+      // صفر كمان: «الآن» بتظهر لقياس سكر برّه المعتاد من غير أي جرعة.
+      <= 1 => 'الآن',
+      2 => 'الآن — دوايين',
+      _ => 'الآن — ${arabicNumber(doses)} أدوية',
+    };
+
+/// «أجّلتها — ٢».
+String postponedLabel(int count) =>
+    count == 1 ? 'أجّلتها' : 'أجّلتها — ${arabicNumber(count)}';

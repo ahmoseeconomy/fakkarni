@@ -17,7 +17,7 @@ import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/features/today/widgets/now_card.dart';
+import 'package:fakkarni/features/today/widgets/now_block.dart';
 import 'package:fakkarni/data/db/tables.dart' show GlucoseContext;
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/features/health/glucose_screen.dart';
@@ -423,22 +423,27 @@ void main() {
       expect(find.text('تعمل إيه دلوقتي؟'), findsNothing);
     });
 
-    screenTest('«الآن»: الفايتة قبل الجاية، ذهبي من غير أحمر، وزرار أساسي واحد', (tester) async {
+    screenTest('«الآن»: كتلة واحدة، الفايتة قبل الجاية، ذهبي من غير أحمر', (tester) async {
       await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — فاتت
       await addDose('LINEX', DayAnchor.lunch, offset: -30); // ٢:٠٠ م — الجاية
       await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
 
-      final cards = find.byType(NowCard);
-      expect(cards, findsNWidgets(2));
-      final missed = tester.getCenter(find.descendant(of: cards.first, matching: find.text('Antodine')));
-      final next = tester.getCenter(find.descendant(of: cards.last, matching: find.text('LINEX')));
+      // **كتلة واحدة، مش كارت لكل جرعة** — والعدد في عنوانها.
+      final block = find.byType(NowBlock);
+      expect(block, findsOneWidget);
+      expect(find.text('الآن — دوايين'), findsOneWidget);
+
+      final missed = tester.getCenter(find.descendant(of: block, matching: find.text('Antodine')));
+      final next = tester.getCenter(find.descendant(of: block, matching: find.text('LINEX')));
       expect(missed.dy, lessThan(next.dy));
       expect(find.text('لسه ما اتأكدتش — كان معادها ٧:٠٠ ص'), findsOneWidget);
-      for (final card in tester.widgetList<FCard>(find.descendant(of: cards, matching: find.byType(FCard)))) {
-        expect(card.tone, FCardTone.attention);
-      }
+      expect(
+        tester.widget<FCard>(find.descendant(of: block, matching: find.byType(FCard))).tone,
+        FCardTone.attention,
+      );
+      // زرار أساسي واحد للكتلة كلها
       expect(find.byType(FilledButton), findsOneWidget);
-      expect(find.text('افتح'), findsOneWidget, reason: 'الكارت التاني بيفتح شاشة التذكير');
+      expect(find.text('تأكيد الكل'), findsOneWidget);
       expectNoRed(tester);
     });
 
@@ -450,7 +455,8 @@ void main() {
       await settle(tester);
 
       expect(sink.scheduled.map((n) => n.id), contains(snoozeIdFor(DateTime(2026, 8, 31, 7))));
-      expect(find.text('هنفكّرك تاني بعد ربع ساعة'), findsOneWidget);
+      // السطر بقى بيقول الميعاد نفسه مش «بعد ربع ساعة» — ٨:٠٠ + ١٥ د
+      expect(find.text('هيفكّرك ٨:١٥ ص'), findsOneWidget);
     });
 
     screenTest('«خلال ٤٨ ساعة» فيها جرعات بكرة، ومفيش سكر ولا تحاليل', (tester) async {
