@@ -35,16 +35,22 @@ Future<void> open(WidgetTester tester, FakeAdminService service) async {
 
 void main() {
   group('حالة الصف — دالة نقية', () {
-    test('مفيش نبضة خالص = محتاج نظرة', () {
-      expect(rowTone(account(), now), RowTone.alarm);
+    test('مفيش نبضة خالص = ساكت', () {
+      expect(rowTone(account(), now), RowTone.silent);
     });
 
-    test('نبضة من ٣ أيام = محتاج نظرة — الغياب أخطر من أي كود', () {
+    test('نبضة من ٣ أيام = ساكت — الغياب أخطر من أي كود', () {
       expect(rowTone(account(seenAt: now.subtract(const Duration(days: 3))), now),
-          RowTone.alarm);
+          RowTone.silent);
     });
 
-    test('تنبيه مفتوح = محتاج نظرة، حتى والنبضة دلوقتي', () {
+    test('**والساكت قبل التنبيه**: تنبيه مفتوح على موبايل ساكت = ساكت', () {
+      // اللي بيتقري الأول هو اللي يفسّر التاني: التنبيه ما اتقفلش لأن الموبايل
+      // مش بيبعت، مش العكس.
+      expect(rowTone(account(pending: 3), now), RowTone.silent);
+    });
+
+    test('تنبيه مفتوح = تنبيه، والنبضة دلوقتي', () {
       expect(rowTone(account(seenAt: now, pending: 1), now), RowTone.alarm);
     });
 

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../data/admin_models.dart';
 import '../../format/arabic_time.dart';
 import '../../format/relative_time.dart';
+import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
+import 'motion_widgets.dart';
 import 'status_cues.dart';
 
 /// الأعمدة اللي ينفع نرتّب بيها. الترتيب **دالة نقية** فوق القايمة —
@@ -128,9 +130,10 @@ class AccountsTable extends StatelessWidget {
           label,
           style: TextStyle(
             fontFamily: F.bodyFamily,
-            fontSize: F.careTextSize,
+            fontSize: F.careMicroSize,
             fontWeight: FontWeight.w700,
             color: F.mutedDark,
+            letterSpacing: 0.2,
           ),
         ),
         // عمود جديد بيبدأ من طرفه الوحش، ونفس العمود بيتقلب. قبل كده كل
@@ -144,56 +147,90 @@ class AccountsTable extends StatelessWidget {
                 ),
       );
 
+  List<Widget> _cellsFor(AdminAccount account) => [
+        Text(
+          account.patientName.isEmpty ? 'من غير اسم' : account.patientName,
+          style: _cell.copyWith(fontWeight: FontWeight.w600),
+        ),
+        ToneBadge(rowTone(account, now)),
+        Text(deviceWord(account), style: _cell),
+        Text(batteryWord(account.batteryState), style: _cell),
+        Text(
+          account.lastSyncAt == null ? 'مفيش' : timeSince(now, account.lastSyncAt!),
+          style: _cell,
+        ),
+        Text(arabicNumber(account.missedDoses24h), style: _cell),
+        Text(arabicNumber(account.pendingEscalations), style: _cell),
+        Text(arabicNumber(account.escalations7d), style: _cell),
+        Text(arabicNumber(account.followersCount), style: _cell),
+        Text(arabicNumber(account.pendingInvites), style: _cell),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final index = _sortable.indexOf(sortBy);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        // الترتيب اتعمل فوق في الحالة — الجدول بيعرض بس.
-        sortColumnIndex: index < 0 ? null : index + 4,
-        sortAscending: ascending,
-        headingRowColor: WidgetStatePropertyAll(F.railGround),
-        dividerThickness: 1,
-        columns: [
-          _column('الاسم'),
-          _column('الحالة'),
-          _column('الجهاز'),
-          _column('البطارية'),
-          _column('آخر مزامنة', sort: AccountSort.lastSync),
-          _column('ما اتأكدتش ٢٤ س', sort: AccountSort.missedDoses),
-          _column('تنبيهات مفتوحة', sort: AccountSort.pendingEscalations),
-          _column('تنبيهات ٧ أيام'),
-          _column('متابعين'),
-          _column('أكواد مستنية'),
-        ],
-        rows: [
-          for (final account in accounts)
-            DataRow(
-              selected: account.patientUuid == selected,
-              onSelectChanged: (_) => onOpen(account),
-              cells: [
-                DataCell(Text(
-                  account.patientName.isEmpty ? 'من غير اسم' : account.patientName,
-                  style: _cell.copyWith(fontWeight: FontWeight.w600),
-                )),
-                DataCell(ToneBadge(rowTone(account, now))),
-                DataCell(Text(deviceWord(account), style: _cell)),
-                DataCell(Text(batteryWord(account.batteryState), style: _cell)),
-                DataCell(Text(
-                  account.lastSyncAt == null
-                      ? 'مفيش'
-                      : timeSince(now, account.lastSyncAt!),
-                  style: _cell,
-                )),
-                DataCell(Text(arabicNumber(account.missedDoses24h), style: _cell)),
-                DataCell(Text(arabicNumber(account.pendingEscalations), style: _cell)),
-                DataCell(Text(arabicNumber(account.escalations7d), style: _cell)),
-                DataCell(Text(arabicNumber(account.followersCount), style: _cell)),
-                DataCell(Text(arabicNumber(account.pendingInvites), style: _cell)),
-              ],
-            ),
-        ],
+    return Container(
+      decoration: BoxDecoration(
+        color: F.cardGround,
+        border: Border.all(color: F.line),
+        borderRadius: BorderRadius.circular(F.careRadius),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          // الترتيب اتعمل فوق في الحالة — الجدول بيعرض بس. سهم الترتيب
+          // بيلفّ لوحده لما الاتجاه يتغيّر (جوّه DataTable).
+          sortColumnIndex: index < 0 ? null : index + 4,
+          sortAscending: ascending,
+          showCheckboxColumn: false,
+          headingRowColor: WidgetStatePropertyAll(F.railGround),
+          headingRowHeight: 44,
+          dataRowMinHeight: 52,
+          dataRowMaxHeight: 52,
+          dividerThickness: 0.6,
+          horizontalMargin: F.s16,
+          columnSpacing: F.s22,
+          columns: [
+            _column('الاسم'),
+            _column('الحالة'),
+            _column('الجهاز'),
+            _column('البطارية'),
+            _column('آخر مزامنة', sort: AccountSort.lastSync),
+            _column('ما اتأكدتش ٢٤ س', sort: AccountSort.missedDoses),
+            _column('تنبيهات مفتوحة', sort: AccountSort.pendingEscalations),
+            _column('تنبيهات ٧ أيام'),
+            _column('متابعين'),
+            _column('أكواد مستنية'),
+          ],
+          rows: [
+            for (final (i, account) in accounts.indexed)
+              DataRow(
+                selected: account.patientUuid == selected,
+                onSelectChanged: (_) => onOpen(account),
+                // زيبرا: الصف الفردي أغمق شوية. تحت الماوس: تظليل أخضر.
+                color: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.hovered)) return F.greenTint;
+                  if (states.contains(WidgetState.selected)) {
+                    return F.gold.withValues(alpha: 0.12);
+                  }
+                  return i.isOdd ? F.railGround : null;
+                }),
+                cells: [
+                  // كل صف بيدخل بعد اللي قبله بـ٣٠ مللي — الخلايا هي اللي
+                  // بتتحرّك، لأن الصف نفسه مش ودجت.
+                  for (final cell in _cellsFor(account))
+                    DataCell(
+                      FadeSlideIn(
+                        delay: staggerDelay(context, i),
+                        dy: 0.35,
+                        child: cell,
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

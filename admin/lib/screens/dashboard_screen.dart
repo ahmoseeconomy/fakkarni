@@ -12,6 +12,9 @@ import 'widgets/accounts_sort.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
 import 'widgets/counts_strip.dart';
+import 'widgets/side_panel.dart';
+import 'widgets/skeletons.dart';
+import 'widgets/top_bar.dart';
 
 /// كل تحديث بيجيب العدّادات والصفوف مع بعض — نداء واحد للسحابة لكل سحبة.
 /// **بيدق كل دقيقة وهو ظاهر وبس**، ووقفة على `paused`/`hidden` — نفس شكل
@@ -41,6 +44,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   List<AdminAccount> _accounts = const [];
   AdminException? _error;
   bool _loading = true;
+
+  /// تحديث شغّال ورا الشاشة — الأيقونة بتلفّ، والداتا القديمة فاضلة.
+  bool _refreshing = false;
   DateTime? _updatedAt;
 
   AccountSort _sortBy = AccountSort.pendingEscalations;
@@ -89,6 +95,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Future<void> refresh() async {
+    // أول تحميل بيتعرض كهيكل؛ اللي بعده بيلفّ الأيقونة وبس.
+    if (mounted && !_loading && !_refreshing) setState(() => _refreshing = true);
     try {
       final counts = await widget.service.counts();
       final accounts = await widget.service.accounts();
@@ -98,6 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _accounts = accounts;
         _error = null;
         _loading = false;
+        _refreshing = false;
         _updatedAt = _now;
       });
     } on AdminException catch (e) {
@@ -105,6 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       setState(() {
         _error = e;
         _loading = false;
+        _refreshing = false;
       });
     }
   }
@@ -148,106 +158,124 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       ascending: _ascending,
     );
     final open = _open;
-    final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= 900;
     // تحت ده الجدول بيبقى كروت — نفس الصفوف، من غير تمرير أفقي.
-    final narrow = width < phoneBreakpoint;
+    final narrow = MediaQuery.sizeOf(context).width < phoneBreakpoint;
+    final withOpenAlerts = _accounts.where((a) => a.pendingEscalations > 0).length;
 
     final body = ListView(
       padding: const EdgeInsets.all(F.s16),
       children: [
-        CountsStrip(_counts),
-        const SizedBox(height: F.s16),
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: F.careRowGap,
-          children: [
-            SizedBox(
-              width: narrow ? double.infinity : 260,
-              child: TextField(
-                onChanged: (value) => setState(() => _query = value),
-                textInputAction: TextInputAction.search,
-                style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careBodySize),
-                decoration: InputDecoration(
-                  isDense: true,
-                  filled: true,
-                  fillColor: F.fieldGround,
-                  hintText: 'دوّر بالاسم',
-                  hintStyle: TextStyle(
-                      fontFamily: F.bodyFamily,
-                      fontSize: F.careTextSize,
-                      color: F.placeholder),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(F.radiusChip),
+        if (_loading)
+          DashboardSkeleton(narrow: narrow)
+        else ...[
+          CountsStrip(_counts, accountsWithOpenAlerts: withOpenAlerts),
+          const SizedBox(height: F.s16),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: F.careRowGap,
+            runSpacing: F.careRowGap,
+            children: [
+              SizedBox(
+                width: narrow ? double.infinity : 280,
+                child: TextField(
+                  onChanged: (value) => setState(() => _query = value),
+                  textInputAction: TextInputAction.search,
+                  style: TextStyle(
+                      fontFamily: F.bodyFamily, fontSize: F.careBodySize, color: F.ink),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: F.fieldGround,
+                    prefixIcon: Icon(Icons.search_rounded, size: 20, color: F.mutedDark),
+                    hintText: 'دوّر بالاسم',
+                    hintStyle: TextStyle(
+                        fontFamily: F.bodyFamily,
+                        fontSize: F.careTextSize,
+                        color: F.placeholder),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: BorderSide(color: F.line),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: BorderSide(color: F.line),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: F.gold, width: 1.5),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_updatedAt != null)
-                  Text(
-                    'آخر تحديث ${timeSince(_now, _updatedAt!)}',
-                    style: TextStyle(
-                        fontFamily: F.bodyFamily,
-                        fontSize: F.careMicroSize,
-                        color: F.mutedDark),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_updatedAt != null)
+                    Text(
+                      'آخر تحديث ${timeSince(_now, _updatedAt!)}',
+                      style: TextStyle(
+                          fontFamily: F.bodyFamily,
+                          fontSize: F.careMicroSize,
+                          color: F.mutedDark),
+                    ),
+                  AdminTextAction(
+                    label: 'حدّث',
+                    icon: Icons.refresh_rounded,
+                    busy: _refreshing,
+                    onPressed: () => unawaited(refresh()),
                   ),
-                AdminTextAction(
-                    label: 'حدّث', onPressed: () => unawaited(refresh())),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: F.careRowGap),
-        if (_error != null)
-          AdminPanel(
-            text: _error!.message,
-            action: 'حاول تاني',
-            onAction: () => unawaited(refresh()),
-          )
-        else if (_loading)
-          const AdminPanel(text: 'بنجيب البيانات…')
-        else if (rows.isEmpty)
-          AdminPanel(text: _query.trim().isEmpty ? 'مفيش حسابات لسه.' : 'مفيش نتايج.')
-        else if (narrow) ...[
-          // الكروت مالهاش ترويسات تترتّب منها، فالقايمة هي بديلها.
-          AccountsSortBar(
-            sortBy: _sortBy,
-            ascending: _ascending,
-            onSort: (by, asc) => setState(() {
-              _sortBy = by;
-              _ascending = asc;
-            }),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: F.careRowGap),
-          AccountsCards(
-            accounts: rows,
-            now: _now,
-            selected: open?.patientUuid,
-            onOpen: (account) => unawaited(_openAccount(account)),
-          ),
-        ] else
-          AccountsTable(
-            accounts: rows,
-            now: _now,
-            sortBy: _sortBy,
-            ascending: _ascending,
-            selected: open?.patientUuid,
-            onSort: (by, asc) => setState(() {
-              _sortBy = by;
-              _ascending = asc;
-            }),
-            onOpen: (account) => unawaited(_openAccount(account)),
-          ),
+          if (_error != null)
+            AdminPanel(
+              text: _error!.message,
+              action: 'حاول تاني',
+              onAction: () => unawaited(refresh()),
+            )
+          else if (rows.isEmpty)
+            AdminPanel(text: _query.trim().isEmpty ? 'مفيش حسابات لسه.' : 'مفيش نتايج.')
+          else if (narrow) ...[
+            // الكروت مالهاش ترويسات تترتّب منها، فالقايمة هي بديلها.
+            AccountsSortBar(
+              sortBy: _sortBy,
+              ascending: _ascending,
+              onSort: (by, asc) => setState(() {
+                _sortBy = by;
+                _ascending = asc;
+              }),
+            ),
+            const SizedBox(height: F.careRowGap),
+            AccountsCards(
+              accounts: rows,
+              now: _now,
+              selected: open?.patientUuid,
+              onOpen: (account) => unawaited(_openAccount(account)),
+            ),
+          ] else
+            AccountsTable(
+              accounts: rows,
+              now: _now,
+              sortBy: _sortBy,
+              ascending: _ascending,
+              selected: open?.patientUuid,
+              onSort: (by, asc) => setState(() {
+                _sortBy = by;
+                _ascending = asc;
+              }),
+              onOpen: (account) => unawaited(_openAccount(account)),
+            ),
+        ],
       ],
     );
 
     final panel = open == null
         ? null
         : AccountPanel(
+            key: ValueKey(open.patientUuid),
             account: open,
             now: _now,
             followers: _followers,
@@ -260,49 +288,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     return Scaffold(
       backgroundColor: F.pageGround,
-      appBar: AppBar(
-        backgroundColor: F.pageGround,
-        surfaceTintColor: Colors.transparent,
-        titleSpacing: F.s16,
-        toolbarHeight: 52,
-        title: Text(
-          'لوحة فكرني',
-          style: TextStyle(
-            fontFamily: F.displayFamily,
-            fontSize: F.careTitleSize,
-            fontWeight: FontWeight.w700,
-            color: F.ink,
-          ),
-        ),
-        actions: [
-          if (widget.service.currentEmail != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: F.s8),
-              child: Center(
-                child: Text(
-                  widget.service.currentEmail!,
-                  style: TextStyle(
-                      fontFamily: F.bodyFamily,
-                      fontSize: F.careMicroSize,
-                      color: F.mutedDark),
-                ),
-              ),
-            ),
-          AdminTextAction(label: 'خروج', onPressed: () => unawaited(_signOut())),
-          const SizedBox(width: F.s8),
-        ],
+      appBar: AdminTopBar(
+        email: widget.service.currentEmail,
+        onSignOut: () => unawaited(_signOut()),
       ),
-      // اللوحة جنب الجدول على شاشة واسعة، وصفحة كاملة على الضيّقة.
-      body: wide && panel != null
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: body),
-                const VerticalDivider(width: 1),
-                SizedBox(width: 380, child: panel),
-              ],
-            )
-          : (panel ?? body),
+      // اللوحة بتنزلق من بداية السطر فوق ستارة — على الواسع والضيّق.
+      body: SidePanelOverlay(
+        panel: panel,
+        onDismiss: () => setState(() => _open = null),
+        child: body,
+      ),
     );
   }
 }

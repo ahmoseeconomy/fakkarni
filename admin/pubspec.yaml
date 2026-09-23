@@ -16,6 +16,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   supabase_flutter: ^2.17.2
+  # الوضع الليلي بيتفكّر على الجهاز ده — على الويب ده localStorage.
+  shared_preferences: ^2.5.5
   # بيسكّت تحذير البناء عن خطوط CupertinoIcons وبس.
   cupertino_icons: ^1.0.8
 
@@ -26,6 +28,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # **العلامة منسوخة حرفياً من التطبيق** — `assets/branding/icon-foreground.png`
+  # في حزمة الموبايل (الـ«ف» بالعاجي ونقطة دهبية، شفّافة). ما بتترسمش تاني
+  # هنا أبداً؛ اللي بيتغيّر هو المقاس والقصّ بس. تعديل هناك بيتنقل بالإيد.
+  assets:
+    - assets/branding/mark.png
 
   # نفس خطوط التطبيق بالحرف — نسخة في `admin/assets/fonts/` عشان الحزمة
   # تفضل مستقلة.

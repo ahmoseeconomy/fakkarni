@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../../data/admin_models.dart';
 import '../../format/arabic_time.dart';
 import '../../format/relative_time.dart';
+import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
 import 'accounts_table.dart';
 import 'admin_ui.dart';
+import 'motion_widgets.dart';
 import 'status_cues.dart';
 
 /// **نفس الصفوف، بس ككروت** — للشاشة الضيّقة (موبايل المدير).
@@ -34,14 +36,18 @@ class AccountsCards extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final account in accounts)
-          Padding(
-            padding: const EdgeInsets.only(bottom: F.careRowGap),
-            child: _AccountCard(
-              account: account,
-              now: now,
-              onOpen: () => onOpen(account),
-              isSelected: account.patientUuid == selected,
+        for (final (i, account) in accounts.indexed)
+          FadeSlideIn(
+            key: ValueKey(account.patientUuid),
+            delay: staggerDelay(context, i),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: F.careRowGap),
+              child: _AccountCard(
+                account: account,
+                now: now,
+                onOpen: () => onOpen(account),
+                isSelected: account.patientUuid == selected,
+              ),
             ),
           ),
       ],
@@ -65,68 +71,57 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = rowTone(account, now);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(F.careRadius),
-        child: AdminCard(
-          edge: isSelected ? toneColour(tone) : null,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final muted = TextStyle(
+      fontFamily: F.bodyFamily,
+      fontSize: F.careMicroSize,
+      color: F.mutedDark,
+    );
+    return AdminCard(
+      onTap: onOpen,
+      edge: isSelected ? toneColour(tone) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      account.patientName.isEmpty ? 'من غير اسم' : account.patientName,
-                      style: TextStyle(
-                        fontFamily: F.bodyFamily,
-                        fontSize: F.careBodySize,
-                        fontWeight: FontWeight.w700,
-                        color: F.ink,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  account.patientName.isEmpty ? 'من غير اسم' : account.patientName,
+                  style: TextStyle(
+                    fontFamily: F.displayFamily,
+                    fontSize: F.careBodySize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
                   ),
-                  const SizedBox(width: F.s8),
-                  ToneBadge(tone),
-                ],
-              ),
-              const SizedBox(height: F.s4),
-              Text(
-                '${deviceWord(account)} — بطارية ${batteryWord(account.batteryState)}',
-                style: TextStyle(
-                  fontFamily: F.bodyFamily,
-                  fontSize: F.careMicroSize,
-                  color: F.mutedDark,
                 ),
               ),
-              Text(
-                account.lastSyncAt == null
-                    ? 'مفيش مزامنة'
-                    : 'آخر مزامنة ${timeSince(now, account.lastSyncAt!)}',
-                style: TextStyle(
-                  fontFamily: F.bodyFamily,
-                  fontSize: F.careMicroSize,
-                  color: F.mutedDark,
-                ),
-              ),
-              const SizedBox(height: F.careRowGap),
-              // الأرقام كأزواج بتلفّ — نفس أعمدة الجدول بالحرف.
-              Wrap(
-                spacing: F.s12,
-                runSpacing: F.s4,
-                children: [
-                  _stat('ما اتأكدتش ٢٤ س', account.missedDoses24h),
-                  _stat('تنبيهات مفتوحة', account.pendingEscalations),
-                  _stat('تنبيهات ٧ أيام', account.escalations7d),
-                  _stat('متابعين', account.followersCount),
-                  _stat('أكواد مستنية', account.pendingInvites),
-                ],
-              ),
+              const SizedBox(width: F.s8),
+              ToneBadge(tone),
             ],
           ),
-        ),
+          const SizedBox(height: F.s4),
+          Text('${deviceWord(account)} — بطارية ${batteryWord(account.batteryState)}',
+              style: muted),
+          Text(
+            account.lastSyncAt == null
+                ? 'مفيش مزامنة'
+                : 'آخر مزامنة ${timeSince(now, account.lastSyncAt!)}',
+            style: muted,
+          ),
+          const SizedBox(height: F.careRowGap),
+          // الأرقام كأزواج بتلفّ — نفس أعمدة الجدول بالحرف.
+          Wrap(
+            spacing: F.s12,
+            runSpacing: F.s4,
+            children: [
+              _stat('ما اتأكدتش ٢٤ س', account.missedDoses24h),
+              _stat('تنبيهات مفتوحة', account.pendingEscalations),
+              _stat('تنبيهات ٧ أيام', account.escalations7d),
+              _stat('متابعين', account.followersCount),
+              _stat('أكواد مستنية', account.pendingInvites),
+            ],
+          ),
+        ],
       ),
     );
   }

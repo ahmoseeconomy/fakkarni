@@ -32,50 +32,50 @@ class AccountsSortBar extends StatelessWidget {
     AccountSort.lastSync,
   ];
 
-  TextStyle get _label => TextStyle(
-        fontFamily: F.bodyFamily,
-        fontSize: F.careTextSize,
-        color: F.mutedDark,
-      );
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: F.s8,
-      runSpacing: F.s4,
+    // سطر واحد: القايمة بتاخد العرض والزرار جنبها. Wrap كان بيكسرهم سطرين
+    // على ٣٧٥ بكسل — مية بكسل زيادة فوق قايمة الحسابات على أضيق شاشة.
+    return Row(
       children: [
-        Text('ترتيب', style: _label),
-        // الحد الأدنى للمس على القايمة نفسها — `DropdownButton` بيطلع
-        // أقصر من كده لوحده.
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: F.careTapTarget),
-          child: DropdownButton<AccountSort>(
-            value: sortBy,
-            isDense: false,
-            borderRadius: BorderRadius.circular(F.radiusChip),
-            style: TextStyle(
-              fontFamily: F.bodyFamily,
-              fontSize: F.careBodySize,
-              fontWeight: FontWeight.w600,
-              color: F.ink,
+        Icon(Icons.sort_rounded, size: 18, color: F.mutedDark),
+        const SizedBox(width: F.s8),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: F.careTapTarget),
+            child: DropdownButton<AccountSort>(
+              value: sortBy,
+              isExpanded: true,
+              isDense: false,
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(F.radiusChip),
+              iconEnabledColor: F.mutedDark,
+              dropdownColor: F.cardGround,
+              style: TextStyle(
+                fontFamily: F.bodyFamily,
+                fontSize: F.careBodySize,
+                fontWeight: FontWeight.w600,
+                color: F.ink,
+              ),
+              items: [
+                for (final field in _fields)
+                  DropdownMenuItem<AccountSort>(
+                    value: field,
+                    child: Text(sortFieldLabel(field)),
+                  ),
+              ],
+              // **عمود جديد بيبدأ من طرفه الوحش** — نفس قاعدة الجدول.
+              onChanged: (field) {
+                if (field == null || field == sortBy) return;
+                onSort(field, defaultAscendingFor(field));
+              },
             ),
-            items: [
-              for (final field in _fields)
-                DropdownMenuItem<AccountSort>(
-                  value: field,
-                  child: Text(sortFieldLabel(field)),
-                ),
-            ],
-            // **عمود جديد بيبدأ من طرفه الوحش** — نفس قاعدة الجدول.
-            onChanged: (field) {
-              if (field == null || field == sortBy) return;
-              onSort(field, defaultAscendingFor(field));
-            },
           ),
         ),
         AdminTextAction(
           label: sortDirectionLabel(sortBy, ascending: ascending),
+          icon: ascending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
           onPressed: () => onSort(sortBy, !ascending),
         ),
       ],

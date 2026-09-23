@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../data/admin_service.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'widgets/admin_ui.dart';
+import 'widgets/brand_mark.dart';
+import 'widgets/motion_widgets.dart';
 
 /// دخول بإيميل وباسورد — مفيش تسجيل حساب، ومفيش دخول مجهول.
 ///
@@ -57,56 +60,110 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final buttonGround = F.isDark ? F.green : F.greenDeep;
+    final buttonInk = F.isDark ? F.inkDeep : F.onDark;
     return Scaffold(
-      backgroundColor: F.pageGround,
+      backgroundColor: brandGround,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(F.s16),
-          child: SizedBox(
-            width: 360,
-            child: AdminCard(
-              padding: const EdgeInsets.all(F.s20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const AdminHead('لوحة فكرني'),
-                  const SizedBox(height: F.s4),
-                  Text(
-                    'قراية بس — أرقام تشغيل، مفيش بيانات طبية.',
-                    style: TextStyle(
-                        fontFamily: F.bodyFamily,
-                        fontSize: F.careTextSize,
-                        color: F.mutedDark),
-                  ),
-                  const SizedBox(height: F.s16),
-                  _field(_email, 'الإيميل', TextInputAction.next),
-                  const SizedBox(height: F.careRowGap),
-                  _field(_password, 'الباسورد', TextInputAction.done, obscure: true),
-                  if (_error != null) ...[
-                    const SizedBox(height: F.careRowGap),
-                    AdminPanel(text: _error!),
-                  ],
-                  const SizedBox(height: F.s16),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, F.careTapTarget),
-                      backgroundColor: F.greenDeep,
-                      foregroundColor: F.onDark,
+          padding: const EdgeInsets.all(F.s20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const BrandMarkHero(size: 128),
+              const SizedBox(height: F.s22),
+              // الكارت بيلحق العلامة بشوية — الاتنين مع بعض كانوا هيتقاطعوا.
+              FadeSlideIn(
+                delay: motionDuration(context, Motion.quick),
+                child: SizedBox(
+                  width: 380,
+                  child: Container(
+                    padding: const EdgeInsets.all(F.s22),
+                    decoration: BoxDecoration(
+                      color: loginCardGround,
+                      borderRadius: BorderRadius.circular(F.radiusSection),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 30,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      _busy ? 'ثانية…' : 'دخول',
-                      style: const TextStyle(
-                        fontFamily: F.bodyFamily,
-                        fontSize: F.careBodySize,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'لوحة فكرني',
+                          style: TextStyle(
+                            fontFamily: F.displayFamily,
+                            fontSize: F.screenTitleSize,
+                            fontWeight: FontWeight.w700,
+                            color: F.ink,
+                          ),
+                        ),
+                        const SizedBox(height: F.s4),
+                        Text(
+                          'قراية بس — أرقام تشغيل، مفيش بيانات طبية.',
+                          style: TextStyle(
+                            fontFamily: F.bodyFamily,
+                            fontSize: F.careTextSize,
+                            color: F.mutedDark,
+                          ),
+                        ),
+                        const SizedBox(height: F.s20),
+                        _field(_email, 'الإيميل', TextInputAction.next),
+                        const SizedBox(height: F.s10),
+                        _field(_password, 'الباسورد', TextInputAction.done, obscure: true),
+                        if (_error != null) ...[
+                          const SizedBox(height: F.s10),
+                          AdminPanel(text: _error!),
+                        ],
+                        const SizedBox(height: F.s20),
+                        FilledButton(
+                          onPressed: _busy ? null : _submit,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 52),
+                            backgroundColor: buttonGround,
+                            foregroundColor: buttonInk,
+                            disabledBackgroundColor: buttonGround.withValues(alpha: 0.7),
+                            disabledForegroundColor: buttonInk,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(F.radiusTile),
+                            ),
+                          ),
+                          child: _busy
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: buttonInk,
+                                      ),
+                                    ),
+                                    const SizedBox(width: F.s10),
+                                    const Text('ثانية…'),
+                                  ],
+                                )
+                              : const Text(
+                                  'دخول',
+                                  style: TextStyle(
+                                    fontFamily: F.bodyFamily,
+                                    fontSize: F.careBodySize,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -124,13 +181,25 @@ class _LoginScreenState extends State<LoginScreen> {
         obscureText: obscure,
         textInputAction: action,
         onSubmitted: action == TextInputAction.done ? (_) => _submit() : null,
-        style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careBodySize),
+        style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careBodySize, color: F.ink),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careTextSize),
+          labelStyle: TextStyle(
+              fontFamily: F.bodyFamily, fontSize: F.careTextSize, color: F.mutedDark),
           filled: true,
           fillColor: F.fieldGround,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusChip)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(F.radiusTile),
+            borderSide: BorderSide(color: F.line),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(F.radiusTile),
+            borderSide: BorderSide(color: F.line),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(F.radiusTile),
+            borderSide: const BorderSide(color: F.gold, width: 1.5),
+          ),
         ),
       );
 }
