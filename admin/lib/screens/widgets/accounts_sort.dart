@@ -4,16 +4,8 @@ import '../../theme/tokens.dart';
 import 'accounts_table.dart';
 import 'admin_ui.dart';
 
-/// **ترتيب الكروت على الموبايل** — بديل ترويسات الجدول، اللي مش موجودة
-/// لما الصفوف بتبقى كروت.
-///
-/// من غيره الموبايل كان بيعرض ترتيب واحد ثابت (التنبيهات المفتوحة الأول)
-/// ومفيش طريقة تغيّره — يعني المكتب يقدر يسأل تلات أسئلة والموبايل سؤال
-/// واحد، على نفس الداتا.
-///
-/// **قايمة بالعمود، وزرار بالاتجاه** — الاتنين بكلامهم، مفيش أيقونة
-/// لوحدها. والقايمة تلات مداخل بس (نفس أعمدة الجدول اللي بتترتّب)، مش
-/// ستة بالاتجاهين: ست سطور على شاشة بصة سريعة قراية مش اختيار.
+/// **ترتيب الكروت على الموبايل** — بديل ترويسات الجدول اللي مش موجودة
+/// لما الصفوف بتبقى كروت. قايمة بالعمود، وزرار بالاتجاه — الاتنين بكلامهم.
 class AccountsSortBar extends StatelessWidget {
   const AccountsSortBar({
     required this.sortBy,
@@ -27,16 +19,14 @@ class AccountsSortBar extends StatelessWidget {
   final void Function(AccountSort by, bool ascending) onSort;
 
   static const _fields = [
+    AccountSort.severity,
     AccountSort.pendingEscalations,
     AccountSort.missedDoses,
     AccountSort.lastSync,
   ];
 
-
   @override
   Widget build(BuildContext context) {
-    // سطر واحد: القايمة بتاخد العرض والزرار جنبها. Wrap كان بيكسرهم سطرين
-    // على ٣٧٥ بكسل — مية بكسل زيادة فوق قايمة الحسابات على أضيق شاشة.
     return Row(
       children: [
         Icon(Icons.sort_rounded, size: 18, color: F.mutedDark),
@@ -47,7 +37,6 @@ class AccountsSortBar extends StatelessWidget {
             child: DropdownButton<AccountSort>(
               value: sortBy,
               isExpanded: true,
-              isDense: false,
               underline: const SizedBox.shrink(),
               borderRadius: BorderRadius.circular(F.radiusChip),
               iconEnabledColor: F.mutedDark,
@@ -60,10 +49,7 @@ class AccountsSortBar extends StatelessWidget {
               ),
               items: [
                 for (final field in _fields)
-                  DropdownMenuItem<AccountSort>(
-                    value: field,
-                    child: Text(sortFieldLabel(field)),
-                  ),
+                  DropdownMenuItem<AccountSort>(value: field, child: Text(sortFieldLabel(field))),
               ],
               // **عمود جديد بيبدأ من طرفه الوحش** — نفس قاعدة الجدول.
               onChanged: (field) {

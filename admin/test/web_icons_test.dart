@@ -76,9 +76,11 @@ void main() {
 
   test('index.html بيربط الأيقونات المتولّدة، مش بتاعة فلاتر', () {
     final html = File('web/index.html').readAsStringSync();
-    expect(html, contains('href="favicon.png"'));
-    expect(html, contains('href="favicon-16.png"'));
-    expect(html, contains('href="apple-touch-icon.png"'));
+    // بنقبل كاسر كاش بعد الاسم (`favicon.png?v=2`) — الرابط لسه بيشاور على
+    // الملف المتولّد، والكاسر هو اللي بيخلّي المتصفح ينسى أيقونة فلاتر.
+    expect(html, matches(RegExp(r'href="favicon\.png(\?[^"]*)?"')));
+    expect(html, matches(RegExp(r'href="favicon-16\.png(\?[^"]*)?"')));
+    expect(html, matches(RegExp(r'href="apple-touch-icon\.png(\?[^"]*)?"')));
     expect(html, isNot(contains('icons/Icon-192.png')), reason: 'apple-touch-icon كان بيشاور على أيقونة فلاتر');
   });
 

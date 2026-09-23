@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../data/admin_models.dart';
+import '../../format/arabic_time.dart';
+import '../../format/relative_time.dart';
 import '../../theme/tokens.dart';
 
 /// حالة صف في الجدول — **دالة نقية**، بتتختبر بأرقام من غير ما نرسم حاجة.
 ///
-/// الترتيب هو الأولوية: الساكت أخطر من التنبيه، والتنبيه أخطر من الملاحظة.
+/// الترتيب هو الخطورة: الساكت أخطر من التنبيه، والتنبيه أخطر من الملاحظة.
 enum RowTone {
   /// الموبايل ما بعتش نبضة خالص، أو بقاله أكتر من يومين — **الغياب أخطر من
   /// أي كود** (قاعدة ٠٠١٨): جهاز ساكت مش بيقدر يقول عن نفسه إنه مكسور.
@@ -32,6 +34,9 @@ RowTone rowTone(AdminAccount account, DateTime now) {
   return RowTone.quiet;
 }
 
+/// الخطورة كرقم — الأقل أخطر. ده اللي «مترتّبين بالخطورة» بيقصده.
+int severityIndex(RowTone tone) => tone.index;
+
 /// الكلمة اللي جنب اللون — **اللون عمره ما يشيل المعنى لوحده**.
 String toneWord(RowTone tone) => switch (tone) {
       RowTone.silent => 'مش بيبعت نبضة',
@@ -40,11 +45,42 @@ String toneWord(RowTone tone) => switch (tone) {
       RowTone.quiet => 'تمام',
     };
 
+/// سطر الشرح تحت الكلمة في بلاطة الفرز.
+String toneDescription(RowTone tone) => switch (tone) {
+      RowTone.silent => 'موبايلات ما بعتتش نبضة من أكتر من يومين — التذكير ممكن يكون واقف.',
+      RowTone.alarm => 'جرعة بتفوت دلوقتي والمتابع اتبلّغ.',
+      RowTone.warn => 'بطارية مقيّدة أو مدى التذكير خلص — هيقع لو اتساب.',
+      RowTone.quiet => 'النبضة وصلت، ومفيش تنبيه مفتوح.',
+    };
+
+/// ليه الحساب ده في قايمة «أوحش الحسابات» — بكلام الحالة نفسها.
+String toneReason(AdminAccount account, DateTime now) =>
+    switch (rowTone(account, now)) {
+      RowTone.silent => account.seenAt == null
+          ? 'الموبايل عمره ما بعت نبضة'
+          : 'آخر نبضة ${timeSince(now, account.seenAt!)}',
+      RowTone.alarm =>
+        '${arabicNumber(account.pendingEscalations)} تنبيه مفتوح — '
+            '${arabicNumber(account.missedDoses24h)} جرعة ما اتأكدتش',
+      RowTone.warn => account.batteryRestricted
+          ? 'البطارية مقيّدة — التذكير ممكن يتأخر'
+          : 'مدى التذكير خلص — محتاج يفتح التطبيق',
+      RowTone.quiet => 'كله تمام',
+    };
+
 Color toneColour(RowTone tone) => switch (tone) {
       RowTone.silent => F.mutedDark,
       RowTone.alarm => F.outOfRangeInk,
       RowTone.warn => F.gold,
       RowTone.quiet => F.green,
+    };
+
+/// نفس اللون بس بقيم النهار — للحبّة البيضا على رأس اللوحة الغامق.
+Color toneColourLight(RowTone tone) => switch (tone) {
+      RowTone.silent => const Color(0xFF43544C),
+      RowTone.alarm => F.red,
+      RowTone.warn => F.gold,
+      RowTone.quiet => F.greenLight,
     };
 
 /// **شكل مختلف لكل حالة، مش لون مختلف بس** — أحمر وأخضر بيتشابهوا عند
@@ -57,18 +93,20 @@ IconData toneIcon(RowTone tone) => switch (tone) {
     };
 
 /// حبّة الحالة: أيقونة بشكلها ولونها، والكلمة بلون المتن، على تظليل خفيف.
+/// [onWhite] للرأس الغامق: حبّة بيضا بألوان النهار.
 class ToneBadge extends StatelessWidget {
-  const ToneBadge(this.tone, {super.key});
+  const ToneBadge(this.tone, {this.onWhite = false, super.key});
 
   final RowTone tone;
+  final bool onWhite;
 
   @override
   Widget build(BuildContext context) {
-    final colour = toneColour(tone);
+    final colour = onWhite ? toneColourLight(tone) : toneColour(tone);
     return Container(
       padding: const EdgeInsetsDirectional.fromSTEB(F.s8, F.s4, F.s10, F.s4),
       decoration: BoxDecoration(
-        color: colour.withValues(alpha: F.isDark ? 0.18 : 0.12),
+        color: onWhite ? F.white : colour.withValues(alpha: F.isDark ? 0.18 : 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -82,7 +120,7 @@ class ToneBadge extends StatelessWidget {
               fontFamily: F.bodyFamily,
               fontSize: F.careMicroSize,
               fontWeight: FontWeight.w600,
-              color: F.ink,
+              color: onWhite ? F.inkLight : F.ink,
               height: 1.2,
             ),
           ),

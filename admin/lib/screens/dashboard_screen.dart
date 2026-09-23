@@ -4,26 +4,34 @@ import 'package:flutter/material.dart';
 
 import '../data/admin_models.dart';
 import '../data/admin_service.dart';
-import '../format/relative_time.dart';
 import '../theme/tokens.dart';
+import 'accounts_screen.dart';
+import 'devices_screen.dart';
+import 'overview_screen.dart';
 import 'widgets/account_panel.dart';
-import 'widgets/accounts_cards.dart';
-import 'widgets/accounts_sort.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
-import 'widgets/counts_strip.dart';
+import 'widgets/screen_header.dart';
 import 'widgets/side_panel.dart';
+import 'widgets/sidebar.dart';
 import 'widgets/skeletons.dart';
+import 'widgets/status_cues.dart';
+import 'widgets/tone_filter_chips.dart';
 import 'widgets/top_bar.dart';
 
+/// هيكل اللوحة: الشريط الجانبي + المحتوى، وفوقهم اللوحة الجانبية.
+///
 /// كل تحديث بيجيب العدّادات والصفوف مع بعض — نداء واحد للسحابة لكل سحبة.
-/// **بيدق كل دقيقة وهو ظاهر وبس**، ووقفة على `paused`/`hidden` — نفس شكل
-/// `CaregiverSnapshotHolder` في التطبيق.
+/// **بيدق كل دقيقة وهو ظاهر وبس**، ووقفة على `paused`/`hidden`.
+///
+/// الاسم فاضل `DashboardScreen` — الملف هو نفس نقطة الدخول، اللي اتغيّر إنه
+/// بقى بيوزّع على تلات شاشات بدل ما يرسم واحدة.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.service,
     required this.onSignedOut,
     this.now,
+    this.initialScreen = AdminScreen.overview,
     super.key,
   });
 
@@ -32,6 +40,7 @@ class DashboardScreen extends StatefulWidget {
 
   /// للاختبارات — الإنتاج بيقرا الساعة الحقيقية كل بناء.
   final DateTime? now;
+  final AdminScreen initialScreen;
 
   static const refreshEvery = Duration(seconds: 60);
 
@@ -44,14 +53,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   List<AdminAccount> _accounts = const [];
   AdminException? _error;
   bool _loading = true;
-
-  /// تحديث شغّال ورا الشاشة — الأيقونة بتلفّ، والداتا القديمة فاضلة.
   bool _refreshing = false;
   DateTime? _updatedAt;
 
-  AccountSort _sortBy = AccountSort.pendingEscalations;
-  bool _ascending = false;
-  String _query = '';
+  late AdminScreen _screen = widget.initialScreen;
+  AccountsFilter _filter = const AccountsFilter();
 
   AdminAccount? _open;
   List<AdminFollower> _followers = const [];
@@ -95,7 +101,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Future<void> refresh() async {
-    // أول تحميل بيتعرض كهيكل؛ اللي بعده بيلفّ الأيقونة وبس.
     if (mounted && !_loading && !_refreshing) setState(() => _refreshing = true);
     try {
       final counts = await widget.service.counts();
@@ -117,6 +122,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         _refreshing = false;
       });
     }
+  }
+
+  void _navigate(AdminScreen screen, {ToneFilter? tone}) {
+    setState(() {
+      _screen = screen;
+      _open = null;
+      if (tone != null) _filter = _filter.copyWith(tone: tone, sortBy: AccountSort.severity, ascending: true);
+    });
   }
 
   Future<void> _openAccount(AdminAccount account) async {
@@ -150,127 +163,83 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     widget.onSignedOut();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final rows = sortAccounts(
-      searchAccounts(_accounts, _query),
-      _sortBy,
-      ascending: _ascending,
-    );
-    final open = _open;
-    // تحت ده الجدول بيبقى كروت — نفس الصفوف، من غير تمرير أفقي.
-    final narrow = MediaQuery.sizeOf(context).width < phoneBreakpoint;
-    final withOpenAlerts = _accounts.where((a) => a.pendingEscalations > 0).length;
+  Map<AdminScreen, int> get _badges => {
+        AdminScreen.accounts: _accounts.length,
+        AdminScreen.devices: _accounts.where((a) => rowTone(a, _now) == RowTone.warn).length,
+      };
 
-    final body = ListView(
-      padding: const EdgeInsets.all(F.s16),
-      children: [
-        if (_loading)
-          DashboardSkeleton(narrow: narrow)
-        else ...[
-          CountsStrip(_counts, accountsWithOpenAlerts: withOpenAlerts),
-          const SizedBox(height: F.s16),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: F.careRowGap,
-            runSpacing: F.careRowGap,
+  Widget _content(bool narrow) {
+    final Widget screen = switch (_screen) {
+      AdminScreen.overview => OverviewScreen(
+          counts: _counts,
+          accounts: _accounts,
+          now: _now,
+          onNavigate: _navigate,
+          onOpen: (a) => unawaited(_openAccount(a)),
+        ),
+      AdminScreen.accounts => AccountsScreen(
+          accounts: _accounts,
+          now: _now,
+          filter: _filter,
+          onFilter: (f) => setState(() => _filter = f),
+          onOpen: (a) => unawaited(_openAccount(a)),
+          selected: _open?.patientUuid,
+          narrow: narrow,
+        ),
+      AdminScreen.devices => DevicesScreen(
+          accounts: _accounts,
+          now: _now,
+          onOpen: (a) => unawaited(_openAccount(a)),
+          onNavigate: _navigate,
+        ),
+    };
+    // مفتاح على الشاشة: التبديل بيرجّع التمرير لفوق لوحده.
+    return SingleChildScrollView(
+      key: ValueKey(_screen),
+      padding: EdgeInsets.fromLTRB(
+        narrow ? F.s16 : F.s26,
+        narrow ? F.s16 : F.s22,
+        narrow ? F.s16 : F.s26,
+        60,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: contentMaxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: narrow ? double.infinity : 280,
-                child: TextField(
-                  onChanged: (value) => setState(() => _query = value),
-                  textInputAction: TextInputAction.search,
-                  style: TextStyle(
-                      fontFamily: F.bodyFamily, fontSize: F.careBodySize, color: F.ink),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    filled: true,
-                    fillColor: F.fieldGround,
-                    prefixIcon: Icon(Icons.search_rounded, size: 20, color: F.mutedDark),
-                    hintText: 'دوّر بالاسم',
-                    hintStyle: TextStyle(
-                        fontFamily: F.bodyFamily,
-                        fontSize: F.careTextSize,
-                        color: F.placeholder),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: BorderSide(color: F.line),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: BorderSide(color: F.line),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(color: F.gold, width: 1.5),
-                    ),
-                  ),
+              ScreenHeader(
+                screen: _screen,
+                now: _now,
+                updatedAt: _updatedAt,
+                refreshing: _refreshing,
+                onRefresh: () => unawaited(refresh()),
+              ),
+              const SizedBox(height: F.s16),
+              if (_error != null) ...[
+                ErrorBanner(onRetry: () => unawaited(refresh())),
+                const SizedBox(height: F.s8),
+                Text(
+                  _error!.message,
+                  style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careMicroSize, color: F.mutedDark),
                 ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_updatedAt != null)
-                    Text(
-                      'آخر تحديث ${timeSince(_now, _updatedAt!)}',
-                      style: TextStyle(
-                          fontFamily: F.bodyFamily,
-                          fontSize: F.careMicroSize,
-                          color: F.mutedDark),
-                    ),
-                  AdminTextAction(
-                    label: 'حدّث',
-                    icon: Icons.refresh_rounded,
-                    busy: _refreshing,
-                    onPressed: () => unawaited(refresh()),
-                  ),
-                ],
-              ),
+                const SizedBox(height: F.s16),
+              ],
+              if (_loading) DashboardSkeleton(narrow: narrow) else screen,
             ],
           ),
-          const SizedBox(height: F.careRowGap),
-          if (_error != null)
-            AdminPanel(
-              text: _error!.message,
-              action: 'حاول تاني',
-              onAction: () => unawaited(refresh()),
-            )
-          else if (rows.isEmpty)
-            AdminPanel(text: _query.trim().isEmpty ? 'مفيش حسابات لسه.' : 'مفيش نتايج.')
-          else if (narrow) ...[
-            // الكروت مالهاش ترويسات تترتّب منها، فالقايمة هي بديلها.
-            AccountsSortBar(
-              sortBy: _sortBy,
-              ascending: _ascending,
-              onSort: (by, asc) => setState(() {
-                _sortBy = by;
-                _ascending = asc;
-              }),
-            ),
-            const SizedBox(height: F.careRowGap),
-            AccountsCards(
-              accounts: rows,
-              now: _now,
-              selected: open?.patientUuid,
-              onOpen: (account) => unawaited(_openAccount(account)),
-            ),
-          ] else
-            AccountsTable(
-              accounts: rows,
-              now: _now,
-              sortBy: _sortBy,
-              ascending: _ascending,
-              selected: open?.patientUuid,
-              onSort: (by, asc) => setState(() {
-                _sortBy = by;
-                _ascending = asc;
-              }),
-              onOpen: (account) => unawaited(_openAccount(account)),
-            ),
-        ],
-      ],
+        ),
+      ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final narrow = width < phoneBreakpoint;
+    final rail = !narrow && width < sidebarBreakpoint;
+    final open = _open;
+    final email = widget.service.currentEmail;
 
     final panel = open == null
         ? null
@@ -286,17 +255,49 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             onClose: () => setState(() => _open = null),
           );
 
+    if (narrow) {
+      return Scaffold(
+        backgroundColor: F.pageGround,
+        appBar: AdminTopBar(email: email, onSignOut: () => unawaited(_signOut())),
+        body: SidePanelOverlay(
+          panel: panel,
+          onDismiss: () => setState(() => _open = null),
+          child: _content(true),
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _screen.index,
+          onDestinationSelected: (i) => _navigate(AdminScreen.values[i]),
+          backgroundColor: F.cardGround,
+          indicatorColor: F.greenTint,
+          height: 64,
+          destinations: [
+            for (final s in AdminScreen.values)
+              NavigationDestination(icon: Icon(s.icon), label: s.label),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: F.pageGround,
-      appBar: AdminTopBar(
-        email: widget.service.currentEmail,
-        onSignOut: () => unawaited(_signOut()),
-      ),
-      // اللوحة بتنزلق من بداية السطر فوق ستارة — على الواسع والضيّق.
       body: SidePanelOverlay(
         panel: panel,
         onDismiss: () => setState(() => _open = null),
-        child: body,
+        // الشريط الأول في الصف = يمين في العربي = بداية السطر.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminSidebar(
+              screen: _screen,
+              onSelect: _navigate,
+              badges: _badges,
+              email: email,
+              rail: rail,
+              onSignOut: () => unawaited(_signOut()),
+            ),
+            Expanded(child: _content(false)),
+          ],
+        ),
       ),
     );
   }

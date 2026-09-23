@@ -3,6 +3,7 @@ import 'package:fakkarni_admin/screens/dashboard_screen.dart';
 import 'package:fakkarni_admin/screens/widgets/accounts_cards.dart';
 import 'package:fakkarni_admin/screens/widgets/accounts_sort.dart';
 import 'package:fakkarni_admin/screens/widgets/accounts_table.dart';
+import 'package:fakkarni_admin/screens/widgets/admin_ui.dart';
 import 'package:fakkarni_admin/theme/tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +35,8 @@ Future<void> openAt(
     theme: F.light,
     home: Directionality(
       textDirection: TextDirection.rtl,
-      child: DashboardScreen(service: service, onSignedOut: () {}, now: now),
+      child: DashboardScreen(
+          service: service, onSignedOut: () {}, now: now, initialScreen: AdminScreen.accounts),
     ),
   ));
   await settle(tester);
@@ -156,11 +158,11 @@ void main() {
       expect(find.byType(AccountsSortBar), findsNothing);
     });
 
-    testWidgets('بتفتح على التنبيهات المفتوحة، الأكتر الأول', (tester) async {
+    testWidgets('بتفتح على الحالة، الأخطر الأول', (tester) async {
       await openAt(tester, const Size(390, 844), forSorting());
 
-      expect(find.text('تنبيهات مفتوحة'), findsWidgets);
-      expect(find.text('الأكتر الأول'), findsOneWidget);
+      expect(find.text('الأخطر الأول'), findsOneWidget);
+      // باسم ٣ تنبيهات، سعاد ١، أحمد تمام.
       expect(cardOrder(tester), ['باسم', 'سعاد', 'أحمد']);
     });
 

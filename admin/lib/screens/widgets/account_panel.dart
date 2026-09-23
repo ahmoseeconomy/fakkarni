@@ -7,6 +7,7 @@ import '../../format/relative_time.dart';
 import '../../model/follower_profile.dart';
 import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
+import 'accounts_table.dart';
 import 'admin_ui.dart';
 import 'motion_widgets.dart';
 import 'status_cues.dart';
@@ -43,8 +44,15 @@ String initialOf(String? name) {
   return n.isEmpty ? '•' : n.characters.first;
 }
 
-/// لوحة جانبية: مين بيتابعه، وآخر تنبيهات. **مفيش أي اسم دوا هنا** —
-/// الدوال في السحابة ما بترجّعوش أصلاً.
+/// كلام مدى التذكير في كارت الجهاز.
+String horizonWord(AdminAccount a) {
+  if (a.seenAt == null) return 'مفيش خبر';
+  return a.reminderHorizonOk ? 'مظبوط' : 'خلص — محتاج يفتح التطبيق';
+}
+
+/// اللوحة الجانبية: رأس غامق بالاسم والحالة والمعرّف، وأرقام الحساب،
+/// وكارت الجهاز، ومين بيتابعه، وآخر التنبيهات. **مفيش أي اسم دوا هنا** —
+/// الدوال في السحابة ما بترجّعوش أصلاً. ومفيش أفعال: اللوحة قراية.
 class AccountPanel extends StatelessWidget {
   const AccountPanel({
     required this.account,
@@ -80,11 +88,10 @@ class AccountPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // رأس اللوحة على أرضية العلامة — نفس لون الشريط العلوي.
         Material(
           color: brandGround,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(F.s16, F.s16, F.s8, F.s12),
+            padding: const EdgeInsets.fromLTRB(F.s16, F.s16, F.s8, F.s14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -104,21 +111,31 @@ class AccountPanel extends StatelessWidget {
                     AdminTextAction(label: 'اقفل', onDark: true, onPressed: onClose),
                   ],
                 ),
-                const SizedBox(height: F.s6),
-                Row(
+                const SizedBox(height: F.s8),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: F.s8,
+                  runSpacing: F.s6,
                   children: [
-                    ToneBadge(tone),
-                    const SizedBox(width: F.s8),
-                    Expanded(
-                      child: Text(
-                        account.seenAt == null
-                            ? 'الموبايل عمره ما بعت نبضة'
-                            : 'آخر نبضة ${timeSince(now, account.seenAt!)}',
-                        style: const TextStyle(
-                          fontFamily: F.bodyFamily,
-                          fontSize: F.careMicroSize,
-                          color: F.onDarkMuted,
-                        ),
+                    ToneBadge(tone, onWhite: true),
+                    Text(
+                      account.seenAt == null
+                          ? 'الموبايل عمره ما بعت نبضة'
+                          : 'آخر نبضة ${timeSince(now, account.seenAt!)}',
+                      style: const TextStyle(
+                        fontFamily: F.bodyFamily,
+                        fontSize: F.careMicroSize,
+                        color: F.onDarkMuted,
+                      ),
+                    ),
+                    SelectableText(
+                      account.patientUuid,
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(
+                        fontFamily: F.monoFamily,
+                        fontFamilyFallback: F.monoFallback,
+                        fontSize: 11.5,
+                        color: F.onDarkMuted,
                       ),
                     ),
                   ],
@@ -131,6 +148,32 @@ class AccountPanel extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(F.s16),
             children: [
+              // أرقام الحساب — الحد بيتلوّن لما الرقم يستاهل نظرة.
+              Row(
+                children: [
+                  _NumberCell('ما اتأكدتش ٢٤ س', account.missedDoses24h,
+                      edge: account.missedDoses24h > 0 ? F.gold : null),
+                  const SizedBox(width: F.s8),
+                  _NumberCell('تنبيهات مفتوحة', account.pendingEscalations,
+                      edge: account.pendingEscalations > 0 ? F.outOfRangeInk : null),
+                  const SizedBox(width: F.s8),
+                  _NumberCell('تنبيهات ٧ أيام', account.escalations7d),
+                ],
+              ),
+              const SizedBox(height: F.s20),
+              const AdminHead('الجهاز'),
+              const SizedBox(height: F.careRowGap),
+              _Facts([
+                ('الجهاز', deviceWord(account), null),
+                ('البطارية', batteryWord(account.batteryState),
+                    account.batteryRestricted ? F.outOfRangeInk : null),
+                ('مدى التذكير', horizonWord(account),
+                    account.seenAt != null && !account.reminderHorizonOk ? F.outOfRangeInk : null),
+                ('آخر مزامنة',
+                    account.lastSyncAt == null ? 'مفيش' : timeSince(now, account.lastSyncAt!), null),
+                ('اتسجّل', account.createdAt == null ? 'مش معروف' : arabicDate(account.createdAt!), null),
+              ]),
+              const SizedBox(height: F.s20),
               const AdminHead('مين بيتابعه'),
               const SizedBox(height: F.careRowGap),
               if (loading && followers.isEmpty && failure == null)
@@ -140,18 +183,15 @@ class AccountPanel extends StatelessWidget {
               else if (followers.isEmpty)
                 const AdminPanel(text: 'مفيش حد مربوط بيه.')
               else
-                Wrap(
-                  spacing: F.s8,
-                  runSpacing: F.s8,
-                  children: [
-                    for (final (i, follower) in followers.indexed)
-                      FadeSlideIn(
-                        delay: staggerDelay(context, i),
-                        child: _FollowerChip(follower: follower, body: _body, muted: _muted),
-                      ),
-                  ],
-                ),
-              const SizedBox(height: F.s20),
+                for (final (i, follower) in followers.indexed)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: F.s8),
+                    child: FadeSlideIn(
+                      delay: staggerDelay(context, i),
+                      child: _FollowerChip(follower: follower, body: _body, muted: _muted),
+                    ),
+                  ),
+              const SizedBox(height: F.s12),
               const AdminHead('آخر التنبيهات'),
               const SizedBox(height: F.careRowGap),
               if (failure == null && escalations.isEmpty && !loading)
@@ -176,7 +216,95 @@ class AccountPanel extends StatelessWidget {
   }
 }
 
-/// متابع: دايرة بأول حرف من اسمه، وجنبها الاسم والصلة والحالة.
+class _NumberCell extends StatelessWidget {
+  const _NumberCell(this.label, this.value, {this.edge});
+
+  final String label;
+  final int value;
+  final Color? edge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s10),
+        decoration: BoxDecoration(
+          color: F.cardGround,
+          border: Border.all(color: edge ?? Colors.transparent, width: 1.5),
+          borderRadius: BorderRadius.circular(F.careRadius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              arabicNumber(value),
+              style: TextStyle(
+                fontFamily: F.displayFamily,
+                fontSize: 23,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+                height: 1.1,
+              ),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careMicroSize, color: F.mutedDark),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// كارت مفتاح/قيمة — المفتاح باهت والقيمة في النهاية.
+class _Facts extends StatelessWidget {
+  const _Facts(this.rows);
+
+  final List<(String, String, Color?)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: F.cardGround,
+        border: Border.all(color: F.line),
+        borderRadius: BorderRadius.circular(F.careRadius),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (final (i, (key, value, colour)) in rows.indexed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s10),
+              decoration: BoxDecoration(
+                border: i == rows.length - 1 ? null : Border(bottom: BorderSide(color: F.lineSoft)),
+              ),
+              child: Row(
+                children: [
+                  Text(key,
+                      style: TextStyle(
+                          fontFamily: F.bodyFamily, fontSize: F.careTextSize, color: F.mutedDark)),
+                  const Spacer(),
+                  Text(value,
+                      style: TextStyle(
+                        fontFamily: F.bodyFamily,
+                        fontSize: F.careTextSize,
+                        fontWeight: FontWeight.w600,
+                        color: colour ?? F.ink,
+                      )),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// متابع: دايرة بأول حرف من اسمه، وجنبها الاسم والصلة والحالة — صف كامل.
 class _FollowerChip extends StatelessWidget {
   const _FollowerChip({required this.follower, required this.body, required this.muted});
 
@@ -189,14 +317,13 @@ class _FollowerChip extends StatelessWidget {
     final name = follower.displayName?.isNotEmpty == true ? follower.displayName! : 'من غير اسم';
     final accepted = follower.status == 'accepted';
     return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(F.s6, F.s6, F.s14, F.s6),
+      padding: const EdgeInsetsDirectional.fromSTEB(F.s8, F.s8, F.s14, F.s8),
       decoration: BoxDecoration(
         color: F.cardGround,
         border: Border.all(color: F.line),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(F.careRadius),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
             radius: 18,
@@ -212,11 +339,9 @@ class _FollowerChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: F.s10),
-          // الاسم والصلة بيلفّوا جوّه الحبّة — صلة طويلة كانت بتطلع برّه الكارت.
-          Flexible(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(name, style: body.copyWith(fontWeight: FontWeight.w600)),
                 Text(
@@ -271,8 +396,7 @@ class _TimelineItem extends StatelessWidget {
                     border: Border.all(color: F.pageGround, width: 2),
                   ),
                 ),
-                if (!last)
-                  Expanded(child: Container(width: 2, color: F.line)),
+                if (!last) Expanded(child: Container(width: 2, color: F.line)),
               ],
             ),
           ),
@@ -283,18 +407,15 @@ class _TimelineItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(deliveryWord(alert.deliveryStatus),
-                      style: body.copyWith(fontWeight: FontWeight.w600)),
+                  Text(deliveryWord(alert.deliveryStatus), style: body.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(
                     alert.scheduledAt == null
                         ? 'من غير ميعاد'
-                        : 'الجرعة ${arabicDate(alert.scheduledAt!)} '
-                            '${arabicTime(alert.scheduledAt!)}',
+                        : 'الجرعة ${arabicDate(alert.scheduledAt!)} ${arabicTime(alert.scheduledAt!)}',
                     style: muted,
                   ),
-                  if (alert.createdAt != null)
-                    Text(timeSince(now, alert.createdAt!), style: muted),
+                  if (alert.createdAt != null) Text(timeSince(now, alert.createdAt!), style: muted),
                 ],
               ),
             ),
@@ -309,12 +430,12 @@ class _PanelSkeleton extends StatelessWidget {
   const _PanelSkeleton();
 
   @override
-  Widget build(BuildContext context) => const Wrap(
-        spacing: F.s8,
-        runSpacing: F.s8,
+  Widget build(BuildContext context) => const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Shimmer(width: 160, height: 48, radius: 24),
-          Shimmer(width: 140, height: 48, radius: 24),
+          Shimmer(width: double.infinity, height: 52),
+          SizedBox(height: F.s8),
+          Shimmer(width: double.infinity, height: 52),
         ],
       );
 }

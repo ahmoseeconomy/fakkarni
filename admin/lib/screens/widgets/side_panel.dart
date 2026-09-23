@@ -4,16 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
+import 'admin_ui.dart';
 
-/// لوحة جانبية بتنزلق من **بداية** السطر — يمين في العربي — فوق ستارة.
-/// الدوسة على الستارة بتقفلها. الإغلاق بيرجّع الحركة، والودجت بتفضل
-/// موجودة لحد ما الحركة تخلص.
+/// لوحة جانبية بتنزلق من **نهاية** السطر — شمال في العربي، بعيد عن الشريط
+/// الجانبي اللي على اليمين — فوق ستارة بتغطّي الشريط كمان. الدوسة على
+/// الستارة أو Esc بتقفلها. الإغلاق بيرجّع الحركة، والودجت بتفضل موجودة
+/// لحد ما الحركة تخلص.
 class SidePanelOverlay extends StatefulWidget {
   const SidePanelOverlay({
     required this.child,
     required this.onDismiss,
     this.panel,
-    this.width = 380,
+    this.width = drawerWidth,
     super.key,
   });
 
@@ -30,7 +32,7 @@ class _SidePanelOverlayState extends State<SidePanelOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: Motion.slow,
+    duration: const Duration(milliseconds: 280),
   );
   Widget? _shown;
 
@@ -47,7 +49,7 @@ class _SidePanelOverlayState extends State<SidePanelOverlay>
   void didUpdateWidget(SidePanelOverlay old) {
     super.didUpdateWidget(old);
     final panel = widget.panel;
-    _c.duration = motionDuration(context, Motion.slow);
+    _c.duration = motionDuration(context, const Duration(milliseconds: 280));
     if (panel != null) {
       _shown = panel;
       if (_c.status != AnimationStatus.completed) _c.forward();
@@ -83,9 +85,10 @@ class _SidePanelOverlayState extends State<SidePanelOverlay>
             ),
           ),
           Align(
-            alignment: AlignmentDirectional.centerStart,
+            alignment: AlignmentDirectional.centerEnd,
             child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero)
+              // من النهاية: +١ في اتجاه النص، فـRTL بيقلبها لشمال لوحده.
+              position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
                   .animate(curved),
               textDirection: Directionality.of(context),
               child: FadeTransition(

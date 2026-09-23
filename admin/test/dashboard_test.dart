@@ -2,6 +2,7 @@ import 'package:fakkarni_admin/data/admin_models.dart';
 import 'package:fakkarni_admin/data/admin_service.dart';
 import 'package:fakkarni_admin/screens/dashboard_screen.dart';
 import 'package:fakkarni_admin/screens/widgets/accounts_table.dart';
+import 'package:fakkarni_admin/screens/widgets/admin_ui.dart';
 import 'package:fakkarni_admin/screens/widgets/status_cues.dart';
 import 'package:fakkarni_admin/theme/tokens.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,11 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
-Future<void> open(WidgetTester tester, FakeAdminService service) async {
+Future<void> open(
+  WidgetTester tester,
+  FakeAdminService service, {
+  AdminScreen screen = AdminScreen.accounts,
+}) async {
   tester.view.physicalSize = const Size(1600, 1800);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -27,7 +32,8 @@ Future<void> open(WidgetTester tester, FakeAdminService service) async {
     theme: F.light,
     home: Directionality(
       textDirection: TextDirection.rtl,
-      child: DashboardScreen(service: service, onSignedOut: () {}, now: now),
+      child: DashboardScreen(
+          service: service, onSignedOut: () {}, now: now, initialScreen: screen),
     ),
   ));
   await settle(tester);
@@ -94,7 +100,25 @@ void main() {
       expect(sorted.map((a) => a.patientUuid), ['y', 'z', 'x']);
     });
 
+    test('الخطورة: الساكت الأول، وعند التعادل الأكتر تنبيهات', () {
+      final list = [
+        account(uuid: 'q', seenAt: now),
+        account(uuid: 'a1', seenAt: now, pending: 1),
+        account(uuid: 's', ),
+        account(uuid: 'a3', seenAt: now, pending: 3),
+        account(uuid: 'w', seenAt: now, battery: 'restricted'),
+      ];
+      final sorted = sortAccounts(list, AccountSort.severity, ascending: true, now: now);
+      expect(sorted.map((a) => a.patientUuid), ['s', 'a3', 'a1', 'w', 'q']);
+    });
+
+    test('البحث بأول المعرّف كمان', () {
+      final list = [account(uuid: 'abc123-x', name: 'أحمد'), account(uuid: 'zzz999-y', name: 'باسم')];
+      expect(searchAccounts(list, 'ABC1').map((a) => a.patientName), ['أحمد']);
+    });
+
     test('**كل عمود بيبدأ من طرفه الوحش** — مش كلهم تنازلي', () {
+      expect(defaultAscendingFor(AccountSort.severity), isTrue);
       // «آخر مزامنة» تنازلي معناه الأحدث الأول: أهدى صف في الأسطول فوق.
       expect(defaultAscendingFor(AccountSort.lastSync), isTrue);
       expect(defaultAscendingFor(AccountSort.missedDoses), isFalse);
@@ -131,13 +155,15 @@ void main() {
       accounts_: [account(seenAt: now), account(uuid: 'p2', name: 'سعاد')],
     );
 
-    await open(tester, service);
+    await open(tester, service, screen: AdminScreen.overview);
 
     expect(find.text('١٢'), findsOneWidget);
     expect(find.text('٧'), findsOneWidget);
     expect(find.text('٩'), findsOneWidget);
-    expect(find.text('الحاج عاشور'), findsOneWidget);
+    // سعاد عمرها ما بعتت نبضة فهي في «أوحش الحسابات»؛ الحاج عاشور تمام
+    // فمالوش مكان هناك — مكانه الجدول.
     expect(find.text('سعاد'), findsOneWidget);
+    expect(find.text('الحاج عاشور'), findsNothing);
   });
 
   testWidgets('البحث بيصفّي الجدول', (tester) async {
@@ -192,6 +218,8 @@ void main() {
       ..countsFailure = const AdminException(AdminFailure.offline, 'boom');
     await open(tester, service);
 
+    // اللافتة فوق، وسببها الحقيقي تحتها — «مفيش نت» مش «حصل خطأ».
+    expect(find.text('مش قادرين نوصل للسحابة.'), findsOneWidget);
     expect(find.text('مفيش نت. جرّب تاني لما يرجع.'), findsOneWidget);
     expect(find.text('حاول تاني'), findsOneWidget);
     expect(find.textContaining('boom'), findsNothing);

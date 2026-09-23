@@ -68,3 +68,6 @@ test/assets/packages/
 # لوحة الأدمن — كاش فايربيز وملف الرفع المولّد (فيه رابط سوپابيز)
 .firebase/
 firebase.deploy.json
+
+# ملف تصميم اللوحة المضغوط — المفكوك في الـscratchpad هو المرجع، مش الريبو
+/Admin dashboard redesign.zip

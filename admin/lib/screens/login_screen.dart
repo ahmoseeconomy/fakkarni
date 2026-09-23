@@ -18,6 +18,13 @@ class LoginScreen extends StatefulWidget {
   final AdminService service;
   final VoidCallback onSignedIn;
 
+  /// فحص محلي قبل السيرفر — حقل فاضي أو إيميل من غير @ ما يستاهلش رحلة.
+  static String? validate(String email, String password) {
+    if (email.trim().isEmpty || password.isEmpty) return 'اكتب الإيميل والباسورد.';
+    if (!email.contains('@')) return 'الإيميل مش مظبوط.';
+    return null;
+  }
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -36,6 +43,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    final local = LoginScreen.validate(_email.text, _password.text);
+    if (local != null) {
+      setState(() => _error = local);
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -105,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: F.s4),
                         Text(
-                          'قراية بس — أرقام تشغيل، مفيش بيانات طبية.',
+                          'إدارة الحسابات والأجهزة — أرقام تشغيل، مفيش بيانات طبية.',
                           style: TextStyle(
                             fontFamily: F.bodyFamily,
                             fontSize: F.careTextSize,
@@ -158,6 +170,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                         ),
+                        const SizedBox(height: F.s14),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.shield_rounded, size: 15, color: F.mutedDark),
+                            const SizedBox(width: F.s6),
+                            Expanded(
+                              child: Text(
+                                'الصلاحية بتتحقق في السيرفر — الإيميل لازم يكون في قايمة المشرفين.',
+                                style: TextStyle(
+                                  fontFamily: F.bodyFamily,
+                                  fontSize: F.careMicroSize,
+                                  color: F.mutedDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -181,6 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
         obscureText: obscure,
         textInputAction: action,
         onSubmitted: action == TextInputAction.done ? (_) => _submit() : null,
+        keyboardType: obscure ? TextInputType.visiblePassword : TextInputType.emailAddress,
         style: TextStyle(fontFamily: F.bodyFamily, fontSize: F.careBodySize, color: F.ink),
         decoration: InputDecoration(
           labelText: label,
