@@ -21,6 +21,8 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 ADMIN="$ROOT/admin"
 SECRETS="$ROOT/secrets.json"
 SITE_TARGET="admin"
+# معرّف الموقع نفسه (مش الهدف) — لازم يطابق `.firebaserc`.
+SITE_ID="fakkarni-admin"
 GENERATED="$ROOT/firebase.deploy.json"
 
 DEPLOY=1
@@ -77,15 +79,25 @@ open(dst, 'w', encoding='utf-8').write(text.replace('__SUPABASE_ORIGIN__', origi
 PY
 [[ -f "$GENERATED" ]] || exit 1
 
+cd "$ROOT" || exit 2
+PROJECT_ID="$(jq -er '.projects.default' .firebaserc 2>/dev/null)" || PROJECT_ID=""
+
+# **أول رفعة بس محتاجة الموقع يتعمل** — بنسأل قبل ما نرفع، وبنقول الأمر
+# بالظبط لو مش موجود. لو الاستعلام نفسه وقع (مفيش دخول مثلاً) بنكمّل،
+# والرفع هيقول عطله بنفسه. الرسالة كانت بتتطبع بعد كل نجاح وهي مش لازمة.
+if [[ -n "$PROJECT_ID" ]]; then
+  SITES="$(firebase hosting:sites:list --project "$PROJECT_ID" --json 2>/dev/null)"
+  if [[ -n "$SITES" ]] && ! jq -e --arg id "$SITE_ID" \
+       '.result.sites[]?.name | endswith("/sites/" + $id)' <<<"$SITES" >/dev/null 2>&1; then
+    echo "موقع الاستضافة $SITE_ID مش موجود على $PROJECT_ID — اعمله الأول:" >&2
+    echo "  firebase hosting:sites:create $SITE_ID --project $PROJECT_ID" >&2
+    exit 1
+  fi
+fi
+
 echo
 echo "==> الرفع على hosting:$SITE_TARGET"
-cd "$ROOT" || exit 2
 firebase deploy --only "hosting:$SITE_TARGET" --config "$GENERATED"
 STATUS=$?
-
-if (( STATUS == 0 )); then
-  echo
-  echo "تم. لو ده أول رفع، اعمل الموقع الأول:"
-  echo "  firebase hosting:sites:create fakkarni-admin"
-fi
+(( STATUS == 0 )) && echo "تم." 
 exit $STATUS
