@@ -34,7 +34,7 @@ class AdminTopBar extends StatelessWidget implements PreferredSizeWidget {
             padding: const EdgeInsets.symmetric(horizontal: F.s12),
             child: Row(
               children: [
-                const BrandMark(size: 30),
+                const BrandMark(size: 40, border: true),
                 const SizedBox(width: F.s10),
                 Flexible(
                   child: Text(

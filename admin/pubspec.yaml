@@ -24,16 +24,20 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # لتوليد أيقونات الويب من الشعار — وقت التطوير بس، مش في الحزمة.
+  image: ^4.10.1
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
 
-  # **العلامة منسوخة حرفياً من التطبيق** — `assets/branding/icon-foreground.png`
-  # في حزمة الموبايل (الـ«ف» بالعاجي ونقطة دهبية، شفّافة). ما بتترسمش تاني
-  # هنا أبداً؛ اللي بيتغيّر هو المقاس والقصّ بس. تعديل هناك بيتنقل بالإيد.
+  # **الشعار الرسمي كما هو**: `assets/branding/logo_tile.png` — مربع أخضر
+  # غامق (#0A4638، نفس `F.greenDeep`) بالـ«ف» العاجي والنقطة الدهبية،
+  # ١٠٢٤×١٠٢٤. ما بيتقصّش ولا بيتلوّن ولا بيترسم تاني؛ الزوايا المدوّرة
+  # والظل بيتعملوا وقت العرض. وأيقونات الويب كلها متولّدة منه بـ
+  # `dart run tool/generate_icons.dart`.
   assets:
-    - assets/branding/mark.png
+    - assets/branding/logo_tile.png
 
   # نفس خطوط التطبيق بالحرف — نسخة في `admin/assets/fonts/` عشان الحزمة
   # تفضل مستقلة.

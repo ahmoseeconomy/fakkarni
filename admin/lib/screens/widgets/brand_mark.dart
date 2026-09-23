@@ -3,55 +3,64 @@ import 'package:flutter/material.dart';
 import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
 
-// **العلامة صورة من التطبيق، ما بتترسمش هنا.** الأرقام دي مقاسة من
-// البكسلات بتاعة `icon-foreground.png` (١٠٢٤×١٠٢٤): الشكل بيشغل المربع
-// x[332,660] y[318,646]، والنقطة الدهبية مركزها (574,348) بنصف قطر ~٣١.
-// القصّ بياخد نافذة ٣٤٪ حوالين مركز الشكل عشان الحواف ما تتقطعش.
-const double _window = 0.34;
-const double _windowLeft = 0.3145; // مركز الشكل ٠٫٤٨٤٥ − نص النافذة
-const double _windowTop = 0.301; //  مركز الشكل ٠٫٤٧١  − نص النافذة
+/// مسار الشعار الرسمي — الملف الوحيد اللي بيعرفه.
+const String brandTileAsset = 'assets/branding/logo_tile.png';
 
-/// مكان النقطة الدهبية جوّه النافذة المقصوصة — للهالة اللي بتنبض مرة.
-const Offset goldDotFraction = Offset(
-  (0.560 - _windowLeft) / _window,
-  (0.340 - _windowTop) / _window,
-);
+/// نسبة تدوير الزوايا من المقاس — الملف نفسه مربع كامل، والتدوير وقت العرض.
+const double brandCornerFraction = 0.22;
 
-/// العلامة بمقاس — نفس الصورة في كل مكان، الفرق المقاس بس.
+// **الشعار صورة كما هي، ما بتترسمش هنا.** مكان النقطة الدهبية مقاس من
+// بكسلات `logo_tile.png` نفسه (مركز الدهبي = (0.591, 0.261) من المقاس،
+// نصف قطرها ≈ 0.045) — للهالة اللي بتنبض مرة على شاشة الدخول.
+const Offset goldDotFraction = Offset(0.591, 0.261);
+const double goldDotRadiusFraction = 0.045;
+
+/// الشعار بمقاس، بزوايا مدوّرة — نفس الصورة في كل مكان، الفرق المقاس بس.
+///
+/// [border] حد عاجي شفّاف ١ بكسل — على الشريط الأخضر الغامق الشعار كان
+/// هيدوب في أرضيته من غيره.
 class BrandMark extends StatelessWidget {
-  const BrandMark({required this.size, super.key});
+  const BrandMark({required this.size, this.border = false, this.shadow = false, super.key});
 
   final double size;
+  final bool border;
+  final bool shadow;
 
   @override
   Widget build(BuildContext context) {
-    // Align بعامل عرض بيقصّ الصورة للنافذة؛ المحاذاة بتحدّد النافذة تبدأ فين.
-    final ax = 2 * _windowLeft / (1 - _window) - 1;
-    final ay = 2 * _windowTop / (1 - _window) - 1;
-    return SizedBox(
+    final radius = BorderRadius.circular(size * brandCornerFraction);
+    return Container(
       width: size,
       height: size,
-      child: ClipRect(
-        child: Align(
-          alignment: Alignment(ax, ay),
-          widthFactor: _window,
-          heightFactor: _window,
-          child: Image.asset(
-            'assets/branding/mark.png',
-            width: size / _window,
-            height: size / _window,
-            filterQuality: FilterQuality.medium,
-            semanticLabel: 'فكرني',
-          ),
-        ),
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        border: border ? Border.all(color: F.ivory.withValues(alpha: 0.25)) : null,
+        boxShadow: shadow
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
+                ),
+              ]
+            : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        brandTileAsset,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'فكرني',
       ),
     );
   }
 }
 
-/// علامة الدخول: بتظهر بتلاشي وتكبير خفيف، والنقطة الدهبية بتنبض **مرة
+/// شعار الدخول: بيظهر بتلاشي وتكبير خفيف، والنقطة الدهبية بتنبض **مرة
 /// واحدة** — هالة بتتوسّع وتتلاشى من مكان النقطة نفسها. مع تقليل الحركة
-/// بتظهر ثابتة على طول.
+/// بيظهر ثابت على طول.
 class BrandMarkHero extends StatefulWidget {
   const BrandMarkHero({required this.size, super.key});
 
@@ -89,7 +98,7 @@ class _BrandMarkHeroState extends State<BrandMarkHero>
 
   @override
   Widget build(BuildContext context) {
-    // ٠–٣٠٠ مللي: العلامة؛ ٣٠٠–٦٥٠: النبضة.
+    // ٠–٣٠٠ مللي: الشعار؛ ٣٠٠–٦٥٠: النبضة.
     final appear = CurvedAnimation(
       parent: _c,
       curve: const Interval(0, 0.46, curve: Motion.curve),
@@ -98,7 +107,7 @@ class _BrandMarkHeroState extends State<BrandMarkHero>
       parent: _c,
       curve: const Interval(0.46, 1, curve: Curves.easeOut),
     );
-    final dotRadius = widget.size * 0.095;
+    final dotRadius = widget.size * goldDotRadiusFraction;
     final dot = Offset(
       widget.size * goldDotFraction.dx,
       widget.size * goldDotFraction.dy,
@@ -109,12 +118,20 @@ class _BrandMarkHeroState extends State<BrandMarkHero>
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          FadeTransition(
+            opacity: appear,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1).animate(appear),
+              child: BrandMark(size: widget.size, shadow: true),
+            ),
+          ),
+          // الهالة فوق الشعار: بتبدأ بمقاس النقطة وتتوسّع وتتلاشى لصفر —
+          // بعد ما تخلص مفيش أي أثر ثابت.
           AnimatedBuilder(
             animation: pulse,
             builder: (context, _) {
               final t = pulse.value;
-              // بعد ما تخلص (t=1) الهالة شفافة خالص — مفيش أثر ثابت.
-              final scale = 1 + 1.6 * t;
+              final scale = 1 + 1.8 * t;
               final alpha = (1 - t) * 0.55;
               return Positioned(
                 left: dot.dx - dotRadius * scale,
@@ -131,13 +148,6 @@ class _BrandMarkHeroState extends State<BrandMarkHero>
                 ),
               );
             },
-          ),
-          FadeTransition(
-            opacity: appear,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.9, end: 1).animate(appear),
-              child: BrandMark(size: widget.size),
-            ),
           ),
         ],
       ),

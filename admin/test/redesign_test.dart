@@ -55,6 +55,13 @@ void main() {
       expect(find.byType(BrandMark), findsOneWidget);
       expect(find.text('لوحة فكرني'), findsOneWidget);
       expect(find.text('a@b.c'), findsOneWidget);
+
+      // ≥٤٠ بكسل، وبتحمّل الشعار الرسمي نفسه — مش نسخة ولا رسمة.
+      expect(tester.getSize(find.byType(BrandMark)).width, greaterThanOrEqualTo(40));
+      final image = tester.widget<Image>(
+        find.descendant(of: find.byType(BrandMark), matching: find.byType(Image)),
+      );
+      expect((image.image as AssetImage).assetName, brandTileAsset);
     });
   });
 
