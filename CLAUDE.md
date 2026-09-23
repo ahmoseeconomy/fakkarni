@@ -1576,8 +1576,9 @@ was reading the database and the audit was reading the repo.
 
 ### Migrations confirmed run on the live project
 
-**Confirmed 20 Sep 2026 by `supabase/verify_migrations.sql` — 17/17 ok,
-161 checks, nothing missing.**
+**آخر تشغيلة: ٢٣ سبتمبر ٢٠٢٦ — `supabase/verify_migrations.sql` رجّع
+٢١ صف، كلهم `ok = true`.** (التشغيلة اللي قبلها، ٢٠ سبتمبر، كانت ١٧/١٧
+بـ١٦١ فحص.)
 
 **This list is evidence from the database, not from the repo.** That
 distinction is the whole point of it: the previous version of this list was
@@ -1590,7 +1591,8 @@ on the live project.
 |---|---|
 | 20 Sep 2026 | `0001`-`0018`, all of them |
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
-| **not yet run** | **`0021_admin`** — قايمة سماح الأدمن وأربع دوال قراية، اتكتبت في الجولة دي |
+| **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
+| **not yet run** | — ولا واحدة. السلسلة كلها متطبّقة. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -2346,6 +2348,10 @@ is under delivery pressure.
 **متجمّعة وقت التشغيل** (`['service','role'].join('_')`) فمفيش استثناء
 للملف نفسه ولا لاسمه. `signInAnonymously` ممنوعة بنفس الطريقة.
 
+**`0021` اتطبّقت على المشروع الحقيقي في ٢٣ سبتمبر ٢٠٢٦**، و
+`verify_migrations.sql` بعدها رجّع **٢١ صف كلهم `ok = true`**. الترتيب
+تحت متسجّل عشان مشروع جديد أو إعادة بناء، مش كخطوات مستنية:
+
 **ترتيب اللصق، بالظبط:**
 1. `verify_migrations.sql` — صف `0019_battery_state` لازم يقرا `ok = true`
    (٠٠٢١ بتقرا `battery_state`).
@@ -2361,6 +2367,11 @@ is under delivery pressure.
    مفعّل (افتراضياً مفعّل — أكّده)، وAuthentication → Users → Add user →
    Create new user بنفس الإيميل وباسورد، و**Auto Confirm User** متعلّمة
    (مفيش سكّة بريد متظبطة). نفس الإيميل بحروف صغيرة في الناحيتين.
+
+**والخطوتين ٤ و٥ لسه محتاجين يتعملوا** — الهجرة ما بتزرعش أدمن عن قصد
+(اسم في قايمة سماح جوّه هجرة بيبقى قرار متخبّي في ملف). ومن غير التنتين
+مع بعض الدخول مش هيشتغل: إيميل في القايمة من غير مستخدم في Auth ما
+يقدرش يدخل، ومستخدم مش في القايمة بياخد «الحساب ده مش أدمن».
 
 **التشغيل**: `cd admin && flutter run -d chrome
 --dart-define=SUPABASE_URL=… --dart-define=SUPABASE_ANON_KEY=…` (أو

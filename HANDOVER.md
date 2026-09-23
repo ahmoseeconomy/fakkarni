@@ -99,7 +99,21 @@ npm i -g firebase-tools && firebase login
 firebase hosting:sites:create fakkarni-admin
 ```
 
-Admins are created in the Supabase dashboard and allow-listed in SQL; see §4.4.
+**Two one-off steps before anyone can sign in** (`0021_admin.sql` is already
+applied, but it seeds no admin — an allow-list with a name in it would have
+been a decision hidden in a migration):
+
+1. Allow-list the email, in the Supabase SQL editor:
+   ```sql
+   insert into private.admins (email) values (lower('OWNER_EMAIL_HERE'))
+   on conflict (email) do nothing;
+   ```
+2. Create that user: Supabase dashboard → Authentication → Users → Add user,
+   same email, **Auto Confirm User** ticked. There is no sign-up or
+   password-reset screen in the dashboard, by design.
+
+Both halves are needed: an allow-listed email with no Auth user cannot log in,
+and an Auth user who is not allow-listed gets «الحساب ده مش أدمن».
 
 ---
 
@@ -178,9 +192,11 @@ migrations are actually applied" against the live database.
 | 0020 | `caregiver_preferences.sql` | Follower name/relation, alert scope, quiet hours; subscription seam |
 | 0021 | `admin.sql` | Admin allow-list + four read-only RPCs for the dashboard |
 
-**0001–0020 are applied and verified on the live project (22 Sep 2026).
-`0021_admin.sql` is written but has NOT been run** — see `CLAUDE.md`, section
-«لوحة الأدمن» for the exact paste order.
+**All of 0001–0021 are applied and verified on the live project**
+(0001–0020 on 22 Sep 2026; `0021_admin.sql` on 23 Sep 2026, after which
+`verify_migrations.sql` returned 21 rows, all `ok = true`). Re-run that script
+rather than trusting this line — it goes stale the moment anyone touches the
+project, and it is one paste.
 
 ### 4.2 pg_cron jobs
 
@@ -250,9 +266,8 @@ the company now owns. **Every one of B1–B6 blocks a store submission.**
 | **B6** | **No Play upload keystore** | Release builds are signed with the debug keystore. Generate an upload key, store it outside the repo, and wire `key.properties` into `android/app/build.gradle.kts`. Enrol in Play App Signing. |
 | B7 | Payments are not built | The pricing model is decided (patient pays for his account; every follower pays for his own) but there is no billing code, no products and no paywall. The server-side seam exists and returns `true` for everyone: `private.follower_subscription_active`. Two safety questions must be answered before it ships — see «Pricing» in `CLAUDE.md`. |
 | B8 | Android escalation never verified on a real device | The CI emulator test proves a notification-button tap reaches Dart and writes the dose row. It does **not** prove manufacturer battery killers, real Doze, or that the cloud was told. No physical Android device has been through the chain. |
-| B9 | `0021_admin.sql` not applied | The admin dashboard cannot sign anyone in until it is run and an admin email is allow-listed. |
-| B10 | Public OpenStreetMap services | «قريب منك» uses the public Overpass and tile servers, whose policies do not cover an app at scale. Needs our own instance or a paid provider before launch. |
-| B11 | Every install creates an empty patient row | A caregiver's phone holds a patient row that is not a patient. Harmless today (it never reaches the cloud) but it is the wrong shape and a refactor of everything reading `patientId`. |
+| B9 | Public OpenStreetMap services | «قريب منك» uses the public Overpass and tile servers, whose policies do not cover an app at scale. Needs our own instance or a paid provider before launch. |
+| B10 | Every install creates an empty patient row | A caregiver's phone holds a patient row that is not a patient. Harmless today (it never reaches the cloud) but it is the wrong shape and a refactor of everything reading `patientId`. |
 
 ---
 

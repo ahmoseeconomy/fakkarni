@@ -64,7 +64,7 @@ ID. No browsing history. No payment data — payments are not built (B7).
 | **Google — Gemini API** | **The prescription / lab / medicine-box photo itself**, plus the prompt | Each time the user taps to scan | The image is health data and it leaves the device. See the TODO below on retention. |
 | **Google — Firebase Cloud Messaging** | Push token, and **the alert text, which contains the patient's name and the medication name in plaintext** | Each caregiver escalation | Health data transits FCM. Unavoidable for push, but must be declared. |
 | **Apple — APNs** | Same alert text, once iOS push exists (B3) | Not active yet | |
-| **OpenStreetMap (Overpass + tiles)** | Approximate location, rounded to ~110 m | Android only, when the user opens "القريب مني" | Public instances today — see B10 |
+| **OpenStreetMap (Overpass + tiles)** | Approximate location, rounded to ~110 m | Android only, when the user opens "القريب مني" | Public instances today — see B9 |
 | **Apple Maps (MapKit)** | Approximate location | iOS only, same screen | Runs in the OS, under Apple's own terms |
 | **Apple Maps / geo: links** | The destination the user picked | When the user taps "الطريق" | Hand-off to the maps app |
 
