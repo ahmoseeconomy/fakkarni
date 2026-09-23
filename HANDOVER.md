@@ -99,13 +99,25 @@ npm i -g firebase-tools && firebase login
 firebase hosting:sites:create fakkarni-admin
 ```
 
-**Two one-off steps before anyone can sign in** (`0021_admin.sql` is already
-applied, but it seeds no admin — an allow-list with a name in it would have
-been a decision hidden in a migration):
+**Already done on the live project (23 Sep 2026).** `private.admins` holds two
+emails — the owner's and `demand.dev.911@gmail.com` — and the Supabase Auth
+user for `demand.dev.911@gmail.com` exists with Auto Confirm, so that account
+can sign in today.
+
+> **The owner's email is allow-listed but has no Auth user recorded here.**
+> Allow-listing alone does not grant access: without a matching user in
+> Supabase Auth there is nothing to sign in with. Either that user already
+> exists and this note is stale, or step 2 below still has to be run for it.
+> Worth settling before handover — the failure looks like a permissions bug
+> and is not one.
+
+The two steps are kept below as reference for a fresh project. `0021_admin.sql`
+seeds no admin on purpose: an allow-list with a name already in it would be a
+decision hidden inside a migration.
 
 1. Allow-list the email, in the Supabase SQL editor:
    ```sql
-   insert into private.admins (email) values (lower('OWNER_EMAIL_HERE'))
+   insert into private.admins (email) values (lower('EMAIL_HERE'))
    on conflict (email) do nothing;
    ```
 2. Create that user: Supabase dashboard → Authentication → Users → Add user,
