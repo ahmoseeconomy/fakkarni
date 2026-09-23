@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "fakkarni-5704c"
+  },
+  "targets": {
+    "fakkarni-5704c": {
+      "hosting": {
+        "admin": ["fakkarni-admin"]
+      }
+    }
+  }
+}

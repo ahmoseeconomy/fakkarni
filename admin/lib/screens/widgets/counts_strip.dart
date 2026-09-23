@@ -20,40 +20,48 @@ class CountsStrip extends StatelessWidget {
       ('نشط آخر ٧ أيام', counts.active7d),
       ('بطارية مقيّدة', counts.batteryRestricted),
     ];
-    return Wrap(
-      spacing: F.careRowGap,
-      runSpacing: F.careRowGap,
-      children: [
-        for (final (label, value) in cells)
-          SizedBox(
-            width: 190,
-            child: AdminCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    arabicNumber(value),
-                    style: TextStyle(
-                      fontFamily: F.displayFamily,
-                      fontSize: F.display3,
-                      fontWeight: FontWeight.w700,
-                      color: F.ink,
-                    ),
+    // على الموبايل اتنين في الصف بدل واحد — أربع كروت بعرض ١٩٠ على شاشة
+    // ٣٩٠ بيبقوا عمود طوله شاشة كاملة قبل أول حساب في القايمة.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < phoneBreakpoint;
+        final width = narrow ? (constraints.maxWidth - F.careRowGap) / 2 : 190.0;
+        return Wrap(
+          spacing: F.careRowGap,
+          runSpacing: F.careRowGap,
+          children: [
+            for (final (label, value) in cells)
+              SizedBox(
+                width: width,
+                child: AdminCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        arabicNumber(value),
+                        style: TextStyle(
+                          fontFamily: F.displayFamily,
+                          fontSize: narrow ? F.screenTitleSize : F.display3,
+                          fontWeight: FontWeight.w700,
+                          color: F.ink,
+                        ),
+                      ),
+                      const SizedBox(height: F.s4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontFamily: F.bodyFamily,
+                          fontSize: F.careTextSize,
+                          color: F.mutedDark,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: F.s4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: F.bodyFamily,
-                      fontSize: F.careTextSize,
-                      color: F.mutedDark,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

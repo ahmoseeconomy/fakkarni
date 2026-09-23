@@ -7,6 +7,7 @@ import '../data/admin_service.dart';
 import '../format/relative_time.dart';
 import '../theme/tokens.dart';
 import 'widgets/account_panel.dart';
+import 'widgets/accounts_cards.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
 import 'widgets/counts_strip.dart';
@@ -146,17 +147,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       ascending: _ascending,
     );
     final open = _open;
-    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= 900;
+    // تحت ده الجدول بيبقى كروت — نفس الصفوف، من غير تمرير أفقي.
+    final narrow = width < phoneBreakpoint;
 
     final body = ListView(
       padding: const EdgeInsets.all(F.s16),
       children: [
         CountsStrip(_counts),
         const SizedBox(height: F.s16),
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: F.careRowGap,
           children: [
             SizedBox(
-              width: 260,
+              width: narrow ? double.infinity : 260,
               child: TextField(
                 onChanged: (value) => setState(() => _query = value),
                 textInputAction: TextInputAction.search,
@@ -176,16 +183,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ),
             ),
-            const Spacer(),
-            if (_updatedAt != null)
-              Text(
-                'آخر تحديث ${timeSince(_now, _updatedAt!)}',
-                style: TextStyle(
-                    fontFamily: F.bodyFamily,
-                    fontSize: F.careMicroSize,
-                    color: F.mutedDark),
-              ),
-            AdminTextAction(label: 'حدّث', onPressed: () => unawaited(refresh())),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_updatedAt != null)
+                  Text(
+                    'آخر تحديث ${timeSince(_now, _updatedAt!)}',
+                    style: TextStyle(
+                        fontFamily: F.bodyFamily,
+                        fontSize: F.careMicroSize,
+                        color: F.mutedDark),
+                  ),
+                AdminTextAction(
+                    label: 'حدّث', onPressed: () => unawaited(refresh())),
+              ],
+            ),
           ],
         ),
         const SizedBox(height: F.careRowGap),
@@ -199,6 +211,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           const AdminPanel(text: 'بنجيب البيانات…')
         else if (rows.isEmpty)
           AdminPanel(text: _query.trim().isEmpty ? 'مفيش حسابات لسه.' : 'مفيش نتايج.')
+        else if (narrow)
+          AccountsCards(
+            accounts: rows,
+            now: _now,
+            selected: open?.patientUuid,
+            onOpen: (account) => unawaited(_openAccount(account)),
+          )
         else
           AccountsTable(
             accounts: rows,

@@ -26,7 +26,9 @@ void main() {
     final path = f.path.replaceAll(r'\', '/');
     if (path.contains('/build/') || path.contains('/.dart_tool/')) return false;
     if (path.endsWith('pubspec.lock')) return false;
-    return const ['.dart', '.html', '.js', '.json', '.yaml']
+    // **`.sh` مقصودة**: سكربت الرفع بيتعامل مع الأسرار، وهو أكتر ملف
+    // وارد إن حد يلزق فيه مفتاح «مؤقت». من غيره الحارس كان بيعدّي عليه.
+    return const ['.dart', '.html', '.js', '.json', '.yaml', '.sh']
         .any((suffix) => path.endsWith(suffix));
   }).toList();
 
