@@ -31,6 +31,36 @@ List<AdminAccount> sortAccounts(
   return ascending ? out : out.reversed.toList();
 }
 
+/// اسم العمود — **نفس كلمة ترويسة الجدول بالحرف**، فالموبايل والمكتب
+/// بيقولوا نفس الحاجة على نفس الرقم.
+String sortFieldLabel(AccountSort by) => switch (by) {
+      AccountSort.lastSync => 'آخر مزامنة',
+      AccountSort.missedDoses => 'ما اتأكدتش ٢٤ س',
+      AccountSort.pendingEscalations => 'تنبيهات مفتوحة',
+    };
+
+/// **الاتجاه اللي بيوري الوحش الأول** لكل عمود.
+///
+/// «الأكتر» في التنبيهات والجرعات، و«الأقدم» في المزامنة — والساكت
+/// (`lastSyncAt == null`) بيطلع قبل أي تاريخ، فهو أول اللي بيتشاف.
+/// الاختيار ده هو اللي بيخلّي «رتّب بالمزامنة» يجاوب على السؤال اللي
+/// الواحد بيسأله فعلاً: مين ساكت؟
+bool defaultAscendingFor(AccountSort by) => switch (by) {
+      AccountSort.lastSync => true,
+      AccountSort.missedDoses => false,
+      AccountSort.pendingEscalations => false,
+    };
+
+/// وصف الاتجاه بالكلام — بيختلف مع العمود عشان يتقري لوحده.
+///
+/// «الأقل الأول» على عمود أرقام و«الأحدث الأول» على عمود وقت؛ كلمة واحدة
+/// لكل الأعمدة («تصاعدي») كانت هتخلّي الواحد يترجم في دماغه.
+String sortDirectionLabel(AccountSort by, {required bool ascending}) =>
+    switch (by) {
+      AccountSort.lastSync => ascending ? 'الأقدم الأول' : 'الأحدث الأول',
+      _ => ascending ? 'الأقل الأول' : 'الأكتر الأول',
+    };
+
 /// بحث بالاسم — على الصفوف اللي راجعة خلاص، من غير رحلة تانية للسيرفر
 /// (`admin_accounts()` بترجّع الأسطول كله، وده كفاية على الحجم الحالي).
 List<AdminAccount> searchAccounts(List<AdminAccount> accounts, String query) {
@@ -103,9 +133,15 @@ class AccountsTable extends StatelessWidget {
             color: F.mutedDark,
           ),
         ),
+        // عمود جديد بيبدأ من طرفه الوحش، ونفس العمود بيتقلب. قبل كده كل
+        // عمود جديد كان بيبدأ تنازلي، يعني «آخر مزامنة» كانت بتبدأ
+        // بالأحدث — أهدى صف في الأسطول أول القايمة.
         onSort: sort == null
             ? null
-            : (_, asc) => onSort(sort, sort == sortBy ? !ascending : false),
+            : (_, asc) => onSort(
+                  sort,
+                  sort == sortBy ? !ascending : defaultAscendingFor(sort),
+                ),
       );
 
   @override

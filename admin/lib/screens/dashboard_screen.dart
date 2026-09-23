@@ -8,6 +8,7 @@ import '../format/relative_time.dart';
 import '../theme/tokens.dart';
 import 'widgets/account_panel.dart';
 import 'widgets/accounts_cards.dart';
+import 'widgets/accounts_sort.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
 import 'widgets/counts_strip.dart';
@@ -211,14 +212,24 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           const AdminPanel(text: 'بنجيب البيانات…')
         else if (rows.isEmpty)
           AdminPanel(text: _query.trim().isEmpty ? 'مفيش حسابات لسه.' : 'مفيش نتايج.')
-        else if (narrow)
+        else if (narrow) ...[
+          // الكروت مالهاش ترويسات تترتّب منها، فالقايمة هي بديلها.
+          AccountsSortBar(
+            sortBy: _sortBy,
+            ascending: _ascending,
+            onSort: (by, asc) => setState(() {
+              _sortBy = by;
+              _ascending = asc;
+            }),
+          ),
+          const SizedBox(height: F.careRowGap),
           AccountsCards(
             accounts: rows,
             now: _now,
             selected: open?.patientUuid,
             onOpen: (account) => unawaited(_openAccount(account)),
-          )
-        else
+          ),
+        ] else
           AccountsTable(
             accounts: rows,
             now: _now,

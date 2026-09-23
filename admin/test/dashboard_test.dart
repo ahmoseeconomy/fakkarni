@@ -88,6 +88,30 @@ void main() {
       expect(sorted.map((a) => a.patientUuid), ['y', 'z', 'x']);
     });
 
+    test('**كل عمود بيبدأ من طرفه الوحش** — مش كلهم تنازلي', () {
+      // «آخر مزامنة» تنازلي معناه الأحدث الأول: أهدى صف في الأسطول فوق.
+      expect(defaultAscendingFor(AccountSort.lastSync), isTrue);
+      expect(defaultAscendingFor(AccountSort.missedDoses), isFalse);
+      expect(defaultAscendingFor(AccountSort.pendingEscalations), isFalse);
+    });
+
+    test('أسامي الأعمدة هي نفسها كلام ترويسات الجدول', () {
+      expect(sortFieldLabel(AccountSort.lastSync), 'آخر مزامنة');
+      expect(sortFieldLabel(AccountSort.missedDoses), 'ما اتأكدتش ٢٤ س');
+      expect(sortFieldLabel(AccountSort.pendingEscalations), 'تنبيهات مفتوحة');
+    });
+
+    test('ووصف الاتجاه بيمشي مع نوع العمود', () {
+      expect(sortDirectionLabel(AccountSort.lastSync, ascending: true),
+          'الأقدم الأول');
+      expect(sortDirectionLabel(AccountSort.lastSync, ascending: false),
+          'الأحدث الأول');
+      expect(sortDirectionLabel(AccountSort.missedDoses, ascending: false),
+          'الأكتر الأول');
+      expect(sortDirectionLabel(AccountSort.pendingEscalations, ascending: true),
+          'الأقل الأول');
+    });
+
     test('البحث بالاسم', () {
       expect(searchAccounts(rows, 'أحمد').map((a) => a.patientUuid), ['a', 'c']);
       expect(searchAccounts(rows, '  ').length, 3);
