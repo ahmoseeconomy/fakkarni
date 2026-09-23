@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+# لوحة الأدمن حزمة جوّه الريبو — و`/build/` فوق مربوطة بالجذر فما بتغطّيهاش.
+admin/build/
+admin/coverage/
 
 # Symbolication related
 app.*.symbols

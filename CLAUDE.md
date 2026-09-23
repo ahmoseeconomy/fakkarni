@@ -1589,8 +1589,13 @@ on the live project.
 | Confirmed | Files |
 |---|---|
 | 20 Sep 2026 | `0001`-`0018`, all of them |
-| **22 Sep 2026** | **`0020_caregiver_preferences`** — اتشغّلت واتأكّدت في نفس اليوم: **١٥/١٥ عليها، و٢٠ صف كلهم `ok = true`** |
-| **not yet run** | **`0019_battery_state`** — one column |
+| **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
+| **not yet run** | **`0021_admin`** — قايمة سماح الأدمن وأربع دوال قراية، اتكتبت في الجولة دي |
+
+**والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
+رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
+الجدول اتكتب من الذاكرة بدل ما يتكتب من مخرج السكريبت، وده بالظبط اللي
+القاعدة اللي فوقه بتحذّر منه. الدرس مش جديد، بس ده تاني مرة.
 
 `0018_device_health` was run and verified the same day it was written —
 **18/18 rows true, and 13/13 on `0018` itself**. That is the rule working
@@ -2288,6 +2293,83 @@ is under delivery pressure.
    know this person no longer follows him** — otherwise the father believes
    someone is watching while nobody is, which is worse than his having never
    linked anyone. The father's «مين بيتابعك» row is where that shows.
+
+---
+
+## لوحة الأدمن — `admin/`
+
+**تطبيق ويب، قراية بس، لصاحب المنتج وحده** — حزمة مستقلة جوّه الريبو
+(`admin/pubspec.yaml`)، بتتشغّل محلي وبس، ومفيش استضافة ولا CI ليها.
+بتجاوب على سؤال واحد: **«المنتج شغّال ولا لأ»** — نبضة كل موبايل، حالة
+البطارية، مدى التذكير، الجرعات اللي ما اتأكدتش في ٢٤ ساعة، والتنبيهات
+اللي اتبعتت.
+
+**ولا بيان طبي بيعدّي منها.** مفيش اسم دوا، ولا سجل، ولا نتيجة تحليل، ولا
+قياس، ولا بيانات طوارئ، ولا رقم تليفون. **والحد مكتوب في SQL مش في
+الشاشة**: كل دالة في `0021_admin.sql` ليها `returns table (…)` بقايمة
+أعمدة مقفولة، فعمود جديد = قرار جديد في ملف ترحيل جديد، مش سطر في ويدجت.
+
+**الهوية بالإيميل، وده أول `auth.jwt()` في المشروع.** `private.admins`
+جدول إيميلات، و`private.is_admin()` بترجّع true لما الإيميل يبقى في
+القايمة **و**الجلسة مش مجهولة. ليه مش `auth.uid()` زي كل حاجة تانية:
+دي **قايمة ناس**، والدخول المجهول بيولّد مستخدم جديد كل مرة (الدين ٢)،
+فمعرّف مخزّن كان هيبوظ في صمت. والشرط التاني متجرّب في الفحص الذاتي، مش
+مكتوب وبس.
+
+**اللوحة عميل عادي بمفتاح النشر.** الحاجز كله في السيرفر:
+- الأربع دوال `public.admin_*` بتبدأ كلها بـ`if not private.is_admin() then
+  raise exception 'not admin'`، وEXECUTE بتاعها **مسحوب من `anon`** —
+  فمفيش جلسة بترجّع `42501` قبل ما الحارس يشتغل أصلاً، وحساب عادي بيرجّع
+  `not admin`. الاتنين مختلفين، والفحص الذاتي بيمسك كل واحد بسببه.
+- الأرقام كلها متعرّفة **مرة واحدة** في `private.admin_account_rows()`،
+  واللي بينده عليها الأربعة. عشان كده الشريط والجدول ما يقدروش يختلفوا،
+  و«جرعة ما اتأكدتش» بتتحسب بنفس شرط `private.due_escalations` بالظبط
+  (`state in ('pending','missed')` وعدّت `private.server_grace_window()`)
+  — لوحة بتقول رقم غير اللي الكرون بيشوفه أسوأ من مفيش لوحة.
+- **`last_sync_at` من ختم السيرفر** (`updated_at` بتاعة `patients` /
+  `medications` / `dose_events`)، مش من `device_health.last_sync_at` —
+  دي دعوى الجهاز عن نفسه، والسؤال هنا هو «وصل إيه فعلاً».
+
+**حزمة مستقلة، والاستقلال محروس.** ما بتستوردش `package:fakkarni/` أبداً
+(`admin/test/no_mobile_import_test.dart`، وبيوقّع على `path:` في الـpubspec
+كمان). اللي محتاجينه من التطبيق **متنسخ** وفوق كل نسخة سطر بيقول مصدرها:
+`tokens.dart`، `arabic_time.dart`، `follower_profile.dart`، والخطوط؛
+و`relative_time.dart` **مستخرَج** من `caregiver_words.dart` (الملف الأصلي
+بيستورد طبقة البيانات فمينفعش يتنسخ كامل). تعديل في الأصل بيتنقل بالإيد.
+**واللوحة برّه كل حرّاس التطبيق** — كلهم بيمشوا على `Directory('lib')`
+بتاعة الحزمة التانية — فحرّاسها هي في `admin/test/`.
+
+**ومفيش مفتاح خدمة فيها خالص.** `admin/test/no_privileged_key_test.dart`
+بيمشي على الحزمة كلها (dart وhtml وjs وjson وyaml) ويوقع لو الاسم ظهر،
+**حتى في تعليق** — وده حصل فعلاً وقت الكتابة: التعليق اللي بيقول «مفيش
+مفتاح خدمة هنا» كان هو نفسه أول اللي الحارس مسكه. الكلمة الممنوعة
+**متجمّعة وقت التشغيل** (`['service','role'].join('_')`) فمفيش استثناء
+للملف نفسه ولا لاسمه. `signInAnonymously` ممنوعة بنفس الطريقة.
+
+**ترتيب اللصق، بالظبط:**
+1. `verify_migrations.sql` — صف `0019_battery_state` لازم يقرا `ok = true`
+   (٠٠٢١ بتقرا `battery_state`).
+2. `migrations/0021_admin.sql` — المتوقّع **`Success. No rows returned`**،
+   و`0021 OK — …` في تبويب Messages.
+3. `verify_migrations.sql` تاني — ٢١ صف، و`0021_admin | 14 | 14 | true`.
+4. الإيميل في قايمة السماح (محرر SQL):
+   ```sql
+   insert into private.admins (email) values (lower('OWNER_EMAIL_HERE'))
+   on conflict (email) do nothing;
+   ```
+5. **من لوحة Supabase، مش من SQL**: Authentication → Providers → Email
+   مفعّل (افتراضياً مفعّل — أكّده)، وAuthentication → Users → Add user →
+   Create new user بنفس الإيميل وباسورد، و**Auto Confirm User** متعلّمة
+   (مفيش سكّة بريد متظبطة). نفس الإيميل بحروف صغيرة في الناحيتين.
+
+**التشغيل**: `cd admin && flutter run -d chrome
+--dart-define=SUPABASE_URL=… --dart-define=SUPABASE_ANON_KEY=…` (أو
+`--dart-define-from-file=../secrets.json`). من غير المفاتيح اللوحة بتفتح
+وبتقول اللي ناقص بالنص وما بتحاولش تتصل.
+
+**متسجّل ومش متعمول**: مفيش CI على اللوحة — `.github/workflows/` مش
+بيشغّل `flutter test` لا للتطبيق ولا ليها، فحرّاسها بتجري بالإيد
+(`cd admin && flutter test`).
 
 ## دين تقني
 
@@ -4502,5 +4584,8 @@ device-verified)**
 - Write formal MSA in the UI
 - Invent a medication duration, dosage or timing — this applies to the
   Gemini prompt as much as to the code
+- Put a Supabase service-role key in `admin/` — the dashboard is an ordinary
+  authenticated client and the wall is `private.is_admin()` in SQL. The guard
+  fails on the name even inside a comment
 - Hardcode an API key, put one in a tracked file, or call Gemini with an
   empty key

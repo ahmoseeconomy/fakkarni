@@ -69,12 +69,32 @@
     و`migrations/0016_lab_ranges.sql` (نطاق ورقة المعمل: `ref_low` /
     `ref_high` / `ref_text` على `lab_results` — نقل من الورقة، مش جدول قيم
     طبيعية؛ السطر اللي الورقة مفيهاش نطاق ليه بيفضل null).
-16. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
-    كتابة): صف لكل ترحيل من 0001 لـ0017 بـ`expected`/`found`/`ok`/
+16. `migrations/0017_visit_follow.sql` — نوع المتابعة (`follow_kind`) على
+    `records`؛ الصف القديم من غير نوع لسه تحليل. بيطبع `0017 OK`.
+17. `migrations/0018_device_health.sql` — نبضة فحص السلامة: صف لكل (مريض،
+    تنزيلة)، **أكواد سلامة وبس** من غير أي محتوى طبي، و
+    `private.broken_devices()` بتجيب المكسور **والساكت**. بيطبع `0018 OK`.
+18. `migrations/0019_battery_state.sql` — عمود واحد (`battery_state`) بتلات
+    قيم. بيطبع `0019 OK`.
+19. `migrations/0020_caregiver_preferences.sql` — تفضيلات المتابع،
+    `public.followers_of_patient` وسكّة الاشتراك، وبيعيد تعريف
+    `private.due_escalations` عشان تعدّي عليها. **`moddatetime` من غير
+    سكيما** — `extensions.moddatetime()` مش موجودة على المشروع الحقيقي.
+    المتوقّع `Success. No rows returned` و`0020 OK` في Messages.
+20. `migrations/0021_admin.sql` — لوحة الأدمن: `private.admins` (قايمة
+    إيميلات)، `private.is_admin()` (إيميل في القايمة **وجلسة مش مجهولة**)،
+    و`private.admin_account_rows()` + أربع دوال `public.admin_*` قراية بس
+    لـ`authenticated`. **ولا دالة بترجّع اسم دوا ولا أي بيان طبي.**
+    المتوقّع `Success. No rows returned` و`0021 OK` في Messages. بعده،
+    بالإيد، إيميل صاحب المنتج:
+    `insert into private.admins (email) values (lower('…')) on conflict do nothing;`
+    وتفعيل مزوّد Email + إنشاء المستخدم **من لوحة Supabase**، مش من SQL.
+21. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
+    كتابة): صف لكل ترحيل من 0001 لـ0021 بـ`expected`/`found`/`ok`/
     `missing`. شغّله **قبل** أي جولة بتلمس السحابة — `0014` عمرها ما
     اتشغّلت واكتشافها كلّف ساعة، والسكريبت ده بيجاوب نفس السؤال بلصقة
-    واحدة. آخر تأكيد: ٢٠ سبتمبر ٢٠٢٦، ١٧/١٧ تمام.
-17. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+    واحدة. آخر تأكيد: ٢٢ سبتمبر ٢٠٢٦، ٢٠ صف كلهم تمام (قبل ٠٠٢١).
+22. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /

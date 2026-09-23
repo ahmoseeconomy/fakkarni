@@ -1,0 +1,54 @@
+name: fakkarni_admin
+description: "لوحة أدمن فكرني — قراية بس، ويب."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+# **الحزمة دي مستقلة عن تطبيق الموبايل عن قصد.** مفيش `path:` عليه أبداً —
+# `test/no_mobile_import_test.dart` بيوقع لو واحد اتضاف. اللي محتاجينه منه
+# **متنسخ** (tokens، الأرقام العربية، صلة المتابع) ومكتوب فوق كل نسخة إنها
+# نسخة.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  supabase_flutter: ^2.17.2
+  # بيسكّت تحذير البناء عن خطوط CupertinoIcons وبس.
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # نفس خطوط التطبيق بالحرف — نسخة في `admin/assets/fonts/` عشان الحزمة
+  # تفضل مستقلة.
+  fonts:
+    - family: Alexandria
+      fonts:
+        - asset: assets/fonts/Alexandria-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Alexandria-Bold.ttf
+          weight: 700
+    - family: IBM Plex Sans Arabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
+    - family: IBM Plex Mono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+          weight: 600

@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0019: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0021: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -219,7 +219,26 @@ with expected(migration, kind, ident) as (
     -- و٠٠١١ و٠٠١٤ و٠٠٢٠، فوجودها بيكدب. اللي بيتأكد هو إن جسمها بينده
     -- السكّة — يعني نسخة ٠٠٢٠ هي اللي شغّالة فعلاً.
     ('0020_caregiver_preferences', 'funcsrc',
-       'private.due_escalations|follower_subscription_active')
+       'private.due_escalations|follower_subscription_active'),
+
+    -- 0021 — لوحة الأدمن
+    ('0021_admin', 'table',    'private.admins'),
+    ('0021_admin', 'rls',      'private.admins'),
+    ('0021_admin', 'column',   'private.admins.email'),
+    ('0021_admin', 'function', 'private.is_admin'),
+    ('0021_admin', 'function', 'private.admin_account_rows'),
+    ('0021_admin', 'function', 'public.admin_accounts'),
+    ('0021_admin', 'function', 'public.admin_counts'),
+    ('0021_admin', 'function', 'public.admin_patient_followers'),
+    ('0021_admin', 'function', 'public.admin_patient_escalations'),
+    -- **الحارس هو اللي بيخلّي الدالة أدمن** — وجودها بالاسم من غيره بيكدب،
+    -- زي `due_escalations` بالظبط.
+    ('0021_admin', 'funcsrc',  'public.admin_accounts|is_admin'),
+    ('0021_admin', 'funcsrc',  'public.admin_counts|is_admin'),
+    ('0021_admin', 'funcsrc',  'public.admin_patient_followers|is_admin'),
+    ('0021_admin', 'funcsrc',  'public.admin_patient_escalations|is_admin'),
+    -- ورفض الجلسة المجهولة نص الحارس — من غيره إيميل معروف بيعدّي بجلسة مجهولة
+    ('0021_admin', 'funcsrc',  'private.is_admin|is_anonymous')
 ),
 checked as (
   select
