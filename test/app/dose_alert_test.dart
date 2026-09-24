@@ -93,13 +93,24 @@ void main() {
       expect(phase, contains(NotificationService.doseSoundFile));
     });
 
-    test('entitlements موجودة بالمفتاح، ومربوطة في التلات إعدادات', () {
+    test('entitlements موجودة بالمفتاح، ومربوطة على Release وبس', () {
       final ent = File('ios/Runner/Runner.entitlements').readAsStringSync();
       expect(ent, contains('<key>com.apple.developer.usernotifications.time-sensitive</key>'));
       expect(ent.replaceAll(RegExp(r'\s'), ''),
           contains('time-sensitive</key><true/>'));
-      expect('CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;'.allMatches(pbx).length, 3,
-          reason: 'Debug وRelease وProfile — الناقصة بتشحن من غير Time Sensitive في صمت');
+      // **Release بس.** فريق Xcode الشخصي ما يقدرش يوقّع الـentitlement
+      // ده، فتوصيله على Debug وProfile كان بيكسر البناء على الجهاز.
+      // نسخة المتجر/TestFlight بتتبني بحساب الشركة، وهي الوحيدة اللي
+      // بتحتاجه — وهي كمان اللي مفيش طريقة تانية تعرف فيها إنه ناقص.
+      const key = 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;';
+      expect(key.allMatches(pbx).length, 1, reason: 'Release وبس');
+      String config(String id) {
+        final start = pbx.indexOf('$id = {');
+        return pbx.substring(start, pbx.indexOf('\n\t\t};', start));
+      }
+      expect(config('97C147071CF9000F007C117D /* Release */'), contains(key));
+      expect(config('97C147061CF9000F007C117D /* Debug */'), isNot(contains(key)));
+      expect(config('249021D4217E4FDB00AE95B9 /* Profile */'), isNot(contains(key)));
     });
   });
 

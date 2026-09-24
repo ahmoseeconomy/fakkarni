@@ -487,8 +487,10 @@ class NotificationService {
         iOS: DarwinNotificationDetails(
           // Time Sensitive بيعدّي أوضاع التركيز — ومحتاج entitlement
           // `com.apple.developer.usernotifications.time-sensitive` في
-          // `Runner.entitlements` **وعلى App ID في بوابة المطوّرين**، وإلا
-          // بيتعامل كإشعار عادي من غير أي خطأ.
+          // `Runner.entitlements` (موصّل على Release بس: الفريق الشخصي
+          // ما يقدرش يوقّعه) **وعلى App ID بتاع حساب الشركة في بوابة
+          // المطوّرين**، وإلا بيتعامل كإشعار عادي من غير أي خطأ — يعني
+          // نسخة Debug/Profile على الجهاز ما بتثبتش الجزء ده.
           interruptionLevel: InterruptionLevel.timeSensitive,
           categoryIdentifier: _doseCategory.identifier,
           sound: doseSoundFile,

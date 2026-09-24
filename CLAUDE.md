@@ -1038,14 +1038,21 @@ the ladder:
   14 — on the app's own convention that is still more than the 7-day
   window; a hand-edited 9-minutes-a-day patient drops from ~5 to ~3.5 days.
 - **iOS Time Sensitive needs an entitlement, and the entitlement needs
-  the portal.** `ios/Runner/Runner.entitlements` carries
-  `com.apple.developer.usernotifications.time-sensitive` and is wired as
-  `CODE_SIGN_ENTITLEMENTS` on all three Runner configs. **That is half of
-  it**: the capability must also be enabled on the App ID in the Apple
-  Developer portal (Certificates, Identifiers & Profiles → the App ID →
-  Capabilities → Time Sensitive Notifications) and the provisioning
-  profile regenerated, or `timeSensitive` is delivered as an ordinary
-  notification with no error anywhere. `docs/ALARMKIT_NOTE.md` is the
+  the portal — and it is wired on Release only.** `ios/Runner/
+  Runner.entitlements` carries
+  `com.apple.developer.usernotifications.time-sensitive` and is
+  `CODE_SIGN_ENTITLEMENTS` on the **Release** config of the Runner target
+  alone. A personal Xcode team cannot sign that entitlement, so having it
+  on Debug and Profile broke every on-device dev build; `dose_alert_test`
+  pins Release-only. **Consequence, stated so nobody reads a dev build as
+  proof**: Debug and Profile builds deliver dose reminders as ordinary
+  notifications (Focus can hold them), and only a Release / TestFlight
+  build signed with the company team shows Time Sensitive behaviour.
+  **That team's App ID must have the capability enabled** (Certificates,
+  Identifiers & Profiles → the App ID → Capabilities → Time Sensitive
+  Notifications) and the provisioning profile regenerated, or
+  `timeSensitive` is delivered as an ordinary notification with no error
+  anywhere. `docs/ALARMKIT_NOTE.md` is the
   research note on iOS 26 AlarmKit — not built, deliberately.
 
 **«اتنست» is a grace decision, written by the device, reversible.**
