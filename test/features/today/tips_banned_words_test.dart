@@ -27,22 +27,37 @@ const bannedInTips = [
   // وقف الدوا
   'وقّف الدوا', 'وقف الدوا', 'بطّل الدوا', 'بطل الدوا', 'اوقف الدوا', 'أوقف الدوا', 'توقّف عن', 'توقف عن',
   'ما تاخدش الدوا', 'ماتاخدش الدوا', 'سيب الدوا',
+  // جرعتين ورا بعض — حتى بالنفي: الجملة نفسها بتزرع الفكرة
+  'جرعتين',
   // إنجليزي — أي كلمة طبية إنجليزية مش مكانها هنا
   'mg', 'dose', 'stop', 'interaction',
 ];
 
+/// كلمة مسموحة **بس** لو الجملة بتحوّل للدكتور أو الصيدلي: «بديل» من غير
+/// «اسأل» / «تسأل» هي نصيحة استبدال دوا — وده حكم طبي.
+const bannedUnlessAsking = ['بديل'];
+const askingWords = ['اسأل', 'تسأل', 'اسألي', 'تسألي'];
+
+List<String> offendersIn(String text) => [
+      for (final w in bannedInTips)
+        if (RegExp(r'^[a-z]+$').hasMatch(w.trim())
+            ? RegExp('\\b${w.trim()}\\b', caseSensitive: false).hasMatch(text)
+            : text.contains(w))
+          '«$w» في: $text',
+      for (final w in bannedUnlessAsking)
+        if (text.contains(w) && !askingWords.any(text.contains)) '«$w» من غير «اسأل» في: $text',
+    ];
+
 void main() {
   test('ولا كلمة ممنوعة في أي معلومة — الثابتة والقوالب بعيّناتها', () {
-    final offenders = <String>[];
-    for (final text in allTipTexts()) {
-      for (final w in bannedInTips) {
-        final hit = RegExp(r'^[a-z]+$').hasMatch(w.trim())
-            ? RegExp('\\b${w.trim()}\\b', caseSensitive: false).hasMatch(text)
-            : text.contains(w);
-        if (hit) offenders.add('«$w» في: $text');
-      }
-    }
+    final offenders = [for (final text in allTipTexts()) ...offendersIn(text)];
     expect(offenders, isEmpty);
+  });
+
+  test('«بديل» من غير «اسأل» بتقع، ومعاها بتعدّي — الحارس متجرّب', () {
+    expect(offendersIn('لو الدوا خلص خد بديل بنفس المادة.'), isNotEmpty);
+    expect(offendersIn('ماتاخدش بديل غير لما تسأل الصيدلي.'), isEmpty);
+    expect(offendersIn('ما تاخدش جرعتين ورا بعض.'), isNotEmpty);
   });
 
   test('وكل جملة في الملف نفسه — عشان اللي يتضاف بعدين ما يفلتش', () {
@@ -52,13 +67,7 @@ void main() {
     for (final line in source) {
       if (line.trimLeft().startsWith('//')) continue;
       for (final m in literal.allMatches(line)) {
-        final text = m.group(1)!;
-        for (final w in bannedInTips) {
-          final hit = RegExp(r'^[a-z]+$').hasMatch(w.trim())
-              ? RegExp('\\b${w.trim()}\\b', caseSensitive: false).hasMatch(text)
-              : text.contains(w);
-          if (hit) offenders.add('«$w» في «$text»');
-        }
+        offenders.addAll(offendersIn(m.group(1)!));
       }
     }
     expect(offenders, isEmpty);
