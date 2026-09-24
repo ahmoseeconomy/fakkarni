@@ -62,17 +62,18 @@ void main() {
       expect(() => fastingIdFor(-1), throwsRangeError);
     });
 
-    test('المساحة تحت سقف iOS: ٤٤ + ١٤ + ٢ تأجيل + ٢ صيام + ٢ متابعة = ٦٤', () {
+    test('المساحة تحت سقف iOS: ٣٢ + ١٤ + ٢ تأجيل + ٢ صيام + ٢ متابعة + ١٢ إعادة = ٦٤', () {
       expect(
         maxPendingReminders +
             maxPendingEscalations +
             snoozePendingSlack +
             fastingPendingSlack +
-            checkupPendingSlack,
+            checkupPendingSlack +
+            maxPendingRepeats,
         iosPendingLimit,
       );
       expect(maxPendingEscalations, 14, reason: 'سلّم التصعيد ما اتقصّش — الجرعات هي اللي دفعت');
-      expect(maxPendingReminders, 44);
+      expect(maxPendingReminders, 32);
     });
 
     test('نطاق المتابعة مستقل عن كل النطاقات التانية', () {

@@ -1,4 +1,5 @@
 import '../../domain/escalation/escalation_ladder.dart';
+import '../../domain/escalation/repeat_alerts.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../repositories/dose_event_repository.dart';
@@ -107,20 +108,18 @@ class ReminderScheduler {
     );
 
     // السلّم بيتبني من قبل «دلوقتي» بمهلة: جرعة رنّت من ١٠ دقايق لسه
-    // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها.
-    final ladder = planEscalations(
-      planWindow(
-        routine: routine,
-        schedules: schedules,
-        from: DateTime(from.year, from.month, from.day, from.hour,
-            from.minute - graceWindow.inMinutes),
-        patientIndex: patientIndex,
-        done: done,
-        maxPending: maxPendingEscalations ~/ EscalationRung.values.length,
-      ),
-      from: from,
+    // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها. الإعادات بتتبني من
+    // نفس الخطة المزاحة — إعادة ٨:١٠ لجرعة ٨:٠٠ لسه قدام الساعة ٨:٠٧.
+    final recent = planWindow(
+      routine: routine,
+      schedules: schedules,
+      from: DateTime(from.year, from.month, from.day, from.hour,
+          from.minute - graceWindow.inMinutes),
       patientIndex: patientIndex,
+      done: done,
+      maxPending: maxPendingEscalations ~/ EscalationRung.values.length,
     );
+    final ladder = planEscalations(recent, from: from, patientIndex: patientIndex);
 
     final enabled = (await preferences?.get())?.enabledRungs ?? EscalationRung.values.toSet();
     final allowedLadder = [
@@ -128,13 +127,23 @@ class ReminderScheduler {
         if (enabled.contains(escalationRungOf(n.id))) n,
     ];
 
+    // إعادة التنبيه (+٥/+١٠/+١٥): نفس التذكير تاني لحد ما حد يتصرّف.
+    // بتعرف الدرجات الشغّالة عشان ما ترنّش مرتين في نفس الدقيقة — السلّم
+    // نفسه ما اتلمسش، ولا وقته ولا أرقامه.
+    final repeats = planRepeats(
+      recent,
+      from: from,
+      patientIndex: patientIndex,
+      enabledRungs: enabled,
+    );
+
     // **الرقم ده بيتسجّل من الخطة الحقيقية، مش من نسخة منها.** فحص
     // السلامة بيقارنه باللي الجهاز ماسك فعلاً؛ لو اتحسب تاني في مكان
     // تاني، أي فرق صغير بين الحسبتين بيبقى إنذار كذب على شاشة المريض.
     lastPlannedDoseCount = planned.length;
 
     final plan = reconcile(
-      [...planned, ...allowedLadder],
+      [...planned, ...allowedLadder, ...repeats],
       await sink.pendingIds(),
       inBand: isRescheduledId,
     );
@@ -158,12 +167,20 @@ class ReminderScheduler {
   /// «يومك»، الموبايل ما يرنّش تاني على حاجة اتعملت.
   ///
   /// والسلّم كله معاها — القاعدة الخامسة: التأكيد بيلغي التصعيد فوراً، في
-  /// أي درجة كان.
+  /// أي درجة كان. وإعادات التنبيه التلاتة كمان: إعادة بترن على راجل خد
+  /// دواه خلاص هي نفس الزنّ اللي القاعدة الخامسة موجودة عشان تمنعه.
   Future<void> cancelReminderAt(DateTime at) async {
     await sink.cancel(notificationIdFor(at, patientIndex: patientIndex));
     await sink.cancel(snoozeIdFor(at, patientIndex: patientIndex));
     for (final rung in EscalationRung.values) {
       await sink.cancel(escalationIdFor(at, rung, patientIndex: patientIndex));
+    }
+    await _cancelRepeatsAt(at);
+  }
+
+  Future<void> _cancelRepeatsAt(DateTime at) async {
+    for (var i = 0; i < maxRepeats; i++) {
+      await sink.cancel(repeatIdFor(at, i, patientIndex: patientIndex));
     }
   }
 
@@ -189,6 +206,10 @@ class ReminderScheduler {
   /// **بيسبقها أو بيقع عليها** بتتشال: «فكّرني بعدين» الساعة ٨:١٠ معناه
   /// «سيبني لـ٨:٢٥» — درجة ٨:١٥ كانت هتزنّ عكس اللي طلبه. درجة ٨:٣٠ بعدها
   /// بتفضل: السلّم سلّم.
+  ///
+  /// **وإعادات التنبيه بتتلغي كلها**: هي «نفس التذكير تاني»، والتأجيل هو
+  /// نفسه التذكير تاني في الوقت اللي هو اختاره — إعادة جنبه زنّ مش
+  /// تذكير.
   Future<void> snooze({
     required DateTime originalAt,
     required String body,
@@ -197,6 +218,7 @@ class ReminderScheduler {
     DateTime? now,
   }) async {
     final at = (now ?? DateTime.now()).add(delay);
+    await _cancelRepeatsAt(originalAt);
     for (final step in ladderFor(originalAt)) {
       if (step.at.isAfter(at)) continue;
       await sink.cancel(

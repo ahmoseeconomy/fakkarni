@@ -14,6 +14,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../support/seeded_clock.dart';
@@ -462,6 +463,26 @@ void main() {
     expect(device.cancelled, contains(escalationIdFor(first.at, EscalationRung.second)));
     expect(device.scheduled.containsKey(escalationIdFor(first.at, EscalationRung.second)), isFalse,
         reason: 'القاعدة الخامسة: درجة ٧:٣٠ ما ترنّش على حاجة اتعملت');
+  });
+  test('«أخدته» من إعادة التنبيه على شاشة القفل: بتسجّل وبتلغي باقي الإعادات والسلّم',
+      () async {
+    final first = firstReminder();
+    final repeat = device.scheduled[repeatIdFor(first.at, 0)]!;
+    expect(repeat.at, DateTime(2026, 8, 31, 7, 5));
+    expect(repeat.payload, first.payload, reason: 'نفس الحمولة → نفس المعالجة');
+
+    // الجرعة رنّت ٧:٠٠، الإعادة الأولى رنّت ٧:٠٥، وهو داس «أخدته» عليها ٧:٠٦
+    await wake().handle(NotificationActions.taken, repeat.payload,
+        now: DateTime(2026, 8, 31, 7, 6));
+
+    final events = await db.select(db.doseEvents).get();
+    expect(events.where((e) => e.state == DoseState.taken).length, 1);
+    for (var i = 0; i < maxRepeats; i++) {
+      expect(device.cancelled, contains(repeatIdFor(first.at, i)));
+      expect(device.scheduled.containsKey(repeatIdFor(first.at, i)), isFalse,
+          reason: 'القاعدة الخامسة: إعادة ٧:١٠ ما ترنّش على حاجة اتعملت');
+    }
+    expect(device.cancelled, contains(escalationIdFor(first.at, EscalationRung.second)));
   });
 
   test('صحوة بعد المهلة من غير أي زرار: الجرعة اللي فاتت «اتنست» — لا لوم ولا مسح',

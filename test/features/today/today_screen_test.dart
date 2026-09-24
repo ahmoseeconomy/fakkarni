@@ -236,6 +236,10 @@ void main() {
       snoozeIdFor(DateTime(2026, 8, 31, 14)),
       escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.first),
       escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.second),
+      // وإعادات التنبيه التلاتة — نفس الخانة، نفس القاعدة
+      repeatIdFor(DateTime(2026, 8, 31, 14), 0),
+      repeatIdFor(DateTime(2026, 8, 31, 14), 1),
+      repeatIdFor(DateTime(2026, 8, 31, 14), 2),
     ]);
   });
 

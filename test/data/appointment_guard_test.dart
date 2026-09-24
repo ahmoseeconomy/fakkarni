@@ -151,7 +151,9 @@ void main() {
     });
 
     test('والأسقف زي ما هي — بالرقم، مش بقراية نفسها', () {
-      expect(maxPendingReminders, 44);
+      // ٤٤ ← ٣٢ مع إعادة التنبيه (١٢ خانة) — الجرعات دفعت، السلّم لأ
+      expect(maxPendingReminders, 32);
+      expect(maxPendingRepeats, 12);
       expect(maxPendingEscalations, 14);
       expect(snoozePendingSlack, 2);
       expect(fastingPendingSlack, 2);
@@ -198,6 +200,7 @@ void main() {
         'المتابعات': (checkupIdBase, checkupIdLimit),
         'المواعيد': (appointmentIdBase, appointmentIdLimit),
         'مواعيد الابن': (caregiverAppointmentIdBase, caregiverAppointmentIdLimit),
+        'الإعادات': (repeatIdBase, repeatIdLimit),
       };
       final names = ranges.keys.toList();
       for (var i = 0; i < names.length; i++) {

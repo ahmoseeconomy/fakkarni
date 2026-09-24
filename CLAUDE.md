@@ -322,7 +322,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1363 passing
+test/                         1430 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -519,7 +519,8 @@ for days — that waste is now the patient dimension.
 | Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**; **now legacy — nothing schedules into it.** `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. Every `AppointmentScheduler.refresh` cancels **every pending id in this band** — that is the upgrade fix for phones whose dates were set before the appointments round |
 | Appointment notices | `60_000_000` – `65_898_239` | **مواصفة المواعيد**, live. `appointmentIdBase` / `appointmentIdFor(day, notice)` / `isAppointmentId()`. **`base + epochDay * 2 + notice`** — إشعارين لكل **يوم** فيه مواعيد (هادي امبارحه، وواحد بيرن في يومه)، مش لكل ميعاد. `epochDayOf` بيتحسب بالـUTC. **Not** in `isRescheduledId` |
 | Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(day, notice)` — **نفس اشتقاق الأب من نطاق تاني**؛ `caregiverAppointmentCap` (٤) بقى عدّ **أيام** مش عدّ مواعيد |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`80_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
+| Repeat alerts | `80_000_000` – `105_898_239` (three bands: 80M, 90M, 100M) | **«التذكير مش بيرن»**, live. `repeatIdBase` / `repeatIdFor(at, index)` / `isRepeatId()` / `repeatIndexOf()`. One band per repeat (+5 / +10 / +15) for the same reason the ladder has one per rung; derived from the **original** dose slot; in `isRescheduledId` like the ladder, so a dose confirmed anywhere drops its pending repeats on the next rebuild |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`110_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -528,13 +529,15 @@ far below the 32-bit ceiling Android imposes on notification IDs
 
 **iOS keeps only 64 pending local notifications per app and silently drops
 the rest** — no error, no warning. So the window is capped, not fixed:
-`maxPendingReminders` is 44 (48 until D3.7, 46 until the follow-up dates);
-the remaining 20 are `maxPendingEscalations` (14 = the nearest 7 reminders ×
-2 rungs), `snoozePendingSlack` (2), `fastingPendingSlack` (2 — at most two
-fasting reminders exist at once, and the button says so) and
-`checkupPendingSlack` (2, same reasoning), so dose + ladder + a snooze +
-fasting + follow-up dates never reach 65. **Every new band pays for itself
-out of the dose window, never out of the ladder.** `planWindow` sorts and keeps the **nearest** 48, so the horizon
+`maxPendingReminders` is 32 (48 until D3.7, 46 until the follow-up dates,
+44 until the repeat alerts); the remaining 32 are `maxPendingEscalations`
+(14 = the nearest 7 reminders × 2 rungs), `maxPendingRepeats` (12 = the
+nearest 4 reminders × 3 repeats), `snoozePendingSlack` (2),
+`fastingPendingSlack` (2 — at most two fasting reminders exist at once, and
+the button says so) and `checkupPendingSlack` (2, same reasoning), so dose +
+ladder + repeats + a snooze + fasting + follow-up dates never reach 65.
+**Every new band pays for itself out of the dose window, never out of the
+ladder.** `planWindow` sorts and keeps the **nearest** 32, so the horizon
 shortens by itself as medications accumulate — a patient on one drug gets the
 full 7 days, one on six drugs three times daily gets about two and a half.
 Every app launch calls `rescheduleAll()`, which re-extends the window from the
@@ -991,6 +994,59 @@ dose in progress. So `rescheduleAll` plans escalations from a second
 `planWindow` whose `from` is shifted back by `graceWindow`, then drops
 rungs already in the past. Only the nearest 7 reminders get a ladder; the
 window renews on every confirmation and launch like the dose window.
+
+**The reminder rings for 24 seconds and comes back every five minutes
+until someone acts** (24 Sep 2026 — the tester's «مش بيرن»). On iOS the
+default sound is one short ding and nothing repeats; a 72-year-old across
+the room never hears it. Two things fixed that, neither of them touching
+the ladder:
+- **One chime, two files, our own.** `tool/make_dose_chime.py` generates a
+  three-note bell (G5–B5–D6, all fundamentals under 1.2 kHz because
+  age-related hearing loss takes the high end first) repeating for
+  **24 s** at −1 dBFS; `afconvert` turns it into `ios/Runner/dose_chime.caf`
+  (IMA4, in Copy Bundle Resources) and `android/app/src/main/res/raw/
+  dose_chime.m4a`. No third-party sample, no licence to track. **iOS
+  silently falls back to the default sound for any file over 30 s** — so
+  `test/app/dose_alert_test.dart` parses the CAF header and fails above
+  30. It is `sound:` on every `scheduleDose` (dose, repeat, snooze and
+  both rungs — the rungs are dose notifications with dose buttons, and a
+  louder rung with a quieter sound would be a contradiction) and on
+  nothing else: appointments, fasting and the health alert keep the
+  system sound, pinned by the same test. **Android channel sound is fixed
+  at creation**, so the dose and escalation channels were re-created under
+  new ids (`fakkarni_doses_chime`, `fakkarni_escalation_chime`) and the
+  old ids are deleted on every `init` (`retiredChannelIds`). Dose
+  notifications also carry `Notification.FLAG_INSISTENT`
+  (`androidFlagInsistent`) so the sound loops until the shade is opened —
+  no `fullScreenIntent`, no `USE_EXACT_ALARM`, no
+  `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+- **Repeats: +5, +10, +15 from the original minute** —
+  `domain/escalation/repeat_alerts.dart` (pure; `repeatEvery`,
+  `maxRepeats`, `repeatsFor`) and `planRepeats` in `reminder_plan.dart`,
+  built from the same `now − 45` window as the ladder so opening the app
+  at +7 keeps the +10. Same title, same payload, same buttons; the body
+  says «فات ٥ دقايق». **A repeat never rings in the same minute as an
+  enabled rung**: with both rungs on, the +15 repeat is dropped and the
+  rung rings alone; switch the +15 rung off in «التنبيهات» and the third
+  repeat fills that minute. **Rule 5 covers them**: `cancelReminderAt`
+  cancels all three, «فكّرني بعدين» cancels all three (the snooze *is* the
+  next reminder), and a dose confirmed by any path is out of the plan on
+  the next `rescheduleAll`, so its pending repeats are cancelled as stale
+  through `isRescheduledId`. The ladder is untouched — `reminder_repeat_test`
+  compares every scheduled rung against `ladderFor` and pins 15/30/45/60.
+  Budget: 12 slots paid from the dose window (44 → 32), the ladder still
+  14 — on the app's own convention that is still more than the 7-day
+  window; a hand-edited 9-minutes-a-day patient drops from ~5 to ~3.5 days.
+- **iOS Time Sensitive needs an entitlement, and the entitlement needs
+  the portal.** `ios/Runner/Runner.entitlements` carries
+  `com.apple.developer.usernotifications.time-sensitive` and is wired as
+  `CODE_SIGN_ENTITLEMENTS` on all three Runner configs. **That is half of
+  it**: the capability must also be enabled on the App ID in the Apple
+  Developer portal (Certificates, Identifiers & Profiles → the App ID →
+  Capabilities → Time Sensitive Notifications) and the provisioning
+  profile regenerated, or `timeSensitive` is delivered as an ordinary
+  notification with no error anywhere. `docs/ALARMKIT_NOTE.md` is the
+  research note on iOS 26 AlarmKit — not built, deliberately.
 
 **«اتنست» is a grace decision, written by the device, reversible.**
 `rescheduleAll` first materialises yesterday's and today's routine days
@@ -4744,3 +4800,5 @@ device-verified)**
   fails on the name even inside a comment
 - Hardcode an API key, put one in a tracked file, or call Gemini with an
   empty key
+- Ship a notification sound over 30 seconds, or put the dose chime or the
+  insistent flag on a non-dose notification — `dose_alert_test` fails both

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../core/format/arabic_time.dart';
 import '../../domain/escalation/escalation_ladder.dart';
+import '../../domain/escalation/repeat_alerts.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -228,8 +229,57 @@ int caregiverAppointmentIdFor(DateTime day, AppointmentNotice notice) => _dayNot
 bool isCaregiverAppointmentId(int id) =>
     id >= caregiverAppointmentIdBase && id < caregiverAppointmentIdLimit;
 
+// ---------------------------------------------------------- إعادة التنبيه
+/// **نطاقات إعادة التنبيه — تلات نطاقات على حدود ١٠ مليون: ٨٠ و٩٠ و١٠٠.**
+///
+/// النطاق الواحد بيشيل رقم واحد بالظبط لكل (مريض، خانة) — زي درجتين
+/// السلّم بالظبط، كل إعادة محتاجة نطاق لوحدها. الرقم مشتق من **خانة
+/// الجرعة الأصلية** مش من وقت الإعادة: إعادة جرعة ٨:٠٠ الساعة ٨:٠٥ ما
+/// تقدرش تمسح تذكير حقيقي الساعة ٨:٠٥، و«أخدته» بتلغي التلاتة من غير ما
+/// تخزّن حاجة. أعلى رقم (١٠٥٬٨٩٨٬٢٣٩) لسه أقل بكتير من سقف أندرويد.
+const int repeatIdBase = 80000000;
+
+/// المسافة بين نطاق إعادة واللي بعده.
+const int _repeatBandStride = 10000000;
+
+const int repeatIdLimit =
+    repeatIdBase + (maxRepeats - 1) * _repeatBandStride + maxPatients * patientIdSpan;
+
+/// مكان محجوز لإعادات التنبيه تحت سقف iOS: ٣ إعادات × أقرب ٤ تذكيرات.
+///
+/// **دفعت من نافذة الجرعات، مش من السلّم** (٤٤ ← ٣٢): السلّم آخر وعد
+/// للابن ومش بيتقصّ. اللي بيملا الطابور هو الدقايق المميّزة في اليوم مش
+/// الأدوية — على قاعدة التطبيق (كل الجرعات «قبل الأكل») ده ٣ إشعارات في
+/// اليوم، و٣٢ ÷ ٣ أكتر من ١٠ أيام، أطول من نافذة السبع أيام. اللي بيتأثر
+/// هو اللي عدّل أوقاته بإيده فمفيش حاجة بتندمج: ٩ دقايق في اليوم ← ٣
+/// أيام ونص بدل ٥.
+const int maxPendingRepeats = maxRepeats * 4;
+
+int _repeatBase(int index) {
+  if (index < 0 || index >= maxRepeats) {
+    throw RangeError.range(index, 0, maxRepeats - 1, 'index');
+  }
+  return repeatIdBase + index * _repeatBandStride;
+}
+
+/// رقم الإعادة [index] (٠..٢) لجرعة معادها الأصلي [originalAt].
+int repeatIdFor(DateTime originalAt, int index, {int patientIndex = 0}) =>
+    _repeatBase(index) + _patientSlot(originalAt, patientIndex);
+
+/// رقم الإعادة اللي الرقم ده بتاعها — أو null لو مش رقم إعادة.
+int? repeatIndexOf(int id) {
+  for (var i = 0; i < maxRepeats; i++) {
+    final base = _repeatBase(i);
+    if (id >= base && id < base + maxPatients * patientIdSpan) return i;
+  }
+  return null;
+}
+
+bool isRepeatId(int id) => repeatIndexOf(id) != null;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
-/// ومكان التأجيل والصيام: ٦٤ − ٤٦ − ٢ − ٢ = ١٤.
+/// ومكان التأجيل والصيام والمتابعة وإعادة التنبيه:
+/// ٦٤ − ٣٢ − ٢ − ٢ − ٢ − ١٢ = ١٤.
 ///
 /// ١٤ ÷ درجتين = أقرب ٧ تذكيرات بس هي اللي بياخدوا سلّم. النافذة دي
 /// بتتجدد مع كل تأكيد وكل فتحة زي نافذة الجرعات، فاللي بعدهم بيلحقوا.
@@ -237,7 +287,8 @@ const int maxPendingEscalations = iosPendingLimit -
     maxPendingReminders -
     snoozePendingSlack -
     fastingPendingSlack -
-    checkupPendingSlack;
+    checkupPendingSlack -
+    maxPendingRepeats;
 
 /// نافذة الجدولة الافتراضية.
 const int reminderWindowDays = 7;
@@ -253,10 +304,11 @@ const int iosPendingLimit = 64;
 /// التفكير من «شغال عندي على أندرويد».
 ///
 /// كان ٤٨؛ بقى ٤٦ في D3.7 عشان تذكيرين صيام يلاقوا مكان، وبقى ٤٤ مع
-/// مواعيد متابعة التحليل (تذكيرين كمان). التمن متشاف ومقصود: أفق الجرعات
-/// بيقصر بيومين تقريباً لمريض على أدوية كتير، وبيتجدد مع كل فتحة وكل
-/// تأكيد زي ما هو.
-const int maxPendingReminders = 44;
+/// مواعيد متابعة التحليل (تذكيرين كمان)، وبقى ٣٢ مع إعادة التنبيه
+/// ([maxPendingRepeats] = ١٢). التمن متشاف ومقصود: أفق الجرعات بيقصر
+/// لمريض على أوقات كتير مميّزة في اليوم، وبيتجدد مع كل فتحة وكل تأكيد
+/// زي ما هو — والسلّم ما دفعش ولا خانة.
+const int maxPendingReminders = 32;
 
 /// رقم الإشعار مشتق من (المريض، اليوم، الدقيقة).
 ///
@@ -320,9 +372,14 @@ EscalationRung? escalationRungOf(int id) {
   return null;
 }
 
-/// أي رقم بنملكه إحنا وبنعيد جدولته — جرعات وتصعيد. التأجيل برّه عن قصد:
-/// هو بيتلغي بالتأكيد بس، مش بإعادة الجدولة.
-bool isRescheduledId(int id) => isDoseId(id) || isEscalationId(id);
+/// أي رقم بنملكه إحنا وبنعيد جدولته — جرعات وتصعيد وإعادة تنبيه.
+/// التأجيل برّه عن قصد: هو بيتلغي بالتأكيد بس، مش بإعادة الجدولة.
+///
+/// الإعادة جوّه عن قصد: هي مشتقة من الخطة زي السلّم، فجرعة اتأكدت
+/// (من «يومك»، من شاشة القفل، أو وصلت من أي مكان تاني قبل إعادة الجدولة
+/// الجاية) بتختفي من الخطة وإعاداتها المعلّقة بتتلغي كـ«قديمة» في نفس
+/// المطابقة.
+bool isRescheduledId(int id) => isDoseId(id) || isEscalationId(id) || isRepeatId(id);
 
 /// يوم الروتين اللي إحنا فيه دلوقتي.
 ///
@@ -347,6 +404,9 @@ String doneKey(String scheduleId, DateTime routineDay) =>
 enum NotificationKind {
   dose,
   escalation,
+
+  /// إعادة تنبيه (+٥/+١٠/+١٥) — نفس قناة الجرعة ونفس أزرارها ونفس نغمتها.
+  repeat,
 
   /// تذكير صيام قبل سحب عينة (D3.7) — قناة لوحدها ومن غير أزرار «أخدته».
   fasting,
@@ -491,6 +551,73 @@ List<PlannedNotification> planEscalations(
 
   planned.sort((a, b) => a.at.compareTo(b.at));
   return planned;
+}
+
+/// إعادات التنبيه لأقرب التذكيرات.
+///
+/// نفس شكل [planEscalations] ونفس مدخله: [reminders] محسوبة من **قبل
+/// [from] بمهلة** — جرعة رنّت ٨:٠٠ والتطبيق اتفتح ٨:٠٧ لسه إعادتها ٨:١٠
+/// قدام، ولو حسبناها من ٨:٠٧ كانت هتختفي من الخطة وتتلغي كأنها اتأكدت.
+/// الإعادات اللي معادها فات بتتشال؛ الجايّة بس هي اللي بتتجدول.
+///
+/// **إعادة على دقيقة درجة شغّالة بتتشال.** الإعادة التالتة عند +١٥ هي
+/// نفس دقيقة الدرجة الأولى من السلّم؛ إشعارين بنغمة ٢٤ ثانية في نفس
+/// اللحظة مش «أعلى»، ده لخبطة. الدرجة هي اللي بتكسب (بتهزّ وبتسأل). لو
+/// المستخدم قفل درجة +١٥ من «التنبيهات»، الإعادة التالتة بترجع تملا
+/// مكانها — [enabledRungs] هي اللي بتقول.
+///
+/// **والسقف بيتعدّ على التذكيرات اللي لسه ليها إعادة قدام**، مش على أول
+/// أربعة في القايمة: تذكير رنّ من نص ساعة إعاداته كلها فاتت، وحجز خانة
+/// ليه كان هيحرم التذكير الجاي منها.
+///
+/// نفس الحمولة بتاعة الجرعة: الدوسة أو «أخدته» على الإعادة بتتعامل
+/// كأنها على التذكير الأصلي — القاعدة الخامسة بتشتغل من الإشعار نفسه.
+List<PlannedNotification> planRepeats(
+  List<PlannedNotification> reminders, {
+  required DateTime from,
+  int maxPending = maxPendingRepeats,
+  int patientIndex = 0,
+  Set<EscalationRung> enabledRungs = const {EscalationRung.first, EscalationRung.second},
+}) {
+  final taken = {for (final rung in enabledRungs) rung.delay};
+  final planned = <PlannedNotification>[];
+  var covered = 0;
+
+  for (final reminder in reminders) {
+    if (covered >= maxPending ~/ maxRepeats) break;
+    final steps = [
+      for (final step in repeatsFor(reminder.at))
+        if (step.at.isAfter(from) && !taken.contains(step.delay)) step,
+    ];
+    if (steps.isEmpty) continue;
+    covered++;
+    for (final step in steps) {
+      planned.add(
+        PlannedNotification(
+          id: repeatIdFor(reminder.at, step.index, patientIndex: patientIndex),
+          at: step.at,
+          title: reminder.title,
+          body: repeatBody(step, reminder.body),
+          payload: reminder.payload,
+          doses: reminder.doses,
+          kind: NotificationKind.repeat,
+        ),
+      );
+    }
+  }
+
+  planned.sort((a, b) => a.at.compareTo(b.at));
+  return planned;
+}
+
+/// نص الإعادة: نفس سطر الجرعة، وقدامه قد إيه عدّى — بنفس لهجة السلّم.
+String repeatBody(RepeatStep step, String reminderBody) {
+  final elapsed = switch (step.index) {
+    0 => 'فات ٥ دقايق',
+    1 => 'فات ١٠ دقايق',
+    _ => 'فات ربع ساعة',
+  };
+  return '$reminderBody — $elapsed';
 }
 
 /// عنوان درجة التصعيد — سؤال، مش لوم.

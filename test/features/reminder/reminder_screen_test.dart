@@ -203,6 +203,9 @@ void main() {
         snoozeIdFor(lunchDose),
         escalationIdFor(lunchDose, EscalationRung.first),
         escalationIdFor(lunchDose, EscalationRung.second),
+        repeatIdFor(lunchDose, 0),
+        repeatIdFor(lunchDose, 1),
+        repeatIdFor(lunchDose, 2),
       ],
     );
   });
@@ -236,9 +239,13 @@ void main() {
     expect(decodePayload(snooze.payload)!.scheduleIds, ids);
     // الجرعة لسه معلّقة — التأجيل مش تخطّي
     expect(await statesOf(ids), [DoseState.pending]);
-    // التأجيل لـ٢:٣٠ بيسبق درجة ٢:١٥ وبيقع على درجة ٢:٣٠ → الاتنين بيتشالوا،
-    // والتذكير الأصلي وتأجيله ما بيتلمسوش
+    // الإعادات التلاتة بتتشال الأول (التأجيل هو التذكير التاني في وقته
+    // هو)، والتأجيل لـ٢:٣٠ بيسبق درجة ٢:١٥ وبيقع على درجة ٢:٣٠ → الاتنين
+    // بيتشالوا، والتذكير الأصلي وتأجيله ما بيتلمسوش
     expect(sink.cancelled, [
+      repeatIdFor(lunchDose, 0),
+      repeatIdFor(lunchDose, 1),
+      repeatIdFor(lunchDose, 2),
       escalationIdFor(lunchDose, EscalationRung.first),
       escalationIdFor(lunchDose, EscalationRung.second),
     ]);

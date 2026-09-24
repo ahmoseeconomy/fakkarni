@@ -858,12 +858,15 @@ void main() {
       await scheduler.cancelReminderAt(DateTime(2026, 8, 31, 7));
 
       expect(sink.doses.length, 6);
-      // الخانة دي بس: تذكيرها وتأجيلها وسلّمها، ومفيش حاجة تانية
+      // الخانة دي بس: تذكيرها وتأجيلها وسلّمها وإعاداتها، ومفيش حاجة تانية
       expect(sink.cancelled, [
         notificationIdFor(DateTime(2026, 8, 31, 7)),
         snoozeIdFor(DateTime(2026, 8, 31, 7)),
         escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.first),
         escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.second),
+        repeatIdFor(DateTime(2026, 8, 31, 7), 0),
+        repeatIdFor(DateTime(2026, 8, 31, 7), 1),
+        repeatIdFor(DateTime(2026, 8, 31, 7), 2),
       ]);
     });
 
@@ -1076,7 +1079,14 @@ void main() {
           now: DateTime(2026, 8, 31, 7, 5),
         );
 
-        expect(sink.cancelled, [escalationIdFor(sevenAm, EscalationRung.first)]);
+        // الإعادات التلاتة بتتلغي كلها الأول (التأجيل هو التذكير التاني
+        // في الوقت اللي هو اختاره)، وبعدها الدرجة اللي التأجيل بيسبقها
+        expect(sink.cancelled, [
+          repeatIdFor(sevenAm, 0),
+          repeatIdFor(sevenAm, 1),
+          repeatIdFor(sevenAm, 2),
+          escalationIdFor(sevenAm, EscalationRung.first),
+        ]);
         expect(sink.scheduled.containsKey(escalationIdFor(sevenAm, EscalationRung.second)), isTrue);
         expect(sink.scheduled.containsKey(snoozeIdFor(sevenAm)), isTrue);
       });
@@ -1238,7 +1248,10 @@ void main() {
 
       expect(sink.doses.length, 7, reason: '«في الموعد» ما بيتقفلش');
       expect(sink.escalations, isEmpty);
-      expect(sink.scheduled.keys.every(isDoseId), isTrue);
+      // الإعادات مش درجات: هي «في الموعد» تاني، وبتفضل — ومع الدرجتين
+      // مقفولين التالتة (+١٥) بتاخد الدقيقة اللي كانت للدرجة الأولى
+      expect(sink.scheduled.keys.every((id) => isDoseId(id) || isRepeatId(id)), isTrue);
+      expect(sink.scheduled.keys.where(isRepeatId), isNotEmpty);
     });
 
     test('+١٥ بس مقفولة → درجة +٣٠ فاضلة كاملة', () async {

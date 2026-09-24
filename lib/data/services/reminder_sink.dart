@@ -37,7 +37,12 @@ class NotificationReminderSink implements ReminderSink {
             at: notification.at,
             quiet: notification.kind == NotificationKind.appointmentQuiet,
           ),
-        _ => NotificationService.scheduleDose(
+        // جرعة، إعادة تنبيه، أو درجة سلّم: نفس النغمة ونفس الأزرار —
+        // الدرجة بس هي اللي بتاخد قناة الاهتزاز
+        NotificationKind.dose ||
+        NotificationKind.repeat ||
+        NotificationKind.escalation =>
+          NotificationService.scheduleDose(
             id: notification.id,
             title: notification.title,
             body: notification.body,

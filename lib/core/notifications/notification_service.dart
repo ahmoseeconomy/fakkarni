@@ -97,12 +97,41 @@ class NotificationService {
     lastPayload.value = null;
   }
 
-  /// قناة الجرعات — أولوية عالية عشان تظهر فوق الشاشة وتصوّت.
+  /// **نغمة الجرعة — ملف واحد، اسمين.**
+  ///
+  /// جرس ٢٤ ثانية بيتكرر، مولّد من `tool/make_dose_chime.py` (بتاعنا، مفيش
+  /// رخصة لحد). على iOS الملف `ios/Runner/dose_chime.caf` في الحزمة
+  /// (IMA4، **أقل من ٣٠ ثانية** — أطول من كده iOS بيرجع للنغمة الافتراضية
+  /// في صمت)، وعلى أندرويد `res/raw/dose_chime.m4a` بيتقرا بالاسم من غير
+  /// امتداد. الاتنين **للجرعات بس**: التذكير والإعادة والتأجيل ودرجات
+  /// السلّم. المواعيد والصيام والسلامة بنغمة النظام زي ما هم.
+  static const doseSoundFile = 'dose_chime.caf';
+  static const doseSoundResource = 'dose_chime';
+
+  /// `Notification.FLAG_INSISTENT` — النغمة بتلفّ لحد ما المستخدم يلمس
+  /// الإشعار أو يفتح الستارة. أندرويد بس، وللجرعات بس.
+  static const androidFlagInsistent = 0x00000004;
+
+  /// **قنوات قديمة بتتمسح في كل تهيئة.**
+  ///
+  /// نغمة القناة على أندرويد بتتثبّت وقت إنشائها ومفيش تعديل بعدها —
+  /// فقناة الجرعات والسلّم اتعملوا من جديد بأسامي جديدة ومعاهم النغمة،
+  /// والقديمة بتتمسح عشان إعدادات مستخدم قديم ما تفضلش ماسكة نغمة النظام.
+  /// مسح قناة مش موجودة لا-عملية.
+  static const retiredChannelIds = ['fakkarni_doses', 'fakkarni_escalation'];
+
+  /// الـid بتاع قناة الجرعات — مكشوف عشان الاختبار يتأكد إنه مش القديم.
+  static const doseChannelId = 'fakkarni_doses_chime';
+  static const escalationChannelId = 'fakkarni_escalation_chime';
+
+  /// قناة الجرعات — أولوية عالية عشان تظهر فوق الشاشة، وبنغمتنا.
   static const _doseChannel = AndroidNotificationChannel(
-    'fakkarni_doses',
+    doseChannelId,
     'تذكير الأدوية',
     description: 'تنبيهات مواعيد الجرعات',
     importance: Importance.max,
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound(doseSoundResource),
   );
 
   /// قناة تذكير الصيام (D3.7) — لوحدها عشان تتسكّت من غير ما الجرعات تتسكّت.
@@ -120,10 +149,12 @@ class NotificationService {
   /// ما يعلّي تذكير الجرعة العادي. على iOS الاتنين timeSensitive؛ اللي
   /// أعلى من كده (Critical Alerts) محتاج موافقة آبل — راجع «دين تقني».
   static final _escalationChannel = AndroidNotificationChannel(
-    'fakkarni_escalation',
+    escalationChannelId,
     'لسه ما أخدتش الدوا',
     description: 'تنبيه أعلى لما تذكير الجرعة يعدّي من غير تأكيد',
     importance: Importance.max,
+    playSound: true,
+    sound: const RawResourceAndroidNotificationSound(doseSoundResource),
     enableVibration: true,
     vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
   );
@@ -219,10 +250,12 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: onBackgroundAction,
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_doseChannel);
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    for (final retired in retiredChannelIds) {
+      await android?.deleteNotificationChannel(channelId: retired);
+    }
+    await android?.createNotificationChannel(_doseChannel);
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -429,6 +462,12 @@ class NotificationService {
           priority: Priority.high,
           enableVibration: channel.enableVibration,
           vibrationPattern: channel.vibrationPattern,
+          // النغمة على الإشعار كمان مش على القناة بس: قبل أندرويد ٨ مفيش
+          // قنوات، والإشعار هو اللي بيحدد
+          playSound: true,
+          sound: const RawResourceAndroidNotificationSound(doseSoundResource),
+          // بتلفّ لحد ما يلمسه — للجرعات بس، مش للمواعيد ولا الصيام
+          additionalFlags: Int32List.fromList([androidFlagInsistent]),
           category: AndroidNotificationCategory.reminder,
           // ملاحظة: مش بنستخدم fullScreenIntent — جوجل بلاي بتقصره على
           // تطبيقات المكالمات والمنبّهات، واستخدامه بيعرّض المراجعة للرفض.
@@ -446,8 +485,13 @@ class NotificationService {
           ],
         ),
         iOS: DarwinNotificationDetails(
+          // Time Sensitive بيعدّي أوضاع التركيز — ومحتاج entitlement
+          // `com.apple.developer.usernotifications.time-sensitive` في
+          // `Runner.entitlements` **وعلى App ID في بوابة المطوّرين**، وإلا
+          // بيتعامل كإشعار عادي من غير أي خطأ.
           interruptionLevel: InterruptionLevel.timeSensitive,
           categoryIdentifier: _doseCategory.identifier,
+          sound: doseSoundFile,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
