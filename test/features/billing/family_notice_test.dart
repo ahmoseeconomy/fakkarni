@@ -151,20 +151,21 @@ void main() {
         );
     const nurse = FollowerPermissions(role: FollowerRole.nurse, canConfirm: true, canEditMeds: false);
 
-    for (final (label, perms, tab) in [
-      ('المتابع على «متابعة»', FollowerPermissions.plainFollower, 'متابعة'),
-      ('الممرض على «مرآة»', nurse, 'مرآة'),
+    // الممرض بقى ليه تطبيقه (٢٤ سبتمبر ٢٠٢٦) — نفس الكلام، بمقاسات المريض
+    for (final (label, perms, tab, prefix) in [
+      ('المتابع على «متابعة»', FollowerPermissions.plainFollower, 'متابعة', 'care-family'),
+      ('الممرض على «يومك»', nurse, 'يومك', 'nurse-family'),
     ]) {
       screenTest('$label: كارت دايم بعد النهاية باسم المريض، و«جدّد»', (tester) async {
         await subscribe(expired);
         final remote = FakeCaregiverRemote()..next = snap(perms);
         await pump(tester, await services(caregiver: remote), CaregiverShell(onNotLinked: () {}, now: now));
         expect(find.text(tab), findsWidgets);
-        expect(find.text('التنبيهات واقفة — مش هتتبلّغ لو الحاج أحمد فوّت جرعة'), findsOneWidget);
+        expect(find.textContaining('التنبيهات واقفة — مش هتتبلّغ لو الحاج أحمد فوّت جرعة'), findsOneWidget);
         // دايم: مفيش «تمام» تشيله
-        expect(find.descendant(of: find.byKey(const ValueKey('care-family-notice-ended')), matching: find.text('تمام')),
+        expect(find.descendant(of: find.byKey(ValueKey('$prefix-notice-ended')), matching: find.text('تمام')),
             findsNothing);
-        await tester.tap(find.byKey(const ValueKey('care-family-notice-renew')));
+        await tester.tap(find.byKey(ValueKey(prefix == 'care-family' ? 'care-family-notice-renew' : 'nurse-family-renew')));
         await settle(tester);
         expect(find.byType(FamilyPlanScreen), findsOneWidget);
       });
