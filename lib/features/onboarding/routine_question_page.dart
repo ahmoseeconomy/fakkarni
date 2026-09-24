@@ -96,7 +96,9 @@ class RoutineQuestionPage extends StatelessWidget {
                 child: TextButton(
                   onPressed: onNotSure,
                   child: Text(
-                    PatientVoice.of(context).notSure,
+                    // «مش دلوقتي» مش «مش متأكد»: التخطّي بيسيب المرساة
+                    // مش متحددة، ومفيش افتراضي بيتكتب مكان إجابته
+                    notNowLabel,
                     style: TextStyle(
                       fontSize: F.minBodySize,
                       fontWeight: FontWeight.w600,
@@ -125,7 +127,9 @@ class PresetRow extends StatelessWidget {
   });
 
   final List<MinuteOfDay> presets;
-  final MinuteOfDay value;
+
+  /// null = مفيش اقتراح مختار — مرساة لسه ما اتحددتش.
+  final MinuteOfDay? value;
   final ValueChanged<MinuteOfDay> onChanged;
 
   @override

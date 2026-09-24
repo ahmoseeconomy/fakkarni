@@ -26,8 +26,11 @@ class EditRoutineScreen extends StatefulWidget {
 }
 
 class _EditRoutineScreenState extends State<EditRoutineScreen> {
-  late final Map<DayAnchor, MinuteOfDay> _values = {
-    for (final anchor in DayAnchor.values) anchor: widget.routine.at(anchor),
+  /// null = المستخدم ما حدّدهاش — الكارت بيقول «مش متحدد» وبيعرض مكان
+  /// الراحة على البكرة بس. بتتحدد باقتراح أو حركة بكرة أو «تمام كده».
+  late final Map<DayAnchor, MinuteOfDay?> _values = {
+    for (final anchor in DayAnchor.values)
+      anchor: widget.routine.isSet(anchor) ? widget.routine.at(anchor) : null,
   };
 
   /// العجلة مفتوحة لمرساة واحدة بس في المرة — خمس عجلات مع بعض حيطة.
@@ -102,15 +105,19 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                   for (final question in routineQuestions) ...[
                     _AnchorCard(
                       question: question,
-                      value: _values[question.anchor]!,
+                      value: _values[question.anchor],
                       wheelOpen: _wheelFor == question.anchor,
                       onChanged: (value) =>
                           setState(() => _values[question.anchor] = value),
-                      onToggleWheel: () => setState(
-                        () => _wheelFor = _wheelFor == question.anchor
-                            ? null
-                            : question.anchor,
-                      ),
+                      onToggleWheel: () => setState(() {
+                        final open = _wheelFor == question.anchor;
+                        // «تمام كده» على مرساة مش متحددة = اللي على البكرة
+                        // بقى بتاعه — أكّده بدوسة، مش اتكتب لوحده
+                        if (open && _values[question.anchor] == null) {
+                          _values[question.anchor] = question.fallback;
+                        }
+                        _wheelFor = open ? null : question.anchor;
+                      }),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -145,13 +152,19 @@ class _AnchorCard extends StatelessWidget {
   });
 
   final RoutineQuestion question;
-  final MinuteOfDay value;
+
+  /// null = مش متحدد.
+  final MinuteOfDay? value;
   final bool wheelOpen;
   final ValueChanged<MinuteOfDay> onChanged;
   final VoidCallback onToggleWheel;
 
-  String _label(MinuteOfDay time) =>
-      arabicTime(DateTime(2026, 1, 1, time.hour, time.minute));
+  /// «مش متحدد» — الكلمة اللي الإعدادات بتقولها للمرساة اللي ما اتحددتش.
+  static const String unsetLabel = 'مش متحدد';
+
+  String _label(MinuteOfDay? time) => time == null
+      ? unsetLabel
+      : arabicTime(DateTime(2026, 1, 1, time.hour, time.minute));
 
   @override
   Widget build(BuildContext context) {
@@ -173,25 +186,31 @@ class _AnchorCard extends StatelessWidget {
               ),
               Text(
                 _label(value),
-                style: const TextStyle(
-                  fontSize: F.screenTitleSize,
+                style: TextStyle(
+                  fontSize: value == null ? F.minBodySize : F.screenTitleSize,
                   fontWeight: FontWeight.w700,
-                  color: F.greenDeep,
+                  // مش متحدد بلون المتن الثانوي: مش حالة نشطة ولا تنبيه
+                  color: value == null ? F.mutedDark : F.greenDeep,
                 ),
               ),
             ],
           ),
           const SizedBox(height: F.s12),
-          // نفس اقتراحات الأسئلة الأولى — الذهبي = المختار
-          PresetRow(presets: question.presets, value: value, onChanged: onChanged),
+          // نفس اقتراحات الأسئلة الأولى — الذهبي = المختار. مرساة مش
+          // متحددة مفيش فيها اقتراح مختار: الاختيار هو اللي بيحددها.
+          PresetRow(
+            presets: question.presets,
+            value: value,
+            onChanged: onChanged,
+          ),
           const SizedBox(height: F.s8),
           FSecondaryButton(
-            label: wheelOpen ? 'تمام كده' : 'ساعة تانية',
+            label: wheelOpen ? 'تمام كده' : (value == null ? 'حدّد الميعاد' : 'ساعة تانية'),
             onPressed: onToggleWheel,
           ),
           if (wheelOpen) ...[
             const SizedBox(height: F.s8),
-            FTimeWheel(value: value, onChanged: onChanged),
+            FTimeWheel(value: value ?? question.fallback, onChanged: onChanged),
           ],
         ],
       ),

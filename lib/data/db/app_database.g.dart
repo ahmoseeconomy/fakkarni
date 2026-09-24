@@ -705,6 +705,18 @@ class $DayRoutinesTable extends DayRoutines
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _unsetAnchorsMeta = const VerificationMeta(
+    'unsetAnchors',
+  );
+  @override
+  late final GeneratedColumn<String> unsetAnchors = GeneratedColumn<String>(
+    'unset_anchors',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -729,6 +741,7 @@ class $DayRoutinesTable extends DayRoutines
     lunchMinutes,
     dinnerMinutes,
     sleepMinutes,
+    unsetAnchors,
     updatedAt,
   ];
   @override
@@ -833,6 +846,15 @@ class $DayRoutinesTable extends DayRoutines
     } else if (isInserting) {
       context.missing(_sleepMinutesMeta);
     }
+    if (data.containsKey('unset_anchors')) {
+      context.handle(
+        _unsetAnchorsMeta,
+        unsetAnchors.isAcceptableOrUnknown(
+          data['unset_anchors']!,
+          _unsetAnchorsMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -892,6 +914,10 @@ class $DayRoutinesTable extends DayRoutines
         DriftSqlType.int,
         data['${effectivePrefix}sleep_minutes'],
       )!,
+      unsetAnchors: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unset_anchors'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -923,6 +949,11 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
   final int lunchMinutes;
   final int dinnerMinutes;
   final int sleepMinutes;
+
+  /// المراسي اللي المستخدم ما حدّدهاش (v21) — أسامي مفصولة بفاصلة، فاضية
+  /// = كله متحدد. **الصفوف اللي من قبل v21 بتقرا فاضية**: كل حد سجّل روتينه
+  /// قبل ما الروتين يبقى اختياري كان بيجاوب على الخمسة، فكله بتاعه.
+  final String unsetAnchors;
   final DateTime updatedAt;
   const DayRoutineRow({
     required this.uuid,
@@ -935,6 +966,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     required this.lunchMinutes,
     required this.dinnerMinutes,
     required this.sleepMinutes,
+    required this.unsetAnchors,
     required this.updatedAt,
   });
   @override
@@ -952,6 +984,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     map['lunch_minutes'] = Variable<int>(lunchMinutes);
     map['dinner_minutes'] = Variable<int>(dinnerMinutes);
     map['sleep_minutes'] = Variable<int>(sleepMinutes);
+    map['unset_anchors'] = Variable<String>(unsetAnchors);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -970,6 +1003,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
       lunchMinutes: Value(lunchMinutes),
       dinnerMinutes: Value(dinnerMinutes),
       sleepMinutes: Value(sleepMinutes),
+      unsetAnchors: Value(unsetAnchors),
       updatedAt: Value(updatedAt),
     );
   }
@@ -990,6 +1024,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
       lunchMinutes: serializer.fromJson<int>(json['lunchMinutes']),
       dinnerMinutes: serializer.fromJson<int>(json['dinnerMinutes']),
       sleepMinutes: serializer.fromJson<int>(json['sleepMinutes']),
+      unsetAnchors: serializer.fromJson<String>(json['unsetAnchors']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -1007,6 +1042,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
       'lunchMinutes': serializer.toJson<int>(lunchMinutes),
       'dinnerMinutes': serializer.toJson<int>(dinnerMinutes),
       'sleepMinutes': serializer.toJson<int>(sleepMinutes),
+      'unsetAnchors': serializer.toJson<String>(unsetAnchors),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -1022,6 +1058,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     int? lunchMinutes,
     int? dinnerMinutes,
     int? sleepMinutes,
+    String? unsetAnchors,
     DateTime? updatedAt,
   }) => DayRoutineRow(
     uuid: uuid ?? this.uuid,
@@ -1034,6 +1071,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     lunchMinutes: lunchMinutes ?? this.lunchMinutes,
     dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
     sleepMinutes: sleepMinutes ?? this.sleepMinutes,
+    unsetAnchors: unsetAnchors ?? this.unsetAnchors,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   DayRoutineRow copyWithCompanion(DayRoutinesCompanion data) {
@@ -1062,6 +1100,9 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
       sleepMinutes: data.sleepMinutes.present
           ? data.sleepMinutes.value
           : this.sleepMinutes,
+      unsetAnchors: data.unsetAnchors.present
+          ? data.unsetAnchors.value
+          : this.unsetAnchors,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -1079,6 +1120,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
           ..write('lunchMinutes: $lunchMinutes, ')
           ..write('dinnerMinutes: $dinnerMinutes, ')
           ..write('sleepMinutes: $sleepMinutes, ')
+          ..write('unsetAnchors: $unsetAnchors, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -1096,6 +1138,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
     lunchMinutes,
     dinnerMinutes,
     sleepMinutes,
+    unsetAnchors,
     updatedAt,
   );
   @override
@@ -1112,6 +1155,7 @@ class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
           other.lunchMinutes == this.lunchMinutes &&
           other.dinnerMinutes == this.dinnerMinutes &&
           other.sleepMinutes == this.sleepMinutes &&
+          other.unsetAnchors == this.unsetAnchors &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -1126,6 +1170,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
   final Value<int> lunchMinutes;
   final Value<int> dinnerMinutes;
   final Value<int> sleepMinutes;
+  final Value<String> unsetAnchors;
   final Value<DateTime> updatedAt;
   const DayRoutinesCompanion({
     this.uuid = const Value.absent(),
@@ -1138,6 +1183,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     this.lunchMinutes = const Value.absent(),
     this.dinnerMinutes = const Value.absent(),
     this.sleepMinutes = const Value.absent(),
+    this.unsetAnchors = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   DayRoutinesCompanion.insert({
@@ -1151,6 +1197,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     required int lunchMinutes,
     required int dinnerMinutes,
     required int sleepMinutes,
+    this.unsetAnchors = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : patientId = Value(patientId),
        wakeMinutes = Value(wakeMinutes),
@@ -1169,6 +1216,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     Expression<int>? lunchMinutes,
     Expression<int>? dinnerMinutes,
     Expression<int>? sleepMinutes,
+    Expression<String>? unsetAnchors,
     Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
@@ -1182,6 +1230,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
       if (lunchMinutes != null) 'lunch_minutes': lunchMinutes,
       if (dinnerMinutes != null) 'dinner_minutes': dinnerMinutes,
       if (sleepMinutes != null) 'sleep_minutes': sleepMinutes,
+      if (unsetAnchors != null) 'unset_anchors': unsetAnchors,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
@@ -1197,6 +1246,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     Value<int>? lunchMinutes,
     Value<int>? dinnerMinutes,
     Value<int>? sleepMinutes,
+    Value<String>? unsetAnchors,
     Value<DateTime>? updatedAt,
   }) {
     return DayRoutinesCompanion(
@@ -1210,6 +1260,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
       lunchMinutes: lunchMinutes ?? this.lunchMinutes,
       dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
       sleepMinutes: sleepMinutes ?? this.sleepMinutes,
+      unsetAnchors: unsetAnchors ?? this.unsetAnchors,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -1247,6 +1298,9 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
     if (sleepMinutes.present) {
       map['sleep_minutes'] = Variable<int>(sleepMinutes.value);
     }
+    if (unsetAnchors.present) {
+      map['unset_anchors'] = Variable<String>(unsetAnchors.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -1266,6 +1320,7 @@ class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
           ..write('lunchMinutes: $lunchMinutes, ')
           ..write('dinnerMinutes: $dinnerMinutes, ')
           ..write('sleepMinutes: $sleepMinutes, ')
+          ..write('unsetAnchors: $unsetAnchors, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -3960,6 +4015,18 @@ class $RoutineBackupsTable extends RoutineBackups
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _unsetAnchorsMeta = const VerificationMeta(
+    'unsetAnchors',
+  );
+  @override
+  late final GeneratedColumn<String> unsetAnchors = GeneratedColumn<String>(
+    'unset_anchors',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     patientId,
@@ -3970,6 +4037,7 @@ class $RoutineBackupsTable extends RoutineBackups
     sleepMinutes,
     iftarMinutes,
     suhoorMinutes,
+    unsetAnchors,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4066,6 +4134,15 @@ class $RoutineBackupsTable extends RoutineBackups
     } else if (isInserting) {
       context.missing(_suhoorMinutesMeta);
     }
+    if (data.containsKey('unset_anchors')) {
+      context.handle(
+        _unsetAnchorsMeta,
+        unsetAnchors.isAcceptableOrUnknown(
+          data['unset_anchors']!,
+          _unsetAnchorsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4107,6 +4184,10 @@ class $RoutineBackupsTable extends RoutineBackups
         DriftSqlType.int,
         data['${effectivePrefix}suhoor_minutes'],
       )!,
+      unsetAnchors: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unset_anchors'],
+      )!,
     );
   }
 
@@ -4128,6 +4209,9 @@ class RoutineBackupRow extends DataClass
   final int sleepMinutes;
   final int iftarMinutes;
   final int suhoorMinutes;
+
+  /// نفس علم day_routines (v21) — الرجوع من رمضان بيرجّع اللي مش متحدد كمان.
+  final String unsetAnchors;
   const RoutineBackupRow({
     required this.patientId,
     required this.wakeMinutes,
@@ -4137,6 +4221,7 @@ class RoutineBackupRow extends DataClass
     required this.sleepMinutes,
     required this.iftarMinutes,
     required this.suhoorMinutes,
+    required this.unsetAnchors,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4149,6 +4234,7 @@ class RoutineBackupRow extends DataClass
     map['sleep_minutes'] = Variable<int>(sleepMinutes);
     map['iftar_minutes'] = Variable<int>(iftarMinutes);
     map['suhoor_minutes'] = Variable<int>(suhoorMinutes);
+    map['unset_anchors'] = Variable<String>(unsetAnchors);
     return map;
   }
 
@@ -4162,6 +4248,7 @@ class RoutineBackupRow extends DataClass
       sleepMinutes: Value(sleepMinutes),
       iftarMinutes: Value(iftarMinutes),
       suhoorMinutes: Value(suhoorMinutes),
+      unsetAnchors: Value(unsetAnchors),
     );
   }
 
@@ -4179,6 +4266,7 @@ class RoutineBackupRow extends DataClass
       sleepMinutes: serializer.fromJson<int>(json['sleepMinutes']),
       iftarMinutes: serializer.fromJson<int>(json['iftarMinutes']),
       suhoorMinutes: serializer.fromJson<int>(json['suhoorMinutes']),
+      unsetAnchors: serializer.fromJson<String>(json['unsetAnchors']),
     );
   }
   @override
@@ -4193,6 +4281,7 @@ class RoutineBackupRow extends DataClass
       'sleepMinutes': serializer.toJson<int>(sleepMinutes),
       'iftarMinutes': serializer.toJson<int>(iftarMinutes),
       'suhoorMinutes': serializer.toJson<int>(suhoorMinutes),
+      'unsetAnchors': serializer.toJson<String>(unsetAnchors),
     };
   }
 
@@ -4205,6 +4294,7 @@ class RoutineBackupRow extends DataClass
     int? sleepMinutes,
     int? iftarMinutes,
     int? suhoorMinutes,
+    String? unsetAnchors,
   }) => RoutineBackupRow(
     patientId: patientId ?? this.patientId,
     wakeMinutes: wakeMinutes ?? this.wakeMinutes,
@@ -4214,6 +4304,7 @@ class RoutineBackupRow extends DataClass
     sleepMinutes: sleepMinutes ?? this.sleepMinutes,
     iftarMinutes: iftarMinutes ?? this.iftarMinutes,
     suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+    unsetAnchors: unsetAnchors ?? this.unsetAnchors,
   );
   RoutineBackupRow copyWithCompanion(RoutineBackupsCompanion data) {
     return RoutineBackupRow(
@@ -4239,6 +4330,9 @@ class RoutineBackupRow extends DataClass
       suhoorMinutes: data.suhoorMinutes.present
           ? data.suhoorMinutes.value
           : this.suhoorMinutes,
+      unsetAnchors: data.unsetAnchors.present
+          ? data.unsetAnchors.value
+          : this.unsetAnchors,
     );
   }
 
@@ -4252,7 +4346,8 @@ class RoutineBackupRow extends DataClass
           ..write('dinnerMinutes: $dinnerMinutes, ')
           ..write('sleepMinutes: $sleepMinutes, ')
           ..write('iftarMinutes: $iftarMinutes, ')
-          ..write('suhoorMinutes: $suhoorMinutes')
+          ..write('suhoorMinutes: $suhoorMinutes, ')
+          ..write('unsetAnchors: $unsetAnchors')
           ..write(')'))
         .toString();
   }
@@ -4267,6 +4362,7 @@ class RoutineBackupRow extends DataClass
     sleepMinutes,
     iftarMinutes,
     suhoorMinutes,
+    unsetAnchors,
   );
   @override
   bool operator ==(Object other) =>
@@ -4279,7 +4375,8 @@ class RoutineBackupRow extends DataClass
           other.dinnerMinutes == this.dinnerMinutes &&
           other.sleepMinutes == this.sleepMinutes &&
           other.iftarMinutes == this.iftarMinutes &&
-          other.suhoorMinutes == this.suhoorMinutes);
+          other.suhoorMinutes == this.suhoorMinutes &&
+          other.unsetAnchors == this.unsetAnchors);
 }
 
 class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
@@ -4291,6 +4388,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
   final Value<int> sleepMinutes;
   final Value<int> iftarMinutes;
   final Value<int> suhoorMinutes;
+  final Value<String> unsetAnchors;
   const RoutineBackupsCompanion({
     this.patientId = const Value.absent(),
     this.wakeMinutes = const Value.absent(),
@@ -4300,6 +4398,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
     this.sleepMinutes = const Value.absent(),
     this.iftarMinutes = const Value.absent(),
     this.suhoorMinutes = const Value.absent(),
+    this.unsetAnchors = const Value.absent(),
   });
   RoutineBackupsCompanion.insert({
     this.patientId = const Value.absent(),
@@ -4310,6 +4409,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
     required int sleepMinutes,
     required int iftarMinutes,
     required int suhoorMinutes,
+    this.unsetAnchors = const Value.absent(),
   }) : wakeMinutes = Value(wakeMinutes),
        breakfastMinutes = Value(breakfastMinutes),
        lunchMinutes = Value(lunchMinutes),
@@ -4326,6 +4426,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
     Expression<int>? sleepMinutes,
     Expression<int>? iftarMinutes,
     Expression<int>? suhoorMinutes,
+    Expression<String>? unsetAnchors,
   }) {
     return RawValuesInsertable({
       if (patientId != null) 'patient_id': patientId,
@@ -4336,6 +4437,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
       if (sleepMinutes != null) 'sleep_minutes': sleepMinutes,
       if (iftarMinutes != null) 'iftar_minutes': iftarMinutes,
       if (suhoorMinutes != null) 'suhoor_minutes': suhoorMinutes,
+      if (unsetAnchors != null) 'unset_anchors': unsetAnchors,
     });
   }
 
@@ -4348,6 +4450,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
     Value<int>? sleepMinutes,
     Value<int>? iftarMinutes,
     Value<int>? suhoorMinutes,
+    Value<String>? unsetAnchors,
   }) {
     return RoutineBackupsCompanion(
       patientId: patientId ?? this.patientId,
@@ -4358,6 +4461,7 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
       sleepMinutes: sleepMinutes ?? this.sleepMinutes,
       iftarMinutes: iftarMinutes ?? this.iftarMinutes,
       suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+      unsetAnchors: unsetAnchors ?? this.unsetAnchors,
     );
   }
 
@@ -4388,6 +4492,9 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
     if (suhoorMinutes.present) {
       map['suhoor_minutes'] = Variable<int>(suhoorMinutes.value);
     }
+    if (unsetAnchors.present) {
+      map['unset_anchors'] = Variable<String>(unsetAnchors.value);
+    }
     return map;
   }
 
@@ -4401,7 +4508,8 @@ class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
           ..write('dinnerMinutes: $dinnerMinutes, ')
           ..write('sleepMinutes: $sleepMinutes, ')
           ..write('iftarMinutes: $iftarMinutes, ')
-          ..write('suhoorMinutes: $suhoorMinutes')
+          ..write('suhoorMinutes: $suhoorMinutes, ')
+          ..write('unsetAnchors: $unsetAnchors')
           ..write(')'))
         .toString();
   }
@@ -9351,6 +9459,7 @@ typedef $$DayRoutinesTableCreateCompanionBuilder =
       required int lunchMinutes,
       required int dinnerMinutes,
       required int sleepMinutes,
+      Value<String> unsetAnchors,
       Value<DateTime> updatedAt,
     });
 typedef $$DayRoutinesTableUpdateCompanionBuilder =
@@ -9365,6 +9474,7 @@ typedef $$DayRoutinesTableUpdateCompanionBuilder =
       Value<int> lunchMinutes,
       Value<int> dinnerMinutes,
       Value<int> sleepMinutes,
+      Value<String> unsetAnchors,
       Value<DateTime> updatedAt,
     });
 
@@ -9441,6 +9551,11 @@ class $$DayRoutinesTableFilterComposer
 
   ColumnFilters<int> get sleepMinutes => $composableBuilder(
     column: $table.sleepMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9527,6 +9642,11 @@ class $$DayRoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -9606,6 +9726,11 @@ class $$DayRoutinesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
@@ -9671,6 +9796,7 @@ class $$DayRoutinesTableTableManager
                 Value<int> lunchMinutes = const Value.absent(),
                 Value<int> dinnerMinutes = const Value.absent(),
                 Value<int> sleepMinutes = const Value.absent(),
+                Value<String> unsetAnchors = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DayRoutinesCompanion(
                 uuid: uuid,
@@ -9683,6 +9809,7 @@ class $$DayRoutinesTableTableManager
                 lunchMinutes: lunchMinutes,
                 dinnerMinutes: dinnerMinutes,
                 sleepMinutes: sleepMinutes,
+                unsetAnchors: unsetAnchors,
                 updatedAt: updatedAt,
               ),
           createCompanionCallback:
@@ -9697,6 +9824,7 @@ class $$DayRoutinesTableTableManager
                 required int lunchMinutes,
                 required int dinnerMinutes,
                 required int sleepMinutes,
+                Value<String> unsetAnchors = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => DayRoutinesCompanion.insert(
                 uuid: uuid,
@@ -9709,6 +9837,7 @@ class $$DayRoutinesTableTableManager
                 lunchMinutes: lunchMinutes,
                 dinnerMinutes: dinnerMinutes,
                 sleepMinutes: sleepMinutes,
+                unsetAnchors: unsetAnchors,
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -11740,6 +11869,7 @@ typedef $$RoutineBackupsTableCreateCompanionBuilder =
       required int sleepMinutes,
       required int iftarMinutes,
       required int suhoorMinutes,
+      Value<String> unsetAnchors,
     });
 typedef $$RoutineBackupsTableUpdateCompanionBuilder =
     RoutineBackupsCompanion Function({
@@ -11751,6 +11881,7 @@ typedef $$RoutineBackupsTableUpdateCompanionBuilder =
       Value<int> sleepMinutes,
       Value<int> iftarMinutes,
       Value<int> suhoorMinutes,
+      Value<String> unsetAnchors,
     });
 
 final class $$RoutineBackupsTableReferences
@@ -11824,6 +11955,11 @@ class $$RoutineBackupsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$PatientsTableFilterComposer get patientId {
     final $$PatientsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -11889,6 +12025,11 @@ class $$RoutineBackupsTableOrderingComposer
 
   ColumnOrderings<int> get suhoorMinutes => $composableBuilder(
     column: $table.suhoorMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -11960,6 +12101,11 @@ class $$RoutineBackupsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get unsetAnchors => $composableBuilder(
+    column: $table.unsetAnchors,
+    builder: (column) => column,
+  );
+
   $$PatientsTableAnnotationComposer get patientId {
     final $$PatientsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -12022,6 +12168,7 @@ class $$RoutineBackupsTableTableManager
                 Value<int> sleepMinutes = const Value.absent(),
                 Value<int> iftarMinutes = const Value.absent(),
                 Value<int> suhoorMinutes = const Value.absent(),
+                Value<String> unsetAnchors = const Value.absent(),
               }) => RoutineBackupsCompanion(
                 patientId: patientId,
                 wakeMinutes: wakeMinutes,
@@ -12031,6 +12178,7 @@ class $$RoutineBackupsTableTableManager
                 sleepMinutes: sleepMinutes,
                 iftarMinutes: iftarMinutes,
                 suhoorMinutes: suhoorMinutes,
+                unsetAnchors: unsetAnchors,
               ),
           createCompanionCallback:
               ({
@@ -12042,6 +12190,7 @@ class $$RoutineBackupsTableTableManager
                 required int sleepMinutes,
                 required int iftarMinutes,
                 required int suhoorMinutes,
+                Value<String> unsetAnchors = const Value.absent(),
               }) => RoutineBackupsCompanion.insert(
                 patientId: patientId,
                 wakeMinutes: wakeMinutes,
@@ -12051,6 +12200,7 @@ class $$RoutineBackupsTableTableManager
                 sleepMinutes: sleepMinutes,
                 iftarMinutes: iftarMinutes,
                 suhoorMinutes: suhoorMinutes,
+                unsetAnchors: unsetAnchors,
               ),
           withReferenceMapper: (p0) => p0
               .map(

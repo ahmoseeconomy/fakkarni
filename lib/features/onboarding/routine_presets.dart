@@ -21,10 +21,10 @@ class RoutineQuestion {
   /// النصّاني هو الافتراضي (المخطط 22) — نفس [fallback].
   final List<MinuteOfDay> presets;
 
-  /// اللي بيتاخد لما المستخدم يقول «مش متأكد».
+  /// مكان راحة البكرة قبل ما يجاوب — نفس قيم [DayRoutine.fallback].
   ///
-  /// دي نفس قيم [DayRoutine.fallback] — نقطة بداية بيعدّلها بعدين، مش
-  /// نصيحة طبية ولا تخمين.
+  /// **مش بيتحفظ كإجابة**: «مش دلوقتي» بتسيب المرساة مش متحددة، والرقم ده
+  /// بيفضل مكان راحة بس.
   MinuteOfDay get fallback => DayRoutine.fallback.at(anchor);
 }
 
@@ -63,13 +63,20 @@ final List<RoutineQuestion> routineQuestions = [
 ];
 
 /// بيبني الروتين من إجابات الأسئلة الخمسة.
-DayRoutine routineFromAnswers(Map<DayAnchor, MinuteOfDay> answers) => DayRoutine(
+///
+/// **سؤال ما اتجاوبش = مرساة مش متحددة**، مش الافتراضي. الرقم اللي بيتحط
+/// مكانها مكان راحة للبكرة وبس؛ العلم هو اللي بيمنع المحرّك يجدول عليه.
+DayRoutine routineFromAnswers(Map<DayAnchor, MinuteOfDay?> answers) => DayRoutine(
       wake: answers[DayAnchor.wake] ?? DayRoutine.fallback.wake,
       breakfast: answers[DayAnchor.breakfast] ?? DayRoutine.fallback.breakfast,
       lunch: answers[DayAnchor.lunch] ?? DayRoutine.fallback.lunch,
       dinner: answers[DayAnchor.dinner] ?? DayRoutine.fallback.dinner,
       sleep: answers[DayAnchor.sleep] ?? DayRoutine.fallback.sleep,
+      unset: {for (final a in DayAnchor.values) if (answers[a] == null) a},
     );
+
+/// «مش دلوقتي» — تخطّي سؤال روتين. كلمة واحدة للاتنين، ومحايدة.
+const String notNowLabel = 'مش دلوقتي';
 
 /// نص السؤال بجنس المريض — «بتفطر» / «بتفطري». [RoutineQuestion.text]
 /// هو المذكّر الافتراضي، وده اللي بيتعرض فعلاً.

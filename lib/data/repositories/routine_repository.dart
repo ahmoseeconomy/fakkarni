@@ -43,9 +43,18 @@ class RoutineRepository {
                 lunchMinutes: routine.lunch.minutes,
                 dinnerMinutes: routine.dinner.minutes,
                 sleepMinutes: routine.sleep.minutes,
+                unsetAnchors: Value(unsetAnchorsToText(routine.unset)),
               ),
             );
       });
+
+  /// المستخدم حدّد مرساة واحدة بإيده — من محرّر الجرعة أو من مراجعة
+  /// الروشتة («بتفطر الساعة كام؟» مرة واحدة). بتتكتب **متحددة**، وباقي
+  /// الروتين زي ما هو. لو مفيش صف أصلاً بيتعمل صف مش متحدد منه غير دي.
+  Future<void> setAnchor(int patientId, DayAnchor anchor, MinuteOfDay time) async {
+    final current = await getRoutine(patientId) ?? DayRoutine.none;
+    await saveRoutine(patientId, current.withAnchor(anchor, time));
+  }
 
   // ------------------------------------------------------------ وضع رمضان
 
@@ -74,6 +83,7 @@ class RoutineRepository {
             lunch: MinuteOfDay(row.lunchMinutes),
             dinner: MinuteOfDay(row.dinnerMinutes),
             sleep: MinuteOfDay(row.sleepMinutes),
+            unset: unsetAnchorsFromText(row.unsetAnchors),
           );
   }
 
@@ -102,6 +112,7 @@ class RoutineRepository {
                 lunch: MinuteOfDay(existing.lunchMinutes),
                 dinner: MinuteOfDay(existing.dinnerMinutes),
                 sleep: MinuteOfDay(existing.sleepMinutes),
+                unset: unsetAnchorsFromText(existing.unsetAnchors),
               );
 
         await _db.into(_db.routineBackups).insertOnConflictUpdate(
@@ -114,6 +125,7 @@ class RoutineRepository {
                 sleepMinutes: original.sleep.minutes,
                 iftarMinutes: times.iftar.minutes,
                 suhoorMinutes: times.suhoor.minutes,
+                unsetAnchors: Value(unsetAnchorsToText(original.unset)),
               ),
             );
         await _updateInPlace(patientId, ramadanRoutine(original, times));
@@ -132,6 +144,7 @@ class RoutineRepository {
             lunch: MinuteOfDay(backup.lunchMinutes),
             dinner: MinuteOfDay(backup.dinnerMinutes),
             sleep: MinuteOfDay(backup.sleepMinutes),
+            unset: unsetAnchorsFromText(backup.unsetAnchors),
           ),
         );
         await (_db.delete(_db.routineBackups)
@@ -159,6 +172,7 @@ class RoutineRepository {
         lunchMinutes: Value(routine.lunch.minutes),
         dinnerMinutes: Value(routine.dinner.minutes),
         sleepMinutes: Value(routine.sleep.minutes),
+        unsetAnchors: Value(unsetAnchorsToText(routine.unset)),
       ));
 
   /// «فيه مريض على الموبايل ده؟» (D4) — مشتقة من البيانات، مفيش عمود دور:

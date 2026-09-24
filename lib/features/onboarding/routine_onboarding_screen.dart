@@ -198,8 +198,11 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                                     _advance();
                                   },
                                   onNotSure: () {
-                                    // «مش متأكد» بياخد الافتراضي ويمشي — مش بيوقف حد.
-                                    _answers[question.anchor] = question.fallback;
+                                    // «مش دلوقتي» بتعدّي من غير إجابة — المرساة
+                                    // بتتحفظ **مش متحددة**، ومفيش افتراضي بيتكتب
+                                    // كأنه اختاره. بيحدّدها بعدين من «عدّل يومك»
+                                    // أو أول ما دوا يحتاجها.
+                                    _answers.remove(question.anchor);
                                     _advance();
                                   },
                                 );

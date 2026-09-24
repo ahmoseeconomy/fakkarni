@@ -21,6 +21,8 @@ import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/records/checkup_screen.dart' show FastingSheet;
+import 'package:fakkarni/domain/patient/sex.dart';
+import 'package:fakkarni/features/routine/ask_anchor_time.dart';
 import 'package:fakkarni/features/routine/edit_routine_screen.dart';
 
 import '../support/seeded_clock.dart';
@@ -172,6 +174,37 @@ void main() {
     await settle(tester);
     expect(find.byType(FTimeWheel), findsOneWidget);
     expectPrimaryVisible(tester, 'احفظ يومك');
+  });
+
+  testWidgets('«عدّل يومك» وكل المراسي مش متحددة: خمس «مش متحدد» و«احفظ يومك» ظاهر', (tester) async {
+    await pumpSE(tester, EditRoutineScreen(routine: DayRoutine.none));
+    // القايمة كسولة على SE — اللي ظاهر بيقول «مش متحدد»، والزرار مثبّت تحت
+    expect(find.text('مش متحدد'), findsWidgets);
+    expectPrimaryVisible(tester, 'احفظ يومك');
+  });
+
+  testWidgets('شيت «بتفطر الساعة كام؟» جوّه SE: الاقتراحات والبكرة و«تمام» ظاهرين', (tester) async {
+    await pumpSE(
+      tester,
+      Scaffold(
+        body: Builder(
+          builder: (context) => Center(
+            child: TextButton(
+              onPressed: () => askAnchorTime(context, anchor: DayAnchor.breakfast, say: const Say(null)),
+              child: const Text('افتح'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('افتح'));
+    await settle(tester);
+    expect(find.text('بتفطر الساعة كام؟'), findsOneWidget);
+    expect(find.byType(FTimeWheel), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    final button = tester.getRect(find.byKey(const ValueKey('anchor-confirm')));
+    expect(button.bottom, lessThanOrEqualTo(667), reason: '«تمام» تحت الحافة: $button');
+    expect(button.top, greaterThanOrEqualTo(0));
   });
 
   testWidgets('شيت تذكير الصيام: بكرة الساعة وبكرة الساعات و«اضبط التذكير» جوّه SE', (tester) async {

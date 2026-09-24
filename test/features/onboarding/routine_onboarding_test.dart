@@ -133,28 +133,42 @@ void main() {
     expect(finished, isTrue);
   });
 
-  testWidgets('كل شاشة فيها «مش متأكد»', (tester) async {
+  testWidgets('كل شاشة فيها «مش دلوقتي» — ومفيش «مش متأكد» بتكتب افتراضي', (tester) async {
     await pumpOnboarding(tester);
 
     for (var i = 0; i < expectedQuestions.length; i++) {
-      expect(find.text('مش متأكد'), findsOneWidget);
-      await tapAndSettle(tester, 'مش متأكد');
+      expect(find.text('مش دلوقتي'), findsOneWidget);
+      expect(find.text('مش متأكد'), findsNothing);
+      await tapAndSettle(tester, 'مش دلوقتي');
     }
+    expect(finished, isTrue, reason: 'التخطّي ما بيوقفش حد');
   });
-
-  testWidgets('«مش متأكد» في كل سؤال بيدي الروتين الافتراضي', (tester) async {
+  testWidgets('«مش دلوقتي» في كل سؤال → صف موجود وكل مرساة **مش متحددة** — مفيش افتراضي اتكتب كأنه اختاره', (tester) async {
     await pumpOnboarding(tester);
 
     for (var i = 0; i < expectedQuestions.length; i++) {
-      await tapAndSettle(tester, 'مش متأكد');
+      await tapAndSettle(tester, 'مش دلوقتي');
     }
 
     final saved = await routines.getRoutine(services.patientId);
-    expect(saved!.wake, DayRoutine.fallback.wake);
-    expect(saved.breakfast, DayRoutine.fallback.breakfast);
-    expect(saved.lunch, DayRoutine.fallback.lunch);
-    expect(saved.dinner, DayRoutine.fallback.dinner);
-    expect(saved.sleep, DayRoutine.fallback.sleep);
+    expect(saved, isNotNull, reason: 'التطبيق بيكمّل — الصف موجود');
+    expect(saved, DayRoutine.none);
+    expect(saved!.isComplete, isFalse);
+    for (final a in DayAnchor.values) {
+      expect(saved.isSet(a), isFalse, reason: a.name);
+    }
+  });
+  testWidgets('تخطّي سؤال واحد بس: الباقي متحدد زي ما جاوب، وهو لوحده مش متحدد', (tester) async {
+    await pumpOnboarding(tester);
+    await tapAndSettle(tester, 'تمام'); // الصحيان — الاقتراح النصّاني
+    await tapAndSettle(tester, 'مش دلوقتي'); // الفطار
+    for (var i = 0; i < 3; i++) {
+      await tapAndSettle(tester, 'تمام');
+    }
+    final saved = (await routines.getRoutine(services.patientId))!;
+    expect(saved.unset, {DayAnchor.breakfast});
+    expect(saved.wake, MinuteOfDay.hm(6, 30));
+    expect(saved.isSet(DayAnchor.dinner), isTrue);
   });
 
   testWidgets('الشيب بيغيّر الوقت المعروض وبيتحفظ', (tester) async {
@@ -167,7 +181,7 @@ void main() {
     expect(find.text('٦:٠٠ ص'), findsNWidgets(2));
 
     for (var i = 0; i < expectedQuestions.length; i++) {
-      await tapAndSettle(tester, i == 0 ? 'تمام' : 'مش متأكد');
+      await tapAndSettle(tester, i == 0 ? 'تمام' : 'مش دلوقتي');
     }
 
     final saved = await routines.getRoutine(services.patientId);
@@ -223,10 +237,10 @@ void main() {
     expect(dot(2), F.gold);
   });
 
-  testWidgets('«مش متأكد» بتدي افتراضيات README: ٦:٣٠ — ٧:٣٠ — ٢:٠٠ — ٨:٠٠ — ١١:٣٠', (tester) async {
+  testWidgets('أرقام الراحة هي افتراضيات README (٦:٣٠ — ٧:٣٠ — ٢:٠٠ — ٨:٠٠ — ١١:٣٠) — بس معلّمة إنها مش بتاعته', (tester) async {
     await pumpOnboarding(tester);
     for (var i = 0; i < expectedQuestions.length; i++) {
-      await tapAndSettle(tester, 'مش متأكد');
+      await tapAndSettle(tester, 'مش دلوقتي');
     }
     final saved = (await routines.getRoutine(services.patientId))!;
     expect(saved.wake, MinuteOfDay.hm(6, 30));
@@ -234,6 +248,7 @@ void main() {
     expect(saved.lunch, MinuteOfDay.hm(14));
     expect(saved.dinner, MinuteOfDay.hm(20));
     expect(saved.sleep, MinuteOfDay.hm(23, 30));
+    expect(saved.unset, DayAnchor.values.toSet(), reason: 'أماكن راحة، مش إجابات');
   });
 
   testWidgets('الاقتراح النصّاني هو الافتراضي، وبيبان ذهبي من غير ما يدوس', (tester) async {
@@ -282,7 +297,7 @@ void main() {
       await tapAndSettle(tester, 'كمّل');
 
       expect(find.text('بتصحي الساعة كام؟'), findsOneWidget);
-      expect(find.text('مش متأكدة'), findsOneWidget);
+      expect(find.text('مش دلوقتي'), findsOneWidget, reason: 'التخطّي محايد — كلمة واحدة للاتنين');
       expect(find.text('بتصحى الساعة كام؟'), findsNothing);
 
       final row = (await services.routines.getPatient(services.patientId))!;
@@ -310,7 +325,7 @@ void main() {
       await tapAndSettle(tester, 'كمّل');
 
       expect(find.text('بتصحى الساعة كام؟'), findsOneWidget);
-      expect(find.text('مش متأكد'), findsOneWidget);
+      expect(find.text('مش دلوقتي'), findsOneWidget);
       final row = (await services.routines.getPatient(services.patientId))!;
       expect(row.sex, Sex.m);
       expect(row.age, 65);

@@ -82,6 +82,11 @@ class ScheduleEngine {
 
     for (final s in schedules) {
       if (!s.isActiveOn(day)) continue;
+      // **جرعة على مرساة ما اتحددتش ما بتترنّش أبداً.** الرقم اللي في
+      // الروتين لمرساة مش متحددة مكان راحة مش إجابة، والتطبيق عمره ما
+      // يوقّت دوا من رقم المستخدم ما قالهوش. المحرّر ما بيسيبش جرعة زي دي
+      // تتكتب أصلاً؛ ده الحزام التاني.
+      if (s.timing case AnchorTiming(:final anchor) when !routine.isSet(anchor)) continue;
       byTime.putIfAbsent(resolve(s, day), () => <DoseSchedule>[]).add(s);
     }
 

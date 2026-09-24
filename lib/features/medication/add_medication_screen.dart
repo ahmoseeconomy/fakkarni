@@ -82,6 +82,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   int _timesPerDay = 1;
   FoodRelation _food = FoodRelation.before;
 
+  /// الروتين الحي: لما المحرّر يسأل «بتفطر الساعة كام؟» ويتحفظ الفطار،
+  /// المحرّرات اللي بعده في نفس المشي لازم تشوفه متحدد.
+  late DayRoutine _routine = widget.routine;
+
   /// جرعات اليوم قبل ما تتراجع واحدة واحدة — **في الذاكرة، ولسه ما اتحفظتش**.
   ///
   /// بتتعبّى من الورقة لو جاية منها، وإلا من «كام مرة» + «مع الأكل». **مفيش
@@ -233,6 +237,15 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// جمع «مرة»: ٣–١٠ مرات، و١١ فوق «مرة».
   static String _timesLabel(int n) => n <= 10 ? '${arabicNumber(n)} مرات' : '${arabicNumber(n)} مرة';
 
+  /// المستخدم حدّد ميعاد وجبة من جوّه المحرّر — بيتكتب في الروتين
+  /// **متحدد**، والمحرّرات الجاية بتشوفه. الجدولة بتتعاد عشان أي دوا
+  /// قديم كان مربوط بالمرساة دي (مفيش — المحرّر ما بيسيبش) يلحق.
+  Future<void> _setAnchor(DayAnchor anchor, MinuteOfDay time) async {
+    final services = AppScope.of(context);
+    await services.routines.setAnchor(services.patientId, anchor, time);
+    if (mounted) setState(() => _routine = _routine.withAnchor(anchor, time));
+  }
+
   /// «كمّل»: محرّر لكل جرعة بالترتيب، والحفظ بعد الأخيرة بس.
   Future<void> _continue() async {
     if (_busy || _name.text.trim().isEmpty) return;
@@ -248,9 +261,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           MaterialPageRoute(
             builder: (_) => DoseEditor(
               name: _name.text.trim(),
-              routine: widget.routine,
+              routine: _routine,
               today: widget.today,
               initialTiming: initial[i],
+              onSetAnchor: _setAnchor,
               kicker: initial.length == 1
                   ? null
                   : 'الجرعة ${arabicNumber(i + 1)} من ${arabicNumber(initial.length)}',
@@ -440,7 +454,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             fromPaper
                                 ? 'دي اللي الورقة قالتها. غيّر العدد لو مش مظبوط — '
                                     'وهتراجع كل جرعة لوحدها بعد ما تكمّل.'
-                                : 'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.',
+                                : _routine.isComplete
+                                    ? 'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.'
+                                    // مفيش ميعاد بيتخمّن: ساعة لكل جرعة، أو يقول ميعاد الأكل مرة
+                                    : 'ما حدّدتش مواعيد يومك كلها — هتختار ساعة لكل جرعة، أو تقول ميعاد '
+                                        'الأكل مرة واحدة وتتربط بيه.',
                             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                           ),
                         ],

@@ -8,6 +8,8 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../../core/widgets/f_wheels.dart';
+import '../../core/widgets/patient_voice.dart';
+import '../routine/ask_anchor_time.dart';
 
 /// اختيار جاهز: مرساة + اتجاه — بالترتيب بتاع التصميم.
 ///
@@ -50,8 +52,14 @@ class DoseEditor extends StatefulWidget {
     this.today,
     this.kicker,
     this.saveLabel = 'احفظ الجرعة',
+    this.onSetAnchor,
     super.key,
   });
+
+  /// المستخدم حدّد ميعاد وجبة من هنا («بتفطر الساعة كام؟» مرة واحدة) —
+  /// اللي نادانا هو اللي بيكتبه في الروتين. null = المحرّر بيحدّثه في
+  /// الذاكرة بس (الاختبارات).
+  final Future<void> Function(DayAnchor anchor, MinuteOfDay time)? onSetAnchor;
 
   /// اسم الدوا — بيتعرض فوق «إمتى؟» بالـmono.
   final String name;
@@ -73,6 +81,9 @@ class DoseEditor extends StatefulWidget {
 class _DoseEditorState extends State<DoseEditor> {
   AnchorChoice _choice = anchorChoices.first;
   int _gap = anchorChoices.first.defaultGap;
+
+  /// الروتين الحي — بيتحدّث لما وجبة تتحدد من هنا.
+  late DayRoutine _routine = widget.routine;
 
   /// المخرج الثانوي: ساعة ثابتة بدل المرساة. الافتراضي دايماً مرساة.
   bool _fixed = false;
@@ -96,6 +107,30 @@ class _DoseEditorState extends State<DoseEditor> {
       case null:
         break;
     }
+    // **مرساة ما اتحددتش = مفيش ساعة تتعرض منها.** الجرعة بتبدأ على ساعة
+    // ثابتة المستخدم هو اللي بيختارها — ولا رقم بيتعبّى من روتين افتراضي.
+    // لو رجع للمراسي واختار «قبل الفطار»، هيتسأل عن الفطار الأول.
+    if (!_fixed && !_routine.isSet(_choice.anchor)) _fixed = true;
+  }
+
+  DateTime get _day => widget.today ?? DateTime.now();
+
+  /// شريحة على مرساة مش متحددة: نسأل عن ميعادها **مرة واحدة**، نحفظه
+  /// متحدد، وبعدين المرساة بتتاخد عادي. قفل الشيت من غير إجابة = الشريحة
+  /// ما اتختارتش، ولا حاجة اتكتبت.
+  Future<void> _pick(AnchorChoice choice) async {
+    if (!_routine.isSet(choice.anchor)) {
+      final time = await askAnchorTime(context, anchor: choice.anchor, say: PatientVoice.of(context));
+      if (time == null || !mounted) return;
+      await widget.onSetAnchor?.call(choice.anchor, time);
+      if (!mounted) return;
+      setState(() => _routine = _routine.withAnchor(choice.anchor, time));
+    }
+    setState(() {
+      _choice = choice;
+      // الافتراضي بيتبع المرساة: ٣٠ قبل الأكل، ١٥ قبل النوم
+      _gap = choice.defaultGap;
+    });
   }
 
   DoseTiming get _timing => _fixed
@@ -103,8 +138,8 @@ class _DoseEditorState extends State<DoseEditor> {
       : AnchorTiming(_choice.anchor, _choice.before ? -_gap : _gap);
 
   DateTime get _preview {
-    final engine = ScheduleEngine(widget.routine);
-    final day = widget.today ?? DateTime.now();
+    final engine = ScheduleEngine(_routine);
+    final day = _day;
     return switch (_timing) {
       AnchorTiming(:final anchor, :final offsetMinutes) =>
         engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day),
@@ -197,13 +232,11 @@ class _DoseEditorState extends State<DoseEditor> {
                       children: [
                         for (final choice in anchorChoices)
                           AnchorChip(
-                            label: choice.label,
+                            // مرساة مش متحددة بتتقال بعلامة استفهام: الدوسة
+                            // عليها سؤال قبل ما تبقى اختيار
+                            label: _routine.isSet(choice.anchor) ? choice.label : '${choice.label}؟',
                             selected: choice == _choice,
-                            onTap: () => setState(() {
-                              _choice = choice;
-                              // الافتراضي بيتبع المرساة: ٣٠ قبل الأكل، ١٥ قبل النوم
-                              _gap = choice.defaultGap;
-                            }),
+                            onTap: () => _pick(choice),
                           ),
                       ],
                     ),

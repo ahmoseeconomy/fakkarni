@@ -14,7 +14,19 @@ DayRoutine routineFromRow(DayRoutineRow row) => DayRoutine(
       lunch: MinuteOfDay(row.lunchMinutes),
       dinner: MinuteOfDay(row.dinnerMinutes),
       sleep: MinuteOfDay(row.sleepMinutes),
+      unset: unsetAnchorsFromText(row.unsetAnchors),
     );
+
+/// العلم على الصف: أسامي المراسي مفصولة بفاصلة. اسم غريب بيتعدّى — صف
+/// من نسخة أحدث ما ينفعش يوقّع القراية.
+Set<DayAnchor> unsetAnchorsFromText(String text) => {
+      for (final name in text.split(','))
+        for (final a in DayAnchor.values)
+          if (a.name == name.trim()) a,
+    };
+
+String unsetAnchorsToText(Set<DayAnchor> unset) =>
+    [for (final a in DayAnchor.values) if (unset.contains(a)) a.name].join(',');
 
 DoseSchedule doseScheduleFromRow(
   DoseScheduleRow row,

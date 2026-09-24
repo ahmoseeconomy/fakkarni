@@ -16,6 +16,7 @@ import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/core/widgets/f_wheels.dart';
+import 'package:fakkarni/features/onboarding/routine_presets.dart';
 import 'package:fakkarni/features/routine/edit_routine_screen.dart';
 import '../../support/seeded_clock.dart';
 
@@ -96,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> pumpEdit(WidgetTester tester) async {
+  Future<void> pumpEdit(WidgetTester tester, {DayRoutine? routine}) async {
     tester.view.physicalSize = const Size(1000, 3200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -109,7 +110,7 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: EditRoutineScreen(routine: normalDay),
+            child: EditRoutineScreen(routine: routine ?? normalDay),
           ),
         ),
       ),
@@ -247,5 +248,61 @@ void main() {
     await pumpEdit(tester);
     expect(find.textContaining('وضع رمضان شغّال'), findsNothing);
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNotNull);
+  });
+
+  group('الروتين اختياري: اللي مش متحدد بيقول «مش متحدد»', () {
+    screenTest('خمس مراسي مش متحددة → خمس «مش متحدد» ومفيش اقتراح ذهبي', (tester) async {
+      await routines.saveRoutine(services.patientId, DayRoutine.none);
+      await pumpEdit(tester, routine: DayRoutine.none);
+      // القايمة كسولة — بنمشي على الخمس أسئلة ونتأكد من كل كارت وهو ظاهر
+      for (final q in routineQuestions) {
+        await tester.dragUntilVisible(find.text(q.text), find.byType(ListView), const Offset(0, -200));
+        await settle(tester);
+        final card = find.ancestor(of: find.text(q.text), matching: find.byType(FCard)).first;
+        expect(find.descendant(of: card, matching: find.text('مش متحدد')), findsOneWidget, reason: q.text);
+        expect(find.descendant(of: card, matching: find.text('حدّد الميعاد')), findsOneWidget);
+      }
+      // اقتراح الصحيان «٦:٣٠ ص» موجود كشريحة — بس **مش ذهبي**: مفيش اختيار
+      await tester.dragUntilVisible(find.text('بتصحى الساعة كام؟'), find.byType(ListView), const Offset(0, 200));
+      await settle(tester);
+      final chip = tester.widget<Material>(find
+          .descendant(of: find.widgetWithText(AnchorChip, '٦:٣٠ ص'), matching: find.byType(Material))
+          .first);
+      expect(chip.color, isNot(F.gold), reason: 'الافتراضي ما بيتعرضش كأنه اختاره');
+    });
+
+    screenTest('اقتراح على الصحيان بيحدده هو بس، والحفظ بيسيب الباقي مش متحدد', (tester) async {
+      await routines.saveRoutine(services.patientId, DayRoutine.none);
+      await pumpEdit(tester, routine: DayRoutine.none);
+      await tester.tap(find.text('٧:٠٠ ص').first);
+      await settle(tester);
+      final wakeCard = find.ancestor(of: find.text('بتصحى الساعة كام؟'), matching: find.byType(FCard)).first;
+      expect(find.descendant(of: wakeCard, matching: find.text('مش متحدد')), findsNothing);
+      expect(find.descendant(of: wakeCard, matching: find.text('٧:٠٠ ص')), findsWidgets);
+
+      await tester.tap(find.text('احفظ يومك'));
+      await settle(tester);
+      final saved = (await routines.getRoutine(services.patientId))!;
+      expect(saved.isSet(DayAnchor.wake), isTrue);
+      expect(saved.wake, MinuteOfDay.hm(7));
+      expect(saved.unset, DayAnchor.values.toSet().difference({DayAnchor.wake}));
+    });
+
+    screenTest('«حدّد الميعاد» ثم «تمام كده» من غير حركة = أكّد اللي على البكرة', (tester) async {
+      await routines.saveRoutine(services.patientId, DayRoutine.none);
+      await pumpEdit(tester, routine: DayRoutine.none);
+      await tester.tap(find.text('حدّد الميعاد').first);
+      await settle(tester);
+      expect(find.byType(FTimeWheel), findsOneWidget);
+      await tester.tap(find.text('تمام كده'));
+      await settle(tester);
+      final wakeCard = find.ancestor(of: find.text('بتصحى الساعة كام؟'), matching: find.byType(FCard)).first;
+      expect(find.descendant(of: wakeCard, matching: find.text('مش متحدد')), findsNothing);
+      await tester.tap(find.text('احفظ يومك'));
+      await settle(tester);
+      final saved = (await routines.getRoutine(services.patientId))!;
+      expect(saved.isSet(DayAnchor.wake), isTrue);
+      expect(saved.wake, MinuteOfDay.hm(6, 30), reason: 'اللي كان على البكرة، بدوسة');
+    });
   });
 }

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fakkarni/data/db/app_database.dart';
+import 'package:fakkarni/data/mappers.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
@@ -88,7 +89,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 20);
+    expect(version.read<int>('user_version'), 21);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -185,6 +186,23 @@ void main() {
     expect(medColumns, contains('active_ingredient'));
     for (final m in await db.select(db.medications).get()) {
       expect(m.activeIngredient, isNull, reason: 'مادة مخترعة لدوا قديم');
+    }
+
+    // v21: الروتين بقى اختياري — والروتين القديم **كله متحدد**: اللي
+    // وصل هنا جاوب على الخمس أسئلة، فولا مرساة بتتعلّم إنها مش بتاعته.
+    final routineColumns = await db
+        .customSelect("SELECT name FROM pragma_table_info('day_routines')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(routineColumns, contains('unset_anchors'));
+    final backupColumns = await db
+        .customSelect("SELECT name FROM pragma_table_info('routine_backups')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(backupColumns, contains('unset_anchors'));
+    for (final r in await db.select(db.dayRoutines).get()) {
+      expect(r.unsetAnchors, '', reason: 'روتين قديم اتعلّم إنه ناقص');
+      expect(routineFromRow(r).isComplete, isTrue);
     }
   });
 

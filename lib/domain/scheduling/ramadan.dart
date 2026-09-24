@@ -57,4 +57,8 @@ DayRoutine ramadanRoutine(DayRoutine original, RamadanTimes times) =>
       sleep: MinuteOfDay(
         (times.suhoor.minutes + sleepAfterSuhoorMinutes) % 1440,
       ),
+      // الفطار والسحور المستخدم كتبهم بإيده، فالوجبات والنوم بقوا متحددين
+      // طول رمضان. الصحيان زي ما كان — لو مكانش متحدد بيفضل مش متحدد،
+      // والرجوع بيرجّع اللي كان مش متحدد بالحرف من النسخة الاحتياطية.
+      unset: {if (!original.isSet(DayAnchor.wake)) DayAnchor.wake},
     );

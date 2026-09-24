@@ -46,6 +46,13 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     });
   }
 
+  /// ميعاد وجبة اتحدد من جوّه المحرّر — بيتكتب متحدد والشاشة بتشوفه.
+  Future<void> _setAnchor(DayAnchor anchor, MinuteOfDay time) async {
+    final services = AppScope.of(context);
+    await services.routines.setAnchor(services.patientId, anchor, time);
+    if (mounted) setState(() => _routine = _routine.withAnchor(anchor, time));
+  }
+
   Future<void> _loadSchedules() async {
     final s = await AppScope.of(context).medications.schedulesFor(widget.medicationId);
     if (mounted) setState(() => _schedules = s);
@@ -62,6 +69,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
         builder: (_) => DoseEditor(
           name: name,
           routine: _routine,
+          onSetAnchor: _setAnchor,
           initialTiming: schedule.timing,
           onSave: (timing) async {
             await services.medications.updateTiming(int.parse(schedule.id), timing);
@@ -97,6 +105,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
         builder: (_) => DoseEditor(
           name: name,
           routine: _routine,
+          onSetAnchor: _setAnchor,
           initialTiming: AnchorTiming(next, -defaultOffsetBefore(next)),
           onSave: (timing) async {
             await services.medications.addDoseSchedule(

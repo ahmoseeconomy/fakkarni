@@ -82,6 +82,11 @@ class DayRoutines extends Table with SyncIdentity {
   IntColumn get dinnerMinutes => integer()();
   IntColumn get sleepMinutes => integer()();
 
+  /// المراسي اللي المستخدم ما حدّدهاش (v21) — أسامي مفصولة بفاصلة، فاضية
+  /// = كله متحدد. **الصفوف اللي من قبل v21 بتقرا فاضية**: كل حد سجّل روتينه
+  /// قبل ما الروتين يبقى اختياري كان بيجاوب على الخمسة، فكله بتاعه.
+  TextColumn get unsetAnchors => text().withDefault(const Constant(''))();
+
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   /// روتين واحد للمريض الواحد.
@@ -111,6 +116,9 @@ class RoutineBackups extends Table {
 
   IntColumn get iftarMinutes => integer()();
   IntColumn get suhoorMinutes => integer()();
+
+  /// نفس علم day_routines (v21) — الرجوع من رمضان بيرجّع اللي مش متحدد كمان.
+  TextColumn get unsetAnchors => text().withDefault(const Constant(''))();
 
   @override
   Set<Column<Object>> get primaryKey => {patientId};

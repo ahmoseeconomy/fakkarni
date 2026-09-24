@@ -16,6 +16,8 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
+import '../routine/ask_anchor_time.dart';
+import '../../core/widgets/patient_voice.dart';
 import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
 
@@ -120,11 +122,30 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
   DateTime get _today => widget.today ?? DateTime.now();
 
+  /// الروتين الحي — بيتحدّث لما «حدّد ميعاد الفطار» يتحفظ.
+  late DayRoutine _routine = widget.routine;
+
+  /// **اقتراح الذكاء على مرساة ما اتحددتش ما بيتملاش لوحده.** «قبل الفطار»
+  /// والفطار مش متحدد = سؤال للإنسان هنا، مش رقم من الافتراضي. بيقفل
+  /// «تمام» لحد ما يجاوب، والإجابة بتتحفظ في روتينه متحددة.
+  Set<DayAnchor> _unsetAnchorsOf(_DraftLine line) => {
+        for (final t in line.timings)
+          if (t case AnchorTiming(:final anchor) when !_routine.isSet(anchor)) anchor,
+      };
+
+  Future<void> _askAnchor(DayAnchor anchor) async {
+    final services = AppScope.of(context);
+    final picked = await askAnchorTime(context, anchor: anchor, say: PatientVoice.of(context));
+    if (picked == null || !mounted) return;
+    await services.routines.setAnchor(services.patientId, anchor, picked);
+    if (mounted) setState(() => _routine = _routine.withAnchor(anchor, picked));
+  }
+
   /// السطور اللي هتتحفظ فعلاً — اللي اتشال مش فيها.
   List<_DraftLine> get _keep => [for (final l in _lines) if (!l.deleted) l];
 
   /// اللي بيقفل «تمام» فعلاً: اسم أو توقيت ناقص — من غيرهم مفيش حاجة تتجدول.
-  bool get _hasBlocking => _keep.any((l) => l.blocks);
+  bool get _hasBlocking => _keep.any((l) => l.blocks || _unsetAnchorsOf(l).isNotEmpty);
 
   /// جرعة مش معروفة بس — بتتحفظ «مش معروفة» ونسأل عنها بعدين.
   bool get _hasUnknownAmount => _keep.any((l) => l.amountUnknown);
@@ -132,7 +153,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// أول سطر «أعدّل» هيروح له: اللي بيقفل، وإلا اللي محتاج مراجعة، وإلا الأول.
   int? get _firstToEdit {
     for (final (i, l) in _lines.indexed) {
-      if (!l.deleted && l.blocks) return i;
+      if (!l.deleted && (l.blocks || _unsetAnchorsOf(l).isNotEmpty)) return i;
     }
     for (final (i, l) in _lines.indexed) {
       if (!l.deleted && l.needsReview) return i;
@@ -151,7 +172,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
           draft: true,
-          routine: widget.routine,
+          routine: _routine,
           today: widget.today,
           initialName: line.name,
           initialAmount: line.amountLabel,
@@ -167,7 +188,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   Future<void> _addUnread() async {
     final draft = await Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(draft: true, routine: widget.routine, today: widget.today),
+        builder: (_) => AddMedicationScreen(draft: true, routine: _routine, today: widget.today),
       ),
     );
     if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));
@@ -315,7 +336,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final reading = widget.reading;
-    final engine = ScheduleEngine(widget.routine);
+    final engine = ScheduleEngine(_routine);
 
     return Scaffold(
       appBar: AppBar(),
@@ -432,12 +453,17 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         _MedicineRow(
                           index: i,
                           line: line,
-                          timeFor: (t) => arabicTime(switch (t) {
-                            AnchorTiming(:final anchor, :final offsetMinutes) =>
-                              engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today),
+                          timeFor: (t) => switch (t) {
+                            // مرساة مش متحددة: مفيش ساعة تتقال — السؤال تحت
+                            AnchorTiming(:final anchor) when !_routine.isSet(anchor) =>
+                              'ميعاد ${anchor.label} مش متحدد',
+                            AnchorTiming(:final anchor, :final offsetMinutes) => arabicTime(
+                                engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today)),
                             FixedTiming(:final minuteOfDay) =>
-                              engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today),
-                          }),
+                              arabicTime(engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today)),
+                          },
+                          unsetAnchors: _unsetAnchorsOf(line),
+                          onAskAnchor: _busy ? null : _askAnchor,
                           onEdit: _busy ? null : () => _edit(i),
                           onDelete: _busy ? null : () => _delete(i),
                         ),
@@ -576,7 +602,13 @@ class _MedicineRow extends StatelessWidget {
     required this.timeFor,
     required this.onEdit,
     required this.onDelete,
+    this.unsetAnchors = const {},
+    this.onAskAnchor,
   });
+
+  /// المراسي اللي السطر ده محتاجها والمستخدم ما حدّدهاش — سؤال لكل واحدة.
+  final Set<DayAnchor> unsetAnchors;
+  final Future<void> Function(DayAnchor anchor)? onAskAnchor;
 
   /// ترتيبه في المسوّدة — بيدخل في مفاتيح أزراره عشان يتفرّق عن ترويسة الورقة.
   final int index;
@@ -705,6 +737,24 @@ class _MedicineRow extends StatelessWidget {
               'ثقة ${arabicNumber((line.confidence * 100).round())}٪',
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
+          ],
+          if (unsetAnchors.isNotEmpty) ...[
+            const SizedBox(height: F.s12),
+            // الورقة قالت «قبل الفطار» والفطار مش متحدد: مفيش رقم بيتخمّن
+            // مكانه — سؤال للإنسان، والإجابة بتتحفظ في روتينه مرة واحدة.
+            GoldNote(
+              key: ValueKey('unset-anchor-note-$index'),
+              'الورقة بتقول ${unsetAnchors.map((a) => a.label).join(' و')} — وإنت لسه '
+              'ما حدّدتش ميعاده. قول لنا مرة واحدة، والدوا يتربط بيه.',
+            ),
+            for (final anchor in unsetAnchors) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('ask-anchor-$index-${anchor.name}'),
+                label: 'حدّد ميعاد ${anchor.label}',
+                onPressed: onAskAnchor == null ? null : () => onAskAnchor!(anchor),
+              ),
+            ],
           ],
           const SizedBox(height: F.s12),
           // التعديل والشيل مع بعض في آخر الكارت: الاتنين بكلمة، والاتنين

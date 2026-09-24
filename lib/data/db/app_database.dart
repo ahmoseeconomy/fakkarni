@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -399,6 +399,21 @@ class AppDatabase extends _$AppDatabase {
               if (existing.isEmpty) {
                 await customStatement(
                     'ALTER TABLE medications ADD COLUMN active_ingredient TEXT NULL');
+              }
+            }
+            if (from < 21) {
+              // الروتين بقى اختياري: علم «المراسي اللي ما اتحددتش» على
+              // الروتين وعلى نسخة رمضان. DEFAULT '' = كل الصفوف القديمة
+              // متحددة بالكامل، وده صح: محدش وصل هنا من غير ما يجاوب على
+              // الخمسة. بحماية وجود، و**فوق** بلوك التطبيع زي أي عمود جديد.
+              for (final table in ['day_routines', 'routine_backups']) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('$table') WHERE name = 'unset_anchors'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement(
+                      "ALTER TABLE $table ADD COLUMN unset_anchors TEXT NOT NULL DEFAULT ''");
+                }
               }
             }
             if (from < 6) {

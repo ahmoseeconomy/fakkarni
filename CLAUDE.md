@@ -346,8 +346,57 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1441 passing
+test/                         1467 passing
 ```
+
+**The routine is optional, and the app never times a medication from a
+routine value the user did not set** (product decision, 24 Sep 2026).
+`DayRoutine` keeps its five non-null minutes — so the engine math, Ramadan
+and the wording are byte-for-byte what they were — and gains `unset`, the
+anchors the user never chose. An unset anchor still holds a number, but it
+is a **rest position for the wheel, not an answer**: `remindersForDay`
+skips every `AnchorTiming` on an unset anchor (`routine_unset_test`), so
+nothing can ring from it. An unset `wake` still bounds the routine day —
+that decides which day a 1 AM fixed dose is counted under, never *when*
+it rings, and the test pins that the instant is identical.
+- **Storage**: `day_routines.unset_anchors` and `routine_backups.unset_anchors`
+  (drift **v21**, `TEXT NOT NULL DEFAULT ''`, comma-joined anchor names).
+  The default is the migration: every row from before v21 reads as fully
+  set, because nobody reached the app without answering all five —
+  `migration_test` asserts it on the v2 file. **No cloud migration**: the
+  flag is not pushed. `_pushDayRoutines` sends the five minutes as before,
+  nothing in the cloud reads a routine (the son never resolves anchors),
+  and pushing a column that does not exist on the live project would fail
+  the whole `day_routines` batch silently. If the cloud ever needs to know
+  which minutes are placeholders, that is `0022` **run before** the build
+  that pushes it — not a quiet edit to the payload.
+- **Onboarding**: each question has «مش دلوقتي» («مش متأكد» is gone —
+  it stored the fallback *as if chosen*). Skipping removes the answer and
+  `routineFromAnswers` marks the anchor unset. Skipping all five saves
+  `DayRoutine.none`: a row exists, the app proceeds, nothing is invented.
+- **Add / edit a dose** (`DoseEditor`): when the chosen anchor is unset the
+  editor opens in **fixed-clock mode** with the wheel at its rest — no
+  number from a default routine. The anchor chips stay, each unset one
+  labelled with «؟»; tapping it opens `askAnchorTime` (`lib/features/
+  routine/ask_anchor_time.dart`: the same question, presets and wheel as
+  onboarding, «تمام» locked until a preset or a wheel move) **once**,
+  `RoutineRepository.setAnchor` writes it as set, and the chip is then an
+  ordinary anchor. Closing the sheet writes nothing. `AddMedicationScreen`
+  and `EditMedicationScreen` hold a live `_routine` so later editors in
+  the same walk see the meal as set; a form with unset anchors says so in
+  words instead of promising «مراسي يومك».
+- **Prescription review**: an AI line on an unset anchor shows «ميعاد
+  الفطار مش متحدد» in place of a time, a gold note, and «حدّد ميعاد
+  الفطار» — and it **blocks «تمام»** like an unclear timing until the
+  person answers. Never auto-filled (rule 4 and rule 6 in one place).
+- **Settings «عدّل يومك»**: an unset anchor reads «مش متحدد» with no gold
+  preset; a preset tap, a wheel move, or «تمام كده» on the opened wheel
+  sets it. Once set, every dose on that anchor follows it as always;
+  fixed doses stay where they are.
+- **Appointment notices** still read `routine.wake` / `routine.dinner`
+  for their clock; on an unset anchor that is the rest value (6:30 / 20:00),
+  the same operational choice as the checkup's 9:00 — and it is a notice
+  about a visit, not a medication time.
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
 `(anchor - wake + 1440) % 1440`, so a 1 AM bedtime lands 18 hours *after*

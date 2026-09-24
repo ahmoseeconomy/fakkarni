@@ -64,6 +64,7 @@ class DayRoutine {
     required this.lunch,
     required this.dinner,
     required this.sleep,
+    this.unset = const {},
   });
 
   final MinuteOfDay wake;
@@ -71,6 +72,30 @@ class DayRoutine {
   final MinuteOfDay lunch;
   final MinuteOfDay dinner;
   final MinuteOfDay sleep;
+
+  /// **المراسي اللي المستخدم ما حدّدهاش** — الروتين بقى اختياري.
+  ///
+  /// المرساة اللي هنا لسه ليها رقم في [at] — بس الرقم ده **مكان راحة**
+  /// مش إجابة: المحرّك عمره ما يجدول جرعة عليه ([ScheduleEngine]
+  /// بيتخطّاها)، والمحرّر ما بيعرضهاش غير بعد ما يسأل عن ميعادها. الصحيان
+  /// وهو مش متحدد بيفضل بيحدد **حدود اليوم بس** (جرعة ثابتة الساعة ١ ص
+  /// بتتحسب على يوم امبارح) — وده ما بيحرّكش ولا دقيقة من أي دوا.
+  final Set<DayAnchor> unset;
+
+  bool isSet(DayAnchor anchor) => !unset.contains(anchor);
+
+  /// كل المراسي متحددة — الروتين الكامل اللي كل الحسابات القديمة اتكتبت له.
+  bool get isComplete => unset.isEmpty;
+
+  /// المستخدم حدّد [anchor] بإيده على [time].
+  DayRoutine withAnchor(DayAnchor anchor, MinuteOfDay time) => DayRoutine(
+        wake: anchor == DayAnchor.wake ? time : wake,
+        breakfast: anchor == DayAnchor.breakfast ? time : breakfast,
+        lunch: anchor == DayAnchor.lunch ? time : lunch,
+        dinner: anchor == DayAnchor.dinner ? time : dinner,
+        sleep: anchor == DayAnchor.sleep ? time : sleep,
+        unset: {for (final a in unset) if (a != anchor) a},
+      );
 
   /// الروتين الافتراضي لما المستخدم يختار «مش متأكد».
   /// مش تخمين طبي — مجرد نقطة بداية المستخدم بيعدّلها.
@@ -85,6 +110,11 @@ class DayRoutine {
     dinner: MinuteOfDay.hm(20),
     sleep: MinuteOfDay.hm(23, 30),
   );
+
+  /// روتين ما اتحددش منه ولا مرساة — اللي بيتحفظ لما المستخدم يعدّي كل
+  /// الأسئلة بـ«مش دلوقتي». نفس أرقام [fallback] كأماكن راحة، **وكلها
+  /// معلّمة إنها مش بتاعته**.
+  static final DayRoutine none = fallback.copyWith(unset: DayAnchor.values.toSet());
 
   MinuteOfDay at(DayAnchor anchor) => switch (anchor) {
         DayAnchor.wake => wake,
@@ -107,6 +137,7 @@ class DayRoutine {
     MinuteOfDay? lunch,
     MinuteOfDay? dinner,
     MinuteOfDay? sleep,
+    Set<DayAnchor>? unset,
   }) =>
       DayRoutine(
         wake: wake ?? this.wake,
@@ -114,10 +145,11 @@ class DayRoutine {
         lunch: lunch ?? this.lunch,
         dinner: dinner ?? this.dinner,
         sleep: sleep ?? this.sleep,
+        unset: unset ?? this.unset,
       );
 
-  /// روتينين بنفس الخمس مواعيد هما نفس الروتين — ده اللي بيخلّي
-  /// «رجّع الأصل بالحرف» جملة تتختبر.
+  /// روتينين بنفس الخمس مواعيد **ونفس اللي مش متحدد** هما نفس الروتين —
+  /// ده اللي بيخلّي «رجّع الأصل بالحرف» جملة تتختبر.
   @override
   bool operator ==(Object other) =>
       other is DayRoutine &&
@@ -125,12 +157,15 @@ class DayRoutine {
       other.breakfast == breakfast &&
       other.lunch == lunch &&
       other.dinner == dinner &&
-      other.sleep == sleep;
+      other.sleep == sleep &&
+      other.unset.length == unset.length &&
+      other.unset.containsAll(unset);
 
   @override
-  int get hashCode => Object.hash(wake, breakfast, lunch, dinner, sleep);
+  int get hashCode => Object.hash(wake, breakfast, lunch, dinner, sleep, unset.length);
 
   @override
   String toString() => 'DayRoutine(صحيان $wake، فطار $breakfast، '
-      'غدا $lunch، عشا $dinner، نوم $sleep)';
+      'غدا $lunch، عشا $dinner، نوم $sleep'
+      '${unset.isEmpty ? '' : '، مش متحدد: ${unset.map((a) => a.name).join('،')}'})';
 }
