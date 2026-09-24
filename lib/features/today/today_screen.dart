@@ -37,6 +37,7 @@ import 'tips/tip_picker.dart';
 import '../../data/repositories/medication_repository.dart' show MedicationSummary;
 import '../../domain/medication/medication_purpose.dart';
 import 'notifications_off_line.dart';
+import 'widgets/circle_notices.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
@@ -651,6 +652,8 @@ class _HomeHeader extends StatelessWidget {
         // الاستثناء الوحيد اللي المريض بيشوفه: إذن التنبيهات مقفول.
         // أي مشكلة تانية بتتصلّح لوحدها أو بتروح للأدمن — مش هنا.
         const NotificationsOffLine(),
+        // اللي الممرض غيّره واتطبّق هنا (المرحلة ب) — بيتقال بالاسم
+        const CircleNotices(),
         CareCircleRow(onOpen: onOpenCircle, followers: followers),
       ],
     );

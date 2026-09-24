@@ -19,6 +19,7 @@ import 'core/diagnostics.dart';
 import 'data/health/health_collector.dart';
 import 'data/health/health_heartbeat.dart';
 import 'data/health/health_watcher.dart';
+import 'data/sync/medication_change_pull.dart';
 import 'data/testhook/test_hook.dart';
 import 'core/notifications/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
@@ -169,6 +170,7 @@ Future<void> main() async {
         : HealthHeartbeat(remote: cloud.health, patientUuid: patient.uuid),
   ).run());
 
+  unawaited(MedicationChangePuller.loadNotices());
   runApp(FakkarniApp(services: services));
 }
 

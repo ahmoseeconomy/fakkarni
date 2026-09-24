@@ -10,7 +10,9 @@ import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
+import '../data/care/medication_changes.dart';
 import '../data/care/proxy_confirmations.dart';
+import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
@@ -51,6 +53,8 @@ class AppServices {
     this.careAdmin,
     this.proxy,
     this.proxyPull,
+    this.medChanges,
+    this.medChangePull,
   });
 
   final AppDatabase db;
@@ -68,6 +72,16 @@ class AppServices {
 
   /// سحبة تأكيدات الممرض لموبايل الأب — null من غير سحابة.
   final ProxyConfirmationPuller? proxyPull;
+
+  /// تغييرات الأدوية المعلّقة (المرحلة ب): الممرض بيبعت، والأب بيسحب.
+  final MedicationChangeRemote? medChanges;
+  final MedicationChangePuller? medChangePull;
+
+  /// السحبتين مع بعض — عند الفتح والرجوع وبعد كل رفعة.
+  Future<void> pullFromCircle() async {
+    await proxyPull?.pull();
+    await medChangePull?.pull();
+  }
 
   /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات
   /// بيلاقيها من غير سطر زيادة. الجدولة بتقراها من نسخة بتاعتها في

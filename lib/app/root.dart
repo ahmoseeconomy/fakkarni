@@ -53,6 +53,12 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // عند الفتح: تأكيدات الممرض وتغييراته (٠٠٢٣/٠٠٢٤) — مجاملة بعد ما
+    // الجدولة خلصت في main، ومن غير ما الشاشة تستناها.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(AppScope.of(context).pullFromCircle());
+    });
   }
 
   /// رجوع للمقدمة = محفّز مزامنة — الجهاز ممكن يكون كان أوفلاين ساعات —
@@ -73,7 +79,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             // المواعيد **بعدها**، ومن غير ما تقدر توقّعها.
             .then((_) => services.refreshAppointments())
             // وتأكيدات الممرض (٠٠٢٣) بعد الجدولة — بتلغي وتعيد بنفسها
-            .then((_) => services.proxyPull?.pull()),
+            .then((_) => services.pullFromCircle()),
       );
     }
   }

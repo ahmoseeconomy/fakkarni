@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/f_sheet.dart';
+import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/care/follower_role.dart';
+import '../../domain/care/medication_change.dart';
+import '../medication/nurse_draft.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
@@ -32,6 +36,155 @@ class CaregiverMirrorScreen extends StatefulWidget {
 class _CaregiverMirrorScreenState extends State<CaregiverMirrorScreen> {
   final _busy = <String>{};
   String? _error;
+
+  /// اللي بعته ولسه ما اتطبّقش على موبايله — الشاشة بتقولها بدل ما يبعته تاني.
+  List<MedicationChange> _pendingChanges = const [];
+  String? _pendingFor;
+
+  /// بيعيش مع الشاشة: ورقة بتتقفل لسه ليها كادرات بتتبني (درس جولة ١٦).
+  final _amount = TextEditingController();
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _myName(CaregiverSnapshot snapshot) async {
+    try {
+      return (await AppScope.of(context).caregiverPreferences?.load(snapshot.patient.uuid))?.name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadPending(CaregiverSnapshot snapshot) async {
+    final remote = AppScope.of(context).medChanges;
+    if (remote == null) return;
+    try {
+      final rows = await remote.pendingFor(snapshot.patient.uuid);
+      if (mounted) {
+        setState(() {
+          _pendingChanges = rows;
+          _pendingFor = snapshot.patient.uuid;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _submit(
+    CaregiverSnapshot snapshot, {
+    required MedicationChangeKind kind,
+    required MedicationChangePayload payload,
+    String? medicationUuid,
+    String? medicationName,
+  }) async {
+    final remote = AppScope.of(context).medChanges;
+    if (remote == null) return;
+    setState(() => _error = null);
+    try {
+      await remote.submit(
+        patientUuid: snapshot.patient.uuid,
+        kind: kind,
+        payload: payload,
+        medicationUuid: medicationUuid,
+        medicationName: medicationName,
+        actorName: await _myName(snapshot),
+      );
+      await _loadPending(snapshot);
+    } on CareCircleException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'مقدرناش نبعت. جرّب تاني.');
+    }
+  }
+
+  /// «ضيف دوا» بنفس فورم الأب في وضع المسوّدة — بروتين افتراضي: الممرض
+  /// بيختار المراسي («قبل الفطار»)، وموبايل المريض هو اللي بيحلّها بروتينه هو.
+  Future<void> _addMedication(CaregiverSnapshot snapshot) async {
+    final draft = await draftMedicationAsNurse(context, today: widget.now);
+    if (draft == null || !mounted) return;
+    await _submit(
+      snapshot,
+      kind: MedicationChangeKind.add,
+      payload: MedicationChangePayload(
+        name: draft.name,
+        timings: draft.timings,
+        amountLabel: draft.amountLabel,
+        durationDays: draft.durationDays,
+        purpose: draft.purpose,
+        instructions: draft.instructions,
+        alertMode: draft.alertMode,
+        startDate: draft.startDate,
+      ),
+    );
+  }
+
+  Future<void> _stopMedication(CaregiverSnapshot snapshot, CaregiverMedication med) async {
+    final yes = await FSheet.show<bool>(
+      context,
+      title: 'توقّف ${med.name}؟',
+      children: [
+        Text(
+          'هيتبعت لموبايله ويتوقّف أول ما يفتح التطبيق. لو هو عدّله بنفسه بعد كده، تعديله هو اللي بيكسب.',
+          style: TextStyle(fontSize: F.careBodySize, color: F.ink, height: 1.6),
+        ),
+        const SizedBox(height: F.gap),
+        FPrimaryButton(
+          key: const ValueKey('mirror-stop-confirm'),
+          label: 'أيوه، وقّفه',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+        const SizedBox(height: F.s8),
+        FSecondaryButton(label: 'لأ، سيبه', onPressed: () => Navigator.of(context).pop(false)),
+      ],
+    );
+    if (yes != true || !mounted) return;
+    await _submit(
+      snapshot,
+      kind: MedicationChangeKind.stop,
+      payload: const MedicationChangePayload(),
+      medicationUuid: med.uuid,
+      medicationName: med.name,
+    );
+  }
+
+  Future<void> _editAmount(CaregiverSnapshot snapshot, CaregiverMedication med) async {
+    _amount.text = med.amountLabel ?? '';
+    final controller = _amount;
+    final amount = await FSheet.show<String>(
+      context,
+      title: 'جرعة ${med.name}',
+      children: [
+        TextField(
+          key: const ValueKey('mirror-amount-field'),
+          controller: controller,
+          textInputAction: TextInputAction.done,
+          style: TextStyle(fontSize: F.careBodySize + 2, color: F.ink),
+          decoration: InputDecoration(
+            hintText: 'زي: قرص واحد',
+            filled: true,
+            fillColor: F.fieldGround,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.careRadius)),
+          ),
+        ),
+        const SizedBox(height: F.gap),
+        FPrimaryButton(
+          key: const ValueKey('mirror-amount-save'),
+          label: 'ابعت لموبايله',
+          onPressed: () => Navigator.of(context).pop(controller.text),
+        ),
+      ],
+    );
+    if (amount == null || amount.trim().isEmpty || !mounted) return;
+    await _submit(
+      snapshot,
+      kind: MedicationChangeKind.amount,
+      payload: MedicationChangePayload(amountLabel: amount.trim()),
+      medicationUuid: med.uuid,
+      medicationName: med.name,
+    );
+  }
 
   DateTime get _now => widget.now ?? DateTime.now();
 
@@ -135,6 +288,66 @@ class _CaregiverMirrorScreenState extends State<CaregiverMirrorScreen> {
                 busy: _busy.contains(e.uuid),
                 onConfirm: canConfirm ? () => _confirm(snapshot, e) : null,
               ),
+          if (snapshot.patient.permissions.canEditMeds) ...[
+            const SizedBox(height: F.s12),
+            const CareHead('أدويته'),
+            if (_pendingFor != snapshot.patient.uuid)
+              Builder(builder: (context) {
+                WidgetsBinding.instance.addPostFrameCallback((_) => _loadPending(snapshot));
+                return const SizedBox.shrink();
+              }),
+            for (final c in _pendingChanges)
+              CarePanel(
+                key: ValueKey('mirror-pending-${c.uuid}'),
+                text: 'اتبعت لموبايله — ${c.kind.verb} ${c.payload.name ?? c.medicationName ?? ''} (هيتطبّق أول ما يفتح التطبيق).',
+              ),
+            for (final m in snapshot.medications)
+              CareCard(
+                key: ValueKey('mirror-med-${m.uuid}'),
+                padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      m.amountLabel == null ? m.name : '${m.name} — ${m.amountLabel}',
+                      style: TextStyle(
+                        fontSize: F.careBodySize,
+                        fontWeight: FontWeight.w700,
+                        color: F.ink,
+                        fontFamily: F.monoFamily,
+                        fontFamilyFallback: F.monoFallback,
+                      ),
+                    ),
+                    const SizedBox(height: F.s6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _CareAction(
+                            key: ValueKey('mirror-amount-${m.uuid}'),
+                            label: 'عدّل الجرعة',
+                            onPressed: () => _editAmount(snapshot, m),
+                          ),
+                        ),
+                        const SizedBox(width: F.s8),
+                        Expanded(
+                          child: _CareAction(
+                            key: ValueKey('mirror-stop-${m.uuid}'),
+                            label: 'وقّفه',
+                            onPressed: () => _stopMedication(snapshot, m),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: F.s8),
+            _CareAction(
+              key: const ValueKey('mirror-add-medication'),
+              label: 'ضيف دوا',
+              onPressed: () => _addMedication(snapshot),
+            ),
+          ],
           if (snapshot.lastUpdated case final at?) ...[
             const SizedBox(height: F.s12),
             Text(
@@ -243,4 +456,27 @@ class _MirrorRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// زرار بكلمة بكثافة الابن.
+class _CareAction extends StatelessWidget {
+  const _CareAction({required this.label, required this.onPressed, super.key});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.careTapTarget,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, F.careTapTarget),
+            foregroundColor: F.ink,
+            side: BorderSide(color: F.ink, width: 1.5),
+            textStyle: const TextStyle(fontSize: F.careTextSize, fontWeight: FontWeight.w700),
+          ),
+          child: Text(label),
+        ),
+      );
 }

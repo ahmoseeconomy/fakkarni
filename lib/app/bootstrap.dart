@@ -16,6 +16,8 @@ import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/care/proxy_confirmations.dart';
+import '../data/care/medication_changes.dart';
+import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
@@ -47,6 +49,7 @@ Future<AppServices> buildServices(
   PushTokens? push,
   CareCircleAdmin? careAdmin,
   ProxyConfirmRemote? proxy,
+  MedicationChangeRemote? medChanges,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -71,8 +74,23 @@ Future<AppServices> buildServices(
           scheduler: scheduler,
           patientId: patientId,
         );
-  // بعد كل رفعة ناجحة: سحبة التأكيدات — مجاملة بعد الوعد
-  if (proxyPull != null) sync?.afterPush = proxyPull.pull;
+  final medChangePull = medChanges == null
+      ? null
+      : MedicationChangePuller(
+          remote: medChanges,
+          db: db,
+          routines: routines,
+          medications: medications,
+          scheduler: scheduler,
+          patientId: patientId,
+        );
+  // بعد كل رفعة ناجحة: السحبتين (التأكيدات وتغييرات الأدوية) — مجاملة بعد الوعد
+  if (proxyPull != null || medChangePull != null) {
+    sync?.afterPush = () async {
+      await proxyPull?.pull();
+      await medChangePull?.pull();
+    };
+  }
 
   return AppServices(
     db: db,
@@ -83,6 +101,8 @@ Future<AppServices> buildServices(
     careAdmin: careAdmin,
     proxy: proxy,
     proxyPull: proxyPull,
+    medChanges: medChanges,
+    medChangePull: medChangePull,
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,

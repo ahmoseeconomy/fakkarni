@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0023: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0024: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -263,7 +263,15 @@ with expected(migration, kind, ident) as (
     ('0023_nurse_role', 'funcsrc',  'public.create_invite|p_role'),
     ('0023_nurse_role', 'funcsrc',  'public.redeem_invite|can_confirm'),
     -- **والاختيار بيستبعد التأكيد نيابةً** — وجود الدالة لوحده بيكدب
-    ('0023_nurse_role', 'funcsrc',  'private.due_escalations|proxy_confirmations')
+    ('0023_nurse_role', 'funcsrc',  'private.due_escalations|proxy_confirmations'),
+
+    -- 0024 — تغييرات الأدوية اللي بيقترحها الممرض
+    ('0024_medication_changes', 'table',    'public.medication_changes'),
+    ('0024_medication_changes', 'rls',      'public.medication_changes'),
+    ('0024_medication_changes', 'function', 'private.can_edit_meds_for'),
+    ('0024_medication_changes', 'policy',   'public.medication_changes|medication_changes_insert'),
+    ('0024_medication_changes', 'policysrc','public.medication_changes|medication_changes_insert|can_edit_meds_for'),
+    ('0024_medication_changes', 'policy',   'public.medication_changes|medication_changes_update')
 ),
 checked as (
   select
