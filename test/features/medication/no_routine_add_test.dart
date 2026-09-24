@@ -37,16 +37,24 @@ void main() {
     await noRoutine();
     await pumpAdd(tester);
     expect(find.textContaining('ما حدّدتش مواعيد يومك'), findsOneWidget);
+    // الصف بيقول إن الفطار مش متحدد، و«احفظ» مقفولة لحد ما يختار
+    expect(find.text('الفطار — مش متحدد'), findsOneWidget);
+    expect(find.textContaining('حوالي ٧:٠٠ ص'), findsNothing, reason: 'ولا ساعة من الافتراضي');
+    expect(tester.widget<FilledButton>(find.descendant(
+        of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton))).onPressed,
+        isNull);
 
-    await tester.tap(find.text('كمّل — إمتى؟'));
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
-    // ساعة ثابتة: البكرة موجودة، الشرايح لأ، والتنبيه مكتوب
+    // المحرّر على ساعة محددة: البكرة موجودة، والتنبيه مكتوب، ومفيش معاينة من الافتراضي
     expect(find.byType(FTimeWheel), findsOneWidget);
     expect(find.text('ساعة ثابتة — مش هتتحرك مع روتين يومك'), findsOneWidget);
-    expect(find.text('قبل الفطار'), findsNothing);
     expect(find.text('يعني حوالي ٧:٠٠ ص'), findsNothing, reason: 'ولا معاينة من الافتراضي');
 
     await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
+    expect(find.text('ساعة محددة — ٨:٠٠ ص'), findsOneWidget, reason: 'الصف بيقول اللي اختاره');
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved.single.timing, FixedTiming(MinuteOfDay.hm(8)), reason: 'اللي على البكرة وأكّده');
@@ -55,10 +63,10 @@ void main() {
   screenTest('«قبل الفطار؟» بتسأل عن الفطار مرة، بتحفظه متحدد، وبعدها الجرعة على المرساة', (tester) async {
     final routines = await noRoutine();
     await pumpAdd(tester);
-    await tester.tap(find.text('كمّل — إمتى؟'));
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
 
-    await tester.tap(find.text('ارجع للمراسي'));
+    await tester.tap(find.byKey(const ValueKey('mode-anchor')));
     await settle(tester);
     expect(find.text('قبل الفطار؟'), findsOneWidget, reason: 'مرساة مش متحددة بعلامة استفهام');
 
@@ -87,6 +95,9 @@ void main() {
 
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
+    expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠١ ص'), findsOneWidget, reason: 'الصف بيقول المرساة وساعتها');
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
+    await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved.single.timing, const AnchorTiming(DayAnchor.breakfast, -30));
   });
@@ -94,9 +105,9 @@ void main() {
   screenTest('قفل السؤال من غير إجابة: ولا حاجة اتكتبت، والمحرّر لسه على الساعة الثابتة', (tester) async {
     final routines = await noRoutine();
     await pumpAdd(tester);
-    await tester.tap(find.text('كمّل — إمتى؟'));
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
-    await tester.tap(find.text('ارجع للمراسي'));
+    await tester.tap(find.byKey(const ValueKey('mode-anchor')));
     await settle(tester);
     await tester.tap(find.text('قبل الفطار؟'));
     await settle(tester);
@@ -111,7 +122,9 @@ void main() {
   screenTest('روتين كامل: نفس السلوك القديم بالحرف — المراسي أول حاجة والمعاينة منها', (tester) async {
     await RoutineRepository(h.db).saveRoutine(h.services.patientId, normalDay);
     await h.pump(tester, AddMedicationScreen(routine: normalDay, today: aug31, initialName: 'Concor'));
-    await tester.tap(find.text('كمّل — إمتى؟'));
+    // الصف محسوب من المرساة على طول، والدوسة عليه تفتح المحرّر على المراسي
+    expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠٠ ص'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
     expect(find.byType(FTimeWheel), findsNothing);
     expect(find.text('قبل الفطار'), findsOneWidget);

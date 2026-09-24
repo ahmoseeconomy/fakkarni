@@ -89,7 +89,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 22);
+    expect(version.read<int>('user_version'), 23);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -220,6 +220,13 @@ void main() {
         .map((r) => r.read<String>('name'))
         .get();
     expect(prefColumns, contains('alert_mode'));
+
+    // v23: «لإيه؟» و«تعليمات» — موجودين وفاضيين لكل دوا قديم.
+    expect(medColumns22, containsAll(['purpose', 'instructions']));
+    for (final m in await db.select(db.medications).get()) {
+      expect(m.purpose, isNull);
+      expect(m.instructions, isNull);
+    }
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

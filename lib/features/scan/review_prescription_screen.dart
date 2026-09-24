@@ -13,6 +13,7 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import '../../domain/escalation/alert_mode.dart';
+import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -180,6 +181,10 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialTimings: line.timings,
           initialDurationDays: line.durationDays,
           initialAlertMode: line.alertMode,
+          initialPurpose: line.purpose,
+          initialInstructions: line.instructions,
+          // جرعة الورقة مش واضحة → تفضل «مش معروفة» لو سابها فاضية
+          initialAmountUnknown: line.amountUnknown,
         ),
       ),
     );
@@ -288,6 +293,8 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
             amountUnknown: l.amountUnknown,
             durationDays: l.durationDays, // null = مفتوحة، زي ما الورقة سابتها
             alertMode: l.alertMode,
+            purpose: l.purpose,
+            instructions: l.instructions,
           ),
       ],
     );
@@ -943,12 +950,16 @@ class _DraftLine {
     required this.timings,
     required this.durationDays,
     this.alertMode,
+    this.purpose,
+    this.instructions,
     this.edited = false,
   });
 
   /// نوع التنبيه — الورقة ما بتقولوش، فمن القراية دايماً null (الافتراضي)؛
-  /// «عدّل» ممكن يحدده.
+  /// «عدّل» ممكن يحدده. ونفس الكلام لـ«لإيه؟» و«تعليمات».
   AlertMode? alertMode;
+  MedicationPurpose? purpose;
+  String? instructions;
 
   /// من قراية الذكاء — بثقتها وملاحظاتها زي ما هي.
   factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
@@ -969,6 +980,8 @@ class _DraftLine {
         timings: d.timings,
         durationDays: d.durationDays,
         alertMode: d.alertMode,
+        purpose: d.purpose,
+        instructions: d.instructions,
         edited: true,
       );
 
@@ -994,6 +1007,8 @@ class _DraftLine {
     timings = d.timings;
     durationDays = d.durationDays;
     alertMode = d.alertMode;
+    purpose = d.purpose;
+    instructions = d.instructions;
     edited = true;
   }
 

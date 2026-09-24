@@ -143,28 +143,39 @@ void main() {
 
   testWidgets('محرّر الجرعة على ساعة ثابتة: بكرة الساعة و«احفظ الجرعة» ظاهر', (tester) async {
     await pumpSE(tester, DoseEditor(name: 'Concor', routine: _routine, onSave: (_) async {}));
-    await tester.tap(find.text('أحدد ساعة ثابتة بدل كده'));
+    await tester.tap(find.byKey(const ValueKey('mode-fixed')));
     await settle(tester);
     expect(find.byType(FTimeWheel), findsOneWidget);
     expectPrimaryVisible(tester, 'احفظ الجرعة');
   });
 
-  testWidgets('«ضيف دوا» بـ«أكتر» و«أيام محددة» مفتوحين: بكرتين و«كمّل» ظاهر', (tester) async {
+  testWidgets('«ضيف دوا» بـ«أكتر» و«تفاصيل أكتر» و«أيام محددة» مفتوحين: بكرتين و«احفظ» ظاهر', (tester) async {
     await pumpSE(tester, AddMedicationScreen(routine: _routine));
-    await tester.tap(find.byKey(const ValueKey('count-more')));
-    await settle(tester);
-    // كارت المدة تحت الفورم — بيتلفّ له؛ الزرار الأساسي نفسه مثبّت تحت.
-    // السحب من **أعلى** القايمة: نصّها بقى بكرة العدّ، والبكرة بتاكل السحب.
-    for (var i = 0; i < 12 && find.text('أيام محددة').evaluate().isEmpty; i++) {
-      await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+    expect(tester.takeException(), isNull, reason: 'أربع شرايح «مع الأكل» في صف واحد على SE');
+
+    // القايمة كسولة والفورم أطول من SE — بنلفّ لكل حاجة قبل ما ندوس عليها.
+    // السحب من **أعلى** القايمة: نصّها ممكن يبقى بكرة، والبكرة بتاكل السحب.
+    Future<void> scrollTo(Finder f) async {
+      for (var i = 0; i < 14 && f.evaluate().isEmpty; i++) {
+        await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+        await settle(tester);
+      }
+      expect(f, findsOneWidget);
+      await tester.ensureVisible(f);
       await settle(tester);
     }
-    expect(find.text('أيام محددة'), findsOneWidget);
+
+    await scrollTo(find.byKey(const ValueKey('count-more')));
+    await tester.tap(find.byKey(const ValueKey('count-more')));
+    await settle(tester);
+    await scrollTo(find.byKey(const ValueKey('more-toggle')));
+    await tester.tap(find.byKey(const ValueKey('more-toggle')));
+    await settle(tester);
+    await scrollTo(find.text('أيام محددة'));
     await tester.tap(find.text('أيام محددة'));
     await settle(tester);
-    expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
     expect(find.byKey(const ValueKey('days-wheel')), findsOneWidget);
-    expectPrimaryVisible(tester, 'كمّل — إمتى؟');
+    expectPrimaryVisible(tester, 'احفظ');
   });
 
   testWidgets('سؤال الروتين: بكرة الساعة و«تمام» ظاهر', (tester) async {

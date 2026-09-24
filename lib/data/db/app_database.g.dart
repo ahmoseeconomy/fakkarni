@@ -1464,6 +1464,28 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _purposeMeta = const VerificationMeta(
+    'purpose',
+  );
+  @override
+  late final GeneratedColumn<String> purpose = GeneratedColumn<String>(
+    'purpose',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _instructionsMeta = const VerificationMeta(
+    'instructions',
+  );
+  @override
+  late final GeneratedColumn<String> instructions = GeneratedColumn<String>(
+    'instructions',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
     'stoppedAt',
   );
@@ -1511,6 +1533,8 @@ class $MedicationsTable extends Medications
     notes,
     activeIngredient,
     alertMode,
+    purpose,
+    instructions,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1609,6 +1633,21 @@ class $MedicationsTable extends Medications
         alertMode.isAcceptableOrUnknown(data['alert_mode']!, _alertModeMeta),
       );
     }
+    if (data.containsKey('purpose')) {
+      context.handle(
+        _purposeMeta,
+        purpose.isAcceptableOrUnknown(data['purpose']!, _purposeMeta),
+      );
+    }
+    if (data.containsKey('instructions')) {
+      context.handle(
+        _instructionsMeta,
+        instructions.isAcceptableOrUnknown(
+          data['instructions']!,
+          _instructionsMeta,
+        ),
+      );
+    }
     if (data.containsKey('stopped_at')) {
       context.handle(
         _stoppedAtMeta,
@@ -1680,6 +1719,14 @@ class $MedicationsTable extends Medications
         DriftSqlType.string,
         data['${effectivePrefix}alert_mode'],
       ),
+      purpose: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purpose'],
+      ),
+      instructions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instructions'],
+      ),
       stoppedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
@@ -1736,6 +1783,12 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   /// مش بيتدفع للسحابة (الإعادات على موبايل المريض بس).
   final String? alertMode;
 
+  /// «الدوا ده لإيه؟» (v23) — اسم [MedicationPurpose]، null = ما قالش. محلي.
+  final String? purpose;
+
+  /// «تعليمات» حرّة (v23) — «مع كوباية مية كاملة». null = مفيش. محلي.
+  final String? instructions;
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
@@ -1762,6 +1815,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     this.notes,
     this.activeIngredient,
     this.alertMode,
+    this.purpose,
+    this.instructions,
     this.stoppedAt,
     this.removedAt,
     required this.createdAt,
@@ -1789,6 +1844,12 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     }
     if (!nullToAbsent || alertMode != null) {
       map['alert_mode'] = Variable<String>(alertMode);
+    }
+    if (!nullToAbsent || purpose != null) {
+      map['purpose'] = Variable<String>(purpose);
+    }
+    if (!nullToAbsent || instructions != null) {
+      map['instructions'] = Variable<String>(instructions);
     }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
@@ -1823,6 +1884,12 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       alertMode: alertMode == null && nullToAbsent
           ? const Value.absent()
           : Value(alertMode),
+      purpose: purpose == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purpose),
+      instructions: instructions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instructions),
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
@@ -1850,6 +1917,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       notes: serializer.fromJson<String?>(json['notes']),
       activeIngredient: serializer.fromJson<String?>(json['activeIngredient']),
       alertMode: serializer.fromJson<String?>(json['alertMode']),
+      purpose: serializer.fromJson<String?>(json['purpose']),
+      instructions: serializer.fromJson<String?>(json['instructions']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1870,6 +1939,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'notes': serializer.toJson<String?>(notes),
       'activeIngredient': serializer.toJson<String?>(activeIngredient),
       'alertMode': serializer.toJson<String?>(alertMode),
+      'purpose': serializer.toJson<String?>(purpose),
+      'instructions': serializer.toJson<String?>(instructions),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'removedAt': serializer.toJson<DateTime?>(removedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1888,6 +1959,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     Value<String?> notes = const Value.absent(),
     Value<String?> activeIngredient = const Value.absent(),
     Value<String?> alertMode = const Value.absent(),
+    Value<String?> purpose = const Value.absent(),
+    Value<String?> instructions = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
     Value<DateTime?> removedAt = const Value.absent(),
     DateTime? createdAt,
@@ -1905,6 +1978,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
         ? activeIngredient.value
         : this.activeIngredient,
     alertMode: alertMode.present ? alertMode.value : this.alertMode,
+    purpose: purpose.present ? purpose.value : this.purpose,
+    instructions: instructions.present ? instructions.value : this.instructions,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     removedAt: removedAt.present ? removedAt.value : this.removedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -1932,6 +2007,10 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ? data.activeIngredient.value
           : this.activeIngredient,
       alertMode: data.alertMode.present ? data.alertMode.value : this.alertMode,
+      purpose: data.purpose.present ? data.purpose.value : this.purpose,
+      instructions: data.instructions.present
+          ? data.instructions.value
+          : this.instructions,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1952,6 +2031,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('notes: $notes, ')
           ..write('activeIngredient: $activeIngredient, ')
           ..write('alertMode: $alertMode, ')
+          ..write('purpose: $purpose, ')
+          ..write('instructions: $instructions, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -1972,6 +2053,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     notes,
     activeIngredient,
     alertMode,
+    purpose,
+    instructions,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1991,6 +2074,8 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.notes == this.notes &&
           other.activeIngredient == this.activeIngredient &&
           other.alertMode == this.alertMode &&
+          other.purpose == this.purpose &&
+          other.instructions == this.instructions &&
           other.stoppedAt == this.stoppedAt &&
           other.removedAt == this.removedAt &&
           other.createdAt == this.createdAt);
@@ -2008,6 +2093,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<String?> notes;
   final Value<String?> activeIngredient;
   final Value<String?> alertMode;
+  final Value<String?> purpose;
+  final Value<String?> instructions;
   final Value<DateTime?> stoppedAt;
   final Value<DateTime?> removedAt;
   final Value<DateTime> createdAt;
@@ -2023,6 +2110,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.notes = const Value.absent(),
     this.activeIngredient = const Value.absent(),
     this.alertMode = const Value.absent(),
+    this.purpose = const Value.absent(),
+    this.instructions = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2039,6 +2128,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.notes = const Value.absent(),
     this.activeIngredient = const Value.absent(),
     this.alertMode = const Value.absent(),
+    this.purpose = const Value.absent(),
+    this.instructions = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2056,6 +2147,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<String>? notes,
     Expression<String>? activeIngredient,
     Expression<String>? alertMode,
+    Expression<String>? purpose,
+    Expression<String>? instructions,
     Expression<DateTime>? stoppedAt,
     Expression<DateTime>? removedAt,
     Expression<DateTime>? createdAt,
@@ -2072,6 +2165,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (notes != null) 'notes': notes,
       if (activeIngredient != null) 'active_ingredient': activeIngredient,
       if (alertMode != null) 'alert_mode': alertMode,
+      if (purpose != null) 'purpose': purpose,
+      if (instructions != null) 'instructions': instructions,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (removedAt != null) 'removed_at': removedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -2090,6 +2185,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<String?>? notes,
     Value<String?>? activeIngredient,
     Value<String?>? alertMode,
+    Value<String?>? purpose,
+    Value<String?>? instructions,
     Value<DateTime?>? stoppedAt,
     Value<DateTime?>? removedAt,
     Value<DateTime>? createdAt,
@@ -2106,6 +2203,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       notes: notes ?? this.notes,
       activeIngredient: activeIngredient ?? this.activeIngredient,
       alertMode: alertMode ?? this.alertMode,
+      purpose: purpose ?? this.purpose,
+      instructions: instructions ?? this.instructions,
       stoppedAt: stoppedAt ?? this.stoppedAt,
       removedAt: removedAt ?? this.removedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -2148,6 +2247,12 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (alertMode.present) {
       map['alert_mode'] = Variable<String>(alertMode.value);
     }
+    if (purpose.present) {
+      map['purpose'] = Variable<String>(purpose.value);
+    }
+    if (instructions.present) {
+      map['instructions'] = Variable<String>(instructions.value);
+    }
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
@@ -2174,6 +2279,8 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('notes: $notes, ')
           ..write('activeIngredient: $activeIngredient, ')
           ..write('alertMode: $alertMode, ')
+          ..write('purpose: $purpose, ')
+          ..write('instructions: $instructions, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -10020,6 +10127,8 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<String?> activeIngredient,
       Value<String?> alertMode,
+      Value<String?> purpose,
+      Value<String?> instructions,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -10037,6 +10146,8 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<String?> activeIngredient,
       Value<String?> alertMode,
+      Value<String?> purpose,
+      Value<String?> instructions,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -10138,6 +10249,16 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<String> get alertMode => $composableBuilder(
     column: $table.alertMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get purpose => $composableBuilder(
+    column: $table.purpose,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instructions => $composableBuilder(
+    column: $table.instructions,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10264,6 +10385,16 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get purpose => $composableBuilder(
+    column: $table.purpose,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnOrderings(column),
@@ -10351,6 +10482,14 @@ class $$MedicationsTableAnnotationComposer
 
   GeneratedColumn<String> get alertMode =>
       $composableBuilder(column: $table.alertMode, builder: (column) => column);
+
+  GeneratedColumn<String> get purpose =>
+      $composableBuilder(column: $table.purpose, builder: (column) => column);
+
+  GeneratedColumn<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
@@ -10449,6 +10588,8 @@ class $$MedicationsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> activeIngredient = const Value.absent(),
                 Value<String?> alertMode = const Value.absent(),
+                Value<String?> purpose = const Value.absent(),
+                Value<String?> instructions = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10464,6 +10605,8 @@ class $$MedicationsTableTableManager
                 notes: notes,
                 activeIngredient: activeIngredient,
                 alertMode: alertMode,
+                purpose: purpose,
+                instructions: instructions,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,
@@ -10481,6 +10624,8 @@ class $$MedicationsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> activeIngredient = const Value.absent(),
                 Value<String?> alertMode = const Value.absent(),
+                Value<String?> purpose = const Value.absent(),
+                Value<String?> instructions = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10496,6 +10641,8 @@ class $$MedicationsTableTableManager
                 notes: notes,
                 activeIngredient: activeIngredient,
                 alertMode: alertMode,
+                purpose: purpose,
+                instructions: instructions,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,

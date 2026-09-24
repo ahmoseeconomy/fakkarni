@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -429,6 +429,18 @@ class AppDatabase extends _$AppDatabase {
                 ).get();
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE $table ADD COLUMN $definition');
+                }
+              }
+            }
+            if (from < 23) {
+              // «الدوا ده لإيه؟» و«تعليمات» — عمودين اختياريين على الدوا،
+              // null لكل دوا قديم. بحماية وجود، و**فوق** بلوك التطبيع.
+              for (final column in ['purpose', 'instructions']) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('medications') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE medications ADD COLUMN $column TEXT NULL');
                 }
               }
             }

@@ -6,40 +6,48 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/duplicate_check.dart';
+import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
+import '../../domain/scheduling/schedule_engine.dart';
 import '../../core/widgets/f_wheels.dart';
-import '../../domain/escalation/alert_mode.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor;
 import 'medication_draft.dart';
 
-/// «إضافة دواء» (المخطط 20) — الحقول الأول، وبعدها محرّر الجرعة.
+/// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
 ///
-/// هنا الاسم والجرعة وكام مرة ومع الأكل والمدة. «كمّل» بيسلّم لـ[DoseEditor]
-/// مرة لكل جرعة في اليوم، متعبّي من الإجابات دي — والمراسي بتفضل هي التحكم
-/// الأساسي هناك. **ولا حاجة بتتحفظ قبل آخر «احفظ الجرعة»**: لو رجع في النص،
-/// مفيش دوا نص مكتوب.
+/// كان: حقول، وبعدين «كمّل»، وبعدين محرّر لكل جرعة ورا بعض، والحفظ بعد
+/// الأخير. المختبِر قال «خطوات كتير ومقيّدة» — وكان معاه حق: تلات جرعات
+/// = أربع شاشات لحاجة العُرف كان مظبّطها من الأول. دلوقتي كل الجرعات
+/// **صفوف ظاهرة** في الفورم بساعتها المحسوبة، والدوسة على صف بتفتح
+/// [DoseEditor] لـ**الصف ده بس** وبترجع. مفيش مشي إجباري، والرجوع عمره
+/// ما يضيّع حاجة اتكتبت.
+///
+/// الترتيب من فوق: الاسم (الكيبورد مفتوح على طول) ← «لإيه؟» (اختياري) ←
+/// «كام مرة» ← «قبل/مع/بعد الأكل» أو «ساعة محددة» ← مواعيد الجرعات ←
+/// نوع التنبيه ← «تفاصيل أكتر» (الجرعة، المدة، التعليمات) ← «احفظ».
 ///
 /// «كام مرة» → مراسي عُرف تشغيلي مش ورقة: ١× الفطار، ٢× الفطار والعشا،
-/// ٣× الفطار والغدا والعشا، ٤× وكمان قبل النوم، ٥× وكمان الصحيان — وكل
-/// واحدة بتتعدّل في محرّرها. و«أكتر» بتفتح حقل رقم.
+/// ٣× الفطار والغدا والعشا، ٤× وكمان قبل النوم، ٥× وكمان الصحيان. و«ساعة
+/// محددة»: أول ساعة يختارها، والباقي بيتوزّع على يومه بالتساوي — **قدّامه،
+/// في الصفوف، ومش بيتحفظ غير بدوسة «احفظ»**.
 ///
-/// **«كام مرة» هي المكان الوحيد اللي بيقرر العدد هنا.** كان فيه كمان قايمة
-/// جرعات بـ«شيل» و«أضف جرعة» تحتها، فبقى تلات أماكن بتقرر نفس الرقم:
-/// الشرايح، والقايمة، والمشي اللي بعد «كمّل». إضافة وشيل لدوا **محفوظ**
-/// مكانهم [EditMedicationScreen] — هناك اللي بيغيّر دوا عنده بيروح،
-/// وهناك الأرضية بتتفرض على صفوف حقيقية.
+/// **ولا حاجة بتتحفظ قبل «احفظ»**، وفي وضع المسوّدة ولا بعده.
 class AddMedicationScreen extends StatefulWidget {
   const AddMedicationScreen({
     required this.routine,
     this.today,
     this.initialName,
     this.initialAmount,
+    this.initialAmountUnknown = false,
     this.initialTimings = const [],
     this.initialDurationDays,
     this.initialAlertMode,
+    this.initialPurpose,
+    this.initialInstructions,
     this.packageReading,
     this.draft = false,
     super.key,
@@ -51,62 +59,59 @@ class AddMedicationScreen extends StatefulWidget {
   /// قيم مبدئية — من قراءة الروشتة. بتتعرض للتعديل، ما بتتحفظش لوحدها.
   final String? initialName;
   final String? initialAmount;
+
+  /// الورقة ما قالتش الجرعة: لو سابها فاضية تفضل «مش معروفة» — الإدخال
+  /// اليدوي الفاضي مش كده (شوف [_save]).
+  final bool initialAmountUnknown;
+
   /// **وضع المسوّدة**: بترجّع [MedicationDraft] من غير ما تكتب أي حاجة.
   ///
   /// شاشة مراجعة الروشتة بتستعملها كده: «عدّل» بتعدّل سطر في الذاكرة
-  /// وبترجع، والكتابة كلها مرة واحدة عند «تمام». قبل كده كانت بتحفظ فوراً،
-  /// فزرار كان بيحفظ شوية أدوية والتاني الباقي — ومن هنا جه ضياع الجرعات.
+  /// وبترجع، والكتابة كلها مرة واحدة عند «تمام».
   final bool draft;
 
   /// جرعات الروشتة **كلها** — فاضية يعني إدخال بإيد من الأول.
-  ///
-  /// كانت جرعة واحدة، وشاشة المراجعة كانت بتبعت أول وحدة بس: دوا مرتين في
-  /// اليوم يتعدّل = تذكير واحد. القايمة هي اللي بتقفل الباب ده.
   final List<DoseTiming> initialTimings;
   final int? initialDurationDays;
-
-  /// نوع التنبيه اللي السطر واقف عليه في المسوّدة — null = الافتراضي.
   final AlertMode? initialAlertMode;
+  final MedicationPurpose? initialPurpose;
+  final String? initialInstructions;
 
   /// اللي اتقرا من صورة علبة — **حقول وبس، ولا موعد فيهم**.
-  ///
-  /// بيتعرض في لوحة فوق الفورم عشان الراجل يراجع اللي قريناه قبل ما
-  /// يحفظ، والمادة الفعّالة بتتخزّن معاه عشان فحص التكرار بعدين.
-  /// null في الإدخال اليدوي وفي طريق الروشتة.
   final PackageReading? packageReading;
 
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
 }
 
-/// مع الأكل: قبل / مع / بعد — بتحدد إزاحة المرساة الافتراضية.
-enum FoodRelation { before, with_, after }
+/// «قبل / مع / بعد الأكل» — أو ساعة محددة لكل جرعة.
+enum TimingChoice { before, with_, after, fixed }
+
+/// مع الأكل: قبل / مع / بعد — بتحدد إزاحة المرساة الافتراضية. (اسم قديم
+/// بيفضل عشان اللي بيقرا التاريخ.)
+typedef FoodRelation = TimingChoice;
 
 class _AddMedicationScreenState extends State<AddMedicationScreen> {
   late final _name = TextEditingController(text: widget.initialName ?? '');
   late final _amount = TextEditingController(text: widget.initialAmount ?? '');
+  late final _instructions = TextEditingController(text: widget.initialInstructions ?? '');
   int _timesPerDay = 1;
-  FoodRelation _food = FoodRelation.before;
+  TimingChoice _choice = TimingChoice.before;
+  MedicationPurpose? _purpose;
 
   /// الروتين الحي: لما المحرّر يسأل «بتفطر الساعة كام؟» ويتحفظ الفطار،
-  /// المحرّرات اللي بعده في نفس المشي لازم تشوفه متحدد.
+  /// الصفوف بتشوفه متحدد.
   late DayRoutine _routine = widget.routine;
 
-  /// جرعات اليوم قبل ما تتراجع واحدة واحدة — **في الذاكرة، ولسه ما اتحفظتش**.
-  ///
-  /// بتتعبّى من الورقة لو جاية منها، وإلا من «كام مرة» + «مع الأكل». **مفيش
-  /// قايمة بتتعرض هنا**: العدد بيتظبط من «كام مرة» بس، والتوقيت بيتراجع
-  /// جرعة جرعة بعد «كمّل». كانت فيه قايمة بـ«شيل» و«أضف جرعة» جولة
-  /// واحدة، فبقى تلات أماكن بتقرر نفس الرقم.
-  List<DoseTiming> _doses = const [];
+  /// جرعات اليوم — صف لكل واحدة، **في الذاكرة، ولسه ما اتحفظتش**.
+  /// null = ساعة محددة لسه ما اتختارتش.
+  List<DoseTiming?> _doses = const [];
 
-  /// «أكتر» متفتوحة — الرقم من بكرة ٥..١٢.
   bool _customCount = false;
   bool _openEnded = true;
   int _days = 7;
+  bool _moreOpen = false;
   bool _busy = false;
-
-  /// نوع التنبيه — null = «الافتراضي» (إعداد الجهاز). من الورقة بييجي null.
   AlertMode? _alertMode;
   AlertMode? _deviceMode;
 
@@ -122,38 +127,38 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _openEnded = false;
       _days = days.clamp(1, 90);
     }
-    // الورقة بتقول العدد، فالشريحة بتبان عليه. سطر بأربع جرعات كان
-    // بيوصل هنا والعدّاد مخبّي خالص — فاللي عايز يخلّيها اتنين ما كانش
-    // قدامه غير إنه يشيل من قايمة مابقتش موجودة.
     _alertMode = widget.initialAlertMode;
+    _purpose = widget.initialPurpose;
+    // تفاصيل جاية من ورقة أو مسوّدة بتتفتح عشان تبان — مش بتتخبّى
+    _moreOpen = (widget.initialAmount ?? '').isNotEmpty ||
+        widget.initialDurationDays != null ||
+        (widget.initialInstructions ?? '').isNotEmpty;
     if (widget.initialTimings.isNotEmpty) {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
+      _doses = [...widget.initialTimings];
+      if (widget.initialTimings.every((t) => t is FixedTiming)) {
+        _choice = TimingChoice.fixed;
+      } else if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
+        _choice = offsetMinutes == 0
+            ? TimingChoice.with_
+            : offsetMinutes < 0
+                ? TimingChoice.before
+                : TimingChoice.after;
+      }
+    } else {
+      _doses = _fromConvention();
+    }
+    if (widget.packageReading != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkDuplicate());
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final device = (await AppScope.of(context).preferences.get()).alertMode;
       if (mounted) setState(() => _deviceMode = device);
     });
-    _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
-    // **الفحص بيجري على طول لما القراية جاية من علبة** — الراجل لسه
-    // ماسك العلبة التانية في إيده، ودي أحسن لحظة يعرف إنها عنده خلاص.
-    if (widget.packageReading != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _checkDuplicate());
-    }
-    if (widget.initialTimings.firstOrNull case AnchorTiming(:final offsetMinutes)) {
-      _food = offsetMinutes == 0
-          ? FoodRelation.with_
-          : offsetMinutes < 0
-              ? FoodRelation.before
-              : FoodRelation.after;
-    }
   }
 
-  /// **بيسأل القايمة: الدوا ده عندك خلاص؟** — قبل الحفظ، مش بعده.
-  ///
-  /// بيتنده لما الاسم يتغيّر ولما الشاشة تفتح من صورة علبة. القراية من
-  /// القاعدة مرة واحدة كل نداء؛ القايمة دي أدوية راجل، مش جدول كبير.
   Future<void> _checkDuplicate() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
@@ -178,18 +183,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   void dispose() {
     _name.dispose();
     _amount.dispose();
+    _instructions.dispose();
     super.dispose();
   }
 
-  /// الشرايح الجاهزة. الرقم اللي برّاها بيتكتب في «أكتر».
   static const _countChips = [1, 2, 3, 4];
-
-  /// أكتر من كده مش رقم بنمنعه، بس الحقل لازم يقف عند حد — وروشتة
-  /// بأكتر من ١٢ جرعة في اليوم غلطة كتابة أقرب منها لوصفة.
   static const _maxCount = 12;
 
-  /// ترتيب الاختيار: الفطار الأول، وبعده العشا، وبعده الغدا — **عُرف
-  /// تشغيلي عندنا، مش كلام الورقة** (القاعدة ٦).
   static const _pickOrder = [
     DayAnchor.breakfast,
     DayAnchor.dinner,
@@ -198,7 +198,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     DayAnchor.wake,
   ];
 
-  /// ترتيب العرض والمشي: زي ما اليوم بيمشي.
   static const _dayOrder = [
     DayAnchor.wake,
     DayAnchor.breakfast,
@@ -207,13 +206,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     DayAnchor.sleep,
   ];
 
-  /// عُرف «كام مرة» + «مع الأكل» — مش الورقة.
-  ///
-  /// أكتر من خمس جرعات بيلف على نفس المراسي تاني: مفيش عندنا مرسى سادس،
-  /// وما بنخترعش واحد. الجرعتين اللي على نفس المرسى بيتراجعوا في المحرّر
-  /// زي أي جرعة، ولو الإنسان سابهم زي ما هم المحرّك بيجمّعهم في تذكير
-  /// واحد — وده سلوكه المكتوب، مش ضياع.
-  List<DoseTiming> _fromConvention() {
+  /// عُرف «كام مرة» + «مع الأكل» — مش الورقة. «ساعة محددة» = صفوف فاضية
+  /// لحد ما يختار أول ساعة.
+  List<DoseTiming?> _fromConvention() {
+    if (_choice == TimingChoice.fixed) return List<DoseTiming?>.filled(_timesPerDay, null);
     final picked = [
       for (var i = 0; i < _timesPerDay; i++) _pickOrder[i % _pickOrder.length],
     ]..sort((a, b) => _dayOrder.indexOf(a).compareTo(_dayOrder.indexOf(b)));
@@ -222,22 +218,19 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   DoseTiming _withFood(DayAnchor anchor) => AnchorTiming(
         anchor,
-        switch (_food) {
-          FoodRelation.before => -defaultOffsetBefore(anchor),
-          FoodRelation.with_ => 0,
-          FoodRelation.after => 30,
+        switch (_choice) {
+          TimingChoice.before => -defaultOffsetBefore(anchor),
+          TimingChoice.with_ => 0,
+          TimingChoice.after => 30,
+          TimingChoice.fixed => 0,
         },
       );
 
-  /// «كام مرة» و«مع الأكل» بيعيدوا بناء القايمة — الشرايح دي **إعداد مسبق**،
-  /// ولما المستخدم يغيّرها يبقى قصده يبدأ من جديد.
   void _reseed(VoidCallback change) => setState(() {
         change();
         _doses = _fromConvention();
       });
 
-  /// شريحة عدد اتداست. اللي متختارة أصلاً ما بتعملش حاجة — الدوسة التانية
-  /// على «٤ مرات» في سطر جاي من ورقة كانت هترمي مراسي الورقة وتبني عُرف.
   void _pickCount(int n) {
     if (_timesPerDay == n && !_customCount) return;
     _reseed(() {
@@ -246,101 +239,138 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     });
   }
 
-  /// البكرة نفسها هي الحدود: من بعد آخر شريحة لحد [_maxCount] — مفيش رقم
-  /// برّه المدى يتكتب أصلاً.
   void _pickCustomCount(int n) => _reseed(() => _timesPerDay = n.clamp(_countChips.last + 1, _maxCount));
 
-  /// جمع «مرة»: ٣–١٠ مرات، و١١ فوق «مرة».
   static String _timesLabel(int n) => n <= 10 ? '${arabicNumber(n)} مرات' : '${arabicNumber(n)} مرة';
 
-  /// المستخدم حدّد ميعاد وجبة من جوّه المحرّر — بيتكتب في الروتين
-  /// **متحدد**، والمحرّرات الجاية بتشوفه. الجدولة بتتعاد عشان أي دوا
-  /// قديم كان مربوط بالمرساة دي (مفيش — المحرّر ما بيسيبش) يلحق.
+  void _pickChoice(TimingChoice c) {
+    if (_choice == c) return;
+    _reseed(() => _choice = c);
+  }
+
   Future<void> _setAnchor(DayAnchor anchor, MinuteOfDay time) async {
     final services = AppScope.of(context);
     await services.routines.setAnchor(services.patientId, anchor, time);
     if (mounted) setState(() => _routine = _routine.withAnchor(anchor, time));
   }
 
-  /// «كمّل»: محرّر لكل جرعة بالترتيب، والحفظ بعد الأخيرة بس.
-  Future<void> _continue() async {
-    if (_busy || _name.text.trim().isEmpty) return;
+  /// الدوسة على صف: محرّر **الجرعة دي بس**، وبيرجع.
+  Future<void> _editDose(int i) async {
+    if (_busy) return;
+    final navigator = Navigator.of(context);
+    DoseTiming? picked;
+    await navigator.push<void>(
+      MaterialPageRoute(
+        builder: (_) => DoseEditor(
+          name: _name.text.trim().isEmpty ? 'الدوا' : _name.text.trim(),
+          routine: _routine,
+          today: widget.today,
+          initialTiming: _doses[i],
+          startFixed: _choice == TimingChoice.fixed,
+          kicker: _doses.length == 1
+              ? null
+              : 'الجرعة ${arabicNumber(i + 1)} من ${arabicNumber(_doses.length)}',
+          onSetAnchor: _setAnchor,
+          onSave: (timing) async {
+            picked = timing;
+            navigator.pop();
+          },
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return; // رجع من غير ما يختار — الصف زي ما هو
+    setState(() {
+      _doses[i] = picked;
+      if (picked case FixedTiming(:final minuteOfDay)) _spreadFrom(i, minuteOfDay);
+    });
+  }
+
+  /// **أول ساعة محددة بتوزّع الباقي على يومه بالتساوي** — قدّامه في الصفوف،
+  /// وكل صف بيتعدّل. نافذة اليوم من صحيانه لنومه لو محددين، وإلا ٧ ص
+  /// لـ١١ م كعُرف تشغيلي (مش من روتين افتراضي — هو اللي اختار أول ساعة).
+  void _spreadFrom(int index, MinuteOfDay first) {
+    if (_doses.length < 2) return;
+    for (final (i, d) in _doses.indexed) {
+      if (i != index && d != null) return; // فيه صفوف اتحددت قبل كده — ما نلمسهاش
+    }
+    final wake = _routine.isSet(DayAnchor.wake) ? _routine.wake.minutes : 7 * 60;
+    final sleep = _routine.isSet(DayAnchor.sleep) ? _routine.sleep.minutes : 23 * 60;
+    var waking = (sleep - wake + 1440) % 1440;
+    if (waking == 0) waking = 1440;
+    final step = waking ~/ _doses.length;
+    for (var k = 0; k < _doses.length; k++) {
+      if (k == index) continue;
+      _doses[k] = FixedTiming(MinuteOfDay((first.minutes + (k - index) * step + 1440 * 2) % 1440));
+    }
+  }
+
+  bool _rowReady(DoseTiming? t) => switch (t) {
+        null => false,
+        AnchorTiming(:final anchor) => _routine.isSet(anchor),
+        FixedTiming() => true,
+      };
+
+  bool get _ready =>
+      !_busy && _name.text.trim().isNotEmpty && _doses.isNotEmpty && _doses.every(_rowReady);
+
+  Future<void> _save() async {
+    if (!_ready) return;
     setState(() => _busy = true);
     try {
+      final services = AppScope.of(context);
       final navigator = Navigator.of(context);
-      final initial = _doses;
-      final chosen = <DoseTiming>[];
+      final today = widget.today ?? DateTime.now();
+      final amount = _amount.text.trim();
+      final instructions = _instructions.text.trim();
+      final result = MedicationDraft(
+        name: _name.text.trim(),
+        amountLabel: amount.isEmpty ? null : amount,
+        // إدخال يدوي فاضي = «ما قالش»، مش «مش معروفة»: «اسأل الصيدلي» لجرعة
+        // ورقة ما اتقرتش بس
+        amountUnknown: amount.isEmpty && widget.initialAmountUnknown,
+        timings: [for (final d in _doses) d!],
+        durationDays: _openEnded ? null : _days,
+        alertMode: _alertMode,
+        purpose: _purpose,
+        instructions: instructions.isEmpty ? null : instructions,
+      );
 
-      for (var i = 0; i < initial.length; i++) {
-        DoseTiming? picked;
-        await navigator.push<void>(
-          MaterialPageRoute(
-            builder: (_) => DoseEditor(
-              name: _name.text.trim(),
-              routine: _routine,
-              today: widget.today,
-              initialTiming: initial[i],
-              onSetAnchor: _setAnchor,
-              kicker: initial.length == 1
-                  ? null
-                  : 'الجرعة ${arabicNumber(i + 1)} من ${arabicNumber(initial.length)}',
-              saveLabel: i == initial.length - 1 ? 'احفظ الجرعة' : 'الجرعة اللي بعدها',
-              onSave: (timing) async {
-                picked = timing;
-                navigator.pop();
-              },
-            ),
-          ),
-        );
-        if (picked == null || !mounted) return; // رجع من غير ما يختار — مفيش حفظ
-        chosen.add(picked!);
+      if (widget.draft) {
+        if (mounted) navigator.pop(result);
+        return;
       }
 
-      await _save(chosen);
+      await services.medications.addMedicationWithDoses(
+        patientId: services.patientId,
+        name: result.name,
+        amountLabel: result.amountLabel,
+        amountUnknown: result.amountUnknown,
+        timings: result.timings,
+        startDate: today,
+        durationDays: result.durationDays,
+        activeIngredient: widget.packageReading?.ingredientField,
+        alertMode: result.alertMode,
+        purpose: result.purpose,
+        instructions: result.instructions,
+      );
+      await services.scheduler.rescheduleAll();
+      if (mounted) navigator.pop(result);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _save(List<DoseTiming> timings) async {
-    final services = AppScope.of(context);
-    final navigator = Navigator.of(context);
-    final today = widget.today ?? DateTime.now();
-    final amount = _amount.text.trim();
-    final result = MedicationDraft(
-      name: _name.text.trim(),
-      amountLabel: amount.isEmpty ? null : amount,
-      amountUnknown: amount.isEmpty,
-      timings: timings,
-      // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
-      durationDays: _openEnded ? null : _days,
-      alertMode: _alertMode,
-    );
-
-    // مسوّدة: بنرجّع اللي اتظبط، **وما بنكتبش**. اللي نادانا هو اللي بيقرر
-    // إمتى يتحفظ — ومن غير كده الحفظ بيتفرّق على زرارين.
-    if (widget.draft) {
-      if (mounted) navigator.pop(result);
-      return;
-    }
-
-    // طريق واحد لكتابة «دوا بـN جرعة» — نفس اللي شاشة المراجعة بتستعمله.
-    await services.medications.addMedicationWithDoses(
-      patientId: services.patientId,
-      name: result.name,
-      amountLabel: result.amountLabel,
-      timings: result.timings,
-      startDate: today,
-      durationDays: result.durationDays,
-      // المادة الفعّالة من العلبة بتتخزّن مع الدوا — منها بس فحص
-      // التكرار بيقدر يشوف علبتين اسمهم مختلف ونفس المادة.
-      activeIngredient: widget.packageReading?.ingredientField,
-      alertMode: result.alertMode,
-    );
-    await services.scheduler.rescheduleAll();
-
-    // نفس النوع في الحالتين، عشان اللي نادى ما يفرقش: null = رجع من غير حفظ.
-    if (mounted) navigator.pop(result);
+  String _rowText(DoseTiming? t) {
+    final engine = ScheduleEngine(_routine);
+    final day = widget.today ?? DateTime.now();
+    return switch (t) {
+      null => 'اختار الساعة',
+      AnchorTiming(:final anchor) when !_routine.isSet(anchor) => '${anchor.label} — مش متحدد',
+      AnchorTiming(:final anchor, :final offsetMinutes) =>
+        '${t.ruleLabel} — حوالي ${arabicTime(engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day))}',
+      FixedTiming(:final minuteOfDay) =>
+        'ساعة محددة — ${arabicTime(engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: day))}',
+    };
   }
 
   @override
@@ -380,6 +410,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                     const SizedBox(height: F.s12),
                   ],
+                  // ---------------------------------------------- الاسم
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,100 +420,137 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           controller: _name,
                           hint: 'زي Concor 5mg',
                           mono: true,
+                          // الكيبورد مفتوح على طول — اسم فاضي = أول حاجة بيكتبها
+                          autofocus: (widget.initialName ?? '').isEmpty,
                           onChanged: (_) {
                             setState(() {});
                             if (_duplicateChecked) _checkDuplicate();
                           },
                         ),
                         const SizedBox(height: F.gap),
-                        const _FieldLabel('الجرعة في المرة (اختياري)'),
-                        _Field(controller: _amount, hint: 'زي: قرص واحد'),
+                        // --------------------------------------- لإيه؟
+                        const _FieldLabel('الدوا ده لإيه؟ (لو حابب)'),
+                        Wrap(
+                          spacing: F.s8,
+                          runSpacing: F.s8,
+                          children: [
+                            for (final p in MedicationPurpose.values)
+                              AnchorChip(
+                                key: ValueKey('purpose-${p.name}'),
+                                label: p.label,
+                                selected: _purpose == p,
+                                // دوسة تانية بتشيله — اختياري فعلاً
+                                onTap: () => setState(() => _purpose = _purpose == p ? null : p),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: F.s12),
+                  // --------------------------------------- كام مرة + الأكل
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                          const _FieldLabel('كام مرة في اليوم؟'),
-                          // **المكان الوحيد اللي بيقرر العدد.** روشتة أربع
-                          // مرات بتلاقي شريحتها، واللي أكتر بيكتب رقمه.
-                          Wrap(
-                            spacing: F.s8,
-                            runSpacing: F.s8,
-                            children: [
-                              for (final n in _countChips)
-                                AnchorChip(
-                                  key: ValueKey('count-$n'),
-                                  label: switch (n) {
-                                    1 => 'مرة',
-                                    2 => 'مرتين',
-                                    _ => '${arabicNumber(n)} مرات',
-                                  },
-                                  selected: !_customCount && _timesPerDay == n,
-                                  onTap: () => _pickCount(n),
-                                ),
+                        const _FieldLabel('كام مرة في اليوم؟'),
+                        Wrap(
+                          spacing: F.s8,
+                          runSpacing: F.s8,
+                          children: [
+                            for (final n in _countChips)
                               AnchorChip(
-                                key: const ValueKey('count-more'),
-                                label: 'أكتر',
-                                selected: _customCount,
-                                onTap: () {
-                                  if (_customCount) return;
-                                  setState(() => _customCount = true);
-                                  _pickCustomCount(_countChips.last + 1);
+                                key: ValueKey('count-$n'),
+                                label: switch (n) {
+                                  1 => 'مرة',
+                                  2 => 'مرتين',
+                                  _ => '${arabicNumber(n)} مرات',
                                 },
+                                selected: !_customCount && _timesPerDay == n,
+                                onTap: () => _pickCount(n),
                               ),
-                            ],
-                          ),
-                          if (_customCount) ...[
-                            const SizedBox(height: F.s10),
-                            FNumberWheel(
-                              key: const ValueKey('count-field'),
-                              value: _timesPerDay,
-                              min: _countChips.last + 1,
-                              max: _maxCount,
-                              labelOf: _timesLabel,
-                              semanticsLabel: 'كام مرة في اليوم',
-                              onChanged: _pickCustomCount,
+                            AnchorChip(
+                              key: const ValueKey('count-more'),
+                              label: 'أكتر',
+                              selected: _customCount,
+                              onTap: () {
+                                if (_customCount) return;
+                                setState(() => _customCount = true);
+                                _pickCustomCount(_countChips.last + 1);
+                              },
                             ),
                           ],
-                          const SizedBox(height: F.gap),
-                          const _FieldLabel('مع الأكل؟'),
-                          Row(
-                            children: [
-                              for (final f in FoodRelation.values) ...[
-                                Expanded(
-                                  child: AnchorChip(
-                                    label: switch (f) {
-                                      FoodRelation.before => 'قبل الأكل',
-                                      FoodRelation.with_ => 'مع الأكل',
-                                      FoodRelation.after => 'بعد الأكل',
-                                    },
-                                    selected: _food == f,
-                                    onTap: () => _reseed(() => _food = f),
-                                  ),
-                                ),
-                                if (f != FoodRelation.values.last) const SizedBox(width: F.s8),
-                              ],
-                            ],
-                          ),
+                        ),
+                        if (_customCount) ...[
                           const SizedBox(height: F.s10),
-                          Text(
-                            fromPaper
-                                ? 'دي اللي الورقة قالتها. غيّر العدد لو مش مظبوط — '
-                                    'وهتراجع كل جرعة لوحدها بعد ما تكمّل.'
-                                : _routine.isComplete
-                                    ? 'الأوقات بتتظبط على مراسي يومك — وهتراجعها واحدة واحدة بعد ما تكمّل.'
-                                    // مفيش ميعاد بيتخمّن: ساعة لكل جرعة، أو يقول ميعاد الأكل مرة
-                                    : 'ما حدّدتش مواعيد يومك كلها — هتختار ساعة لكل جرعة، أو تقول ميعاد '
-                                        'الأكل مرة واحدة وتتربط بيه.',
-                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                          FNumberWheel(
+                            key: const ValueKey('count-field'),
+                            value: _timesPerDay,
+                            min: _countChips.last + 1,
+                            max: _maxCount,
+                            labelOf: _timesLabel,
+                            semanticsLabel: 'كام مرة في اليوم',
+                            onChanged: _pickCustomCount,
                           ),
                         ],
-                      ),
+                        const SizedBox(height: F.gap),
+                        const _FieldLabel('مع الأكل؟'),
+                        Row(
+                          children: [
+                            for (final c in TimingChoice.values) ...[
+                              Expanded(
+                                child: _CompactChip(
+                                  key: ValueKey('timing-${c.name}'),
+                                  label: switch (c) {
+                                    TimingChoice.before => 'قبل الأكل',
+                                    TimingChoice.with_ => 'مع الأكل',
+                                    TimingChoice.after => 'بعد الأكل',
+                                    TimingChoice.fixed => 'ساعة محددة',
+                                  },
+                                  selected: _choice == c,
+                                  onTap: () => _pickChoice(c),
+                                ),
+                              ),
+                              if (c != TimingChoice.values.last) const SizedBox(width: F.s6),
+                            ],
+                          ],
+                        ),
+                      ],
                     ),
+                  ),
                   const SizedBox(height: F.s12),
+                  // -------------------------------------- مواعيد الجرعات
+                  FCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _FieldLabel('مواعيد الجرعات'),
+                        for (final (i, t) in _doses.indexed) ...[
+                          _DoseRowTile(
+                            key: ValueKey('dose-row-$i'),
+                            title: 'الجرعة ${arabicNumber(i + 1)}',
+                            subtitle: _rowText(t),
+                            ready: _rowReady(t),
+                            onTap: () => _editDose(i),
+                          ),
+                          if (i != _doses.length - 1) const SizedBox(height: F.s8),
+                        ],
+                        const SizedBox(height: F.s10),
+                        Text(
+                          fromPaper
+                              ? 'دي اللي الورقة قالتها — دوس على أي جرعة لو مش مظبوطة.'
+                              : _choice == TimingChoice.fixed
+                                  ? 'اختار أول ساعة، والباقي هيتوزّع على يومك — وتقدر تعدّل أي واحدة.'
+                                  : _routine.isComplete
+                                      ? 'الأوقات محسوبة من مراسي يومك — دوس على أي جرعة لو عايز تغيّرها.'
+                                      : 'ما حدّدتش مواعيد يومك كلها — دوس على الجرعة وقول ميعاد الأكل مرة، أو اختار ساعة.',
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: F.s12),
+                  // ----------------------------------------- نوع التنبيه
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -498,46 +566,102 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s12),
+                  // ---------------------------------------- تفاصيل أكتر
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('المدة'),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AnchorChip(
-                                label: 'مفتوحة',
-                                selected: _openEnded,
-                                onTap: () => setState(() => _openEnded = true),
-                              ),
+                        InkWell(
+                          key: const ValueKey('more-toggle'),
+                          onTap: () => setState(() => _moreOpen = !_moreOpen),
+                          borderRadius: BorderRadius.circular(F.radiusTile),
+                          child: SizedBox(
+                            height: F.minTapTarget,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'تفاصيل أكتر',
+                                    style: TextStyle(
+                                      fontSize: F.minBodySize,
+                                      fontWeight: FontWeight.w700,
+                                      color: F.ink,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  _moreOpen ? 'اقفل' : 'افتح',
+                                  style: TextStyle(
+                                    fontSize: F.minTextSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: F.green,
+                                  ),
+                                ),
+                                const SizedBox(width: F.s4),
+                                Icon(_moreOpen ? Icons.expand_less : Icons.expand_more, color: F.green),
+                              ],
                             ),
-                            const SizedBox(width: F.s8),
-                            Expanded(
-                              child: AnchorChip(
-                                label: 'أيام محددة',
-                                selected: !_openEnded,
-                                onTap: () => setState(() => _openEnded = false),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: F.s10),
-                        if (!_openEnded)
-                          FNumberWheel(
-                            key: const ValueKey('days-wheel'),
-                            value: _days,
-                            min: 1,
-                            max: 90,
-                            unit: 'يوم',
-                            semanticsLabel: 'المدة بالأيام',
-                            onChanged: (value) => setState(() => _days = value),
-                          )
-                        else
-                          Text(
-                            'التذكير هيفضل شغال لحد ما توقفه بنفسك.',
-                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                           ),
+                        ),
+                        if (!_moreOpen)
+                          Text(
+                            'الجرعة في المرة، والمدة، وأي تعليمات — كلها اختيارية.',
+                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                          ),
+                        if (_moreOpen) ...[
+                          const SizedBox(height: F.s12),
+                          const _FieldLabel('الجرعة في المرة (اختياري)'),
+                          _Field(
+                            key: const ValueKey('amount-field'),
+                            controller: _amount,
+                            hint: 'زي: قرص واحد',
+                          ),
+                          const SizedBox(height: F.gap),
+                          const _FieldLabel('المدة'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: AnchorChip(
+                                  label: 'مفتوحة',
+                                  selected: _openEnded,
+                                  onTap: () => setState(() => _openEnded = true),
+                                ),
+                              ),
+                              const SizedBox(width: F.s8),
+                              Expanded(
+                                child: AnchorChip(
+                                  label: 'أيام محددة',
+                                  selected: !_openEnded,
+                                  onTap: () => setState(() => _openEnded = false),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: F.s10),
+                          if (!_openEnded)
+                            FNumberWheel(
+                              key: const ValueKey('days-wheel'),
+                              value: _days,
+                              min: 1,
+                              max: 90,
+                              unit: 'يوم',
+                              semanticsLabel: 'المدة بالأيام',
+                              onChanged: (value) => setState(() => _days = value),
+                            )
+                          else
+                            Text(
+                              'التذكير هيفضل شغال لحد ما توقفه بنفسك.',
+                              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+                            ),
+                          const SizedBox(height: F.gap),
+                          const _FieldLabel('تعليمات (اختياري)'),
+                          _Field(
+                            key: const ValueKey('instructions-field'),
+                            controller: _instructions,
+                            hint: 'زي: مع كوباية مية كاملة',
+                            multiline: true,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -547,8 +671,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
             Padding(
               padding: const EdgeInsets.all(F.gap),
               child: FPrimaryButton(
-                label: 'كمّل — إمتى؟',
-                onPressed: _busy || _name.text.trim().isEmpty ? null : _continue,
+                key: const ValueKey('save-medication'),
+                label: 'احفظ',
+                onPressed: _ready ? _save : null,
               ),
             ),
           ],
@@ -556,6 +681,103 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       ),
     );
   }
+}
+
+/// صف جرعة في الفورم: الرقم، والساعة اللي هترن فيها (أو السبب اللي مش
+/// هترن عشانه)، وكلمة الفعل — الكارت كله هدف لمس.
+class _DoseRowTile extends StatelessWidget {
+  const _DoseRowTile({
+    required this.title,
+    required this.subtitle,
+    required this.ready,
+    required this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool ready;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: F.railGround,
+        borderRadius: BorderRadius.circular(F.radiusTile),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(F.radiusTile),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: F.minTapTarget),
+            padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(F.radiusTile),
+              // الذهبي للي لسه محتاج قرار — نفس معناه في التطبيق
+              border: Border.all(color: ready ? F.line : F.gold, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: F.s4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: F.s8),
+                Text(
+                  ready ? 'عدّل' : 'اختار',
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// شريحة ضيّقة — أربعة في صف واحد على SE، بخط ١٧.
+class _CompactChip extends StatelessWidget {
+  const _CompactChip({required this.label, required this.selected, required this.onTap, super.key});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.minTapTarget,
+        child: Material(
+          color: selected ? F.gold : F.railGround,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(F.radiusChip),
+            side: BorderSide(color: selected ? F.gold : F.line, width: 1.5),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(F.radiusChip),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: F.s4),
+              child: Center(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _FieldLabel extends StatelessWidget {
@@ -577,19 +799,30 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.mono = false,
+    this.autofocus = false,
+    this.multiline = false,
     this.onChanged,
+    super.key,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool mono;
+  final bool autofocus;
+
+  /// سطور — والزرار على الكيبورد «سطر جديد» مش «تم».
+  final bool multiline;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) => TextField(
-        textInputAction: TextInputAction.next,
+        textInputAction: multiline ? TextInputAction.newline : TextInputAction.next,
         controller: controller,
+        autofocus: autofocus,
         onChanged: onChanged,
+        maxLines: multiline ? 3 : 1,
+        minLines: multiline ? 2 : 1,
+        keyboardType: multiline ? TextInputType.multiline : null,
         style: TextStyle(
           fontSize: F.minBodySize,
           fontFamily: mono ? F.monoFamily : null,
@@ -600,7 +833,7 @@ class _Field extends StatelessWidget {
           hintStyle: TextStyle(fontSize: F.minTextSize, color: F.placeholder),
           filled: true,
           fillColor: F.fieldGround,
-          contentPadding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s18),
+          contentPadding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(F.radiusTile),
             borderSide: BorderSide(color: F.line),
@@ -614,9 +847,6 @@ class _Field extends StatelessWidget {
 }
 
 /// **اللي اتقرا من الصورة، معلّم إنه اتقرا** — عشان يراجعه قبل ما يحفظ.
-///
-/// الحقول اللي القراية مكانتش واضحة فيها **بتفضل فاضية** وبتتسمّى في سطر
-/// تحت: حقل فاضي بيتملا، وحقل فيه تخمين بيتاخد كأنه صح.
 class _FromPhoto extends StatelessWidget {
   const _FromPhoto({required this.reading});
 
@@ -642,11 +872,7 @@ class _FromPhoto extends StatelessWidget {
               Expanded(
                 child: Text(
                   'ده اللي قريناه من العلبة — راجعه',
-                  style: TextStyle(
-                    fontSize: F.minBodySize,
-                    fontWeight: FontWeight.w700,
-                    color: F.ink,
-                  ),
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                 ),
               ),
             ],
@@ -662,15 +888,12 @@ class _FromPhoto extends StatelessWidget {
             ),
           if (unclear.isNotEmpty)
             Text(
-              // نفس جملة شاشة التصوير بالحرف — مصدر واحد.
               '$unreadablePackage (${unclear.join('، ')})',
               key: const ValueKey('unclear-fields'),
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
             ),
           const SizedBox(height: F.s8),
           Text(
-            // **أهم سطر في الشاشة.** العلبة ما بتعرفش الراجل ده بياخد
-            // إيه امتى — ده كلام الدكتور، والحقول دي بتتملا بإيده.
             'العلبة ما بتقولش الجرعة ولا المواعيد — دي من الدكتور، وإنت '
             'اللي بتكتبها تحت.',
             style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.6),

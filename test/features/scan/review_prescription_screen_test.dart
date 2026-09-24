@@ -10,7 +10,6 @@ import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
-import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/scan/debug_panel.dart';
 import 'package:fakkarni/features/records/health_file_screen.dart';
 import 'package:fakkarni/features/records/records_empty.dart' show RecordsEmpty;
@@ -218,11 +217,9 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Cataflam'), findsOneWidget);
 
-    // الحقول ثم محرّر الجرعة — التوقيت اللي كان مش واضح بيتحدد بإيده هنا
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-    expect(find.byType(DoseEditor), findsOneWidget);
-    await tester.tap(find.text('احفظ الجرعة'));
+    // فورم واحد: الصف بيقول الساعة، و«احفظ» بيرجّع المسوّدة
+    expect(find.byKey(const ValueKey('dose-row-0')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
 
     expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
@@ -259,13 +256,12 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
 
     // القايمة اتشالت من الشاشة دي، فالعدد بقى على الشريحة — واللي بيثبت
-    // إنه وصل هو إن المشي بيقف أربع مرات.
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-    for (var i = 1; i <= 4; i++) {
-      await tester.tap(find.text(i == 4 ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
-      await settle(tester);
+    // إنه وصل هو أربع صفوف في الفورم.
+    for (var i = 0; i < 4; i++) {
+      expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget);
     }
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
+    await settle(tester);
 
     expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
     expect(await h.meds.activeSchedules(h.services.patientId), isEmpty, reason: 'لسه مسوّدة');

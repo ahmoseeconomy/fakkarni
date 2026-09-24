@@ -331,6 +331,12 @@ class Medications extends Table with SyncIdentity {
   /// مش بيتدفع للسحابة (الإعادات على موبايل المريض بس).
   TextColumn get alertMode => text().nullable()();
 
+  /// «الدوا ده لإيه؟» (v23) — اسم [MedicationPurpose]، null = ما قالش. محلي.
+  TextColumn get purpose => text().nullable()();
+
+  /// «تعليمات» حرّة (v23) — «مع كوباية مية كاملة». null = مفيش. محلي.
+  TextColumn get instructions => text().nullable()();
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش

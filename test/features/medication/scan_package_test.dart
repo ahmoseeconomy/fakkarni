@@ -90,15 +90,19 @@ void main() {
       await openScan(tester, _FakeReader(_reading()));
       await shoot(tester);
 
-      // خانة «الجرعة في المرة» فاضية: العلبة ما بتقولش الراجل بياخد كام.
-      final amount = tester.widgetList<TextField>(find.byType(TextField)).toList();
-      expect(amount[1].controller!.text, isEmpty, reason: 'جرعة من علبة = اختراع');
+      // خانة «الجرعة في المرة» (جوّه «تفاصيل أكتر») فاضية: العلبة ما بتقولش
+      // الراجل بياخد كام.
+      await tester.tap(find.byKey(const ValueKey('more-toggle')));
+      await settle(tester);
+      final amount = tester.widget<TextField>(
+          find.descendant(of: find.byKey(const ValueKey('amount-field')), matching: find.byType(TextField)));
+      expect(amount.controller!.text, isEmpty, reason: 'جرعة من علبة = اختراع');
       expect(
         find.textContaining('العلبة ما بتقولش الجرعة ولا المواعيد'),
         findsOneWidget,
       );
-      // والمشي للمحرّر لسه قدامه — مفيش موعد اتحطّ من الصورة
-      expect(find.text('كمّل — إمتى؟'), findsOneWidget);
+      // ومفيش موعد اتحطّ من الصورة — الصف على عُرف الفورم، والحفظ قدامه
+      expect(find.byKey(const ValueKey('save-medication')), findsOneWidget);
     });
 
     screenTest('**ولا دوا بيتكتب من غير ما يدوس** (القاعدة ٤)', (tester) async {
@@ -194,10 +198,8 @@ void main() {
       await openScan(tester, _FakeReader(_reading()));
       await shoot(tester);
 
-      // المشي الكامل: «كمّل» → محرّر الجرعة → «احفظ الجرعة».
-      await tester.tap(find.text('كمّل — إمتى؟'));
-      await settle(tester);
-      await tester.tap(find.text('احفظ الجرعة'));
+      // «احفظ» على طول — الصف الواحد على عُرف الفورم
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 
       final saved = await MedicationRepository(h.db).currentMedicines(h.services.patientId);
@@ -212,9 +214,7 @@ void main() {
       await h.pump(tester, AddMedicationScreen(routine: normalDay, today: aug31));
       await tester.enterText(find.byType(TextField).first, 'Telfast 180 mg');
       await settle(tester);
-      await tester.tap(find.text('كمّل — إمتى؟'));
-      await settle(tester);
-      await tester.tap(find.text('احفظ الجرعة'));
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 
       final saved = await MedicationRepository(h.db).currentMedicines(h.services.patientId);

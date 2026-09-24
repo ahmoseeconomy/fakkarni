@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/medication/duplicate_check.dart';
+import '../../domain/medication/medication_purpose.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
@@ -24,6 +25,8 @@ typedef MedicationWrite = ({
   bool amountUnknown,
   int? durationDays,
   AlertMode? alertMode,
+  MedicationPurpose? purpose,
+  String? instructions,
 });
 
 class MedicationRepository {
@@ -113,6 +116,10 @@ class MedicationRepository {
 
     /// نوع التنبيه — null = زي إعداد الجهاز.
     AlertMode? alertMode,
+
+    /// «الدوا ده لإيه؟» و«تعليمات» — اختياريين، null = ما قالش.
+    MedicationPurpose? purpose,
+    String? instructions,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -126,6 +133,8 @@ class MedicationRepository {
               amountUnknown: Value(amountUnknown),
               activeIngredient: Value(activeIngredient),
               alertMode: Value(alertMode?.storageName),
+              purpose: Value(purpose?.storageName),
+              instructions: Value(instructions),
             ),
           );
       for (final timing in timings) {
@@ -167,6 +176,8 @@ class MedicationRepository {
               amountUnknown: m.amountUnknown,
               durationDays: m.durationDays,
               alertMode: m.alertMode,
+              purpose: m.purpose,
+              instructions: m.instructions,
             ),
           );
         }

@@ -42,7 +42,8 @@ const List<AnchorChoice> anchorChoices = [
 /// توقيت: إضافة دوا، تعديل دوا، ومراجعة الروشتة.
 ///
 /// الشرائح هي التحكم الأساسي، المعاينة ذهبية وبتتحدّث مع كل ضغطة، والساعة
-/// الثابتة لينك آخر حاجة تحت. **مفيش منتقي ساعة أساسي هنا.**
+/// المحددة اختيار جنب المرساة فوق (كانت لينك تحت الزرار — قرار المالك).
+/// **المرساة لسه الافتراضي.**
 class DoseEditor extends StatefulWidget {
   const DoseEditor({
     required this.name,
@@ -53,8 +54,13 @@ class DoseEditor extends StatefulWidget {
     this.kicker,
     this.saveLabel = 'احفظ الجرعة',
     this.onSetAnchor,
+    this.startFixed = false,
     super.key,
   });
+
+  /// افتح على «ساعة محددة» من الأول — صف في الفورم اختار الساعة المحددة
+  /// ولسه ما حددش وقته. بس لما [initialTiming] null.
+  final bool startFixed;
 
   /// المستخدم حدّد ميعاد وجبة من هنا («بتفطر الساعة كام؟» مرة واحدة) —
   /// اللي نادانا هو اللي بيكتبه في الروتين. null = المحرّر بيحدّثه في
@@ -105,7 +111,7 @@ class _DoseEditorState extends State<DoseEditor> {
         _fixed = true;
         _fixedTime = minuteOfDay;
       case null:
-        break;
+        if (widget.startFixed) _fixed = true;
     }
     // **مرساة ما اتحددتش = مفيش ساعة تتعرض منها.** الجرعة بتبدأ على ساعة
     // ثابتة المستخدم هو اللي بيختارها — ولا رقم بيتعبّى من روتين افتراضي.
@@ -197,7 +203,33 @@ class _DoseEditorState extends State<DoseEditor> {
                       color: F.ink,
                     ),
                   ),
-                  const SizedBox(height: F.s4),
+                  const SizedBox(height: F.s8),
+                  // **الوضعين جنب بعض فوق** (قرار المالك، ٢٤ سبتمبر ٢٠٢٦):
+                  // «مع الأكل / الروتين» هو الأول والمختار افتراضياً، و«ساعة
+                  // محددة» جنبه بنفس الحجم — مش لينك تحت الزرار زي ما كان.
+                  // المرساة لسه الافتراضي؛ اللي اتغيّر إن الساعة بقت مرئية.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AnchorChip(
+                          key: const ValueKey('mode-anchor'),
+                          label: 'مع الأكل / الروتين',
+                          selected: !_fixed,
+                          onTap: () => setState(() => _fixed = false),
+                        ),
+                      ),
+                      const SizedBox(width: F.s8),
+                      Expanded(
+                        child: AnchorChip(
+                          key: const ValueKey('mode-fixed'),
+                          label: 'ساعة محددة',
+                          selected: _fixed,
+                          onTap: () => setState(() => _fixed = true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: F.s12),
                   if (_fixed) ...[
                     // بنقولها صراحة: الجرعة دي مش هتتحرك مع الروتين.
                     const _FixedNotice(),
@@ -205,20 +237,6 @@ class _DoseEditorState extends State<DoseEditor> {
                     _FixedTimePicker(
                       value: _fixedTime,
                       onChanged: (value) => setState(() => _fixedTime = value),
-                    ),
-                    SizedBox(
-                      height: F.minTapTarget,
-                      child: TextButton(
-                        onPressed: () => setState(() => _fixed = false),
-                        child: Text(
-                          'ارجع للمراسي',
-                          style: TextStyle(
-                            fontSize: F.minTextSize,
-                            fontWeight: FontWeight.w600,
-                            color: F.green,
-                          ),
-                        ),
-                      ),
                     ),
                   ] else ...[
                     Text(
@@ -285,25 +303,6 @@ class _DoseEditorState extends State<DoseEditor> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FPrimaryButton(label: widget.saveLabel, onPressed: _saving ? null : _save),
-                  // اللينك آخر حاجة في الشاشة عن قصد — بعد ما المسار الأساسي
-                  // اتشاف كله. مش بيظهر وإحنا في وضع الساعة الثابتة أصلاً.
-                  if (!_fixed)
-                    SizedBox(
-                      height: F.minTapTarget,
-                      child: TextButton(
-                        onPressed: () => setState(() => _fixed = true),
-                        child: Text(
-                          'أحدد ساعة ثابتة بدل كده',
-                          style: TextStyle(
-                            fontSize: F.minTextSize,
-                            color: F.mutedDark,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox(height: F.minTapTarget),
                 ],
               ),
             ),

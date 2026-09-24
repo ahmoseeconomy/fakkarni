@@ -43,19 +43,14 @@ void main() {
     );
   }
 
-  /// بيمشي في محرّر الجرعة [count] مرة ويحفظ.
+  /// [count] صف جرعة ظاهرين في الفورم — مفيش مشي — وبعدها «احفظ».
   Future<void> walk(WidgetTester tester, int count) async {
-    await tester.tap(find.text('كمّل — إمتى؟'));
-    await settle(tester);
-    for (var i = 1; i <= count; i++) {
-      expect(
-        find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'),
-        findsOneWidget,
-        reason: 'المحرّر رقم $i من $count',
-      );
-      await tester.tap(find.text(i == count ? 'احفظ الجرعة' : 'الجرعة اللي بعدها'));
-      await settle(tester);
+    for (var i = 0; i < count; i++) {
+      expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget, reason: 'صف $i من $count');
     }
+    expect(find.byKey(ValueKey('dose-row-$count')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
+    await settle(tester);
   }
 
   screenTest('مفيش زرار يضيف ولا يشيل جرعة في «ضيف دوا» — ولا قايمة أصلاً', (tester) async {

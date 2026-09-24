@@ -24,10 +24,13 @@ These are product decisions, already settled. Do not "improve" them without aski
    Timing is the sealed `DoseTiming`: `AnchorTiming(anchor, offsetMinutes)`
    — `{anchor: breakfast, offsetMinutes: -30}` — is the default and the
    primary control everywhere. `FixedTiming(minuteOfDay)` exists for the
-   prescription that genuinely says "8:00 sharp"; it is reached only through
-   the small link *under* «احفظ الجرعة» (a clock is familiar and anchors are
-   new — a link beside the chips would get tapped out of habit, not fit), and
-   the editor must say plainly «ساعة ثابتة — مش هتتحرك مع روتين يومك».
+   prescription that genuinely says "8:00 sharp". **Since 24 Sep 2026 (owner
+   decision) the editor shows both modes side by side at the top** —
+   «مع الأكل / الروتين» first and selected, «ساعة محددة» beside it; the
+   small link that used to sit under «احفظ الجرعة» is gone. The anchor is
+   still the default and the first thing offered; what changed is that the
+   clock is a visible choice instead of a hidden one. The editor must still
+   say plainly «ساعة ثابتة — مش هتتحرك مع روتين يومك» in that mode.
    The rule was not abandoned: anchors are still why Ramadan, travel and late
    wake-ups work by editing one field. Fixed doses simply stay where the
    patient put them when the routine changes. Never make fixed the default,
@@ -3414,6 +3417,38 @@ device-verified)**
 - **اللي ما اتلمسش**: التأجيل ومدته وجدولته، سلّم التصعيد، إشعارات
   الجرعات، ونمط كبار السن (`ElderHomeScreen` ليها كارتها وقاعدتها: «تم»
   واحدة وبس). اختبار الخطة الذهبية أخضر.
+
+**«ضيف دوا» is one scrolling form, and nothing walks you through editors**
+(24 Sep 2026 — the tester's «خطوات كتير ومقيّدة»). `AddMedicationScreen`
+top to bottom: name (autofocused when empty) → «الدوا ده لإيه؟ (لو حابب)»
+(`MedicationPurpose`, `domain/medication/`, single-select chips, tap again
+to clear; stored in `medications.purpose`, **v23**, nullable — it will
+drive a tips card on «يومك» later, not built) → «كام مرة» → «قبل / مع /
+بعد الأكل / ساعة محددة» (four compact chips, one row) → **«مواعيد
+الجرعات»: one row per dose, always visible**, «الفطار − ٣٠ د — حوالي
+٧:٠٠ ص», «الفطار — مش متحدد», «ساعة محددة — ٩:٠٠ م» or «اختار الساعة»;
+tapping a row opens `DoseEditor` for that dose only and returns → alert
+mode chips → «تفاصيل أكتر», collapsed: amount, duration (open-ended by
+default), and «تعليمات» (`medications.instructions`, v23, nullable) →
+«احفظ», enabled once the name is non-empty and every row has a time that
+is chosen or resolvable (an unset anchor row keeps it disabled).
+**«ساعة محددة»: the first clock the person picks spreads the other rows
+evenly across the waking day** (`_spreadFrom` — routine wake → sleep when
+both are set, else 07:00 → 23:00 as an operational window) *in the rows,
+where they see and can change them*; nothing is written before «احفظ».
+Back from a row's editor keeps the form exactly as it was. **Blank manual
+amount is «not given», not «unknown»**: `amountUnknown` is only kept when
+the line came from a scan that could not read it (`initialAmountUnknown`),
+so «اسأل الصيدلي عن جرعة …» never appears for a hand-typed medicine. The
+same form serves «عدّل» on the prescription review (draft mode returns a
+`MedicationDraft` with purpose and instructions too). Neither new column
+is pushed: the medications payload names its columns, so no Supabase
+migration. Tap counts from «اكتبها بإيدي», typing excluded: one pill after
+breakfast and dinner was 6 taps (field, «مرتين», «بعد الأكل», «كمّل», next,
+save) and is now **3** («مرتين», «بعد الأكل», «احفظ»); one pill at 9 PM
+was 4 taps + a wheel and is still **4** (row, «ساعة محددة», «احفظ الجرعة»,
+«احفظ») + the wheel, with the clock now a visible choice instead of a
+link.
 
 **The «ضيف دوا» sheet is defined once, opened from two places.**
 `showAddSheet(context, routine:)` in `features/medication/add_sheet.dart`
