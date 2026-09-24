@@ -427,6 +427,9 @@ class _TodayScreenState extends State<TodayScreen> {
                   ruleLabelFor: _ruleLabelFor,
                   onOpen: _openReminder,
                 ),
+              // نفس المسافة بين كل كارت والتاني — «معلومة تهمك» كانت لازقة
+              // في السكة لما مفيش بكرة ولا متابعات ولا سكر بينهم.
+              const SizedBox(height: F.gap),
               StreamBuilder<List<DoseEventView>>(
                 stream: _tomorrow,
                 builder: (context, snap) {
@@ -466,7 +469,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
                 const SizedBox(height: F.gap),
               ],
-              // «معلومة ليك» مكان كارت المية — نفس الخانة، نفس الوزن
+              // «معلومة تهمك» مكان كارت المية — نفس الخانة، نفس الوزن
               TipCard(
                 tip: pickTip(
                   today: _now,

@@ -81,6 +81,14 @@ abstract final class F {
   static Color get waterInk => _mode(const Color(0xFF17627F), const Color(0xFFBFE3F5));
   static const waterDrop = Color(0xFF3FA3D6);
 
+  /// «معلومة تهمك» (٢٤ سبتمبر ٢٠٢٦، طلب المالك): أزرق فاتح جداً لكارت
+  /// المعلومة اللي أخد مكان كارت المية — نفس العايلة، أفتح منها، ومعرّف
+  /// مرة واحدة هنا. النص عليه `ink` (متقاس في `dark_mode_test`).
+  static Color get tipSurface => _mode(const Color(0xFFEAF4FC), const Color(0xFF14283A));
+
+  /// اللمبة على كارت المعلومة — بتنوّر وتطفي بالتوهّج، مش بالحجم.
+  static Color get tipGlow => _mode(const Color(0xFF2F86C9), const Color(0xFF7CC0F0));
+
   /// نص وأيقونات على أرضية غامقة (أخضر، أو صورة الكاميرا).
   static const onDark = white;
 

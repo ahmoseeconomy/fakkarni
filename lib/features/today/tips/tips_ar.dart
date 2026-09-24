@@ -12,7 +12,7 @@ import '../../../core/format/arabic_time.dart';
 import '../../../domain/medication/medication_purpose.dart';
 
 /// عنوان الكارت.
-const String tipCardTitle = 'معلومة ليك';
+const String tipCardTitle = 'معلومة تهمك';
 
 /// نصائح كل غرض — واحدة أو اتنين. `{name}` بيتبدّل باسم الدوا لو معروف.
 const Map<MedicationPurpose, List<String>> purposeTips = {

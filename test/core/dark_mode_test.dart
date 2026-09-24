@@ -48,6 +48,9 @@ void main() {
       ('الأخضر على الكارت', F.green, F.cardGround, 4.5),
       ('الذهبي على الكارت', F.gold, F.cardGround, 4.5),
       ('نص المية على كارتها', F.waterInk, F.waterGround, 4.5),
+      ('نص المعلومة على كارتها', F.ink, F.tipSurface, 4.5),
+      ('الثانوي على كارت المعلومة', F.mutedDark, F.tipSurface, 4.5),
+      ('اللمبة على كارت المعلومة', F.tipGlow, F.tipSurface, 3.0),
       ('الأيقونات على الصفحة', F.muted, F.pageGround, 3.0),
     ]) {
       expect(_contrast(colour, ground), greaterThanOrEqualTo(min), reason: name);
@@ -60,6 +63,8 @@ void main() {
       ('النص على الكارت', F.ink, F.cardGround),
       ('الثانوي على الكارت', F.mutedDark, F.cardGround),
       ('نص المية على كارتها', F.waterInk, F.waterGround),
+      ('نص المعلومة على كارتها', F.ink, F.tipSurface),
+      ('الثانوي على كارت المعلومة', F.mutedDark, F.tipSurface),
     ]) {
       expect(_contrast(colour, ground), greaterThanOrEqualTo(4.5), reason: name);
     }

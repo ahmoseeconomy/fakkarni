@@ -1788,8 +1788,8 @@ was reading the database and the audit was reading the repo.
 
 ### Migrations confirmed run on the live project
 
-**آخر تشغيلة: ٢٣ سبتمبر ٢٠٢٦ — `supabase/verify_migrations.sql` رجّع
-٢١ صف، كلهم `ok = true`.** (التشغيلة اللي قبلها، ٢٠ سبتمبر، كانت ١٧/١٧
+**آخر تشغيلة: ٢٤ سبتمبر ٢٠٢٦ — `supabase/verify_migrations.sql` رجّع
+٢٢ صف، كلهم `ok = true`.** (التشغيلة اللي قبلها، ٢٣ سبتمبر، كانت ٢١/٢١؛ و٢٠ سبتمبر ١٧/١٧
 بـ١٦١ فحص.)
 
 **This list is evidence from the database, not from the repo.** That
@@ -1804,7 +1804,8 @@ on the live project.
 | 20 Sep 2026 | `0001`-`0018`, all of them |
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
-| **not yet run** | **`0022_admin_devices`** — اتكتبت ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلتش على المشروع الحقيقي. من غيرها اللوحة بتقول «مقدرناش نكمّل» عند أول تحديث (الدالة مش موجودة). شغّلها بعد `0021`، وبعدها `verify_migrations.sql` لازم يرجّع ٢٢ صف كلهم `ok = true`. |
+| **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
+| **not yet run** | — ولا واحدة. السلسلة كلها متطبّقة. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -3376,9 +3377,25 @@ device-verified)**
   «تأكيد الجرعة/الجرعات»; the rest have «افتح» (ReminderScreen).
   «لاحقًا» is the real 15-minute `scheduler.snooze`, and the card says so.
   «مش هاخده» now lives only on ReminderScreen.
-- **«معلومة ليك» replaced the water card on «يومك»** (24 Sep 2026, tester
-  feedback). Same slot, same weight, below «الآن» and «جدول النهاردة» so
-  the fold rule for «تأكيد الجرعة» is untouched. One tip per day, stable
+- **«معلومة تهمك» replaced the water card on «يومك»** (24 Sep 2026, tester
+  feedback; renamed from «معلومة ليك» the same day). Same slot, same
+  weight, below «الآن» and «جدول النهاردة» so the fold rule for
+  «تأكيد الجرعة» is untouched.
+  **Its look is the old water card's** (owner, 24 Sep 2026): `F.radiusLarge`,
+  `F.gap` padding, the icon in its own rounded tile on the start side, on
+  `F.tipSurface` — a very light blue defined once in `tokens.dart` with a
+  dark value, text in `F.ink` (both modes measured in `dark_mode_test`).
+  So **blue is no longer water's alone**: the water widget keeps its own
+  tokens, and the tip card has its own two (`tipSurface`, `tipGlow`). The
+  title is «معلومة تهمك» at `F.subtitleSize` w800, clearly larger and
+  bolder than the tip text (`F.minBodySize`). The icon is a lightbulb
+  (`GlowingBulb`) whose glow and brightness fade up and down on a 1.6 s
+  eased cycle — **no scale, no shake** (a test asserts no `Transform`
+  under it); under «تقليل الحركة» it is a static lit bulb; it stops when
+  the app is paused (`WidgetsBindingObserver`) and when the tab is
+  offstage (`TickerMode`). The card sits one `F.gap` below whatever
+  precedes it — the rail now ends with that gap, so the card is never
+  flush against it. One tip per day, stable
   for the day and rotating daily, chosen by `pickTip` in
   `features/today/tips/tip_picker.dart` (pure) in this order: (a) his own
   adherence from local data — a medication whose duration ends within 3

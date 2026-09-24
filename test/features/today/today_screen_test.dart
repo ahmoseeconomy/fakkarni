@@ -479,9 +479,9 @@ void main() {
       await pumpToday(tester);
 
       // **الترتيب اتغيّر بقرار المالك**: «جدول النهاردة» طلع فوق، جنب
-      // «الآن» — و«معلومة ليك» (مكان كارت المية) تحته مع باقي الشاشة الهادية.
+      // «الآن» — و«معلومة تهمك» (مكان كارت المية) تحته مع باقي الشاشة الهادية.
       expect(tester.getCenter(find.text('الآن')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
-      expect(tester.getCenter(find.text('جدول النهاردة')).dy, lessThan(tester.getCenter(find.text('معلومة ليك')).dy));
+      expect(tester.getCenter(find.text('جدول النهاردة')).dy, lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));
       expect(find.text('المية'), findsNothing, reason: 'كارت المية اتشال من «يومك»');
       expectNoRedAndMinSize(tester);
     });
@@ -511,9 +511,9 @@ void main() {
       expect(find.text('الآن'), findsOneWidget, reason: 'حتى من غير جرعات');
       expect(find.text('أعلى من أعلى قياس معتاد ليك (١٣١) بـ ٢١'), findsOneWidget);
       expect(tester.getCenter(find.byKey(const ValueKey('glucose-home'))).dy,
-          lessThan(tester.getCenter(find.text('معلومة ليك')).dy));
+          lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));
       expect(find.byType(FilledButton), findsNothing, reason: '«افتح» مش أساسي');
-      // كلام السكر بس — «معلومة ليك» ليها خطوطها الحمرا في `tips_banned_words_test`
+      // كلام السكر بس — «معلومة تهمك» ليها خطوطها الحمرا في `tips_banned_words_test`
       // (وبتقول «اسأل دكتورك» عن قصد)، فبنستثني نصّها هنا
       final tipTexts = tester.widgetList<Text>(find.descendant(of: find.byKey(const ValueKey('tip-card')), matching: find.byType(Text))).toSet();
       for (final t in tester.widgetList<Text>(find.byType(Text))) {
