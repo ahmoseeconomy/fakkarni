@@ -1,6 +1,7 @@
 // **قرارات ٢٢ سبتمبر ٢٠٢٦، مقفولة بالاختبار مش بالتعليق.**
 //
-//   ١. صاحب حساب المريض بيدفع اشتراكه، وكل متابع بيدفع اشتراكه هو.
+//   ١. (اتغيّر ٢٤ سبتمبر بقرار المالك) اشتراك عيلة واحد على المريض بيغطّيه
+//      هو ولحد ٥ متابعين — مش «كل واحد بيدفع».
 //   ٢. مفيش علامة «دوا مهم» — اتشالت في ٢ سبتمبر (القاعدة ٦).
 //   ٣. الهدوء للمواعيد والملخصات بس؛ **الجرعة الفايتة بتعدّي في أي وقت**.
 import 'dart:io';
@@ -14,32 +15,35 @@ String _read(String path) => File(path).readAsStringSync();
 void main() {
   group('١ — «Pricing» في الدليل', () {
     final guide = _read('CLAUDE.md');
+    final flat = guide.replaceAll('\n', ' ').replaceAll(RegExp(r' +'), ' ');
 
-    test('**سطر ١٠ مابقاش بيقول إن الابن بيدفع اشتراك الأب**', () {
+    test('**سطر الابن مابقاش بيقول إنه بيدفع — لا لأبوه ولا لنفسه**', () {
       expect(guide, isNot(contains('checks briefly, pays for the subscription')),
-          reason: 'الجملة القديمة لسه مكتوبة');
-      expect(guide, contains('pays for his\n  own subscription'));
+          reason: 'الجملة الأصلية لسه مكتوبة');
+      expect(guide, isNot(contains('pays for his\n  own subscription')),
+          reason: 'نموذج ٢٢ سبتمبر («كل متابع بيدفع») لسه مكتوب كأنه الحالي');
+      expect(flat, contains('**one family subscription** on the patient'));
     });
 
-    test('والقسم موجود بتاريخه وبالقرار', () {
+    test('والقسم موجود بتاريخ ٢٤ سبتمبر وبالقرار — اشتراك واحد للعيلة', () {
       expect(guide, contains('## Pricing'));
-      expect(guide, contains('22 Sep 2026'));
-      expect(guide, contains('a separate subscription'));
+      expect(guide, contains('24 Sep 2026'));
+      expect(flat, contains('ONE family subscription per patient covers the patient and up to 5'));
+      expect(flat, contains('Not «each person pays»'));
+      expect(flat, contains('Anyone in the circle may buy it'));
     });
 
-    test('**وسؤالا السلامة مكتوبين** — دول اللي بيمنعوا الدفع يسكّت التذكير', () {
-      // ١: اشتراك الأب يقف → التذكير يقف؟
-      expect(guide, contains("If the father's subscription lapses"));
-      // ٢: اشتراك المتابع يقف → الاتنين يتقالهم
-      expect(guide, contains("If a follower's subscription lapses"));
-      expect(guide, contains('two people must be told'));
+    test('**وقاعدتا السلامة مكتوبين** — دول اللي بيمنعوا الدفع يسكّت التذكير', () {
+      // ١: الدفع عمره ما يوقف تذكير المريض
+      expect(flat, contains("The patient's own reminders never stop"));
+      // ٢: التحقق المش واصل = آخر حالة معروفة، مش قفل
+      expect(flat, contains('Unreachable verification = last known state'));
+      // والدائرة بتتقال لها قبل ما التنبيهات تقف وبعدها
+      expect(flat, contains('The circle is told before the alerts stop, and after'));
     });
 
-    test('**ومكتوب صراحةً إن مفيش متابع مجاني**', () {
-      // الحارس بيدوّر على النفي، مش على غياب الكلمة: «مفيش متابع مجاني»
-      // فيها «متابع مجاني»، فمنع الكلمة كان هيمنع الجملة اللي بتوضّحها.
-      expect(guide, contains('There is **no** free extra follower'));
-      expect(guide.replaceAll('\n', ' '), contains('a second son is a second subscription'));
+    test('**والحد مكتوب: ٥ ناس، مش متابع مجاني من غير سقف**', () {
+      expect(flat, contains('`redeem_invite` returns `circle_full` at `follower_cap()` (5)'));
     });
   });
 

@@ -16,7 +16,6 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/billing/family_plan.dart';
-import 'package:fakkarni/domain/care/follower_role.dart';
 import 'package:fakkarni/features/billing/family_notice_cards.dart';
 import 'package:fakkarni/features/billing/family_plan_screen.dart';
 
