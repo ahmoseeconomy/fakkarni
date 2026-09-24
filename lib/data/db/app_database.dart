@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -413,6 +413,22 @@ class AppDatabase extends _$AppDatabase {
                 if (existing.isEmpty) {
                   await customStatement(
                       "ALTER TABLE $table ADD COLUMN unset_anchors TEXT NOT NULL DEFAULT ''");
+                }
+              }
+            }
+            if (from < 22) {
+              // نوع التنبيه: عمود على الدوا (null = زي الجهاز) وعمود على
+              // تفضيلات الجهاز (الافتراضي «يتكرر» = السلوك اللي كان).
+              // بحماية وجود، و**فوق** بلوك التطبيع زي أي عمود جديد.
+              for (final (table, definition) in [
+                ('medications', 'alert_mode TEXT NULL'),
+                ('device_preferences', "alert_mode TEXT NOT NULL DEFAULT 'repeating'"),
+              ]) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('$table') WHERE name = 'alert_mode'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE $table ADD COLUMN $definition');
                 }
               }
             }

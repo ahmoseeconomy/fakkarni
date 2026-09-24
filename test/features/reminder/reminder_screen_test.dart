@@ -14,6 +14,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -203,9 +204,7 @@ void main() {
         snoozeIdFor(lunchDose),
         escalationIdFor(lunchDose, EscalationRung.first),
         escalationIdFor(lunchDose, EscalationRung.second),
-        repeatIdFor(lunchDose, 0),
-        repeatIdFor(lunchDose, 1),
-        repeatIdFor(lunchDose, 2),
+        for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(lunchDose, i),
       ],
     );
   });
@@ -243,9 +242,7 @@ void main() {
     // هو)، والتأجيل لـ٢:٣٠ بيسبق درجة ٢:١٥ وبيقع على درجة ٢:٣٠ → الاتنين
     // بيتشالوا، والتذكير الأصلي وتأجيله ما بيتلمسوش
     expect(sink.cancelled, [
-      repeatIdFor(lunchDose, 0),
-      repeatIdFor(lunchDose, 1),
-      repeatIdFor(lunchDose, 2),
+      for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(lunchDose, i),
       escalationIdFor(lunchDose, EscalationRung.first),
       escalationIdFor(lunchDose, EscalationRung.second),
     ]);

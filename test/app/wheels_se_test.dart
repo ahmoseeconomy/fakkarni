@@ -153,9 +153,13 @@ void main() {
     await pumpSE(tester, AddMedicationScreen(routine: _routine));
     await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
-    // كارت المدة تحت الفورم — بيتلفّ له؛ الزرار الأساسي نفسه مثبّت تحت
-    await tester.dragUntilVisible(find.text('أيام محددة'), find.byType(ListView), const Offset(0, -120));
-    await settle(tester);
+    // كارت المدة تحت الفورم — بيتلفّ له؛ الزرار الأساسي نفسه مثبّت تحت.
+    // السحب من **أعلى** القايمة: نصّها بقى بكرة العدّ، والبكرة بتاكل السحب.
+    for (var i = 0; i < 12 && find.text('أيام محددة').evaluate().isEmpty; i++) {
+      await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+      await settle(tester);
+    }
+    expect(find.text('أيام محددة'), findsOneWidget);
     await tester.tap(find.text('أيام محددة'));
     await settle(tester);
     expect(find.byKey(const ValueKey('count-field')), findsOneWidget);

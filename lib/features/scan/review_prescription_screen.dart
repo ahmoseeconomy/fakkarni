@@ -12,6 +12,7 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -178,6 +179,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialAmount: line.amountLabel,
           initialTimings: line.timings,
           initialDurationDays: line.durationDays,
+          initialAlertMode: line.alertMode,
         ),
       ),
     );
@@ -285,6 +287,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
             amountLabel: l.amountUnknown ? null : l.amountLabel,
             amountUnknown: l.amountUnknown,
             durationDays: l.durationDays, // null = مفتوحة، زي ما الورقة سابتها
+            alertMode: l.alertMode,
           ),
       ],
     );
@@ -939,8 +942,13 @@ class _DraftLine {
     required this.amountUnknown,
     required this.timings,
     required this.durationDays,
+    this.alertMode,
     this.edited = false,
   });
+
+  /// نوع التنبيه — الورقة ما بتقولوش، فمن القراية دايماً null (الافتراضي)؛
+  /// «عدّل» ممكن يحدده.
+  AlertMode? alertMode;
 
   /// من قراية الذكاء — بثقتها وملاحظاتها زي ما هي.
   factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
@@ -960,6 +968,7 @@ class _DraftLine {
         amountUnknown: d.amountUnknown,
         timings: d.timings,
         durationDays: d.durationDays,
+        alertMode: d.alertMode,
         edited: true,
       );
 
@@ -984,6 +993,7 @@ class _DraftLine {
     amountUnknown = d.amountUnknown;
     timings = d.timings;
     durationDays = d.durationDays;
+    alertMode = d.alertMode;
     edited = true;
   }
 

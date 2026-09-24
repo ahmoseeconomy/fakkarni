@@ -6,7 +6,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/repositories/preferences_repository.dart';
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/escalation/escalation_ladder.dart';
+import '../medication/alert_mode_chips.dart';
 
 /// «التنبيهات» (المخطط 26) — الصفوف اللي وراها حاجة حقيقية بس.
 ///
@@ -33,6 +35,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _settings ??= AppScope.of(context).preferences.watch();
+  }
+
+  Future<void> _setMode(AlertMode mode) async {
+    final services = AppScope.of(context);
+    await services.preferences.setAlertMode(mode);
+    // الإعادات بتتبني وقت الجدولة — الاختيار بيوصل دلوقتي، مش أول فتحة
+    await services.scheduler.rescheduleAll();
   }
 
   Future<void> _set(EscalationRung rung, bool on) async {
@@ -78,6 +87,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: F.gap),
+              const SectionHead('نوع التنبيه'),
+              const SizedBox(height: F.s8),
+              // قد إيه التذكير بيرجع يرن قبل ما سلّم التذكير يبدأ — الدوا
+              // اللي مالوش نوع بياخد ده. السلّم نفسه وإشعار الابن ما بيتغيّروش.
+              FCard(
+                child: AlertModeChips(
+                  value: settings.alertMode,
+                  onChanged: (m) => _setMode(m!),
                 ),
               ),
               const SizedBox(height: F.gap),

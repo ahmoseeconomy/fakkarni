@@ -230,45 +230,47 @@ bool isCaregiverAppointmentId(int id) =>
     id >= caregiverAppointmentIdBase && id < caregiverAppointmentIdLimit;
 
 // ---------------------------------------------------------- إعادة التنبيه
-/// **نطاقات إعادة التنبيه — تلات نطاقات على حدود ١٠ مليون: ٨٠ و٩٠ و١٠٠.**
+/// **نطاقات إعادة التنبيه — عشر نطاقات على حدود ١٠ مليون: ٨٠ لحد ١٧٠.**
 ///
 /// النطاق الواحد بيشيل رقم واحد بالظبط لكل (مريض، خانة) — زي درجتين
-/// السلّم بالظبط، كل إعادة محتاجة نطاق لوحدها. الرقم مشتق من **خانة
-/// الجرعة الأصلية** مش من وقت الإعادة: إعادة جرعة ٨:٠٠ الساعة ٨:٠٥ ما
-/// تقدرش تمسح تذكير حقيقي الساعة ٨:٠٥، و«أخدته» بتلغي التلاتة من غير ما
-/// تخزّن حاجة. أعلى رقم (١٠٥٬٨٩٨٬٢٣٩) لسه أقل بكتير من سقف أندرويد.
+/// السلّم بالظبط، كل إعادة محتاجة نطاق لوحدها، و«مستمر» بيوصل لعشرة.
+/// الرقم مشتق من **خانة الجرعة الأصلية** مش من وقت الإعادة: إعادة جرعة
+/// ٨:٠٠ الساعة ٨:٠٥ ما تقدرش تمسح تذكير حقيقي الساعة ٨:٠٥، و«أخدته»
+/// بتلغي العشرة من غير ما تخزّن حاجة. أعلى رقم (١٧٥٬٨٩٨٬٢٣٩) لسه أقل
+/// بكتير من سقف أندرويد.
 const int repeatIdBase = 80000000;
 
 /// المسافة بين نطاق إعادة واللي بعده.
 const int _repeatBandStride = 10000000;
 
-const int repeatIdLimit =
-    repeatIdBase + (maxRepeats - 1) * _repeatBandStride + maxPatients * patientIdSpan;
+final int repeatIdLimit =
+    repeatIdBase + (maxRepeatsAny - 1) * _repeatBandStride + maxPatients * patientIdSpan;
 
-/// مكان محجوز لإعادات التنبيه تحت سقف iOS: ٣ إعادات × أقرب ٤ تذكيرات.
+/// مكان محجوز لإعادات التنبيه تحت سقف iOS — **ميزانية واحدة لكل الأنواع**.
 ///
-/// **دفعت من نافذة الجرعات، مش من السلّم** (٤٤ ← ٣٢): السلّم آخر وعد
-/// للابن ومش بيتقصّ. اللي بيملا الطابور هو الدقايق المميّزة في اليوم مش
-/// الأدوية — على قاعدة التطبيق (كل الجرعات «قبل الأكل») ده ٣ إشعارات في
-/// اليوم، و٣٢ ÷ ٣ أكتر من ١٠ أيام، أطول من نافذة السبع أيام. اللي بيتأثر
-/// هو اللي عدّل أوقاته بإيده فمفيش حاجة بتندمج: ٩ دقايق في اليوم ← ٣
-/// أيام ونص بدل ٥.
-const int maxPendingRepeats = maxRepeats * 4;
+/// «مستمر» بعشر إعادات لأقرب تذكيرين، أو «يتكرر» بتلاتة لأقرب ستة. الخطة
+/// بتوزّعها بالترتيب على الأقرب فالأقرب، وأي تذكير أبعد بياخد اللي فاضل.
+/// **دفعت من نافذة الجرعات، مش من السلّم** (٣٢ ← ٢٤): السلّم آخر وعد
+/// للابن ومش بيتقصّ. على قاعدة التطبيق (٣ إشعارات في اليوم) ٢٤ ÷ ٣ =
+/// ٨ أيام، أطول من نافذة السبع أيام؛ اللي عدّل أوقاته بإيده على ٩ دقايق
+/// في اليوم بيقصر لتلات أيام إلا ربع — والنافذة بتتجدد مع كل تأكيد وكل
+/// فتحة زي ما هي.
+const int maxPendingRepeats = 20;
 
 int _repeatBase(int index) {
-  if (index < 0 || index >= maxRepeats) {
-    throw RangeError.range(index, 0, maxRepeats - 1, 'index');
+  if (index < 0 || index >= maxRepeatsAny) {
+    throw RangeError.range(index, 0, maxRepeatsAny - 1, 'index');
   }
   return repeatIdBase + index * _repeatBandStride;
 }
 
-/// رقم الإعادة [index] (٠..٢) لجرعة معادها الأصلي [originalAt].
+/// رقم الإعادة [index] (٠..٩) لجرعة معادها الأصلي [originalAt].
 int repeatIdFor(DateTime originalAt, int index, {int patientIndex = 0}) =>
     _repeatBase(index) + _patientSlot(originalAt, patientIndex);
 
 /// رقم الإعادة اللي الرقم ده بتاعها — أو null لو مش رقم إعادة.
 int? repeatIndexOf(int id) {
-  for (var i = 0; i < maxRepeats; i++) {
+  for (var i = 0; i < maxRepeatsAny; i++) {
     final base = _repeatBase(i);
     if (id >= base && id < base + maxPatients * patientIdSpan) return i;
   }
@@ -279,7 +281,7 @@ bool isRepeatId(int id) => repeatIndexOf(id) != null;
 
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
 /// ومكان التأجيل والصيام والمتابعة وإعادة التنبيه:
-/// ٦٤ − ٣٢ − ٢ − ٢ − ٢ − ١٢ = ١٤.
+/// ٦٤ − ٢٤ − ٢ − ٢ − ٢ − ٢٠ = ١٤.
 ///
 /// ١٤ ÷ درجتين = أقرب ٧ تذكيرات بس هي اللي بياخدوا سلّم. النافذة دي
 /// بتتجدد مع كل تأكيد وكل فتحة زي نافذة الجرعات، فاللي بعدهم بيلحقوا.
@@ -304,11 +306,11 @@ const int iosPendingLimit = 64;
 /// التفكير من «شغال عندي على أندرويد».
 ///
 /// كان ٤٨؛ بقى ٤٦ في D3.7 عشان تذكيرين صيام يلاقوا مكان، وبقى ٤٤ مع
-/// مواعيد متابعة التحليل (تذكيرين كمان)، وبقى ٣٢ مع إعادة التنبيه
-/// ([maxPendingRepeats] = ١٢). التمن متشاف ومقصود: أفق الجرعات بيقصر
-/// لمريض على أوقات كتير مميّزة في اليوم، وبيتجدد مع كل فتحة وكل تأكيد
-/// زي ما هو — والسلّم ما دفعش ولا خانة.
-const int maxPendingReminders = 32;
+/// مواعيد متابعة التحليل (تذكيرين كمان)، وبقى ٣٢ مع إعادة التنبيه، وبقى
+/// ٢٤ مع نوع «مستمر» ([maxPendingRepeats] = ٢٠). التمن متشاف ومقصود: أفق
+/// الجرعات بيقصر لمريض على أوقات كتير مميّزة في اليوم، وبيتجدد مع كل
+/// فتحة وكل تأكيد زي ما هو — والسلّم ما دفعش ولا خانة.
+const int maxPendingReminders = 24;
 
 /// رقم الإشعار مشتق من (المريض، اليوم، الدقيقة).
 ///
@@ -553,6 +555,11 @@ List<PlannedNotification> planEscalations(
   return planned;
 }
 
+/// نوع تنبيه تذكير مجمّع: الأقوى بين أدويته، وأي دوا من غير نوع بياخد
+/// [fallback] (إعداد الجهاز).
+AlertMode alertModeOf(PlannedNotification reminder, {required AlertMode fallback}) =>
+    AlertMode.strongest([for (final d in reminder.doses) d.alertMode ?? fallback]);
+
 /// إعادات التنبيه لأقرب التذكيرات.
 ///
 /// نفس شكل [planEscalations] ونفس مدخله: [reminders] محسوبة من **قبل
@@ -566,9 +573,12 @@ List<PlannedNotification> planEscalations(
 /// المستخدم قفل درجة +١٥ من «التنبيهات»، الإعادة التالتة بترجع تملا
 /// مكانها — [enabledRungs] هي اللي بتقول.
 ///
-/// **والسقف بيتعدّ على التذكيرات اللي لسه ليها إعادة قدام**، مش على أول
-/// أربعة في القايمة: تذكير رنّ من نص ساعة إعاداته كلها فاتت، وحجز خانة
-/// ليه كان هيحرم التذكير الجاي منها.
+/// **والميزانية خانات، مش تذكيرات**: كل تذكير بياخد إعاداته من اللي فاضل
+/// بالترتيب — الأقرب الأول — لحد ما الخانات تخلص. «مستمر» بعشرة بيغطّي
+/// تذكيرين، «يتكرر» بتلاتة بيغطّي ستة. تذكير رنّ من نص ساعة إعاداته
+/// كلها فاتت وما بياخدش خانة.
+///
+/// [modeOf] بيقول نوع كل تذكير — الأقوى بين أدويته، وإلا إعداد الجهاز.
 ///
 /// نفس الحمولة بتاعة الجرعة: الدوسة أو «أخدته» على الإعادة بتتعامل
 /// كأنها على التذكير الأصلي — القاعدة الخامسة بتشتغل من الإشعار نفسه.
@@ -578,19 +588,21 @@ List<PlannedNotification> planRepeats(
   int maxPending = maxPendingRepeats,
   int patientIndex = 0,
   Set<EscalationRung> enabledRungs = const {EscalationRung.first, EscalationRung.second},
+  AlertMode Function(PlannedNotification reminder)? modeOf,
 }) {
   final taken = {for (final rung in enabledRungs) rung.delay};
   final planned = <PlannedNotification>[];
-  var covered = 0;
+  var left = maxPending;
 
   for (final reminder in reminders) {
-    if (covered >= maxPending ~/ maxRepeats) break;
+    if (left <= 0) break;
+    final mode = modeOf?.call(reminder) ?? AlertMode.standard;
     final steps = [
-      for (final step in repeatsFor(reminder.at))
+      for (final step in repeatsFor(reminder.at, mode: mode))
         if (step.at.isAfter(from) && !taken.contains(step.delay)) step,
-    ];
+    ].take(left).toList();
     if (steps.isEmpty) continue;
-    covered++;
+    left -= steps.length;
     for (final step in steps) {
       planned.add(
         PlannedNotification(
@@ -611,14 +623,16 @@ List<PlannedNotification> planRepeats(
 }
 
 /// نص الإعادة: نفس سطر الجرعة، وقدامه قد إيه عدّى — بنفس لهجة السلّم.
-String repeatBody(RepeatStep step, String reminderBody) {
-  final elapsed = switch (step.index) {
-    0 => 'فات ٥ دقايق',
-    1 => 'فات ١٠ دقايق',
-    _ => 'فات ربع ساعة',
-  };
-  return '$reminderBody — $elapsed';
-}
+String repeatBody(RepeatStep step, String reminderBody) =>
+    '$reminderBody — ${elapsedWords(step.delay.inMinutes)}';
+
+/// «فات ٥ دقايق» / «فات ربع ساعة» / «فات نص ساعة» / «فات ٢١ دقيقة».
+String elapsedWords(int minutes) => switch (minutes) {
+      15 => 'فات ربع ساعة',
+      30 => 'فات نص ساعة',
+      >= 3 && <= 10 => 'فات ${arabicNumber(minutes)} دقايق',
+      _ => 'فات ${arabicNumber(minutes)} دقيقة',
+    };
 
 /// عنوان درجة التصعيد — سؤال، مش لوم.
 const String escalationTitle = 'لسه ما أخدتش الدوا؟';

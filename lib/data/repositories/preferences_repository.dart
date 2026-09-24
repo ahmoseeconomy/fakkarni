@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/escalation/escalation_ladder.dart';
 import '../db/app_database.dart';
 
@@ -9,11 +10,15 @@ class DeviceSettings {
     this.elderMode = false,
     this.rungFirstOn = true,
     this.rungSecondOn = true,
+    this.alertMode = AlertMode.standard,
   });
 
   final bool elderMode;
   final bool rungFirstOn;
   final bool rungSecondOn;
+
+  /// نوع التنبيه الافتراضي — الدوا اللي مالوش نوع بياخده.
+  final AlertMode alertMode;
 
   /// الدرجات المحلية اللي تتجدول. التذكير نفسه وإشعار الابن مش هنا —
   /// مالهمش مفتاح.
@@ -33,6 +38,7 @@ class DeviceSettings {
           elderMode: row.elderMode,
           rungFirstOn: row.rungFirstOn,
           rungSecondOn: row.rungSecondOn,
+          alertMode: AlertMode.fromStorage(row.alertMode) ?? AlertMode.standard,
         );
 }
 
@@ -58,6 +64,10 @@ class PreferencesRepository {
         EscalationRung.first => DevicePreferencesCompanion(rungFirstOn: Value(on)),
         EscalationRung.second => DevicePreferencesCompanion(rungSecondOn: Value(on)),
       });
+
+  /// نوع التنبيه الافتراضي. الاستدعاء بعده لازم يعيد الجدولة — الشاشة بتعمل ده.
+  Future<void> setAlertMode(AlertMode mode) =>
+      _write(DevicePreferencesCompanion(alertMode: Value(mode.storageName)));
 
   Future<void> _write(DevicePreferencesCompanion change) =>
       _db.into(_db.devicePreferences).insert(

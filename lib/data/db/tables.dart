@@ -140,6 +140,11 @@ class DevicePreferences extends Table {
   BoolColumn get rungFirstOn => boolean().withDefault(const Constant(true))();
   BoolColumn get rungSecondOn => boolean().withDefault(const Constant(true))();
 
+  /// نوع التنبيه الافتراضي للجهاز (v22): `once` / `repeating` / `continuous`.
+  /// الدوا اللي مالوش نوع بياخده. في drift مش shared_preferences عشان
+  /// صحوة شاشة القفل بتعيد الجدولة كمان.
+  TextColumn get alertMode => text().withDefault(const Constant('repeating'))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -321,6 +326,10 @@ class Medications extends Table with SyncIdentity {
   /// **محلية، ما بتترفعش للسحابة**: مالهاش عمود هناك، والابن مش بيقرا
   /// حاجة منها. زي `attachment_path` بالظبط.
   TextColumn get activeIngredient => text().nullable()();
+
+  /// نوع التنبيه بتاع الدوا ده (v22) — null = زي إعداد الجهاز. **محلي**:
+  /// مش بيتدفع للسحابة (الإعادات على موبايل المريض بس).
+  TextColumn get alertMode => text().nullable()();
 
   /// null معناها الدوا لسه شغّال.
   ///

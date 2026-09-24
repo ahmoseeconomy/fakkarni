@@ -10,6 +10,8 @@ import '../../domain/medication/duplicate_check.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../core/widgets/f_wheels.dart';
+import '../../domain/escalation/alert_mode.dart';
+import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor;
 import 'medication_draft.dart';
 
@@ -37,6 +39,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialAmount,
     this.initialTimings = const [],
     this.initialDurationDays,
+    this.initialAlertMode,
     this.packageReading,
     this.draft = false,
     super.key,
@@ -61,6 +64,9 @@ class AddMedicationScreen extends StatefulWidget {
   /// اليوم يتعدّل = تذكير واحد. القايمة هي اللي بتقفل الباب ده.
   final List<DoseTiming> initialTimings;
   final int? initialDurationDays;
+
+  /// نوع التنبيه اللي السطر واقف عليه في المسوّدة — null = الافتراضي.
+  final AlertMode? initialAlertMode;
 
   /// اللي اتقرا من صورة علبة — **حقول وبس، ولا موعد فيهم**.
   ///
@@ -100,6 +106,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   int _days = 7;
   bool _busy = false;
 
+  /// نوع التنبيه — null = «الافتراضي» (إعداد الجهاز). من الورقة بييجي null.
+  AlertMode? _alertMode;
+  AlertMode? _deviceMode;
+
   /// دوا في القايمة بنفس الاسم أو نفس المادة — بيتعرض، ومش بيمنع.
   DuplicateMatch? _duplicate;
   bool _duplicateChecked = false;
@@ -115,10 +125,16 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     // الورقة بتقول العدد، فالشريحة بتبان عليه. سطر بأربع جرعات كان
     // بيوصل هنا والعدّاد مخبّي خالص — فاللي عايز يخلّيها اتنين ما كانش
     // قدامه غير إنه يشيل من قايمة مابقتش موجودة.
+    _alertMode = widget.initialAlertMode;
     if (widget.initialTimings.isNotEmpty) {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final device = (await AppScope.of(context).preferences.get()).alertMode;
+      if (mounted) setState(() => _deviceMode = device);
+    });
     _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
     // **الفحص بيجري على طول لما القراية جاية من علبة** — الراجل لسه
     // ماسك العلبة التانية في إيده، ودي أحسن لحظة يعرف إنها عنده خلاص.
@@ -298,6 +314,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       timings: timings,
       // المدة المفتوحة هي الافتراضي — وما بنخمّنش مدة أبداً.
       durationDays: _openEnded ? null : _days,
+      alertMode: _alertMode,
     );
 
     // مسوّدة: بنرجّع اللي اتظبط، **وما بنكتبش**. اللي نادانا هو اللي بيقرر
@@ -318,6 +335,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       // المادة الفعّالة من العلبة بتتخزّن مع الدوا — منها بس فحص
       // التكرار بيقدر يشوف علبتين اسمهم مختلف ونفس المادة.
       activeIngredient: widget.packageReading?.ingredientField,
+      alertMode: result.alertMode,
     );
     await services.scheduler.rescheduleAll();
 
@@ -464,6 +482,21 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ],
                       ),
                     ),
+                  const SizedBox(height: F.s12),
+                  FCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _FieldLabel('نوع التنبيه'),
+                        AlertModeChips(
+                          value: _alertMode,
+                          allowDefault: true,
+                          defaultMode: _deviceMode,
+                          onChanged: (m) => setState(() => _alertMode = m),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: F.s12),
                   FCard(
                     child: Column(

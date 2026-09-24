@@ -20,15 +20,24 @@
 /// «أخدته» أو «فكّرني بعدين» بيلغوا كل إعادة لسه ما رنّتش، فوراً.
 library;
 
-/// المسافة بين كل إعادة واللي بعدها — من معاد الجرعة **الأصلي**.
+import 'alert_mode.dart';
+
+export 'alert_mode.dart';
+
+/// المسافة بين كل إعادة واللي بعدها في النوع الافتراضي («يتكرر») — من
+/// معاد الجرعة **الأصلي**.
 const Duration repeatEvery = Duration(minutes: 5);
 
-/// أقصى عدد إعادات لتذكير واحد.
+/// أقصى عدد إعادات لتذكير واحد في النوع الافتراضي.
 const int maxRepeats = 3;
+
+/// أقصى عدد إعادات في **أي** نوع — «مستمر» بعشرة. عدد نطاقات الأرقام
+/// بيتحدد منه، مش من الافتراضي.
+final int maxRepeatsAny = AlertMode.maxCount;
 
 /// إعادة تنبيه في وقتها الحقيقي.
 class RepeatStep {
-  const RepeatStep({required this.index, required this.at});
+  const RepeatStep({required this.index, required this.at, required this.delay});
 
   /// ٠ = أول إعادة (+٥)، ١ = التانية (+١٠)، ٢ = التالتة (+١٥).
   final int index;
@@ -37,26 +46,28 @@ class RepeatStep {
   final DateTime at;
 
   /// المسافة من معاد الجرعة الأصلي.
-  Duration get delay => repeatEvery * (index + 1);
+  final Duration delay;
 
   @override
   String toString() => 'RepeatStep($index @ $at)';
 }
 
-/// كل الإعادات لتذكير معاده [reminderAt] — بالترتيب، من غير أي فلتر.
+/// كل الإعادات لتذكير معاده [reminderAt] بنوع [mode] — بالترتيب، من غير
+/// أي فلتر. «مرة واحدة» بترجّع قايمة فاضية.
 ///
 /// المُنشئ بالدقايق مش `.add(Duration)`: مصر بتغيّر التوقيت الصيفي،
 /// والمُنشئ بيحسب بالساعة اللي على الحيطة زي باقي المحرك.
-List<RepeatStep> repeatsFor(DateTime reminderAt) => [
-      for (var i = 0; i < maxRepeats; i++)
+List<RepeatStep> repeatsFor(DateTime reminderAt, {AlertMode mode = AlertMode.standard}) => [
+      for (var i = 0; i < mode.count; i++)
         RepeatStep(
           index: i,
+          delay: mode.every * (i + 1),
           at: DateTime(
             reminderAt.year,
             reminderAt.month,
             reminderAt.day,
             reminderAt.hour,
-            reminderAt.minute + repeatEvery.inMinutes * (i + 1),
+            reminderAt.minute + mode.every.inMinutes * (i + 1),
           ),
         ),
     ];

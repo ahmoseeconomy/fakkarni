@@ -89,7 +89,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 21);
+    expect(version.read<int>('user_version'), 22);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -204,6 +204,22 @@ void main() {
       expect(r.unsetAnchors, '', reason: 'روتين قديم اتعلّم إنه ناقص');
       expect(routineFromRow(r).isComplete, isTrue);
     }
+
+    // v22: نوع التنبيه — الدوا القديم null (زي الجهاز)، والجهاز على «يتكرر»
+    // اللي كان السلوك الوحيد: مفيش دوا اتغيّر تنبيهه من غير ما حد يختار.
+    final medColumns22 = await db
+        .customSelect("SELECT name FROM pragma_table_info('medications')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(medColumns22, contains('alert_mode'));
+    for (final m in await db.select(db.medications).get()) {
+      expect(m.alertMode, isNull, reason: 'نوع مخترع لدوا قديم');
+    }
+    final prefColumns = await db
+        .customSelect("SELECT name FROM pragma_table_info('device_preferences')")
+        .map((r) => r.read<String>('name'))
+        .get();
+    expect(prefColumns, contains('alert_mode'));
   });
 
   test('التاريخ عاش: حدث «اتاخد» لسه مربوط بجرعته ويومه', () async {

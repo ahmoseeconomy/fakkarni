@@ -109,13 +109,15 @@ void main() {
     });
   });
 
-  group('٢ — الأرقام: تلات نطاقات على ٨٠ و٩٠ و١٠٠ مليون', () {
+  group('٢ — الأرقام: عشر نطاقات على ٨٠ لحد ١٧٠ مليون', () {
     test('كل إعادة في نطاقها، والنطاق بيبدأ على حد ١٠ مليون', () {
       expect(repeatIdBase, 80000000);
+      expect(maxRepeatsAny, 10, reason: '«مستمر» بعشرة');
       expect(repeatIdFor(_seven, 0), greaterThanOrEqualTo(80000000));
       expect(repeatIdFor(_seven, 1), greaterThanOrEqualTo(90000000));
       expect(repeatIdFor(_seven, 2), greaterThanOrEqualTo(100000000));
-      for (var i = 0; i < maxRepeats; i++) {
+      expect(repeatIdFor(_seven, 9), greaterThanOrEqualTo(170000000));
+      for (var i = 0; i < maxRepeatsAny; i++) {
         final id = repeatIdFor(_seven, i);
         expect(repeatIndexOf(id), i);
         expect(isRepeatId(id), isTrue);
@@ -129,7 +131,7 @@ void main() {
         expect(isCaregiverAppointmentId(id), isFalse);
       }
       expect(repeatIndexOf(notificationIdFor(_seven)), isNull);
-      expect(() => repeatIdFor(_seven, 3), throwsRangeError);
+      expect(() => repeatIdFor(_seven, 10), throwsRangeError);
       expect(() => repeatIdFor(_seven, -1), throwsRangeError);
     });
 
@@ -148,7 +150,7 @@ void main() {
         'المتابعات': (checkupIdBase, checkupIdLimit),
         'المواعيد': (appointmentIdBase, appointmentIdLimit),
         'مواعيد الابن': (caregiverAppointmentIdBase, caregiverAppointmentIdLimit),
-        for (var i = 0; i < maxRepeats; i++)
+        for (var i = 0; i < maxRepeatsAny; i++)
           'إعادة $i': (
             repeatIdFor(DateTime.utc(1970), i),
             repeatIdFor(DateTime.utc(1970), i, patientIndex: maxPatients - 1) + patientIdSpan,
@@ -164,15 +166,15 @@ void main() {
         }
       }
       expect(repeatIdLimit, lessThan(2147483647));
-      expect(repeatIdFor(DateTime.utc(1970, 2, 1, 23, 59), 2, patientIndex: maxPatients - 1),
+      expect(repeatIdFor(DateTime.utc(1970, 2, 1, 23, 59), 9, patientIndex: maxPatients - 1),
           lessThan(repeatIdLimit));
     });
   });
 
   group('٣ — الميزانية: الجرعات دفعت، السلّم لأ', () {
-    test('٣٢ + ١٤ + ٢ + ٢ + ٢ + ١٢ = ٦٤', () {
-      expect(maxPendingRepeats, 12);
-      expect(maxPendingReminders, 32);
+    test('٢٤ + ١٤ + ٢ + ٢ + ٢ + ٢٠ = ٦٤', () {
+      expect(maxPendingRepeats, 20, reason: '«مستمر» لتذكيرين، أو «يتكرر» لستة');
+      expect(maxPendingReminders, 24);
       expect(maxPendingEscalations, 14, reason: 'السلّم ما اتقصّش');
       expect(
         maxPendingReminders +
@@ -217,16 +219,17 @@ void main() {
       expect(planned.map((p) => p.id), contains(repeatIdFor(_seven, 1)));
     });
 
-    test('أقرب ٤ تذكيرات بس — والسقف بيعدّ اللي لسه ليها إعادة، مش اللي فاتت', () {
+    test('الميزانية خانات: «يتكرر» بإعادتين بيغطّي ١٠ تذكيرات، والأقرب الأول، واللي فاتت ما بتاخدش خانة', () {
       final many = [
-        for (var i = 0; i < 6; i++) _dose('M$i', DayAnchor.breakfast, offset: -30 + i * 20),
+        for (var i = 0; i < 12; i++) _dose('M$i', DayAnchor.breakfast, offset: -30 + i * 20),
       ];
       final rems = planWindow(routine: _routine, schedules: many, from: _six);
       final planned = planRepeats(rems, from: _six);
       final covered = {for (final p in planned) p.payload};
-      expect(covered.length, maxPendingRepeats ~/ maxRepeats);
-      expect(planned.length, lessThanOrEqualTo(maxPendingRepeats));
-      expect(covered, {for (final r in rems.take(4)) r.payload}, reason: 'الأقرب الأول');
+      // +١٥ بتاعة الدرجة، فكل تذكير بياخد إعادتين: ٢٠ ÷ ٢ = ١٠ تذكيرات
+      expect(covered.length, 10);
+      expect(planned.length, maxPendingRepeats);
+      expect(covered, {for (final r in rems.take(10)) r.payload}, reason: 'الأقرب الأول');
 
       // ٧:٠٠ رنّت من نص ساعة — إعاداتها كلها فاتت، وما بتاخدش خانة
       final later = DateTime(2026, 8, 31, 7, 30);
@@ -235,7 +238,57 @@ void main() {
       final planned2 = planRepeats(shifted, from: later);
       final covered2 = {for (final p in planned2) p.payload};
       expect(covered2, isNot(contains(rems.first.payload)));
-      expect(covered2.length, 4);
+      expect(covered2.length, 10);
+    });
+
+    test('«مرة واحدة»: ولا إعادة — والسلّم ما بيتلمسش', () {
+      final planned = planRepeats(reminders(), from: _six, modeOf: (_) => AlertMode.once);
+      expect(planned, isEmpty);
+      expect(planEscalations(reminders(), from: _six), isNotEmpty);
+    });
+
+    test('«مستمر»: كل ٣ دقايق لحد نص ساعة — عشرة، ناقص اللي على دقيقة درجة شغّالة', () {
+      final rems = reminders();
+      final planned = planRepeats(rems, from: _six, modeOf: (_) => AlertMode.continuous);
+      final mine = planned.where((p) => p.payload == rems.first.payload).toList();
+      expect(mine.map((p) => p.at.difference(_seven).inMinutes), [3, 6, 9, 12, 18, 21, 24, 27],
+          reason: '+١٥ و+٣٠ بتوع السلّم');
+      final none = planRepeats(rems, from: _six, modeOf: (_) => AlertMode.continuous, enabledRungs: const {});
+      expect(none.where((p) => p.payload == rems.first.payload).length, AlertMode.continuous.count);
+      expect(mine.map((p) => p.body).first, endsWith('فات ٣ دقايق'));
+      expect(mine.map((p) => p.body).last, endsWith('فات ٢٧ دقيقة'));
+    });
+
+    test('«مستمر» بياخد الميزانية كلها لأقرب تذكيرين — والتالت بياخد اللي فاضل', () {
+      final many = [
+        for (var i = 0; i < 4; i++) _dose('M$i', DayAnchor.breakfast, offset: -30 + i * 60),
+      ];
+      final rems = planWindow(routine: _routine, schedules: many, from: _six);
+      final planned = planRepeats(rems, from: _six, modeOf: (_) => AlertMode.continuous, enabledRungs: const {});
+      expect(planned.length, maxPendingRepeats);
+      final byReminder = <String, int>{};
+      for (final p in planned) {
+        byReminder[p.payload] = (byReminder[p.payload] ?? 0) + 1;
+      }
+      expect(byReminder[rems[0].payload], 10);
+      expect(byReminder[rems[1].payload], 10);
+      expect(byReminder[rems[2].payload], isNull, reason: 'الميزانية خلصت — الأقرب الأول');
+    });
+
+    test('تذكير مجمّع بياخد الأقوى بين أدويته، ودوا من غير نوع بياخد إعداد الجهاز', () {
+      expect(AlertMode.strongest([AlertMode.once, AlertMode.continuous, AlertMode.repeating]),
+          AlertMode.continuous);
+      expect(AlertMode.strongest(const []), AlertMode.once);
+      final quiet = _dose('q', DayAnchor.breakfast, offset: -30);
+      final loud = DoseSchedule(
+        id: 'l', medicationName: 'l', timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        repeat: DoseRepeat.daily, startDate: _aug31, alertMode: AlertMode.continuous,
+      );
+      final rems = planWindow(routine: _routine, schedules: [quiet, loud], from: _six);
+      expect(rems.first.doses, hasLength(2), reason: 'نفس الدقيقة → تذكير واحد');
+      expect(alertModeOf(rems.first, fallback: AlertMode.once), AlertMode.continuous);
+      expect(alertModeOf(planWindow(routine: _routine, schedules: [quiet], from: _six).first,
+          fallback: AlertMode.once), AlertMode.once);
     });
 
     test('النص نفس سطر الجرعة وقدامه قد إيه فات، ونفس الحمولة ونفس العنوان', () {
@@ -260,6 +313,7 @@ void main() {
     late _Sink sink;
     late ReminderScheduler scheduler;
     late int patientId;
+    late int medId;
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
@@ -277,7 +331,7 @@ void main() {
         sink: sink,
         preferences: prefs,
       );
-      await meds.addMedication(
+      medId = await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
         timing: AnchorTiming(DayAnchor.breakfast, -30),
@@ -289,7 +343,7 @@ void main() {
 
     test('الإعادات بتتجدول مع الجرعات والسلّم، وكله تحت الـ٦٤', () async {
       await scheduler.rescheduleAll(now: _six);
-      expect(sink.repeats.length, 8, reason: 'أقرب ٤ تذكيرات × إعادتين (+١٥ بتاعة الدرجة)');
+      expect(sink.repeats.length, 14, reason: '٧ تذكيرات في النافذة المزاحة × إعادتين (+١٥ بتاعة الدرجة)');
       expect(sink.repeats.containsKey(repeatIdFor(_seven, 0)), isTrue);
       expect(sink.repeats.containsKey(repeatIdFor(_seven, 1)), isTrue);
       expect(sink.repeats.containsKey(repeatIdFor(_seven, 2)), isFalse);
@@ -299,10 +353,10 @@ void main() {
       );
     });
 
-    test('«أخدته» بتلغي الإعادات التلاتة مع التذكير في نفس اللحظة — القاعدة الخامسة', () async {
+    test('«أخدته» بتلغي الإعادات العشرة مع التذكير في نفس اللحظة — القاعدة الخامسة', () async {
       await scheduler.rescheduleAll(now: _six);
       await scheduler.cancelReminderAt(_seven);
-      for (var i = 0; i < maxRepeats; i++) {
+      for (var i = 0; i < maxRepeatsAny; i++) {
         expect(sink.cancelled, contains(repeatIdFor(_seven, i)));
         expect(sink.scheduled.containsKey(repeatIdFor(_seven, i)), isFalse);
       }
@@ -319,7 +373,7 @@ void main() {
         payload: '{}',
         now: DateTime(2026, 8, 31, 7, 2),
       );
-      for (var i = 0; i < maxRepeats; i++) {
+      for (var i = 0; i < maxRepeatsAny; i++) {
         expect(sink.cancelled, contains(repeatIdFor(_seven, i)));
       }
       expect(sink.scheduled.containsKey(escalationIdFor(_seven, EscalationRung.second)), isTrue);
@@ -353,6 +407,24 @@ void main() {
       expect(sink.scheduled.containsKey(repeatIdFor(_seven, 2)), isTrue);
       expect(sink.scheduled.containsKey(escalationIdFor(_seven, EscalationRung.first)), isFalse);
       expect(sink.scheduled.containsKey(escalationIdFor(_seven, EscalationRung.second)), isTrue);
+    });
+
+    test('إعداد الجهاز «مستمر» → كل ٣ دقايق على الجهاز، والسلّم ١٤ زي ما هو', () async {
+      await prefs.setAlertMode(AlertMode.continuous);
+      await scheduler.rescheduleAll(now: _six);
+      expect(sink.repeats.containsKey(repeatIdFor(_seven, 0)), isTrue);
+      expect(sink.repeats[repeatIdFor(_seven, 0)]!.at, DateTime(2026, 8, 31, 7, 3));
+      expect(sink.repeats.length, maxPendingRepeats);
+      expect(sink.escalations.length, 14);
+      expect(sink.scheduled.length + snoozePendingSlack + fastingPendingSlack + checkupPendingSlack,
+          lessThanOrEqualTo(iosPendingLimit));
+    });
+
+    test('نوع الدوا بيغلب إعداد الجهاز: «مرة واحدة» على الدوا → ولا إعادة، والدرجتين موجودين', () async {
+      await meds.setAlertMode(medId, AlertMode.once);
+      await scheduler.rescheduleAll(now: _six);
+      expect(sink.repeats, isEmpty);
+      expect(sink.escalations.length, 14);
     });
 
     test('**السلّم ما اتلمسش**: نفس الأرقام ونفس المواعيد بالحرف، من السلّم النقي', () async {

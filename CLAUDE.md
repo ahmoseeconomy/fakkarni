@@ -604,8 +604,8 @@ for days — that waste is now the patient dimension.
 | Lab follow-up dates | `50_000_000` – `55_898_239` | **round 20**; **now legacy — nothing schedules into it.** `checkupIdBase` / `checkupIdFor(recordId, stageSlot)` / `isCheckupId()`. Every `AppointmentScheduler.refresh` cancels **every pending id in this band** — that is the upgrade fix for phones whose dates were set before the appointments round |
 | Appointment notices | `60_000_000` – `65_898_239` | **مواصفة المواعيد**, live. `appointmentIdBase` / `appointmentIdFor(day, notice)` / `isAppointmentId()`. **`base + epochDay * 2 + notice`** — إشعارين لكل **يوم** فيه مواعيد (هادي امبارحه، وواحد بيرن في يومه)، مش لكل ميعاد. `epochDayOf` بيتحسب بالـUTC. **Not** in `isRescheduledId` |
 | Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(day, notice)` — **نفس اشتقاق الأب من نطاق تاني**؛ `caregiverAppointmentCap` (٤) بقى عدّ **أيام** مش عدّ مواعيد |
-| Repeat alerts | `80_000_000` – `105_898_239` (three bands: 80M, 90M, 100M) | **«التذكير مش بيرن»**, live. `repeatIdBase` / `repeatIdFor(at, index)` / `isRepeatId()` / `repeatIndexOf()`. One band per repeat (+5 / +10 / +15) for the same reason the ladder has one per rung; derived from the **original** dose slot; in `isRescheduledId` like the ladder, so a dose confirmed anywhere drops its pending repeats on the next rebuild |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`110_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
+| Repeat alerts | `80_000_000` – `175_898_239` (ten bands, 80M … 170M) | **«التذكير مش بيرن»** + alert modes, live. `repeatIdBase` / `repeatIdFor(at, index)` / `isRepeatId()` / `repeatIndexOf()`. One band per repeat index — «مستمر» reaches ten — for the same reason the ladder has one per rung; derived from the **original** dose slot; in `isRescheduledId` like the ladder, so a dose confirmed anywhere drops its pending repeats on the next rebuild; `cancelReminderAt` cancels all ten whatever the mode was |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`180_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -614,15 +614,17 @@ far below the 32-bit ceiling Android imposes on notification IDs
 
 **iOS keeps only 64 pending local notifications per app and silently drops
 the rest** — no error, no warning. So the window is capped, not fixed:
-`maxPendingReminders` is 32 (48 until D3.7, 46 until the follow-up dates,
-44 until the repeat alerts); the remaining 32 are `maxPendingEscalations`
-(14 = the nearest 7 reminders × 2 rungs), `maxPendingRepeats` (12 = the
-nearest 4 reminders × 3 repeats), `snoozePendingSlack` (2),
+`maxPendingReminders` is 24 (48 until D3.7, 46 until the follow-up dates,
+44 until the repeat alerts, 32 until the «مستمر» mode); the remaining 40
+are `maxPendingEscalations` (14 = the nearest 7 reminders × 2 rungs),
+`maxPendingRepeats` (20 — one budget for every mode: «مستمر» covers the
+nearest two reminders with ten each, «يتكرر» the nearest six with three),
+`snoozePendingSlack` (2),
 `fastingPendingSlack` (2 — at most two fasting reminders exist at once, and
 the button says so) and `checkupPendingSlack` (2, same reasoning), so dose +
 ladder + repeats + a snooze + fasting + follow-up dates never reach 65.
 **Every new band pays for itself out of the dose window, never out of the
-ladder.** `planWindow` sorts and keeps the **nearest** 32, so the horizon
+ladder.** `planWindow` sorts and keeps the **nearest** 24, so the horizon
 shortens by itself as medications accumulate — a patient on one drug gets the
 full 7 days, one on six drugs three times daily gets about two and a half.
 Every app launch calls `rescheduleAll()`, which re-extends the window from the
@@ -1139,6 +1141,32 @@ the ladder:
   `timeSensitive` is delivered as an ordinary notification with no error
   anywhere. `docs/ALARMKIT_NOTE.md` is the
   research note on iOS 26 AlarmKit — not built, deliberately.
+
+**Alert modes: how often the reminder comes back, per medicine** (24 Sep
+2026). `AlertMode` in `domain/escalation/alert_mode.dart`: `once` (the
+chime only, no repeats), `repeating` (+5/+10/+15 — the default and the
+behaviour above), `continuous` (every 3 minutes, capped at ten, so +3 …
++30). **The ladder, the 60-minute server grace and the son's alert are
+identical in all three** — a mode only changes the local repeats, and
+`reminder_repeat_test` pins the 14 rungs under each. A repeat still never
+rings in the minute of an enabled rung, so «مستمر» with both rungs on is
+eight repeats plus the two rungs. The device default lives in
+`device_preferences.alert_mode` (drift **v22**, default `repeating`; in
+drift and not `shared_preferences` because the lock-screen isolate
+reschedules too) and is set from «التنبيهات» → «نوع التنبيه». The
+per-medicine override is `medications.alert_mode` (v22, nullable,
+null = follow the device), shown as `AlertModeChips` — one row of four
+equal-width chips at 17px — on «ضيف دوا» and on the edit screen, and
+carried through `MedicationDraft` so a prescription line keeps what the
+person chose on «عدّل». A merged reminder takes the strongest mode among
+its doses (`alertModeOf`). **Not pushed to the cloud**: the medications
+payload names its columns and `alert_mode` is not among them, like
+`active_ingredient`; repeats happen on the patient's phone only, so no
+`0022` was needed. Budget: `maxPendingRepeats` is one pool of 20 slots
+handed out nearest-first (`planRepeats` takes each reminder's steps from
+what is left), paid from the dose window (32 → 24) — never from the ladder.
+`repeatEvery` / `maxRepeats` remain the `repeating` numbers;
+`maxRepeatsAny` (10) sizes the id bands.
 
 **«اتنست» is a grace decision, written by the device, reversible.**
 `rescheduleAll` first materialises yesterday's and today's routine days

@@ -151,9 +151,9 @@ void main() {
     });
 
     test('والأسقف زي ما هي — بالرقم، مش بقراية نفسها', () {
-      // ٤٤ ← ٣٢ مع إعادة التنبيه (١٢ خانة) — الجرعات دفعت، السلّم لأ
-      expect(maxPendingReminders, 32);
-      expect(maxPendingRepeats, 12);
+      // ٤٤ ← ٣٢ مع إعادة التنبيه، ← ٢٤ مع نوع «مستمر» (٢٠ خانة) — الجرعات دفعت، السلّم لأ
+      expect(maxPendingReminders, 24);
+      expect(maxPendingRepeats, 20);
       expect(maxPendingEscalations, 14);
       expect(snoozePendingSlack, 2);
       expect(fastingPendingSlack, 2);

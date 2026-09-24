@@ -1,3 +1,4 @@
+import '../domain/escalation/alert_mode.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../domain/scheduling/dose_schedule.dart';
 import 'db/app_database.dart';
@@ -41,6 +42,7 @@ DoseSchedule doseScheduleFromRow(
       startDate: row.startDate,
       durationDays: row.durationDays,
       amountLabel: med.amountLabel,
+      alertMode: AlertMode.fromStorage(med.alertMode),
     );
 
 /// بيرجّع نوع التوقيت من الصف وصف الساعة الثابتة (لو موجود).

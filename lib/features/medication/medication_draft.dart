@@ -1,3 +1,4 @@
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 
 /// دوا زي ما الإنسان ظبّطه — **ولسه ما اتحفظش**.
@@ -13,6 +14,7 @@ class MedicationDraft {
     this.amountLabel,
     this.amountUnknown = false,
     this.durationDays,
+    this.alertMode,
   });
 
   final String name;
@@ -26,4 +28,7 @@ class MedicationDraft {
 
   /// null = مفتوحة، زي ما الورقة سابتها.
   final int? durationDays;
+
+  /// نوع التنبيه — null = «الافتراضي» (إعداد الجهاز).
+  final AlertMode? alertMode;
 }

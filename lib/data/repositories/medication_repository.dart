@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/medication/duplicate_check.dart';
+import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import '../db/app_database.dart';
@@ -22,6 +23,7 @@ typedef MedicationWrite = ({
   String? amountLabel,
   bool amountUnknown,
   int? durationDays,
+  AlertMode? alertMode,
 });
 
 class MedicationRepository {
@@ -108,6 +110,9 @@ class MedicationRepository {
     /// المادة الفعّالة زي ما اتقرت من العلبة — null في كل طريق تاني.
     /// بيتقرا منها سؤال واحد بعدين: «الدوا ده عندك خلاص؟».
     String? activeIngredient,
+
+    /// نوع التنبيه — null = زي إعداد الجهاز.
+    AlertMode? alertMode,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -120,6 +125,7 @@ class MedicationRepository {
               amountLabel: Value(amountLabel),
               amountUnknown: Value(amountUnknown),
               activeIngredient: Value(activeIngredient),
+              alertMode: Value(alertMode?.storageName),
             ),
           );
       for (final timing in timings) {
@@ -160,6 +166,7 @@ class MedicationRepository {
               amountLabel: m.amountLabel,
               amountUnknown: m.amountUnknown,
               durationDays: m.durationDays,
+              alertMode: m.alertMode,
             ),
           );
         }
@@ -313,6 +320,12 @@ class MedicationRepository {
   /// معاملة واحدة. مرساة → أنكر + إزاحة والساعة الثابتة بتتمسح؛ ساعة ثابتة →
   /// المرساة والإزاحة null والساعة بتتكتب في fixed_timings. الصف نفسه بيفضل
   /// (نفس id وuuid) فأحداث اليوم اللي عليه ما بتضيعش.
+  /// نوع التنبيه بتاع دوا محفوظ — null = ارجع لإعداد الجهاز. اللي بينده
+  /// لازم يعيد الجدولة بعدها: الإعادات بتتبني وقت الجدولة.
+  Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
+      (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+          .write(MedicationsCompanion(alertMode: Value(mode?.storageName)));
+
   Future<void> updateTiming(int scheduleId, DoseTiming timing) =>
       _db.transaction(() async {
         await (_db.update(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).write(

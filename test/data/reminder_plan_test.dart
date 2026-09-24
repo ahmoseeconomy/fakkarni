@@ -14,6 +14,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
@@ -343,6 +344,8 @@ void main() {
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
         days: 30,
+        // السقف الافتراضي (٢٤) أقل من ٣٠ — السؤال هنا عن المدة المفتوحة، مش السقف
+        maxPending: 64,
       );
 
       expect(planned.length, 30);
@@ -864,9 +867,7 @@ void main() {
         snoozeIdFor(DateTime(2026, 8, 31, 7)),
         escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.first),
         escalationIdFor(DateTime(2026, 8, 31, 7), EscalationRung.second),
-        repeatIdFor(DateTime(2026, 8, 31, 7), 0),
-        repeatIdFor(DateTime(2026, 8, 31, 7), 1),
-        repeatIdFor(DateTime(2026, 8, 31, 7), 2),
+        for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(DateTime(2026, 8, 31, 7), i),
       ]);
     });
 
@@ -1082,9 +1083,7 @@ void main() {
         // الإعادات التلاتة بتتلغي كلها الأول (التأجيل هو التذكير التاني
         // في الوقت اللي هو اختاره)، وبعدها الدرجة اللي التأجيل بيسبقها
         expect(sink.cancelled, [
-          repeatIdFor(sevenAm, 0),
-          repeatIdFor(sevenAm, 1),
-          repeatIdFor(sevenAm, 2),
+          for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(sevenAm, i),
           escalationIdFor(sevenAm, EscalationRung.first),
         ]);
         expect(sink.scheduled.containsKey(escalationIdFor(sevenAm, EscalationRung.second)), isTrue);

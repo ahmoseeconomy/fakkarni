@@ -121,7 +121,9 @@ class ReminderScheduler {
     );
     final ladder = planEscalations(recent, from: from, patientIndex: patientIndex);
 
-    final enabled = (await preferences?.get())?.enabledRungs ?? EscalationRung.values.toSet();
+    final settings = await preferences?.get();
+    final enabled = settings?.enabledRungs ?? EscalationRung.values.toSet();
+    final defaultMode = settings?.alertMode ?? AlertMode.standard;
     final allowedLadder = [
       for (final n in ladder)
         if (enabled.contains(escalationRungOf(n.id))) n,
@@ -135,6 +137,8 @@ class ReminderScheduler {
       from: from,
       patientIndex: patientIndex,
       enabledRungs: enabled,
+      // نوع التنبيه: بتاع الدوا، وإلا إعداد الجهاز — بيتقرا وقت الجدولة بس
+      modeOf: (r) => alertModeOf(r, fallback: defaultMode),
     );
 
     // **الرقم ده بيتسجّل من الخطة الحقيقية، مش من نسخة منها.** فحص
@@ -179,7 +183,8 @@ class ReminderScheduler {
   }
 
   Future<void> _cancelRepeatsAt(DateTime at) async {
-    for (var i = 0; i < maxRepeats; i++) {
+    // العشرة كلهم — مهما كان النوع وقت الجدولة، الإلغاء ما بيعرفش النوع
+    for (var i = 0; i < maxRepeatsAny; i++) {
       await sink.cancel(repeatIdFor(at, i, patientIndex: patientIndex));
     }
   }

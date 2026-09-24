@@ -1453,6 +1453,17 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _alertModeMeta = const VerificationMeta(
+    'alertMode',
+  );
+  @override
+  late final GeneratedColumn<String> alertMode = GeneratedColumn<String>(
+    'alert_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
     'stoppedAt',
   );
@@ -1499,6 +1510,7 @@ class $MedicationsTable extends Medications
     amountUnknown,
     notes,
     activeIngredient,
+    alertMode,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1591,6 +1603,12 @@ class $MedicationsTable extends Medications
         ),
       );
     }
+    if (data.containsKey('alert_mode')) {
+      context.handle(
+        _alertModeMeta,
+        alertMode.isAcceptableOrUnknown(data['alert_mode']!, _alertModeMeta),
+      );
+    }
     if (data.containsKey('stopped_at')) {
       context.handle(
         _stoppedAtMeta,
@@ -1658,6 +1676,10 @@ class $MedicationsTable extends Medications
         DriftSqlType.string,
         data['${effectivePrefix}active_ingredient'],
       ),
+      alertMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alert_mode'],
+      ),
       stoppedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
@@ -1710,6 +1732,10 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   /// حاجة منها. زي `attachment_path` بالظبط.
   final String? activeIngredient;
 
+  /// نوع التنبيه بتاع الدوا ده (v22) — null = زي إعداد الجهاز. **محلي**:
+  /// مش بيتدفع للسحابة (الإعادات على موبايل المريض بس).
+  final String? alertMode;
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
@@ -1735,6 +1761,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     required this.amountUnknown,
     this.notes,
     this.activeIngredient,
+    this.alertMode,
     this.stoppedAt,
     this.removedAt,
     required this.createdAt,
@@ -1759,6 +1786,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     }
     if (!nullToAbsent || activeIngredient != null) {
       map['active_ingredient'] = Variable<String>(activeIngredient);
+    }
+    if (!nullToAbsent || alertMode != null) {
+      map['alert_mode'] = Variable<String>(alertMode);
     }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
@@ -1790,6 +1820,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       activeIngredient: activeIngredient == null && nullToAbsent
           ? const Value.absent()
           : Value(activeIngredient),
+      alertMode: alertMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(alertMode),
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
@@ -1816,6 +1849,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       amountUnknown: serializer.fromJson<bool>(json['amountUnknown']),
       notes: serializer.fromJson<String?>(json['notes']),
       activeIngredient: serializer.fromJson<String?>(json['activeIngredient']),
+      alertMode: serializer.fromJson<String?>(json['alertMode']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1835,6 +1869,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'amountUnknown': serializer.toJson<bool>(amountUnknown),
       'notes': serializer.toJson<String?>(notes),
       'activeIngredient': serializer.toJson<String?>(activeIngredient),
+      'alertMode': serializer.toJson<String?>(alertMode),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'removedAt': serializer.toJson<DateTime?>(removedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1852,6 +1887,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     bool? amountUnknown,
     Value<String?> notes = const Value.absent(),
     Value<String?> activeIngredient = const Value.absent(),
+    Value<String?> alertMode = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
     Value<DateTime?> removedAt = const Value.absent(),
     DateTime? createdAt,
@@ -1868,6 +1904,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     activeIngredient: activeIngredient.present
         ? activeIngredient.value
         : this.activeIngredient,
+    alertMode: alertMode.present ? alertMode.value : this.alertMode,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     removedAt: removedAt.present ? removedAt.value : this.removedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -1894,6 +1931,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       activeIngredient: data.activeIngredient.present
           ? data.activeIngredient.value
           : this.activeIngredient,
+      alertMode: data.alertMode.present ? data.alertMode.value : this.alertMode,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1913,6 +1951,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('activeIngredient: $activeIngredient, ')
+          ..write('alertMode: $alertMode, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -1932,6 +1971,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     amountUnknown,
     notes,
     activeIngredient,
+    alertMode,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1950,6 +1990,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.amountUnknown == this.amountUnknown &&
           other.notes == this.notes &&
           other.activeIngredient == this.activeIngredient &&
+          other.alertMode == this.alertMode &&
           other.stoppedAt == this.stoppedAt &&
           other.removedAt == this.removedAt &&
           other.createdAt == this.createdAt);
@@ -1966,6 +2007,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<bool> amountUnknown;
   final Value<String?> notes;
   final Value<String?> activeIngredient;
+  final Value<String?> alertMode;
   final Value<DateTime?> stoppedAt;
   final Value<DateTime?> removedAt;
   final Value<DateTime> createdAt;
@@ -1980,6 +2022,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.activeIngredient = const Value.absent(),
+    this.alertMode = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1995,6 +2038,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.amountUnknown = const Value.absent(),
     this.notes = const Value.absent(),
     this.activeIngredient = const Value.absent(),
+    this.alertMode = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2011,6 +2055,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<bool>? amountUnknown,
     Expression<String>? notes,
     Expression<String>? activeIngredient,
+    Expression<String>? alertMode,
     Expression<DateTime>? stoppedAt,
     Expression<DateTime>? removedAt,
     Expression<DateTime>? createdAt,
@@ -2026,6 +2071,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (amountUnknown != null) 'amount_unknown': amountUnknown,
       if (notes != null) 'notes': notes,
       if (activeIngredient != null) 'active_ingredient': activeIngredient,
+      if (alertMode != null) 'alert_mode': alertMode,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (removedAt != null) 'removed_at': removedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -2043,6 +2089,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<bool>? amountUnknown,
     Value<String?>? notes,
     Value<String?>? activeIngredient,
+    Value<String?>? alertMode,
     Value<DateTime?>? stoppedAt,
     Value<DateTime?>? removedAt,
     Value<DateTime>? createdAt,
@@ -2058,6 +2105,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       amountUnknown: amountUnknown ?? this.amountUnknown,
       notes: notes ?? this.notes,
       activeIngredient: activeIngredient ?? this.activeIngredient,
+      alertMode: alertMode ?? this.alertMode,
       stoppedAt: stoppedAt ?? this.stoppedAt,
       removedAt: removedAt ?? this.removedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -2097,6 +2145,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (activeIngredient.present) {
       map['active_ingredient'] = Variable<String>(activeIngredient.value);
     }
+    if (alertMode.present) {
+      map['alert_mode'] = Variable<String>(alertMode.value);
+    }
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
@@ -2122,6 +2173,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('amountUnknown: $amountUnknown, ')
           ..write('notes: $notes, ')
           ..write('activeIngredient: $activeIngredient, ')
+          ..write('alertMode: $alertMode, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -4575,12 +4627,25 @@ class $DevicePreferencesTable extends DevicePreferences
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _alertModeMeta = const VerificationMeta(
+    'alertMode',
+  );
+  @override
+  late final GeneratedColumn<String> alertMode = GeneratedColumn<String>(
+    'alert_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('repeating'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     elderMode,
     rungFirstOn,
     rungSecondOn,
+    alertMode,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4621,6 +4686,12 @@ class $DevicePreferencesTable extends DevicePreferences
         ),
       );
     }
+    if (data.containsKey('alert_mode')) {
+      context.handle(
+        _alertModeMeta,
+        alertMode.isAcceptableOrUnknown(data['alert_mode']!, _alertModeMeta),
+      );
+    }
     return context;
   }
 
@@ -4646,6 +4717,10 @@ class $DevicePreferencesTable extends DevicePreferences
         DriftSqlType.bool,
         data['${effectivePrefix}rung_second_on'],
       )!,
+      alertMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alert_mode'],
+      )!,
     );
   }
 
@@ -4661,11 +4736,17 @@ class DevicePreferencesRow extends DataClass
   final bool elderMode;
   final bool rungFirstOn;
   final bool rungSecondOn;
+
+  /// نوع التنبيه الافتراضي للجهاز (v22): `once` / `repeating` / `continuous`.
+  /// الدوا اللي مالوش نوع بياخده. في drift مش shared_preferences عشان
+  /// صحوة شاشة القفل بتعيد الجدولة كمان.
+  final String alertMode;
   const DevicePreferencesRow({
     required this.id,
     required this.elderMode,
     required this.rungFirstOn,
     required this.rungSecondOn,
+    required this.alertMode,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4674,6 +4755,7 @@ class DevicePreferencesRow extends DataClass
     map['elder_mode'] = Variable<bool>(elderMode);
     map['rung_first_on'] = Variable<bool>(rungFirstOn);
     map['rung_second_on'] = Variable<bool>(rungSecondOn);
+    map['alert_mode'] = Variable<String>(alertMode);
     return map;
   }
 
@@ -4683,6 +4765,7 @@ class DevicePreferencesRow extends DataClass
       elderMode: Value(elderMode),
       rungFirstOn: Value(rungFirstOn),
       rungSecondOn: Value(rungSecondOn),
+      alertMode: Value(alertMode),
     );
   }
 
@@ -4696,6 +4779,7 @@ class DevicePreferencesRow extends DataClass
       elderMode: serializer.fromJson<bool>(json['elderMode']),
       rungFirstOn: serializer.fromJson<bool>(json['rungFirstOn']),
       rungSecondOn: serializer.fromJson<bool>(json['rungSecondOn']),
+      alertMode: serializer.fromJson<String>(json['alertMode']),
     );
   }
   @override
@@ -4706,6 +4790,7 @@ class DevicePreferencesRow extends DataClass
       'elderMode': serializer.toJson<bool>(elderMode),
       'rungFirstOn': serializer.toJson<bool>(rungFirstOn),
       'rungSecondOn': serializer.toJson<bool>(rungSecondOn),
+      'alertMode': serializer.toJson<String>(alertMode),
     };
   }
 
@@ -4714,11 +4799,13 @@ class DevicePreferencesRow extends DataClass
     bool? elderMode,
     bool? rungFirstOn,
     bool? rungSecondOn,
+    String? alertMode,
   }) => DevicePreferencesRow(
     id: id ?? this.id,
     elderMode: elderMode ?? this.elderMode,
     rungFirstOn: rungFirstOn ?? this.rungFirstOn,
     rungSecondOn: rungSecondOn ?? this.rungSecondOn,
+    alertMode: alertMode ?? this.alertMode,
   );
   DevicePreferencesRow copyWithCompanion(DevicePreferencesCompanion data) {
     return DevicePreferencesRow(
@@ -4730,6 +4817,7 @@ class DevicePreferencesRow extends DataClass
       rungSecondOn: data.rungSecondOn.present
           ? data.rungSecondOn.value
           : this.rungSecondOn,
+      alertMode: data.alertMode.present ? data.alertMode.value : this.alertMode,
     );
   }
 
@@ -4739,13 +4827,15 @@ class DevicePreferencesRow extends DataClass
           ..write('id: $id, ')
           ..write('elderMode: $elderMode, ')
           ..write('rungFirstOn: $rungFirstOn, ')
-          ..write('rungSecondOn: $rungSecondOn')
+          ..write('rungSecondOn: $rungSecondOn, ')
+          ..write('alertMode: $alertMode')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, elderMode, rungFirstOn, rungSecondOn);
+  int get hashCode =>
+      Object.hash(id, elderMode, rungFirstOn, rungSecondOn, alertMode);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4753,7 +4843,8 @@ class DevicePreferencesRow extends DataClass
           other.id == this.id &&
           other.elderMode == this.elderMode &&
           other.rungFirstOn == this.rungFirstOn &&
-          other.rungSecondOn == this.rungSecondOn);
+          other.rungSecondOn == this.rungSecondOn &&
+          other.alertMode == this.alertMode);
 }
 
 class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
@@ -4761,29 +4852,34 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
   final Value<bool> elderMode;
   final Value<bool> rungFirstOn;
   final Value<bool> rungSecondOn;
+  final Value<String> alertMode;
   const DevicePreferencesCompanion({
     this.id = const Value.absent(),
     this.elderMode = const Value.absent(),
     this.rungFirstOn = const Value.absent(),
     this.rungSecondOn = const Value.absent(),
+    this.alertMode = const Value.absent(),
   });
   DevicePreferencesCompanion.insert({
     this.id = const Value.absent(),
     this.elderMode = const Value.absent(),
     this.rungFirstOn = const Value.absent(),
     this.rungSecondOn = const Value.absent(),
+    this.alertMode = const Value.absent(),
   });
   static Insertable<DevicePreferencesRow> custom({
     Expression<int>? id,
     Expression<bool>? elderMode,
     Expression<bool>? rungFirstOn,
     Expression<bool>? rungSecondOn,
+    Expression<String>? alertMode,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (elderMode != null) 'elder_mode': elderMode,
       if (rungFirstOn != null) 'rung_first_on': rungFirstOn,
       if (rungSecondOn != null) 'rung_second_on': rungSecondOn,
+      if (alertMode != null) 'alert_mode': alertMode,
     });
   }
 
@@ -4792,12 +4888,14 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     Value<bool>? elderMode,
     Value<bool>? rungFirstOn,
     Value<bool>? rungSecondOn,
+    Value<String>? alertMode,
   }) {
     return DevicePreferencesCompanion(
       id: id ?? this.id,
       elderMode: elderMode ?? this.elderMode,
       rungFirstOn: rungFirstOn ?? this.rungFirstOn,
       rungSecondOn: rungSecondOn ?? this.rungSecondOn,
+      alertMode: alertMode ?? this.alertMode,
     );
   }
 
@@ -4816,6 +4914,9 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     if (rungSecondOn.present) {
       map['rung_second_on'] = Variable<bool>(rungSecondOn.value);
     }
+    if (alertMode.present) {
+      map['alert_mode'] = Variable<String>(alertMode.value);
+    }
     return map;
   }
 
@@ -4825,7 +4926,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
           ..write('id: $id, ')
           ..write('elderMode: $elderMode, ')
           ..write('rungFirstOn: $rungFirstOn, ')
-          ..write('rungSecondOn: $rungSecondOn')
+          ..write('rungSecondOn: $rungSecondOn, ')
+          ..write('alertMode: $alertMode')
           ..write(')'))
         .toString();
   }
@@ -9917,6 +10019,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       Value<bool> amountUnknown,
       Value<String?> notes,
       Value<String?> activeIngredient,
+      Value<String?> alertMode,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -9933,6 +10036,7 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<bool> amountUnknown,
       Value<String?> notes,
       Value<String?> activeIngredient,
+      Value<String?> alertMode,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -10029,6 +10133,11 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<String> get activeIngredient => $composableBuilder(
     column: $table.activeIngredient,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get alertMode => $composableBuilder(
+    column: $table.alertMode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10150,6 +10259,11 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get alertMode => $composableBuilder(
+    column: $table.alertMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnOrderings(column),
@@ -10234,6 +10348,9 @@ class $$MedicationsTableAnnotationComposer
     column: $table.activeIngredient,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get alertMode =>
+      $composableBuilder(column: $table.alertMode, builder: (column) => column);
 
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
@@ -10331,6 +10448,7 @@ class $$MedicationsTableTableManager
                 Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> activeIngredient = const Value.absent(),
+                Value<String?> alertMode = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10345,6 +10463,7 @@ class $$MedicationsTableTableManager
                 amountUnknown: amountUnknown,
                 notes: notes,
                 activeIngredient: activeIngredient,
+                alertMode: alertMode,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,
@@ -10361,6 +10480,7 @@ class $$MedicationsTableTableManager
                 Value<bool> amountUnknown = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> activeIngredient = const Value.absent(),
+                Value<String?> alertMode = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10375,6 +10495,7 @@ class $$MedicationsTableTableManager
                 amountUnknown: amountUnknown,
                 notes: notes,
                 activeIngredient: activeIngredient,
+                alertMode: alertMode,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,
@@ -12273,6 +12394,7 @@ typedef $$DevicePreferencesTableCreateCompanionBuilder =
       Value<bool> elderMode,
       Value<bool> rungFirstOn,
       Value<bool> rungSecondOn,
+      Value<String> alertMode,
     });
 typedef $$DevicePreferencesTableUpdateCompanionBuilder =
     DevicePreferencesCompanion Function({
@@ -12280,6 +12402,7 @@ typedef $$DevicePreferencesTableUpdateCompanionBuilder =
       Value<bool> elderMode,
       Value<bool> rungFirstOn,
       Value<bool> rungSecondOn,
+      Value<String> alertMode,
     });
 
 class $$DevicePreferencesTableFilterComposer
@@ -12308,6 +12431,11 @@ class $$DevicePreferencesTableFilterComposer
 
   ColumnFilters<bool> get rungSecondOn => $composableBuilder(
     column: $table.rungSecondOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get alertMode => $composableBuilder(
+    column: $table.alertMode,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12340,6 +12468,11 @@ class $$DevicePreferencesTableOrderingComposer
     column: $table.rungSecondOn,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get alertMode => $composableBuilder(
+    column: $table.alertMode,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DevicePreferencesTableAnnotationComposer
@@ -12366,6 +12499,9 @@ class $$DevicePreferencesTableAnnotationComposer
     column: $table.rungSecondOn,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get alertMode =>
+      $composableBuilder(column: $table.alertMode, builder: (column) => column);
 }
 
 class $$DevicePreferencesTableTableManager
@@ -12412,11 +12548,13 @@ class $$DevicePreferencesTableTableManager
                 Value<bool> elderMode = const Value.absent(),
                 Value<bool> rungFirstOn = const Value.absent(),
                 Value<bool> rungSecondOn = const Value.absent(),
+                Value<String> alertMode = const Value.absent(),
               }) => DevicePreferencesCompanion(
                 id: id,
                 elderMode: elderMode,
                 rungFirstOn: rungFirstOn,
                 rungSecondOn: rungSecondOn,
+                alertMode: alertMode,
               ),
           createCompanionCallback:
               ({
@@ -12424,11 +12562,13 @@ class $$DevicePreferencesTableTableManager
                 Value<bool> elderMode = const Value.absent(),
                 Value<bool> rungFirstOn = const Value.absent(),
                 Value<bool> rungSecondOn = const Value.absent(),
+                Value<String> alertMode = const Value.absent(),
               }) => DevicePreferencesCompanion.insert(
                 id: id,
                 elderMode: elderMode,
                 rungFirstOn: rungFirstOn,
                 rungSecondOn: rungSecondOn,
+                alertMode: alertMode,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

@@ -12,6 +12,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/core/widgets/patient_voice.dart';
@@ -237,9 +238,7 @@ void main() {
       escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.first),
       escalationIdFor(DateTime(2026, 8, 31, 14), EscalationRung.second),
       // وإعادات التنبيه التلاتة — نفس الخانة، نفس القاعدة
-      repeatIdFor(DateTime(2026, 8, 31, 14), 0),
-      repeatIdFor(DateTime(2026, 8, 31, 14), 1),
-      repeatIdFor(DateTime(2026, 8, 31, 14), 2),
+      for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(DateTime(2026, 8, 31, 14), i),
     ]);
   });
 

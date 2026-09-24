@@ -8,6 +8,8 @@ import '../../data/db/app_database.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../../domain/escalation/alert_mode.dart';
+import 'alert_mode_chips.dart';
 import 'dose_editor.dart';
 import 'dose_row.dart';
 
@@ -44,6 +46,17 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     services.routines.getRoutine(services.patientId).then((r) {
       if (mounted && r != null) setState(() => _routine = r);
     });
+    services.preferences.get().then((p) {
+      if (mounted) setState(() => _deviceMode = p.alertMode);
+    });
+  }
+
+  AlertMode? _deviceMode;
+
+  Future<void> _setAlertMode(AlertMode? mode) async {
+    final services = AppScope.of(context);
+    await services.medications.setAlertMode(widget.medicationId, mode);
+    await services.scheduler.rescheduleAll();
   }
 
   /// ميعاد وجبة اتحدد من جوّه المحرّر — بيتكتب متحدد والشاشة بتشوفه.
@@ -295,6 +308,19 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                             borderSide: BorderSide(color: F.line),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: F.gap),
+                      Text(
+                        'نوع التنبيه',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      // بيتحفظ على طول وبيعيد الجدولة — الإعادات بتتبني وقت الجدولة
+                      AlertModeChips(
+                        value: AlertMode.fromStorage(med.alertMode),
+                        allowDefault: true,
+                        defaultMode: _deviceMode,
+                        onChanged: _busy ? (_) {} : (m) => _setAlertMode(m),
                       ),
                       const SizedBox(height: F.gap + 6),
                       if (_confirmingStop) _StopConfirm(

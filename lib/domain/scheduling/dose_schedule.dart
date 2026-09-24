@@ -1,3 +1,4 @@
+import '../escalation/alert_mode.dart';
 import '../wording/rule_wording.dart';
 import 'day_routine.dart';
 
@@ -90,11 +91,15 @@ class DoseSchedule {
     this.repeat = DoseRepeat.daily,
     this.durationDays,
     this.amountLabel,
+    this.alertMode,
   });
 
   final String id;
   final String medicationName;
   final DoseTiming timing;
+
+  /// نوع التنبيه بتاع الدوا — null = زي إعداد الجهاز.
+  final AlertMode? alertMode;
 
   final DoseRepeat repeat;
 
