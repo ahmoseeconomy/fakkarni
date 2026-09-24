@@ -143,12 +143,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const NearbyScreen()),
             ),
             _Row(
-              icon: Icons.health_and_safety_outlined,
-              label: 'اطمن إن التذكير هيشتغل',
-              hint: 'بنتأكد إن كل حاجة في مكانها، وبنقولك لو حاجة ناقصة',
-              onTap: () => _open(const HealthCheckScreen()),
-            ),
-            _Row(
               icon: Icons.medical_information_outlined,
               label: 'معلومات الطوارئ',
               hint: 'فصيلة الدم، الحساسية، وجهات الاتصال',
@@ -193,6 +187,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: 'سجل التشخيص',
                 hint: 'اللي حصل في آخر صحوة — من سويفت ومن دارت',
                 onTap: () => _open(const DiagnosticsLogScreen()),
+              ),
+              // شاشة الفحص للمطوّر بس — المريض ما يشوفش مشكلة تقنية أبداً
+              // (قرار المالك): اللي يتصلّح بيتصلّح لوحده، والباقي للأدمن.
+              _Row(
+                icon: Icons.health_and_safety_outlined,
+                label: 'اطمن إن التذكير هيشتغل',
+                hint: 'نتيجة الفحص بأكواده — للمطوّر',
+                onTap: () => _open(const HealthCheckScreen()),
               ),
             ],
             if (user != null) ...[

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -829,6 +830,77 @@ void main() {
         if (t == 'medications') throw Exception('boom');
       };
       expect(await sync.pushNow(), contains('حصلت مشكلة'));
+    });
+  });
+
+  group('فشل مش مرفوض بيتعاد لوحده بتراجع — في صمت', () {
+    // المريض ما يشوفش مشكلة تقنية: نت واقع أو سيرفر تعبان بيتعادوا من
+    // غير محفّز من إنسان. الحساب المرفوض مش منهم — ده قرار _block.
+    test('التراجع أُسّي من ٣٠ ثانية لحد نص ساعة', () {
+      expect(SyncService.retryDelayFor(0), const Duration(seconds: 30));
+      expect(SyncService.retryDelayFor(1), const Duration(minutes: 1));
+      expect(SyncService.retryDelayFor(2), const Duration(minutes: 2));
+      expect(SyncService.retryDelayFor(6), SyncService.retryMax);
+      expect(SyncService.retryDelayFor(40), SyncService.retryMax);
+    });
+
+    test('بعد start: فشل → محاولة تانية لوحدها بعد المهلة، وبتقف مع النجاح', () async {
+      final retrying = SyncService(
+        db: db,
+        remote: remote,
+        hasSession: () => true,
+        localWrites: const Stream<Object?>.empty(),
+        retryBase: const Duration(milliseconds: 40),
+      )..start();
+      addTearDown(retrying.dispose);
+      await addConcor();
+      await retrying.confirmLinked();
+
+      var attempts = 0;
+      remote.onUpsert = (t) async {
+        if (t != 'medications') return;
+        attempts++;
+        if (attempts < 3) throw const SyncOffline('net down');
+      };
+      expect(await retrying.push(), PushOutcome.failed);
+      expect(attempts, 1);
+
+      // ٤٠ ملّي → محاولة ٢ (بتفشل) → ٨٠ ملّي → محاولة ٣ (بتنجح) → مفيش رابعة
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(attempts, 3, reason: 'اتنين لوحدهم بتراجع، وبعد النجاح وقفت');
+      expect(remote.rowCount('medications'), 1);
+    });
+
+    test('الحساب المرفوض ما بيتعادش — الطابور واقف لحد الربط', () async {
+      final retrying = SyncService(
+        db: db,
+        remote: remote,
+        hasSession: () => true,
+        localWrites: const Stream<Object?>.empty(),
+        retryBase: const Duration(milliseconds: 20),
+      )..start();
+      addTearDown(retrying.dispose);
+      await addConcor();
+      await retrying.confirmLinked();
+      var attempts = 0;
+      remote.onUpsert = (t) async {
+        attempts++;
+        throw const SyncRejected('42501', 'rejected');
+      };
+      expect(await retrying.push(), PushOutcome.failed);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(attempts, 1);
+    });
+
+    test('من غير start (صحوة الخلفية): مفيش مؤقّت إعادة خالص', () async {
+      await addConcor();
+      await sync.confirmLinked();
+      remote.onUpsert = (t) async => throw const SyncOffline('net down');
+      expect(await sync.pushOnce(), PushOutcome.failed);
+      // لو كان فيه مؤقّت، dispose هيلغيه — والاختبار نفسه ما يقدرش يشوفه؛
+      // الحارس الحقيقي هو الشرط `_started` في المصدر
+      final src = File('lib/data/sync/sync_service.dart').readAsStringSync();
+      expect(src, contains('if (!_started) return;'));
     });
   });
 

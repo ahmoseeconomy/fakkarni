@@ -45,30 +45,72 @@ void main() {
     });
   });
 
-  group('تنبيه السلامة معروض، مش متجدول', () {
-    // سقف iOS ٦٤ إشعار **معلّق** والأربعة وستين متوزّعين خلاص. إشعار
-    // متجدول من هنا بياخد خانة من جرعة حقيقية — يعني التنبيه اللي بيقول
-    // «التذكير ممكن ما يشتغلش» هو نفسه اللي بيعطّله.
-    final service = code('lib/core/notifications/notification_service.dart');
+  group('المريض ما يشوفش مشكلة تقنية — قرار المالك', () {
+    // يا التطبيق بيصلّحها لوحده في صمت، يا بتروح للوحة الأدمن مع النبضة.
+    // الاستثناء الوحيد: إذن التنبيهات مقفول — سطر واحد على «يومك» بزرار.
     final watcher = code('lib/data/health/health_watcher.dart');
+    final settings = code('lib/features/settings/settings_screen.dart');
 
-    test('showNow بتستعمل show، ومفيش zonedSchedule جواها', () {
-      final start = service.indexOf('static Future<void> showNow(');
-      expect(start, isNot(-1));
-      final body = service.substring(start, service.indexOf('\n  }\n', start));
-      expect(body, contains('_plugin.show('));
-      expect(body, isNot(contains('zonedSchedule')));
-    });
-
-    test('المراقب بينده showNow وبس — مفيش جدولة من ناحيته', () {
-      expect(watcher, contains('NotificationService.showNow('));
+    test('المراقب ما بينبّهش ولا بيجدول — ولا إشعار سلامة خالص', () {
+      expect(watcher, isNot(contains('showNow')));
+      expect(watcher, isNot(contains('NotificationService')));
       expect(watcher, isNot(contains('zonedSchedule')));
-      expect(watcher, isNot(contains('scheduleReminder')));
+      expect(watcher, isNot(contains('tapPayload')));
     });
 
-    test('رقم التنبيه برّه كل النطاقات المحجوزة', () {
-      // أي رقم جوّه نطاق بتاع جرعة أو سلّم كان هيلغي تذكير حقيقي
-      expect(watcher, contains('alertNotificationId = 60000001'));
+    test('المراقب بيصلّح في صمت وبيسجّل بـdiag', () {
+      expect(watcher, contains('class HealthAutoFix'));
+      expect(watcher, contains("diag('Health: إصلاح آلي"));
+    });
+
+    test('شاشة الفحص مش موجودة في أي شاشة مريض — لا «يومك» ولا الجذر', () {
+      final patientFiles = [
+        ...Directory('lib/features/today').listSync(recursive: true),
+        ...Directory('lib/features/elder').listSync(recursive: true),
+        File('lib/app/root.dart'),
+      ].whereType<File>().where((f) => f.path.endsWith('.dart'));
+      for (final f in patientFiles) {
+        final src = code(f.path);
+        for (final name in ['HealthCheckScreen', 'health_check_screen', 'HealthBar', 'health_bar']) {
+          expect(src, isNot(contains(name)), reason: '${f.path} بيفتح على شاشة الفحص');
+        }
+      }
+      expect(File('lib/features/selfcheck/health_bar.dart').existsSync(), isFalse);
+    });
+
+    test('في الإعدادات: صف الفحص تحت «للمطوّر» وجوّه !kReleaseMode', () {
+      final gate = settings.indexOf('if (!kReleaseMode)');
+      final head = settings.indexOf("FSectionHead('للمطوّر')");
+      final row = settings.indexOf("label: 'اطمن إن التذكير هيشتغل'");
+      expect(gate, isNot(-1));
+      expect(row, isNot(-1), reason: 'الشاشة لسه موجودة — للمطوّر');
+      expect(row, greaterThan(head));
+      expect(row, greaterThan(gate));
+      // ومفيش صف تاني ليها قبل البوابة
+      expect(settings.indexOf('HealthCheckScreen('), greaterThan(gate));
+    });
+
+    test('«يومك» بيعرض سطر الإذن وبس — بجملته المتفق عليها', () {
+      final today = code('lib/features/today/today_screen.dart');
+      expect(today, contains('NotificationsOffLine()'));
+      final line = code('lib/features/today/notifications_off_line.dart');
+      expect(line, contains("'التنبيهات مقفولة — افتحها عشان نفكّرك'"));
+      expect(line, contains('HealthCode.notificationPermission'));
+      // مفيش كود تاني بيتقرا هناك
+      for (final other in HealthCodeNames.all.where((c) => c != 'notificationPermission')) {
+        expect(line, isNot(contains('HealthCode.$other')), reason: 'كود $other وصل شاشة المريض');
+      }
     });
   });
+}
+
+/// أسماء الأكواد — من الملف نفسه، عشان كود جديد يدخل الحارس لوحده.
+class HealthCodeNames {
+  static List<String> get all {
+    final src = File('lib/domain/health/health_check.dart').readAsStringSync();
+    final body = src.substring(src.indexOf('enum HealthCode {'), src.indexOf('\n}\n', src.indexOf('enum HealthCode {')));
+    return [
+      for (final m in RegExp(r'^\s+([a-zA-Z]+),', multiLine: true).allMatches(body)) m.group(1)!,
+    ];
+  }
 }

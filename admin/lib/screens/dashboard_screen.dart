@@ -11,11 +11,11 @@ import 'overview_screen.dart';
 import 'widgets/account_panel.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
+import 'widgets/device_problems.dart';
 import 'widgets/screen_header.dart';
 import 'widgets/side_panel.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/skeletons.dart';
-import 'widgets/status_cues.dart';
 import 'widgets/tone_filter_chips.dart';
 import 'widgets/top_bar.dart';
 
@@ -51,6 +51,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   AdminCounts _counts = AdminCounts.empty;
   List<AdminAccount> _accounts = const [];
+  List<AdminDevice> _devices = const [];
   AdminException? _error;
   bool _loading = true;
   bool _refreshing = false;
@@ -105,10 +106,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     try {
       final counts = await widget.service.counts();
       final accounts = await widget.service.accounts();
+      final devices = await widget.service.devices();
       if (!mounted) return;
       setState(() {
         _counts = counts;
         _accounts = accounts;
+        _devices = devices;
         _error = null;
         _loading = false;
         _refreshing = false;
@@ -158,6 +161,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  /// دوسة على جهاز بتفتح حسابه — الجهاز مش أوضة لوحده.
+  void _openDevice(AdminDevice device) {
+    final account = _accounts.where((a) => a.patientUuid == device.patientUuid).firstOrNull;
+    if (account != null) unawaited(_openAccount(account));
+  }
+
   Future<void> _signOut() async {
     await widget.service.signOut();
     widget.onSignedOut();
@@ -165,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Map<AdminScreen, int> get _badges => {
         AdminScreen.accounts: _accounts.length,
-        AdminScreen.devices: _accounts.where((a) => rowTone(a, _now) == RowTone.warn).length,
+        AdminScreen.devices: DeviceProblemsList.problems(_devices, _now).length,
       };
 
   Widget _content(bool narrow) {
@@ -176,6 +185,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           now: _now,
           onNavigate: _navigate,
           onOpen: (a) => unawaited(_openAccount(a)),
+          devices: _devices,
+          onOpenDevice: _openDevice,
         ),
       AdminScreen.accounts => AccountsScreen(
           accounts: _accounts,
@@ -191,6 +202,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           now: _now,
           onOpen: (a) => unawaited(_openAccount(a)),
           onNavigate: _navigate,
+          devices: _devices,
+          onOpenDevice: _openDevice,
         ),
     };
     // مفتاح على الشاشة: التبديل بيرجّع التمرير لفوق لوحده.
@@ -253,6 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             error: _panelError,
             onRetry: () => unawaited(_openAccount(open)),
             onClose: () => setState(() => _open = null),
+            devices: [for (final d in _devices) if (d.patientUuid == open.patientUuid) d],
           );
 
     if (narrow) {

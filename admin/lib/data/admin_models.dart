@@ -143,3 +143,77 @@ class AdminEscalation {
   final String? deliveryStatus;
   final DateTime? createdAt;
 }
+
+/// جهاز واحد (مريض + تنزيلة) بآخر نبضة سلامة منه — من `0022_admin_devices`.
+///
+/// `failingCodes` هي أسماء `HealthCode` زي ما التطبيق بيبعتها؛ ترجمتها
+/// لكلام الأدمن في `device_codes.dart`. **مفيش بيان طبي هنا** — أكواد وأرقام
+/// عدّ وأختام وقت.
+class AdminDevice {
+  const AdminDevice({
+    required this.patientUuid,
+    required this.patientName,
+    required this.installId,
+    required this.checkedAt,
+    required this.failingCodes,
+    this.platform,
+    this.appVersion,
+    this.osVersion,
+    this.notifPermission,
+    this.pendingCount,
+    this.horizonUntil,
+    this.hasToken,
+    this.hasCaregiver,
+    this.lastSyncAt,
+    this.dirtyCount,
+    this.batteryState,
+  });
+
+  factory AdminDevice.fromRow(Map<String, dynamic> row) => AdminDevice(
+        patientUuid: row['patient_uuid'] as String? ?? '',
+        patientName: (row['patient_name'] as String?)?.trim() ?? '',
+        installId: row['install_id'] as String? ?? '',
+        checkedAt: parseUtc(row['checked_at']),
+        failingCodes: [
+          if (row['failing_codes'] case final List<dynamic> codes)
+            for (final c in codes)
+              if (c is String) c,
+        ],
+        platform: row['platform'] as String?,
+        appVersion: row['app_version'] as String?,
+        osVersion: row['os_version'] as String?,
+        notifPermission: row['notif_permission'] as String?,
+        pendingCount: row['pending_count'] == null ? null : _int(row['pending_count']),
+        horizonUntil: parseUtc(row['horizon_until']),
+        hasToken: row['has_token'] as bool?,
+        hasCaregiver: row['has_caregiver'] as bool?,
+        lastSyncAt: parseUtc(row['last_sync_at']),
+        dirtyCount: row['dirty_count'] == null ? null : _int(row['dirty_count']),
+        batteryState: row['battery_state'] as String?,
+      );
+
+  final String patientUuid;
+  final String patientName;
+  final String installId;
+
+  /// وقت آخر نبضة — null ما يجيش من السيرفر (العمود not null)، بس الموديل
+  /// بيسمح بيه عشان صف ناقص ما يوقّعش اللوحة.
+  final DateTime? checkedAt;
+
+  /// أكواد الفحص اللي كانت مكسورة وقت النبضة، بأسمائها في التطبيق.
+  final List<String> failingCodes;
+
+  final String? platform;
+  final String? appVersion;
+  final String? osVersion;
+  final String? notifPermission;
+  final int? pendingCount;
+  final DateTime? horizonUntil;
+  final bool? hasToken;
+  final bool? hasCaregiver;
+
+  /// دعوى الجهاز عن آخر مزامنة — للجملة «مزامنة واقفة من {مدة}».
+  final DateTime? lastSyncAt;
+  final int? dirtyCount;
+  final String? batteryState;
+}

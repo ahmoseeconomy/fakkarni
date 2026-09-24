@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../data/admin_models.dart';
+import '../format/arabic_time.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'widgets/admin_ui.dart';
 import 'widgets/counts_strip.dart';
+import 'widgets/device_problems.dart';
 import 'widgets/fleet_health_bar.dart';
 import 'widgets/motion_widgets.dart';
 import 'widgets/status_cues.dart';
@@ -24,16 +26,23 @@ class OverviewScreen extends StatelessWidget {
     required this.now,
     required this.onNavigate,
     required this.onOpen,
+    this.devices = const [],
+    this.onOpenDevice,
     super.key,
   });
 
   final AdminCounts counts;
   final List<AdminAccount> accounts;
+
+  /// كل الأجهزة (0022) — «أجهزة فيها مشكلة» بتتحسب منها هنا.
+  final List<AdminDevice> devices;
+  final void Function(AdminDevice device)? onOpenDevice;
   final DateTime now;
   final void Function(AdminScreen screen, {ToneFilter? tone}) onNavigate;
   final void Function(AdminAccount account) onOpen;
 
   static const worstLimit = 8;
+  static const deviceLimit = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +128,31 @@ class OverviewScreen extends StatelessWidget {
       ],
     );
 
+    // قاعدة المالك: المريض ما يشوفش مشكلة تقنية — فهي بتيجي هنا. الأكواد
+    // من نبضة كل جهاز، والساكت محسوب معاهم.
+    final problems = DeviceProblemsList.problems(devices, now);
+    final devicesBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AdminHead(
+          'أجهزة فيها مشكلة — ${arabicNumber(problems.length)}',
+          trailing: AdminTextAction(
+            label: 'كل الأجهزة',
+            size: F.careTextSize,
+            onPressed: () => onNavigate(AdminScreen.devices),
+          ),
+        ),
+        const SizedBox(height: F.s10),
+        DeviceProblemsList(
+          key: const ValueKey('overview-device-problems'),
+          devices: devices,
+          now: now,
+          limit: deviceLimit,
+          onOpen: onOpenDevice,
+        ),
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -129,6 +163,8 @@ class OverviewScreen extends StatelessWidget {
             target == StatTarget.devices ? AdminScreen.devices : AdminScreen.accounts,
           ),
         ),
+        const SizedBox(height: F.s16),
+        devicesBlock,
         const SizedBox(height: F.s16),
         LayoutBuilder(
           builder: (context, c) {

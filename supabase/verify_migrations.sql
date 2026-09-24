@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0021: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0022: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -238,7 +238,12 @@ with expected(migration, kind, ident) as (
     ('0021_admin', 'funcsrc',  'public.admin_patient_followers|is_admin'),
     ('0021_admin', 'funcsrc',  'public.admin_patient_escalations|is_admin'),
     -- ورفض الجلسة المجهولة نص الحارس — من غيره إيميل معروف بيعدّي بجلسة مجهولة
-    ('0021_admin', 'funcsrc',  'private.is_admin|is_anonymous')
+    ('0021_admin', 'funcsrc',  'private.is_admin|is_anonymous'),
+
+    -- 0022 — أكواد السلامة لكل جهاز على اللوحة
+    ('0022_admin_devices', 'function', 'public.admin_devices'),
+    ('0022_admin_devices', 'funcsrc',  'public.admin_devices|is_admin'),
+    ('0022_admin_devices', 'funcsrc',  'public.admin_devices|failing_codes')
 ),
 checked as (
   select

@@ -285,19 +285,30 @@ void main() {
       expect(anon.title, 'التأكيدات لسه ما وصلتش للي بيتابعك');
     });
 
-    test('**مشكلة المزامنة ما بتنبّهش** — والإذن والمنبّه الدقيق بينبّهوا', () {
+    test('**المزامنة الواقفة بتتصلّح لوحدها، والإذن هو الوحيد اللي المريض بيشوفه**', () {
+      // قاعدة المالك: المريض ما يشوفش مشكلة تقنية — يا بتتصلّح في صمت يا
+      // بتروح للأدمن. الاستثناء الوحيد إذن التنبيهات.
       final stale = runHealthChecks(well(
         dirtyRowCount: 1,
         oldestDirtyAt: now.subtract(const Duration(days: 2)),
       )).findings.firstWhere((f) => f.code == HealthCode.staleSync);
       expect(stale.isBroken, isTrue);
-      expect(stale.notifies, isFalse, reason: 'الدوسة كانت بتفتح على ولا حاجة، وما يقدرش يصلّح السيرفر');
-      expect(notifiableCodes, isNot(contains(HealthCode.staleSync)));
-      expect(notifiableCodes, isNot(contains(HealthCode.accountMissing)));
-      expect(notifiableCodes, containsAll([HealthCode.notificationPermission, HealthCode.exactAlarms]));
+      expect(stale.autoFixes, isTrue, reason: 'إعادة الرفع إصلاح آلي');
+      expect(stale.patientVisible, isFalse, reason: 'الراجل ما يقدرش يصلّح السيرفر');
+      expect(autoFixableCodes, containsAll([
+        HealthCode.reminderHorizon,
+        HealthCode.remindersDropped,
+        HealthCode.timezoneChanged,
+        HealthCode.pushToken,
+        HealthCode.staleSync,
+      ]));
+      expect(autoFixableCodes, isNot(contains(HealthCode.accountMissing)));
+      expect(patientVisibleCodes, {HealthCode.notificationPermission},
+          reason: 'كود تاني يظهر للمريض هو كسر للقاعدة');
       final denied = runHealthChecks(well(permission: NotificationPermission.denied))
           .findings.firstWhere((f) => f.code == HealthCode.notificationPermission);
-      expect(denied.notifies, isTrue);
+      expect(denied.patientVisible, isTrue);
+      expect(denied.autoFixes, isFalse, reason: 'الإذن مفيش إصلاح آلي ليه');
     });
 
     test('الحساب مش على السيرفر → رسالة واحدة واضحة بزرار الربط، و«لسه ما وصلتش» بتسكت', () {
@@ -310,7 +321,8 @@ void main() {
       expect(missing.isBroken, isTrue);
       expect(missing.title, 'الحساب ده مش موجود على السيرفر — لازم تربط تاني');
       expect(missing.fix, HealthFix.linkCaregiver);
-      expect(missing.notifies, isFalse);
+      expect(missing.autoFixes, isFalse, reason: 'حساب مرفوض ما يتعادش لوحده — الربط هو الحل');
+      expect(missing.patientVisible, isFalse);
       expect(report.findings.where((f) => f.code == HealthCode.staleSync), isEmpty);
     });
   });

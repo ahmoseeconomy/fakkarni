@@ -89,12 +89,16 @@
     بالإيد، إيميل صاحب المنتج:
     `insert into private.admins (email) values (lower('…')) on conflict do nothing;`
     وتفعيل مزوّد Email + إنشاء المستخدم **من لوحة Supabase**، مش من SQL.
-21. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
-    كتابة): صف لكل ترحيل من 0001 لـ0021 بـ`expected`/`found`/`ok`/
+21. `migrations/0022_admin_devices.sql` — `public.admin_devices()`: صف لكل
+    (مريض، تنزيلة) من `device_health` بأكواد السلامة وأعمدة النبضة، قراية
+    بس ومحروسة بـ`private.is_admin()` زي 0021. **ولا بيان طبي.** المتوقّع
+    `Success. No rows returned` و`0022 OK` في Messages.
+22. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
+    كتابة): صف لكل ترحيل من 0001 لـ0022 بـ`expected`/`found`/`ok`/
     `missing`. شغّله **قبل** أي جولة بتلمس السحابة — `0014` عمرها ما
     اتشغّلت واكتشافها كلّف ساعة، والسكريبت ده بيجاوب نفس السؤال بلصقة
     واحدة. آخر تأكيد: ٢٢ سبتمبر ٢٠٢٦، ٢٠ صف كلهم تمام (قبل ٠٠٢١).
-22. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
+23. `tests/rls_test.sql` — يطبع `ALL RLS TESTS PASSED` ثم يُرجِع كل شيء
    (ROLLBACK). قابل للإعادة في أي وقت، وبعد أي تعديل سياسات: شغّله.
 
 كل الملفات **قابلة لإعادة التشغيل** (`if not exists` / `or replace` /

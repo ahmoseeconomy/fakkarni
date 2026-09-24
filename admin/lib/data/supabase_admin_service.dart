@@ -52,6 +52,12 @@ class SupabaseAdminService implements AdminService {
       });
 
   @override
+  Future<List<AdminDevice>> devices() => _guard(() async {
+        final rows = await _supabase.rpc<dynamic>('admin_devices');
+        return [for (final row in _rows(rows)) AdminDevice.fromRow(row)];
+      });
+
+  @override
   Future<List<AdminFollower>> followers(String patientUuid) => _guard(() async {
         final rows = await _supabase.rpc<dynamic>(
           'admin_patient_followers',

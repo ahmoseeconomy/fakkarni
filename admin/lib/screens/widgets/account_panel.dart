@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/admin_models.dart';
 import '../../data/admin_service.dart';
+import '../../data/device_codes.dart';
 import '../../format/arabic_time.dart';
 import '../../format/relative_time.dart';
 import '../../model/follower_profile.dart';
@@ -9,6 +10,7 @@ import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
 import 'accounts_table.dart';
 import 'admin_ui.dart';
+import 'device_problems.dart';
 import 'motion_widgets.dart';
 import 'status_cues.dart';
 
@@ -63,10 +65,14 @@ class AccountPanel extends StatelessWidget {
     required this.onClose,
     this.error,
     this.onRetry,
+    this.devices = const [],
     super.key,
   });
 
   final AdminAccount account;
+
+  /// أجهزة المريض ده بأكوادها (0022) — كل تنزيلة صف.
+  final List<AdminDevice> devices;
   final DateTime now;
   final List<AdminFollower> followers;
   final List<AdminEscalation> escalations;
@@ -173,6 +179,35 @@ class AccountPanel extends StatelessWidget {
                     account.lastSyncAt == null ? 'مفيش' : timeSince(now, account.lastSyncAt!), null),
                 ('اتسجّل', account.createdAt == null ? 'مش معروف' : arabicDate(account.createdAt!), null),
               ]),
+              const SizedBox(height: F.s20),
+              const AdminHead('مشاكل الجهاز'),
+              const SizedBox(height: F.careRowGap),
+              if (devices.isEmpty)
+                const AdminPanel(text: 'ماوصلش من موبايله ولا نبضة.')
+              else if (devices.every((d) => !deviceHasProblem(d, now)))
+                const AdminPanel(text: 'مفيش مشكلة — النبضة وصلت من غير أكواد.')
+              else
+                Container(
+                  key: const ValueKey('panel-device-problems'),
+                  decoration: BoxDecoration(
+                    color: F.cardGround,
+                    border: Border.all(color: F.line),
+                    borderRadius: BorderRadius.circular(F.careRadius),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (i, d) in DeviceProblemsList.problems(devices, now).indexed)
+                        DeviceProblemRow(
+                          device: d,
+                          now: now,
+                          showName: false,
+                          last: i == DeviceProblemsList.problems(devices, now).length - 1,
+                        ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: F.s20),
               const AdminHead('مين بيتابعه'),
               const SizedBox(height: F.careRowGap),

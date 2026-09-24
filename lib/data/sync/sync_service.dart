@@ -206,7 +206,9 @@ class SyncService {
     Duration backgroundTimeout = backgroundPushTimeout,
     int batchSize = 200,
     SyncBlockStore? blockStore,
+    Duration retryBase = retryBaseDefault,
   })  : _db = db,
+        _retryBase = retryBase,
         _remote = remote,
         _hasSession = hasSession,
         _localWrites = localWrites,
@@ -283,12 +285,35 @@ class SyncService {
   StreamSubscription<Object?>? _writesSub;
   StreamSubscription<Object?>? _connectivitySub;
   Timer? _debounceTimer;
+  Timer? _retryTimer;
+  bool _started = false;
   bool _pushing = false;
   bool _pushAgain = false;
 
-  /// المحفّزات: كتابة محلية (بعد سكوت [_debounce])، ورجوع الشبكة.
-  /// الرجوع للمقدمة بييجي من AppRoot. **مفيش مؤقّت دوري** — عن قصد.
+  /// عدد المحاولات الفاشلة ورا بعض — بيصفّر مع أول نجاح.
+  int _retryAttempt = 0;
+
+  /// إعادة المحاولة بتراجع أُسّي: ٣٠ ثانية، دقيقة، دقيقتين… لحد [retryMax].
+  ///
+  /// فشل مش مرفوض (نت واقع، سيرفر تعبان) كان بيستنى محفّز تاني — كتابة
+  /// أو رجوع الشبكة أو المقدمة — وممكن ما يجيش لساعات، والابن ساعتها
+  /// بيتبلّغ عن جرعة اتاخدت. دلوقتي الطابور بيحاول لوحده وفي صمت.
+  /// **الحساب المرفوض ما بيتعادش** — ده قرار [_block] ومش بيتغيّر هنا.
+  static const Duration retryBaseDefault = Duration(seconds: 30);
+  static const Duration retryMax = Duration(minutes: 30);
+  final Duration _retryBase;
+
+  /// مدة الانتظار قبل المحاولة رقم [attempt] (من صفر) — دالة نقية للاختبار.
+  static Duration retryDelayFor(int attempt, {Duration base = retryBaseDefault}) {
+    final ms = base.inMilliseconds * (1 << attempt.clamp(0, 20));
+    return ms >= retryMax.inMilliseconds ? retryMax : Duration(milliseconds: ms);
+  }
+
+  /// المحفّزات: كتابة محلية (بعد سكوت [_debounce])، ورجوع الشبكة، وإعادة
+  /// محاولة بتراجع بعد فشل. الرجوع للمقدمة بييجي من AppRoot. **مفيش
+  /// مؤقّت دوري** — الإعادة بتتجدول بعد فشل بس، وبتقف مع أول نجاح.
   void start({Stream<Object?>? connectivity}) {
+    _started = true;
     _writesSub = (_localWrites ?? _db.tableUpdates()).listen((_) {
       _debounceTimer?.cancel();
       _debounceTimer = Timer(_debounce, () => unawaited(push()));
@@ -334,6 +359,7 @@ class SyncService {
 
   Future<void> dispose() async {
     _debounceTimer?.cancel();
+    _retryTimer?.cancel();
     await _writesSub?.cancel();
     await _connectivitySub?.cancel();
   }
@@ -450,6 +476,7 @@ class SyncService {
         diag('Sync: السيرفر رفض الحساب ($error) — الطابور واقف لحد الربط من جديد');
       } else {
         diag('Sync: push فشلت وهتتعاد: $error\n$stack');
+        _scheduleRetry();
       }
     } finally {
       _pushing = false;
@@ -458,7 +485,24 @@ class SyncService {
         unawaited(push());
       }
     }
+    if (!failed) {
+      if (_retryAttempt > 0) diag('Sync: إصلاح آلي — الرفع نجح بعد $_retryAttempt محاولة');
+      _retryAttempt = 0;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+    }
     return failed ? PushOutcome.failed : PushOutcome.pushed;
+  }
+
+  /// بعد [start] بس: صحوة الخلفية بتعمل محاولة واحدة وبتموت — مؤقّت هناك
+  /// مالوش عملية تعيش فيها.
+  void _scheduleRetry() {
+    if (!_started) return;
+    final delay = retryDelayFor(_retryAttempt, base: _retryBase);
+    _retryAttempt++;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () => unawaited(push()));
+    diag('Sync: هنحاول تاني بعد ${delay.inSeconds} ثانية (محاولة $_retryAttempt)');
   }
 
   /// نوع الفشل — بالنوع أولاً، وبالنص لو الخطأ جه من غير غلاف.

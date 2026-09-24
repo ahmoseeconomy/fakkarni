@@ -9,12 +9,14 @@ class FakeAdminService implements AdminService {
     this.accounts_ = const [],
     this.followers_ = const [],
     this.escalations_ = const [],
+    this.devices_ = const [],
   });
 
   AdminCounts counts_;
   List<AdminAccount> accounts_;
   List<AdminFollower> followers_;
   List<AdminEscalation> escalations_;
+  List<AdminDevice> devices_;
 
   AdminException? signInFailure;
   AdminException? countsFailure;
@@ -58,6 +60,13 @@ class FakeAdminService implements AdminService {
     final failure = countsFailure;
     if (failure != null) throw failure;
     return accounts_;
+  }
+
+  @override
+  Future<List<AdminDevice>> devices() async {
+    final failure = countsFailure;
+    if (failure != null) throw failure;
+    return devices_;
   }
 
   @override
@@ -107,4 +116,25 @@ AdminAccount account({
       batteryState: battery,
       reminderHorizonOk: horizonOk,
       seenAt: seenAt,
+    );
+
+AdminDevice device({
+  String uuid = 'p1',
+  String name = 'الحاج عاشور',
+  String install = 'install-a',
+  DateTime? checkedAt,
+  List<String> codes = const [],
+  DateTime? lastSyncAt,
+  String? platform = 'android',
+  String? appVersion = '1.0.0+1',
+}) =>
+    AdminDevice(
+      patientUuid: uuid,
+      patientName: name,
+      installId: install,
+      checkedAt: checkedAt,
+      failingCodes: codes,
+      lastSyncAt: lastSyncAt,
+      platform: platform,
+      appVersion: appVersion,
     );

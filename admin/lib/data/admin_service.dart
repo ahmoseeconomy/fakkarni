@@ -12,6 +12,9 @@ abstract interface class AdminService {
 
   Future<AdminCounts> counts();
   Future<List<AdminAccount>> accounts();
+
+  /// كل جهاز بأكواد سلامته (0022) — اللوحة هي اللي بتقرر مين «فيه مشكلة».
+  Future<List<AdminDevice>> devices();
   Future<List<AdminFollower>> followers(String patientUuid);
   Future<List<AdminEscalation>> escalations(String patientUuid, {int limit = 20});
 }

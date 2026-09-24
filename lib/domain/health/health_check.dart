@@ -26,20 +26,26 @@ enum HealthCode {
   accountMissing,
 }
 
-/// **اللي بيستاهل إشعار: اللي المريض يقدر يصلّحه من الموبايل وبس.**
+/// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
 ///
-/// مشكلة مزامنة (السيرفر، النت، الحساب) بتتقال في الشريط والشاشة
-/// وبتتعاد لوحدها في الخلفية — إشعار عنها بيفتح على حاجة الراجل ما
-/// يقدرش يعمل فيها حاجة، وبيعلّمه يعدّي على إشعاراتنا.
-const Set<HealthCode> notifiableCodes = {
-  HealthCode.notificationPermission,
-  HealthCode.exactAlarms,
-  HealthCode.batteryOptimisation,
-  HealthCode.remindersDropped,
+/// قاعدة المالك: المريض ما يشوفش مشكلة تقنية أبداً. يا التطبيق بيصلّحها
+/// لوحده، يا بتتبلّغ للوحة الأدمن مع النبضة. الأكواد دي ليها إصلاح
+/// آلي في `HealthAutoFix` (إعادة جدولة، تسجيل التوكن، إعادة الرفع)؛ الباقي
+/// بيتسجّل وبيروح للسيرفر وبس.
+const Set<HealthCode> autoFixableCodes = {
   HealthCode.reminderHorizon,
+  HealthCode.remindersDropped,
   HealthCode.timezoneChanged,
-  HealthCode.pendingBandFull,
+  HealthCode.pushToken,
+  HealthCode.staleSync,
 };
+
+/// **الاستثناء الوحيد اللي بيوصل شاشة المريض**: إذن التنبيهات مقفول.
+///
+/// ده مش تقني وفي إيده هو بس — سطر واحد على «يومك» بزرار بيفتح إعدادات
+/// النظام، من غير كود ولا شرح. أي كود تاني يظهر للمريض هو كسر للقاعدة،
+/// واختبار بيقرا الشاشات ويوقع عليه.
+const Set<HealthCode> patientVisibleCodes = {HealthCode.notificationPermission};
 
 /// اللي الزرار بيعمله. [none] معناها مفيش حاجة في إيد المستخدم — والجملة
 /// ساعتها بتقول ده صراحة بدل ما تسيبه قدام حائط أحمر.
@@ -71,8 +77,13 @@ class HealthFinding {
   /// معناه إيه بالنسبة له هو.
   final String why;
 
-  /// يتبعت له إشعار عنه؟ — بس لو مكسور **وفي إيده يصلّحه**.
-  bool get notifies => isBroken && notifiableCodes.contains(code);
+  /// التطبيق يحاول يصلّحه لوحده؟ — كل كود ليه إصلاح آلي، مكسور أو ملاحظة:
+  /// إعادة تسجيل توكن ناقص (ملاحظة لحد ما APNs تشتغل) ما بتضرش، وتأجيلها
+  /// لحد ما يبقى «مكسور» معناه إن الابن يفضل من غير تنبيه يوم زيادة.
+  bool get autoFixes => autoFixableCodes.contains(code);
+
+  /// يظهر للمريض؟ — إذن التنبيهات وبس ([patientVisibleCodes]).
+  bool get patientVisible => isBroken && patientVisibleCodes.contains(code);
 
   final HealthFix fix;
 

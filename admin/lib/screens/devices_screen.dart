@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import 'widgets/accounts_table.dart';
 import 'widgets/admin_ui.dart';
 import 'widgets/counts_strip.dart';
+import 'widgets/device_problems.dart';
 import 'widgets/motion_widgets.dart';
 import 'widgets/status_cues.dart';
 import 'widgets/tone_filter_chips.dart';
@@ -65,11 +66,17 @@ class DevicesScreen extends StatelessWidget {
     required this.now,
     required this.onOpen,
     required this.onNavigate,
+    this.devices = const [],
+    this.onOpenDevice,
     super.key,
   });
 
   final List<AdminAccount> accounts;
   final DateTime now;
+
+  /// كل الأجهزة بأكواد سلامتها (0022).
+  final List<AdminDevice> devices;
+  final void Function(AdminDevice device)? onOpenDevice;
   final void Function(AdminAccount account) onOpen;
   final void Function(AdminScreen screen, {ToneFilter? tone}) onNavigate;
 
@@ -91,6 +98,21 @@ class DevicesScreen extends StatelessWidget {
     final android = accounts.where((a) => a.platform == 'android').length;
     final ios = accounts.where((a) => a.platform == 'ios').length;
     final known = android + ios;
+
+    final problems = DeviceProblemsList.problems(devices, now);
+    final problemsCard = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AdminHead('أجهزة فيها مشكلة — ${arabicNumber(problems.length)}'),
+        const SizedBox(height: F.s10),
+        DeviceProblemsList(
+          key: const ValueKey('devices-device-problems'),
+          devices: devices,
+          now: now,
+          onOpen: onOpenDevice,
+        ),
+      ],
+    );
 
     final needyCard = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,6 +317,8 @@ class DevicesScreen extends StatelessWidget {
           StatSpec(Icons.schedule_rounded, 'مدى التذكير خلص', horizonExpired, attention: horizonExpired > 0),
           StatSpec(Icons.system_update_rounded, 'على نسخة قديمة', onOld, attention: onOld > 0),
         ]),
+        const SizedBox(height: F.s16),
+        problemsCard,
         const SizedBox(height: F.s16),
         LayoutBuilder(
           builder: (context, c) {
