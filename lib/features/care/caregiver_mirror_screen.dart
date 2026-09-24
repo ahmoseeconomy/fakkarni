@@ -12,6 +12,7 @@ import '../medication/nurse_draft.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
+import 'family_notice_card.dart';
 import 'caregiver_words.dart';
 
 /// **«مرآة»** — تبويب الممرض/المرافق (٠٠٢٣): يوم المريض زي ما هو بيشوفه
@@ -251,6 +252,7 @@ class _CaregiverMirrorScreenState extends State<CaregiverMirrorScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(F.carePad, F.s8, F.carePad, F.s30 + MediaQuery.of(context).padding.bottom),
         children: [
+          CareFamilyNotice(patientName: snapshot.patient.name, now: now),
           if (!canConfirm)
             const CarePanel(
               key: ValueKey('mirror-read-only'),

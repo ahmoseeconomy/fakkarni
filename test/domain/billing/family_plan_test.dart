@@ -64,4 +64,55 @@ void main() {
     expect(subscriptionStatusLine(sub(SubscriptionStatus.expired), now, d), contains('التذكيرات شغّالة'));
     expect(remindersStayFreeLine, 'تذكير الدوا مجاني للأبد — ما بيقفش بسبب الاشتراك.');
   });
+
+  group('كارت «التنبيهات هتقف / واقفة»', () {
+    String d(DateTime t) => '${t.day}/${t.month}';
+    FamilyNotice at(FamilySubscription? s, DateTime when, {bool? last, bool? debug}) =>
+        familyNotice(subscription: s, now: when, lastKnownAllowed: last, debugOverride: debug);
+
+    test('التجربة: مفيش كارت قبل ٧ أيام، ومن ٧ لحد يوم النهاية فيه، بعلامته', () {
+      final s = sub(SubscriptionStatus.trial, trialEnds: DateTime(2026, 10, 1, 12));
+      expect(at(s, DateTime(2026, 9, 23, 9)).kind, FamilyNoticeKind.none); // ٨ أيام
+      final seven = at(s, DateTime(2026, 9, 24, 9));
+      expect(seven.kind, FamilyNoticeKind.endingSoon);
+      expect((seven.daysLeft, seven.milestone), (7, 7));
+      expect(at(s, DateTime(2026, 9, 28, 9)).milestone, 3);
+      expect(at(s, DateTime(2026, 9, 30, 9)).milestone, 1);
+      final today = at(s, DateTime(2026, 10, 1, 8));
+      expect((today.kind, today.daysLeft), (FamilyNoticeKind.endingSoon, 0));
+      expect(at(s, DateTime(2026, 10, 1, 13)).kind, FamilyNoticeKind.ended);
+    });
+
+    test('النشط: النهاية = الانتهاء + ٣ أيام مهلة — نفس اليوم اللي السيرفر بيقف فيه', () {
+      final s = sub(SubscriptionStatus.active, expires: DateTime(2026, 10, 1, 12));
+      final n = at(s, DateTime(2026, 9, 30, 9));
+      expect(n.endsAt, DateTime(2026, 10, 4, 12));
+      expect(n.daysLeft, 4);
+      expect(at(s, DateTime(2026, 10, 4, 13)).kind, FamilyNoticeKind.ended);
+      expect(at(sub(SubscriptionStatus.active), now).kind, FamilyNoticeKind.none);
+    });
+
+    test('منتهي ← واقفة؛ مجهول ← لا كارت؛ آخر حالة «مقفول» ← واقفة؛ المحاكاة بتغلب', () {
+      expect(at(sub(SubscriptionStatus.expired), now).kind, FamilyNoticeKind.ended);
+      expect(at(null, now).kind, FamilyNoticeKind.none);
+      expect(at(null, now, last: true).kind, FamilyNoticeKind.none);
+      expect(at(null, now, last: false).kind, FamilyNoticeKind.ended);
+      expect(at(sub(SubscriptionStatus.active), now, debug: false).kind, FamilyNoticeKind.ended);
+      expect(at(sub(SubscriptionStatus.expired), now, debug: true).kind, FamilyNoticeKind.none);
+    });
+
+    test('الكلام: أسامي المتابعين للمريض، «تنبيهاتك عن …» للمتابع، والنهارده بكلمته', () {
+      final n = at(sub(SubscriptionStatus.trial, trialEnds: DateTime(2026, 9, 27, 12)), DateTime(2026, 9, 24, 9));
+      expect(familyEndingLine(notice: n, date: d, followerNames: ['محمد', 'سارة']),
+          'تنبيهات محمد وسارة هتقف يوم 27/9 لو الاشتراك ما اتجددش');
+      expect(familyEndingLine(notice: n, date: d), 'تنبيهات اللي بيتابعوك هتقف يوم 27/9 لو الاشتراك ما اتجددش');
+      expect(familyEndingLine(notice: n, date: d, patientName: 'الحاج أحمد', forFollower: true),
+          'تنبيهاتك عن الحاج أحمد هتقف يوم 27/9 لو الاشتراك ما اتجددش');
+      final today = at(sub(SubscriptionStatus.trial, trialEnds: DateTime(2026, 9, 24, 20)), DateTime(2026, 9, 24, 9));
+      expect(familyEndingLine(notice: today, date: d, followerNames: ['محمد']), 'تنبيهات محمد هتقف النهارده لو الاشتراك ما اتجددش');
+      expect(familyEndedFollowerLine('الحاج أحمد'), 'التنبيهات واقفة — مش هتتبلّغ لو الحاج أحمد فوّت جرعة');
+      expect(familyEndedPatientLine, 'اللي بيتابعوك مش بيتبلّغوا دلوقتي');
+      expect(joinArabicNames(['أ', 'ب', 'ج']), 'أ، ب وج');
+    });
+  });
 }

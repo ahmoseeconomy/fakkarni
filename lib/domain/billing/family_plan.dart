@@ -154,3 +154,111 @@ String subscriptionStatusLine(FamilySubscription? sub, DateTime now, String Func
 
 /// الجملة اللي لازم تبقى على الشاشة بالحرف.
 const String remindersStayFreeLine = 'تذكير الدوا مجاني للأبد — ما بيقفش بسبب الاشتراك.';
+
+// ---------------------------------------------------------------------------
+// **الدائرة لازم تعرف قبل ما التنبيهات تقف، وبعد ما تقف.**
+//
+// لما الاشتراك يخلص السيرفر بيبطّل يبلّغ المتابعين عن جرعة فايتة
+// (`follower_subscription_active` في 0025). ده صح — بس لو محدش اتقال له،
+// الأب فاكر إن فيه حد شايفه والابن فاكر إنه هيتبلّغ. فيه تلات حالات بس،
+// محسوبة هنا مرة واحدة والشاشتين بيقروا منها.
+
+/// الأيام اللي الإشعار قبل النهاية بيتقال عندها — ٧ و٣ و١. الكارت ظاهر من
+/// أول ما يفضل ٧ أيام، وكلامه بيتغيّر عند كل واحدة منهم.
+const List<int> familyNoticeMilestones = [7, 3, 1];
+
+enum FamilyNoticeKind {
+  /// مفيش حاجة تتقال.
+  none,
+
+  /// فاضل ٧ أيام أو أقل والتنبيهات هتقف.
+  endingSoon,
+
+  /// التنبيهات واقفة دلوقتي.
+  ended,
+}
+
+class FamilyNotice {
+  const FamilyNotice._(this.kind, {this.endsAt, this.daysLeft, this.milestone});
+
+  static const none = FamilyNotice._(FamilyNoticeKind.none);
+  static const ended = FamilyNotice._(FamilyNoticeKind.ended);
+
+  final FamilyNoticeKind kind;
+
+  /// اللحظة اللي السيرفر بيبطّل يبلّغ فيها — نفس حدّ `allowsFamilyAt`.
+  final DateTime? endsAt;
+
+  /// أيام تقويم من النهارده لحد يوم النهاية (٠ = النهارده).
+  final int? daysLeft;
+
+  /// أقرب علامة من ٧/٣/١ وصلنا لها — بتفرّق الكلام، مش الظهور.
+  final int? milestone;
+}
+
+/// آخر لحظة المزايا العائلية فيها شغّالة — `null` = مفيش نهاية معروفة
+/// (نشط من غير تاريخ انتهاء). **نفس الحساب اللي في [FamilySubscription.allowsFamilyAt]**
+/// بالظبط، عشان الكارت ما يقولش يوم غير اليوم اللي السيرفر هيقف فيه.
+DateTime? familyEndsAt(FamilySubscription sub) => switch (sub.status) {
+      SubscriptionStatus.trial => sub.trialEndsAt,
+      SubscriptionStatus.active => sub.expiresAt?.add(const Duration(days: SubscriptionConfig.graceDays)),
+      SubscriptionStatus.expired => null,
+    };
+
+/// **القرار الواحد**: هل الدائرة محتاجة تتقال لها حاجة، وإيه.
+///
+/// المحاكاة (للمطوّر) بتمشي هنا زي البوابة بالظبط، فـ«منتهي» من شاشة
+/// الاشتراك بيوري الكارت. مفيش حالة معروفة = مفيش كارت: ما نقولش لحد إن
+/// تنبيهاته واقفة من غير ما نكون عارفين.
+FamilyNotice familyNotice({
+  required FamilySubscription? subscription,
+  required DateTime now,
+  bool? lastKnownAllowed,
+  bool? debugOverride,
+}) {
+  if (debugOverride != null) return debugOverride ? FamilyNotice.none : FamilyNotice.ended;
+  if (subscription == null) return lastKnownAllowed == false ? FamilyNotice.ended : FamilyNotice.none;
+  if (!subscription.allowsFamilyAt(now)) return FamilyNotice.ended;
+  final end = familyEndsAt(subscription);
+  if (end == null) return FamilyNotice.none;
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final local = end.toLocal();
+  final endDay = DateTime.utc(local.year, local.month, local.day);
+  final days = endDay.difference(today).inDays;
+  if (days > familyNoticeMilestones.first) return FamilyNotice.none;
+  final milestone = familyNoticeMilestones.lastWhere((m) => days <= m, orElse: () => familyNoticeMilestones.last);
+  return FamilyNotice._(FamilyNoticeKind.endingSoon, endsAt: end, daysLeft: days, milestone: milestone);
+}
+
+/// «محمد» / «محمد وسارة» / «محمد، سارة وأحمد».
+String joinArabicNames(List<String> names) {
+  final clean = [for (final n in names) if (n.trim().isNotEmpty) n.trim()];
+  if (clean.isEmpty) return '';
+  if (clean.length == 1) return clean.single;
+  return '${clean.sublist(0, clean.length - 1).join('، ')} و${clean.last}';
+}
+
+/// كلام «هتقف» — المريض بيسمع أسامي اللي بيتابعوه، والمتابع بيسمع «تنبيهاتك».
+/// [date] بيتحقن عشان الدومين يفضل دارت نقية.
+String familyEndingLine({
+  required FamilyNotice notice,
+  required String Function(DateTime) date,
+  List<String> followerNames = const [],
+  String? patientName,
+  bool forFollower = false,
+}) {
+  final when = notice.daysLeft == 0 ? 'النهارده' : 'يوم ${date(notice.endsAt!)}';
+  final who = forFollower
+      ? (patientName == null || patientName.trim().isEmpty ? 'تنبيهاتك' : 'تنبيهاتك عن ${patientName.trim()}')
+      : (joinArabicNames(followerNames).isEmpty ? 'تنبيهات اللي بيتابعوك' : 'تنبيهات ${joinArabicNames(followerNames)}');
+  return '$who هتقف $when لو الاشتراك ما اتجددش';
+}
+
+/// الكارت الدايم عند المتابع/الممرض بعد النهاية.
+String familyEndedFollowerLine(String? patientName) {
+  final name = patientName?.trim();
+  return 'التنبيهات واقفة — مش هتتبلّغ لو ${name == null || name.isEmpty ? 'اللي بتتابعه' : name} فوّت جرعة';
+}
+
+/// السطر الواحد عند المريض بعد النهاية.
+const String familyEndedPatientLine = 'اللي بيتابعوك مش بيتبلّغوا دلوقتي';

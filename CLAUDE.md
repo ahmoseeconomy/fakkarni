@@ -2674,11 +2674,34 @@ then `true`.
   entries in the «ضيف» sheet, invite creation on `LinkCodeScreen`, and
   «اطبع أو ابعت الملف» on «للدكتور» (counted on save in the preview).
   Settings rows «اشتراك العيلة» on both the patient's and the son's side.
+- **The circle is told before the alerts stop, and after** (24 Sep 2026 —
+  the safety gap: an expired family silenced the son's missed-dose alert
+  and nobody knew). One pure rule, `familyNotice` in `family_plan.dart`:
+  `endingSoon` from **7 days** before the stop instant (wording marks the
+  7/3/1 milestones; the card stays visible every day in between rather
+  than appearing only on those three days), `ended` once
+  `allowsFamilyAt` is false or the last known state is «مقفول»; **unknown
+  = no card** (we never tell anyone their alerts stopped without knowing).
+  The stop instant is `familyEndsAt` — trial end, or `expires_at` + 3 days
+  grace — the same boundary the server uses, so the date on the card is
+  the day it actually stops.
+  - **Follower / nurse** (`features/care/family_notice_card.dart`, top of
+    «متابعة» and «مرآة», above the status answer — «كله تمام» under a
+    silent server is a lie by omission): «تنبيهاتك عن {اسم} هتقف يوم …
+    لو الاشتراك ما اتجددش», then a **persistent** card with no dismiss
+    «التنبيهات واقفة — مش هتتبلّغ لو {اسم} فوّت جرعة». Gold edge and
+    icon, ink text, never red.
+  - **Patient** (`features/billing/family_notice_cards.dart`, on «يومك»
+    **under the day rail** — above it would push «تأكيد الجرعة» under the
+    floating button on SE): «تنبيهات محمد وسارة هتقف يوم …» and after the
+    stop the one line «اللي بيتابعوك مش بيتبلّغوا دلوقتي». Hidden when the
+    follower list was read and is empty; shown when it could not be read.
+  - Both carry «جدّد» → «اشتراك العيلة». Reminders read none of it —
+    `billing_mirror_test` green. Tests: `family_plan_test` (the rule, the
+    wording) and `family_notice_test` (both sides, both states, placement);
+    mutation-checked on the 7-day window and on the ended state.
 - **Not built, said out loud**: store webhooks (renewal/cancellation
-  reach us only on the next verification), a father-side notice when a
-  follower's alerts stop (the family model makes it one state for the
-  whole circle, so the old «two people must be told» question collapses
-  into the one status line both sides read), and a nurse-mirror gate on
+  reach us only on the next verification), and a nurse-mirror gate on
   the son's phone (the mirror needs an accepted relation, and the cap and
   the escalation gate already live on the server).
 

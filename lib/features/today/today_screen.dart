@@ -37,6 +37,7 @@ import 'tips/tip_picker.dart';
 import '../../data/repositories/medication_repository.dart' show MedicationSummary;
 import '../../domain/medication/medication_purpose.dart';
 import 'notifications_off_line.dart';
+import '../billing/family_notice_cards.dart';
 import 'widgets/circle_notices.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
@@ -181,13 +182,21 @@ class _TodayScreenState extends State<TodayScreen> {
     if (uuid == null) return;
     try {
       final followers = await preferences.followers(uuid);
-      if (mounted) setState(() => _followers = followers);
+      if (mounted) {
+        setState(() {
+          _followers = followers;
+          _followersKnown = true;
+        });
+      }
     } catch (_) {
       // مفيش جلسة، أوفلاين، أو مش مالك — كلهم «محدش بيتابعك لسه».
     }
   }
 
   List<FollowerProfile> _followers = const [];
+
+  /// القايمة اتقرت فعلاً — فاضية معناها «محدش»، مش «ما عرفناش».
+  bool _followersKnown = false;
 
   Future<void> _markTaken(List<DoseEventView> group) =>
       confirmGroup(AppScope.of(context), _routineDay, group);
@@ -431,6 +440,15 @@ class _TodayScreenState extends State<TodayScreen> {
               // نفس المسافة بين كل كارت والتاني — «معلومة تهمك» كانت لازقة
               // في السكة لما مفيش بكرة ولا متابعات ولا سكر بينهم.
               const SizedBox(height: F.gap),
+              // «تنبيهات محمد هتقف يوم …» / «اللي بيتابعوك مش بيتبلّغوا
+              // دلوقتي». **تحت الجدول عن قصد**: فوق كان هيزقّ «تأكيد
+              // الجرعة» تحت الزرار العايم على SE — وده كلام عن المتابعين،
+              // مش عن دوا دلوقتي.
+              PatientFamilyNotice(
+                followerNames: [for (final f in _followers) f.name],
+                followersKnown: _followersKnown,
+                now: _now,
+              ),
               StreamBuilder<List<DoseEventView>>(
                 stream: _tomorrow,
                 builder: (context, snap) {

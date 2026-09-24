@@ -67,6 +67,14 @@ class SubscriptionService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// كارت «التنبيهات هتقف / واقفة» — نفس المدخلات اللي البوابة بتقرا منها.
+  FamilyNotice notice({DateTime? now}) => familyNotice(
+        subscription: current,
+        now: now ?? clock(),
+        lastKnownAllowed: _lastKnownAllowed,
+        debugOverride: debugOverride,
+      );
+
   bool allowed(AppFeature feature, {DateTime? now}) {
     if (feature == AppFeature.exportBeyondFree && exportsUsed < freeExports) return true;
     return featureAllowed(

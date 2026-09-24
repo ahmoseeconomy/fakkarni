@@ -9,6 +9,7 @@ import '../../domain/health/follow_up.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
+import 'family_notice_card.dart';
 import 'caregiver_words.dart';
 
 // السؤال الدوري وشرطه عايشين في CaregiverSnapshotHolder (صورة واحدة للتبويبين).
@@ -135,6 +136,9 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   child: Center(child: CircularProgressIndicator(color: F.green)),
                 )
               else if (snapshot != null && status != null) ...[
+                // ٠ — **التنبيهات واقفة (أو هتقف).** فوق الإجابة: «كله
+                // تمام» تحت سكوت السيرفر بتبقى كدبة بالسكوت.
+                CareFamilyNotice(patientName: snapshot.patient.name, now: _now),
                 // ١ — **الإجابة الأول.** الابن بيفتح الشاشة عشان سؤال
                 // واحد، فأول حاجة يشوفها هي الرد عليه: كله تمام، ولا فيه
                 // حاجة محتاجاه. وتحتها آخر جرعة مؤكَّدة وإمتى — دي اللي
