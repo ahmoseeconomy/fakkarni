@@ -15,7 +15,7 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
-import 'package:fakkarni/features/onboarding/time_wheel.dart';
+import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/features/routine/edit_routine_screen.dart';
 import '../../support/seeded_clock.dart';
 
@@ -202,15 +202,15 @@ void main() {
 
   screenTest('«ساعة تانية» بتفتح عجلة واحدة بس', (tester) async {
     await pumpEdit(tester);
-    expect(find.byType(TimeWheel), findsNothing);
+    expect(find.byType(FTimeWheel), findsNothing);
 
     await tester.tap(find.text('ساعة تانية').first);
     await tester.pumpAndSettle();
-    expect(find.byType(TimeWheel), findsOneWidget);
+    expect(find.byType(FTimeWheel), findsOneWidget);
 
     await tester.tap(find.text('ساعة تانية').first);
     await tester.pumpAndSettle();
-    expect(find.byType(TimeWheel), findsOneWidget, reason: 'واحدة بس في المرة');
+    expect(find.byType(FTimeWheel), findsOneWidget, reason: 'واحدة بس في المرة');
   });
 
   screenTest('زرار الحفظ ٦٤ وكل نص مش أقل من ١٧', (tester) async {

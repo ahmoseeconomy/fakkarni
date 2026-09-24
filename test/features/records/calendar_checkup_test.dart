@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/widgets/f_wheels.dart';
+
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
@@ -209,9 +211,10 @@ void main() {
           isNull,
           reason: 'مفيش ساعات افتراضية',
         );
-        await tester.enterText(
+        // البكرة واقفة على ١٠ ومفيش حاجة مكتوبة؛ خانتين لتحت = ٨ ساعات
+        await tester.drag(
           find.byKey(const ValueKey('fasting-hours')),
-          '8',
+          const Offset(0, FNumberWheel.itemExtent * 2),
         );
         await settle(tester);
         await tester.tap(find.byKey(const ValueKey('fasting-save')));

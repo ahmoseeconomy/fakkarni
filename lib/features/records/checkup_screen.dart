@@ -10,7 +10,7 @@ import '../../data/services/checkup_service.dart';
 import '../../domain/health/checkup.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/day_routine.dart';
-import '../onboarding/time_wheel.dart';
+import '../../core/widgets/f_wheels.dart';
 
 /// «متابعة التحليل» (المخطط ١١): سبع مراحل، والمستخدم بيقدّمها بإيده.
 ///
@@ -55,7 +55,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: F.pageGround,
-      builder: (_) => _FastingSheet(now: _now),
+      builder: (_) => FastingSheet(now: _now),
     );
     if (input == null) return;
     final result = await checkups.setFastingReminder(row.id, draw: input.draw, hours: input.hours, now: _now);
@@ -442,43 +442,30 @@ class _StageRow extends StatelessWidget {
 
 /// «اضبط تذكير الصيام»: ميعاد السحب (يوم + ساعة) وعدد ساعات الصيام **زي ما
 /// المعمل قال** — مفيش رقم افتراضي.
-class _FastingSheet extends StatefulWidget {
-  const _FastingSheet({required this.now});
+class FastingSheet extends StatefulWidget {
+  const FastingSheet({required this.now, super.key});
 
   final DateTime now;
 
+  /// فين بكرة الساعات بتقف وهي فاضية. **مش رقم افتراضي**: مفيش حاجة
+  /// بتتكتب لحد ما يحرّكها، والزرار مقفول لحد ساعتها — المعمل هو اللي
+  /// بيقول المدة، مش إحنا (القاعدة ٦).
+  static const int hoursRest = 10;
+
   @override
-  State<_FastingSheet> createState() => _FastingSheetState();
+  State<FastingSheet> createState() => _FastingSheetState();
 }
 
-class _FastingSheetState extends State<_FastingSheet> {
+class _FastingSheetState extends State<FastingSheet> {
   late DateTime _day = DateTime(widget.now.year, widget.now.month, widget.now.day + 1);
   MinuteOfDay _time = MinuteOfDay.hm(8);
-  final _hours = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _hours.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _hours.dispose();
-    super.dispose();
-  }
-
-  int? get _parsedHours => int.tryParse(
-    _hours.text.trim().replaceAllMapped(
-      RegExp('[٠-٩]'),
-      (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0x660 + 0x30),
-    ),
-  );
+  /// null لحد ما يحرّك البكرة — السؤال مالوش إجابة عندنا.
+  int? _hours;
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime(widget.now.year, widget.now.month, widget.now.day);
-    final hours = _parsedHours;
+    final hours = _hours;
     final ok = hours != null && isTypedFastingHours(hours);
 
     return Padding(
@@ -498,32 +485,28 @@ class _FastingSheetState extends State<_FastingSheet> {
               const SizedBox(height: F.s8),
               DayPicker(today: today, value: _day, onChanged: (d) => setState(() => _day = d)),
               const SizedBox(height: F.s8),
-              SizedBox(
-                height: 180,
-                child: TimeWheel(value: _time, onChanged: (t) => setState(() => _time = t)),
-              ),
+              FTimeWheel(value: _time, onChanged: (t) => setState(() => _time = t)),
               const SizedBox(height: F.s12),
               const SectionHead('المعمل قال صيام كام ساعة؟'),
-              const SizedBox(height: F.s8),
-              TextField(
-                textInputAction: TextInputAction.done,
+              const SizedBox(height: F.s4),
+              // ١..٧٢ زي `isTypedFastingHours` بالحرف — البكرة ما تقدرش تطلّع
+              // رقم برّه المدى، والمقفول لحد ما تتحرّك هو الافتراضي الوحيد.
+              FNumberWheel(
                 key: const ValueKey('fasting-hours'),
-                controller: _hours,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
-                decoration: InputDecoration(
-                  hintText: 'زي ما المعمل قال',
-                  hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                  suffixText: 'ساعة',
-                  filled: true,
-                  fillColor: F.fieldGround,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-                ),
+                value: hours,
+                rest: FastingSheet.hoursRest,
+                min: 1,
+                max: 72,
+                unit: 'ساعة',
+                semanticsLabel: 'ساعات الصيام',
+                onChanged: (h) => setState(() => _hours = h),
               ),
               const SizedBox(height: F.s6),
               Text(
-                'التطبيق مش بيحدد مدة الصيام — المعمل أو الدكتور هو اللي بيقولها.',
+                hours == null
+                    ? 'حرّك البكرة لحد اللي المعمل قاله — التطبيق مش بيحدد مدة الصيام.'
+                    : 'التطبيق مش بيحدد مدة الصيام — المعمل أو الدكتور هو اللي بيقولها.',
+                key: const ValueKey('fasting-hint'),
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
               const SizedBox(height: F.gap),

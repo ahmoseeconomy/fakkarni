@@ -7,7 +7,7 @@ import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
-import '../onboarding/time_wheel.dart';
+import '../../core/widgets/f_wheels.dart';
 
 /// اختيار جاهز: مرساة + اتجاه — بالترتيب بتاع التصميم.
 ///
@@ -281,12 +281,18 @@ class _DoseEditorState extends State<DoseEditor> {
   }
 }
 
-/// «بكام؟» — عدّاد − / + كبير في كارت.
+/// «بكام؟» — بكرة دقايق في كارت: من ٠ لـ١٨٠ بخطوة ٥، نفس المدى اللي كان
+/// للعدّاد بالحرف.
 class _GapCard extends StatelessWidget {
   const _GapCard({required this.value, required this.onChanged});
 
   final int value;
   final ValueChanged<int> onChanged;
+
+  /// نفس حدود العدّاد القديم — الإزاحة المخزّنة ما اتغيّرش مداها.
+  static const int minGap = 0;
+  static const int maxGap = 180;
+  static const int step = 5;
 
   @override
   Widget build(BuildContext context) => FCard(
@@ -297,100 +303,18 @@ class _GapCard extends StatelessWidget {
               'بكام؟',
               style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
             ),
-            const SizedBox(height: F.s8),
-            MinuteStepper(value: value, onChanged: onChanged),
-          ],
-        ),
-      );
-}
-
-/// عدّاد − / + — الأيقونة بكلمة، مش لوحدها.
-class MinuteStepper extends StatelessWidget {
-  const MinuteStepper({
-    required this.value,
-    required this.onChanged,
-    this.step = 5,
-    this.min = 0,
-    this.max = 180,
-    this.unit = 'دقيقة',
-    super.key,
-  });
-
-  final int value;
-  final ValueChanged<int> onChanged;
-  final int step;
-  final int min;
-  final int max;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          _StepButton(
-            icon: Icons.remove,
-            label: 'أقل',
-            enabled: value > min,
-            onTap: () => onChanged((value - step).clamp(min, max)),
-          ),
-          Expanded(
-            child: Container(
-              height: F.minTapTarget,
-              alignment: Alignment.center,
-              margin: const EdgeInsets.symmetric(horizontal: F.s8),
-              decoration: BoxDecoration(
-                color: F.railGround,
-                borderRadius: BorderRadius.circular(F.radiusTile),
-              ),
-              child: Text(
-                '${arabicNumber(value)} $unit',
-                style: TextStyle(
-                  fontSize: F.minBodySize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
+            const SizedBox(height: F.s4),
+            FNumberWheel(
+              key: const ValueKey('gap-wheel'),
+              value: value,
+              min: minGap,
+              max: maxGap,
+              step: step,
+              unit: 'دقيقة',
+              semanticsLabel: 'الإزاحة بالدقايق',
+              onChanged: onChanged,
             ),
-          ),
-          _StepButton(
-            icon: Icons.add,
-            label: 'أكتر',
-            enabled: value < max,
-            onTap: () => onChanged((value + step).clamp(min, max)),
-          ),
-        ],
-      );
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({
-    required this.icon,
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: F.minTapTarget,
-        child: OutlinedButton.icon(
-          onPressed: enabled ? onTap : null,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: F.ink,
-            minimumSize: const Size(F.minTapTarget, F.minTapTarget),
-            padding: const EdgeInsets.symmetric(horizontal: F.s10),
-            side: BorderSide(color: F.line, width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
-          ),
-          icon: Icon(icon, size: 26),
-          label: Text(
-            label,
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
-          ),
+          ],
         ),
       );
 }
@@ -441,7 +365,7 @@ class _FixedTimePicker extends StatelessWidget {
               ),
             ),
             const SizedBox(height: F.s8),
-            TimeWheel(value: value, onChanged: onChanged),
+            FTimeWheel(value: value, onChanged: onChanged),
           ],
         ),
       );

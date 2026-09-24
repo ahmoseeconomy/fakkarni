@@ -132,8 +132,32 @@ These are product decisions, already settled. Do not "improve" them without aski
   bottom bar — build that FAB in green, not coral. Gold must be the only
   colour that pops.
 - **No time picker as the primary control.** The dose editor leads with anchor
-  chips (`[قبل الفطار] [بعد العشا] …`) plus an offset stepper. A fixed clock
+  chips (`[قبل الفطار] [بعد العشا] …`) plus an offset wheel. A fixed clock
   time exists only as a small secondary link.
+- **Every number and every clock time is set on a wheel — one family,
+  `lib/core/widgets/f_wheels.dart`** (product decision, 24 Sep 2026). No
+  `+/−` stepper, no slider, no typed number for a value the app owns.
+  `FNumberWheel` (min / max / step / unit, Arabic numerals) and
+  `FTimeWheel` (hour + 5-minute wheels with ص/م, the same `MinuteOfDay` in
+  and out that `TimeWheel` used to carry) share one Cupertino column: 26px
+  ink numerals, a green-tinted selection row, a haptic tick on every step
+  (iOS ticks natively, Android through `HapticFeedback`), and they work
+  on Android. `FNumberWheel.value` may be null: the wheel rests on `rest`
+  and **writes nothing until it is moved** — how an optional question
+  («سنّك كام؟») and a number we must never invent («المعمل قال صيام كام
+  ساعة؟», rule 6) stay empty until a human answers. Where it lives now:
+  the five routine questions, «عدّل يومك», Ramadan, the dose editor's
+  fixed clock and its «بكام؟» offset (0–180 by 5, same range as the old
+  stepper), «ضيف دوا»'s duration (1–90 days) and its «أكتر» count (5–12),
+  the fasting sheet's draw time and hours (1–72, rests on 10), and the
+  age. **Kept on the keypad, on purpose**: the glucose reading (a
+  three-digit number read off a meter — spinning 20–600 to it is worse
+  than typing three digits), lab values (decimals in the paper's own
+  unit), the 6-digit invite code and phone numbers (not values), and the
+  free-text amount («نص قرص»). Dates stay on chips plus the calendar.
+  `MinuteStepper` and `features/onboarding/time_wheel.dart` are gone;
+  `test/app/wheels_se_test.dart` pumps every screen that gained a wheel at
+  375×667 with the real fonts and asserts the primary button is on screen.
 - **Copy is warm Egyptian colloquial**, the way a family speaks:
   "بتفطر الساعة كام؟" — not "يرجى تحديد موعد وجبة الإفطار".
 - **The app has a night mode, and every colour flips from one place.**
@@ -284,7 +308,7 @@ lib/
                               screen, 3 preset chips above the wheel,
                               «مش متأكد» → DayRoutine.fallback, 5 dots
   features/medication/        dose_editor (mockup 23 — the ONE timing editor:
-                              8 anchor chips, −/+ stepper, gold preview, fixed
+                              8 anchor chips, offset wheel, gold preview, fixed
                               link last); add_medication (mockup 20 fields →
                               one DoseEditor per timing, saved only after the
                               last); EditMedicationScreen — amount, per-dose
@@ -322,7 +346,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1435 passing
+test/                         1441 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -2860,7 +2884,7 @@ Consequences to handle:
   widget, so red text anywhere else on those screens still fails.
 - **Mockup 11's rule box («قاعدة: لا يمكن للفحص أن يبقى…») and «المتوقع ٢٤
   ساعة» are not built** — an automatic judgment on delay and a number
-  nobody gave us. The fasting duration is never ours either: the user types
+  nobody gave us. The fasting duration is never ours either: the user picks
   the hours the lab gave.
 - **The calendar shows doses only where `dose_events` rows exist** (up to
   tomorrow). It does not recompute future days with the engine, and says so.
@@ -3102,7 +3126,7 @@ with the app fully closed, offline, and across a reboot.
   the camera.
   «تمام، ظبّطهم» writes each clear line (one schedule per timing) then `rescheduleAll`.
 - Editor accepts prefilled values and now has an optional amount field;
-  the offset stepper follows the chip (30 before meals, 15 before sleep).
+  the offset wheel follows the chip (30 before meals, 15 before sleep).
   Since D2.5 the timing lives in one shared `DoseEditor`; «ضيف دوا» asks
   name / amount / «كام مرة» / «مع الأكل» / duration first and hands off to
   it once per timing («الجرعة ١ من ٣»), saving nothing until the last
@@ -4098,7 +4122,7 @@ screen — and they are different screens on purpose.**
   المحاكي في CI بيغطّي سكّة زرار الجرعة وبس؛ مدّه للمواعيد بيحتاج ينتظر
   يوم كامل أو يزوّر ساعة الجهاز، فما اتعملش.
 - **«اضبط تذكير الصيام» schedules a real notification — only from that
-  tap (rule 4)**, at draw time minus the hours **the user types** (no
+  tap (rule 4)**, at draw time minus the hours **the user picks** (no
   default, rule 6), through `NotificationService.scheduleCheckup`: its own
   Android channel `fakkarni_checkup`, **no «أخدته»/«فكّرني بعدين» buttons,
   no dose category, no payload** — those buttons record doses. It is

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/widgets/f_wheels.dart';
+
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
@@ -85,30 +87,35 @@ void main() {
     );
   });
 
-  screenTest('«أكتر» بتفتح حقل رقم — ٦ مرات بتمشي ٦ محرّرات', (tester) async {
+  screenTest('«أكتر» بتفتح بكرة — خانة لفوق = ٦ مرات، وبتمشي ٦ محرّرات', (tester) async {
     await pumpAdd(tester);
     expect(find.byKey(const ValueKey('count-field')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
     expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
+    expect(find.text('٥ مرات'), findsOneWidget, reason: 'البكرة بتبدأ من بعد آخر شريحة');
 
-    await tester.enterText(find.byKey(const ValueKey('count-field')), '6');
+    await tester.drag(find.byKey(const ValueKey('count-field')), const Offset(0, -FNumberWheel.itemExtent));
     await settle(tester);
 
     await walk(tester, 6);
     expect(await h.meds.activeSchedules(h.services.patientId), hasLength(6));
   });
 
-  screenTest('الأرضية: رقم أقل من واحد ما بيبقاش صفر جرعة', (tester) async {
+  screenTest('الأرضية والسقف من البكرة نفسها: مفيش أقل من ٥ ولا أكتر من ١٢', (tester) async {
     await pumpAdd(tester);
     await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
-    await tester.enterText(find.byKey(const ValueKey('count-field')), '0');
+    // لتحت بكتير → واقفة عند ٥
+    await tester.drag(find.byKey(const ValueKey('count-field')), const Offset(0, FNumberWheel.itemExtent * 20));
     await settle(tester);
-
-    await walk(tester, 1);
-    expect(await h.meds.activeSchedules(h.services.patientId), hasLength(1));
+    expect(find.text('٥ مرات'), findsOneWidget);
+    // لفوق بكتير → واقفة عند ١٢، وبكلمتها الصح
+    await tester.drag(find.byKey(const ValueKey('count-field')), const Offset(0, -FNumberWheel.itemExtent * 40));
+    await settle(tester);
+    expect(find.text('١٢ مرة'), findsOneWidget);
+    expect(find.text('١٣ مرة'), findsNothing);
   });
 
   screenTest('سطر روشتة بأربع جرعات بيوصل بأربعتهم، والعدّاد واقف على ٤', (tester) async {

@@ -14,7 +14,7 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/ramadan.dart';
-import 'package:fakkarni/features/onboarding/time_wheel.dart';
+import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/features/routine/ramadan_screen.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
@@ -167,8 +167,8 @@ void main() {
     // غيّر الفطار بالعجلة
     await tester.tap(find.text('غيّر').last);
     await settle(tester);
-    expect(find.byType(TimeWheel), findsOneWidget);
-    await tester.drag(find.byType(TimeWheel), const Offset(0, -60));
+    expect(find.byType(FTimeWheel), findsOneWidget);
+    await tester.drag(find.byType(FTimeWheel), const Offset(0, -60));
     await settle(tester);
 
     // اقفل الشاشة من غير ما تدوس
@@ -224,7 +224,7 @@ void main() {
     await tester.tap(find.text('غيّر').last); // الفطار (المغرب)
     await settle(tester);
     // خمس دقايق لفوق على العجلة (خطوة ٥)
-    await tester.drag(find.byType(TimeWheel), const Offset(0, -56));
+    await tester.drag(find.byType(FTimeWheel), const Offset(0, -56));
     await settle(tester);
     expect(await routines.ramadanTimes(services.patientId), isNull, reason: 'لسه ما اتفعّلش');
 

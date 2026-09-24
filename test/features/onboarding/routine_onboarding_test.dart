@@ -20,7 +20,7 @@ import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/onboarding/profile_page.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
-import 'package:fakkarni/features/onboarding/time_wheel.dart';
+import 'package:fakkarni/core/widgets/f_wheels.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../../support/seeded_clock.dart';
@@ -178,7 +178,7 @@ void main() {
     await pumpOnboarding(tester);
 
     final chip = tester.getCenter(find.text('٦:٠٠ ص'));
-    final wheel = tester.getCenter(find.byType(TimeWheel));
+    final wheel = tester.getCenter(find.byType(FTimeWheel));
     expect(chip.dy, lessThan(wheel.dy), reason: 'أغلب الناس بتاخد اقتراح');
   });
 

@@ -9,7 +9,8 @@ import '../../core/widgets/primitives.dart';
 import '../../domain/medication/duplicate_check.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
-import 'dose_editor.dart';
+import '../../core/widgets/f_wheels.dart';
+import 'dose_editor.dart' show DoseEditor;
 import 'medication_draft.dart';
 
 /// «إضافة دواء» (المخطط 20) — الحقول الأول، وبعدها محرّر الجرعة.
@@ -89,9 +90,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// واحدة، فبقى تلات أماكن بتقرر نفس الرقم.
   List<DoseTiming> _doses = const [];
 
-  /// «أكتر» متفتوحة — الرقم بيتكتب بالإيد.
+  /// «أكتر» متفتوحة — الرقم من بكرة ٥..١٢.
   bool _customCount = false;
-  late final _count = TextEditingController();
   bool _openEnded = true;
   int _days = 7;
   bool _busy = false;
@@ -114,7 +114,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     if (widget.initialTimings.isNotEmpty) {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
-      if (_customCount) _count.text = '$_timesPerDay';
     }
     _doses = widget.initialTimings.isNotEmpty ? [...widget.initialTimings] : _fromConvention();
     // **الفحص بيجري على طول لما القراية جاية من علبة** — الراجل لسه
@@ -159,7 +158,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   void dispose() {
     _name.dispose();
     _amount.dispose();
-    _count.dispose();
     super.dispose();
   }
 
@@ -228,13 +226,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     });
   }
 
-  /// الأرضية: الدوا لازم له جرعة واحدة. والحد الأعلى عشان الحقل ما يبنيش
-  /// مية صف من غلطة كتابة.
-  void _typeCount(String text) {
-    final n = int.tryParse(text.trim());
-    if (n == null) return;
-    _reseed(() => _timesPerDay = n.clamp(1, _maxCount));
-  }
+  /// البكرة نفسها هي الحدود: من بعد آخر شريحة لحد [_maxCount] — مفيش رقم
+  /// برّه المدى يتكتب أصلاً.
+  void _pickCustomCount(int n) => _reseed(() => _timesPerDay = n.clamp(_countChips.last + 1, _maxCount));
+
+  /// جمع «مرة»: ٣–١٠ مرات، و١١ فوق «مرة».
+  static String _timesLabel(int n) => n <= 10 ? '${arabicNumber(n)} مرات' : '${arabicNumber(n)} مرة';
 
   /// «كمّل»: محرّر لكل جرعة بالترتيب، والحفظ بعد الأخيرة بس.
   Future<void> _continue() async {
@@ -398,24 +395,24 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                                 key: const ValueKey('count-more'),
                                 label: 'أكتر',
                                 selected: _customCount,
-                                onTap: () => setState(() {
-                                  _customCount = true;
-                                  if (_count.text.trim().isEmpty) {
-                                    _count.text = '${_countChips.last + 1}';
-                                  }
-                                  _typeCount(_count.text);
-                                }),
+                                onTap: () {
+                                  if (_customCount) return;
+                                  setState(() => _customCount = true);
+                                  _pickCustomCount(_countChips.last + 1);
+                                },
                               ),
                             ],
                           ),
                           if (_customCount) ...[
                             const SizedBox(height: F.s10),
-                            _Field(
+                            FNumberWheel(
                               key: const ValueKey('count-field'),
-                              controller: _count,
-                              hint: 'كام مرة؟',
-                              number: true,
-                              onChanged: _typeCount,
+                              value: _timesPerDay,
+                              min: _countChips.last + 1,
+                              max: _maxCount,
+                              labelOf: _timesLabel,
+                              semanticsLabel: 'كام مرة في اليوم',
+                              onChanged: _pickCustomCount,
                             ),
                           ],
                           const SizedBox(height: F.gap),
@@ -476,12 +473,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ),
                         const SizedBox(height: F.s10),
                         if (!_openEnded)
-                          MinuteStepper(
+                          FNumberWheel(
+                            key: const ValueKey('days-wheel'),
                             value: _days,
-                            step: 1,
                             min: 1,
                             max: 90,
                             unit: 'يوم',
+                            semanticsLabel: 'المدة بالأيام',
                             onChanged: (value) => setState(() => _days = value),
                           )
                         else
@@ -528,17 +526,12 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.mono = false,
-    this.number = false,
     this.onChanged,
-    super.key,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool mono;
-
-  /// لوحة أرقام — «كام مرة» رقم، مفيش حروف تتكتب فيه.
-  final bool number;
   final ValueChanged<String>? onChanged;
 
   @override
@@ -546,7 +539,6 @@ class _Field extends StatelessWidget {
         textInputAction: TextInputAction.next,
         controller: controller,
         onChanged: onChanged,
-        keyboardType: number ? TextInputType.number : null,
         style: TextStyle(
           fontSize: F.minBodySize,
           fontFamily: mono ? F.monoFamily : null,

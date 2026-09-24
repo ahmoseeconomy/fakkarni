@@ -8,7 +8,7 @@ import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../onboarding/routine_presets.dart';
 import '../onboarding/routine_question_page.dart' show PresetRow;
-import '../onboarding/time_wheel.dart';
+import '../../core/widgets/f_wheels.dart';
 
 /// تعديل روتين اليوم بعد الأسئلة الأولى.
 ///
@@ -191,7 +191,7 @@ class _AnchorCard extends StatelessWidget {
           ),
           if (wheelOpen) ...[
             const SizedBox(height: F.s8),
-            TimeWheel(value: value, onChanged: onChanged),
+            FTimeWheel(value: value, onChanged: onChanged),
           ],
         ],
       ),

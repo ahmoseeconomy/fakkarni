@@ -9,7 +9,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/ramadan.dart';
 import '../../domain/scheduling/schedule_engine.dart';
-import '../onboarding/time_wheel.dart';
+import '../../core/widgets/f_wheels.dart';
 
 /// «يومك في رمضان» (المخطط 25).
 ///
@@ -336,7 +336,7 @@ class _TimeRow extends StatelessWidget {
           if (wheelOpen && onChanged != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(F.s12, 0, F.s12, F.s8),
-              child: TimeWheel(value: value, onChanged: onChanged!),
+              child: FTimeWheel(value: value, onChanged: onChanged!),
             ),
         ],
       );

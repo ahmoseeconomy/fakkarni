@@ -6,7 +6,7 @@ import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import 'routine_presets.dart';
-import 'time_wheel.dart';
+import '../../core/widgets/f_wheels.dart';
 
 /// شاشة سؤال واحد (المخطط 22 — سؤال في المرة).
 ///
@@ -75,7 +75,7 @@ class RoutineQuestionPage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: F.s8),
-                      TimeWheel(value: value, onChanged: onChanged),
+                      FTimeWheel(value: value, onChanged: onChanged),
                     ],
                   ),
                 ),

@@ -24,7 +24,7 @@ import 'package:fakkarni/features/health/glucose_screen.dart';
 import 'package:fakkarni/features/health/usual_words.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
-import 'package:fakkarni/features/onboarding/time_wheel.dart';
+import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 import 'package:fakkarni/features/today/widgets/day_rail.dart';
@@ -575,7 +575,7 @@ void main() {
       expect(find.text('مع الأكل؟'), findsOneWidget);
       expect(find.text('مفتوحة'), findsOneWidget);
       expect(find.byType(TimePickerDialog), findsNothing);
-      expect(find.byType(TimeWheel), findsNothing);
+      expect(find.byType(FTimeWheel), findsNothing);
       expectNoRedAndMinSize(tester);
     });
 
@@ -596,12 +596,11 @@ void main() {
           .first);
       expect(active.color, F.gold);
       expect(find.byType(TimePickerDialog), findsNothing);
-      expect(find.byType(TimeWheel), findsNothing);
-      // العدّاد بكلمة مش أيقونة لوحدها
-      expect(find.text('أقل'), findsOneWidget);
-      expect(find.text('أكتر'), findsOneWidget);
-      expect(find.byIcon(Icons.remove), findsOneWidget);
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byType(FTimeWheel), findsNothing);
+      // الإزاحة بكرة زي كل رقم في التطبيق — مفيش عدّاد −/+
+      expect(find.byKey(const ValueKey('gap-wheel')), findsOneWidget);
+      expect(find.byIcon(Icons.remove), findsNothing);
+      expect(find.byIcon(Icons.add), findsNothing);
       expectNoRedAndMinSize(tester);
     });
 
@@ -615,7 +614,8 @@ void main() {
       await settle(tester);
       expect(find.text('يعني حوالي ٨:٣٠ م'), findsOneWidget);
 
-      await tester.tap(find.text('أكتر'));
+      // خانة واحدة لفوق على البكرة = +٥ دقايق
+      await tester.drag(find.byKey(const ValueKey('gap-wheel')), const Offset(0, -FNumberWheel.itemExtent));
       await settle(tester);
       expect(find.text('يعني حوالي ٨:٣٥ م'), findsOneWidget);
     });
@@ -728,7 +728,7 @@ void main() {
       await settle(tester);
 
       expect(find.text('ساعة ثابتة — مش هتتحرك مع روتين يومك'), findsOneWidget);
-      expect(find.byType(TimeWheel), findsOneWidget);
+      expect(find.byType(FTimeWheel), findsOneWidget);
       expect(find.text('قبل الفطار'), findsNothing);
       expect(find.text('أحدد ساعة ثابتة بدل كده'), findsNothing);
       expect(find.text('يعني حوالي ٨:٠٠ ص'), findsOneWidget);

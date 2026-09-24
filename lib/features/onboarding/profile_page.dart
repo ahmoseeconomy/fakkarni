@@ -1,10 +1,8 @@
-import 'package:flutter/cupertino.dart' show CupertinoPicker, CupertinoPickerDefaultSelectionOverlay;
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/patient/sex.dart';
 
@@ -148,19 +146,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
 }
 
-/// **بكرة السن — من ١٨ لـ١١٠، بشكل بكرة الساعة بتاعة آبل، وعلى أندرويد كمان.**
+/// **بكرة السن — من ١٨ لـ١١٠، على [FNumberWheel] المشتركة.**
 ///
 /// كانت شرايح نطاقات كلها فوق الستين («٦٠–٦٤» … «٨٥+»): واحد عنده ٤٠ سنة
 /// وبياخد دوا ضغط مكانش يلاقي نفسه. البكرة بتبدأ واقفة على [restAge]
 /// **من غير ما تكتب حاجة** — [value] بيفضل null لحد ما يحرّكها بإيده،
 /// لأن السؤال اختياري و«واقفة على ٦٠» مش إجابة. «مش عايز أقول» بترجّعها
-/// للراحة وبتمسح القيمة.
-///
-/// `CupertinoPicker` مش `CupertinoDatePicker`: الأولانية بتاخد أولادها
-/// منّنا، فالأرقام عربي والخط بمقاسنا (عكس اللي خلّى `TimeWheel` تتكتب
-/// بإيدنا). الهزّة على كل نقلة: iOS بيعملها لوحده، وأندرويد بناخدها من
-/// [HapticFeedback].
-class AgeWheel extends StatefulWidget {
+/// للراحة وبتمسح القيمة. اللي هنا بس التلميح والزرار؛ البكرة نفسها هي
+/// بكرة كل رقم في التطبيق.
+class AgeWheel extends StatelessWidget {
   const AgeWheel({
     required this.value,
     required this.onChanged,
@@ -182,121 +176,60 @@ class AgeWheel extends StatefulWidget {
   /// بيتكتب من غير ما يتحرّك لها.
   static const int restAge = 60;
 
-  static const double itemExtent = 44;
+  static const double itemExtent = FNumberWheel.itemExtent;
 
   /// **مقاس iPhone SE هو اللي حدده**: الاسم والجنس والبكرة وسطرها و«كمّل»
-  /// كلهم لازم يبانوا من غير لفّ على ٦٦٧ بكسل. ~٢٫٥ صف ظاهر، والصف
-  /// المختار في النص بأرضيته.
-  static const double wheelHeight = 110;
+  /// كلهم لازم يبانوا من غير لفّ على ٦٦٧ بكسل.
+  static const double wheelHeight = FNumberWheel.defaultHeight;
 
   static const String hint = 'حرّك البكرة لحد سنّك';
 
   @override
-  State<AgeWheel> createState() => _AgeWheelState();
-}
-
-class _AgeWheelState extends State<AgeWheel> {
-  late final _controller = FixedExtentScrollController(
-    initialItem: (widget.value ?? AgeWheel.restAge) - AgeWheel.minAge,
-  );
-
-  /// وإحنا بنرجّع البكرة للراحة بأنفسنا، النقلة دي مش «هو حرّكها».
-  bool _syncing = false;
-
-  @override
-  void didUpdateWidget(AgeWheel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.value == null && oldWidget.value != null) _rest();
-  }
-
-  void _rest() {
-    final target = AgeWheel.restAge - AgeWheel.minAge;
-    if (!_controller.hasClients || _controller.selectedItem == target) return;
-    _syncing = true;
-    _controller.jumpToItem(target);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncing = false);
-  }
-
-  void _picked(int index) {
-    if (_syncing) return;
-    // آبل بتهزّ لوحدها على iOS؛ على أندرويد إحنا اللي بنهزّ
-    if (defaultTargetPlatform != TargetPlatform.iOS) HapticFeedback.selectionClick();
-    widget.onChanged(AgeWheel.minAge + index);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final value = widget.value;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Semantics(
-          label: 'السن',
-          child: SizedBox(
-            height: AgeWheel.wheelHeight,
-            child: CupertinoPicker(
-              key: const ValueKey('age-wheel'),
-              scrollController: _controller,
-              itemExtent: AgeWheel.itemExtent,
-              // الصف المختار بيبان بأرضية هادية — نفس شكل بكرة آبل
-              selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
-                background: F.green.withValues(alpha: 0.14),
-              ),
-              onSelectedItemChanged: _picked,
-              children: [
-                for (var age = AgeWheel.minAge; age <= AgeWheel.maxAge; age++)
-                  Center(
-                    child: Text(
-                      '${arabicNumber(age)} سنة',
-                      style: TextStyle(
-                        fontSize: F.minBodySize + 6,
-                        fontWeight: FontWeight.w600,
-                        color: F.ink,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FNumberWheel(
+            key: const ValueKey('age-wheel'),
+            value: value,
+            rest: restAge,
+            min: minAge,
+            max: maxAge,
+            unit: 'سنة',
+            semanticsLabel: 'السن',
+            height: wheelHeight,
+            onChanged: onChanged,
           ),
-        ),
-        const SizedBox(height: F.s4),
-        // التلميح والزرار في صف واحد تحت البكرة — سطرين فوق بعض كانوا
-        // بيزقّوا الزرار تحت حافة SE
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                value == null ? AgeWheel.hint : 'سنّك ${arabicNumber(value)} سنة',
-                key: const ValueKey('age-hint'),
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
-              ),
-            ),
-            SizedBox(
-              height: F.minTapTarget,
-              child: TextButton(
-                onPressed: () => widget.onChanged(null),
+          const SizedBox(height: F.s4),
+          // التلميح والزرار في صف واحد تحت البكرة — سطرين فوق بعض كانوا
+          // بيزقّوا الزرار تحت حافة SE
+          Row(
+            children: [
+              Expanded(
                 child: Text(
-                  widget.clearLabel,
-                  style: TextStyle(
-                    fontSize: F.minTextSize,
-                    fontWeight: FontWeight.w600,
-                    color: F.mutedDark,
-                    decoration: TextDecoration.underline,
+                  value == null ? hint : 'سنّك ${arabicNumber(value!)} سنة',
+                  key: const ValueKey('age-hint'),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                ),
+              ),
+              SizedBox(
+                height: F.minTapTarget,
+                child: TextButton(
+                  onPressed: () => onChanged(null),
+                  child: Text(
+                    clearLabel,
+                    style: TextStyle(
+                      fontSize: F.minTextSize,
+                      fontWeight: FontWeight.w600,
+                      color: F.mutedDark,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+            ],
+          ),
+        ],
+      );
 }
 
 class _Label extends StatelessWidget {
@@ -312,4 +245,3 @@ class _Label extends StatelessWidget {
         ),
       );
 }
-
