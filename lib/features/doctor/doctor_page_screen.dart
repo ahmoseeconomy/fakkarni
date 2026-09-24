@@ -15,6 +15,8 @@ import '../../data/repositories/medication_repository.dart';
 import '../../data/repositories/visit_questions_repository.dart';
 import '../../domain/health/glucose_summary.dart';
 import '../../domain/health/lab_range.dart';
+import '../../domain/billing/family_plan.dart';
+import '../billing/feature_gate.dart';
 import '../export/export_screen.dart';
 import '../health/lab_flag.dart';
 import '../health/usual_words.dart'
@@ -408,9 +410,13 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           FSecondaryButton(
             key: const ValueKey('doctor-export'),
             label: 'اطبع أو ابعت الملف',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ExportScreen()),
-            ),
+            onPressed: () async {
+              // أول ٣ تصديرات مجانية، وبعدها ميزة عائلية
+              if (!await ensureFamilyFeature(context, AppFeature.exportBeyondFree) || !context.mounted) return;
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ExportScreen()),
+              );
+            },
           ),
         ],
       ),

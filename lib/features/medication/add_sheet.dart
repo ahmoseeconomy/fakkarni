@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/billing/family_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../billing/feature_gate.dart';
 import '../health/glucose_screen.dart';
 import '../health/scan_lab_screen.dart';
 import '../records/manual_entry_screen.dart';
@@ -25,6 +27,14 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
     navigator.push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
+  /// القراية بالكاميرا ميزة عائلية — الشيت بيتقفل، والبوابة بتقرر.
+  Future<void> openScan(Widget screen) async {
+    navigator.pop();
+    if (await ensureFamilyFeature(context, AppFeature.scans) && context.mounted) {
+      navigator.push(MaterialPageRoute<void>(builder: (_) => screen));
+    }
+  }
+
   return FSheet.show<void>(
     context,
     title: addSheetTitle,
@@ -34,11 +44,11 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
       FPrimaryButton(
         label: addSheetLabels[0],
         onPressed: () =>
-            open(ScanPackageScreen(routine: routine, reader: services.packageReader)),
+            openScan(ScanPackageScreen(routine: routine, reader: services.packageReader)),
       ),
       FSecondaryButton(
         label: addSheetLabels[1],
-        onPressed: () => open(ScanPrescriptionScreen(routine: routine, reader: services.prescriptionReader)),
+        onPressed: () => openScan(ScanPrescriptionScreen(routine: routine, reader: services.prescriptionReader)),
       ),
       FSecondaryButton(
         label: addSheetLabels[2],
@@ -48,7 +58,7 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
       FSecondaryButton(label: addSheetLabels[3], onPressed: () => open(const GlucoseScreen())),
       FSecondaryButton(
         label: addSheetLabels[4],
-        onPressed: () => open(ScanLabScreen(reader: services.labReader)),
+        onPressed: () => openScan(ScanLabScreen(reader: services.labReader)),
       ),
       // الملف الصحي (D3.5) — مش دوا، فمش بيتجدول
       FSecondaryButton(label: addSheetLabels[5], onPressed: () => open(const ManualEntryScreen())),

@@ -11,6 +11,7 @@ import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
+import '../billing/family_plan_screen.dart';
 import 'followers_screen.dart';
 import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
@@ -160,6 +161,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 push: services.push,
               )),
             ),
+            if (services.subscription case final sub?)
+              _Row(
+                icon: Icons.family_restroom_outlined,
+                label: 'اشتراك العيلة',
+                hint: 'اشتراك واحد ليك وللي بيتابعوك — التذكير مجاني للأبد',
+                onTap: () async {
+                  final patient = await services.routines.getPatient(services.patientId);
+                  if (!context.mounted) return;
+                  _open(FamilyPlanScreen(service: sub, patientName: patient?.name ?? 'أنا'));
+                },
+              ),
             // ٠٠٢٣: مين بيتابعك وبيقدر يعمل إيه — للمريض المربوط وبس
             if (user != null && services.careAdmin != null)
               _Row(

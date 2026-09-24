@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0024: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0025: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -271,7 +271,19 @@ with expected(migration, kind, ident) as (
     ('0024_medication_changes', 'function', 'private.can_edit_meds_for'),
     ('0024_medication_changes', 'policy',   'public.medication_changes|medication_changes_insert'),
     ('0024_medication_changes', 'policysrc','public.medication_changes|medication_changes_insert|can_edit_meds_for'),
-    ('0024_medication_changes', 'policy',   'public.medication_changes|medication_changes_update')
+    ('0024_medication_changes', 'policy',   'public.medication_changes|medication_changes_update'),
+
+    -- 0025 — اشتراك العيلة
+    ('0025_family_subscription', 'table',    'public.family_subscriptions'),
+    ('0025_family_subscription', 'rls',      'public.family_subscriptions'),
+    ('0025_family_subscription', 'column',   'public.family_subscriptions.trial_ends_at'),
+    ('0025_family_subscription', 'trigger',  'public.patients|start_family_trial'),
+    ('0025_family_subscription', 'function', 'private.family_subscription_active'),
+    ('0025_family_subscription', 'function', 'private.trial_days'),
+    ('0025_family_subscription', 'function', 'private.follower_cap'),
+    -- **الاختيار بيسأل عن اشتراك المريض** — وجود الدالة لوحده بيكدب
+    ('0025_family_subscription', 'funcsrc',  'private.due_escalations|cr.caregiver_id, p.uuid'),
+    ('0025_family_subscription', 'funcsrc',  'public.redeem_invite|circle_full')
 ),
 checked as (
   select

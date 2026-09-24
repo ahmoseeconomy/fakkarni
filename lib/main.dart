@@ -19,6 +19,8 @@ import 'core/diagnostics.dart';
 import 'data/health/health_collector.dart';
 import 'data/health/health_heartbeat.dart';
 import 'data/health/health_watcher.dart';
+import 'data/billing/iap_store_purchases.dart';
+import 'data/billing/subscription_service.dart';
 import 'data/sync/medication_change_pull.dart';
 import 'data/testhook/test_hook.dart';
 import 'core/notifications/notification_service.dart';
@@ -106,6 +108,12 @@ Future<void> main() async {
           isSignedIn: () => cloud.auth.currentUser != null,
         );
   push?.start();
+
+  // اشتراك العيلة: المتجر من ورا واجهة، والحالة المحفوظة بتتحمّل قبل أي بوابة
+  final subscription = cloud == null
+      ? null
+      : SubscriptionService(remote: cloud.subscriptions, store: IapStorePurchases());
+  await subscription?.load();
 
   final services = await buildServices(
     db,

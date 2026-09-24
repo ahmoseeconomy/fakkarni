@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../care/care_circle_service.dart';
 import '../care/caregiver_remote.dart';
+import '../billing/subscription_remote.dart';
+import '../billing/supabase_subscription_remote.dart';
 import '../care/medication_changes.dart';
 import '../care/proxy_confirmations.dart';
 import '../care/supabase_medication_changes.dart';
@@ -140,6 +142,7 @@ typedef CloudServices = ({
   CareCircleAdmin careAdmin,
   ProxyConfirmRemote proxy,
   MedicationChangeRemote medChanges,
+  SubscriptionRemote subscriptions,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -173,6 +176,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       careAdmin: SupabaseCareCircleService(supabase.client),
       proxy: SupabaseProxyRemote(supabase.client),
       medChanges: SupabaseMedicationChangeRemote(supabase.client),
+      subscriptions: SupabaseSubscriptionRemote(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

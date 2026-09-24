@@ -230,7 +230,15 @@ class _CaregiverShellState extends State<CaregiverShell> {
   /// ده كان هيخلّي التوصيل «موجود» وهو مش شغّال.
   void _onSnapshot() {
     final patient = _holder?.snapshot?.patient;
-    if (patient != null) unawaited(_checkOnboarding(patient.uuid));
+    if (patient != null) {
+      unawaited(_checkOnboarding(patient.uuid));
+      // اشتراك العيلة على المريض المتابَع — الابن بيقرا حالته من هنا
+      final sub = AppScope.of(context).subscription;
+      if (sub != null && sub.patientUuid != patient.uuid) {
+        sub.patientUuid = patient.uuid;
+        unawaited(sub.refresh());
+      }
+    }
   }
 
   /// **بوابة أسئلة المتابع — ودي هي المدخل (أ) و(ب) مع بعض.**

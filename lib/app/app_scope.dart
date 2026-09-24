@@ -10,6 +10,7 @@ import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
+import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
@@ -55,6 +56,7 @@ class AppServices {
     this.proxyPull,
     this.medChanges,
     this.medChangePull,
+    this.subscription,
   });
 
   final AppDatabase db;
@@ -77,10 +79,14 @@ class AppServices {
   final MedicationChangeRemote? medChanges;
   final MedicationChangePuller? medChangePull;
 
+  /// اشتراك العيلة — null من غير سحابة (كل حاجة مسموحة ساعتها).
+  final SubscriptionService? subscription;
+
   /// السحبتين مع بعض — عند الفتح والرجوع وبعد كل رفعة.
   Future<void> pullFromCircle() async {
     await proxyPull?.pull();
     await medChangePull?.pull();
+    await subscription?.refresh();
   }
 
   /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات
@@ -169,6 +175,11 @@ class AppScope extends InheritedWidget {
   });
 
   final AppServices services;
+
+  /// null لما مفيش `AppScope` فوق — لشاشة بتتبني لوحدها (اختبار، أو
+  /// معاينة) ومحتاجة تسأل عن خدمة اختيارية من غير ما تقع.
+  static AppServices? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()?.services;
 
   static AppServices of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();

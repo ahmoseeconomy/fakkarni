@@ -7,11 +7,13 @@ the patient is never left alone with a notification he already missed.
 
 Two users, different needs:
 - **The patient** — ~72 years old, reading glasses, uses the app under pressure.
-- **The caregiver** — working adult, checks briefly, and **pays for his
-  own subscription** (see «Pricing»). *Superseded 22 Sep 2026: this line used
-  to read «pays for the subscription», i.e. the son paying for the father's
-  account. He does not — the father pays for his, and every follower pays for
-  his own.*
+- **The caregiver** — working adult, checks briefly, and is covered by
+  the **one family subscription** on the patient (see «Pricing»,
+  24 Sep 2026). *Two earlier readings of this line are superseded: «the
+  son pays for the father's account» (until 22 Sep) and «every follower
+  pays for his own» (22–24 Sep). Today: one subscription per patient
+  covers him and up to five people following him, and any of them may
+  pay it.*
 
 ---
 
@@ -1805,7 +1807,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غيرهم: «مرآة» الممرض بتقع عند أول تأكيد، والدعوة بدور بترجع خطأ على `p_role`. الترتيب: 0023 ثم 0024، وبعدها `verify_migrations.sql` لازم يرجّع ٢٤ صف كلهم `ok = true`. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: «مرآة» الممرض بتقع عند أول تأكيد، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023)، وبعدها `verify_migrations.sql` لازم يرجّع ٢٥ صف كلهم `ok = true`. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -2582,46 +2584,103 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
   (تنبيهات السيرفر لسه بتوصله لأنه علاقة مقبولة)؛ الاسم اللي بيتكتب على
   التأكيد هو اسمه في «بياناتك وتنبيهاتك»، ومن غيره null.
 
-## Pricing
+## Pricing — اشتراك العيلة
 
-**Decided by the owner, 22 Sep 2026. Nothing is built for it yet.**
+**Decided by the owner, 24 Sep 2026 (tester feedback #3). Built behind one
+seam; not sellable until the company does the store work in HANDOVER B7.**
 
-> **The patient account owner pays for his own subscription, and every person
-> who wants a follow code pays for his own subscription.**
->
-> - the patient account (the father) = **one** subscription
-> - each follower (first son, brother, sister…) = **a separate subscription
->   each**
+> **ONE family subscription per patient covers the patient and up to 5
+> people following him (followers or nurses). Not «each person pays».
+> Anyone in the circle may buy it.**
 
-**This replaces every other model that was ever written down here.** The
-guide's opening used to say the caregiver «pays for the subscription» — meaning
-the son paid for his father's account. That is wrong now and the line says so
-in place. There is **no** free extra follower: a second son is a second
-subscription, not a guest on the first one.
+This replaces the 22 Sep model («every follower pays for his own»), which
+replaced the original («the son pays for the father»). Both are history.
 
-**No payment code exists and none is written this round** — no paywall, no
-entitlement check, no store product. Payment waits for the paid Apple Developer
-account (debt 3), and on the day it lands it arrives behind a single named
-seam, not sprinkled through the screens.
+**Two safety rules, and they are structural, not policy:**
+1. **The patient's own reminders never stop** because of payment, trial
+   end or verification failure — the dose, the ladder, the repeats, the
+   60-minute server grace and the son's alert **never read billing**.
+   `test/data/billing/billing_mirror_test.dart` reads
+   `lib/domain/scheduling`, `lib/domain/escalation`, `lib/data/services`,
+   `lib/core/notifications`, `lib/data/sync` and `bootstrap.dart` and fails
+   on any billing import or gate call. The golden-plan test and the
+   scheduler tests are green without modification.
+2. **Unreachable verification = last known state (grace), never a
+   lockout.** `SubscriptionService.refresh` keeps `current` and
+   `billing.lastKnownAllowed` on any failure; with no state at all
+   everything is allowed; an `active` row keeps allowing for
+   `graceDays` (3) past `expires_at`.
 
-### Two safety questions that must be answered before payment ships
+**Free forever vs family — one list, `AppFeature` in
+`lib/domain/billing/family_plan.dart` (default, awaiting the owner's
+confirmation):**
 
-These are not billing details. They are the two places where money can silence
-the thing the product exists to do, so they are written down now, while nobody
-is under delivery pressure.
+| مجاني للأبد | اشتراك العيلة |
+|---|---|
+| كل التذكيرات (الجرعة والسلّم والإعادات) | ربط متابعين وممرضين وتنبيهاتهم (`circle`) |
+| إضافة الأدوية وتعديلها | مرآة الممرض والتأكيد بداله (`nurseMirror`) |
+| «يومك» | قراية الروشتة والعلبة والتحليل بالكاميرا (`scans`) |
+| الملف الصحي على الموبايل | تصدير الملف PDF بعد أول ٣ مرات (`exportBeyondFree`) |
+| بطاقة الطوارئ | |
 
-1. **If the father's subscription lapses, do his medication reminders keep
-   working?** A dose reminder that stops because a card expired is a
-   patient-safety failure, not a dunning event — and it fails silently, which
-   is this product's worst failure mode (debt 0c). The answer has to be
-   decided deliberately; the default of «the app stops working» is the answer
-   nobody chose and everybody ships.
+`featureAllowed(feature, …)` is the one decision: a free feature is `true`
+whatever the state; a family feature follows the debug override (never in
+release), then the subscription (`trial` until `trial_ends_at`, `active`
+until `expires_at` + grace, `expired` never), then the last known state,
+then `true`.
 
-2. **If a follower's subscription lapses, two people must be told, not one.**
-   The follower must know he will no longer be alerted. **And the father must
-   know this person no longer follows him** — otherwise the father believes
-   someone is watching while nobody is, which is worse than his having never
-   linked anyone. The father's «مين بيتابعك» row is where that shows.
+- **Trial**: `trialDays` 14 from patient creation (trigger on
+  `patients` insert), `migrationTrialDays` 30 for patients existing when
+  `0025` runs. Both live once in `SubscriptionConfig` and once as SQL
+  functions in `0025`; the mirror test pins the four numbers (14/30/3/5)
+  and the two product ids against the SQL and the Edge Function.
+- **Cloud: `0025_family_subscription.sql`** (file only — **not yet run**):
+  `family_subscriptions` keyed by `patient_uuid` (status trial/active/
+  expired, `trial_ends_at`, `expires_at`, `store`, `product_id`,
+  `purchaser_id`, `last_verified_at`), select for the circle through
+  `can_access_patient`, **no client insert/update** (the Edge Function
+  writes with the service role); `private.family_subscription_active`
+  (missing row = allowed — an old patient before the backfill is not
+  locked out); `private.follower_subscription_active(caregiver, patient)`
+  is the seam `due_escalations` now calls, so an expired family stops
+  the **son's alert** and nothing else; `redeem_invite` returns
+  `circle_full` at `follower_cap()` (5) accepted links. Self-check: trial
+  window, circle reads / cannot write, stranger sees nothing, escalation
+  gated by trial/expired/active+grace, missing row still escalates.
+- **Verification: `supabase/functions/verify-purchase`** — POST with the
+  user's JWT `{patient_uuid, store, product_id, receipt}`; the caller must
+  be the owner or an accepted caregiver; Apple = ES256 App Store Server
+  API (`/inApps/v1/transactions/{id}`, production then sandbox), Google =
+  service-account RS256 → `subscriptionsv2`; credentials **only** from
+  Edge secrets; missing secrets → `{status: 'not_configured'}` and the
+  phone stays in trial/grace. **Never run — there is no Deno here.**
+  Product ids `fakkarni_family_monthly` / `fakkarni_family_yearly` are
+  placeholders until the store products exist.
+- **App**: `lib/data/billing/` — `SubscriptionRemote` (+ Supabase impl),
+  `StorePurchases` (+ `iap_store_purchases.dart`, the only
+  `in_app_purchase` import; **prices come from the store, never from
+  code** — the mirror test fails on a price literal in the screen),
+  `SubscriptionService` (`ChangeNotifier`; `patientUuid` set from the
+  patient row on the father's phone and from the snapshot on the son's;
+  `allowed(feature)`, `noteExport()` — first 3 exports free even when
+  expired, `buy`/`restore` → verify → refresh; debug override under
+  `!kReleaseMode` only). `lib/features/billing/family_plan_screen.dart`
+  «اشتراك العيلة»: `remindersStayFreeLine` first, status line, who is
+  covered by name, the two lists, one button per store product with its
+  store price, «استرجاع المشتريات», developer simulate chips
+  (`حقيقي / نشط / منتهي`). `feature_gate.dart` `ensureFamilyFeature`
+  opens it and returns whether the feature is allowed after; no
+  `AppScope` (a screen pumped alone) = allowed. Gates: the three scan
+  entries in the «ضيف» sheet, invite creation on `LinkCodeScreen`, and
+  «اطبع أو ابعت الملف» on «للدكتور» (counted on save in the preview).
+  Settings rows «اشتراك العيلة» on both the patient's and the son's side.
+- **Not built, said out loud**: store webhooks (renewal/cancellation
+  reach us only on the next verification), a father-side notice when a
+  follower's alerts stop (the family model makes it one state for the
+  whole circle, so the old «two people must be told» question collapses
+  into the one status line both sides read), and a nurse-mirror gate on
+  the son's phone (the mirror needs an accepted relation, and the cap and
+  the escalation gate already live on the server).
 
 ---
 
@@ -2880,8 +2939,8 @@ Consequences to handle:
 - The executive plan given to management describes a **paid subscription for
   the calls feature**. That subscription now has no feature behind it. The
   plan document needs updating before it is shown again — **and the model it
-  should describe is «Pricing» below** (22 Sep 2026): the patient pays for his
-  account, every follower pays for his own.
+  should describe is «Pricing» below** (24 Sep 2026): one family subscription
+  per patient covers him and up to five followers.
 - `escalations.channel` stays in the schema with value `push`. It is a
   generic audit column, not a placeholder for calls.
 - iOS **Critical Alerts** entitlement (bypasses silent mode and Focus) is now

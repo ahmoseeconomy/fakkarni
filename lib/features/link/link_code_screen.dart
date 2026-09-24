@@ -7,7 +7,9 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
+import '../../domain/billing/family_plan.dart';
 import '../../domain/care/follower_role.dart';
+import '../billing/feature_gate.dart';
 import '../../data/sync/sync_service.dart';
 
 /// شاشة الأب — «دائرة الرعاية» (المخطط 15): الكود اللي هيقوله لابنه.
@@ -67,6 +69,11 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
 
   Future<void> _refresh() async {
     if (_busy) return;
+    // ربط متابعين ميزة عائلية — البوابة قبل ما الكود يتعمل
+    if (!await ensureFamilyFeature(context, AppFeature.circle) || !mounted) {
+      if (mounted) setState(() => _error = 'اشتراك العيلة خلص — الربط محتاجه. تذكيرك شغّال زي ما هو.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;

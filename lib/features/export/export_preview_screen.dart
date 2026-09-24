@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../app/app_scope.dart';
+
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import 'export_actions.dart';
@@ -62,6 +64,8 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
     try {
       final path = await widget.actions.save(widget.pdf, widget.filename);
       if (mounted) setState(() => _savedPath = path);
+      // بيتعدّ للبوابة (أول ٣ مجاني) — العدّ على الحفظ، مش على الفتح
+      if (mounted) await AppScope.of(context).subscription?.noteExport();
       final opened = await widget.actions.share(widget.pdf, widget.filename);
       if (!opened && mounted) {
         setState(() => _problem = 'قايمة المشاركة ما اتفتحتش — الملف متحفظ في المكان اللي تحت.');

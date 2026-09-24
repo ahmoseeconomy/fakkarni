@@ -16,6 +16,7 @@ import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/care/proxy_confirmations.dart';
+import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
@@ -50,6 +51,7 @@ Future<AppServices> buildServices(
   CareCircleAdmin? careAdmin,
   ProxyConfirmRemote? proxy,
   MedicationChangeRemote? medChanges,
+  SubscriptionService? subscription,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -92,6 +94,11 @@ Future<AppServices> buildServices(
     };
   }
 
+  // الأب: الاشتراك على صفّه هو. الابن بيحطّه من الصورة في الشِل.
+  if (subscription != null && subscription.patientUuid == null) {
+    subscription.patientUuid = (await routines.getPatient(patientId))?.uuid;
+  }
+
   return AppServices(
     db: db,
     routines: routines,
@@ -103,6 +110,7 @@ Future<AppServices> buildServices(
     proxyPull: proxyPull,
     medChanges: medChanges,
     medChangePull: medChangePull,
+    subscription: subscription,
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,

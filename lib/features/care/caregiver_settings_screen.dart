@@ -10,6 +10,7 @@ import '../../data/care/caregiver_remote.dart';
 import '../../domain/care/follower_profile.dart';
 import 'onboarding/caregiver_onboarding_screen.dart';
 import 'caregiver_ui.dart';
+import '../billing/family_plan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
 
 /// «الإعدادات» عند الابن (D4) — الحساب واللغة وبس.
@@ -168,6 +169,40 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             ),
           ),
           const SizedBox(height: F.s12),
+          // اشتراك العيلة: اشتراك واحد على المريض المتابَع، وأي حد في
+          // الدائرة يقدر يدفعه — فالابن ليه نفس الباب اللي عند أبوه.
+          if (AppScope.of(context).subscription case final sub? when widget.patient != null) ...[
+            CareCard(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                key: const ValueKey('care-settings-plan'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => FamilyPlanScreen(
+                    service: sub,
+                    patientName: widget.patient!.name,
+                    coveredNames: [if (_me?.name.trim().isNotEmpty ?? false) _me!.name.trim()],
+                  ),
+                )),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: F.careTapTarget),
+                  padding: const EdgeInsets.symmetric(horizontal: F.carePad),
+                  child: Row(
+                    children: [
+                      Icon(Icons.family_restroom_outlined, size: 18, color: F.green),
+                      const SizedBox(width: F.s10),
+                      Expanded(
+                        child: Text('اشتراك العيلة',
+                            style: TextStyle(
+                                fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      ),
+                      Icon(Icons.chevron_left, size: 18, color: F.mutedDark),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: F.s12),
+          ],
           // نص الوعد التاني: التنبيه اللي بيوصل للموبايل ده. الفحص هنا
           // بيتشغّل كابن، فبيسأل عن التوكن بدل مدى التذكير.
           CareCard(

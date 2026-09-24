@@ -93,8 +93,18 @@
     (مريض، تنزيلة) من `device_health` بأكواد السلامة وأعمدة النبضة، قراية
     بس ومحروسة بـ`private.is_admin()` زي 0021. **ولا بيان طبي.** المتوقّع
     `Success. No rows returned` و`0022 OK` في Messages.
-22. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
-    كتابة): صف لكل ترحيل من 0001 لـ0022 بـ`expected`/`found`/`ok`/
+22. `migrations/0023_nurse_role.sql` — الدور والصلاحيات على العلاقة،
+    `proxy_confirmations`، و`due_escalations` بتستبعد المؤكَّد نيابةً.
+    **لسه ما اتشغّلتش.**
+23. `migrations/0024_medication_changes.sql` — التغييرات المعلّقة من
+    الممرض. **لسه ما اتشغّلتش.**
+24. `migrations/0025_family_subscription.sql` — اشتراك العيلة: جدول
+    `family_subscriptions`، تجربة ١٤ يوم (٣٠ للموجودين)، و`due_escalations`
+    بتمشي على `follower_subscription_active(caregiver, patient)`، وسقف
+    الدائرة ٥. **لسه ما اتشغّلتش** — بعد 0023 و0024. وبعدها الـEdge
+    Function `verify-purchase` بأسرار المتجرين (HANDOVER B7).
+25. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
+    كتابة): صف لكل ترحيل من 0001 لـ0025 بـ`expected`/`found`/`ok`/
     `missing`. شغّله **قبل** أي جولة بتلمس السحابة — `0014` عمرها ما
     اتشغّلت واكتشافها كلّف ساعة، والسكريبت ده بيجاوب نفس السؤال بلصقة
     واحدة. آخر تأكيد: ٢٢ سبتمبر ٢٠٢٦، ٢٠ صف كلهم تمام (قبل ٠٠٢١).
