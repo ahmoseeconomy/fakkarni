@@ -11,6 +11,7 @@ import '../../data/services/appointment_card.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
+import '../../data/dose_state.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/repositories/readings_repository.dart';
 import '../../data/services/checkup_service.dart';
@@ -31,7 +32,10 @@ import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/glucose_home_card.dart';
 import 'widgets/now_block.dart';
-import 'widgets/water_widget.dart';
+import 'widgets/tip_card.dart';
+import 'tips/tip_picker.dart';
+import '../../data/repositories/medication_repository.dart' show MedicationSummary;
+import '../../domain/medication/medication_purpose.dart';
 import '../selfcheck/health_bar.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
@@ -85,6 +89,13 @@ class _TodayScreenState extends State<TodayScreen> {
   /// متابعات التحاليل المفتوحة — **متابعة محدش شايفها متابعة محدش بيعملها**.
   Stream<List<RecordRow>>? _followUps;
 
+  /// «معلومة ليك»: أدويته الشغّالة (الغرض والتعليمات والمدة) وآخر أسبوع
+  /// جرعات — محلي بالكامل.
+  StreamSubscription<List<MedicationSummary>>? _summariesSub;
+  StreamSubscription<List<DoseEventView>>? _weekSub;
+  List<MedicationSummary> _summaries = const [];
+  List<DoseEventView> _lastWeek = const [];
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -104,6 +115,14 @@ class _TodayScreenState extends State<TodayScreen> {
     _followUps = services.checkups.watchOpen(services.patientId);
     _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
       if (mounted) setState(() => _readings = rows);
+    });
+    _summariesSub = services.medications.watchActiveSummaries(services.patientId).listen((rows) {
+      if (mounted) setState(() => _summaries = rows);
+    });
+    _weekSub = services.events
+        .watchBetween(DateTime(_now.year, _now.month, _now.day - 7), DateTime(_now.year, _now.month, _now.day))
+        .listen((rows) {
+      if (mounted) setState(() => _lastWeek = rows);
     });
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
@@ -141,6 +160,8 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   void dispose() {
     _schedulesSub?.cancel();
+    _summariesSub?.cancel();
+    _weekSub?.cancel();
     _readingsSub?.cancel();
     super.dispose();
   }
@@ -445,7 +466,35 @@ class _TodayScreenState extends State<TodayScreen> {
                 GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
                 const SizedBox(height: F.gap),
               ],
-              const WaterWidget(),
+              // «معلومة ليك» مكان كارت المية — نفس الخانة، نفس الوزن
+              TipCard(
+                tip: pickTip(
+                  today: _now,
+                  medications: [
+                    for (final m in _summaries)
+                      TipMedication(
+                        id: m.medication.id,
+                        name: m.medication.name,
+                        purpose: MedicationPurpose.fromStorage(m.medication.purpose),
+                        instructions: m.medication.instructions,
+                        endsOn: m.schedules.map((sch) => sch.lastActiveDay).whereType<DateTime>().fold<DateTime?>(
+                            null, (a, b) => a == null || b.isAfter(a) ? b : a),
+                      ),
+                  ],
+                  lastWeek: [
+                    for (final e in _lastWeek)
+                      TipDose(
+                        scheduledAt: e.scheduledAt,
+                        taken: e.state == DoseState.taken,
+                        missed: e.state == DoseState.missed,
+                        actedAt: e.actedAt,
+                      ),
+                  ],
+                ),
+                onOpenMedication: (id) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => EditMedicationScreen(medicationId: id)),
+                ),
+              ),
               const SizedBox(height: F.gap),
               // القاعدة ٤: مجهول اتسجّل لازم يفضل ظاهر هنا — سؤال هادي للصيدلي
               StreamBuilder<List<MedicationRow>>(

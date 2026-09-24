@@ -166,7 +166,7 @@ void main() {
           reason: 'الميعاد أول حاجة');
       expect(y('الآن'), lessThan(y('جدول النهاردة')));
       expect(y('جدول النهاردة'), lessThan(y('المتابعات')));
-      expect(y('المتابعات'), lessThan(y('المية')));
+      expect(y('المتابعات'), lessThan(y('معلومة ليك')));
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 100));

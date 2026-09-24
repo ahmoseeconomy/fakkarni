@@ -3296,7 +3296,28 @@ device-verified)**
   «تأكيد الجرعة/الجرعات»; the rest have «افتح» (ReminderScreen).
   «لاحقًا» is the real 15-minute `scheduler.snooze`, and the card says so.
   «مش هاخده» now lives only on ReminderScreen.
-- Water (`WaterWidget`): cups 0–8, interval 1/2/3 h, countdown ring. Three
+- **«معلومة ليك» replaced the water card on «يومك»** (24 Sep 2026, tester
+  feedback). Same slot, same weight, below «الآن» and «جدول النهاردة» so
+  the fold rule for «تأكيد الجرعة» is untouched. One tip per day, stable
+  for the day and rotating daily, chosen by `pickTip` in
+  `features/today/tips/tip_picker.dart` (pure) in this order: (a) his own
+  adherence from local data — a medication whose duration ends within 3
+  days, a streak of days fully taken, evening doses missed or taken more
+  than 45 minutes late twice in the week; (b) a tip for the «الدوا ده لإيه؟»
+  of an active medication, naming it; (c) a general safe tip. A
+  medication's own «تعليمات» rides along as a gold reminder line. **Every
+  sentence lives in `features/today/tips/tips_ar.dart`**, hand-written, no
+  AI, no network, no runtime generation — a reviewer edits that file and
+  nothing else. `test/features/today/tips_banned_words_test.dart` reads the
+  file and every template with sample values and fails on doses, dose
+  changes, interactions, symptoms or diagnoses, «الأفضل لحالتك», or any
+  «وقّف الدوا»; anything medical ends at «اسأل دكتورك», which is why the
+  today test's glucose advice scan skips the tip card's text. Tapping the
+  card opens the medication it is about, or nothing. **The water widget
+  file and its `water.*` `shared_preferences` keys are untouched**; only
+  the card left the screen, and the data on existing phones stays where it
+  was.
+- Water (`WaterWidget`, no longer on «يومك»): cups 0–8, interval 1/2/3 h, countdown ring. Three
   `shared_preferences` keys (`water.*`), local, not synced, reset on a new
   calendar day. No notification, no advice — 8 is the counter's limit, not
   a recommendation. The one periodic timer runs only after the first cup
