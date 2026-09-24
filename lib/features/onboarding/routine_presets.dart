@@ -7,7 +7,6 @@ class RoutineQuestion {
     required this.anchor,
     required this.text,
     required this.hint,
-    required this.presets,
   });
 
   final DayAnchor anchor;
@@ -16,10 +15,6 @@ class RoutineQuestion {
   final String text;
 
   final String hint;
-
-  /// تلات اقتراحات كبيرة فوق العجلة. أغلب الناس بتختار واحد منهم وتخلص.
-  /// النصّاني هو الافتراضي (المخطط 22) — نفس [fallback].
-  final List<MinuteOfDay> presets;
 
   /// مكان راحة البكرة قبل ما يجاوب — نفس قيم [DayRoutine.fallback].
   ///
@@ -34,31 +29,26 @@ final List<RoutineQuestion> routineQuestions = [
     anchor: DayAnchor.wake,
     text: 'بتصحى الساعة كام؟',
     hint: 'يومك بيبدأ من هنا — كل المواعيد بتترتب عليه.',
-    presets: [MinuteOfDay.hm(6), MinuteOfDay.hm(6, 30), MinuteOfDay.hm(7)],
   ),
   RoutineQuestion(
     anchor: DayAnchor.breakfast,
     text: 'بتفطر الساعة كام؟',
     hint: 'أدوية كتير بتتاخد قبل الأكل بنص ساعة.',
-    presets: [MinuteOfDay.hm(7), MinuteOfDay.hm(7, 30), MinuteOfDay.hm(8)],
   ),
   RoutineQuestion(
     anchor: DayAnchor.lunch,
     text: 'بتتغدى الساعة كام؟',
     hint: 'مش لازم تظبطها بالدقيقة.',
-    presets: [MinuteOfDay.hm(13, 30), MinuteOfDay.hm(14), MinuteOfDay.hm(15, 30)],
   ),
   RoutineQuestion(
     anchor: DayAnchor.dinner,
     text: 'بتتعشى الساعة كام؟',
     hint: 'لو بتتعشى بدري أو متأخر، اظبطها هنا.',
-    presets: [MinuteOfDay.hm(19), MinuteOfDay.hm(20), MinuteOfDay.hm(21, 30)],
   ),
   RoutineQuestion(
     anchor: DayAnchor.sleep,
     text: 'بتنام الساعة كام؟',
     hint: 'لو بتنام بعد نص الليل، اختار من بدري الصبح.',
-    presets: [MinuteOfDay.hm(22, 30), MinuteOfDay.hm(23, 30), MinuteOfDay.hm(0, 30)],
   ),
 ];
 

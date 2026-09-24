@@ -10,9 +10,9 @@ import '../../core/widgets/f_wheels.dart';
 
 /// شاشة سؤال واحد (المخطط 22 — سؤال في المرة).
 ///
-/// الترتيب مقصود: تلات اقتراحات كبيرة **فوق** العجلة، لأن أغلب الناس هتلاقي
-/// معادها في واحد منهم وتخلص من غير ما تلف حاجة. «مش متأكد» بياخد الافتراضي
-/// ويمشي — عمره ما بيوقف حد. خمس نقط تحت: الحالية ذهبية والباقي line.
+/// البكرة على طول قدّامه، واقفة على مكان الراحة بتاع السؤال — مفيش
+/// اقتراحات فوقها (اتشالت: شريحة وبعدها بكرة خطوتين لنفس الرقم). «مش
+/// دلوقتي» بتعدّي من غير إجابة. خمس نقط تحت: الحالية ذهبية والباقي line.
 class RoutineQuestionPage extends StatelessWidget {
   const RoutineQuestionPage({
     required this.question,
@@ -59,8 +59,6 @@ class RoutineQuestionPage extends StatelessWidget {
                   questionHintFor(question, PatientVoice.of(context)),
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
-                const SizedBox(height: F.gap),
-                PresetRow(presets: question.presets, value: value, onChanged: onChanged),
                 const SizedBox(height: F.gap),
                 FCard(
                   padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.gap),
@@ -117,40 +115,6 @@ class RoutineQuestionPage extends StatelessWidget {
   }
 }
 
-/// تلات اقتراحات كبيرة — الذهبي = «ده اللي مختار»، نفس معناه في التطبيق.
-class PresetRow extends StatelessWidget {
-  const PresetRow({
-    required this.presets,
-    required this.value,
-    required this.onChanged,
-    super.key,
-  });
-
-  final List<MinuteOfDay> presets;
-
-  /// null = مفيش اقتراح مختار — مرساة لسه ما اتحددتش.
-  final MinuteOfDay? value;
-  final ValueChanged<MinuteOfDay> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          for (final preset in presets) ...[
-            Expanded(
-              child: SizedBox(
-                height: F.chipHeight,
-                child: AnchorChip(
-                  label: arabicTime(DateTime(2026, 1, 1, preset.hour, preset.minute)),
-                  selected: preset == value,
-                  onTap: () => onChanged(preset),
-                ),
-              ),
-            ),
-            if (preset != presets.last) const SizedBox(width: F.s10),
-          ],
-        ],
-      );
-}
 
 /// خمس نقط تقدّم — الحالية ذهبية (إنت هنا)، والباقي line.
 class ProgressDots extends StatelessWidget {

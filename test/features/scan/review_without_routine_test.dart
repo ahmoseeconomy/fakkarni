@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/widgets/f_wheels.dart';
+
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
@@ -67,18 +69,19 @@ void main() {
     await tester.tap(find.text('حدّد ميعاد الفطار'));
     await settle(tester);
     expect(find.text('بتفطر الساعة كام؟'), findsOneWidget);
-    await tester.tap(find.text('٨:٠٠ ص'));
+    // البكرة واقفة على ٧:٣٠ — دقيقة واحدة لفوق = ٧:٣١ (وبعدها «تمام» بتتفتح)
+    await tester.drag(find.byKey(FTimeWheel.minutesKey), const Offset(0, -FTimeWheel.itemExtent));
     await settle(tester);
     await tester.tap(find.byKey(const ValueKey('anchor-confirm')));
     await settle(tester);
 
     final routine = (await routines.getRoutine(h.services.patientId))!;
     expect(routine.isSet(DayAnchor.breakfast), isTrue);
-    expect(routine.breakfast, MinuteOfDay.hm(8));
+    expect(routine.breakfast, MinuteOfDay.hm(7, 31), reason: 'بالدقيقة الواحدة');
     expect(routine.isSet(DayAnchor.dinner), isFalse, reason: 'سؤال واحد بس');
 
     expect(find.text('ميعاد الفطار مش متحدد'), findsNothing);
-    expect(find.text('٧:٣٠ ص'), findsOneWidget, reason: '٨:٠٠ − ٣٠');
+    expect(find.text('٧:٠١ ص'), findsOneWidget, reason: '٧:٣١ − ٣٠');
     expect(find.text('حدّد ميعاد الفطار'), findsNothing);
     expect(confirm(tester).onPressed, isNotNull);
 

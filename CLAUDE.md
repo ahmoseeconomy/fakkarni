@@ -134,11 +134,23 @@ These are product decisions, already settled. Do not "improve" them without aski
 - **No time picker as the primary control.** The dose editor leads with anchor
   chips (`[قبل الفطار] [بعد العشا] …`) plus an offset wheel. A fixed clock
   time exists only as a small secondary link.
+- **No preset time chips anywhere, and the clock wheel steps by one
+  minute** (product change, 24 Sep 2026). The «٦:٠٠ / ٦:٣٠ / ٧:٠٠» rows
+  above the routine questions, in «عدّل يومك», in the ask-meal sheet, and
+  the «غيّر»/«ساعة تانية» chip-then-wheel toggles on Ramadan and «عدّل
+  يومك» are gone: the `FTimeWheel` is always visible and rests where the
+  middle chip used to be (`RoutineQuestion.fallback`). Required values
+  show the rest and «تمام»/«احفظ» confirm it as before; optional or unset
+  ones still write nothing until the wheel moves. `RoutineQuestion.presets`
+  and `PresetRow` no longer exist. Nothing in scheduling assumed 5-minute
+  alignment — `test/data/odd_minutes_test.dart` runs a 6:07/7:13 routine
+  through the engine, the id bands, the ladder, the repeats and the horizon.
+  `FNumberWheel` steps are unchanged (offset 0–180 by 5, days by 1).
 - **Every number and every clock time is set on a wheel — one family,
   `lib/core/widgets/f_wheels.dart`** (product decision, 24 Sep 2026). No
   `+/−` stepper, no slider, no typed number for a value the app owns.
   `FNumberWheel` (min / max / step / unit, Arabic numerals) and
-  `FTimeWheel` (hour + 5-minute wheels with ص/م, the same `MinuteOfDay` in
+  `FTimeWheel` (hour + **one-minute** wheels with ص/م, the same `MinuteOfDay` in
   and out that `TimeWheel` used to carry) share one Cupertino column: 26px
   ink numerals, a green-tinted selection row, a haptic tick on every step
   (iOS ticks natively, Android through `HapticFeedback`), and they work
@@ -305,7 +317,7 @@ lib/
                               opens ReminderScreen on tap), bootstrap.dart
                               (buildServices + background action entry point)
   features/onboarding/        5 routine questions (mockup 22): one per
-                              screen, 3 preset chips above the wheel,
+                              screen, the wheel always visible (no presets),
                               «مش متأكد» → DayRoutine.fallback, 5 dots
   features/medication/        dose_editor (mockup 23 — the ONE timing editor:
                               8 anchor chips, offset wheel, gold preview, fixed
@@ -346,7 +358,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1467 passing
+test/                         1475 passing
 ```
 
 **The routine is optional, and the app never times a medication from a
@@ -378,8 +390,8 @@ it rings, and the test pins that the instant is identical.
   editor opens in **fixed-clock mode** with the wheel at its rest — no
   number from a default routine. The anchor chips stay, each unset one
   labelled with «؟»; tapping it opens `askAnchorTime` (`lib/features/
-  routine/ask_anchor_time.dart`: the same question, presets and wheel as
-  onboarding, «تمام» locked until a preset or a wheel move) **once**,
+  routine/ask_anchor_time.dart`: the same question and wheel as
+  onboarding, «تمام» locked until the wheel moves) **once**,
   `RoutineRepository.setAnchor` writes it as set, and the chip is then an
   ordinary anchor. Closing the sheet writes nothing. `AddMedicationScreen`
   and `EditMedicationScreen` hold a live `_routine` so later editors in
@@ -389,10 +401,10 @@ it rings, and the test pins that the instant is identical.
   الفطار مش متحدد» in place of a time, a gold note, and «حدّد ميعاد
   الفطار» — and it **blocks «تمام»** like an unclear timing until the
   person answers. Never auto-filled (rule 4 and rule 6 in one place).
-- **Settings «عدّل يومك»**: an unset anchor reads «مش متحدد» with no gold
-  preset; a preset tap, a wheel move, or «تمام كده» on the opened wheel
-  sets it. Once set, every dose on that anchor follows it as always;
-  fixed doses stay where they are.
+- **Settings «عدّل يومك»**: an unset anchor reads «مش متحدد» over a wheel
+  resting at the fallback; only a wheel move sets it (null-until-moved).
+  Once set, every dose on that anchor follows it as always; fixed doses
+  stay where they are.
 - **Appointment notices** still read `routine.wake` / `routine.dinner`
   for their clock; on an unset anchor that is the rest value (6:30 / 20:00),
   the same operational choice as the checkup's 9:00 — and it is a notice

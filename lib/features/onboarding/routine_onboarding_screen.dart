@@ -86,7 +86,7 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   }
 
   MinuteOfDay _valueFor(RoutineQuestion question) =>
-      _answers[question.anchor] ?? question.presets[1];
+      _answers[question.anchor] ?? question.fallback;
 
   Future<void> _advance() async {
     if (_index < routineQuestions.length - 1) {

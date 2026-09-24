@@ -32,7 +32,11 @@ class _WheelColumn extends StatelessWidget {
     required this.onChanged,
     required this.semantics,
     this.height = wheelItemExtent * 3,
+    this.pickerKey,
   });
+
+  /// مفتاح على البكرة نفسها — الاختبارات بتسحب عمود بعينه بيه.
+  final Key? pickerKey;
 
   final FixedExtentScrollController controller;
   final List<String> labels;
@@ -51,6 +55,7 @@ class _WheelColumn extends StatelessWidget {
         child: SizedBox(
           height: height,
           child: CupertinoPicker(
+            key: pickerKey,
             scrollController: controller,
             itemExtent: wheelItemExtent,
             selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
@@ -177,7 +182,7 @@ class _FNumberWheelState extends State<FNumberWheel> {
       );
 }
 
-/// بكرة الساعة: ساعة ودقايق (خطوة ٥) وزرارين ص/م بكلمة.
+/// بكرة الساعة: ساعة ودقايق **بالدقيقة** (زي ساعة iOS) وزرارين ص/م بكلمة.
 ///
 /// **البكرة مش بتلف**: `selectedItem` بتاعة البكرة اللافّة بتطلع أرقام
 /// مفتوحة (سالبة وكبيرة)، والحساب بيبوظ بالسكوت. ونفس [MinuteOfDay]
@@ -188,9 +193,14 @@ class FTimeWheel extends StatefulWidget {
   final MinuteOfDay value;
   final ValueChanged<MinuteOfDay> onChanged;
 
-  static const int minuteStep = 5;
+  /// دقيقة بدقيقة — كانت ٥؛ اللي بيقول «بفطر ٧:١٣» يقولها زي ما هي.
+  static const int minuteStep = 1;
   static const double itemExtent = wheelItemExtent;
   static const double height = wheelItemExtent * 3;
+
+  /// مفاتيح العمودين — الاختبار بيسحب الدقايق أو الساعة بالاسم.
+  static const Key minutesKey = ValueKey('wheel-minutes');
+  static const Key hoursKey = ValueKey('wheel-hours');
 
   @override
   State<FTimeWheel> createState() => _FTimeWheelState();
@@ -236,8 +246,7 @@ class _FTimeWheelState extends State<FTimeWheel> {
 
   static int _hourIndex(MinuteOfDay v) => (v.hour % 12 == 0 ? 12 : v.hour % 12) - 1;
 
-  static int _minuteIndex(MinuteOfDay v) =>
-      (v.minute ~/ FTimeWheel.minuteStep).clamp(0, 11);
+  static int _minuteIndex(MinuteOfDay v) => v.minute;
 
   bool get _isEvening => widget.value.hour >= 12;
 
@@ -245,7 +254,7 @@ class _FTimeWheelState extends State<FTimeWheel> {
     if (_syncing || !_hours.hasClients || !_minutes.hasClients) return;
     _emit(
       hour12: _hours.selectedItem + 1,
-      minute: _minutes.selectedItem * FTimeWheel.minuteStep,
+      minute: _minutes.selectedItem,
       isEvening: _isEvening,
     );
   }
@@ -273,12 +282,12 @@ class _FTimeWheelState extends State<FTimeWheel> {
               children: [
                 Expanded(
                   child: _WheelColumn(
+                    pickerKey: FTimeWheel.minutesKey,
                     controller: _minutes,
                     semantics: 'الدقايق',
                     onChanged: (_) => _emitFromWheels(),
                     labels: [
-                      for (var i = 0; i < 12; i++)
-                        arabicDigits((i * FTimeWheel.minuteStep).toString().padLeft(2, '0')),
+                      for (var i = 0; i < 60; i++) arabicDigits(i.toString().padLeft(2, '0')),
                     ],
                   ),
                 ),
@@ -288,6 +297,7 @@ class _FTimeWheelState extends State<FTimeWheel> {
                 ),
                 Expanded(
                   child: _WheelColumn(
+                    pickerKey: FTimeWheel.hoursKey,
                     controller: _hours,
                     semantics: 'الساعة',
                     onChanged: (_) => _emitFromWheels(),

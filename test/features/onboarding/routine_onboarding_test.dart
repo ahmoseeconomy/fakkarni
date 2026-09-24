@@ -21,6 +21,7 @@ import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/onboarding/profile_page.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/core/widgets/f_wheels.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../../support/seeded_clock.dart';
@@ -171,29 +172,30 @@ void main() {
     expect(saved.isSet(DayAnchor.dinner), isTrue);
   });
 
-  testWidgets('الشيب بيغيّر الوقت المعروض وبيتحفظ', (tester) async {
+  testWidgets('البكرة بتغيّر الوقت المعروض وبيتحفظ — بالدقيقة الواحدة', (tester) async {
     await pumpOnboarding(tester);
 
-    // أول سؤال: الاقتراحات ٦:٠٠ / ٦:٣٠ / ٧:٠٠ والافتراضي المختار ٦:٣٠
-    expect(find.text('٦:٠٠ ص'), findsOneWidget);
-    await tapAndSettle(tester, '٦:٠٠ ص');
-    // الوقت الكبير فوق العجلة بقى ٦:٠٠ كمان → بقى ظاهر مرتين
-    expect(find.text('٦:٠٠ ص'), findsNWidgets(2));
+    // أول سؤال: البكرة واقفة على ٦:٣٠ والوقت الكبير بيقوله
+    expect(find.text('٦:٣٠ ص'), findsOneWidget);
+    // خانة واحدة لفوق على الدقايق = دقيقة واحدة، مش خمسة
+    await tester.drag(find.byKey(FTimeWheel.minutesKey), const Offset(0, -FTimeWheel.itemExtent));
+    await tester.pumpAndSettle();
+    expect(find.text('٦:٣١ ص'), findsOneWidget);
 
     for (var i = 0; i < expectedQuestions.length; i++) {
       await tapAndSettle(tester, i == 0 ? 'تمام' : 'مش دلوقتي');
     }
 
     final saved = await routines.getRoutine(services.patientId);
-    expect(saved!.wake, MinuteOfDay.hm(6));
+    expect(saved!.wake, MinuteOfDay.hm(6, 31));
   });
 
-  testWidgets('الاقتراحات فوق العجلة، مش تحتها', (tester) async {
+  testWidgets('مفيش اقتراحات خالص — البكرة ظاهرة على طول', (tester) async {
     await pumpOnboarding(tester);
-
-    final chip = tester.getCenter(find.text('٦:٠٠ ص'));
-    final wheel = tester.getCenter(find.byType(FTimeWheel));
-    expect(chip.dy, lessThan(wheel.dy), reason: 'أغلب الناس بتاخد اقتراح');
+    expect(find.byType(FTimeWheel), findsOneWidget);
+    expect(find.byType(AnchorChip), findsNothing, reason: 'شريحة وبعدها بكرة خطوتين لنفس الرقم');
+    expect(find.text('٦:٠٠ ص'), findsNothing);
+    expect(find.text('٧:٠٠ ص'), findsNothing);
   });
 
   testWidgets('كل زرار أساسي ٦٤ وكل نص مش أقل من ١٧', (tester) async {
@@ -251,13 +253,11 @@ void main() {
     expect(saved.unset, DayAnchor.values.toSet(), reason: 'أماكن راحة، مش إجابات');
   });
 
-  testWidgets('الاقتراح النصّاني هو الافتراضي، وبيبان ذهبي من غير ما يدوس', (tester) async {
+  testWidgets('البكرة واقفة على مكان الراحة (٦:٣٠) والوقت الكبير بيقوله من غير ما يدوس', (tester) async {
     await pumpOnboarding(tester);
-    final mid = find.text('٦:٣٠ ص').first;
-    final material = tester.widget<Material>(
-      find.ancestor(of: mid, matching: find.byType(Material)).first,
-    );
-    expect(material.color, F.gold);
+    expect(find.text('٦:٣٠ ص'), findsOneWidget);
+    await tapAndSettle(tester, 'تمام');
+    expect((await routines.getRoutine(services.patientId)), isNull, reason: 'لسه أربع أسئلة');
   });
 
   group('«نتعرّف عليك» قبل الأسئلة (المخطط 21)', () {

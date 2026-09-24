@@ -70,7 +70,8 @@ void main() {
       find.descendant(of: find.byKey(const ValueKey('anchor-confirm')), matching: find.byType(FilledButton)),
     );
     expect(confirm.onPressed, isNull);
-    await tester.tap(find.text('٨:٠٠ ص'));
+    // البكرة واقفة على ٧:٣٠ — دقيقة واحدة لفوق = ٧:٣١ (وبعدها «تمام» بتتفتح)
+    await tester.drag(find.byKey(FTimeWheel.minutesKey), const Offset(0, -FTimeWheel.itemExtent));
     await settle(tester);
     await tester.tap(find.byKey(const ValueKey('anchor-confirm')));
     await settle(tester);
@@ -78,11 +79,11 @@ void main() {
     // اتحفظ متحدد — والشريحة بقت عادية والمعاينة بتحسب منه
     final routine = (await routines.getRoutine(h.services.patientId))!;
     expect(routine.isSet(DayAnchor.breakfast), isTrue);
-    expect(routine.breakfast, MinuteOfDay.hm(8));
+    expect(routine.breakfast, MinuteOfDay.hm(7, 31), reason: 'بالدقيقة الواحدة');
     expect(routine.isSet(DayAnchor.lunch), isFalse, reason: 'سؤال واحد بس');
     expect(find.text('قبل الفطار'), findsOneWidget);
     expect(find.text('قبل الفطار؟'), findsNothing);
-    expect(find.text('يعني حوالي ٧:٣٠ ص'), findsOneWidget);
+    expect(find.text('يعني حوالي ٧:٠١ ص'), findsOneWidget);
 
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);

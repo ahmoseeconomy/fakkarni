@@ -24,6 +24,7 @@ import 'package:fakkarni/features/records/checkup_screen.dart' show FastingSheet
 import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/features/routine/ask_anchor_time.dart';
 import 'package:fakkarni/features/routine/edit_routine_screen.dart';
+import 'package:fakkarni/features/routine/ramadan_screen.dart';
 
 import '../support/seeded_clock.dart';
 
@@ -170,9 +171,8 @@ void main() {
 
   testWidgets('عدّل يومك وبكرة مفتوحة: «احفظ يومك» ظاهر', (tester) async {
     await pumpSE(tester, EditRoutineScreen(routine: _routine));
-    await tester.tap(find.text('ساعة تانية').first);
-    await settle(tester);
-    expect(find.byType(FTimeWheel), findsOneWidget);
+    expect(find.byType(FTimeWheel), findsWidgets, reason: 'ظاهرة على طول');
+    expect(find.text('ساعة تانية'), findsNothing);
     expectPrimaryVisible(tester, 'احفظ يومك');
   });
 
@@ -205,6 +205,13 @@ void main() {
     final button = tester.getRect(find.byKey(const ValueKey('anchor-confirm')));
     expect(button.bottom, lessThanOrEqualTo(667), reason: '«تمام» تحت الحافة: $button');
     expect(button.top, greaterThanOrEqualTo(0));
+  });
+
+  testWidgets('رمضان: بكرتين السحور والفطار ظاهرين و«فعّل وضع رمضان» ظاهر', (tester) async {
+    await pumpSE(tester, RamadanScreen(today: DateTime(2026, 9, 15)));
+    expect(find.byType(FTimeWheel), findsNWidgets(2));
+    expect(find.text('غيّر'), findsNothing);
+    expectPrimaryVisible(tester, 'فعّل وضع رمضان');
   });
 
   testWidgets('شيت تذكير الصيام: بكرة الساعة وبكرة الساعات و«اضبط التذكير» جوّه SE', (tester) async {

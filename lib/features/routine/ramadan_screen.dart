@@ -43,7 +43,6 @@ class _RamadanScreenState extends State<RamadanScreen> {
   DayRoutine? _original;
   List<DoseSchedule> _schedules = const [];
 
-  _Meal? _wheelFor;
   bool _busy = false;
 
   DateTime get _today => widget.today ?? DateTime.now();
@@ -160,20 +159,12 @@ class _RamadanScreenState extends State<RamadanScreen> {
                         _TimeRow(
                           label: 'السحور',
                           value: _times.suhoor,
-                          wheelOpen: _wheelFor == _Meal.suhoor,
-                          onToggle: () => setState(
-                            () => _wheelFor = _wheelFor == _Meal.suhoor ? null : _Meal.suhoor,
-                          ),
                           onChanged: (v) => setState(() => _times = _times.copyWith(suhoor: v)),
                         ),
                         Divider(height: 1, color: F.lineSoft),
                         _TimeRow(
                           label: 'الفطار (المغرب)',
                           value: _times.iftar,
-                          wheelOpen: _wheelFor == _Meal.iftar,
-                          onToggle: () => setState(
-                            () => _wheelFor = _wheelFor == _Meal.iftar ? null : _Meal.iftar,
-                          ),
                           onChanged: (v) => setState(() => _times = _times.copyWith(iftar: v)),
                         ),
                         Divider(height: 1, color: F.lineSoft),
@@ -254,24 +245,18 @@ class _RamadanScreenState extends State<RamadanScreen> {
       };
 }
 
-enum _Meal { iftar, suhoor }
-
-/// صف مرساة رمضان: الاسم والوقت، و«غيّر» يفتح العجلة — أو محسوب.
+/// صف مرساة رمضان: الاسم والوقت، والبكرة تحته على طول — أو محسوب.
 class _TimeRow extends StatelessWidget {
   const _TimeRow({
     required this.label,
     required this.value,
-    this.wheelOpen = false,
     this.derived = false,
-    this.onToggle,
     this.onChanged,
   });
 
   final String label;
   final MinuteOfDay value;
-  final bool wheelOpen;
   final bool derived;
-  final VoidCallback? onToggle;
   final ValueChanged<MinuteOfDay>? onChanged;
 
   @override
@@ -299,26 +284,6 @@ class _TimeRow extends StatelessWidget {
                     color: derived ? F.mutedDark : F.greenDeep,
                   ),
                 ),
-                if (!derived) ...[
-                  const SizedBox(width: F.s10),
-                  SizedBox(
-                    height: F.minTapTarget,
-                    child: OutlinedButton(
-                      onPressed: onToggle,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: F.ink,
-                        minimumSize: const Size(0, F.minTapTarget),
-                        padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                        side: BorderSide(color: F.line, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
-                      ),
-                      child: Text(
-                        wheelOpen ? 'تمام' : 'غيّر',
-                        style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -333,7 +298,7 @@ class _TimeRow extends StatelessWidget {
                 ),
               ),
             ),
-          if (wheelOpen && onChanged != null)
+          if (onChanged != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(F.s12, 0, F.s12, F.s8),
               child: FTimeWheel(value: value, onChanged: onChanged!),

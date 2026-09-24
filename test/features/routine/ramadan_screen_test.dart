@@ -164,11 +164,13 @@ void main() {
     final routineBefore = await routines.getRoutine(services.patientId);
 
     await pumpScreen(tester);
-    // غيّر الفطار بالعجلة
-    await tester.tap(find.text('غيّر').last);
-    await settle(tester);
-    expect(find.byType(FTimeWheel), findsOneWidget);
-    await tester.drag(find.byType(FTimeWheel), const Offset(0, -60));
+    // غيّر الفطار بالبكرة — ظاهرة على طول تحت السحور وتحت الفطار
+    expect(find.byType(FTimeWheel), findsNWidgets(2));
+    expect(find.text('غيّر'), findsNothing);
+    await tester.drag(
+      find.descendant(of: find.byType(FTimeWheel).last, matching: find.byKey(FTimeWheel.minutesKey)),
+      const Offset(0, -FTimeWheel.itemExtent),
+    );
     await settle(tester);
 
     // اقفل الشاشة من غير ما تدوس
@@ -221,10 +223,11 @@ void main() {
 
   screenTest('تعديل المغرب قبل التفعيل بيتحفظ مع التفعيل — مش قبله', (tester) async {
     await pumpScreen(tester);
-    await tester.tap(find.text('غيّر').last); // الفطار (المغرب)
-    await settle(tester);
-    // خمس دقايق لفوق على العجلة (خطوة ٥)
-    await tester.drag(find.byType(FTimeWheel), const Offset(0, -56));
+    // دقيقة واحدة لفوق على بكرة الفطار (المغرب) — البكرة التانية
+    await tester.drag(
+      find.descendant(of: find.byType(FTimeWheel).last, matching: find.byKey(FTimeWheel.minutesKey)),
+      const Offset(0, -FTimeWheel.itemExtent),
+    );
     await settle(tester);
     expect(await routines.ramadanTimes(services.patientId), isNull, reason: 'لسه ما اتفعّلش');
 

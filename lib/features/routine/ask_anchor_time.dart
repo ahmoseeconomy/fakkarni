@@ -8,13 +8,12 @@ import '../../core/widgets/primitives.dart';
 import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../onboarding/routine_presets.dart';
-import '../onboarding/routine_question_page.dart' show PresetRow;
 
 /// **«بتفطر الساعة كام؟» — مرة واحدة، وقت ما دوا يحتاجها.**
 ///
 /// الروتين اختياري؛ لما المستخدم يختار «قبل الفطار» لدوا والفطار لسه
-/// مش متحدد، الشيت ده بيسأل عن الفطار وبس: نفس السؤال ونفس الاقتراحات
-/// ونفس البكرة بتوع أول مرة. اللي بيرجع بيتحفظ في الروتين **متحدد**، وكل
+/// مش متحدد، الشيت ده بيسأل عن الفطار وبس: نفس السؤال ونفس البكرة بتوع
+/// أول مرة، واقفة على مكان الراحة وما بتكتبش غير لما تتحرّك. اللي بيرجع بيتحفظ في الروتين **متحدد**، وكل
 /// دوا بعده على الفطار بيتربط بيه من غير ما يتسأل تاني.
 ///
 /// بيرجّع null لو قفل من غير ما يختار — ولا حاجة بتتكتب ساعتها.
@@ -56,15 +55,8 @@ class _AskAnchorBodyState extends State<_AskAnchorBody> {
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
           const SizedBox(height: F.s12),
-          // ولا اقتراح ذهبي قبل ما يختار — الذهبي معناه «ده اللي اخترته»
-          PresetRow(
-            presets: widget.question.presets,
-            value: _picked,
-            onChanged: (v) => setState(() => _picked = v),
-          ),
-          const SizedBox(height: F.s12),
           Text(
-            _picked == null ? 'اختار اقتراح أو حرّك البكرة' : arabicTime(DateTime(2026, 1, 1, _shown.hour, _shown.minute)),
+            _picked == null ? 'حرّك البكرة لحد ميعادك' : arabicTime(DateTime(2026, 1, 1, _shown.hour, _shown.minute)),
             key: const ValueKey('anchor-picked'),
             textAlign: TextAlign.center,
             style: TextStyle(

@@ -157,13 +157,18 @@ void main() {
     final anchoredBefore = sink.scheduled.keys.toSet().difference(fixedBefore);
 
     await pumpEdit(tester);
-    await tester.tap(find.text('٨:٠٠ ص')); // اقتراح الفطار التالت
+    // بكرة الفطار: ساعة واحدة لفوق ٧:٣٠ → ٨:٣٠
+    final breakfastCard = find.ancestor(of: find.text('بتفطر الساعة كام؟'), matching: find.byType(FCard)).first;
+    await tester.drag(
+      find.descendant(of: breakfastCard, matching: find.byKey(FTimeWheel.hoursKey)),
+      const Offset(0, -FTimeWheel.itemExtent),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('احفظ يومك'));
     await settle(tester);
 
     final saved = await routines.getRoutine(services.patientId);
-    expect(saved!.breakfast, MinuteOfDay.hm(8));
+    expect(saved!.breakfast, MinuteOfDay.hm(8, 30));
     expect(saved.lunch, normalDay.lunch, reason: 'الباقي زي ما هو');
 
     final fixedAfter = sink.scheduled.entries
@@ -191,27 +196,27 @@ void main() {
       anchoredBefore.where(isDoseId).toSet(),
       reason: 'المرساة اتحركت',
     );
-    // قبل الفطار (٨:٠٠) بنص ساعة = ٧:٣٠ — لكل الأيام اللي في النافذة
+    // قبل الفطار (٨:٣٠) بنص ساعة = ٨:٠٠ — لكل الأيام اللي في النافذة
     final anchoredAfter = sink.scheduled.keys.toSet().difference(fixedAfter);
     expect(anchoredAfter, isNotEmpty);
     // الجرعات بس — درجات السلّم بتيجي +١٥ و+٣٠ من نفس الساعة
     for (final id in anchoredAfter.where(isDoseId)) {
-      expect(sink.scheduled[id]!.at.hour, 7);
-      expect(sink.scheduled[id]!.at.minute, 30);
+      expect(sink.scheduled[id]!.at.hour, 8);
+      expect(sink.scheduled[id]!.at.minute, 0);
     }
   });
 
-  screenTest('«ساعة تانية» بتفتح عجلة واحدة بس', (tester) async {
+  screenTest('البكرة ظاهرة على طول في كل كارت — مفيش «ساعة تانية» ولا اقتراحات', (tester) async {
     await pumpEdit(tester);
-    expect(find.byType(FTimeWheel), findsNothing);
-
-    await tester.tap(find.text('ساعة تانية').first);
-    await tester.pumpAndSettle();
-    expect(find.byType(FTimeWheel), findsOneWidget);
-
-    await tester.tap(find.text('ساعة تانية').first);
-    await tester.pumpAndSettle();
-    expect(find.byType(FTimeWheel), findsOneWidget, reason: 'واحدة بس في المرة');
+    expect(find.text('ساعة تانية'), findsNothing);
+    expect(find.text('تمام كده'), findsNothing);
+    expect(find.byType(AnchorChip), findsNothing);
+    for (final q in routineQuestions) {
+      await tester.dragUntilVisible(find.text(q.text), find.byType(ListView), const Offset(0, -200));
+      await settle(tester);
+      final card = find.ancestor(of: find.text(q.text), matching: find.byType(FCard)).first;
+      expect(find.descendant(of: card, matching: find.byType(FTimeWheel)), findsOneWidget, reason: q.text);
+    }
   });
 
   screenTest('زرار الحفظ ٦٤ وكل نص مش أقل من ١٧', (tester) async {
@@ -260,49 +265,37 @@ void main() {
         await settle(tester);
         final card = find.ancestor(of: find.text(q.text), matching: find.byType(FCard)).first;
         expect(find.descendant(of: card, matching: find.text('مش متحدد')), findsOneWidget, reason: q.text);
-        expect(find.descendant(of: card, matching: find.text('حدّد الميعاد')), findsOneWidget);
       }
-      // اقتراح الصحيان «٦:٣٠ ص» موجود كشريحة — بس **مش ذهبي**: مفيش اختيار
-      await tester.dragUntilVisible(find.text('بتصحى الساعة كام؟'), find.byType(ListView), const Offset(0, 200));
-      await settle(tester);
-      final chip = tester.widget<Material>(find
-          .descendant(of: find.widgetWithText(AnchorChip, '٦:٣٠ ص'), matching: find.byType(Material))
-          .first);
-      expect(chip.color, isNot(F.gold), reason: 'الافتراضي ما بيتعرضش كأنه اختاره');
+      // ومفيش «٦:٣٠ ص» مكتوبة في أي مكان كأنها ميعاده — البكرة بس واقفة عليها
+      expect(find.text('٦:٣٠ ص'), findsNothing, reason: 'الافتراضي ما بيتعرضش كأنه اختاره');
     });
 
-    screenTest('اقتراح على الصحيان بيحدده هو بس، والحفظ بيسيب الباقي مش متحدد', (tester) async {
+    screenTest('حركة على بكرة الصحيان بتحدده هو بس (٦:٣١)، والحفظ بيسيب الباقي مش متحدد', (tester) async {
       await routines.saveRoutine(services.patientId, DayRoutine.none);
       await pumpEdit(tester, routine: DayRoutine.none);
-      await tester.tap(find.text('٧:٠٠ ص').first);
-      await settle(tester);
       final wakeCard = find.ancestor(of: find.text('بتصحى الساعة كام؟'), matching: find.byType(FCard)).first;
+      await tester.drag(
+        find.descendant(of: wakeCard, matching: find.byKey(FTimeWheel.minutesKey)),
+        const Offset(0, -FTimeWheel.itemExtent),
+      );
+      await settle(tester);
       expect(find.descendant(of: wakeCard, matching: find.text('مش متحدد')), findsNothing);
-      expect(find.descendant(of: wakeCard, matching: find.text('٧:٠٠ ص')), findsWidgets);
+      expect(find.descendant(of: wakeCard, matching: find.text('٦:٣١ ص')), findsOneWidget);
 
       await tester.tap(find.text('احفظ يومك'));
       await settle(tester);
       final saved = (await routines.getRoutine(services.patientId))!;
       expect(saved.isSet(DayAnchor.wake), isTrue);
-      expect(saved.wake, MinuteOfDay.hm(7));
+      expect(saved.wake, MinuteOfDay.hm(6, 31));
       expect(saved.unset, DayAnchor.values.toSet().difference({DayAnchor.wake}));
     });
 
-    screenTest('«حدّد الميعاد» ثم «تمام كده» من غير حركة = أكّد اللي على البكرة', (tester) async {
+    screenTest('من غير حركة مفيش حاجة بتتكتب — الحفظ بيسيب الخمسة مش متحددين', (tester) async {
       await routines.saveRoutine(services.patientId, DayRoutine.none);
       await pumpEdit(tester, routine: DayRoutine.none);
-      await tester.tap(find.text('حدّد الميعاد').first);
-      await settle(tester);
-      expect(find.byType(FTimeWheel), findsOneWidget);
-      await tester.tap(find.text('تمام كده'));
-      await settle(tester);
-      final wakeCard = find.ancestor(of: find.text('بتصحى الساعة كام؟'), matching: find.byType(FCard)).first;
-      expect(find.descendant(of: wakeCard, matching: find.text('مش متحدد')), findsNothing);
       await tester.tap(find.text('احفظ يومك'));
       await settle(tester);
-      final saved = (await routines.getRoutine(services.patientId))!;
-      expect(saved.isSet(DayAnchor.wake), isTrue);
-      expect(saved.wake, MinuteOfDay.hm(6, 30), reason: 'اللي كان على البكرة، بدوسة');
+      expect(await routines.getRoutine(services.patientId), DayRoutine.none);
     });
   });
 }

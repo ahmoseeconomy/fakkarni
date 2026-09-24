@@ -7,7 +7,6 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../onboarding/routine_presets.dart';
-import '../onboarding/routine_question_page.dart' show PresetRow;
 import '../../core/widgets/f_wheels.dart';
 
 /// تعديل روتين اليوم بعد الأسئلة الأولى.
@@ -33,8 +32,6 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
       anchor: widget.routine.isSet(anchor) ? widget.routine.at(anchor) : null,
   };
 
-  /// العجلة مفتوحة لمرساة واحدة بس في المرة — خمس عجلات مع بعض حيطة.
-  DayAnchor? _wheelFor;
   bool _saving = false;
 
   /// رمضان شغّال → الحفظ هنا مقفول. تعديل من هنا كان بيتحفظ فوق روتين
@@ -106,18 +103,8 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                     _AnchorCard(
                       question: question,
                       value: _values[question.anchor],
-                      wheelOpen: _wheelFor == question.anchor,
                       onChanged: (value) =>
                           setState(() => _values[question.anchor] = value),
-                      onToggleWheel: () => setState(() {
-                        final open = _wheelFor == question.anchor;
-                        // «تمام كده» على مرساة مش متحددة = اللي على البكرة
-                        // بقى بتاعه — أكّده بدوسة، مش اتكتب لوحده
-                        if (open && _values[question.anchor] == null) {
-                          _values[question.anchor] = question.fallback;
-                        }
-                        _wheelFor = open ? null : question.anchor;
-                      }),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -146,18 +133,15 @@ class _AnchorCard extends StatelessWidget {
   const _AnchorCard({
     required this.question,
     required this.value,
-    required this.wheelOpen,
     required this.onChanged,
-    required this.onToggleWheel,
   });
 
   final RoutineQuestion question;
 
-  /// null = مش متحدد.
+  /// null = مش متحدد — البكرة واقفة على مكان الراحة وما بتكتبش غير لما
+  /// تتحرّك.
   final MinuteOfDay? value;
-  final bool wheelOpen;
   final ValueChanged<MinuteOfDay> onChanged;
-  final VoidCallback onToggleWheel;
 
   /// «مش متحدد» — الكلمة اللي الإعدادات بتقولها للمرساة اللي ما اتحددتش.
   static const String unsetLabel = 'مش متحدد';
@@ -195,23 +179,9 @@ class _AnchorCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: F.s12),
-          // نفس اقتراحات الأسئلة الأولى — الذهبي = المختار. مرساة مش
-          // متحددة مفيش فيها اقتراح مختار: الاختيار هو اللي بيحددها.
-          PresetRow(
-            presets: question.presets,
-            value: value,
-            onChanged: onChanged,
-          ),
           const SizedBox(height: F.s8),
-          FSecondaryButton(
-            label: wheelOpen ? 'تمام كده' : (value == null ? 'حدّد الميعاد' : 'ساعة تانية'),
-            onPressed: onToggleWheel,
-          ),
-          if (wheelOpen) ...[
-            const SizedBox(height: F.s8),
-            FTimeWheel(value: value ?? question.fallback, onChanged: onChanged),
-          ],
+          // البكرة على طول — مفيش اقتراحات ولا «ساعة تانية»
+          FTimeWheel(value: value ?? question.fallback, onChanged: onChanged),
         ],
       ),
     );
