@@ -448,7 +448,7 @@ begin
              (v_sched2, v_med2, 'anchor', 'breakfast', -30, 'daily', current_date);
     insert into public.dose_events (uuid, dose_schedule_uuid, routine_day, scheduled_at, state) values
       (v_due,    v_sched,  current_date, now() - interval '90 minutes', 'pending'),
-      (v_future, v_sched,  current_date, now() + interval '3 hours',    'pending'),
+      (v_future, v_sched,  current_date + 1, now() + interval '3 hours',    'pending'),
       (v_other,  v_sched2, current_date, now() - interval '90 minutes', 'pending');
 
     -- قبل التأكيد: الحدث المستحق بيتصعّد
