@@ -12,6 +12,7 @@ import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
+import '../data/files/paper_share.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
@@ -57,6 +58,7 @@ class AppServices {
     this.medChanges,
     this.medChangePull,
     this.subscription,
+    this.papers,
   });
 
   final AppDatabase db;
@@ -82,11 +84,16 @@ class AppServices {
   /// اشتراك العيلة — null من غير سحابة (كل حاجة مسموحة ساعتها).
   final SubscriptionService? subscription;
 
+  /// ٠٠٢٦: «شارك صور الورق مع الممرض» — null من غير سحابة.
+  final PaperShareService? papers;
+
   /// السحبتين مع بعض — عند الفتح والرجوع وبعد كل رفعة.
   Future<void> pullFromCircle() async {
     await proxyPull?.pull();
     await medChangePull?.pull();
     await subscription?.refresh();
+    // صور الورق مع الممرض — من المقدمة بس، مش من صحوة شاشة القفل
+    await papers?.sync(patientId: patientId);
   }
 
   /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات

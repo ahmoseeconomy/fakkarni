@@ -38,10 +38,21 @@ class CaregiverMedication {
     required this.name,
     this.amountLabel,
     this.rules = const [],
+    this.purpose,
+    this.instructions,
+    this.alertMode,
   });
   final String uuid;
   final String name;
   final String? amountLabel;
+
+  /// ٠٠٢٦ — تفاصيل الدوا للممرض، بالحرف المخزّن على موبايل المريض:
+  /// الغرض (`MedicationPurpose.storageName`)، التعليمات، ونوع التنبيه
+  /// (`AlertMode.name`، null = زي إعداد جهازه). null لو الهجرة لسه ما
+  /// اتشغّلتش أو المريض ما كتبش.
+  final String? purpose;
+  final String? instructions;
+  final String? alertMode;
 
   /// قاعدة كل جرعة زي ما اتسجلت — «الفطار − ٣٠ د» أو «ساعة ثابتة · ٨:٠٠ ص».
   /// نص من `domain/wording`، مش ساعة محسوبة: جانب الابن ما بيحلّش مراسي.
@@ -160,9 +171,14 @@ class CaregiverSnapshot {
     this.emergency,
     this.questions = const [],
     this.proxied = const {},
+    this.sharedPapers = const {},
   });
 
   final CaregiverPatient patient;
+
+  /// ٠٠٢٦: السجلات اللي المريض شارك صورتها مع ممرضينه — uuid السجل. فاضية
+  /// للمتابع دايماً (الباكت مش بيوريه)، ولما المريض ما فتحش المشاركة.
+  final Set<String> sharedPapers;
 
   /// تأكيدات نيابةً لسه موبايل الأب ما سحبهاش (أو سحبها والحدث اتحدّث):
   /// uuid الحدث ← اسم اللي أكّد. الصف بيقول «أكّدتها ✓» بدل ما يبان فايت.
@@ -350,6 +366,22 @@ List<CaregiverNewItem> newestArrivals(CaregiverSnapshot snapshot, {int limit = 1
       CaregiverNewItem(type: NewItemType.question, arrivedAt: q.updatedAt, happenedAt: q.writtenAt, question: q),
   ]..sort((a, b) => b.arrivedAt.compareTo(a.arrivedAt));
   return items.take(limit).toList();
+}
+
+/// ٠٠٢٦: الممرض ممكن يبقى مربوط بأكتر من مريض. واجهة لوحدها عشان
+/// الفيكات القديمة لـ[CaregiverRemote] ما تتكسرش — الحامل بيسألها لو موجودة.
+abstract interface class MultiPatientRemote {
+  /// كل المرضى المربوط بيهم، الأحدث ربطاً الأول.
+  Future<List<CaregiverPatient>> linkedPatients();
+
+  /// لقطة مريض بعينه — null لو الربط اتشال.
+  Future<CaregiverSnapshot?> snapshotFor(String patientUuid);
+}
+
+/// ٠٠٢٦: صورة ورقة شاركها المريض مع ممرضينه. null = مش موجودة أو مش
+/// مسموح — والشاشة بتقول «الصورة على موبايل المريض».
+abstract interface class PaperPhotos {
+  Future<List<int>?> download(String patientUuid, String recordUuid);
 }
 
 /// RLS هي اللي بتحدّد المدى — مفيش فلترة عميل بالمالك أبداً.

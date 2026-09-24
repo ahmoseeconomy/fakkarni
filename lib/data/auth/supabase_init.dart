@@ -9,7 +9,9 @@ import '../billing/subscription_remote.dart';
 import '../billing/supabase_subscription_remote.dart';
 import '../care/medication_changes.dart';
 import '../care/proxy_confirmations.dart';
+import '../files/paper_share.dart';
 import '../care/supabase_medication_changes.dart';
+import '../care/supabase_paper_uploads.dart';
 import '../care/supabase_care_circle_service.dart';
 import '../care/supabase_proxy_remote.dart';
 import '../care/caregiver_preferences.dart';
@@ -143,6 +145,7 @@ typedef CloudServices = ({
   ProxyConfirmRemote proxy,
   MedicationChangeRemote medChanges,
   SubscriptionRemote subscriptions,
+  PaperUploads papers,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -177,6 +180,7 @@ Future<CloudServices?> initSupabaseAuth() async {
       proxy: SupabaseProxyRemote(supabase.client),
       medChanges: SupabaseMedicationChangeRemote(supabase.client),
       subscriptions: SupabaseSubscriptionRemote(supabase.client),
+      papers: SupabasePaperUploads(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

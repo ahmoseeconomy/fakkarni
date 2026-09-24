@@ -57,6 +57,9 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     uuid: row['uuid'] as String,
     name: row['name'] as String,
     amountLabel: row['amount_label'] as String?,
+    purpose: row['purpose'] as String?,
+    instructions: row['instructions'] as String?,
+    alertMode: row['alert_mode'] as String?,
     rules: [
       // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن
       for (final s in schedules)
@@ -149,10 +152,78 @@ CaregiverQuestion questionFromRow(Map<String, dynamic> row) => CaregiverQuestion
 /// القراءة الحقيقية. العلاقات بتيجي من care_relationships (RLS بتوريني
 /// صفوفي أنا)، والمريض بيتحدّد منها — مش من فلترة owner_id على العميل:
 /// الابن ممكن يكون مريضاً في تطبيقه هو كمان، وصفّه بيظهر في patients عادي.
-class SupabaseCaregiverRemote implements CaregiverRemote {
+class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, PaperPhotos {
   SupabaseCaregiverRemote(this._supabase);
 
   final SupabaseClient _supabase;
+
+  /// ٠٠٢٦: باكت صور الورق — خاص، والقراية للمالك وممرضينه بس (RLS).
+  static const papersBucket = 'patient-papers';
+
+  @override
+  Future<List<CaregiverPatient>> linkedPatients() => _guard(() async {
+        final me = _supabase.auth.currentUser?.id;
+        if (me == null) return const <CaregiverPatient>[];
+        final links = await _supabase
+            .from('care_relationships')
+            .select('patient_uuid, role, can_confirm, can_edit_meds')
+            .eq('status', 'accepted')
+            .eq('caregiver_id', me)
+            .order('created_at', ascending: false);
+        if (links.isEmpty) return const <CaregiverPatient>[];
+        final rows = await _supabase
+            .from('patients')
+            .select('uuid, name')
+            .inFilter('uuid', [for (final l in links) l['patient_uuid'] as String]);
+        final names = {for (final r in rows) r['uuid'] as String: r['name'] as String};
+        return [
+          for (final l in links)
+            if (names[l['patient_uuid']] case final name?)
+              CaregiverPatient(
+                uuid: l['patient_uuid'] as String,
+                name: name,
+                permissions: FollowerPermissions(
+                  role: FollowerRole.fromStored(l['role'] as String?),
+                  canConfirm: l['can_confirm'] == true,
+                  canEditMeds: l['can_edit_meds'] == true,
+                ),
+              ),
+        ];
+      });
+
+  @override
+  Future<CaregiverSnapshot?> snapshotFor(String patientUuid) => _guard(() async {
+        final all = await linkedPatients();
+        final patient = all.where((p) => p.uuid == patientUuid).firstOrNull;
+        if (patient == null) return null;
+        return _snapshotOf(patient);
+      });
+
+  @override
+  Future<List<int>?> download(String patientUuid, String recordUuid) async {
+    try {
+      return await _supabase.storage.from(papersBucket).download('$patientUuid/$recordUuid.jpg');
+    } catch (e) {
+      if (kDebugMode) debugPrint('Care: صورة الورقة ما نزلتش — $e');
+      return null;
+    }
+  }
+
+  /// أسامي الصور في فولدر المريض — **مجاملة**: أي فشل = مفيش صور، والسجل
+  /// بيتعرض من غيرها بسطر «الصورة على موبايل المريض».
+  Future<Set<String>> _sharedPapers(CaregiverPatient patient) async {
+    if (!patient.isNurse) return const {};
+    try {
+      final files = await _supabase.storage.from(papersBucket).list(path: patient.uuid);
+      return {
+        for (final f in files)
+          if (f.name.endsWith('.jpg')) f.name.substring(0, f.name.length - 4),
+      };
+    } catch (e) {
+      if (kDebugMode) debugPrint('Care: قايمة صور الورق ما جاتش — $e');
+      return const {};
+    }
+  }
 
   @override
   Future<CaregiverPatient?> linkedPatient() => _guard(() async {
@@ -203,6 +274,10 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
   Future<CaregiverSnapshot?> snapshot() => _guard(() async {
         final patient = await linkedPatient();
         if (patient == null) return null;
+        return _snapshotOf(patient);
+      });
+
+  Future<CaregiverSnapshot?> _snapshotOf(CaregiverPatient patient) => _guard(() async {
         // وصلنا لهنا يعني فيه جلسة ([linkedPatient] بترجع null من غيرها) —
         // بس بنقراها مرة واحدة بدل ما كل استعلام يعمل `?? ''` لوحده.
         final me = _supabase.auth.currentUser?.id;
@@ -210,13 +285,27 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
 
         // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
         // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
-        final meds = await _supabase
-            .from('medications')
-            .select('uuid, name, amount_label, stopped_at, updated_at, '
-                'dose_schedules(timing_kind, anchor, offset_minutes, stopped_at, '
-                'fixed_timings(minute_of_day))')
-            .eq('patient_uuid', patient.uuid)
-            .isFilter('removed_at', null);
+        const medColumns = 'uuid, name, amount_label, stopped_at, updated_at, '
+            'dose_schedules(timing_kind, anchor, offset_minutes, stopped_at, '
+            'fixed_timings(minute_of_day))';
+        List<Map<String, dynamic>> meds;
+        try {
+          meds = await _supabase
+              .from('medications')
+              // ٠٠٢٦: تفاصيل الدوا للممرض
+              .select('purpose, instructions, alert_mode, $medColumns')
+              .eq('patient_uuid', patient.uuid)
+              .isFilter('removed_at', null);
+        } on PostgrestException catch (e) {
+          // **الهجرة لسه ما اتشغّلتش** — العمود مش موجود. شاشة المتابع لازم
+          // تفضل شغّالة؛ التفاصيل بس اللي بتغيب.
+          if (e.code != '42703' && e.code != 'PGRST204') rethrow;
+          meds = await _supabase
+              .from('medications')
+              .select(medColumns)
+              .eq('patient_uuid', patient.uuid)
+              .isFilter('removed_at', null);
+        }
 
         final since = DateTime.now().toUtc().subtract(const Duration(days: 7));
         final events = await _supabase
@@ -350,6 +439,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
           readings: [for (final r in readings) readingFromRow(r)],
           emergency: emergencyFromRow(emergency.isEmpty ? null : emergency.first),
           questions: [for (final q in questions) questionFromRow(q)],
+          sharedPapers: await _sharedPapers(patient),
         );
       });
 

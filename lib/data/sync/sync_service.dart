@@ -538,15 +538,40 @@ class SyncService {
   Expression<bool> _dirty(SyncIdentityColumns t) =>
       t.syncedAtMs.isNull() | t.syncedAtMs.isSmallerThan(t.updatedAtMs);
 
+  /// أعمدة اتزوّدت في هجرة ممكن تكون لسه ما اتشغّلتش على المشروع.
+  ///
+  /// **شبكة أمان، مش بديل للترتيب.** القاعدة لسه «الهجرة قبل النسخة». بس لو
+  /// نسخة وصلت موبايل مربوط والعمود مش موجود، PostgREST بيرفض الدفعة كلها —
+  /// والدفع بالترتيب، فالجرعات اللي بعد الأدوية كانت هتفضل متوسّخة والابن
+  /// يتنبّه عن جرعات اتاخدت. فبنعيد الدفعة من غير الأعمدة دي، ونكمّل.
+  static const _optionalColumns = <String, Set<String>>{
+    // ٠٠٢٦: تفاصيل الدوا اللي الممرض بيشوفها
+    'medications': {'purpose', 'instructions', 'alert_mode'},
+  };
+
+  /// «العمود مش موجود» من PostgREST (PGRST204) أو من بوستجرس (42703).
+  static bool _missingColumn(SyncRejected e) => e.code == 'PGRST204' || e.code == '42703';
+
   Future<void> _upsertAndMark(
     String table,
     List<({String uuid, int updatedAtMs, Map<String, dynamic> json})> rows,
     Future<void> Function(String uuid, int updatedAtMs) mark,
   ) async {
+    final optional = _optionalColumns[table] ?? const <String>{};
     for (var i = 0; i < rows.length; i += _batchSize) {
       final chunk = rows.sublist(
           i, i + _batchSize > rows.length ? rows.length : i + _batchSize);
-      await _remote.upsert(table, [for (final r in chunk) r.json]);
+      final payload = [for (final r in chunk) r.json];
+      try {
+        await _remote.upsert(table, payload);
+      } on SyncRejected catch (e) {
+        if (optional.isEmpty || !_missingColumn(e)) rethrow;
+        diag('Sync: $table — عمود جديد مش موجود على السيرفر (${e.code})؛ '
+            'الدفعة بتتعاد من غير ${optional.join('، ')} — شغّل الهجرة');
+        await _remote.upsert(table, [
+          for (final row in payload) {for (final e in row.entries) if (!optional.contains(e.key)) e.key: e.value},
+        ]);
+      }
       _rowsPushed += chunk.length;
       for (final r in chunk) {
         await mark(r.uuid, r.updatedAtMs);
@@ -647,6 +672,10 @@ class SyncService {
                 // والسحابة بتاخد نفس الصف محدّث فما بيرجعش يعيش.
                 'removed_at': m.removedAt == null ? null : utcIso(m.removedAt!),
                 'amount_unknown': m.amountUnknown,
+                // ٠٠٢٦: الممرض بيشوف تفاصيل الدوا كاملة
+                'purpose': m.purpose,
+                'instructions': m.instructions,
+                'alert_mode': m.alertMode,
               }
             );
           }(),

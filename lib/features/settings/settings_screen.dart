@@ -11,6 +11,7 @@ import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
+import '../../data/files/paper_share.dart';
 import '../billing/family_plan_screen.dart';
 import 'followers_screen.dart';
 import 'diagnostics_log_screen.dart';
@@ -172,6 +173,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _open(FamilyPlanScreen(service: sub, patientName: patient?.name ?? 'أنا'));
                 },
               ),
+            // ٠٠٢٦: صور الورق بتفضل هنا إلا لو هو قرّر يشاركها مع ممرضينه
+            if (user != null && services.papers != null)
+              _SharePapersRow(service: services.papers!, patientId: services.patientId),
             // ٠٠٢٣: مين بيتابعك وبيقدر يعمل إيه — للمريض المربوط وبس
             if (user != null && services.careAdmin != null)
               _Row(
@@ -292,6 +296,58 @@ class _ElderModeRowState extends State<_ElderModeRow> {
             ),
           );
         },
+      );
+}
+
+/// «شارك صور الورق مع الممرض» — **مقفول افتراضياً**. مفتوح: صور الروشتات
+/// والتحاليل بتترفع لمكان خاص ممرضينه بس يقروه (المتابع لأ). قفله بيمسح
+/// اللي اترفع.
+class _SharePapersRow extends StatefulWidget {
+  const _SharePapersRow({required this.service, required this.patientId});
+
+  final PaperShareService service;
+  final int patientId;
+
+  @override
+  State<_SharePapersRow> createState() => _SharePapersRowState();
+}
+
+class _SharePapersRowState extends State<_SharePapersRow> {
+  bool _on = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PaperShareService.isEnabled().then((on) {
+      if (mounted) setState(() => _on = on);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: F.s10),
+        child: Material(
+          color: F.cardGround,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            side: BorderSide(color: F.line),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s4),
+            child: FSwitch(
+              key: const ValueKey('share-papers'),
+              label: 'شارك صور الورق مع الممرض',
+              subtitle: _on
+                  ? 'الممرض بيشوف صور روشتاتك وتحاليلك — اللي بيتابعوك بس لأ'
+                  : 'صور الورق على موبايلك بس — الممرض بيشوف الورقة من غير صورتها',
+              value: _on,
+              onChanged: (on) async {
+                setState(() => _on = on);
+                await widget.service.setEnabled(on, patientId: widget.patientId);
+              },
+            ),
+          ),
+        ),
       );
 }
 

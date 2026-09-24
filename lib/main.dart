@@ -115,6 +115,10 @@ Future<void> main() async {
       : SubscriptionService(remote: cloud.subscriptions, store: IapStorePurchases());
   await subscription?.load();
 
+  // **كل خدمة سحابة لازم تعدّي من هنا.** جولات ٢٣–٢٥ بنت الممرض والتغييرات
+  // المعلّقة والاشتراك، ونسيت تمرّرهم — فعلى الجهاز كانوا null واختبارات
+  // الشاشات (اللي بتبني خدماتها بنفسها) خضرا. `main_wiring_test` بيقرا
+  // النداء ده ويوقع لو خدمة من `CloudServices` مش متمرّرة.
   final services = await buildServices(
     db,
     auth: cloud?.auth,
@@ -123,6 +127,11 @@ Future<void> main() async {
     caregiverPreferences: cloud?.caregiverPreferences,
     sync: sync,
     push: push,
+    careAdmin: cloud?.careAdmin,
+    proxy: cloud?.proxy,
+    medChanges: cloud?.medChanges,
+    subscription: subscription,
+    papers: cloud?.papers,
   );
 
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.

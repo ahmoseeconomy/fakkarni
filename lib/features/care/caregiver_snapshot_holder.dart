@@ -42,6 +42,22 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
   final VoidCallback? onNotLinked;
 
   CaregiverSnapshot? snapshot;
+
+  /// ٠٠٢٦: كل المرضى المربوط بيهم — أكتر من واحد يعني الترويسة فيها مبدّل.
+  /// فاضية لو السحابة مش بتعرف تجاوب ([MultiPatientRemote] مش متنفّذ).
+  List<CaregiverPatient> patients = const [];
+
+  /// المريض المختار — null = الأحدث ربطاً (السلوك القديم).
+  String? selectedPatientUuid;
+
+  /// بيغيّر المريض وبيسحب على طول. الشاشة بتتبني من جديد على صورته هو.
+  Future<void> selectPatient(String uuid) async {
+    if (uuid == selectedPatientUuid) return;
+    selectedPatientUuid = uuid;
+    snapshot = null;
+    await refresh();
+  }
+
   String? error;
   bool loading = true;
 
@@ -104,13 +120,26 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
     }
   }
 
+  /// مع [MultiPatientRemote]: القايمة الأول، وبعدين صورة المختار (أو
+  /// الأحدث لو المختار اتشال). من غيرها: السلوك القديم بالظبط.
+  Future<CaregiverSnapshot?> _fetch() async {
+    final multi = remote;
+    if (multi is! MultiPatientRemote) return remote.snapshot();
+    final all = await (multi as MultiPatientRemote).linkedPatients();
+    patients = all;
+    if (all.isEmpty) return null;
+    final chosen = all.any((p) => p.uuid == selectedPatientUuid) ? selectedPatientUuid! : all.first.uuid;
+    selectedPatientUuid = chosen;
+    return (multi as MultiPatientRemote).snapshotFor(chosen);
+  }
+
   Future<void> refresh() async {
     if (_disposed) return;
     loading = snapshot == null;
     error = null;
     notifyListeners();
     try {
-      final next = await remote.snapshot();
+      final next = await _fetch();
       if (_disposed) return;
       if (next == null && onNotLinked != null) {
         onNotLinked!();

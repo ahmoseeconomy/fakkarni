@@ -18,6 +18,8 @@ import '../data/care/caregiver_remote.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
+import '../data/files/paper_share.dart';
+import '../data/files/attachment_store.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/push/push_tokens.dart';
@@ -52,6 +54,7 @@ Future<AppServices> buildServices(
   ProxyConfirmRemote? proxy,
   MedicationChangeRemote? medChanges,
   SubscriptionService? subscription,
+  PaperUploads? papers,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -111,6 +114,9 @@ Future<AppServices> buildServices(
     medChanges: medChanges,
     medChangePull: medChangePull,
     subscription: subscription,
+    papers: papers == null
+        ? null
+        : PaperShareService(db: db, uploads: papers, attachments: const DirectoryAttachmentStore()),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,
