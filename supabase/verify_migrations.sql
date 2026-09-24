@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0022: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0023: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -243,7 +243,27 @@ with expected(migration, kind, ident) as (
     -- 0022 — أكواد السلامة لكل جهاز على اللوحة
     ('0022_admin_devices', 'function', 'public.admin_devices'),
     ('0022_admin_devices', 'funcsrc',  'public.admin_devices|is_admin'),
-    ('0022_admin_devices', 'funcsrc',  'public.admin_devices|failing_codes')
+    ('0022_admin_devices', 'funcsrc',  'public.admin_devices|failing_codes'),
+
+    -- 0023 — الممرض: دور وصلاحيات، والتأكيد نيابةً
+    ('0023_nurse_role', 'column',   'public.care_relationships.role'),
+    ('0023_nurse_role', 'column',   'public.care_relationships.can_confirm'),
+    ('0023_nurse_role', 'column',   'public.care_relationships.can_edit_meds'),
+    ('0023_nurse_role', 'column',   'public.invite_codes.role'),
+    ('0023_nurse_role', 'table',    'public.proxy_confirmations'),
+    ('0023_nurse_role', 'rls',      'public.proxy_confirmations'),
+    ('0023_nurse_role', 'policy',   'public.proxy_confirmations|proxy_confirmations_insert'),
+    ('0023_nurse_role', 'policysrc','public.proxy_confirmations|proxy_confirmations_insert|can_confirm_for'),
+    ('0023_nurse_role', 'function', 'private.can_confirm_for'),
+    ('0023_nurse_role', 'function', 'private.dose_confirmable'),
+    ('0023_nurse_role', 'function', 'public.followers_with_permissions'),
+    ('0023_nurse_role', 'function', 'public.set_follower_permissions'),
+    ('0023_nurse_role', 'function', 'public.remove_follower'),
+    -- الدعوة بدور: النسخة الجديدة هي اللي فيها p_role
+    ('0023_nurse_role', 'funcsrc',  'public.create_invite|p_role'),
+    ('0023_nurse_role', 'funcsrc',  'public.redeem_invite|can_confirm'),
+    -- **والاختيار بيستبعد التأكيد نيابةً** — وجود الدالة لوحده بيكدب
+    ('0023_nurse_role', 'funcsrc',  'private.due_escalations|proxy_confirmations')
 ),
 checked as (
   select

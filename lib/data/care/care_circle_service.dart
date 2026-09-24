@@ -5,6 +5,9 @@
 /// «دور» في أي مكان.
 library;
 
+import '../../domain/care/follower_profile.dart';
+import '../../domain/care/follower_role.dart';
+
 /// كود دعوة حي — ٦ أرقام، صالح ربع ساعة.
 class InviteCode {
   const InviteCode({required this.code, required this.expiresAt});
@@ -58,4 +61,39 @@ abstract interface class CareCircleService {
 
   /// بيستبدل الكود وبيرجّع **اسم** المريض اللي اتربط بيه — للشاشة.
   Future<String> redeemInvite(String code);
+}
+
+/// متابع واحد بدوره وصلاحياته — من `followers_with_permissions` (للمالك بس).
+class FollowerWithPermissions {
+  const FollowerWithPermissions({
+    required this.caregiverId,
+    required this.profile,
+    required this.permissions,
+    this.linkedAt,
+  });
+
+  final String caregiverId;
+
+  /// null = ما كتبش اسمه لسه.
+  final FollowerProfile? profile;
+  final FollowerPermissions permissions;
+  final DateTime? linkedAt;
+
+  String get displayName => profile?.name.trim().isNotEmpty == true ? profile!.name.trim() : 'من غير اسم لسه';
+}
+
+/// إدارة الدائرة من موبايل المريض (٠٠٢٣): كود بدور، والأدوار والصلاحيات
+/// والشيل. واجهة لوحدها عشان الفيكات القديمة لـ[CareCircleService] ما تتكسرش.
+abstract interface class CareCircleAdmin {
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role);
+
+  Future<List<FollowerWithPermissions>> followersWithPermissions(String patientUuid);
+
+  Future<void> setFollowerPermissions(
+    String patientUuid,
+    String caregiverId,
+    FollowerPermissions permissions,
+  );
+
+  Future<void> removeFollower(String patientUuid, String caregiverId);
 }

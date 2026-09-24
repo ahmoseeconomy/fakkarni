@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -442,6 +442,17 @@ class AppDatabase extends _$AppDatabase {
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE medications ADD COLUMN $column TEXT NULL');
                 }
+              }
+            }
+            if (from < 24) {
+              // مين أكّد الجرعة لو مش المريض (الممرض، ٠٠٢٣) — عمود اختياري
+              // محلي على dose_events، null لكل صف قديم. بحماية وجود، وفوق
+              // بلوك التطبيع.
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('dose_events') WHERE name = 'acted_by'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement('ALTER TABLE dose_events ADD COLUMN acted_by TEXT NULL');
               }
             }
             if (from < 6) {

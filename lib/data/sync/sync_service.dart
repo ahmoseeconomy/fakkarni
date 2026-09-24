@@ -282,6 +282,10 @@ class SyncService {
   final Duration _backgroundTimeout;
   final int _batchSize;
 
+  /// بيتنده بعد كل رفعة ناجحة — موبايل الأب بيسحب تأكيدات الممرض هنا.
+  /// null في صحوة الخلفية (مفيش وقت لسحبة).
+  Future<void> Function()? afterPush;
+
   StreamSubscription<Object?>? _writesSub;
   StreamSubscription<Object?>? _connectivitySub;
   Timer? _debounceTimer;
@@ -490,6 +494,9 @@ class SyncService {
       _retryAttempt = 0;
       _retryTimer?.cancel();
       _retryTimer = null;
+      // بعد رفعة ناجحة: سحبة التأكيدات نيابةً (٠٠٢٣) — مجاملة، بعد الوعد
+      final after = afterPush;
+      if (after != null) unawaited(after());
     }
     return failed ? PushOutcome.failed : PushOutcome.pushed;
   }

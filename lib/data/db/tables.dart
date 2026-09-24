@@ -443,6 +443,10 @@ class DoseEvents extends Table with SyncIdentity {
   TextColumn get state => textEnum<DoseState>()();
   DateTimeColumn get actedAt => dateTime().nullable()();
 
+  /// مين أكّدها لو مش المريض نفسه (٠٠٢٣): اسم الممرض زي ما وصل من السيرفر.
+  /// null = المريض بنفسه (أو صف من قبل v24). **محلي** — مش بيترفع.
+  TextColumn get actedBy => text().nullable()();
+
   @override
   List<Set<Column<Object>>> get uniqueKeys => [
         {doseScheduleId, routineDay},

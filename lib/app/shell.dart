@@ -10,6 +10,7 @@ import '../core/widgets/dark_mode_toggle.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
+import '../features/care/caregiver_mirror_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
 import '../features/care/onboarding/caregiver_onboarding_screen.dart';
@@ -184,6 +185,10 @@ class CaregiverShell extends StatefulWidget {
   /// بتتزاحم مع شاشة «هو كويس؟» في آخرها. بنفس اسم وأيقونة تبويب الأب.
   static const tabs = ['متابعة', 'الأدوية', 'السجل', 'الإعدادات'];
 
+  /// الممرض/المرافق (٠٠٢٣): «مرآة» مكان «متابعة» — يوم المريض زي ما هو
+  /// بيشوفه، والتأكيد بداله. باقي التبويبات هي هي.
+  static const nurseTabs = ['مرآة', 'الأدوية', 'السجل', 'الإعدادات'];
+
   /// تبويبات البيانات — السؤال الدوري شغّال وواحد منهم ظاهر.
   static const dataTabs = {0, 1, 2};
 
@@ -298,11 +303,15 @@ class _CaregiverShellState extends State<CaregiverShell> {
       }
     }
 
+    final isNurse = patient?.isNurse ?? false;
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: _tab,
         children: [
+          if (isNurse)
+            CaregiverMirrorScreen(holder: holder, now: widget.now)
+          else
           CaregiverScreen(
             remote: holder.remote,
             now: widget.now,
@@ -318,9 +327,9 @@ class _CaregiverShellState extends State<CaregiverShell> {
       bottomNavigationBar: keyboardIsUp(context)
           ? null
           : _TabBar(
-        labels: CaregiverShell.tabs,
-        icons: const [
-          Icons.visibility_outlined,
+        labels: isNurse ? CaregiverShell.nurseTabs : CaregiverShell.tabs,
+        icons: [
+          isNurse ? Icons.flip_outlined : Icons.visibility_outlined,
           Icons.medication_outlined,
           Icons.folder_outlined,
           Icons.settings_outlined,

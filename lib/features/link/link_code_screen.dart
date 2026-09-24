@@ -7,6 +7,7 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
+import '../../domain/care/follower_role.dart';
 import '../../data/sync/sync_service.dart';
 
 /// شاشة الأب — «دائرة الرعاية» (المخطط 15): الكود اللي هيقوله لابنه.
@@ -26,10 +27,14 @@ class LinkCodeScreen extends StatefulWidget {
     required this.patientName,
     this.sync,
     this.share,
+    this.roles,
     super.key,
   });
 
   final CareCircleService care;
+
+  /// الكود بدور (٠٠٢٣). null = كود «متابع» زي ما كان.
+  final CareCircleAdmin? roles;
 
   /// بعد نجاح رفع صف المريض بنعلّم «اتربطنا» — من اللحظة دي المزامنة
   /// الصامتة مسموحة، وأول دفعة بترفع التاريخ كله.
@@ -47,6 +52,9 @@ class LinkCodeScreen extends StatefulWidget {
 
 class _LinkCodeScreenState extends State<LinkCodeScreen> {
   InviteCode? _invite;
+
+  /// «متابع» افتراضياً — الأكواد والعلاقات القديمة كلها كده.
+  FollowerRole _role = FollowerRole.follower;
   String? _error;
   String? _notice;
   bool _busy = false;
@@ -71,7 +79,10 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
       await widget.sync?.confirmLinked();
       // أول دفعة — الروتين والأدوية والتاريخ كله بيطلع دلوقتي في الخلفية
       unawaited(widget.sync?.push());
-      final invite = await widget.care.createInvite(widget.patientUuid);
+      final roles = widget.roles;
+      final invite = roles == null
+          ? await widget.care.createInvite(widget.patientUuid)
+          : await roles.createRoleInvite(widget.patientUuid, _role);
       if (mounted) setState(() => _invite = invite);
     } on CareCircleException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -135,6 +146,42 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
             ),
             const SizedBox(height: F.gap),
+            // ---------------------------------- الدور: متابع ولا ممرض؟
+            // شريحتين كبار. تغيير الدور بيعمل كود جديد بدوره — الكود
+            // بيشيل دوره معاه على السيرفر.
+            if (widget.roles != null) ...[
+              Text(
+                'الكود ده لمين؟',
+                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+              ),
+              const SizedBox(height: F.s8),
+              Row(
+                children: [
+                  for (final role in FollowerRole.values) ...[
+                    Expanded(
+                      child: AnchorChip(
+                        key: ValueKey('invite-role-${role.name}'),
+                        label: role.label,
+                        selected: _role == role,
+                        onTap: () {
+                          if (_busy || _role == role) return;
+                          setState(() => _role = role);
+                          _refresh();
+                        },
+                      ),
+                    ),
+                    if (role != FollowerRole.values.last) const SizedBox(width: F.s8),
+                  ],
+                ],
+              ),
+              const SizedBox(height: F.s6),
+              Text(
+                _role.explain,
+                key: const ValueKey('invite-role-explain'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              ),
+              const SizedBox(height: F.gap),
+            ],
             if (_error != null) ...[
               FCard(
                 tone: FCardTone.warm,

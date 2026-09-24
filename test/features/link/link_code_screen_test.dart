@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/care/care_circle_service.dart';
+import 'package:fakkarni/domain/care/follower_role.dart';
 import 'package:fakkarni/features/link/link_code_screen.dart';
 
 import '../../data/care/care_circle_service_test.dart' show FakeCareCircleService;
@@ -128,4 +129,51 @@ void main() {
     );
     expectNoRedAndMinSize(tester);
   });
+  screenTest('شريحتين كبار: «متابع» افتراضياً، و«ممرض / مرافق» بيعمل كود جديد بدوره', (tester) async {
+    final roles = _FakeRoles();
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: LinkCodeScreen(care: care, patientUuid: 'p-uuid-1', patientName: 'الحاج أحمد', roles: roles),
+      ),
+    ));
+    await settle(tester);
+
+    expect(find.text('الكود ده لمين؟'), findsOneWidget);
+    expect(find.text('متابع'), findsOneWidget);
+    expect(find.text('ممرض / مرافق'), findsOneWidget);
+    expect(roles.created, [FollowerRole.follower], reason: 'الافتراضي متابع — زي كل الأكواد القديمة');
+    expect(care.createdFor, isEmpty, reason: 'مع الأدوار الكود بيتعمل من الدالة اللي بتاخد الدور');
+
+    await tester.tap(find.byKey(const ValueKey('invite-role-nurse')));
+    await settle(tester);
+    expect(roles.created, [FollowerRole.follower, FollowerRole.nurse]);
+    expect(find.text('٦٥٤٣٢٢'), findsOneWidget, reason: 'كود جديد بدوره');
+    expect(find.textContaining('يأكّد الجرعة بدالك'), findsOneWidget);
+    expectNoRedAndMinSize(tester);
+  });
+
+}
+
+/// الكود بدور (٠٠٢٣): «متابع» افتراضياً، و«ممرض / مرافق» بيعمل كود بدوره.
+class _FakeRoles implements CareCircleAdmin {
+  final created = <FollowerRole>[];
+
+  @override
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role) async {
+    created.add(role);
+    return InviteCode(code: '65432${created.length}', expiresAt: DateTime(2026, 9, 1, 10));
+  }
+
+  @override
+  Future<List<FollowerWithPermissions>> followersWithPermissions(String patientUuid) async => const [];
+  @override
+  Future<void> setFollowerPermissions(String patientUuid, String caregiverId, FollowerPermissions permissions) async {}
+  @override
+  Future<void> removeFollower(String patientUuid, String caregiverId) async {}
 }

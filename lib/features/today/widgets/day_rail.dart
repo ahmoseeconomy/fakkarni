@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/format/arabic_time.dart';
 import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../domain/care/follower_role.dart';
 import '../../../core/widgets/patient_voice.dart';
 import '../../../domain/patient/sex.dart';
 import '../../../data/dose_state.dart';
@@ -168,7 +169,11 @@ class DayRail extends StatelessWidget {
             Text(
               group.first.state == DoseState.skipped
                   ? 'اتأجّل'
-                  : say.takenAt(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
+                  // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
+                  : group.first.actedBy != null
+                      ? '${proxyConfirmedLine(group.first.actedBy)} ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}'
+                      : say.takenAt(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
+              key: ValueKey('taken-line-${group.first.doseScheduleId}'),
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
           ],

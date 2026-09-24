@@ -173,22 +173,29 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
 
         final links = await _supabase
             .from('care_relationships')
-            .select('patient_uuid')
+            .select('patient_uuid, role, can_confirm, can_edit_meds')
             .eq('status', 'accepted')
             .eq('caregiver_id', me)
             .order('created_at', ascending: false)
             .limit(1);
         if (links.isEmpty) return null;
+        final link = links.first;
 
         final rows = await _supabase
             .from('patients')
             .select('uuid, name')
-            .eq('uuid', links.first['patient_uuid'] as String);
+            .eq('uuid', link['patient_uuid'] as String);
         if (rows.isEmpty) return null;
         final row = rows.single;
         return CaregiverPatient(
           uuid: row['uuid'] as String,
           name: row['name'] as String,
+          // ٠٠٢٣: دوري وصلاحياتي من صف العلاقة نفسه — قبلها كل صف متابع
+          permissions: FollowerPermissions(
+            role: FollowerRole.fromStored(link['role'] as String?),
+            canConfirm: link['can_confirm'] == true,
+            canEditMeds: link['can_edit_meds'] == true,
+          ),
         );
       });
 
@@ -222,6 +229,15 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
             // ولا جرعة دوا الأب شاله
             .isFilter('dose_schedules.medications.removed_at', null)
             .order('scheduled_at', ascending: true);
+
+        // ٠٠٢٣: تأكيدات نيابةً في آخر يومين — الصف بيقول «أكّدتها ✓» لحد ما
+        // موبايل الأب يسحبها ويكتب taken بنفسه.
+        final proxiedSince = DateTime.now().toUtc().subtract(const Duration(days: 2)).toIso8601String();
+        final proxied = await _supabase
+            .from('proxy_confirmations')
+            .select('dose_event_uuid, actor_name')
+            .eq('patient_uuid', patient.uuid)
+            .gte('confirmed_at', proxiedSince);
 
         final alertsSince =
             DateTime.now().toUtc().subtract(alertWindow).toIso8601String();
@@ -304,6 +320,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote {
 
         return CaregiverSnapshot(
           patient: patient,
+          proxied: {
+            for (final p in proxied) p['dose_event_uuid'] as String: p['actor_name'] as String?,
+          },
           medications: [
             for (final m in meds)
               if (m['stopped_at'] == null) medicationFromRow(m),

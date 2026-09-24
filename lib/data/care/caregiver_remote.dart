@@ -14,10 +14,22 @@ import '../dose_state.dart';
 
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
 
+import '../../domain/care/follower_role.dart';
+export '../../domain/care/follower_role.dart' show FollowerPermissions, FollowerRole;
+
 class CaregiverPatient {
-  const CaregiverPatient({required this.uuid, required this.name});
+  const CaregiverPatient({
+    required this.uuid,
+    required this.name,
+    this.permissions = FollowerPermissions.plainFollower,
+  });
   final String uuid;
   final String name;
+
+  /// دوري وصلاحياتي على المريض ده (٠٠٢٣) — من صف العلاقة نفسه.
+  final FollowerPermissions permissions;
+
+  bool get isNurse => permissions.role == FollowerRole.nurse;
 }
 
 class CaregiverMedication {
@@ -147,9 +159,14 @@ class CaregiverSnapshot {
     this.readings = const [],
     this.emergency,
     this.questions = const [],
+    this.proxied = const {},
   });
 
   final CaregiverPatient patient;
+
+  /// تأكيدات نيابةً لسه موبايل الأب ما سحبهاش (أو سحبها والحدث اتحدّث):
+  /// uuid الحدث ← اسم اللي أكّد. الصف بيقول «أكّدتها ✓» بدل ما يبان فايت.
+  final Map<String, String?> proxied;
   final List<CaregiverMedication> medications;
 
   /// آخر ٧ أيام، تصاعدياً بالوقت.

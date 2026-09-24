@@ -11,6 +11,7 @@ import '../link/sign_in_screen.dart';
 import '../routine/edit_routine_screen.dart';
 import '../routine/ramadan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
+import 'followers_screen.dart';
 import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
@@ -159,6 +160,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 push: services.push,
               )),
             ),
+            // ٠٠٢٣: مين بيتابعك وبيقدر يعمل إيه — للمريض المربوط وبس
+            if (user != null && services.careAdmin != null)
+              _Row(
+                icon: Icons.manage_accounts_outlined,
+                label: 'اللي بيتابعوك',
+                hint: 'الدور والصلاحيات لكل واحد، وشيل اللي مش عايزه',
+                onTap: () async {
+                  final patient = await services.routines.getPatient(services.patientId);
+                  if (patient == null || !context.mounted) return;
+                  _open(FollowersScreen(admin: services.careAdmin!, patientUuid: patient.uuid));
+                },
+              ),
             // D5.2: الوصول اتوسّع — الأب يعرفه مننا، مش بالصدفة.
             Padding(
               key: const ValueKey('caregiver-sees'),

@@ -10,6 +10,8 @@ import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
+import '../data/care/proxy_confirmations.dart';
+import '../data/sync/proxy_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
@@ -46,6 +48,9 @@ class AppServices {
     this.caregiverPreferences,
     this.sync,
     this.push,
+    this.careAdmin,
+    this.proxy,
+    this.proxyPull,
   });
 
   final AppDatabase db;
@@ -54,6 +59,15 @@ class AppServices {
   final DoseEventRepository events;
   final ReminderScheduler scheduler;
   final int patientId;
+
+  /// إدارة الدائرة (٠٠٢٣): كود بدور، وصلاحيات المتابعين — null من غير سحابة.
+  final CareCircleAdmin? careAdmin;
+
+  /// التأكيد نيابةً — الممرض بيكتب بيه، وموبايل الأب بيسحب منه.
+  final ProxyConfirmRemote? proxy;
+
+  /// سحبة تأكيدات الممرض لموبايل الأب — null من غير سحابة.
+  final ProxyConfirmationPuller? proxyPull;
 
   /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات
   /// بيلاقيها من غير سطر زيادة. الجدولة بتقراها من نسخة بتاعتها في

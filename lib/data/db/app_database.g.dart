@@ -3596,6 +3596,17 @@ class $DoseEventsTable extends DoseEvents
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _actedByMeta = const VerificationMeta(
+    'actedBy',
+  );
+  @override
+  late final GeneratedColumn<String> actedBy = GeneratedColumn<String>(
+    'acted_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -3607,6 +3618,7 @@ class $DoseEventsTable extends DoseEvents
     scheduledAt,
     state,
     actedAt,
+    actedBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3675,6 +3687,12 @@ class $DoseEventsTable extends DoseEvents
         actedAt.isAcceptableOrUnknown(data['acted_at']!, _actedAtMeta),
       );
     }
+    if (data.containsKey('acted_by')) {
+      context.handle(
+        _actedByMeta,
+        actedBy.isAcceptableOrUnknown(data['acted_by']!, _actedByMeta),
+      );
+    }
     return context;
   }
 
@@ -3728,6 +3746,10 @@ class $DoseEventsTable extends DoseEvents
         DriftSqlType.dateTime,
         data['${effectivePrefix}acted_at'],
       ),
+      actedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}acted_by'],
+      ),
     );
   }
 
@@ -3759,6 +3781,10 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
   final DateTime scheduledAt;
   final DoseState state;
   final DateTime? actedAt;
+
+  /// مين أكّدها لو مش المريض نفسه (٠٠٢٣): اسم الممرض زي ما وصل من السيرفر.
+  /// null = المريض بنفسه (أو صف من قبل v24). **محلي** — مش بيترفع.
+  final String? actedBy;
   const DoseEventRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -3769,6 +3795,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     required this.scheduledAt,
     required this.state,
     this.actedAt,
+    this.actedBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3794,6 +3821,9 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     if (!nullToAbsent || actedAt != null) {
       map['acted_at'] = Variable<DateTime>(actedAt);
     }
+    if (!nullToAbsent || actedBy != null) {
+      map['acted_by'] = Variable<String>(actedBy);
+    }
     return map;
   }
 
@@ -3812,6 +3842,9 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
       actedAt: actedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(actedAt),
+      actedBy: actedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actedBy),
     );
   }
 
@@ -3832,6 +3865,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
         serializer.fromJson<String>(json['state']),
       ),
       actedAt: serializer.fromJson<DateTime?>(json['actedAt']),
+      actedBy: serializer.fromJson<String?>(json['actedBy']),
     );
   }
   @override
@@ -3849,6 +3883,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
         $DoseEventsTable.$converterstate.toJson(state),
       ),
       'actedAt': serializer.toJson<DateTime?>(actedAt),
+      'actedBy': serializer.toJson<String?>(actedBy),
     };
   }
 
@@ -3862,6 +3897,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     DateTime? scheduledAt,
     DoseState? state,
     Value<DateTime?> actedAt = const Value.absent(),
+    Value<String?> actedBy = const Value.absent(),
   }) => DoseEventRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -3872,6 +3908,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     scheduledAt: scheduledAt ?? this.scheduledAt,
     state: state ?? this.state,
     actedAt: actedAt.present ? actedAt.value : this.actedAt,
+    actedBy: actedBy.present ? actedBy.value : this.actedBy,
   );
   DoseEventRow copyWithCompanion(DoseEventsCompanion data) {
     return DoseEventRow(
@@ -3894,6 +3931,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
           : this.scheduledAt,
       state: data.state.present ? data.state.value : this.state,
       actedAt: data.actedAt.present ? data.actedAt.value : this.actedAt,
+      actedBy: data.actedBy.present ? data.actedBy.value : this.actedBy,
     );
   }
 
@@ -3908,7 +3946,8 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
           ..write('routineDay: $routineDay, ')
           ..write('scheduledAt: $scheduledAt, ')
           ..write('state: $state, ')
-          ..write('actedAt: $actedAt')
+          ..write('actedAt: $actedAt, ')
+          ..write('actedBy: $actedBy')
           ..write(')'))
         .toString();
   }
@@ -3924,6 +3963,7 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
     scheduledAt,
     state,
     actedAt,
+    actedBy,
   );
   @override
   bool operator ==(Object other) =>
@@ -3937,7 +3977,8 @@ class DoseEventRow extends DataClass implements Insertable<DoseEventRow> {
           other.routineDay == this.routineDay &&
           other.scheduledAt == this.scheduledAt &&
           other.state == this.state &&
-          other.actedAt == this.actedAt);
+          other.actedAt == this.actedAt &&
+          other.actedBy == this.actedBy);
 }
 
 class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
@@ -3950,6 +3991,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
   final Value<DateTime> scheduledAt;
   final Value<DoseState> state;
   final Value<DateTime?> actedAt;
+  final Value<String?> actedBy;
   const DoseEventsCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -3960,6 +4002,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     this.scheduledAt = const Value.absent(),
     this.state = const Value.absent(),
     this.actedAt = const Value.absent(),
+    this.actedBy = const Value.absent(),
   });
   DoseEventsCompanion.insert({
     this.uuid = const Value.absent(),
@@ -3971,6 +4014,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     required DateTime scheduledAt,
     required DoseState state,
     this.actedAt = const Value.absent(),
+    this.actedBy = const Value.absent(),
   }) : doseScheduleId = Value(doseScheduleId),
        routineDay = Value(routineDay),
        scheduledAt = Value(scheduledAt),
@@ -3985,6 +4029,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     Expression<DateTime>? scheduledAt,
     Expression<String>? state,
     Expression<DateTime>? actedAt,
+    Expression<String>? actedBy,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -3996,6 +4041,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
       if (scheduledAt != null) 'scheduled_at': scheduledAt,
       if (state != null) 'state': state,
       if (actedAt != null) 'acted_at': actedAt,
+      if (actedBy != null) 'acted_by': actedBy,
     });
   }
 
@@ -4009,6 +4055,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     Value<DateTime>? scheduledAt,
     Value<DoseState>? state,
     Value<DateTime?>? actedAt,
+    Value<String?>? actedBy,
   }) {
     return DoseEventsCompanion(
       uuid: uuid ?? this.uuid,
@@ -4020,6 +4067,7 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
       scheduledAt: scheduledAt ?? this.scheduledAt,
       state: state ?? this.state,
       actedAt: actedAt ?? this.actedAt,
+      actedBy: actedBy ?? this.actedBy,
     );
   }
 
@@ -4057,6 +4105,9 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
     if (actedAt.present) {
       map['acted_at'] = Variable<DateTime>(actedAt.value);
     }
+    if (actedBy.present) {
+      map['acted_by'] = Variable<String>(actedBy.value);
+    }
     return map;
   }
 
@@ -4071,7 +4122,8 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
           ..write('routineDay: $routineDay, ')
           ..write('scheduledAt: $scheduledAt, ')
           ..write('state: $state, ')
-          ..write('actedAt: $actedAt')
+          ..write('actedAt: $actedAt, ')
+          ..write('actedBy: $actedBy')
           ..write(')'))
         .toString();
   }
@@ -11742,6 +11794,7 @@ typedef $$DoseEventsTableCreateCompanionBuilder = DoseEventsCompanion Function({
   required DateTime scheduledAt,
   required DoseState state,
   Value<DateTime?> actedAt,
+  Value<String?> actedBy,
 });
 typedef $$DoseEventsTableUpdateCompanionBuilder = DoseEventsCompanion Function({
   Value<String> uuid,
@@ -11753,6 +11806,7 @@ typedef $$DoseEventsTableUpdateCompanionBuilder = DoseEventsCompanion Function({
   Value<DateTime> scheduledAt,
   Value<DoseState> state,
   Value<DateTime?> actedAt,
+  Value<String?> actedBy,
 });
 
 final class $$DoseEventsTableReferences
@@ -11829,6 +11883,11 @@ class $$DoseEventsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get actedBy => $composableBuilder(
+    column: $table.actedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$DoseSchedulesTableFilterComposer get doseScheduleId {
     final $$DoseSchedulesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -11902,6 +11961,11 @@ class $$DoseEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get actedBy => $composableBuilder(
+    column: $table.actedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DoseSchedulesTableOrderingComposer get doseScheduleId {
     final $$DoseSchedulesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -11968,6 +12032,9 @@ class $$DoseEventsTableAnnotationComposer
   GeneratedColumn<DateTime> get actedAt =>
       $composableBuilder(column: $table.actedAt, builder: (column) => column);
 
+  GeneratedColumn<String> get actedBy =>
+      $composableBuilder(column: $table.actedBy, builder: (column) => column);
+
   $$DoseSchedulesTableAnnotationComposer get doseScheduleId {
     final $$DoseSchedulesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -12029,6 +12096,7 @@ class $$DoseEventsTableTableManager
                 Value<DateTime> scheduledAt = const Value.absent(),
                 Value<DoseState> state = const Value.absent(),
                 Value<DateTime?> actedAt = const Value.absent(),
+                Value<String?> actedBy = const Value.absent(),
               }) => DoseEventsCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12039,6 +12107,7 @@ class $$DoseEventsTableTableManager
                 scheduledAt: scheduledAt,
                 state: state,
                 actedAt: actedAt,
+                actedBy: actedBy,
               ),
           createCompanionCallback:
               ({
@@ -12051,6 +12120,7 @@ class $$DoseEventsTableTableManager
                 required DateTime scheduledAt,
                 required DoseState state,
                 Value<DateTime?> actedAt = const Value.absent(),
+                Value<String?> actedBy = const Value.absent(),
               }) => DoseEventsCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12061,6 +12131,7 @@ class $$DoseEventsTableTableManager
                 scheduledAt: scheduledAt,
                 state: state,
                 actedAt: actedAt,
+                actedBy: actedBy,
               ),
           withReferenceMapper: (p0) => p0
               .map(

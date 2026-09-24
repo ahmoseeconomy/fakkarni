@@ -15,6 +15,8 @@ import '../data/auth/supabase_init.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
+import '../data/care/proxy_confirmations.dart';
+import '../data/sync/proxy_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
 import '../core/format/arabic_time.dart';
@@ -43,6 +45,8 @@ Future<AppServices> buildServices(
   CaregiverPreferencesService? caregiverPreferences,
   SyncService? sync,
   PushTokens? push,
+  CareCircleAdmin? careAdmin,
+  ProxyConfirmRemote? proxy,
 }) async {
   final routines = RoutineRepository(db);
   final patientId = await routines.ensurePatient();
@@ -50,19 +54,35 @@ Future<AppServices> buildServices(
   final medications = MedicationRepository(db);
   final events = DoseEventRepository(db);
 
+  final scheduler = ReminderScheduler(
+    routines: routines,
+    medications: medications,
+    events: events,
+    patientId: patientId,
+    patientIndex: patientIndex,
+    preferences: PreferencesRepository(db),
+  );
+  final proxyPull = proxy == null
+      ? null
+      : ProxyConfirmationPuller(
+          remote: proxy,
+          routines: routines,
+          events: events,
+          scheduler: scheduler,
+          patientId: patientId,
+        );
+  // بعد كل رفعة ناجحة: سحبة التأكيدات — مجاملة بعد الوعد
+  if (proxyPull != null) sync?.afterPush = proxyPull.pull;
+
   return AppServices(
     db: db,
     routines: routines,
     medications: medications,
     events: events,
-    scheduler: ReminderScheduler(
-      routines: routines,
-      medications: medications,
-      events: events,
-      patientId: patientId,
-      patientIndex: patientIndex,
-      preferences: PreferencesRepository(db),
-    ),
+    scheduler: scheduler,
+    careAdmin: careAdmin,
+    proxy: proxy,
+    proxyPull: proxyPull,
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,

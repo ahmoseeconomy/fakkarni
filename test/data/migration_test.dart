@@ -89,7 +89,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 23);
+    expect(version.read<int>('user_version'), 24);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
@@ -238,6 +238,8 @@ void main() {
     expect(event.routineDay, DateTime(2026, 8, 31));
     expect(event.state, DoseState.taken);
     expect(event.actedAt, isNotNull);
+    // v24: مين أكّدها — null لكل صف قديم (المريض بنفسه)
+    expect(event.actedBy, isNull);
   });
 
   test('المفاتيح الأجنبية سليمة بعد إعادة بناء الجدول', () async {

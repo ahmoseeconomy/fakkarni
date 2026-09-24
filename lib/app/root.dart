@@ -71,7 +71,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                   debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),
             )
             // المواعيد **بعدها**، ومن غير ما تقدر توقّعها.
-            .then((_) => services.refreshAppointments()),
+            .then((_) => services.refreshAppointments())
+            // وتأكيدات الممرض (٠٠٢٣) بعد الجدولة — بتلغي وتعيد بنفسها
+            .then((_) => services.proxyPull?.pull()),
       );
     }
   }

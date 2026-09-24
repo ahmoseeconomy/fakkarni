@@ -15,9 +15,13 @@ class DoseEventView {
     required this.state,
     this.amountLabel,
     this.actedAt,
+    this.actedBy,
   });
 
   final int doseScheduleId;
+
+  /// اسم اللي أكّدها بدال المريض (٠٠٢٣) — null = هو بنفسه.
+  final String? actedBy;
   final String medicationName;
   final String? amountLabel;
   final DateTime scheduledAt;
@@ -146,6 +150,7 @@ class DoseEventRepository {
               scheduledAt: event.scheduledAt,
               state: event.state,
               actedAt: event.actedAt,
+              actedBy: event.actedBy,
             );
           }(),
       ];
@@ -224,6 +229,28 @@ class DoseEventRepository {
           );
       await _setState(doseScheduleId, day, state);
     });
+  }
+
+  /// تأكيد وصل من السيرفر باسم ممرض (٠٠٢٣). بيكتب `taken` على الحدث
+  /// **لو لسه مش مؤكَّد** وبيرجّع ميعاده عشان المُنادي يلغي سلّمه وإعاداته؛
+  /// null = الحدث مش هنا، أو اتأكّد قبل كده (المريض بنفسه سبق) — مفيش
+  /// كتابة فوق قرار اتاخد.
+  Future<DateTime?> confirmByProxy({
+    required String doseEventUuid,
+    required String? actorName,
+    required DateTime confirmedAt,
+  }) async {
+    final row = await (_db.select(_db.doseEvents)..where((t) => t.uuid.equals(doseEventUuid))).getSingleOrNull();
+    if (row == null) return null;
+    if (row.state != DoseState.pending && row.state != DoseState.missed) return null;
+    await (_db.update(_db.doseEvents)..where((t) => t.id.equals(row.id))).write(
+      DoseEventsCompanion(
+        state: const Value(DoseState.taken),
+        actedAt: Value(confirmedAt),
+        actedBy: Value(actorName),
+      ),
+    );
+    return row.scheduledAt;
   }
 
   Future<void> _setState(
