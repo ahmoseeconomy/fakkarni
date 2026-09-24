@@ -20,7 +20,26 @@ enum HealthCode {
   batteryOptimisation,
   escalationRungsOff,
   noMedications,
+
+  /// السيرفر رفض صف المريض (المفتاح الأجنبي أو صلاحيات الصف): الحساب اللي
+  /// الموبايل ده مربوط بيه مش موجود هناك. الطابور بيقف لحد ما يربط تاني.
+  accountMissing,
 }
+
+/// **اللي بيستاهل إشعار: اللي المريض يقدر يصلّحه من الموبايل وبس.**
+///
+/// مشكلة مزامنة (السيرفر، النت، الحساب) بتتقال في الشريط والشاشة
+/// وبتتعاد لوحدها في الخلفية — إشعار عنها بيفتح على حاجة الراجل ما
+/// يقدرش يعمل فيها حاجة، وبيعلّمه يعدّي على إشعاراتنا.
+const Set<HealthCode> notifiableCodes = {
+  HealthCode.notificationPermission,
+  HealthCode.exactAlarms,
+  HealthCode.batteryOptimisation,
+  HealthCode.remindersDropped,
+  HealthCode.reminderHorizon,
+  HealthCode.timezoneChanged,
+  HealthCode.pendingBandFull,
+};
 
 /// اللي الزرار بيعمله. [none] معناها مفيش حاجة في إيد المستخدم — والجملة
 /// ساعتها بتقول ده صراحة بدل ما تسيبه قدام حائط أحمر.
@@ -51,6 +70,9 @@ class HealthFinding {
 
   /// معناه إيه بالنسبة له هو.
   final String why;
+
+  /// يتبعت له إشعار عنه؟ — بس لو مكسور **وفي إيده يصلّحه**.
+  bool get notifies => isBroken && notifiableCodes.contains(code);
 
   final HealthFix fix;
 
@@ -221,29 +243,53 @@ HealthFinding? checkPushToken(HealthSnapshot s) {
   );
 }
 
+/// الحساب مش موجود على السيرفر — الطابور واقف لحد ما يربط تاني.
+///
+/// مش «مزامنة واقفة»: ده رفض من السيرفر نفسه (المفتاح الأجنبي أو صلاحيات
+/// الصف)، وإعادة المحاولة للأبد كانت بتضيّع بطارية وما بتوصّل حاجة. رسالة
+/// واحدة واضحة، وزرارها هو الربط.
+HealthFinding? checkAccountMissing(HealthSnapshot s) {
+  if (!s.syncBlockedForAccount) return null;
+  return const HealthFinding(
+    code: HealthCode.accountMissing,
+    severity: Severity.broken,
+    title: 'الحساب ده مش موجود على السيرفر — لازم تربط تاني',
+    why: 'اللي أكّدته محفوظ على الموبايل، بس مش بيتبعت لحد ما تربط الموبايل '
+        'تاني من «دائرة الرعاية».',
+    fix: HealthFix.linkCaregiver,
+  );
+}
+
 /// صف قاعد على الموبايل والسيرفر مستني.
+///
+/// **بالكلام العادي**: مين اللي مستني، وإن اللي أكّده هيوصل لوحده أول ما
+/// النت يرجع — والزرار للمستعجل بس. لما الحساب نفسه مش موجود، الرسالة
+/// دي بتسكت و[checkAccountMissing] هي اللي بتتكلم.
 HealthFinding? checkStaleSync(HealthSnapshot s) {
   if (!s.cloudConfigured || !s.signedIn || !s.hasCaregiver) return null;
+  if (s.syncBlockedForAccount) return null;
+
+  final who = s.caregiverName == null ? 'للي بيتابعك' : 'لـ${s.caregiverName}';
+  const why = 'أول ما النت يرجع هتتبعت لوحدها. لو مستعجل، دوس «ابعتها دلوقتي».';
 
   final oldest = s.oldestDirtyAt;
   if (oldest != null && s.now.difference(oldest) > dirtyRowLimit) {
-    return const HealthFinding(
+    return HealthFinding(
       code: HealthCode.staleSync,
       severity: Severity.broken,
-      title: 'فيه تأكيدات لسه ما وصلتش',
-      why: 'الجرعات اللي أكّدتها لسه على الموبايل، فممكن اللي بيتابعك يتبلّغ '
-          'إنك ما أخدتهاش وإنت أخدتها.',
+      title: 'التأكيدات لسه ما وصلتش $who',
+      why: why,
       fix: HealthFix.syncNow,
     );
   }
 
   final last = s.lastSyncedAt;
   if (last != null && s.now.difference(last) > syncSilenceLimit) {
-    return const HealthFinding(
+    return HealthFinding(
       code: HealthCode.staleSync,
       severity: Severity.broken,
-      title: 'الموبايل ما بعتش حاجة من أكتر من يوم',
-      why: 'اللي بيتابعك بيشوف بيانات قديمة، ومش هيتبلّغ لو جرعة عدّت.',
+      title: 'الموبايل ما بعتش حاجة $who من أكتر من يوم',
+      why: why,
       fix: HealthFix.syncNow,
     );
   }

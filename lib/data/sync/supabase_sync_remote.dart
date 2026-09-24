@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'sync_service.dart';
@@ -20,7 +24,23 @@ class SupabaseSyncRemote implements SyncRemote {
             for (final row in rows) {...row, 'owner_id': owner},
           ]
         : rows;
-    await _supabase.from(table).upsert(payload, onConflict: 'uuid');
+    await _guard(() => _supabase.from(table).upsert(payload, onConflict: 'uuid'));
+  }
+
+  /// رفض السيرفر بيتحوّل لـ[SyncRejected] بكوده، وسقوط الشبكة لـ[SyncOffline]
+  /// — عشان `SyncService` تصنّف من غير ما تستورد الـSDK.
+  Future<void> _guard(Future<void> Function() call) async {
+    try {
+      await call();
+    } on PostgrestException catch (e) {
+      throw SyncRejected(e.code ?? '', e.message);
+    } on SocketException catch (e) {
+      throw SyncOffline(e);
+    } on TimeoutException catch (e) {
+      throw SyncOffline(e);
+    } on ClientException catch (e) {
+      throw SyncOffline(e);
+    }
   }
 
   @override
@@ -28,6 +48,6 @@ class SupabaseSyncRemote implements SyncRemote {
     if (uuids.isEmpty) return;
     // RLS بترفض مسح صف مش بتاع المالك (`records_delete` في 0012)، فمفيش
     // حاجة هنا بتفلتر بالمريض — الحيطة في السيرفر زي كل حاجة تانية.
-    await _supabase.from(table).delete().inFilter('uuid', uuids);
+    await _guard(() => _supabase.from(table).delete().inFilter('uuid', uuids));
   }
 }

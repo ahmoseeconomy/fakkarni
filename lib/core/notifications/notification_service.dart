@@ -326,6 +326,10 @@ class NotificationService {
     required int id,
     required String title,
     required String body,
+
+    /// الدوسة بتفتح فين — من غيره الإشعار بيفتح التطبيق على أول شاشة
+    /// و«بيعمل ولا حاجة» (شكوى المختبِر رقم ٥).
+    String? payload,
   }) async {
     await init();
     await _plugin
@@ -347,6 +351,7 @@ class NotificationService {
           interruptionLevel: InterruptionLevel.active,
         ),
       ),
+      payload: payload,
     );
   }
 

@@ -1364,7 +1364,40 @@ linked father.
   `F.minBodySize` / `F.minTapTarget` / `F.elder…`، **ولو** قيمة مشتركة
   اتغيّرت (الأرقام مكتوبة بالحرف هناك — قرايتها من `F` كانت هتخلّي
   الاختبار يقارن الحاجة بنفسها). مُتحقَّق بالطفرة في الاتجاهين.
-- **الحد الأدنى للنص بقى حدّين**: `expectNoRedAndMinSize` أخد بارامتر،
+- **A health notification is sent only for what the patient can fix on the
+phone, and it opens the check screen** (24 Sep 2026, tester feedback 5).
+`HealthFinding.notifies` is true only for codes in `notifiableCodes`
+(notification permission, exact alarms, battery, dropped reminders, the
+horizon, timezone, the pending band); `HealthWatcher` filters on it. A
+sync problem — `staleSync`, and the new `accountMissing` — stays in the
+in-app bar and screen and never pushes: the tap used to open nothing, and
+the patient cannot repair the server. Every health notification now
+carries `HealthWatcher.tapPayload`, which `AppRoot` routes to
+`HealthCheckScreen`, cold start included (`applyLaunchResponse` stores a
+plain tap in `lastPayload`). The stale copy is in plain words and names
+the follower: «التأكيدات لسه ما وصلتش لـمحمد» / «أول ما النت يرجع هتتبعت
+لوحدها. لو مستعجل، دوس «ابعتها دلوقتي».» — and that button now returns a
+sentence (`SyncService.pushNow`): «اتبعتت ✓», «مفيش نت دلوقتي — أول ما
+يرجع هتتبعت لوحدها.», «الحساب ده مش موجود على السيرفر — لازم تربط تاني.»,
+or «حصلت مشكلة وإحنا بنبعت — هنحاول تاني لوحدنا بعد شوية.»
+**A rejected account stops the queue.** `SupabaseSyncRemote` translates
+`PostgrestException` into `SyncRejected(code)` and network faults into
+`SyncOffline`, so the service classifies without importing the SDK; codes
+`42501` (row-level security) and `23503` (foreign key) mean the patient
+row the phone is bound to is not the server's any more — the anonymous
+user changed (debt 2) or the row was deleted. `push()` then writes
+`sync.blocked` to `shared_preferences`, returns `PushOutcome.blocked` with
+**no network call** on every later trigger, `checkAccountMissing` shows
+the one sentence with «اربط حد يتابعك» as its button, and `confirmLinked`
+clears the block. **`stats()` counts only rows the push would send**:
+child rows whose parent is gone (a dose event whose schedule was deleted
+by an old build with foreign keys off, a medication whose patient row is
+absent) and the unpushable «أنا» patient are excluded, so an orphan can no
+longer hold «لسه ما وصلتش» open forever while the push skips it. The
+tester's stuck queue reads as exactly that pair: a server rejection
+retried on every trigger, counted by a stats query that never joined.
+
+**الحد الأدنى للنص بقى حدّين**: `expectNoRedAndMinSize` أخد بارامتر،
   و`expectCaregiverDensity` هو اللي شاشات الابن بتتنده بيه. حد الأب ١٧
   زي ما هو على شاشاته.
 - **الإجابة الأول.** أول كارت على «متابعة» بيرد على السؤال اللي الابن

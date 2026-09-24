@@ -15,6 +15,8 @@ void main() {
   /// موبايل مريض كل حاجة فيه تمام — الأساس اللي كل اختبار بيغيّر فيه
   /// حاجة واحدة بس.
   HealthSnapshot well({
+    String? caregiverName,
+    bool syncBlockedForAccount = false,
     HealthPlatform platform = HealthPlatform.ios,
     NotificationPermission permission = NotificationPermission.granted,
     bool isCaregiver = false,
@@ -40,6 +42,8 @@ void main() {
     bool rungSecondOn = true,
   }) =>
       HealthSnapshot(
+        caregiverName: caregiverName,
+        syncBlockedForAccount: syncBlockedForAccount,
         now: now,
         platform: platform,
         permission: permission,
@@ -263,6 +267,51 @@ void main() {
             oldestDirtyAt: now.subtract(const Duration(days: 3))),
         HealthCode.staleSync,
       );
+    });
+
+    test('الجملة بالعامية وباسم المتابع، والزرار «ابعتها دلوقتي»', () {
+      final f = runHealthChecks(well(
+        dirtyRowCount: 1,
+        oldestDirtyAt: now.subtract(const Duration(hours: 2)),
+        caregiverName: 'محمد',
+      )).findings.firstWhere((f) => f.code == HealthCode.staleSync);
+      expect(f.title, 'التأكيدات لسه ما وصلتش لـمحمد');
+      expect(f.why, 'أول ما النت يرجع هتتبعت لوحدها. لو مستعجل، دوس «ابعتها دلوقتي».');
+      expect(f.fix, HealthFix.syncNow);
+      final anon = runHealthChecks(well(
+        dirtyRowCount: 1,
+        oldestDirtyAt: now.subtract(const Duration(hours: 2)),
+      )).findings.firstWhere((f) => f.code == HealthCode.staleSync);
+      expect(anon.title, 'التأكيدات لسه ما وصلتش للي بيتابعك');
+    });
+
+    test('**مشكلة المزامنة ما بتنبّهش** — والإذن والمنبّه الدقيق بينبّهوا', () {
+      final stale = runHealthChecks(well(
+        dirtyRowCount: 1,
+        oldestDirtyAt: now.subtract(const Duration(days: 2)),
+      )).findings.firstWhere((f) => f.code == HealthCode.staleSync);
+      expect(stale.isBroken, isTrue);
+      expect(stale.notifies, isFalse, reason: 'الدوسة كانت بتفتح على ولا حاجة، وما يقدرش يصلّح السيرفر');
+      expect(notifiableCodes, isNot(contains(HealthCode.staleSync)));
+      expect(notifiableCodes, isNot(contains(HealthCode.accountMissing)));
+      expect(notifiableCodes, containsAll([HealthCode.notificationPermission, HealthCode.exactAlarms]));
+      final denied = runHealthChecks(well(permission: NotificationPermission.denied))
+          .findings.firstWhere((f) => f.code == HealthCode.notificationPermission);
+      expect(denied.notifies, isTrue);
+    });
+
+    test('الحساب مش على السيرفر → رسالة واحدة واضحة بزرار الربط، و«لسه ما وصلتش» بتسكت', () {
+      final report = runHealthChecks(well(
+        dirtyRowCount: 3,
+        oldestDirtyAt: now.subtract(const Duration(days: 5)),
+        syncBlockedForAccount: true,
+      ));
+      final missing = report.findings.firstWhere((f) => f.code == HealthCode.accountMissing);
+      expect(missing.isBroken, isTrue);
+      expect(missing.title, 'الحساب ده مش موجود على السيرفر — لازم تربط تاني');
+      expect(missing.fix, HealthFix.linkCaregiver);
+      expect(missing.notifies, isFalse);
+      expect(report.findings.where((f) => f.code == HealthCode.staleSync), isEmpty);
     });
   });
 

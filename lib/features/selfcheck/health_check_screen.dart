@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/battery/battery_optimisation.dart';
 import '../../data/health/health_collector.dart';
+import '../../data/sync/sync_service.dart';
 import '../../domain/health/health_check.dart';
 import '../../domain/health/health_report.dart';
 import '../link/sign_in_screen.dart';
@@ -32,6 +33,9 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
   HealthReport? _report;
   bool _busy = false;
 
+  /// نتيجة آخر «ابعتها دلوقتي» — بتتقال تحت الكارت، مش بتتبلع.
+  String? _syncMessage;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -56,7 +60,9 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
           await services.scheduler.rescheduleAll();
           await _collector.rememberTimezone();
         case HealthFix.syncNow:
-          services.sync?.onAppForeground();
+          final sync = services.sync;
+          final message = sync == null ? SyncService.noCloudMessage : await sync.pushNow();
+          if (mounted) setState(() => _syncMessage = message);
         case HealthFix.openNotificationSettings:
           if (!await NotificationService.requestPermissions()) {
             await _openSystemSettings();
@@ -102,12 +108,22 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
                   F.s30 + MediaQuery.of(context).padding.bottom),
               children: [
                 if (report.allWell) const _AllWellCard(),
-                for (final finding in report.findings)
+                for (final finding in report.findings) ...[
                   _FindingCard(
                     finding: finding,
                     busy: _busy,
                     onFix: () => _apply(finding.fix),
                   ),
+                  if (finding.fix == HealthFix.syncNow && _syncMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: F.s12),
+                      child: Text(
+                        _syncMessage!,
+                        key: const ValueKey('sync-result'),
+                        style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.4),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: F.gap),
                 FSecondaryButton(
                   label: 'افحص تاني',

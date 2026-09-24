@@ -42,6 +42,8 @@ class HealthSnapshot {
     this.dirtyRowCount = 0,
     this.oldestDirtyAt,
     this.lastSyncedAt,
+    this.caregiverName,
+    this.syncBlockedForAccount = false,
     this.exactAlarmsAllowed = true,
     this.batteryState = BatteryState.unrestricted,
     this.aiKeyPresent = true,
@@ -87,6 +89,13 @@ class HealthSnapshot {
   final int dirtyRowCount;
   final DateTime? oldestDirtyAt;
   final DateTime? lastSyncedAt;
+
+  /// اسم اللي بيتابعه — للجملة «التأكيدات لسه ما وصلتش لـمحمد». null =
+  /// «للي بيتابعك».
+  final String? caregiverName;
+
+  /// السيرفر رفض الحساب ده (مفتاح أجنبي / صلاحيات) والطابور واقف.
+  final bool syncBlockedForAccount;
 
   final bool exactAlarmsAllowed;
 

@@ -28,6 +28,11 @@ class HealthWatcher {
   /// رقم إشعار خارج كل النطاقات المحجوزة — مش بياخد خانة من أي تذكير.
   static const alertNotificationId = 60000001;
 
+  /// حمولة إشعار السلامة — الجذر بيعرفها وبيفتح «اطمن إن التذكير هيشتغل»
+  /// عليها، من الإطلاق البارد كمان. مش حمولة جرعة: `decodePayload` بترجّع
+  /// null عليها عن قصد.
+  static const tapPayload = '{"v":1,"open":"health"}';
+
   Future<void> run() async {
     try {
       final snapshot = await collector.collect();
@@ -41,13 +46,15 @@ class HealthWatcher {
     }
   }
 
-  /// كود مكسور **جديد** بس هو اللي بينبّه، ومرة في اليوم لكل كود.
+  /// كود مكسور **جديد** بس هو اللي بينبّه، ومرة في اليوم لكل كود —
+  /// **ومن اللي في إيده يصلّحه بس** ([HealthFinding.notifies]).
   ///
   /// عطل مستمر بيفضل باين على الشاشة وفي الشريط؛ تنبيه بيتكرر كل فتحة
   /// بيتعلّم المريض إنه يعدّي على تنبيهاتنا — وهي نفس القناة اللي
-  /// الجرعة الفايتة بتيجي منها.
+  /// الجرعة الفايتة بتيجي منها. ومشكلة المزامنة بالذات ما بتنبّهش أبداً:
+  /// الدوسة كانت بتفتح على ولا حاجة، والراجل ما يقدرش يصلّح السيرفر.
   Future<void> _alertIfNew(HealthReport report, DateTime now) async {
-    final broken = report.broken.toList();
+    final broken = report.broken.where((f) => f.notifies).toList();
     if (broken.isEmpty) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -65,6 +72,7 @@ class HealthWatcher {
       id: alertNotificationId,
       title: 'فيه حاجة ممكن تمنع التذكير',
       body: fresh.first.title,
+      payload: tapPayload,
     );
 
     await prefs.setStringList(_alertedKey, [

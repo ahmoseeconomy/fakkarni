@@ -1,7 +1,9 @@
 // ignore_for_file: prefer_initializing_formals
 // المُنشئ بيربط معاملات عامة بحقول خاصة — الصيغة الأوضح هنا.
 import 'dart:async';
+import 'dart:io' show SocketException;
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 
 import '../../core/format/arabic_time.dart';
@@ -16,6 +18,77 @@ import '../../core/diagnostics.dart';
 ///
 /// المستخدم مش المفروض يعرف إن في مزامنة أصلاً: أي فشل بيتسجّل ويتساب،
 /// والصفوف المتوسّخة بتستنى المحاولة الجاية. عمرها ما بترمي في الواجهة.
+/// السيرفر رفض الصف — مفتاح أجنبي أو صلاحيات (RLS). بيتعمل في
+/// `supabase_sync_remote.dart` من `PostgrestException` عشان الخدمة دي ما
+/// تستوردش الـSDK. [code] هو كود بوستجرس («23503»، «42501»).
+class SyncRejected implements Exception {
+  const SyncRejected(this.code, this.message);
+  final String code;
+  final String message;
+
+  /// الحساب اللي الموبايل مربوط بيه مش على السيرفر: صف المريض مرفوض
+  /// بالصلاحيات (اليوزر اتغيّر — الدين ٢) أو الأولاد مرفوضين بالمفتاح
+  /// الأجنبي لأن الأب مش موجود. إعادة المحاولة ما بتصلّحش ده.
+  bool get isAccountMissing => code == '23503' || code == '42501';
+
+  @override
+  String toString() => 'SyncRejected($code: $message)';
+}
+
+/// مفيش وصول للسيرفر — نت واقع، مهلة، DNS. بتتعاد لوحدها أول ما يرجع.
+class SyncOffline implements Exception {
+  const SyncOffline(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'SyncOffline($cause)';
+}
+
+/// ليه الطابور واقف — بيتحفظ على الجهاز عشان ما نعيدش المحاولة للأبد.
+enum SyncBlockReason { accountMissing }
+
+/// فين علامة الوقف بتتحفظ — واجهة عشان الاختبار يحطّها في الذاكرة.
+abstract interface class SyncBlockStore {
+  Future<SyncBlockReason?> read();
+  Future<void> write(SyncBlockReason? reason);
+}
+
+class MemorySyncBlockStore implements SyncBlockStore {
+  SyncBlockReason? reason;
+  @override
+  Future<SyncBlockReason?> read() async => reason;
+  @override
+  Future<void> write(SyncBlockReason? value) async => reason = value;
+}
+
+/// `shared_preferences` — بيتقرا في التطبيق وفي صحوة شاشة القفل.
+class PrefsSyncBlockStore implements SyncBlockStore {
+  static const key = 'sync.blocked';
+
+  @override
+  Future<SyncBlockReason?> read() async {
+    try {
+      final name = (await SharedPreferences.getInstance()).getString(key);
+      for (final r in SyncBlockReason.values) {
+        if (r.name == name) return r;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Future<void> write(SyncBlockReason? reason) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (reason == null) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setString(key, reason.name);
+      }
+    } catch (_) {}
+  }
+}
+
 abstract interface class SyncRemote {
   /// upsert on conflict (uuid) do update — تكرار الدفع ما بيكرّرش صفوف.
   Future<void> upsert(String table, List<Map<String, dynamic>> rows);
@@ -42,6 +115,9 @@ const Duration backgroundPushTimeout = Duration(seconds: 5);
 /// مظبوط كده» و«ساكت لأنه بايظ» بقوا شكلهم واحد من برّه: جرعة اتأكدت من
 /// شاشة القفل وما وصلتش السحابة، ومفيش سطر واحد بيقول ليه. النتيجة بقت
 /// قيمة بتترجع وبتتقال، فالفرق بان.
+/// ليه الدفعة فشلت — بيتقال بالكلام في «ابعتها دلوقتي».
+enum SyncFailure { offline, accountMissing, other }
+
 enum PushOutcome {
   /// مفيش `SyncService` أصلاً — إعداد ناقص، أو تهيئة السحابة فشلت.
   noConfig,
@@ -54,6 +130,10 @@ enum PushOutcome {
 
   /// وصل — شوف عدد الصفوف.
   pushed,
+
+  /// الطابور واقف عن قصد: السيرفر رفض الحساب ده. مفيش نداء شبكة لحد ما
+  /// يربط تاني ([SyncService.confirmLinked]).
+  blocked,
 
   timedOut,
   failed,
@@ -72,6 +152,7 @@ String describePushOutcome(PushOutcome outcome, {int rows = 0, Duration? timeout
         'عدّى المهلة (${arabicNumber(timeout?.inSeconds ?? backgroundPushTimeout.inSeconds)} ث) '
               '— الصفوف بتفضل متوسّخة',
       PushOutcome.failed => 'فشل — الصفوف بتفضل متوسّخة',
+      PushOutcome.blocked => 'الطابور واقف — السيرفر رفض الحساب ده، ومفيش إعادة لحد ما يربط تاني',
     };
 
 /// وقت على السلك: UTC ISO دايماً — المحطة المحلية بتفضل على الجهاز.
@@ -124,13 +205,72 @@ class SyncService {
     Duration debounce = const Duration(seconds: 3),
     Duration backgroundTimeout = backgroundPushTimeout,
     int batchSize = 200,
+    SyncBlockStore? blockStore,
   })  : _db = db,
         _remote = remote,
         _hasSession = hasSession,
         _localWrites = localWrites,
         _debounce = debounce,
         _backgroundTimeout = backgroundTimeout,
-        _batchSize = batchSize;
+        _batchSize = batchSize,
+        _blockStore = blockStore ?? PrefsSyncBlockStore();
+
+  final SyncBlockStore _blockStore;
+  SyncBlockReason? _blocked;
+  bool _blockedLoaded = false;
+
+  /// آخر سبب فشل — «ابعتها دلوقتي» بتقوله بالكلام.
+  SyncFailure? lastFailure;
+
+  /// جملة الشاشة لما مفيش سحابة أصلاً.
+  static const noCloudMessage = 'الموبايل ده مش مربوط بحد — مفيش حاجة تتبعت.';
+
+  /// ليه الطابور واقف، أو null لو شغّال.
+  Future<SyncBlockReason?> blockedReason() async {
+    if (!_blockedLoaded) {
+      _blocked = await _blockStore.read();
+      _blockedLoaded = true;
+    }
+    return _blocked;
+  }
+
+  Future<void> _block(SyncBlockReason reason) async {
+    _blocked = reason;
+    _blockedLoaded = true;
+    await _blockStore.write(reason);
+  }
+
+  /// **«ابعتها دلوقتي» — وبنتيجة مكتوبة.** دفعة واحدة بمهلة أطول شوية من
+  /// الخلفية، وبعدها جملة واحدة: اتبعتت، أو السبب الحقيقي بالعامية.
+  Future<String> pushNow({Duration timeout = const Duration(seconds: 12)}) async {
+    PushOutcome outcome;
+    try {
+      outcome = await push().timeout(timeout);
+    } on TimeoutException {
+      outcome = PushOutcome.timedOut;
+    } catch (_) {
+      outcome = PushOutcome.failed;
+    }
+    return userMessageFor(outcome, lastFailure, rows: _rowsPushed);
+  }
+
+  /// الجملة اللي المريض بيقراها بعد «ابعتها دلوقتي».
+  static String userMessageFor(PushOutcome outcome, SyncFailure? failure, {int rows = 0}) =>
+      switch (outcome) {
+        PushOutcome.pushed => 'اتبعتت ✓',
+        PushOutcome.busy => 'بتتبعت دلوقتي — ثواني وتخلص.',
+        PushOutcome.noSession || PushOutcome.notLinked || PushOutcome.noConfig => noCloudMessage,
+        PushOutcome.blocked => accountMissingMessage,
+        PushOutcome.timedOut => offlineMessage,
+        PushOutcome.failed => switch (failure) {
+            SyncFailure.offline => offlineMessage,
+            SyncFailure.accountMissing => accountMissingMessage,
+            SyncFailure.other || null => 'حصلت مشكلة وإحنا بنبعت — هنحاول تاني لوحدنا بعد شوية.',
+          },
+      };
+
+  static const offlineMessage = 'مفيش نت دلوقتي — أول ما يرجع هتتبعت لوحدها.';
+  static const accountMissingMessage = 'الحساب ده مش موجود على السيرفر — لازم تربط تاني.';
 
   final AppDatabase _db;
   final SyncRemote _remote;
@@ -201,6 +341,10 @@ class SyncService {
   /// شاشة الربط أكّدت إن صف المريض اترفع (3.3) — من هنا ورايح المزامنة
   /// مسموحة. من غير العلامة دي المستخدم غير المربوط أوفلاين ١٠٠٪.
   Future<void> confirmLinked() async {
+    // الربط من جديد هو اللي بيفتح طابور اتقفل على حساب مرفوض
+    _blocked = null;
+    _blockedLoaded = true;
+    await _blockStore.write(null);
     final rows = await _db.select(_db.patients).get();
     for (final p in rows) {
       await (_db.update(_db.patients)..where((t) => t.id.equals(p.id)))
@@ -213,8 +357,27 @@ class SyncService {
   /// استعلام واحد على اتحاد الجداول بدل ١١ استعلام: الرقم ده بيتقرا في
   /// فحص السلامة، والفحص مجاملة — ماينفعش يكلّف أكتر من اللي بيحميه.
   Future<SyncStats> stats() async {
+    // **الصفوف اللي الدفع هيبعتها فعلاً بس.** صف يتيم — حدث جرعة جدوله
+    // اتمسح، أو دوا مريضه مش موجود — ما بيتبعتش أبداً (الدفع بيعمل join)،
+    // فلو اتعدّ هنا يبقى «فيه تأكيدات لسه ما وصلتش» للأبد على حاجة مش هتوصل
+    // ومش محتاجة توصل. ونفس شرط المريض اللي في [_pushPatients].
+    const patient = 'exists (select 1 from patients p where p.id = t.patient_id)';
+    final scoped = <String, String>{
+      'patients': "exists (select 1 from day_routines r where r.patient_id = t.id) "
+          "or exists (select 1 from medications m where m.patient_id = t.id)",
+      'day_routines': patient,
+      'medications': patient,
+      'dose_schedules': 'exists (select 1 from medications m where m.id = t.medication_id)',
+      'fixed_timings': 'exists (select 1 from dose_schedules s where s.id = t.dose_schedule_id)',
+      'dose_events': 'exists (select 1 from dose_schedules s where s.id = t.dose_schedule_id)',
+      'records': patient,
+      'readings': patient,
+      'lab_results': 'exists (select 1 from records r where r.id = t.record_id)',
+      'visit_questions': patient,
+      'emergency_profile': patient,
+    };
     final union = syncedTableNames
-        .map((t) => 'select updated_at_ms, synced_at_ms from $t')
+        .map((t) => 'select updated_at_ms, synced_at_ms from $t t where ${scoped[t] ?? '1'}')
         .join(' union all ');
     const dirty = 'synced_at_ms is null or synced_at_ms < updated_at_ms';
     final row = await _db.customSelect(
@@ -256,9 +419,13 @@ class SyncService {
     }
     if (!_hasSession()) return PushOutcome.noSession;
     if (!await _linked()) return PushOutcome.notLinked;
+    // حساب مرفوض = مفيش نداء شبكة خالص لحد ما يربط تاني — مش «نحاول
+    // تاني بعد شوية» للأبد
+    if (await blockedReason() != null) return PushOutcome.blocked;
 
     _pushing = true;
     _rowsPushed = 0;
+    lastFailure = null;
     var failed = false;
     try {
       await _pushPatients();
@@ -274,9 +441,16 @@ class SyncService {
       await _pushVisitQuestions();
       await _pushEmergencyProfile();
     } catch (error, stack) {
-      // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز.
+      // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز. إلا لو
+      // السيرفر رفض الحساب نفسه: ساعتها الطابور بيقف بعلامة محفوظة.
       failed = true;
-      diag('Sync: push فشلت وهتتعاد: $error\n$stack');
+      lastFailure = classifyFailure(error);
+      if (lastFailure == SyncFailure.accountMissing) {
+        await _block(SyncBlockReason.accountMissing);
+        diag('Sync: السيرفر رفض الحساب ($error) — الطابور واقف لحد الربط من جديد');
+      } else {
+        diag('Sync: push فشلت وهتتعاد: $error\n$stack');
+      }
     } finally {
       _pushing = false;
       if (_pushAgain) {
@@ -285,6 +459,25 @@ class SyncService {
       }
     }
     return failed ? PushOutcome.failed : PushOutcome.pushed;
+  }
+
+  /// نوع الفشل — بالنوع أولاً، وبالنص لو الخطأ جه من غير غلاف.
+  static SyncFailure classifyFailure(Object error) {
+    if (error is SyncRejected) {
+      return error.isAccountMissing ? SyncFailure.accountMissing : SyncFailure.other;
+    }
+    if (error is SyncOffline || error is SocketException || error is TimeoutException) {
+      return SyncFailure.offline;
+    }
+    final text = error.toString();
+    if (text.contains('SocketException') ||
+        text.contains('ClientException') ||
+        text.contains('Failed host lookup') ||
+        text.contains('Connection refused') ||
+        text.contains('Connection reset')) {
+      return SyncFailure.offline;
+    }
+    return SyncFailure.other;
   }
 
   /// كام صف اترفع في آخر دفعة — بيتصفّر مع كل دفعة، وبيتعدّ في المكان

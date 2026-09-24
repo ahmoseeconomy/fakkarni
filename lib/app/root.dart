@@ -8,7 +8,9 @@ import '../data/services/reminder_plan.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/entry/entry_screen.dart';
 import '../features/link/sign_in_screen.dart';
+import '../data/health/health_watcher.dart';
 import '../features/onboarding/routine_onboarding_screen.dart';
+import '../features/selfcheck/health_check_screen.dart';
 import '../features/reminder/reminder_screen.dart';
 import 'app_scope.dart';
 import 'shell.dart';
@@ -105,6 +107,13 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
     // بنصفّر في الحالتين: payload مش بتاعنا ما يستاهلش يتفتح عليه تاني.
     _tapPayload!.value = null;
+    // إشعار السلامة بيفتح «اطمن إن التذكير هيشتغل» — من الإطلاق البارد كمان
+    if (raw == HealthWatcher.tapPayload) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const HealthCheckScreen()),
+      );
+      return;
+    }
     final payload = decodePayload(raw);
     if (payload == null) return;
 

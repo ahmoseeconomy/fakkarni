@@ -6,6 +6,7 @@ import 'health_snapshot.dart';
 /// المكسور قبل الملاحظة دايماً، وجوّه كل درجة الترتيب ده: أقرب حاجة
 /// بتمنع الحبة توصل الأول.
 const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
+  checkAccountMissing,
   checkNotificationPermission,
   checkReminderHorizon,
   checkRemindersDropped,

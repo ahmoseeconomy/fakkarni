@@ -49,6 +49,9 @@ class FakeSyncRemote implements SyncRemote {
   /// جدول بيرمي — لمحاكاة فشل في نص الدفعة.
   String? failOnTable;
 
+  /// بيرمي [SyncRejected] بالكود ده على الجدول اللي في [failOnTable].
+  String? rejectCode;
+
   /// بيتندَه قبل ما upsert يرجع — لمحاكاة تعديل أثناء الدفع.
   Future<void> Function(String table)? onUpsert;
 
@@ -59,7 +62,10 @@ class FakeSyncRemote implements SyncRemote {
   Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
     calls++;
     if (hangFor != null) await Future<void>.delayed(hangFor!);
-    if (table == failOnTable) throw Exception('السحابة وقعت');
+    if (table == failOnTable) {
+      if (rejectCode != null) throw SyncRejected(rejectCode!, 'rejected');
+      throw Exception('السحابة وقعت');
+    }
     await onUpsert?.call(table);
     final t = tables.putIfAbsent(table, () => {});
     for (final row in rows) {
@@ -103,6 +109,7 @@ void main() {
       remote: remote,
       hasSession: () => signedIn,
       localWrites: const Stream.empty(),
+      blockStore: MemorySyncBlockStore(),
     );
     patientId = await routines.ensurePatient();
     await routines.saveRoutine(patientId, normalDay);
@@ -516,7 +523,7 @@ void main() {
           'عدّى المهلة (٥ ث) — الصفوف بتفضل متوسّخة');
       expect(describePushOutcome(PushOutcome.failed), 'فشل — الصفوف بتفضل متوسّخة');
       // ولا حالة اتنست
-      expect(PushOutcome.values.length, 7);
+      expect(PushOutcome.values.length, 8);
     });
 
     test('من غير جلسة → noSession، ومفيش نداء شبكة', () async {
@@ -761,6 +768,94 @@ void main() {
 
       expect(await meds.activeSchedules(patientId), isEmpty, reason: 'المزامنة ما بتقراش جوّه drift');
       expect((await meds.watchAllSummaries(patientId).first), isEmpty);
+    });
+  });
+
+  group('الحساب مش على السيرفر (المختبِر رقم ٥)', () {
+    Future<void> link() async {
+      await addConcor();
+      await sync.confirmLinked();
+    }
+
+    test('رفض بالصلاحيات (42501) → الطابور بيقف، ولا نداء شبكة بعدها', () async {
+      await link();
+      remote.failOnTable = 'medications';
+      remote.rejectCode = '42501';
+      expect(await sync.push(), PushOutcome.failed);
+      expect(sync.lastFailure, SyncFailure.accountMissing);
+      expect(await sync.blockedReason(), SyncBlockReason.accountMissing);
+
+      final calls = remote.calls;
+      expect(await sync.push(), PushOutcome.blocked);
+      expect(await sync.push(), PushOutcome.blocked);
+      expect(remote.calls, calls, reason: 'مفيش إعادة محاولة للأبد على حساب مرفوض');
+      expect(await sync.pushNow(), SyncService.accountMissingMessage);
+    });
+
+    test('مفتاح أجنبي (23503) نفس الحكم، وخطأ تاني لأ', () {
+      expect(SyncService.classifyFailure(const SyncRejected('23503', 'fk')), SyncFailure.accountMissing);
+      expect(SyncService.classifyFailure(const SyncRejected('42501', 'rls')), SyncFailure.accountMissing);
+      expect(SyncService.classifyFailure(const SyncRejected('22P02', 'uuid')), SyncFailure.other);
+      expect(SyncService.classifyFailure(const SyncOffline('x')), SyncFailure.offline);
+      expect(SyncService.classifyFailure(Exception('SocketException: Failed host lookup')), SyncFailure.offline);
+      expect(SyncService.classifyFailure(Exception('boom')), SyncFailure.other);
+    });
+
+    test('الربط من جديد بيفتح الطابور', () async {
+      await link();
+      remote.failOnTable = 'medications';
+      remote.rejectCode = '42501';
+      await sync.push();
+      expect(await sync.blockedReason(), isNotNull);
+
+      remote.failOnTable = null;
+      await sync.confirmLinked();
+      expect(await sync.blockedReason(), isNull);
+      expect(await sync.push(), PushOutcome.pushed);
+      expect(remote.rowCount('medications'), 1);
+    });
+
+    test('«ابعتها دلوقتي» بتقول نتيجتها: اتبعتت، أو مفيش نت، أو السبب', () async {
+      await link();
+      expect(await sync.pushNow(), 'اتبعتت ✓');
+      final medId = (await db.select(db.medications).get()).single.id;
+      // نت واقع = الاستثناء اللي الغلاف بيحوّله
+      remote.onUpsert = (t) async {
+        if (t == 'medications') throw const SyncOffline('net down');
+      };
+      await meds.updateAmount(medId, 'قرصين');
+      expect(await sync.pushNow(), SyncService.offlineMessage);
+      remote.onUpsert = (t) async {
+        if (t == 'medications') throw Exception('boom');
+      };
+      expect(await sync.pushNow(), contains('حصلت مشكلة'));
+    });
+  });
+
+  group('الطابور مش بيتحسب عليه اللي عمره ما هيتبعت', () {
+    test('حدث جرعة يتيم (جدوله اتمسح والمفاتيح كانت مقفولة) ما بيتعدّش متوسّخاً', () async {
+      await addConcor();
+      final schedule = (await db.select(db.doseSchedules).get()).single;
+      final events = DoseEventRepository(db);
+      await events.materializeDay(
+          aug31, ScheduleEngine(normalDay).remindersForDay(await meds.activeSchedules(patientId), aug31));
+      await events.markTaken(schedule.id, aug31);
+      final before = await sync.stats();
+      expect(before.dirtyCount, greaterThan(0));
+
+      // يتيم بالقوة: مفاتيح مقفولة، والجدول اتمسح — زي نسخة قديمة كانت بتمسح
+      await db.customStatement('PRAGMA foreign_keys = OFF');
+      await db.customStatement('DELETE FROM dose_schedules WHERE id = ${schedule.id}');
+      await db.customStatement('PRAGMA foreign_keys = ON');
+      expect(await db.select(db.doseEvents).get(), isNotEmpty, reason: 'الحدث فضل يتيم');
+
+      final after = await sync.stats();
+      expect(after.dirtyCount, lessThan(before.dirtyCount));
+      // والدفع بيعدّي عليه من غير ما يقف
+      await sync.confirmLinked();
+      expect(await sync.push(), PushOutcome.pushed);
+      expect(remote.rowCount('dose_events'), 0);
+      expect((await sync.stats()).dirtyCount, 0, reason: 'اليتيم مش في الطابور');
     });
   });
 }

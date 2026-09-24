@@ -9,6 +9,7 @@ import '../../domain/health/health_report.dart';
 import '../../domain/health/health_snapshot.dart';
 import '../battery/battery_optimisation.dart';
 import '../services/reminder_plan.dart';
+import '../sync/sync_service.dart' show SyncBlockReason;
 
 /// بيجمع اللقطة من الجهاز الحقيقي — **الطرف الوسخ من الفحص**.
 ///
@@ -49,6 +50,7 @@ class HealthCollector {
     final prefs = await _prefs();
     final stats = await services.sync?.stats();
     final settings = await _deviceSettings();
+    final blocked = await services.sync?.blockedReason();
 
     return HealthSnapshot(
       now: now,
@@ -74,6 +76,8 @@ class HealthCollector {
       dirtyRowCount: stats?.dirtyCount ?? 0,
       oldestDirtyAt: stats?.oldestDirtyAt,
       lastSyncedAt: stats?.lastSyncedAt,
+      caregiverName: await _caregiverName(),
+      syncBlockedForAccount: blocked == SyncBlockReason.accountMissing,
       exactAlarmsAllowed: await _exactAlarms(platform),
       batteryState: await BatteryOptimisation.state(),
       aiKeyPresent: services.prescriptionReader != null,
@@ -113,6 +117,22 @@ class HealthCollector {
       return (await FlutterTimezone.getLocalTimezone()).identifier;
     } catch (_) {
       return '';
+    }
+  }
+
+  /// اسم أول متابع — للجملة «لسه ما وصلتش لـ…». فشل القراية = null، والجملة
+  /// بتقول «للي بيتابعك».
+  Future<String?> _caregiverName() async {
+    try {
+      final preferences = services.caregiverPreferences;
+      if (preferences == null) return null;
+      final uuid = (await services.routines.getPatient(services.patientId))?.uuid;
+      if (uuid == null) return null;
+      final followers = await preferences.followers(uuid);
+      final name = followers.firstOrNull?.name.trim();
+      return (name == null || name.isEmpty) ? null : name;
+    } catch (_) {
+      return null;
     }
   }
 
