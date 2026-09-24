@@ -322,7 +322,7 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1430 passing
+test/                         1435 passing
 ```
 
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
@@ -3140,8 +3140,19 @@ device-verified)**
   step went in — and moving the normalization to the end of the chain was
   what made v2→v8 and v5→v8 pass.
 - «نتعرّف عليك» (mockup 21) before «ظبّط يومك» when `sex` is null: name,
-  راجل/ست, optional age (range chip then stepper; untouched = null — no
-  invented age). Existing installs are not re-asked.
+  راجل/ست, optional age. **The age is a wheel, 18 to 110** (`AgeWheel`
+  in `profile_page.dart`, a `CupertinoPicker` with our Arabic numerals and
+  our type size, on Android too). It used to be four range chips that all
+  started at 60, which told a 40-year-old on blood-pressure pills that the
+  app was not for him. The wheel rests on 60 **and writes nothing until
+  it is moved** — a rest position is not an answer; the hint under it
+  says «حرّك البكرة لحد سنّك», and «مش عايز أقول» / «مش عايزة أقول»
+  (via `say.pick`) clears it back to null and returns the wheel to rest.
+  Every reader of `patient.age` (the home header, the emergency card, the
+  export) only prints «N سنة» when non-null; nothing assumes 60+. The
+  block was sized on an iPhone SE with the real fonts loaded: name, sex,
+  wheel, its row and «كمّل» all visible without scrolling, pinned by a
+  test in `routine_onboarding_test`. Existing installs are not re-asked.
 - **Sex-keyed copy layer:** `domain/patient/sex.dart` → `Say`, provided by
   `PatientVoice` / `PatientVoiceScope` above the Navigator. Applied to the
   sentences that address the patient in onboarding («بتفطر/بتفطري»,

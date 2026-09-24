@@ -1,5 +1,10 @@
 import 'package:drift/native.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
@@ -13,6 +18,7 @@ import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/features/onboarding/profile_page.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/onboarding/time_wheel.dart';
 
@@ -40,7 +46,28 @@ class SilentSink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
+/// الخطوط الحقيقية — من غيرها flutter_test بيرسم كل حرف مربّع بعرض الخط
+/// كله، وقياس iPhone SE تحت بيطلع أطول من الموبايل بكتير.
+Future<void> _loadFonts() async {
+  Future<void> load(String family, List<String> files) async {
+    final loader = FontLoader(family);
+    for (final f in files) {
+      loader.addFont(Future.value(ByteData.sublistView(File('assets/fonts/$f').readAsBytesSync())));
+    }
+    await loader.load();
+  }
+
+  await load('IBM Plex Sans Arabic', [
+    'IBMPlexSansArabic-Regular.ttf',
+    'IBMPlexSansArabic-Medium.ttf',
+    'IBMPlexSansArabic-SemiBold.ttf',
+    'IBMPlexSansArabic-Bold.ttf',
+  ]);
+  await load('Alexandria', ['Alexandria-Medium.ttf', 'Alexandria-Bold.ttf']);
+}
+
 void main() {
+  setUpAll(_loadFonts);
   late AppDatabase db;
   late RoutineRepository routines;
   late AppServices services;
@@ -264,20 +291,101 @@ void main() {
       expect(row.age, isNull, reason: 'مش بنكتب سن ما اتقالش');
     });
 
-    testWidgets('راجل وسن من الشريحة → الأسئلة بالمذكر والسن اتحفظ', (tester) async {
+    /// بيحرّك البكرة [items] خانة: بالسالب لفوق (سن أكبر)، بالموجب لتحت.
+    Future<void> spin(WidgetTester tester, int items) async {
+      await tester.drag(find.byType(CupertinoPicker), Offset(0, -AgeWheel.itemExtent * items));
+      await tester.pumpAndSettle();
+    }
+
+    String hint(WidgetTester tester) =>
+        tester.widget<Text>(find.byKey(const ValueKey('age-hint'))).data!;
+
+    testWidgets('راجل وحرّك البكرة → الأسئلة بالمذكر والسن اللي وقف عنده اتحفظ', (tester) async {
       await pumpTall(tester);
 
       await tester.enterText(find.byType(TextField), 'الحاج أحمد');
       await tapAndSettle(tester, 'راجل');
-      await tapAndSettle(tester, '٦٥–٧٤');
-      await tapAndSettle(tester, 'أكتر');
+      await spin(tester, 5); // ٦٠ → ٦٥
+      expect(hint(tester), 'سنّك ٦٥ سنة');
       await tapAndSettle(tester, 'كمّل');
 
       expect(find.text('بتصحى الساعة كام؟'), findsOneWidget);
       expect(find.text('مش متأكد'), findsOneWidget);
       final row = (await services.routines.getPatient(services.patientId))!;
       expect(row.sex, Sex.m);
-      expect(row.age, 71);
+      expect(row.age, 65);
+    });
+
+    testWidgets('البكرة واقفة على ٦٠ ومفيش حاجة بتتكتب لحد ما تتحرّك', (tester) async {
+      await pumpTall(tester);
+      // البكرة موجودة، والتلميح بيقول حرّكها، ومفيش سن معروض
+      expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
+      expect(hint(tester), AgeWheel.hint);
+      expect(find.textContaining('سنّك ٦٠'), findsNothing);
+      expect(AgeWheel.minAge, 18, reason: 'مريض بأدوية مزمنة ممكن يكون عنده ٢٠');
+      expect(AgeWheel.maxAge, 110);
+
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tapAndSettle(tester, 'راجل');
+      await tapAndSettle(tester, 'كمّل');
+      final row = (await services.routines.getPatient(services.patientId))!;
+      expect(row.age, isNull, reason: 'البكرة واقفة على ٦٠ مش معناه إنه قال ٦٠');
+    });
+
+    testWidgets('سن صغير بيتحفظ زي ما هو — مفيش أرضية ٦٠', (tester) async {
+      await pumpTall(tester);
+      await tester.enterText(find.byType(TextField), 'محمد');
+      await tapAndSettle(tester, 'راجل');
+      await spin(tester, -30); // ٦٠ → ٣٠
+      expect(hint(tester), 'سنّك ٣٠ سنة');
+      await tapAndSettle(tester, 'كمّل');
+      final row = (await services.routines.getPatient(services.patientId))!;
+      expect(row.age, 30);
+    });
+
+    testWidgets('«مش عايز أقول» بترجّع null بعد ما اختار، والبكرة بترجع لـ٦٠', (tester) async {
+      await pumpTall(tester);
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tapAndSettle(tester, 'راجل');
+      await spin(tester, 5);
+      expect(hint(tester), 'سنّك ٦٥ سنة');
+
+      await tapAndSettle(tester, 'مش عايز أقول');
+      expect(hint(tester), AgeWheel.hint);
+      final wheel = tester.widget<CupertinoPicker>(find.byType(CupertinoPicker));
+      expect(wheel.scrollController!.selectedItem, AgeWheel.restAge - AgeWheel.minAge);
+
+      await tapAndSettle(tester, 'كمّل');
+      final row = (await services.routines.getPatient(services.patientId))!;
+      expect(row.age, isNull);
+    });
+
+    testWidgets('ست → «مش عايزة أقول»', (tester) async {
+      await pumpTall(tester);
+      await tapAndSettle(tester, 'ست');
+      expect(find.text('مش عايزة أقول'), findsOneWidget);
+      expect(find.text('مش عايز أقول'), findsNothing);
+    });
+
+    testWidgets('على iPhone SE: البكرة و«كمّل» ظاهرين من غير لفّ ومن غير فيض', (tester) async {
+      tester.view.physicalSize = const Size(750, 1334);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpOnboarding(tester, askProfile: true);
+
+      expect(tester.takeException(), isNull, reason: 'فيض');
+      final button = tester.getRect(find.widgetWithText(FilledButton, 'كمّل'));
+      expect(button.bottom, lessThanOrEqualTo(667));
+      expect(button.top, greaterThanOrEqualTo(0));
+      // البكرة نفسها كاملة على الشاشة من غير ما يلف — الاسم والجنس فوقها
+      final wheel = tester.getRect(find.byKey(const ValueKey('age-wheel')));
+      expect(wheel.height, AgeWheel.wheelHeight);
+      // وسطر التلميح و«مش عايز أقول» تحتها كمان — آخر حاجة في الكتلة
+      final clear = tester.getRect(find.text('مش عايز أقول'));
+      expect(clear.bottom, lessThanOrEqualTo(button.top),
+          reason: 'كتلة السن كلها فوق «كمّل» من غير لفّ: ${wheel.bottom} / ${clear.bottom} / ${button.top}');
+      expectNoRedAndMinSize(tester);
     });
 
     testWidgets('الجنس متسجّل قبل كده → الأسئلة على طول من غير «نتعرّف عليك»', (tester) async {
