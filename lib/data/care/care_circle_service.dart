@@ -24,6 +24,15 @@ enum CareCircleFailure {
   ownCode,
 
   alreadyLinked,
+
+  /// ٠٠٢٦: كود متابع اتكتب في باب الممرض — الكود ما اتحرقش.
+  followerCodeAtNurseDoor,
+
+  /// ٠٠٢٦: كود ممرض اتكتب في باب المتابع — الكود ما اتحرقش.
+  nurseCodeAtFollowerDoor,
+
+  /// ٠٠٢٥: الاشتراك الواحد بيغطّي ٥ ناس، والدائرة كاملة.
+  circleFull,
   offline,
   other,
 }
@@ -41,6 +50,11 @@ class CareCircleException implements Exception {
         CareCircleFailure.ownCode =>
           'ده الكود بتاعك انت — الكود ده يكتبه ابنك على موبايله هو.',
         CareCircleFailure.alreadyLinked => 'انتو مربوطين خلاص. كله تمام.',
+        CareCircleFailure.followerCodeAtNurseDoor => 'الكود ده لمتابع — اطلب من المريض كود ممرض',
+        CareCircleFailure.nurseCodeAtFollowerDoor =>
+          'الكود ده لممرض — ارجع واختار «أنا ممرض / مرافق»',
+        CareCircleFailure.circleFull =>
+          'اللي بيتابعوا المريض ده كملوا خمسة — اطلب منه يشيل حد الأول.',
         CareCircleFailure.offline =>
           'مفيش نت. التطبيق شغّال عادي، بس الربط محتاج اتصال.',
         CareCircleFailure.other => 'مقدرناش نكمّل. جرّب تاني.',
@@ -61,6 +75,13 @@ abstract interface class CareCircleService {
 
   /// بيستبدل الكود وبيرجّع **اسم** المريض اللي اتربط بيه — للشاشة.
   Future<String> redeemInvite(String code);
+}
+
+/// ٠٠٢٦: استبدال **من باب معيّن** — كود من نوع تاني بيترفض على السيرفر
+/// قبل أي كتابة، فالكود ما بيتحرقش. واجهة لوحدها عشان الفيكات القديمة
+/// لـ[CareCircleService] ما تتكسرش؛ الشاشة بتسألها لو موجودة.
+abstract interface class RoleRedeem {
+  Future<String> redeemInviteAt(String code, FollowerRole door);
 }
 
 /// متابع واحد بدوره وصلاحياته — من `followers_with_permissions` (للمالك بس).
@@ -85,7 +106,9 @@ class FollowerWithPermissions {
 /// إدارة الدائرة من موبايل المريض (٠٠٢٣): كود بدور، والأدوار والصلاحيات
 /// والشيل. واجهة لوحدها عشان الفيكات القديمة لـ[CareCircleService] ما تتكسرش.
 abstract interface class CareCircleAdmin {
-  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role);
+  /// [canEditMeds] للممرض بس (السيرفر بيتجاهله لمتابع) — «يقدر يعدّل
+  /// الأدوية والمواعيد؟» بيتسأل مرة لما الكود يتعمل.
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role, {bool canEditMeds = false});
 
   Future<List<FollowerWithPermissions>> followersWithPermissions(String patientUuid);
 

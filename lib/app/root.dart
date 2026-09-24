@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../domain/care/follower_role.dart';
+
 import '../core/theme/tokens.dart';
 import '../data/auth/auth_service.dart';
 import '../data/services/reminder_plan.dart';
@@ -147,7 +149,13 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   /// «ابني أو والدي بعتلي كود»: الدخول (النداء الوحيد، من زرار الشاشة دي)
   /// ← الكود ← لو اتربط، المتابعة. فشل أو رجوع = شاشة البداية تاني.
-  Future<void> _haveCode() async {
+  Future<void> _haveCode() => _linkThrough(FollowerRole.follower);
+
+  /// «أنا ممرض / مرافق»: نفس الطريق بالظبط، بباب الممرض — كود متابع هنا
+  /// بيقول «الكود ده لمتابع» ومش بيتحرق.
+  Future<void> _nurseCode() => _linkThrough(FollowerRole.nurse);
+
+  Future<void> _linkThrough(FollowerRole door) async {
     final services = AppScope.of(context);
     final linked = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -155,6 +163,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
           auth: services.auth,
           caregiver: services.caregiver,
           push: services.push,
+          door: door,
           // من غير الإذن تنبيه التصعيد ما بيظهرش على أندرويد ١٣+
           onCaregiverLinked: () => services.scheduler.ensurePermissions(),
         ),
@@ -186,7 +195,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             if (mounted) setState(() => _notLinked = true);
           });
         }
-        return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode);
+        return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode, onNurse: _nurseCode);
       },
     );
   }

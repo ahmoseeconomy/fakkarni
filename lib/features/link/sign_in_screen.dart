@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/fa_mark.dart';
@@ -24,6 +25,7 @@ class SignInScreen extends StatefulWidget {
     this.caregiver,
     this.push,
     this.onCaregiverLinked,
+    this.door,
     this.skipLabel = 'مش دلوقتي',
     super.key,
   });
@@ -40,6 +42,10 @@ class SignInScreen extends StatefulWidget {
   final Future<void> Function()? onCaregiverLinked;
 
   bool get forCaregiver => onCaregiverLinked != null;
+
+  /// ٠٠٢٦: باب الكود — «أنا ممرض / مرافق» بيقبل كود ممرض بس، و«معايا كود
+  /// متابعة» كود متابع بس. null = أي كود.
+  final FollowerRole? door;
 
   /// null = إعداد Supabase مش موجود، والشاشة بتقول ده بوضوح.
   final AuthService? auth;
@@ -128,6 +134,7 @@ class _SignInScreenState extends State<SignInScreen> {
           care: care,
           caregiver: widget.caregiver,
           onLinked: widget.onCaregiverLinked,
+          door: widget.door,
         ),
       ),
     );

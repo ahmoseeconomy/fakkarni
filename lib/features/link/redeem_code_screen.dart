@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../core/theme/tokens.dart';
@@ -12,7 +13,11 @@ import '../care/caregiver_screen.dart';
 /// الحقل بيقبل الأرقام العربي والغربي — كيبورد الآيفون العربي بيكتب
 /// ٠-٩، والسيرفر عايز 0-9 — فبنطبّع قبل الإرسال.
 class RedeemCodeScreen extends StatefulWidget {
-  const RedeemCodeScreen({required this.care, this.caregiver, this.onLinked, super.key});
+  const RedeemCodeScreen({required this.care, this.caregiver, this.onLinked, this.door, super.key});
+
+  /// ٠٠٢٦: الباب اللي الكود اتكتب فيه. null = أي كود (الطريق القديم من
+  /// شاشة الدخول). كود من النوع التاني بيترفض على السيرفر من غير ما يتحرق.
+  final FollowerRole? door;
 
   final CareCircleService care;
 
@@ -66,7 +71,11 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
       _error = null;
     });
     try {
-      final name = await widget.care.redeemInvite(_digits);
+      final care = widget.care;
+      final door = widget.door;
+      final name = door != null && care is RoleRedeem
+          ? await (care as RoleRedeem).redeemInviteAt(_digits, door)
+          : await care.redeemInvite(_digits);
       if (mounted) setState(() => _linkedName = name);
     } on CareCircleException catch (e) {
       if (mounted) setState(() => _error = e.message);

@@ -283,7 +283,17 @@ with expected(migration, kind, ident) as (
     ('0025_family_subscription', 'function', 'private.follower_cap'),
     -- **الاختيار بيسأل عن اشتراك المريض** — وجود الدالة لوحده بيكدب
     ('0025_family_subscription', 'funcsrc',  'private.due_escalations|cr.caregiver_id, p.uuid'),
-    ('0025_family_subscription', 'funcsrc',  'public.redeem_invite|circle_full')
+    ('0025_family_subscription', 'funcsrc',  'public.redeem_invite|circle_full'),
+    ('0026_nurse_account', 'column',   'public.invite_codes.can_edit_meds'),
+    ('0026_nurse_account', 'column',   'public.medications.instructions'),
+    ('0026_nurse_account', 'column',   'public.medications.purpose'),
+    ('0026_nurse_account', 'column',   'public.medications.alert_mode'),
+    ('0026_nurse_account', 'funcsrc',  'public.redeem_invite|wrong_role_'),
+    ('0026_nurse_account', 'funcsrc',  'public.create_invite|p_can_edit_meds'),
+    ('0026_nurse_account', 'function', 'private.circle_writes_allowed'),
+    ('0026_nurse_account', 'function', 'private.can_read_paper'),
+    ('0026_nurse_account', 'policy',   'storage.objects|patient_papers_select'),
+    ('0026_nurse_account', 'policysrc','public.proxy_confirmations|proxy_confirmations_insert|circle_writes_allowed')
 ),
 checked as (
   select

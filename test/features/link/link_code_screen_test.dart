@@ -152,21 +152,60 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('invite-role-nurse')));
     await settle(tester);
+    // ٠٠٢٦: بيسأل مرة «يقدر يعدّل الأدوية والمواعيد؟» قبل ما الكود يتعمل
+    expect(find.text('يقدر يعدّل الأدوية والمواعيد؟'), findsOneWidget);
+    expect(roles.created, [FollowerRole.follower], reason: 'مفيش كود قبل الإجابة');
+    await tester.tap(find.byKey(const ValueKey('nurse-edit-yes')));
+    await settle(tester);
     expect(roles.created, [FollowerRole.follower, FollowerRole.nurse]);
+    expect(roles.canEdit.last, isTrue, reason: 'الإجابة بتروح مع الكود');
     expect(find.text('٦٥٤٣٢٢'), findsOneWidget, reason: 'كود جديد بدوره');
+    expect(find.byKey(const ValueKey('invite-nurse-edit-line')), findsOneWidget);
     expect(find.textContaining('يأكّد الجرعة بدالك'), findsOneWidget);
     expectNoRedAndMinSize(tester);
   });
 
+  screenTest('٠٠٢٦: «لأ» بتعمل كود ممرض من غير تعديل، وقفل الورقة ما بيغيّرش الدور', (tester) async {
+    final roles = _FakeRoles();
+    tester.view.physicalSize = const Size(1000, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      theme: F.light,
+      home: Directionality(
+        textDirection: TextDirection.rtl,
+        child: LinkCodeScreen(care: care, patientUuid: 'p-uuid-1', patientName: 'الحاج أحمد', roles: roles),
+      ),
+    ));
+    await settle(tester);
+
+    // قفل الورقة من غير إجابة
+    await tester.tap(find.byKey(const ValueKey('invite-role-nurse')));
+    await settle(tester);
+    await tester.tapAt(const Offset(10, 10));
+    await settle(tester);
+    expect(roles.created, [FollowerRole.follower], reason: 'الدور ما اتغيّرش');
+
+    await tester.tap(find.byKey(const ValueKey('invite-role-nurse')));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('nurse-edit-no')));
+    await settle(tester);
+    expect(roles.created.last, FollowerRole.nurse);
+    expect(roles.canEdit.last, isFalse);
+    expect(find.textContaining('بيشوف ويأكّد بس'), findsOneWidget);
+  });
 }
 
 /// الكود بدور (٠٠٢٣): «متابع» افتراضياً، و«ممرض / مرافق» بيعمل كود بدوره.
 class _FakeRoles implements CareCircleAdmin {
   final created = <FollowerRole>[];
+  final canEdit = <bool>[];
 
   @override
-  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role) async {
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role, {bool canEditMeds = false}) async {
     created.add(role);
+    canEdit.add(canEditMeds);
     return InviteCode(code: '65432${created.length}', expiresAt: DateTime(2026, 9, 1, 10));
   }
 

@@ -5,7 +5,7 @@ import '../../core/widgets/fa_mark.dart';
 import '../../core/widgets/primitives.dart';
 
 /// «مين ماسك التليفون؟» (D4، بأسلوب كروت المخطط ٢) — أول شاشة في تنزيلة
-/// جديدة، **بابين بس**.
+/// جديدة: تلات أبواب — المريض، المتابع، والممرض (٢٤ سبتمبر ٢٠٢٦).
 ///
 /// كان فيه كارت تالت «بظبّط لحد تاني»، وكل اللي كان بيعمله إنه يقلب كلام
 /// الإعداد للغايب — اختيار ما بيتخزّنش ومفيش حاجة بتترتب عليه. اتشال:
@@ -18,19 +18,23 @@ import '../../core/widgets/primitives.dart';
 /// متخزّن (مفيش عمود دور — ٣.٣). بتختفي للأبد أول ما يبقى فيه مريض محلي أو
 /// علاقة رعاية، والجذر هو اللي بيقرر ده من البيانات.
 class EntryScreen extends StatefulWidget {
-  const EntryScreen({required this.onSelf, required this.onHaveCode, super.key});
+  const EntryScreen({required this.onSelf, required this.onHaveCode, this.onNurse, super.key});
 
   /// «التليفون ده ليا» → شاشة الدخول (تتخطى) → نتعرّف عليك → ظبّط يومك.
   final VoidCallback onSelf;
 
-  /// «ابني أو والدي بعتلي كود» → الدخول → الكود → المتابعة.
+  /// «معايا كود متابعة» → الدخول → الكود → المتابعة.
   final VoidCallback onHaveCode;
+
+  /// «أنا ممرض / مرافق» (٢٤ سبتمبر ٢٠٢٦، قرار المالك) → الدخول → كود
+  /// **ممرض** بس → تطبيق المرآة. null = الباب مش معروض (شاشة من غير سحابة).
+  final VoidCallback? onNurse;
 
   @override
   State<EntryScreen> createState() => _EntryScreenState();
 }
 
-enum _Choice { self, code }
+enum _Choice { self, code, nurse }
 
 class _EntryScreenState extends State<EntryScreen> {
   _Choice? _choice;
@@ -41,6 +45,8 @@ class _EntryScreenState extends State<EntryScreen> {
         widget.onSelf();
       case _Choice.code:
         widget.onHaveCode();
+      case _Choice.nurse:
+        widget.onNurse?.call();
       case null:
         break;
     }
@@ -88,11 +94,22 @@ class _EntryScreenState extends State<EntryScreen> {
                     _EntryCard(
                       itemKey: const ValueKey('entry-code'),
                       icon: Icons.link,
-                      title: 'ابني أو والدي بعتلي كود',
-                      hint: 'عايز أتابع أدويته من تليفوني',
+                      title: 'معايا كود متابعة',
+                      hint: 'ابن، بنت أو قريب',
                       selected: _choice == _Choice.code,
                       onTap: () => setState(() => _choice = _Choice.code),
                     ),
+                    if (widget.onNurse != null) ...[
+                      const SizedBox(height: F.s12),
+                      _EntryCard(
+                        itemKey: const ValueKey('entry-nurse'),
+                        icon: Icons.medical_services_outlined,
+                        title: 'أنا ممرض / مرافق',
+                        hint: 'هتابع مريض وأساعده في أدويته',
+                        selected: _choice == _Choice.nurse,
+                        onTap: () => setState(() => _choice = _Choice.nurse),
+                      ),
+                    ],
                   ],
                 ),
               ),

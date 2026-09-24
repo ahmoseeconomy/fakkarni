@@ -16,7 +16,7 @@ class _FakeAdmin implements CareCircleAdmin {
   final writes = <String>[];
 
   @override
-  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role) async =>
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role, {bool canEditMeds = false}) async =>
       InviteCode(code: '123456', expiresAt: DateTime(2026, 9, 1));
 
   @override

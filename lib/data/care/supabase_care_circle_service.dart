@@ -9,7 +9,7 @@ import 'care_circle_service.dart';
 
 /// التنفيذ الحقيقي فوق Supabase — الملف ده جوّه lib/data/ زي ما القاعدة
 /// بتقول: مفيش استيراد للحزمة برّه data.
-class SupabaseCareCircleService implements CareCircleService, CareCircleAdmin {
+class SupabaseCareCircleService implements CareCircleService, CareCircleAdmin, RoleRedeem {
   SupabaseCareCircleService(this._supabase);
 
   final SupabaseClient _supabase;
@@ -43,10 +43,12 @@ class SupabaseCareCircleService implements CareCircleService, CareCircleAdmin {
       });
 
   @override
-  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role) => _guard(() async {
+  Future<InviteCode> createRoleInvite(String patientUuid, FollowerRole role, {bool canEditMeds = false}) =>
+      _guard(() async {
         final code = await _supabase.rpc('create_invite', params: {
           'p_patient_uuid': patientUuid,
           'p_role': role.name,
+          'p_can_edit_meds': role == FollowerRole.nurse && canEditMeds,
         });
         return InviteCode(code: code as String, expiresAt: DateTime.now().add(inviteLifetime));
       });
@@ -101,9 +103,14 @@ class SupabaseCareCircleService implements CareCircleService, CareCircleAdmin {
       });
 
   @override
-  Future<String> redeemInvite(String code) => _guard(() async {
-        final patientUuid =
-            await _supabase.rpc('redeem_invite', params: {'p_code': code});
+  Future<String> redeemInvite(String code) => _redeem({'p_code': code});
+
+  @override
+  Future<String> redeemInviteAt(String code, FollowerRole door) =>
+      _redeem({'p_code': code, 'p_expect_role': door.name});
+
+  Future<String> _redeem(Map<String, dynamic> params) => _guard(() async {
+        final patientUuid = await _supabase.rpc('redeem_invite', params: params);
         // بعد الاستبدال بقى له حق القراءة — نجيب الاسم للشاشة
         final row = await _supabase
             .from('patients')
@@ -140,6 +147,10 @@ class SupabaseCareCircleService implements CareCircleService, CareCircleAdmin {
     }
     if (message.contains('own_code')) return CareCircleFailure.ownCode;
     if (message.contains('already_linked')) return CareCircleFailure.alreadyLinked;
+    // الرمز بيقول نوع **الكود** — الباب هو العكس
+    if (message.contains('wrong_role_follower')) return CareCircleFailure.followerCodeAtNurseDoor;
+    if (message.contains('wrong_role_nurse')) return CareCircleFailure.nurseCodeAtFollowerDoor;
+    if (message.contains('circle_full')) return CareCircleFailure.circleFull;
     return CareCircleFailure.other;
   }
 }

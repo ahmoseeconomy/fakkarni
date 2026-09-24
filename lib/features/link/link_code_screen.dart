@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
 import '../../domain/billing/family_plan.dart';
@@ -57,6 +58,10 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
 
   /// «متابع» افتراضياً — الأكواد والعلاقات القديمة كلها كده.
   FollowerRole _role = FollowerRole.follower;
+
+  /// ٠٠٢٦: للممرض بس — اتسأل مرة لما اختار «ممرض / مرافق»، وبيتغيّر
+  /// بعدين من «اللي بيتابعوك».
+  bool _nurseCanEdit = false;
   String? _error;
   String? _notice;
   bool _busy = false;
@@ -89,7 +94,8 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
       final roles = widget.roles;
       final invite = roles == null
           ? await widget.care.createInvite(widget.patientUuid)
-          : await roles.createRoleInvite(widget.patientUuid, _role);
+          : await roles.createRoleInvite(widget.patientUuid, _role,
+              canEditMeds: _role == FollowerRole.nurse && _nurseCanEdit);
       if (mounted) setState(() => _invite = invite);
     } on CareCircleException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -100,6 +106,41 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
     }
   }
 
+
+  /// اختيار الدور. «ممرض / مرافق» بيسأل **مرة**: يقدر يعدّل الأدوية
+  /// والمواعيد؟ — والإجابة بتروح مع الكود للعلاقة. قفل الورقة من غير
+  /// إجابة = الدور ما اتغيّرش.
+  Future<void> _pickRole(FollowerRole role) async {
+    if (_busy || _role == role) return;
+    if (role == FollowerRole.nurse) {
+      final canEdit = await FSheet.show<bool>(
+        context,
+        title: 'يقدر يعدّل الأدوية والمواعيد؟',
+        children: [
+          Text(
+            'الممرض بيشوف يومك وأدويتك وبيأكّد الجرعة بدالك. لو قلت أيوه، يقدر كمان يضيف دوا أو يوقّفه أو يحط ميعاد — وكل ده بيوصل موبايلك.',
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
+          ),
+          const SizedBox(height: F.gap),
+          FPrimaryButton(
+            key: const ValueKey('nurse-edit-yes'),
+            label: 'أيوه، يقدر',
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          const SizedBox(height: F.s8),
+          FSecondaryButton(
+            key: const ValueKey('nurse-edit-no'),
+            label: 'لأ، يشوف ويأكّد بس',
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+      );
+      if (canEdit == null || !mounted) return;
+      _nurseCanEdit = canEdit;
+    }
+    setState(() => _role = role);
+    await _refresh();
+  }
 
   /// نص الرسالة اللي بتتبعت — الكود بأرقام غربية عشان يتكتب زي ما هو.
   static String message(InviteCode invite) =>
@@ -170,11 +211,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                         key: ValueKey('invite-role-${role.name}'),
                         label: role.label,
                         selected: _role == role,
-                        onTap: () {
-                          if (_busy || _role == role) return;
-                          setState(() => _role = role);
-                          _refresh();
-                        },
+                        onTap: () => _pickRole(role),
                       ),
                     ),
                     if (role != FollowerRole.values.last) const SizedBox(width: F.s8),
@@ -187,6 +224,20 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                 key: const ValueKey('invite-role-explain'),
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
+              if (_role == FollowerRole.nurse) ...[
+                const SizedBox(height: F.s4),
+                Text(
+                  _nurseCanEdit
+                      ? 'يقدر يعدّل الأدوية والمواعيد — كل تعديل بيوصل موبايلك ويتطبّق عليه.'
+                      : 'مش هيعدّل الأدوية ولا المواعيد — بيشوف ويأكّد بس.',
+                  key: const ValueKey('invite-nurse-edit-line'),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+                ),
+                Text(
+                  'تقدر تغيّر ده بعدين من «اللي بيتابعوك».',
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                ),
+              ],
               const SizedBox(height: F.gap),
             ],
             if (_error != null) ...[
