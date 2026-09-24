@@ -33,6 +33,26 @@ void main() {
     await h.pump(tester, MedicationsScreen(today: aug31));
   }
 
+  screenTest('دوا بدايته جاية بيقول «هيبدأ يوم …» — واللي بدأ لأ', (tester) async {
+    await h.meds.addMedication(
+      patientId: h.services.patientId,
+      name: 'Augmentin',
+      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      startDate: DateTime(2026, 9, 3),
+      amountLabel: 'قرص',
+    );
+    await h.meds.addMedication(
+      patientId: h.services.patientId,
+      name: 'Concor',
+      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      startDate: aug31,
+      amountLabel: 'قرص',
+    );
+    await pump(tester);
+    expect(find.text('هيبدأ يوم ٣ سبتمبر ٢٠٢٦'), findsOneWidget);
+    expect(find.textContaining('هيبدأ'), findsOneWidget, reason: 'Concor بدأ خلاص');
+  });
+
   screenTest('مجموعات بالمرساة بترتيب الوقت، والدوا اللي بياخده مرتين بيظهر في الاتنين', (tester) async {
     final id = await add('Augmentin', const AnchorTiming(DayAnchor.dinner, 0), amount: 'قرص');
     await h.meds.addDoseSchedule(id, timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);

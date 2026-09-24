@@ -27,6 +27,9 @@ typedef MedicationWrite = ({
   AlertMode? alertMode,
   MedicationPurpose? purpose,
   String? instructions,
+
+  /// بداية الدوا ده لوحده — null = تاريخ الدفعة.
+  DateTime? startDate,
 });
 
 class MedicationRepository {
@@ -171,7 +174,7 @@ class MedicationRepository {
               patientId: patientId,
               name: m.name,
               timings: m.timings,
-              startDate: startDate,
+              startDate: m.startDate ?? startDate,
               amountLabel: m.amountLabel,
               amountUnknown: m.amountUnknown,
               durationDays: m.durationDays,
@@ -379,6 +382,25 @@ class MedicationRepository {
         amountUnknown: Value(unknown),
       ),
     );
+  }
+
+  /// التعليمات والمدة — من شاشة التعديل بس (الإضافة ما بتسألش عنهم).
+  ///
+  /// المدة على جداول الدوا كلها: null = مفتوحة لحد ما إنسان يوقفها
+  /// (القاعدة ٣ — عمرنا ما بنخترع مدة).
+  Future<void> updateDetails(
+    int medicationId, {
+    required String? instructions,
+    required int? durationDays,
+  }) {
+    final text = instructions?.trim();
+    return _db.transaction(() async {
+      await (_db.update(_db.medications)..where((t) => t.id.equals(medicationId))).write(
+        MedicationsCompanion(instructions: Value(text == null || text.isEmpty ? null : text)),
+      );
+      await (_db.update(_db.doseSchedules)..where((t) => t.medicationId.equals(medicationId)))
+          .write(DoseSchedulesCompanion(durationDays: Value(durationDays)));
+    });
   }
 
   /// بيوقف دوا — **بإيد إنسان وبس**، وبيتراجع عنه.

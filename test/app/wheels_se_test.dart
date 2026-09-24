@@ -149,9 +149,9 @@ void main() {
     expectPrimaryVisible(tester, 'احفظ الجرعة');
   });
 
-  testWidgets('«ضيف دوا» بـ«أكتر» و«تفاصيل أكتر» و«أيام محددة» مفتوحين: بكرتين و«احفظ» ظاهر', (tester) async {
+  testWidgets('«ضيف دوا» بـ«أكتر» مفتوحة: البكرة و«احفظ» ظاهر، وشرايح «مع الأكل» الأربعة بكلمتها', (tester) async {
     await pumpSE(tester, AddMedicationScreen(routine: _routine));
-    expect(tester.takeException(), isNull, reason: 'أربع شرايح «مع الأكل» في صف واحد على SE');
+    expect(tester.takeException(), isNull, reason: 'فيض على SE');
 
     // القايمة كسولة والفورم أطول من SE — بنلفّ لكل حاجة قبل ما ندوس عليها.
     // السحب من **أعلى** القايمة: نصّها ممكن يبقى بكرة، والبكرة بتاكل السحب.
@@ -168,13 +168,46 @@ void main() {
     await scrollTo(find.byKey(const ValueKey('count-more')));
     await tester.tap(find.byKey(const ValueKey('count-more')));
     await settle(tester);
-    await scrollTo(find.byKey(const ValueKey('more-toggle')));
-    await tester.tap(find.byKey(const ValueKey('more-toggle')));
+    expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
+    // ٢×٢: كل كلمة كاملة وفي سطر واحد — مفيش قصّ
+    await scrollTo(find.text('ساعة محددة'));
+    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'ساعة محددة']) {
+      final text = tester.widget<Text>(find.text(w));
+      expect(text.maxLines ?? 1, 1, reason: w);
+      expect(tester.getSize(find.text(w)).width, lessThan(375 / 2), reason: '«$w» أوسع من نص الشاشة');
+    }
+    expect(tester.takeException(), isNull);
+    await scrollTo(find.text('هتبدأ الدوا من إمتى؟'));
+    expectPrimaryVisible(tester, 'احفظ');
+  });
+
+  testWidgets('«ضيف دوا» بخط ×١٫٣ على SE: الأربع شرايح كاملة ومفيش فيض، و«احفظ» ظاهر', (tester) async {
+    tester.view.physicalSize = const Size(750, 1334);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: F.light,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+            child: Directionality(textDirection: TextDirection.rtl, child: AddMedicationScreen(routine: _routine)),
+          ),
+        ),
+      ),
+    );
     await settle(tester);
-    await scrollTo(find.text('أيام محددة'));
-    await tester.tap(find.text('أيام محددة'));
-    await settle(tester);
-    expect(find.byKey(const ValueKey('days-wheel')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'فيض على SE بخط ×١٫٣');
+    for (var i = 0; i < 14 && find.text('ساعة محددة').evaluate().isEmpty; i++) {
+      await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+      await settle(tester);
+    }
+    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'ساعة محددة']) {
+      expect(find.text(w), findsOneWidget, reason: w);
+    }
+    expect(tester.takeException(), isNull);
     expectPrimaryVisible(tester, 'احفظ');
   });
 

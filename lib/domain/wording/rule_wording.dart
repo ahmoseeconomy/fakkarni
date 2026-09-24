@@ -26,3 +26,25 @@ String anchorRuleWording(String anchorWord, int offsetMinutes) {
 
 /// الساعة الثابتة — الوصف بيقول النوع بس، والساعة بتتعرض جنبه.
 const fixedRuleWording = 'ساعة ثابتة';
+
+/// المدة بالكلام — «ربع ساعة» / «نص ساعة» / «تلات أرباع ساعة» / «ساعة»
+/// / «ساعتين»، وغير كده «N دقيقة» بأرقام عربية.
+String spokenOffset(int minutes) => switch (minutes.abs()) {
+      15 => 'ربع ساعة',
+      30 => 'نص ساعة',
+      45 => 'تلات أرباع ساعة',
+      60 => 'ساعة',
+      120 => 'ساعتين',
+      final m => '${arabicNumber(m)} دقيقة',
+    };
+
+/// الجرعة بكلام طبيعي — «قبل الفطار بنص ساعة» / «بعد العشا بربع ساعة» /
+/// «مع الغدا». مش «الفطار − ٣٠ د»: ده كلام الجدول، مش كلام البيت.
+String spokenTimingWording(String anchorWord, int offsetMinutes) {
+  if (offsetMinutes == 0) return 'مع $anchorWord';
+  final side = offsetMinutes < 0 ? 'قبل' : 'بعد';
+  return '$side $anchorWord ب${spokenOffset(offsetMinutes)}';
+}
+
+/// «الساعة ٩:٠٠ م» — الثابتة بساعتها.
+String spokenFixedWording(String time) => 'الساعة $time';

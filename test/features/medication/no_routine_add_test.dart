@@ -39,7 +39,7 @@ void main() {
     expect(find.textContaining('ما حدّدتش مواعيد يومك'), findsOneWidget);
     // الصف بيقول إن الفطار مش متحدد، و«احفظ» مقفولة لحد ما يختار
     expect(find.text('الفطار — مش متحدد'), findsOneWidget);
-    expect(find.textContaining('حوالي ٧:٠٠ ص'), findsNothing, reason: 'ولا ساعة من الافتراضي');
+    expect(find.textContaining('— ٧:٠٠ ص'), findsNothing, reason: 'ولا ساعة من الافتراضي');
     expect(tester.widget<FilledButton>(find.descendant(
         of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton))).onPressed,
         isNull);
@@ -53,7 +53,7 @@ void main() {
 
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
-    expect(find.text('ساعة محددة — ٨:٠٠ ص'), findsOneWidget, reason: 'الصف بيقول اللي اختاره');
+    expect(find.text('الساعة ٨:٠٠ ص'), findsOneWidget, reason: 'الصف بيقول اللي اختاره');
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -95,7 +95,7 @@ void main() {
 
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
-    expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠١ ص'), findsOneWidget, reason: 'الصف بيقول المرساة وساعتها');
+    expect(find.text('قبل الفطار بنص ساعة — ٧:٠١ ص'), findsOneWidget, reason: 'الصف بيقول المرساة وساعتها');
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -123,7 +123,7 @@ void main() {
     await RoutineRepository(h.db).saveRoutine(h.services.patientId, normalDay);
     await h.pump(tester, AddMedicationScreen(routine: normalDay, today: aug31, initialName: 'Concor'));
     // الصف محسوب من المرساة على طول، والدوسة عليه تفتح المحرّر على المراسي
-    expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠٠ ص'), findsOneWidget);
+    expect(find.text('قبل الفطار بنص ساعة — ٧:٠٠ ص'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
     expect(find.byType(FTimeWheel), findsNothing);

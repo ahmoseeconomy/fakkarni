@@ -3542,14 +3542,39 @@ top to bottom: name (autofocused when empty) → «الدوا ده لإيه؟ (�
 (`MedicationPurpose`, `domain/medication/`, single-select chips, tap again
 to clear; stored in `medications.purpose`, **v23**, nullable — it will
 drive a tips card on «يومك» later, not built) → «كام مرة» → «قبل / مع /
-بعد الأكل / ساعة محددة» (four compact chips, one row) → **«مواعيد
-الجرعات»: one row per dose, always visible**, «الفطار − ٣٠ د — حوالي
-٧:٠٠ ص», «الفطار — مش متحدد», «ساعة محددة — ٩:٠٠ م» or «اختار الساعة»;
-tapping a row opens `DoseEditor` for that dose only and returns → alert
-mode chips → «تفاصيل أكتر», collapsed: amount, duration (open-ended by
-default), and «تعليمات» (`medications.instructions`, v23, nullable) →
-«احفظ», enabled once the name is non-empty and every row has a time that
-is chosen or resolvable (an unset anchor row keeps it disabled).
+بعد الأكل / ساعة محددة» (**a 2×2 grid of equal-width chips** since the
+device round of 24 Sep 2026 — four in one row clipped «ساعة محددة» on
+SE; `wheels_se_test` pins full labels at ×1.0 and ×1.3) → **«مواعيد
+الجرعات»: one row per dose, always visible, in plain words** —
+«قبل الفطار بنص ساعة — ٧:٠٠ ص», «بعد العشا بربع ساعة — …», «مع الغدا — …»,
+«الساعة ٩:٠٠ م», «الفطار — مش متحدد» or «اختار الساعة». The words come
+from `spokenTimingWording` / `spokenOffset` / `spokenFixedWording` in
+`domain/wording/rule_wording.dart` (15/30/45/60/120 by name, otherwise
+«بـN دقيقة»); «الفطار − ٣٠ د» stays the *schedule's* wording (rule chips,
+the son's list), not the form's. Tapping a row opens `DoseEditor` for that
+dose only and returns → alert mode chips → **«هتبدأ الدوا من إمتى؟»**:
+«النهارده» (default) / «يوم تاني», which opens the date picker
+(today … +60 days) and then says «هيبدأ يوم ٣ سبتمبر ٢٠٢٦ — مفيش تذكير
+قبلها.» → «احفظ», enabled once the name is non-empty and every row has a
+time that is chosen or resolvable (an unset anchor row keeps it disabled).
+**«تفاصيل أكتر» is gone from the add form** (owner, 24 Sep 2026): amount,
+duration and «تعليمات» stay in the model and are edited on
+`EditMedicationScreen` only (`MedicationRepository.updateDetails` writes
+the instructions and the duration onto every schedule of the medication;
+a blank manual amount is still «not given»). A scan line still arrives
+with its amount, duration and instructions and they are saved as read —
+the form simply does not show them.
+**A future start needs no migration**: `dose_schedules.start_date` has
+existed since v1 and `DoseSchedule.isActiveOn` already refuses days
+before it, so the engine schedules nothing, `materializeDay` writes no
+row, «يومك» shows nothing, and «جدول الأدوية» says «هيبدأ يوم …» until
+then. `MedicationDraft.startDate` and `MedicationWrite.startDate` carry a
+per-line start through «عدّل» on the review screen (null = the batch's
+day). `test/data/start_date_test.dart` is the golden guard: two schedulers,
+start today vs start in three days — nothing at all before the start, and
+the dose notifications inside the overlap window are identical by id and
+instant; the ladder and repeats move with the start because they take the
+*nearest* reminders of each plan, which is the documented behaviour.
 **«ساعة محددة»: the first clock the person picks spreads the other rows
 evenly across the waking day** (`_spreadFrom` — routine wake → sleep when
 both are set, else 07:00 → 23:00 as an operational window) *in the rows,
@@ -3567,6 +3592,20 @@ save) and is now **3** («مرتين», «بعد الأكل», «احفظ»); on
 was 4 taps + a wheel and is still **4** (row, «ساعة محددة», «احفظ الجرعة»,
 «احفظ») + the wheel, with the clock now a visible choice instead of a
 link.
+**What the prescription scan auto-fills** (audited 24 Sep 2026, and pinned
+by `prescription_reading_test` / `multi_dose_read_test`): name, amount
+(unclear → «مش معروفة», never invented), dose times — meal anchors with
+before/after/at and a written offset, or a written clock → `FixedTiming`,
+«١×٣» with no meal → our convention, flagged — hence times per day,
+duration («لمدة ٧ أيام» → 7; **«اليوم فقط» / «مرة واحدة» → 1**, added to
+the prompt this round), and **instructions** (`ReadLine.instructions`,
+added this round to the model, the schema as a required nullable field
+and the prompt: a handling note that is neither timing nor amount, null
+with confidence 1 when none is written, never invented; an unsure one is
+dropped rather than saved). Start date is today unless changed under
+«عدّل». **Not read, by design**: purpose (the paper does not say it) and
+alert mode (the device default). The human tap on «تمام» is still the only
+write.
 
 **The «ضيف دوا» sheet is defined once, opened from two places.**
 `showAddSheet(context, routine:)` in `features/medication/add_sheet.dart`

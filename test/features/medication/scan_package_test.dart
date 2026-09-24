@@ -90,13 +90,9 @@ void main() {
       await openScan(tester, _FakeReader(_reading()));
       await shoot(tester);
 
-      // خانة «الجرعة في المرة» (جوّه «تفاصيل أكتر») فاضية: العلبة ما بتقولش
-      // الراجل بياخد كام.
-      await tester.tap(find.byKey(const ValueKey('more-toggle')));
-      await settle(tester);
-      final amount = tester.widget<TextField>(
-          find.descendant(of: find.byKey(const ValueKey('amount-field')), matching: find.byType(TextField)));
-      expect(amount.controller!.text, isEmpty, reason: 'جرعة من علبة = اختراع');
+      // الجرعة مش في الفورم أصلاً (على شاشة التعديل بس) — والعلبة ما بتقولش
+      // الراجل بياخد كام، فمفيش قيمة بتتحفظ منها.
+      expect(find.byKey(const ValueKey('amount-field')), findsNothing);
       expect(
         find.textContaining('العلبة ما بتقولش الجرعة ولا المواعيد'),
         findsOneWidget,

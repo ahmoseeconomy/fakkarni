@@ -183,6 +183,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialAlertMode: line.alertMode,
           initialPurpose: line.purpose,
           initialInstructions: line.instructions,
+          initialStartDate: line.startDate,
           // جرعة الورقة مش واضحة → تفضل «مش معروفة» لو سابها فاضية
           initialAmountUnknown: line.amountUnknown,
         ),
@@ -295,6 +296,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
             alertMode: l.alertMode,
             purpose: l.purpose,
             instructions: l.instructions,
+            startDate: l.startDate,
           ),
       ],
     );
@@ -962,6 +964,9 @@ class _DraftLine {
   String? instructions;
 
   /// من قراية الذكاء — بثقتها وملاحظاتها زي ما هي.
+  /// «هتبدأ الدوا من إمتى؟» لو اتغيّرت من «عدّل» — null = يوم التأكيد.
+  DateTime? startDate;
+
   factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
         read: read,
         name: read.name.value,
@@ -969,6 +974,7 @@ class _DraftLine {
         amountUnknown: read.amount.needsReview,
         timings: read.timings.value ?? const [],
         durationDays: read.duration.value,
+        instructions: read.instructions.needsReview ? null : read.instructions.value,
       );
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
@@ -983,7 +989,7 @@ class _DraftLine {
         purpose: d.purpose,
         instructions: d.instructions,
         edited: true,
-      );
+      )..startDate = d.startDate;
 
   /// null = السطر اتكتب بالإيد، مش من الورقة.
   final ReadLine? read;
@@ -1009,6 +1015,7 @@ class _DraftLine {
     alertMode = d.alertMode;
     purpose = d.purpose;
     instructions = d.instructions;
+    startDate = d.startDate;
     edited = true;
   }
 

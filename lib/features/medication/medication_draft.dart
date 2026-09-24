@@ -18,6 +18,7 @@ class MedicationDraft {
     this.alertMode,
     this.purpose,
     this.instructions,
+    this.startDate,
   });
 
   final String name;
@@ -40,4 +41,7 @@ class MedicationDraft {
 
   /// «تعليمات» حرّة — null = مفيش.
   final String? instructions;
+
+  /// «هتبدأ الدوا من إمتى؟» — null = النهارده (يوم الحفظ).
+  final DateTime? startDate;
 }

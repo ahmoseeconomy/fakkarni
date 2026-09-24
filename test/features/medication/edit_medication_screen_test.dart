@@ -44,6 +44,44 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
+  screenTest('المدة والتعليمات بيتعدّلوا هنا — مش في الإضافة — وبيتكتبوا على الدوا وجداوله', (tester) async {
+    final id = await seedTelfast(unknown: false);
+    await pumpEdit(tester, id);
+
+    expect(find.text('المدة'), findsOneWidget);
+    expect(find.text('مفتوحة'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('instructions-field')), 'مع كوباية مية كاملة');
+    await tester.tap(find.byKey(const ValueKey('duration-days')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('days-wheel')), findsOneWidget);
+    await tester.tap(find.text('احفظ'));
+    await settle(tester);
+
+    final med = (await h.db.select(h.db.medications).get()).single;
+    expect(med.instructions, 'مع كوباية مية كاملة');
+    expect((await h.meds.activeSchedules(h.services.patientId)).single.durationDays, 7,
+        reason: 'البكرة بتستريح على ٧');
+
+  });
+
+  screenTest('مدة محفوظة بتتعبّى في البكرة، ورجوعها «مفتوحة» بيمسحها — مش بيخترع واحدة', (tester) async {
+    final id = await h.meds.addMedication(
+      patientId: h.services.patientId,
+      name: 'Augmentin',
+      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      startDate: aug31,
+      amountLabel: 'قرص',
+      durationDays: 7,
+    );
+    await pumpEdit(tester, id);
+    expect(find.byKey(const ValueKey('days-wheel')), findsOneWidget, reason: 'متعبّية من الصف');
+    await tester.tap(find.byKey(const ValueKey('duration-open')));
+    await settle(tester);
+    await tester.tap(find.text('احفظ'));
+    await settle(tester);
+    expect((await h.meds.activeSchedules(h.services.patientId)).single.durationDays, isNull);
+  });
+
   screenTest('«عدّل» على الجرعة بيفتح محرّر الجرعة بتوقيتها، والحفظ بيغيّر الصف نفسه', (tester) async {
     final id = await seedTelfast(unknown: false);
     await pumpEdit(tester, id);
@@ -72,7 +110,7 @@ void main() {
     expect(h.sink.scheduled.values.first.body, 'Telfast 180 mg');
 
     await pumpEdit(tester, id);
-    await tester.enterText(find.byType(TextField), 'قرص واحد');
+    await tester.enterText(find.byType(TextField).first, 'قرص واحد');
     await tester.tap(find.text('احفظ'));
     await settle(tester);
 
@@ -88,7 +126,7 @@ void main() {
     final id = await seedTelfast(unknown: false);
     await pumpEdit(tester, id);
 
-    await tester.enterText(find.byType(TextField), '   ');
+    await tester.enterText(find.byType(TextField).first, '   ');
     await tester.tap(find.text('احفظ'));
     await settle(tester);
 

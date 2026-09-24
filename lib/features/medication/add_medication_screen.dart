@@ -12,6 +12,7 @@ import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../../domain/wording/rule_wording.dart';
 import '../../core/widgets/f_wheels.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor;
@@ -43,6 +44,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialName,
     this.initialAmount,
     this.initialAmountUnknown = false,
+    this.initialStartDate,
     this.initialTimings = const [],
     this.initialDurationDays,
     this.initialAlertMode,
@@ -63,6 +65,9 @@ class AddMedicationScreen extends StatefulWidget {
   /// الورقة ما قالتش الجرعة: لو سابها فاضية تفضل «مش معروفة» — الإدخال
   /// اليدوي الفاضي مش كده (شوف [_save]).
   final bool initialAmountUnknown;
+
+  /// تاريخ بداية جاي من مسوّدة — null = النهارده.
+  final DateTime? initialStartDate;
 
   /// **وضع المسوّدة**: بترجّع [MedicationDraft] من غير ما تكتب أي حاجة.
   ///
@@ -110,8 +115,20 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   bool _customCount = false;
   bool _openEnded = true;
   int _days = 7;
-  bool _moreOpen = false;
   bool _busy = false;
+
+  /// «هتبدأ الدوا من إمتى؟» — النهارده افتراضياً، أو يوم تاني لحد ٦٠ يوم.
+  late DateTime _startDate = _today;
+
+  DateTime get _today {
+    final t = widget.today ?? DateTime.now();
+    return DateTime(t.year, t.month, t.day);
+  }
+
+  /// آخر يوم مسموح يبدأ فيه.
+  static const startDateSpanDays = 60;
+
+  bool get _startsLater => _startDate.isAfter(_today);
   AlertMode? _alertMode;
   AlertMode? _deviceMode;
 
@@ -129,10 +146,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
     _alertMode = widget.initialAlertMode;
     _purpose = widget.initialPurpose;
-    // تفاصيل جاية من ورقة أو مسوّدة بتتفتح عشان تبان — مش بتتخبّى
-    _moreOpen = (widget.initialAmount ?? '').isNotEmpty ||
-        widget.initialDurationDays != null ||
-        (widget.initialInstructions ?? '').isNotEmpty;
+    if (widget.initialStartDate case final d?) _startDate = DateTime(d.year, d.month, d.day);
     if (widget.initialTimings.isNotEmpty) {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
@@ -319,7 +333,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     try {
       final services = AppScope.of(context);
       final navigator = Navigator.of(context);
-      final today = widget.today ?? DateTime.now();
       final amount = _amount.text.trim();
       final instructions = _instructions.text.trim();
       final result = MedicationDraft(
@@ -333,6 +346,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         alertMode: _alertMode,
         purpose: _purpose,
         instructions: instructions.isEmpty ? null : instructions,
+        startDate: _startDate,
       );
 
       if (widget.draft) {
@@ -346,7 +360,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         amountLabel: result.amountLabel,
         amountUnknown: result.amountUnknown,
         timings: result.timings,
-        startDate: today,
+        startDate: _startDate,
         durationDays: result.durationDays,
         activeIngredient: widget.packageReading?.ingredientField,
         alertMode: result.alertMode,
@@ -360,16 +374,31 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
   }
 
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startsLater ? _startDate : _today.add(const Duration(days: 1)),
+      firstDate: _today,
+      lastDate: _today.add(const Duration(days: startDateSpanDays)),
+      helpText: 'هيبدأ يوم',
+      confirmText: 'تمام',
+      cancelText: 'رجوع',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _startDate = DateTime(picked.year, picked.month, picked.day));
+  }
+
   String _rowText(DoseTiming? t) {
     final engine = ScheduleEngine(_routine);
     final day = widget.today ?? DateTime.now();
     return switch (t) {
       null => 'اختار الساعة',
       AnchorTiming(:final anchor) when !_routine.isSet(anchor) => '${anchor.label} — مش متحدد',
+      // بكلام البيت: «قبل الفطار بنص ساعة — ٧:٠٠ ص»، مش «الفطار − ٣٠ د»
       AnchorTiming(:final anchor, :final offsetMinutes) =>
-        '${t.ruleLabel} — حوالي ${arabicTime(engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day))}',
+        '${spokenTimingWording(anchor.label, offsetMinutes)} — ${arabicTime(engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: day))}',
       FixedTiming(:final minuteOfDay) =>
-        'ساعة محددة — ${arabicTime(engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: day))}',
+        spokenFixedWording(arabicTime(engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: day))),
     };
   }
 
@@ -495,26 +524,34 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ],
                         const SizedBox(height: F.gap),
                         const _FieldLabel('مع الأكل؟'),
-                        Row(
-                          children: [
-                            for (final c in TimingChoice.values) ...[
-                              Expanded(
-                                child: _CompactChip(
-                                  key: ValueKey('timing-${c.name}'),
-                                  label: switch (c) {
-                                    TimingChoice.before => 'قبل الأكل',
-                                    TimingChoice.with_ => 'مع الأكل',
-                                    TimingChoice.after => 'بعد الأكل',
-                                    TimingChoice.fixed => 'ساعة محددة',
-                                  },
-                                  selected: _choice == c,
-                                  onTap: () => _pickChoice(c),
+                        // شبكة ٢×٢ بعرض متساوي: أربعة في صف واحد كانوا بيقصّوا
+                        // «ساعة محددة» على SE — والكلمة كاملة أهم من الصف الواحد.
+                        for (final pair in const [
+                          [TimingChoice.before, TimingChoice.with_],
+                          [TimingChoice.after, TimingChoice.fixed],
+                        ]) ...[
+                          Row(
+                            children: [
+                              for (final c in pair) ...[
+                                Expanded(
+                                  child: _CompactChip(
+                                    key: ValueKey('timing-${c.name}'),
+                                    label: switch (c) {
+                                      TimingChoice.before => 'قبل الأكل',
+                                      TimingChoice.with_ => 'مع الأكل',
+                                      TimingChoice.after => 'بعد الأكل',
+                                      TimingChoice.fixed => 'ساعة محددة',
+                                    },
+                                    selected: _choice == c,
+                                    onTap: () => _pickChoice(c),
+                                  ),
                                 ),
-                              ),
-                              if (c != TimingChoice.values.last) const SizedBox(width: F.s6),
+                                if (c != pair.last) const SizedBox(width: F.s8),
+                              ],
                             ],
-                          ],
-                        ),
+                          ),
+                          if (pair.first != TimingChoice.after) const SizedBox(height: F.s8),
+                        ],
                       ],
                     ),
                   ),
@@ -566,100 +603,41 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     ),
                   ),
                   const SizedBox(height: F.s12),
-                  // ---------------------------------------- تفاصيل أكتر
+                  // ------------------------------------ هتبدأ الدوا من إمتى؟
+                  // مكان «تفاصيل أكتر» (الجرعة والمدة والتعليمات بقوا على
+                  // شاشة التعديل بس — الإضافة سؤال واحد أقل).
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        InkWell(
-                          key: const ValueKey('more-toggle'),
-                          onTap: () => setState(() => _moreOpen = !_moreOpen),
-                          borderRadius: BorderRadius.circular(F.radiusTile),
-                          child: SizedBox(
-                            height: F.minTapTarget,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'تفاصيل أكتر',
-                                    style: TextStyle(
-                                      fontSize: F.minBodySize,
-                                      fontWeight: FontWeight.w700,
-                                      color: F.ink,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  _moreOpen ? 'اقفل' : 'افتح',
-                                  style: TextStyle(
-                                    fontSize: F.minTextSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: F.green,
-                                  ),
-                                ),
-                                const SizedBox(width: F.s4),
-                                Icon(_moreOpen ? Icons.expand_less : Icons.expand_more, color: F.green),
-                              ],
+                        const _FieldLabel('هتبدأ الدوا من إمتى؟'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _CompactChip(
+                                key: const ValueKey('start-today'),
+                                label: 'النهارده',
+                                selected: !_startsLater,
+                                onTap: () => setState(() => _startDate = _today),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: F.s8),
+                            Expanded(
+                              child: _CompactChip(
+                                key: const ValueKey('start-later'),
+                                label: 'يوم تاني',
+                                selected: _startsLater,
+                                onTap: _pickStartDate,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (!_moreOpen)
-                          Text(
-                            'الجرعة في المرة، والمدة، وأي تعليمات — كلها اختيارية.',
-                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-                          ),
-                        if (_moreOpen) ...[
-                          const SizedBox(height: F.s12),
-                          const _FieldLabel('الجرعة في المرة (اختياري)'),
-                          _Field(
-                            key: const ValueKey('amount-field'),
-                            controller: _amount,
-                            hint: 'زي: قرص واحد',
-                          ),
-                          const SizedBox(height: F.gap),
-                          const _FieldLabel('المدة'),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: AnchorChip(
-                                  label: 'مفتوحة',
-                                  selected: _openEnded,
-                                  onTap: () => setState(() => _openEnded = true),
-                                ),
-                              ),
-                              const SizedBox(width: F.s8),
-                              Expanded(
-                                child: AnchorChip(
-                                  label: 'أيام محددة',
-                                  selected: !_openEnded,
-                                  onTap: () => setState(() => _openEnded = false),
-                                ),
-                              ),
-                            ],
-                          ),
+                        if (_startsLater) ...[
                           const SizedBox(height: F.s10),
-                          if (!_openEnded)
-                            FNumberWheel(
-                              key: const ValueKey('days-wheel'),
-                              value: _days,
-                              min: 1,
-                              max: 90,
-                              unit: 'يوم',
-                              semanticsLabel: 'المدة بالأيام',
-                              onChanged: (value) => setState(() => _days = value),
-                            )
-                          else
-                            Text(
-                              'التذكير هيفضل شغال لحد ما توقفه بنفسك.',
-                              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
-                            ),
-                          const SizedBox(height: F.gap),
-                          const _FieldLabel('تعليمات (اختياري)'),
-                          _Field(
-                            key: const ValueKey('instructions-field'),
-                            controller: _instructions,
-                            hint: 'زي: مع كوباية مية كاملة',
-                            multiline: true,
+                          Text(
+                            'هيبدأ يوم ${arabicDate(_startDate)} — مفيش تذكير قبلها.',
+                            key: const ValueKey('start-date-line'),
+                            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                           ),
                         ],
                       ],
@@ -800,29 +778,22 @@ class _Field extends StatelessWidget {
     required this.hint,
     this.mono = false,
     this.autofocus = false,
-    this.multiline = false,
     this.onChanged,
-    super.key,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool mono;
   final bool autofocus;
-
-  /// سطور — والزرار على الكيبورد «سطر جديد» مش «تم».
-  final bool multiline;
   final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) => TextField(
-        textInputAction: multiline ? TextInputAction.newline : TextInputAction.next,
+        textInputAction: TextInputAction.next,
         controller: controller,
         autofocus: autofocus,
         onChanged: onChanged,
-        maxLines: multiline ? 3 : 1,
-        minLines: multiline ? 2 : 1,
-        keyboardType: multiline ? TextInputType.multiline : null,
+        maxLines: 1,
         style: TextStyle(
           fontSize: F.minBodySize,
           fontFamily: mono ? F.monoFamily : null,

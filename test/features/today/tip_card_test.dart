@@ -30,7 +30,7 @@ void main() {
     final body = tester.widget<Text>(find.byKey(const ValueKey('tip-text')));
     expect(title.data, 'معلومة تهمك');
     expect(title.style!.fontSize!, greaterThan(body.style!.fontSize!));
-    expect(title.style!.fontWeight!.index, greaterThan(body.style!.fontWeight!.index));
+    expect(title.style!.fontWeight!.value, greaterThan(body.style!.fontWeight!.value));
     expect(body.style!.fontSize!, greaterThanOrEqualTo(F.minTextSize));
     expect(find.text('معلومة ليك'), findsNothing);
   });

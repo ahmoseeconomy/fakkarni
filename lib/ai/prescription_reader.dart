@@ -279,7 +279,7 @@ First, read the paper's own header — these three are about the prescription, n
 - issuedAt: the date written on the paper, as "YYYY-MM-DD".
 If one of them is not written on the paper, return value null with confidence 1. A missing one is NOT an error and must never be guessed or filled from today's date.
 
-For each medication line return: name (as written, keep Latin drug names in Latin), amount (e.g. "قرص واحد", "1 tablet", "5 ml"), timing, durationDays.
+For each medication line return: name (as written, keep Latin drug names in Latin), amount (e.g. "قرص واحد", "1 tablet", "5 ml"), timing, durationDays, instructions.
 
 Timing rules:
 - Prefer meal-relative timing: anchor ∈ {wake, breakfast, lunch, dinner, sleep}, relation ∈ {before, after, at}, offsetMinutes only if a number of minutes is written.
@@ -287,7 +287,9 @@ Timing rules:
 - Set clockTime "HH:MM" (24h) ONLY if an explicit clock time is written on the paper.
 - If timing is unclear, illegible, or "when needed": leave anchor, clockTime and timesPerDay null, set a low confidence, and set note to "مش متأكد — اسأل الصيدلي".
 
-durationDays: ONLY if a duration is written. If not written, value must be null with confidence 1 — a missing duration is not an error.
+durationDays: ONLY if a duration is written ("لمدة ٧ أيام" → 7, "for 5 days" → 5). "اليوم فقط" / "مرة واحدة" / "single dose" means one day → 1. If not written, value must be null with confidence 1 — a missing duration is not an error.
+
+instructions: a handling note written on the line that is neither timing nor amount (e.g. "مع كوباية مية كاملة", "بعد الأكل مباشرة", "ماتاخدوش على معدة فاضية"), copied as written. If none is written, value must be null with confidence 1. Never invent one.
 
 confidence is 0..1 for each field based on legibility. Below 0.8 means a human must check it.
 Do not add, remove, rename or substitute any medication. Do not give medical advice.

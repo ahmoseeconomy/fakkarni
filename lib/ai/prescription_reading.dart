@@ -41,10 +41,15 @@ class ReadLine {
     required this.amount,
     required this.timings,
     required this.duration,
+    this.instructions = const ReadField(value: null, confidence: 1),
   });
 
   final ReadField<String> name;
   final ReadField<String> amount;
+
+  /// تعليمات مكتوبة على السطر («مع كوباية مية كاملة») — مش توقيت ولا
+  /// جرعة. مش مكتوبة = null بثقة كاملة، زي رأس الورقة.
+  final ReadField<String> instructions;
 
   /// جرعة أو أكتر في اليوم — كل واحدة مرساة + إزاحة، أو ساعة ثابتة لو
   /// الورقة كاتبة ساعة بالحرف.
@@ -125,6 +130,7 @@ class PrescriptionReading {
         amount: _string(m['amount']),
         timings: _timings(m['timing']),
         duration: _duration(m['durationDays']),
+        instructions: _headerString(m['instructions']),
       );
 
   /// حقل من ترويسة الورقة: **مش مكتوب ≠ مش متأكد**.
@@ -322,8 +328,9 @@ const Map<String, dynamic> prescriptionSchema = {
             },
             'required': ['confidence'],
           },
+          'instructions': _stringField,
         },
-        'required': ['name', 'amount', 'timing', 'durationDays'],
+        'required': ['name', 'amount', 'timing', 'durationDays', 'instructions'],
       },
     },
   },

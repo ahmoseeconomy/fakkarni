@@ -176,6 +176,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   const SizedBox(height: F.s8),
                   for (final entry in group.entries) ...[
                     _MedCard(
+                      today: widget.today ?? DateTime.now(),
                       summary: entry.summary,
                       schedule: entry.schedule,
                       onActions: () => _actions(entry.summary),
@@ -188,7 +189,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                   const _GroupHead(label: 'موقوفة', time: null, muted: true),
                   const SizedBox(height: F.s8),
                   for (final m in stopped) ...[
-                    _MedCard(summary: m, schedule: null, onActions: () => _actions(m), stopped: true),
+                    _MedCard(summary: m, schedule: null, onActions: () => _actions(m), today: widget.today ?? DateTime.now(), stopped: true),
                     const SizedBox(height: F.s8),
                   ],
                 ],
@@ -309,13 +310,24 @@ class _AddCard extends StatelessWidget {
   }
 }
 
+/// دوا بدايته لسه جاية: كل جدوله بيبدأ بعد النهارده.
+bool startsLater(MedicationSummary s, DateTime today) =>
+    s.schedules.isNotEmpty && s.schedules.every((sch) => !sch.isActiveOn(today) && sch.startDate.isAfter(today));
+
+DateTime firstStartDay(MedicationSummary s) =>
+    s.schedules.map((sch) => sch.startDate).reduce((a, b) => a.isBefore(b) ? a : b);
+
 class _MedCard extends StatelessWidget {
   const _MedCard({
     required this.summary,
     required this.schedule,
     required this.onActions,
+    required this.today,
     this.stopped = false,
   });
+
+  /// النهارده — «هيبدأ يوم …» بتتحسب عليه.
+  final DateTime today;
 
   final MedicationSummary summary;
 
@@ -363,6 +375,15 @@ class _MedCard extends StatelessWidget {
                   '${med.amountLabel ?? 'الجرعة مش معروفة'} — $rule',
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
+                if (!stopped && startsLater(summary, today))
+                  Padding(
+                    padding: const EdgeInsets.only(top: F.s4),
+                    child: Text(
+                      'هيبدأ يوم ${arabicDate(firstStartDay(summary))}',
+                      key: ValueKey('starts-later-${med.id}'),
+                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink),
+                    ),
+                  ),
                 if (stopped)
                   Padding(
                     padding: EdgeInsets.only(top: F.s4),

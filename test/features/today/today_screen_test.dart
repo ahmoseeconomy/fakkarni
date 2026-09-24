@@ -588,9 +588,24 @@ void main() {
       expect(find.text('كام مرة في اليوم؟'), findsOneWidget);
       expect(find.text('مع الأكل؟'), findsOneWidget);
       expect(find.text('مواعيد الجرعات'), findsOneWidget);
-      expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠٠ ص'), findsOneWidget);
-      expect(find.text('تفاصيل أكتر'), findsOneWidget);
-      expect(find.text('مفتوحة'), findsNothing, reason: 'المدة جوّه «تفاصيل أكتر» المقفولة');
+      // بكلام البيت، مش كلام الجدول
+      expect(find.text('قبل الفطار بنص ساعة — ٧:٠٠ ص'), findsOneWidget);
+      expect(find.text('الفطار − ٣٠ د — حوالي ٧:٠٠ ص'), findsNothing);
+      // «تفاصيل أكتر» اتشالت من الإضافة — الجرعة والمدة والتعليمات على شاشة التعديل
+      expect(find.text('تفاصيل أكتر'), findsNothing);
+      expect(find.byKey(const ValueKey('amount-field')), findsNothing);
+      expect(find.byKey(const ValueKey('instructions-field')), findsNothing);
+      expect(find.text('مفتوحة'), findsNothing);
+      // ومكانها سؤال واحد: «هتبدأ الدوا من إمتى؟» — النهارده مختارة
+      expect(find.text('هتبدأ الدوا من إمتى؟'), findsOneWidget);
+      expect(find.text('النهارده'), findsOneWidget);
+      expect(find.text('يوم تاني'), findsOneWidget);
+      // وشرايح «مع الأكل» الأربعة بكلمتها كاملة، صفّين
+      for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'ساعة محددة']) {
+        expect(find.text(w), findsOneWidget, reason: w);
+      }
+      expect(tester.getCenter(find.text('قبل الأكل')).dy, lessThan(tester.getCenter(find.text('بعد الأكل')).dy),
+          reason: 'شبكة ٢×٢');
       expect(find.text('كمّل — إمتى؟'), findsNothing, reason: 'مفيش مشي');
       expect(find.byType(TimePickerDialog), findsNothing);
       expect(find.byType(FTimeWheel), findsNothing);
@@ -681,9 +696,9 @@ void main() {
       for (var i = 0; i < 3; i++) {
         expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget);
       }
-      expect(find.text('الفطار — حوالي ٧:٣٠ ص'), findsOneWidget, reason: 'مع الأكل = إزاحة صفر');
-      expect(find.text('الغدا — حوالي ٢:٣٠ م'), findsOneWidget);
-      expect(find.text('العشا — حوالي ٨:٠٠ م'), findsOneWidget);
+      expect(find.text('مع الفطار — ٧:٣٠ ص'), findsOneWidget, reason: 'مع الأكل = إزاحة صفر');
+      expect(find.text('مع الغدا — ٢:٣٠ م'), findsOneWidget);
+      expect(find.text('مع العشا — ٨:٠٠ م'), findsOneWidget);
       // ولا حاجة اتحفظت لسه
       expect(await meds.activeSchedules(services.patientId), isEmpty);
 
@@ -736,8 +751,8 @@ void main() {
       await settle(tester);
 
       // ٨:٠٠ ص + نص يوم الصحيان (٧ → ١١:٣٠ م = ١٦٫٥ ساعة ÷ ٢ = ٨ ساعات و١٥ د) = ٤:١٥ م
-      expect(find.text('ساعة محددة — ٨:٠٠ ص'), findsOneWidget);
-      expect(find.text('ساعة محددة — ٤:١٥ م'), findsOneWidget);
+      expect(find.text('الساعة ٨:٠٠ ص'), findsOneWidget);
+      expect(find.text('الساعة ٤:١٥ م'), findsOneWidget);
       expect(await meds.activeSchedules(services.patientId), isEmpty, reason: 'لسه ما داسش «احفظ»');
       expect(save().onPressed, isNotNull);
 
@@ -747,16 +762,10 @@ void main() {
       expect(saved.map((s) => s.timing).toList(), [FixedTiming(MinuteOfDay.hm(8)), FixedTiming(MinuteOfDay.hm(16, 15))]);
     });
 
-    screenTest('«تفاصيل أكتر» بتفتح الجرعة والمدة والتعليمات، والفاضي بيتحفظ «ما قالش» مش «مش معروفة»', (tester) async {
+    screenTest('من غير «تفاصيل أكتر»: الحفظ بيكتب «ما قالش» مش «مش معروفة»، والمدة مفتوحة، والبداية النهارده', (tester) async {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, 'Concor 5mg');
       await settle(tester);
-      expect(find.byKey(const ValueKey('amount-field')), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('more-toggle')));
-      await settle(tester);
-      expect(find.byKey(const ValueKey('amount-field')), findsOneWidget);
-      expect(find.text('مفتوحة'), findsOneWidget);
-      await tester.enterText(find.byKey(const ValueKey('instructions-field')), 'مع كوباية مية كاملة');
       await tester.tap(find.byKey(const ValueKey('purpose-pressure')));
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('save-medication')));
@@ -767,9 +776,49 @@ void main() {
       expect(row.name, 'Concor 5mg');
       expect(med.amountUnknown, isFalse, reason: 'فاضي يدوي = ما قالش');
       expect(med.amountLabel, isNull);
-      expect(med.instructions, 'مع كوباية مية كاملة');
+      expect(med.instructions, isNull);
       expect(med.purpose, 'pressure');
-      expect((await meds.activeSchedules(services.patientId)).single.durationDays, isNull);
+      final schedule = (await meds.activeSchedules(services.patientId)).single;
+      expect(schedule.durationDays, isNull);
+      expect(schedule.startDate, aug31);
+    });
+
+    screenTest('«يوم تاني» بيفتح منتقي التاريخ، وبداية جاية بتتكتب على الجدول وبتتقال في الفورم', (tester) async {
+      await pumpAdd(tester);
+      await tester.tap(find.byKey(const ValueKey('start-later')));
+      await settle(tester);
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.text('رجوع'));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('start-date-line')), findsNothing, reason: 'رجع من غير اختيار = النهارده');
+
+      // بداية جاية من مسوّدة (نفس السكّة اللي المنتقي بيكتب فيها)
+      await tester.pumpWidget(const SizedBox.shrink());
+      tester.view.physicalSize = const Size(1000, 3000);
+      await tester.pumpWidget(
+        AppScope(
+          services: services,
+          child: MaterialApp(
+            theme: F.light,
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: AddMedicationScreen(
+                routine: normalDay,
+                today: aug31,
+                initialName: 'Concor 5mg',
+                initialStartDate: DateTime(2026, 9, 3),
+              ),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+      expect(find.text('هيبدأ يوم ٣ سبتمبر ٢٠٢٦ — مفيش تذكير قبلها.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
+      await settle(tester);
+      final schedule = (await meds.activeSchedules(services.patientId)).single;
+      expect(schedule.startDate, DateTime(2026, 9, 3));
+      expect(schedule.isActiveOn(aug31), isFalse, reason: 'ولا تذكير قبل البداية');
     });
 
     screenTest('الوضعين جنب بعض فوق في المحرّر، والمرساة هي المختارة أولاً', (tester) async {

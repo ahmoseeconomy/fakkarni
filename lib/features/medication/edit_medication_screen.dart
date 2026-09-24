@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -29,6 +30,9 @@ class EditMedicationScreen extends StatefulWidget {
 
 class _EditMedicationScreenState extends State<EditMedicationScreen> {
   final _amount = TextEditingController();
+  final _instructions = TextEditingController();
+  bool _openEnded = true;
+  int _days = 7;
   Stream<MedicationRow?>? _medication;
   List<DoseSchedule> _schedules = const [];
   DayRoutine _routine = DayRoutine.fallback;
@@ -66,9 +70,23 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     if (mounted) setState(() => _routine = _routine.withAnchor(anchor, time));
   }
 
+  bool _durationSeeded = false;
+
   Future<void> _loadSchedules() async {
     final s = await AppScope.of(context).medications.schedulesFor(widget.medicationId);
-    if (mounted) setState(() => _schedules = s);
+    if (!mounted) return;
+    setState(() {
+      _schedules = s;
+      // المدة بتيجي مع الجداول (مش مع صف الدوا) — بتتعبّى مرة، أول ما توصل
+      if (!_durationSeeded) {
+        _durationSeeded = true;
+        final days = s.map((x) => x.durationDays).whereType<int>();
+        if (days.isNotEmpty) {
+          _openEnded = false;
+          _days = days.first.clamp(1, 90);
+        }
+      }
+    });
   }
 
   /// «عدّل» على جرعة: محرّر الجرعة بتوقيتها الحالي، والحفظ بيغيّر الصف
@@ -188,6 +206,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
   @override
   void dispose() {
     _amount.dispose();
+    _instructions.dispose();
     super.dispose();
   }
 
@@ -198,6 +217,11 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     final navigator = Navigator.of(context);
 
     await services.medications.updateAmount(widget.medicationId, _amount.text);
+    await services.medications.updateDetails(
+      widget.medicationId,
+      instructions: _instructions.text,
+      durationDays: _openEnded ? null : _days,
+    );
     // نص التذكير فيه الجرعة — لازم يتعاد بناؤه بالنص الجديد.
     await services.scheduler.rescheduleAll();
 
@@ -237,6 +261,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
             if (!_seeded) {
               _seeded = true;
               _amount.text = med.amountLabel ?? '';
+              _instructions.text = med.instructions ?? '';
             }
 
             return Column(
@@ -299,6 +324,75 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         style: const TextStyle(fontSize: F.minBodySize),
                         decoration: InputDecoration(
                           hintText: 'زي: قرص واحد',
+                          hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                          filled: true,
+                          fillColor: F.fieldGround,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(F.radius),
+                            borderSide: BorderSide(color: F.line),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: F.gap),
+                      // المدة والتعليمات هنا بس — «ضيف دوا» ما بتسألش عنهم
+                      Text(
+                        'المدة',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AnchorChip(
+                              key: const ValueKey('duration-open'),
+                              label: 'مفتوحة',
+                              selected: _openEnded,
+                              onTap: () => setState(() => _openEnded = true),
+                            ),
+                          ),
+                          const SizedBox(width: F.s8),
+                          Expanded(
+                            child: AnchorChip(
+                              key: const ValueKey('duration-days'),
+                              label: 'أيام محددة',
+                              selected: !_openEnded,
+                              onTap: () => setState(() => _openEnded = false),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: F.s10),
+                      if (!_openEnded)
+                        FNumberWheel(
+                          key: const ValueKey('days-wheel'),
+                          value: _days,
+                          min: 1,
+                          max: 90,
+                          unit: 'يوم',
+                          semanticsLabel: 'المدة بالأيام',
+                          onChanged: (value) => setState(() => _days = value),
+                        )
+                      else
+                        Text(
+                          'التذكير هيفضل شغال لحد ما توقفه بنفسك.',
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+                        ),
+                      const SizedBox(height: F.gap),
+                      Text(
+                        'تعليمات (اختياري)',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        key: const ValueKey('instructions-field'),
+                        textInputAction: TextInputAction.newline,
+                        controller: _instructions,
+                        minLines: 1,
+                        maxLines: 3,
+                        style: const TextStyle(fontSize: F.minBodySize),
+                        decoration: InputDecoration(
+                          hintText: 'زي: مع كوباية مية كاملة',
                           hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                           filled: true,
                           fillColor: F.fieldGround,

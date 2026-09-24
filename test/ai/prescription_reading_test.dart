@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -26,6 +27,51 @@ Map<String, dynamic> med({
     };
 
 void main() {
+  group('التعليمات (الجولة اللي ملت الفورم من الورقة)', () {
+    test('مكتوبة → بتتقرا بثقتها، ومش مكتوبة → null بثقة كاملة مش «محتاج تحديد»', () {
+      final line = PrescriptionReading.fromJson({
+        'medications': [
+          {
+            ...med(
+              name: field('Augmentin 1g', 0.95),
+              amount: field('قرص', 0.9),
+              timing: {'anchor': 'breakfast', 'relation': 'after', 'confidence': 0.9},
+            ),
+            'instructions': field('مع كوباية مية كاملة', 0.9),
+          },
+          {
+            ...med(
+              name: field('Concor 5mg', 0.95),
+              amount: field('قرص', 0.9),
+              timing: {'anchor': 'breakfast', 'relation': 'after', 'confidence': 0.9},
+            ),
+            'instructions': field(null, 1),
+          },
+          med(
+            name: field('Panadol', 0.95),
+            amount: field('قرص', 0.9),
+            timing: {'anchor': 'dinner', 'relation': 'at', 'confidence': 0.9},
+          ),
+        ],
+      }).lines;
+      expect(line[0].instructions.value, 'مع كوباية مية كاملة');
+      expect(line[0].instructions.needsReview, isFalse);
+      expect(line[1].instructions.value, isNull);
+      expect(line[1].instructions.needsReview, isFalse);
+      expect(line[2].instructions.value, isNull, reason: 'مفتاح ناقص خالص = مش مكتوبة');
+      expect(line[2].needsReview, isFalse, reason: 'التعليمات ما بتحجزش «تمام»');
+    });
+
+    test('الـschema بيطلبها كحقل مطلوب بقيمة nullable، والبرومبت بيقول «اليوم فقط» = يوم', () {
+      final item = (prescriptionSchema['properties'] as Map)['medications']['items'] as Map;
+      expect((item['properties'] as Map).containsKey('instructions'), isTrue);
+      expect(item['required'], contains('instructions'));
+      expect(GeminiPrescriptionReader.prompt, contains('instructions'));
+      expect(GeminiPrescriptionReader.prompt, contains('اليوم فقط'));
+      expect(GeminiPrescriptionReader.prompt, contains('Never invent one'));
+    });
+  });
+
   group('قراءة واضحة', () {
     final reading = PrescriptionReading.fromJson({
       'doctor': field('هشام سلام', 0.9),
