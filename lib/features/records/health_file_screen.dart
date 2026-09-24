@@ -12,7 +12,6 @@ import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import '../../data/services/appointment_card.dart';
 import '../../data/services/checkup_service.dart';
-import '../../domain/health/checkup.dart';
 import '../../domain/health/follow_up.dart';
 import '../doctor/doctor_page_screen.dart';
 import 'calendar_screen.dart';
@@ -169,19 +168,14 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
       return;
     }
     final services = AppScope.of(context);
-    final id = await services.checkups.start(
+    // نفس الدالة اللي تغيير الممرض المعلّق بيعدّي منها (٠٠٢٦)
+    await services.checkups.bookAppointment(
       patientId: services.patientId,
       kind: result.kind,
       title: result.title,
+      day: result.day,
       today: today,
     );
-    if (result.kind == FollowKind.lab) {
-      // «معمل» يعني الحجز اتعمل خلاص: بنعدّي «طلب الطبيب» ونحط ميعاد الحجز
-      await services.checkups.advance(id, now: today);
-      await services.checkups.setStageDate(id, CheckupStage.labBooking, day: result.day, now: today);
-    } else {
-      await services.checkups.setStageDate(id, VisitStage.booked, day: result.day, now: today);
-    }
     await services.refreshAppointments(now: today);
   }
 
@@ -453,9 +447,12 @@ class NewAppointmentResult {
 
 /// جسم شيت «ميعاد جديد»: «دكتور ولا معمل؟» ← الاسم (اختياري) ← اليوم ← «احفظ الميعاد».
 class NewAppointmentBody extends StatefulWidget {
-  const NewAppointmentBody({required this.today, super.key});
+  const NewAppointmentBody({required this.today, this.allowFromPaper = true, super.key});
 
   final DateTime today;
+
+  /// «عندي روشتة — ابدأ منها» — للمريض بس؛ الممرض ما عندوش ورق المريض.
+  final bool allowFromPaper;
 
   @override
   State<NewAppointmentBody> createState() => _NewAppointmentBodyState();
@@ -529,9 +526,10 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
             label: 'احفظ الميعاد',
             onPressed: () => Navigator.of(context).pop(NewAppointmentResult(kind: _kind, title: _title, day: _day)),
           ),
-          const SizedBox(height: F.s8),
           // الطرق التلاتة القديمة (من ورقة في الملف / بالصورة / بالإيد) لسه
           // موجودة — من هنا، مش كزرارين على الشاشة الأولى.
+          if (widget.allowFromPaper) ...[
+          const SizedBox(height: F.s8),
           FSecondaryButton(
             key: ValueKey(_kind == FollowKind.visit ? 'start-follow-visit' : 'start-follow-lab'),
             label: _kind == FollowKind.visit ? 'عندي روشتة — ابدأ منها' : 'عندي تقرير — ابدأ منه',
@@ -539,6 +537,7 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
               NewAppointmentResult(kind: _kind, title: _title, day: _day, fromPaper: true),
             ),
           ),
+          ],
         ],
       );
 }

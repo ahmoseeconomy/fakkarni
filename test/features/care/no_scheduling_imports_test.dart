@@ -9,6 +9,9 @@ void main() {
   test('نافذة الابن ما فيهاش ولا استيراد من domain/scheduling', () {
     final files = [
       ...Directory('lib/features/care').listSync(recursive: true),
+      // حساب الممرض (٢٤ سبتمبر ٢٠٢٦): مرآة لتطبيق المريض، بس **برضه ما
+      // بيحلّش مراسي** — تذكيراته بتيجي من أوقات موبايل المريض بالحرف.
+      ...Directory('lib/features/nurse').listSync(recursive: true),
       File('lib/data/care/caregiver_remote.dart'),
       File('lib/data/care/supabase_caregiver_remote.dart'),
     ];

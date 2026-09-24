@@ -13,7 +13,14 @@ import '../scheduling/dose_schedule.dart';
 enum MedicationChangeKind {
   add('ضاف دوا'),
   stop('وقّف دوا'),
-  amount('عدّل جرعة');
+  amount('عدّل جرعة'),
+
+  /// ٠٠٢٦: ورقة في الملف (روشتة/زيارة/تحليل/أشعة) من غير صورة.
+  record('ضاف ورقة'),
+
+  /// ٠٠٢٦: ميعاد دكتور أو معمل — بيبقى متابعة بميعادها وإشعاراتها على
+  /// موبايل المريض، بنفس سكّة «ميعاد جديد».
+  appointment('حط ميعاد');
 
   const MedicationChangeKind(this.verb);
 
@@ -35,7 +42,30 @@ class MedicationChangePayload {
     this.instructions,
     this.alertMode,
     this.startDate,
+    this.recordKind,
+    this.happenedAt,
+    this.doctor,
+    this.place,
+    this.notes,
+    this.followKind,
+    this.day,
   });
+
+  // ---- ورقة/ميعاد (٠٠٢٦)
+  /// اسم نوع السجل المخزّن (`RecordKind.name`) — «ورقة».
+  final String? recordKind;
+
+  /// تاريخ الورقة.
+  final DateTime? happenedAt;
+  final String? doctor;
+  final String? place;
+  final String? notes;
+
+  /// `visit` / `lab` — «ميعاد».
+  final String? followKind;
+
+  /// يوم الميعاد — الساعة بتيجي من صحيان المريض على موبايله.
+  final DateTime? day;
 
   final String? name;
   final List<DoseTiming> timings;
@@ -60,8 +90,17 @@ class MedicationChangePayload {
         'purpose': purpose?.storageName,
         'instructions': instructions,
         'alert_mode': alertMode?.storageName,
-        'start_date': startDate == null ? null : '${startDate!.year}-${_two(startDate!.month)}-${_two(startDate!.day)}',
+        'start_date': _date(startDate),
+        if (recordKind != null) 'record_kind': recordKind,
+        if (happenedAt != null) 'happened_at': _date(happenedAt),
+        if (doctor != null) 'doctor': doctor,
+        if (place != null) 'place': place,
+        if (notes != null) 'notes': notes,
+        if (followKind != null) 'follow_kind': followKind,
+        if (day != null) 'day': _date(day),
       };
+
+  static String? _date(DateTime? d) => d == null ? null : '${d.year}-${_two(d.month)}-${_two(d.day)}';
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 
@@ -81,7 +120,15 @@ class MedicationChangePayload {
       }
     }
     final start = json['start_date'];
+    DateTime? date(Object? v) => v is String ? DateTime.tryParse(v) : null;
     return MedicationChangePayload(
+      recordKind: json['record_kind'] as String?,
+      happenedAt: date(json['happened_at']),
+      doctor: json['doctor'] as String?,
+      place: json['place'] as String?,
+      notes: json['notes'] as String?,
+      followKind: json['follow_kind'] as String?,
+      day: date(json['day']),
       name: json['name'] as String?,
       timings: timings,
       amountLabel: json['amount'] as String?,
@@ -127,6 +174,21 @@ enum ChangeOutcome { applied, conflict, missing }
 String medicationChangeNotice(String? actorName, MedicationChangeKind kind, String medicationName) {
   final who = (actorName?.trim().isEmpty ?? true) ? 'حد بيتابعك' : actorName!.trim();
   return '$who ${kind.verb} $medicationName';
+}
+
+/// اللي الجملة بتتكلم عنه: اسم الدوا، أو عنوان الورقة، أو «زيارة/معمل
+/// {الاسم}» للميعاد — عمره ما يقول «دوا» عن ميعاد.
+String changeSubject(MedicationChange change) {
+  final name = change.payload.name?.trim();
+  switch (change.kind) {
+    case MedicationChangeKind.appointment:
+      final what = change.payload.followKind == 'lab' ? 'معمل' : 'زيارة';
+      return name == null || name.isEmpty ? what : '$what $name';
+    case MedicationChangeKind.record:
+      return name == null || name.isEmpty ? 'ورقة' : name;
+    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount:
+      return (name == null || name.isEmpty) ? (change.medicationName ?? 'دوا') : name;
+  }
 }
 
 /// تعديل الأب المحلي بيكسب: لو الدوا اتعدّل على الموبايل **بعد** ما الممرض

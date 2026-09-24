@@ -10,9 +10,14 @@ import '../core/widgets/dark_mode_toggle.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
-import '../features/care/caregiver_mirror_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
+import '../data/care/caregiver_remote.dart' show CaregiverPatient;
+import '../features/nurse/nurse_controller.dart';
+import '../features/nurse/nurse_header.dart';
+import '../features/nurse/nurse_medications_screen.dart';
+import '../features/nurse/nurse_records_screen.dart';
+import '../features/nurse/nurse_today_screen.dart';
 import '../features/care/onboarding/caregiver_onboarding_screen.dart';
 import '../features/care/onboarding/onboarding_gate.dart';
 import '../features/care/caregiver_snapshot_holder.dart';
@@ -185,9 +190,10 @@ class CaregiverShell extends StatefulWidget {
   /// بتتزاحم مع شاشة «هو كويس؟» في آخرها. بنفس اسم وأيقونة تبويب الأب.
   static const tabs = ['متابعة', 'الأدوية', 'السجل', 'الإعدادات'];
 
-  /// الممرض/المرافق (٠٠٢٣): «مرآة» مكان «متابعة» — يوم المريض زي ما هو
-  /// بيشوفه، والتأكيد بداله. باقي التبويبات هي هي.
-  static const nurseTabs = ['مرآة', 'الأدوية', 'السجل', 'الإعدادات'];
+  /// **حساب الممرض (٢٤ سبتمبر ٢٠٢٦، قرار المالك): مرآة كاملة لتطبيق
+  /// المريض** — «يومك» و«أدويته» و«السجل» بمقاسات المريض، وترويسة ثابتة
+  /// «بتتابع: {اسم}» فوق كل شاشة. مش متابع بصلاحيات زيادة.
+  static const nurseTabs = ['يومك', 'أدويته', 'السجل', 'الإعدادات'];
 
   /// تبويبات البيانات — السؤال الدوري شغّال وواحد منهم ظاهر.
   static const dataTabs = {0, 1, 2};
@@ -201,6 +207,10 @@ class _CaregiverShellState extends State<CaregiverShell> {
 
   /// صورة واحدة للتبويبين (D5.2): سحبة واحدة لكل تحديث، مش سحبة لكل تبويب.
   CaregiverSnapshotHolder? _holder;
+
+  /// أفعال الممرض — بتتبني مع الحامل، وبتتستخدم بس لو المريض المختار
+  /// علاقته «ممرض».
+  NurseController? _nurse;
 
   @override
   void didChangeDependencies() {
@@ -221,6 +231,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
     )
       ..addListener(_onSnapshot)
       ..setActive(CaregiverShell.dataTabs.contains(_tab));
+    _nurse = NurseController(holder: _holder!, services: AppScope.of(context));
   }
 
   /// **الشِل بيسمع للصورة عشان البوابة تعرف المريض.**
@@ -282,6 +293,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
   @override
   void dispose() {
     _holder?.removeListener(_onSnapshot);
+    _nurse?.dispose();
     _holder?.dispose();
     super.dispose();
   }
@@ -312,14 +324,12 @@ class _CaregiverShellState extends State<CaregiverShell> {
     }
 
     final isNurse = patient?.isNurse ?? false;
+    if (isNurse) return _nurseApp(holder, patient);
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: _tab,
         children: [
-          if (isNurse)
-            CaregiverMirrorScreen(holder: holder, now: widget.now)
-          else
           CaregiverScreen(
             remote: holder.remote,
             now: widget.now,
@@ -335,9 +345,9 @@ class _CaregiverShellState extends State<CaregiverShell> {
       bottomNavigationBar: keyboardIsUp(context)
           ? null
           : _TabBar(
-        labels: isNurse ? CaregiverShell.nurseTabs : CaregiverShell.tabs,
+        labels: CaregiverShell.tabs,
         icons: [
-          isNurse ? Icons.flip_outlined : Icons.visibility_outlined,
+          Icons.visibility_outlined,
           Icons.medication_outlined,
           Icons.folder_outlined,
           Icons.settings_outlined,
@@ -346,6 +356,39 @@ class _CaregiverShellState extends State<CaregiverShell> {
         current: _tab,
         onSelect: _select,
       ),
+    );
+  }
+
+  /// **تطبيق الممرض** — تطبيق المريض بداتا المريض: «يومك» / «أدويته» /
+  /// «السجل» بمقاسات المريض، و«بتتابع: {اسم}» ثابتة فوق كل تبويب بيانات.
+  Widget _nurseApp(CaregiverSnapshotHolder holder, CaregiverPatient? patient) {
+    final nurse = _nurse!;
+    return Scaffold(
+      extendBody: true,
+      appBar: _tab == 3 ? null : NurseHeader(holder: holder),
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          NurseTodayScreen(controller: nurse, now: widget.now),
+          NurseMedicationsScreen(controller: nurse, now: widget.now),
+          NurseRecordsScreen(controller: nurse, now: widget.now),
+          Scaffold(body: SafeArea(child: CaregiverSettingsScreen(patient: patient))),
+        ],
+      ),
+      bottomNavigationBar: keyboardIsUp(context)
+          ? null
+          : _TabBar(
+              labels: CaregiverShell.nurseTabs,
+              icons: const [
+                Icons.today_outlined,
+                Icons.medication_outlined,
+                Icons.folder_outlined,
+                Icons.settings_outlined,
+              ],
+              gapForAdd: false,
+              current: _tab,
+              onSelect: _select,
+            ),
     );
   }
 }

@@ -6,7 +6,12 @@ import '../../core/diagnostics.dart';
 import '../../domain/care/medication_change.dart';
 import '../care/medication_changes.dart';
 import '../db/app_database.dart';
+import '../../domain/health/follow_up.dart';
+import '../db/tables.dart' show RecordKind;
 import '../repositories/medication_repository.dart';
+import '../repositories/records_repository.dart';
+import '../services/appointment_scheduler.dart';
+import '../services/checkup_service.dart';
 import '../repositories/routine_repository.dart';
 import '../services/reminder_scheduler.dart';
 
@@ -80,11 +85,7 @@ class MedicationChangePuller {
         }
         if (outcome == ChangeOutcome.applied) {
           applied++;
-          lines.add(medicationChangeNotice(
-            change.actorName,
-            change.kind,
-            change.payload.name ?? change.medicationName ?? 'دوا',
-          ));
+          lines.add(medicationChangeNotice(change.actorName, change.kind, changeSubject(change)));
         }
         diag('MedChange: ${change.kind.name} ${change.medicationName ?? change.payload.name ?? ''} → ${outcome.name}');
       }
@@ -103,6 +104,44 @@ class MedicationChangePuller {
 
   Future<ChangeOutcome> _apply(MedicationChange change) async {
     switch (change.kind) {
+      case MedicationChangeKind.record:
+        // ٠٠٢٦: ورقة من غير صورة — نفس سكّة «اكتب ورقة بإيدك»
+        final p = change.payload;
+        final kind = RecordKind.values.asNameMap()[p.recordKind];
+        final title = p.name?.trim() ?? '';
+        if (kind == null || title.isEmpty) return ChangeOutcome.missing;
+        final today = clock();
+        await RecordsRepository(db).add(
+          patientId: patientId,
+          kind: kind,
+          title: title,
+          happenedAt: p.happenedAt ?? DateTime(today.year, today.month, today.day),
+          doctor: _blankToNull(p.doctor),
+          place: _blankToNull(p.place),
+          notes: _blankToNull(p.notes),
+        );
+        return ChangeOutcome.applied;
+      case MedicationChangeKind.appointment:
+        // ٠٠٢٦: نفس «ميعاد جديد» بالظبط — المتابعة وميعادها وإشعاراتها
+        final p = change.payload;
+        final kind = FollowKind.fromStored(p.followKind);
+        final day = p.day;
+        if (day == null) return ChangeOutcome.missing;
+        final today = clock();
+        await CheckupService(db, scheduler.sink).bookAppointment(
+          patientId: patientId,
+          kind: kind,
+          title: p.name?.trim() ?? '',
+          day: day,
+          doctor: _blankToNull(p.doctor),
+          today: DateTime(today.year, today.month, today.day),
+        );
+        try {
+          await AppointmentScheduler(db: db, patientId: patientId, sink: scheduler.sink).refresh(now: today);
+        } catch (error) {
+          diag('MedChange: إشعارات الميعاد ما اتجدولتش — التذكيرات مش متأثرة ($error)');
+        }
+        return ChangeOutcome.applied;
       case MedicationChangeKind.add:
         final p = change.payload;
         final name = p.name?.trim() ?? '';
@@ -147,6 +186,8 @@ class MedicationChangePuller {
         return ChangeOutcome.applied;
     }
   }
+
+  static String? _blankToNull(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
 
   Future<void> _remember(List<String> lines) async {
     final merged = [...lines, ...notices.value].take(maxNotices).toList();

@@ -141,6 +141,28 @@ class CheckupService {
     return {for (final r in rows) ?r.followSourceId};
   }
 
+  /// **«ميعاد جديد» في مكان واحد** — زرار المريض وتغيير الممرض المعلّق
+  /// بيعدّوا من هنا، فالاتنين بيعملوا نفس المتابعة بنفس الميعاد ونفس
+  /// الإشعارات. معمل = الحجز اتعمل خلاص (بنعدّي «طلب الطبيب»)؛ زيارة =
+  /// «الزيارة اتحجزت». المُنادي بينده `refreshAppointments` بعدها.
+  Future<int> bookAppointment({
+    required int patientId,
+    required FollowKind kind,
+    required String title,
+    required DateTime day,
+    required DateTime today,
+    String? doctor,
+  }) async {
+    final id = await start(patientId: patientId, kind: kind, title: title, doctor: doctor, today: today);
+    if (kind == FollowKind.lab) {
+      await advance(id, now: today);
+      await setStageDate(id, CheckupStage.labBooking, day: day, now: today);
+    } else {
+      await setStageDate(id, VisitStage.booked, day: day, now: today);
+    }
+    return id;
+  }
+
   Future<void> advance(int id, {DateTime? now}) async {
     final row = await _row(id);
     final kind = kindOf(row);

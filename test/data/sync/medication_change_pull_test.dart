@@ -134,4 +134,46 @@ void main() {
     expect(remote.marked, containsAll([('c-amount', ChangeOutcome.applied), ('c-missing', ChangeOutcome.missing)]));
     expect(await puller().pull(), 0);
   });
+
+  test('٠٠٢٦: ميعاد من الممرض → متابعة زيارة بميعادها وإشعاراتها على موبايل الأب، والجملة بتسمّيه', () async {
+    remote.pending.add(change('c-appt', MedicationChangeKind.appointment,
+        payload: MedicationChangePayload(name: 'د. حسام', followKind: 'visit', day: DateTime(2026, 9, 18))));
+    expect(await puller().pull(), 1);
+    final row = (await db.select(db.records).get()).single;
+    expect(row.followKind, 'visit');
+    expect(row.checkupStage, isNotNull);
+    expect(row.doctorVisitAt, isNotNull, reason: 'الميعاد اتحط على المرحلة');
+    expect(row.doctorVisitAt!.day, 18);
+    expect(sink.scheduled.keys.where(isAppointmentId), isNotEmpty, reason: 'إشعارات الميعاد اتجدولت على موبايله');
+    expect(MedicationChangePuller.notices.value.single, 'سارة حط ميعاد زيارة د. حسام');
+    expect(remote.marked, [('c-appt', ChangeOutcome.applied)]);
+  });
+
+  test('٠٠٢٦: ورقة من الممرض → سجل من غير صورة بنوعه وتاريخه', () async {
+    remote.pending.add(change('c-rec', MedicationChangeKind.record,
+        payload: MedicationChangePayload(
+          name: 'كشف القلب',
+          recordKind: 'visit',
+          happenedAt: DateTime(2026, 9, 14),
+          doctor: 'د. سامي',
+          notes: '',
+        )));
+    expect(await puller().pull(), 1);
+    final row = (await db.select(db.records).get()).single;
+    expect(row.title, 'كشف القلب');
+    expect(row.kind.name, 'visit');
+    expect(row.happenedAt, DateTime(2026, 9, 14));
+    expect(row.doctor, 'د. سامي');
+    expect(row.notes, isNull, reason: 'فاضي = مش مكتوب');
+    expect(row.attachmentPath, isNull);
+    expect(MedicationChangePuller.notices.value.single, 'سارة ضاف ورقة كشف القلب');
+  });
+
+  test('٠٠٢٦: ورقة من غير عنوان أو نوع مش معروف → missing، ومفيش سجل', () async {
+    remote.pending.add(change('c-bad', MedicationChangeKind.record,
+        payload: const MedicationChangePayload(name: 'x', recordKind: 'weird')));
+    expect(await puller().pull(), 0);
+    expect(await db.select(db.records).get(), isEmpty);
+    expect(remote.marked, [('c-bad', ChangeOutcome.missing)]);
+  });
 }
