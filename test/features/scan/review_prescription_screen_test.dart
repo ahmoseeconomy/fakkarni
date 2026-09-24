@@ -397,8 +397,10 @@ void main() {
       await h.pump(tester, const HealthFileScreen());
       await settle(tester);
 
-      // الملف بقى مداخل: المدخل بيبان، والدوسة عليه بتوري الكارت
-      expect(find.byType(RecordsEmpty), findsNothing, reason: 'الملف مش فاضي');
+      // «السجل»: الورقة على السكة، ومدخل نوعها ورا «فلتر»
+      expect(find.byKey(const ValueKey('papers-empty')), findsNothing, reason: 'الملف مش فاضي');
+      await tester.tap(find.byKey(const ValueKey('records-filter')));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('kind-entry-prescription')));
       await settle(tester);
       // الكارت بيعرض العنوان والسطر التعريفي — أسامي الأدوية في `notes`

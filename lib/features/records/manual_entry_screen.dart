@@ -187,7 +187,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('إدخال يدوي')),
+      appBar: AppBar(title: const Text('اكتب ورقة بإيدك')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
@@ -195,7 +195,10 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             spacing: F.s8,
             runSpacing: F.s8,
             children: [
+              // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «السجل» وبيعمل
+              // تذكيره. الصفوف القديمة من النوع ده بتتعرض زي ما هي.
               for (final k in RecordKind.values)
+                if (k != RecordKind.booking)
                 AnchorChip(
                   key: ValueKey('kind-${k.name}'),
                   label: k.label,

@@ -4,6 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
+import 'package:fakkarni/data/services/checkup_service.dart';
+import 'package:fakkarni/data/services/reminder_plan.dart';
+import 'package:fakkarni/domain/health/checkup.dart';
+import 'package:fakkarni/domain/health/follow_up.dart';
 import 'package:fakkarni/features/records/health_file_screen.dart';
 import 'package:fakkarni/features/records/history_screen.dart';
 import 'package:fakkarni/features/records/manual_entry_screen.dart';
@@ -34,7 +38,7 @@ void main() {
   }
 
   group('الإدخال اليدوي (المخطط ٢٨)', () {
-    screenTest('خمس استمارات، كل واحدة بحقولها — والتحليل بيتحفظ بالحرف', (tester) async {
+    screenTest('أربع استمارات، كل واحدة بحقولها — والتحليل بيتحفظ بالحرف', (tester) async {
       await h.pump(tester, ManualEntryScreen(today: sep14));
       await settle(tester);
 
@@ -52,10 +56,9 @@ void main() {
       expect(find.textContaining('ده للتسجيل بس'), findsOneWidget);
       expect(find.byKey(const ValueKey('record-place')), findsNothing, reason: 'الروشتة مالهاش مكان');
 
-      await tester.tap(find.byKey(const ValueKey('kind-booking')));
-      await settle(tester);
-      expect(find.textContaining('مش هيفكّرك بيه'), findsOneWidget);
-      expect(find.text('بكرة'), findsOneWidget);
+      // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «السجل» وبيعمل تذكيره
+      expect(find.byKey(const ValueKey('kind-booking')), findsNothing);
+      expect(find.text('اكتب ورقة بإيدك'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('kind-lab')));
       await settle(tester);
@@ -81,13 +84,103 @@ void main() {
     });
   });
 
-  group('الملف الصحي (المخطط ١٣)', () {
-    screenTest('فاضي → «لسه مفيش حاجة هنا» بهدوء وبيقول إزاي تضيف', (tester) async {
+  group('«السجل» — تلات أقسام', () {
+    screenTest('فاضي → كل قسم بيقول تعمل إيه، ومفيش سبع زرارات', (tester) async {
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      expect(find.text('لسه مفيش حاجة هنا'), findsOneWidget);
-      expect(find.textContaining('+ ضيف'), findsWidgets);
+      expect(find.text('السجل'), findsOneWidget);
+      for (final head in ['مواعيدك الجاية', 'أوراقك', 'للدكتور']) {
+        expect(find.text(head), findsOneWidget, reason: head);
+      }
+      expect(find.byKey(const ValueKey('appointments-empty')), findsOneWidget);
+      expect(find.textContaining('دوس «ميعاد جديد» ونفكّرك'), findsOneWidget);
+      expect(find.byKey(const ValueKey('papers-empty')), findsOneWidget);
+      expect(find.textContaining('صوّر روشتة أو تحليل من «ضيف»'), findsOneWidget);
+      expect(find.text('ميعاد جديد'), findsOneWidget, reason: 'زرار أساسي واحد');
+      for (final old in ['الحالات السابقة', 'صفحة الطبيب', 'استخراج الملف', 'تابع تحليل', 'تابع زيارة', '+ ضيف']) {
+        expect(find.text(old), findsNothing, reason: old);
+      }
       expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('«ميعاد جديد» → «دكتور» → يوم → «احفظ الميعاد»: متابعة زيارة بتذكيرها، والصف في «مواعيدك الجاية»', (tester) async {
+      await h.pump(tester, HealthFileScreen(today: sep14));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('new-appointment')));
+      await settle(tester);
+      expect(find.text('دكتور ولا معمل؟'), findsOneWidget);
+      // «دكتور» مختار من الأول، و«بكرة» هي اليوم الافتراضي
+      await tester.enterText(find.byKey(const ValueKey('new-appt-name')), 'د. منى');
+      await tester.tap(find.byKey(const ValueKey('new-appt-save')));
+      await settle(tester);
+
+      final follow = (await repo().all(h.services.patientId)).single;
+      expect(CheckupService.kindOf(follow), FollowKind.visit);
+      expect(CheckupService.stageOf(follow), VisitStage.booked);
+      expect(follow.doctorVisitAt, isNotNull, reason: 'الميعاد اتكتب — فالتذكير موجود');
+      expect(DateTime(follow.doctorVisitAt!.year, follow.doctorVisitAt!.month, follow.doctorVisitAt!.day), DateTime(2026, 9, 15));
+      expect(find.byKey(ValueKey('upcoming-${follow.id}-1')), findsOneWidget);
+      expect(find.textContaining('زيارة الدكتور — بكرة'), findsOneWidget);
+      expect(find.byKey(const ValueKey('appointments-empty')), findsNothing);
+      expect(h.sink.scheduled.keys.any(isAppointmentId), isTrue, reason: 'إشعار الميعاد اتجدول');
+    });
+
+    screenTest('«ميعاد جديد» → «معمل»: متابعة تحليل واقفة عند «حجز المعمل» بميعادها', (tester) async {
+      await h.pump(tester, HealthFileScreen(today: sep14));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('new-appointment')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('new-appt-lab')));
+      await settle(tester);
+      await tester.tap(find.text('بعد بكرة'));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('new-appt-save')));
+      await settle(tester);
+
+      final follow = (await repo().all(h.services.patientId)).single;
+      expect(CheckupService.kindOf(follow), FollowKind.lab);
+      expect(CheckupService.stageOf(follow), CheckupStage.labBooking);
+      expect(follow.title, 'تحليل', reason: 'من غير اسم = «تحليل»، مش اسم مخترع');
+      expect(follow.labBookingAt, isNotNull);
+      expect(find.textContaining('ميعاد المعمل — بعد بكرة'), findsOneWidget);
+    });
+
+    screenTest('حجز قديم بميعاد جاي بيظهر في «مواعيدك الجاية» مع «فكّرني بيه» — والقديم اللي فات ورقة عادية', (tester) async {
+      final future = await add(RecordKind.booking, 'كشف عيون', DateTime(2026, 9, 20), doctor: 'د. سامي');
+      final past = await add(RecordKind.booking, 'كشف قديم', DateTime(2026, 9, 1));
+      await h.pump(tester, HealthFileScreen(today: sep14));
+      await settle(tester);
+
+      expect(find.byKey(ValueKey('legacy-booking-$future')), findsOneWidget);
+      expect(find.byKey(ValueKey('legacy-booking-$past')), findsNothing);
+      expect(find.byKey(ValueKey('record-$past')), findsOneWidget, reason: 'اللي فات ورقة في «أوراقك»');
+      expect(find.text('فكّرني بيه'), findsOneWidget);
+
+      await tester.tap(find.text('فكّرني بيه'));
+      await settle(tester);
+      final follow = (await repo().all(h.services.patientId)).firstWhere((r) => r.checkupStage != null);
+      expect(CheckupService.kindOf(follow), FollowKind.visit);
+      expect(follow.followSourceId, future);
+      expect(follow.doctor, 'د. سامي');
+      expect(DateTime(follow.doctorVisitAt!.year, follow.doctorVisitAt!.month, follow.doctorVisitAt!.day), DateTime(2026, 9, 20));
+      // الحجز القديم اتغطّى بالمتابعة — مش بيتعرض مرتين
+      expect(find.byKey(ValueKey('legacy-booking-$future')), findsNothing);
+      expect(find.byKey(ValueKey('upcoming-${follow.id}-1')), findsOneWidget);
+    });
+
+    screenTest('«أوراقك»: كل الأنواع مع بعض، الأحدث فوق، وعنوان لكل يوم — والزيارة وروشتتها جنب بعض', (tester) async {
+      await seed();
+      await add(RecordKind.prescription, 'روشتة الباطنة', DateTime(2026, 3, 2), doctor: 'د. هشام مام');
+      await h.pump(tester, HealthFileScreen(today: sep14));
+      await settle(tester);
+
+      double y(String t) => tester.getTopLeft(find.text(t)).dy;
+      expect(y('أشعة صدر'), lessThan(y('HbA1c')));
+      expect(y('HbA1c'), lessThan(y('باطنة')));
+      // عنوان اليوم مرة واحدة للزيارة وروشتتها
+      expect(find.byKey(const ValueKey('day-head-2026-3-2')), findsOneWidget);
+      expect(find.text('٢ مارس ٢٠٢٦'), findsOneWidget);
+      expect(find.text('روشتة الباطنة'), findsOneWidget);
     });
 
     screenTest('البحث بالاسم والدكتور والتاريخ (عربي أو إنجليزي)', (tester) async {
@@ -114,7 +207,7 @@ void main() {
       expect(find.text('مفيش حاجة بالكلام ده'), findsOneWidget);
     });
 
-    screenTest('الملف بيفرّج وبيتابع — مفيش زرار إضافة عليه', (tester) async {
+    screenTest('الملف بيفرّج وبيتابع — مفيش زرار إضافة عليه، والأنواع ورا «فلتر»', (tester) async {
       await seed();
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
@@ -122,12 +215,14 @@ void main() {
       // «صوّر تقرير تحليل» كانت هنا وهي أصلاً في شيت «ضيف»
       expect(find.text('صوّر تقرير تحليل'), findsNothing);
       expect(find.text('قيس السكر'), findsNothing);
-      expect(find.text('إدخال يدوي'), findsNothing);
-      // واللي بيفتح الملف بيلاقي **مداخله** بعددها — مش لفّة على كل حاجة
+      expect(find.text('اكتب ورقة بإيدك'), findsNothing);
+      // «فلتر»: مدخل لكل نوع بعدده
+      await tester.tap(find.byKey(const ValueKey('records-filter')));
+      await settle(tester);
       expect(find.byKey(const ValueKey('kind-entry-imaging')), findsOneWidget);
       expect(find.byKey(const ValueKey('kind-entry-lab')), findsOneWidget);
       expect(find.byKey(const ValueKey('kind-entry-visit')), findsOneWidget);
-      expect(find.text('أشعة'), findsOneWidget);
+      expect(find.byKey(const ValueKey('filter-history')), findsOneWidget);
       // والمدخل بيفتح قايمته
       await tester.tap(find.byKey(const ValueKey('kind-entry-imaging')));
       await settle(tester);
@@ -140,11 +235,8 @@ void main() {
       await add(RecordKind.visit, 'باطنة', DateTime(2026, 8, 20));
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      // الملف بقى مداخل — الصفوف جوّه قايمة النوع
-      await tester.tap(find.byKey(const ValueKey('kind-entry-lab')));
-      await settle(tester);
-
-      expect(find.text('⋯ خيارات'), findsOneWidget, reason: 'مش أيقونة لوحدها');
+      // الصفوف على سكة «أوراقك» نفسها — نفس الكارت بكل اللي بيعمله
+      expect(find.text('⋯ خيارات'), findsNWidgets(2), reason: 'مش أيقونة لوحدها — صف لكل ورقة');
 
       // «لأ، سيبه» ما بيمسحش
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
@@ -241,7 +333,7 @@ void main() {
 
       // الباب الوحيد للملف الصحي: تبويب الدوك. صف الإعدادات اتشال —
       // بابين لأوضة واحدة بيخلّي المستخدم يشك إنهم حاجتين.
-      await tester.tap(find.text('الملف').last);
+      await tester.tap(find.text('السجل').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
     });

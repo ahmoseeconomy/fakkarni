@@ -30,7 +30,7 @@ void main() {
   // مش زرار بيكتب في بيانات الأب. أي كلمة تانية قابلة للدوس غلط.
   const allowedTaps = {
     'متابعة',
-    'الملف الصحي',
+    'السجل',
     'الإعدادات',
     'الأدوية',
     'تسجيل الخروج',
@@ -185,7 +185,7 @@ void main() {
     }
     expect(tappableTexts(tester).difference(allowedTaps), isEmpty);
 
-    await tester.tap(find.text('الملف الصحي'));
+    await tester.tap(find.text('السجل'));
     await settle(tester);
     expect(find.byKey(const ValueKey('emergency-facts')), findsOneWidget);
     // الملف بقى مداخل: المحتوى جوّه قايمة كل مدخل

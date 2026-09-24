@@ -54,6 +54,16 @@ void main() {
     await settle(tester);
   }
 
+  /// «السجل» → «ميعاد جديد» → النوع → «عندي ورقة» = نفس الطرق التلاتة القديمة.
+  Future<void> startFollow(WidgetTester tester, String kind) async {
+    await tester.tap(find.byKey(const ValueKey('new-appointment')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('new-appt-$kind')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('start-follow-$kind')));
+    await settle(tester);
+  }
+
   group('مراحل الزيارة — تلاتة وبس', () {
     test('مفيش تحضير ولا انتظار ولا سحب عينة في الزيارة', () {
       expect(VisitStage.values.map((s) => s.label), [
@@ -83,8 +93,7 @@ void main() {
       final source = await prescriptionInFile();
       await openFile(tester);
 
-      await tester.tap(find.byKey(const ValueKey('start-follow-visit')));
-      await settle(tester);
+      await startFollow(tester, 'visit');
       await tester.tap(find.byKey(const ValueKey('follow-from-file')));
       await settle(tester);
       await tester.tap(find.byKey(ValueKey('follow-source-$source')));
@@ -112,8 +121,7 @@ void main() {
       final source = await labReportInFile();
       await openFile(tester);
 
-      await tester.tap(find.byKey(const ValueKey('start-follow-lab')));
-      await settle(tester);
+      await startFollow(tester, 'lab');
       await tester.tap(find.byKey(const ValueKey('follow-from-file')));
       await settle(tester);
       await tester.tap(find.byKey(ValueKey('follow-source-$source')));
@@ -141,8 +149,7 @@ void main() {
       );
       await openFile(tester);
 
-      await tester.tap(find.byKey(const ValueKey('start-follow-visit')));
-      await settle(tester);
+      await startFollow(tester, 'visit');
       await tester.tap(find.byKey(const ValueKey('follow-from-file')));
       await settle(tester);
       expect(find.text('متابَع خلاص — افتح المتابعة'), findsOneWidget);
@@ -162,8 +169,7 @@ void main() {
     screenTest('من غير اسم دكتور على الورقة بنقول كده — مش بنخترع اسم', (tester) async {
       final source = await prescriptionInFile(doctor: null);
       await openFile(tester);
-      await tester.tap(find.byKey(const ValueKey('start-follow-visit')));
-      await settle(tester);
+      await startFollow(tester, 'visit');
       await tester.tap(find.byKey(const ValueKey('follow-from-file')));
       await settle(tester);
       await tester.tap(find.byKey(ValueKey('follow-source-$source')));
@@ -219,8 +225,7 @@ void main() {
   group('الدخول بالإيد', () {
     screenTest('«تابع زيارة» بالإيد: الاسم هو الدكتور، والمتابعة بتبدأ عند «اتحجزت»', (tester) async {
       await openFile(tester);
-      await tester.tap(find.byKey(const ValueKey('start-follow-visit')));
-      await settle(tester);
+      await startFollow(tester, 'visit');
       await tester.tap(find.byKey(const ValueKey('follow-by-hand')));
       await settle(tester);
       await tester.enterText(find.byKey(const ValueKey('checkup-title')), 'د. منى');

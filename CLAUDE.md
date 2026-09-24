@@ -3432,7 +3432,7 @@ device-verified)**
   linked; the transparency the father was owed, on his first screen.
   Every line addresses the account owner: the mockup's «ملف والدك» is the
   son's screen, and that is a separate round.
-- **The dock is «اليوم · الأدوية · الملف · الإعدادات»**, floating,
+- **The dock is «اليوم · الأدوية · السجل · الإعدادات»** (the third tab was «الملف» until the «السجل» round), floating,
   fully rounded and translucent glass (blur 30, the ground at 55%, a light
   rim on top) — and **every** tab sits on its own 40px rounded-square tile
   the way macOS dock icons do, the current one filled green with a white
@@ -3843,6 +3843,49 @@ screen — and they are different screens on purpose.**
   no-prompt claim and what Android really does with no picker available —
   the `ContactPickerDenied` mapping is read from the plugin's Kotlin, not
   observed, and it may instead come back as a plain cancel.
+
+**«السجل» — one door, three plain sections** (owner-approved, 24 Sep 2026;
+tester feedback #8 «الملف الصحي معقّد»). The dock tab «الملف» is now «السجل»
+(the son's «الملف الصحي» tab is «السجل» too), and `HealthFileScreen` (same
+file, same class) is one scrolling screen instead of seven equal buttons:
+- **«مواعيدك الجاية»** — every dated follow-up stage
+  (`upcomingAppointments`) as a row that opens its `CheckupScreen`, plus
+  legacy `booking` records with a future date, each with **«فكّرني بيه»**
+  (starts a visit follow-up on that day, `followSourceId` = the booking, so
+  the booking row is then hidden here and stays a paper in «أوراقك»).
+  Empty: «مفيش مواعيد جاية — … دوس «ميعاد جديد» ونفكّرك.» The one primary
+  button is **«ميعاد جديد»** (`NewAppointmentBody` in an `FSheet`): «دكتور
+  ولا معمل؟», an optional name, `DayPicker` (tomorrow by default), «احفظ
+  الميعاد». Under the hood it is the existing follow-up start —
+  `checkups.start` then `setStageDate(VisitStage.booked)`, or for a lab
+  `advance` to «حجز المعمل» then its date — so **a booking can no longer be
+  saved without its reminder**: the «حجز» kind is gone from «اكتب ورقة
+  بإيدك» (the renamed manual entry), the enum value stays for old rows. The
+  three old ways (from a paper in the file / a new photo / by hand) survive
+  as «عندي روشتة — ابدأ منها» / «عندي تقرير — ابدأ منه» inside the sheet
+  (keys `start-follow-visit` / `start-follow-lab`, then the unchanged
+  `askStartWay`). No scheduling change: `appointment_guard_test` and the
+  scheduler tests are untouched and green.
+- **«أوراقك»** — a small search field with «فلتر» and «التقويم» beside it,
+  then **one timeline of every kind, newest first, with a heading per day**
+  (`RecordRowCard`, so photo / «⋯ خيارات» / rename / delete are the same
+  rows). «فلتر» opens a sheet with one entry per kind and its count (the old
+  `kind-entry-<kind>` keys, opening `RecordsOfKindScreen`) and «كل الأوراق
+  بالفترة» (`HistoryScreen`). Empty: «لسه مفيش أوراق — صوّر روشتة أو تحليل
+  من «ضيف»…». Adding stays behind the «ضيف» sheet only.
+- **«للدكتور»** — one entry card to `DoctorPageScreen` (title «للدكتور»),
+  which now **hides empty sections** and on a fresh phone shows one line,
+  «لما تصوّر روشتة أو تحليل من «ضيف» هيظهر هنا», above «أسئلة العيلة» and
+  the new **«اطبع أو ابعت الملف»** button (`ExportScreen` moved inside; it is
+  no longer a peer on the hub).
+Tap counts after the change: (a) remind me of Tuesday's visit — «السجل»,
+«ميعاد جديد», «يوم تاني», the day, «تمام», «احفظ الميعاد» = **6 taps, 1
+screen + a sheet** (was 9 taps / 5 screens, or a 6-tap «حجز» that reminded
+nothing); (b) keep a lab and show it — 6 to keep (unchanged) + «السجل»,
+«للدكتور» = **2 to show**; (c) everything from the last visit — «السجل» and
+scroll: **1 tap**, the visit and its prescription under one day heading.
+Emergency stays in the top bar and Settings; every old screen keeps its file
+and its tests (paths updated where the hub changed).
 
 **D3.5 — records (built)**
 - Schema v11 `records` (SyncIdentity columns + trigger; pushed since D5.1,

@@ -296,7 +296,12 @@ void main() {
       (tester) async {
         await h.pump(tester, HealthFileScreen(today: sep15));
         await settle(tester);
-        await tester.tap(find.text('تابع تحليل'));
+        // «ميعاد جديد» → «معمل» → «عندي تقرير» → الطرق التلاتة القديمة
+        await tester.tap(find.byKey(const ValueKey('new-appointment')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('new-appt-lab')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('start-follow-lab')));
         await settle(tester);
         // تلات طرق دلوقتي — دي بتاعة الكتابة بالإيد
         await tester.tap(find.byKey(const ValueKey('follow-by-hand')));
@@ -320,7 +325,9 @@ void main() {
         );
         await tester.pageBack();
         await settle(tester);
-        // الملف بقى مداخل — المتابعة سجل `lab`، فجوّه مدخل التحاليل
+        // المتابعة سجل `lab` — مدخل التحاليل ورا «فلتر»
+        await tester.tap(find.byKey(const ValueKey('records-filter')));
+        await settle(tester);
         await tester.tap(find.byKey(const ValueKey('kind-entry-lab')));
         await settle(tester);
         expect(find.textContaining('متابعة تحليل — ١ من ٧'), findsOneWidget);

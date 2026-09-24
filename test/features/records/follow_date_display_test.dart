@@ -90,11 +90,13 @@ void main() {
       await wide(tester);
       await h.pump(tester, HealthFileScreen(today: now));
       await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('records-filter')));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('kind-entry-visit')));
       await settle(tester);
 
       expect(find.textContaining('بكرة'), findsWidgets);
-      expectNoPaperDate(tester, 'الملف الصحي');
+      expectNoPaperDate(tester, 'السجل');
     });
 
     screenTest('«يومك»: المتابعة اللي مالهاش ميعاد بتقول كده بالحرف', (tester) async {

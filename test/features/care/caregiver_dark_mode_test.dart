@@ -235,10 +235,10 @@ void main() {
     expect(find.text('قرص واحد — الفطار − ٣٠ د'), findsOneWidget);
     expectReadable(tester, 'الأدوية');
 
-    await tester.tap(find.text('الملف الصحي'));
+    await tester.tap(find.text('السجل'));
     await settle(tester);
     expect(find.byKey(const ValueKey('care-entry-questions')), findsOneWidget);
-    expectReadable(tester, 'الملف الصحي');
+    expectReadable(tester, 'السجل');
 
     await tester.tap(find.byKey(const ValueKey('care-entry-questions')));
     await settle(tester);

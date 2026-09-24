@@ -15,6 +15,7 @@ import '../../data/repositories/medication_repository.dart';
 import '../../data/repositories/visit_questions_repository.dart';
 import '../../domain/health/glucose_summary.dart';
 import '../../domain/health/lab_range.dart';
+import '../export/export_screen.dart';
 import '../health/lab_flag.dart';
 import '../health/usual_words.dart'
     show GlucoseContextWords, arabicDecimal, labFlagWord, labNoRangeText, labRangeText;
@@ -193,7 +194,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
     final sub = TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ملخص زيارة الطبيب')),
+      appBar: AppBar(title: const Text('للدكتور')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
@@ -204,11 +205,21 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
               style: sub,
             ),
           const SizedBox(height: F.s10),
+          // **الأقسام الفاضية مش بتتعرض** — خمس لوحات فاضية على موبايل جديد
+          // بتقول «مفيش» خمس مرات. لو مفيش حاجة خالص: سطر واحد بيقول تعمل إيه.
+          if (_meds.isEmpty && _byDoctor.isEmpty && recent.isEmpty && _labs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: F.s12),
+              child: Text(
+                'لما تصوّر روشتة أو تحليل من «ضيف» هيظهر هنا',
+                key: const ValueKey('doctor-fresh'),
+                style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+              ),
+            ),
+          if (_meds.isNotEmpty)
           _Section(
             title: 'الأدوية الحالية',
-            children: _meds.isEmpty
-                ? [Text('مفيش أدوية متسجّلة', style: sub)]
-                : [
+            children: [
                     for (final m in _meds)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: F.s4),
@@ -232,11 +243,10 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                       ),
                   ],
           ),
+          if (_byDoctor.isNotEmpty)
           _Section(
             title: 'الزيارات والروشتات',
-            children: _byDoctor.isEmpty
-                ? [Text('مفيش زيارات ولا روشتات متسجّلة', style: sub)]
-                : [
+            children: [
                     for (final (doctor, visits) in _byDoctor)
                       Container(
                         key: ValueKey('doctor-group-${doctor ?? 'مجهول'}'),
@@ -269,10 +279,10 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                       ),
                   ],
           ),
+          if (recent.isNotEmpty)
           _Section(
             title: 'القياسات — آخر ${arabicNumber(30)} يوم',
             children: [
-              if (recent.isEmpty) Text('مفيش قياسات سكر في آخر ٣٠ يوم', style: sub),
               for (final c in GlucoseContext.values)
                 if (GlucoseStats.of([for (final r in recent) if (r.context == c) r.valueMgDl]) case final st?)
                   Container(
@@ -292,11 +302,10 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                   ),
             ],
           ),
+          if (_labs.isNotEmpty)
           _Section(
             title: 'التحاليل الأخيرة',
-            children: _labs.isEmpty
-                ? [Text('مفيش تحاليل متسجّلة', style: sub)]
-                : [
+            children: [
                     for (final l in _labs)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: F.s4),
@@ -393,6 +402,15 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                 onPressed: _newQuestion.text.trim().isEmpty ? null : _addQuestion,
               ),
             ],
+          ),
+          // «استخراج الملف» جوّه «للدكتور» — ده اللي بتاخده معاك، مش زرار
+          // سابع على الشاشة الأولى.
+          FSecondaryButton(
+            key: const ValueKey('doctor-export'),
+            label: 'اطبع أو ابعت الملف',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ExportScreen()),
+            ),
           ),
         ],
       ),

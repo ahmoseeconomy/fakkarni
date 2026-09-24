@@ -69,6 +69,9 @@ void main() {
   /// «الملف الصحي» بقى مداخل: الدوسة على المدخل بتفتح قايمة النوع، وهي
   /// اللي فيها صفوف السجلات بكل اللي بتعمله (مسح، صورة، متابعة).
   Future<void> openKind(WidgetTester tester, String kind) async {
+    // «السجل»: المداخل بالنوع ورا كلمة «فلتر» — دوسة واحدة زيادة
+    await tester.tap(find.byKey(const ValueKey('records-filter')));
+    await settle(tester);
     await tester.tap(find.byKey(ValueKey('kind-entry-$kind')));
     await settle(tester);
   }
@@ -184,8 +187,8 @@ void main() {
       );
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      // المدخل نفسه بيبان بعدده، والدوسة بتفتح قايمته
-      expect(find.byKey(const ValueKey('kind-entry-visit')), findsOneWidget);
+      // الورقة على السكة، وقايمة نوعها ورا «فلتر»
+      expect(find.byKey(ValueKey('record-$id')), findsOneWidget);
       await openKind(tester, 'visit');
 
       expect(find.text('باطنة'), findsOneWidget);

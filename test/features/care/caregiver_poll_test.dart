@@ -108,7 +108,7 @@ void main() {
     final remote = await pumpShell(tester);
 
     final before = remote.calls;
-    await tester.tap(find.text('الملف الصحي'));
+    await tester.tap(find.text('السجل'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(remote.calls, before + 1, reason: 'دخل تبويب بيانات → صورة طازة');

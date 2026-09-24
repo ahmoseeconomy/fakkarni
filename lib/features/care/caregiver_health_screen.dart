@@ -67,7 +67,7 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
     final holder = widget.holder;
     final snapshot = holder.snapshot;
     return Scaffold(
-      appBar: careAppBar('الملف الصحي'),
+      appBar: careAppBar('السجل'),
       body: SafeArea(
         child: RefreshIndicator(
           color: F.green,

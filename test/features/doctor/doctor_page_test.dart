@@ -93,10 +93,18 @@ void main() {
     );
   });
 
-  screenTest('مفيش زيارات → جملة هادية، مش قسم فاضي', (tester) async {
+  screenTest('موبايل جديد → سطر واحد، مش خمس لوحات فاضية — والأسئلة و«اطبع» فاضلين', (tester) async {
     await h.pump(tester, DoctorPageScreen(now: () => sep14));
     await settle(tester);
-    expect(find.text('مفيش زيارات ولا روشتات متسجّلة'), findsOneWidget);
+    expect(find.text('للدكتور'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-fresh')), findsOneWidget);
+    expect(find.text('لما تصوّر روشتة أو تحليل من «ضيف» هيظهر هنا'), findsOneWidget);
+    for (final head in ['الأدوية الحالية', 'الزيارات والروشتات', 'التحاليل الأخيرة']) {
+      expect(find.text(head), findsNothing, reason: 'قسم فاضي ما بيتعرضش: $head');
+    }
+    expect(find.text('مفيش زيارات ولا روشتات متسجّلة'), findsNothing);
+    expect(find.text('أسئلة العيلة'), findsOneWidget);
+    expect(find.byKey(const ValueKey('doctor-export')), findsOneWidget);
   });
 
   screenTest('سجل اتمسح مش بيظهر في ملخص الدكتور', (tester) async {
@@ -108,6 +116,7 @@ void main() {
     await settle(tester);
 
     expect(find.text('د. هشام مام'), findsNothing);
-    expect(find.text('مفيش زيارات ولا روشتات متسجّلة'), findsOneWidget);
+    expect(find.text('الزيارات والروشتات'), findsNothing, reason: 'ولا قسم فاضي');
+    expect(find.byKey(const ValueKey('doctor-fresh')), findsOneWidget);
   });
 }

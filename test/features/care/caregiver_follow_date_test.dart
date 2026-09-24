@@ -255,7 +255,7 @@ void main() {
       }
 
       check('متابعة');
-      for (final tab in ['الأدوية', 'الملف الصحي']) {
+      for (final tab in ['الأدوية', 'السجل']) {
         await tester.tap(find.text(tab));
         await settle(tester);
         check(tab);
