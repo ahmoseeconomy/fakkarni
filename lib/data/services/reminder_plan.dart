@@ -279,6 +279,25 @@ int? repeatIndexOf(int id) {
 
 bool isRepeatId(int id) => repeatIndexOf(id) != null;
 
+/// ------------------------------------------------------------------
+/// **تذكيرات الممرض** (٢٤ سبتمبر ٢٠٢٦) — على **موبايل الممرض** بس، عن
+/// جرعات مريض (أو أكتر) بيتابعه. رقم لكل (مريض، دقيقة) — مشتق من الخانة
+/// زي الجرعة بالظبط، و[patientIndex] هنا ترتيب المريض عند الممرض (< ١٢٨).
+///
+/// **مش** في [isRescheduledId]: إعادة جدولة المريض عمرها ما بتلمسه، ومجدول
+/// الممرض بيلغي من النطاق ده بس. على موبايل المريض النطاق ده فاضي دايماً.
+const int nurseIdBase = 180000000;
+const int nurseIdLimit = nurseIdBase + maxPatients * patientIdSpan;
+
+int nurseIdFor(DateTime at, {required int patientIndex}) => nurseIdBase + _patientSlot(at, patientIndex);
+
+bool isNurseId(int id) => id >= nurseIdBase && id < nurseIdLimit;
+
+/// سقف تذكيرات الممرض المعلّقة. موبايل الممرض مالوش جرعات بتاعته (الجذر
+/// بيفتح تطبيق المريض لو فيه مريض محلي)، فالسقف ده + مواعيد المريض عنده
+/// (٤ أيام × ٢) تحت ٦٤ بمسافة.
+const int maxPendingNurseReminders = 40;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
 /// ومكان التأجيل والصيام والمتابعة وإعادة التنبيه:
 /// ٦٤ − ٢٤ − ٢ − ٢ − ٢ − ٢٠ = ١٤.

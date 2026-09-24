@@ -11,6 +11,7 @@ import '../../domain/care/follower_profile.dart';
 import 'onboarding/caregiver_onboarding_screen.dart';
 import 'caregiver_ui.dart';
 import '../billing/family_plan_screen.dart';
+import '../nurse/nurse_reminders.dart';
 import '../selfcheck/health_check_screen.dart';
 
 /// «الإعدادات» عند الابن (D4) — الحساب واللغة وبس.
@@ -19,7 +20,16 @@ import '../selfcheck/health_check_screen.dart';
 /// الملف الصحي، الطوارئ، قريب منك) بتخص مريض على الموبايل ده، والابن مش
 /// مريض. صف بيفتح على حاجة مالهاش معنى أوحش من صف مش موجود.
 class CaregiverSettingsScreen extends StatefulWidget {
-  const CaregiverSettingsScreen({this.patient, super.key});
+  const CaregiverSettingsScreen({
+    this.patient,
+    this.nurseReminders = false,
+    this.onNurseRemindersChanged,
+    super.key,
+  });
+
+  /// ٢٤ سبتمبر ٢٠٢٦: حساب الممرض بيشوف «فكّرني بمواعيده» هنا. المتابع لأ.
+  final bool nurseReminders;
+  final VoidCallback? onNurseRemindersChanged;
 
   /// المريض المربوط — منه الـuuid اللي التفضيلات متعلّقة بيه.
   /// null قبل ما أول صورة توصل: الصف ساعتها ما بيظهرش.
@@ -122,6 +132,10 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             ),
           ),
           const SizedBox(height: F.careRowGap),
+          if (widget.nurseReminders) ...[
+            _NurseRemindersRow(onChanged: widget.onNurseRemindersChanged),
+            const SizedBox(height: F.s12),
+          ],
           CareCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,5 +309,68 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
             ),
           ),
         ],
+      );
+}
+
+
+/// «فكّرني بمواعيده» — مفتوح افتراضياً. صف بكلمة جنبه («شغّال»/«مقفول»)
+/// زي الوضع الليلي، مش Switch. القفل بيلغي تذكيرات الممرض كلها على الموبايل
+/// ده — ومفيش أي تذكير للمريض على الموبايل ده أصلاً يتلمس.
+class _NurseRemindersRow extends StatefulWidget {
+  const _NurseRemindersRow({this.onChanged});
+
+  final VoidCallback? onChanged;
+
+  @override
+  State<_NurseRemindersRow> createState() => _NurseRemindersRowState();
+}
+
+class _NurseRemindersRowState extends State<_NurseRemindersRow> {
+  bool _on = true;
+
+  @override
+  void initState() {
+    super.initState();
+    NurseReminders.isEnabled().then((on) {
+      if (mounted) setState(() => _on = on);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => CareCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          key: const ValueKey('nurse-remind-toggle'),
+          onTap: () async {
+            final next = !_on;
+            setState(() => _on = next);
+            await NurseReminders.setEnabled(next);
+            widget.onChanged?.call();
+          },
+          child: Container(
+            constraints: const BoxConstraints(minHeight: F.careTapTarget),
+            padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s8),
+            child: Row(
+              children: [
+                Icon(Icons.alarm_outlined, size: 18, color: F.green),
+                const SizedBox(width: F.s10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('فكّرني بمواعيده',
+                          style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                      Text('الموبايل ده بيرن في ميعاد كل جرعة',
+                          style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+                    ],
+                  ),
+                ),
+                Text(_on ? 'شغّال' : 'مقفول',
+                    key: const ValueKey('nurse-remind-state'),
+                    style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: _on ? F.green : F.mutedDark)),
+              ],
+            ),
+          ),
+        ),
       );
 }

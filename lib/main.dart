@@ -23,6 +23,7 @@ import 'data/billing/iap_store_purchases.dart';
 import 'data/billing/subscription_service.dart';
 import 'data/sync/medication_change_pull.dart';
 import 'data/testhook/test_hook.dart';
+import 'features/nurse/nurse_reminders.dart';
 import 'core/notifications/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
@@ -69,8 +70,11 @@ Future<void> main() async {
     );
     if (launched != null) {
       diag('Notif: رد الإطلاق زرار — action=${launched.actionId}');
-      // نفس الباب اللي الـisolate بينادي عليه بالظبط
-      await door(launched.actionId, launched.payload);
+      // زرار الممرض محتاج السحابة — بيتعالج تحت بعد ما تتبني، مش هنا
+      if (!NotificationActions.isNurseAction(launched.actionId)) {
+        // نفس الباب اللي الـisolate بينادي عليه بالظبط
+        await door(launched.actionId, launched.payload);
+      }
     }
   } catch (error, stack) {
     diag('التذكيرات مقدرتش تتهيّأ عند الفتح: $error\n$stack');
@@ -143,6 +147,14 @@ Future<void> main() async {
   final actions = actionHandlerFor(services);
   NotificationService.onAction =
       (action, payload) => actions.handle(action, payload);
+
+  // **زرار الممرض — باب لوحده.** «أكّد إنه أخدها» على تذكير الممرض =
+  // تأكيد نيابةً للسحابة، وعمره ما بيعدّي على معالج «أخدته» بتاع المريض.
+  NotificationService.onNurseAction =
+      (id, payload) => unawaited(confirmFromNurseNotification(services, id, payload));
+  if (launched != null && NotificationActions.isNurseAction(launched.actionId)) {
+    unawaited(confirmFromNurseNotification(services, launched.id, launched.payload));
+  }
 
   // الجرعة اللي اتكتبت فوق لسه متوسّخة — المزامنة اتبنت بعديها. دفعة
   // واحدة دلوقتي بتوصّلها للسحابة قبل ما السيرفر يوصل لمهلته ويصحّي الابن

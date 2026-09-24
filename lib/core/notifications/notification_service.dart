@@ -22,6 +22,15 @@ abstract final class NotificationActions {
   static const snoozeLabel = 'فكّرني بعدين';
 
   static bool isAction(String? id) => id == taken || id == snooze;
+
+  /// **زرار الممرض** (٢٤ سبتمبر ٢٠٢٦) — على موبايل الممرض، عن جرعة مريض.
+  /// باب لوحده عن قصد: [isAction] ما بيشملوش، فعمره ما يوصل معالج «أخدته»
+  /// بتاع المريض. وبيفتح التطبيق (مش في الخلفية): التأكيد نيابةً محتاج
+  /// السحابة والجلسة.
+  static const nurseConfirm = 'nurse_confirm';
+  static const nurseConfirmLabel = 'أكّد إنه أخدها';
+
+  static bool isNurseAction(String? id) => id == nurseConfirm;
 }
 
 /// بيتنده في الخلفية لما المستخدم يدوس زرار على الإشعار.
@@ -51,6 +60,9 @@ class NotificationService {
   /// للخلفية حتى والتطبيق مفتوح. لو وصلت هنا برضه، بنعالجها بدل ما نضيّعها.
   static void Function(String actionId, String? payload)? onAction;
 
+  /// زرار «أكّد إنه أخدها» على تذكير الممرض — بخدمات التطبيق الكاملة.
+  static void Function(int? id, String? payload)? onNurseAction;
+
   /// الردود اللي اتعالجت خلاص — عشان رد واحد ما يتحسبش مرتين.
   ///
   /// نفس الدوسة ممكن توصل من بابين: رد الإطلاق اللي
@@ -79,7 +91,7 @@ class NotificationService {
   static NotificationResponse? applyLaunchResponse(
       NotificationResponse? response) {
     if (response == null) return null;
-    if (!NotificationActions.isAction(response.actionId)) {
+    if (!NotificationActions.isAction(response.actionId) && !NotificationActions.isNurseAction(response.actionId)) {
       lastPayload.value = response.payload;
       return null;
     }
@@ -220,6 +232,31 @@ class NotificationService {
     ],
   );
 
+  /// فئة تذكير الممرض على iOS — زرار واحد، **بيفتح التطبيق** (`foreground`).
+  static final _nurseCategory = DarwinNotificationCategory(
+    'fakkarni_nurse',
+    actions: [
+      DarwinNotificationAction.plain(
+        NotificationActions.nurseConfirm,
+        NotificationActions.nurseConfirmLabel,
+        options: {DarwinNotificationActionOption.foreground},
+      ),
+    ],
+  );
+
+  /// قناة تذكيرات الممرض على أندرويد — نغمة الجرعة، ولوحدها عشان الممرض
+  /// يتحكّم فيها من غير ما يلمس أي حاجة تانية.
+  static const nurseChannelId = 'fakkarni_nurse_doses';
+
+  static const _nurseChannel = AndroidNotificationChannel(
+    nurseChannelId,
+    'مواعيد أدوية اللي بتتابعه',
+    description: 'تذكير بمواعيد جرعات المريض على موبايل الممرض',
+    importance: Importance.max,
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound(doseSoundResource),
+  );
+
   /// [onBackgroundAction] لازم يكون دالة عليا معلّمة `@pragma('vm:entry-point')`
   /// — بتتنفذ في isolate منفصل والتطبيق ممكن يكون مقفول خالص.
   ///
@@ -243,7 +280,7 @@ class NotificationService {
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
-          notificationCategories: [_doseCategory],
+          notificationCategories: [_doseCategory, _nurseCategory],
         ),
       ),
       onDidReceiveNotificationResponse: _onTap,
@@ -256,6 +293,7 @@ class NotificationService {
       await android?.deleteNotificationChannel(channelId: retired);
     }
     await android?.createNotificationChannel(_doseChannel);
+    await android?.createNotificationChannel(_nurseChannel);
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -297,6 +335,11 @@ class NotificationService {
     if (NotificationActions.isAction(action) && onAction != null) {
       // نفس الرد ممكن يكون اتعالج خلاص من رد الإطلاق
       if (claimResponse(response)) onAction!(action!, response.payload);
+      return;
+    }
+    // الممرض: باب لوحده — عمره ما يعدّي على معالج جرعات المريض
+    if (NotificationActions.isNurseAction(action)) {
+      if (claimResponse(response)) onNurseAction?.call(response.id, response.payload);
       return;
     }
     lastPayload.value = response.payload;
@@ -498,6 +541,55 @@ class NotificationService {
           // نسخة Debug/Profile على الجهاز ما بتثبتش الجزء ده.
           interruptionLevel: InterruptionLevel.timeSensitive,
           categoryIdentifier: _doseCategory.identifier,
+          sound: doseSoundFile,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
+  }
+
+  /// **تذكير الممرض بجرعة مريض** — نغمة الجرعة (القناة والإشعار)، وزرار
+  /// واحد «أكّد إنه أخدها» بيفتح التطبيق. **مالوش فئة الجرعة ولا أزرارها**:
+  /// «أخدته» على موبايل الممرض كانت هتسجّل جرعة في قاعدة الممرض الفاضية.
+  static Future<void> scheduleNurseDose({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime at,
+    required String payload,
+    bool insistent = true,
+  }) async {
+    await init();
+    final when = tz.TZDateTime.from(at, tz.local);
+    if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _nurseChannel.id,
+          _nurseChannel.name,
+          channelDescription: _nurseChannel.description,
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          sound: const RawResourceAndroidNotificationSound(doseSoundResource),
+          additionalFlags: insistent ? Int32List.fromList([androidFlagInsistent]) : null,
+          category: AndroidNotificationCategory.reminder,
+          actions: const [
+            AndroidNotificationAction(
+              NotificationActions.nurseConfirm,
+              NotificationActions.nurseConfirmLabel,
+              showsUserInterface: true,
+            ),
+          ],
+        ),
+        iOS: DarwinNotificationDetails(
+          interruptionLevel: InterruptionLevel.timeSensitive,
+          categoryIdentifier: _nurseCategory.identifier,
           sound: doseSoundFile,
         ),
       ),

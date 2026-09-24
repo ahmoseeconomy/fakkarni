@@ -16,7 +16,9 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/care/medication_change.dart';
+import 'package:fakkarni/data/services/nurse_reminder_plan.dart';
 import 'package:fakkarni/features/nurse/nurse_records_screen.dart';
+import 'package:fakkarni/features/nurse/nurse_reminders.dart';
 import 'package:fakkarni/features/nurse/nurse_widgets.dart';
 
 import '../../app/root_test.dart' show SilentSink;
@@ -82,6 +84,16 @@ class _Changes implements MedicationChangeRemote {
   Future<List<MedicationChange>> pendingFor(String patientUuid) async => List.of(pending);
   @override
   Future<void> markApplied(String changeUuid, ChangeOutcome outcome) async {}
+}
+
+class _NoDevice implements NurseReminderSink {
+  final scheduled = <NurseNotification>[];
+  @override
+  Future<void> schedule(NurseNotification n) async => scheduled.add(n);
+  @override
+  Future<void> cancel(int id) async {}
+  @override
+  Future<Set<int>> pendingIds() async => {};
 }
 
 void main() {
@@ -167,7 +179,7 @@ void main() {
       child: MaterialApp(
         theme: F.light,
         builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
-        home: CaregiverShell(onNotLinked: () {}, now: now),
+        home: CaregiverShell(onNotLinked: () {}, now: now, nurseSink: _NoDevice()),
       ),
     ));
     await settle(tester);

@@ -12,11 +12,12 @@ import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
-import '../data/care/caregiver_remote.dart' show CaregiverPatient;
+import '../data/care/caregiver_remote.dart' show CaregiverPatient, MultiPatientRemote;
 import '../features/nurse/nurse_controller.dart';
 import '../features/nurse/nurse_header.dart';
 import '../features/nurse/nurse_medications_screen.dart';
 import '../features/nurse/nurse_records_screen.dart';
+import '../features/nurse/nurse_reminders.dart';
 import '../features/nurse/nurse_today_screen.dart';
 import '../features/care/onboarding/caregiver_onboarding_screen.dart';
 import '../features/care/onboarding/onboarding_gate.dart';
@@ -178,7 +179,10 @@ class _AppShellState extends State<AppShell> {
 /// على شاشة فاضية). المتابعة للقراية بس — أي زرار بيغيّر بيانات الأب مش
 /// موجود هنا خالص (`caregiver_shell_test` بيمشي على الشجرة ويثبت ده).
 class CaregiverShell extends StatefulWidget {
-  const CaregiverShell({required this.onNotLinked, this.now, super.key});
+  const CaregiverShell({required this.onNotLinked, this.now, this.nurseSink, super.key});
+
+  /// جهاز تذكيرات الممرض — null = الحقيقي (Flutter Local Notifications).
+  final NurseReminderSink? nurseSink;
 
   /// السحابة قالت «مفيش مريض مربوط» → الجذر يرجّع لشاشة البداية.
   final VoidCallback onNotLinked;
@@ -232,6 +236,27 @@ class _CaregiverShellState extends State<CaregiverShell> {
       ..addListener(_onSnapshot)
       ..setActive(CaregiverShell.dataTabs.contains(_tab));
     _nurse = NurseController(holder: _holder!, services: AppScope.of(context));
+    _nurseReminders = NurseReminders(
+      sink: widget.nurseSink ?? const DeviceNurseReminderSink(),
+      remote: remote is MultiPatientRemote ? remote as MultiPatientRemote : null,
+      clock: widget.now == null ? null : () => widget.now!,
+    );
+  }
+
+  NurseReminders? _nurseReminders;
+
+  /// «فكّرني بمواعيده» — بعد كل صورة. المتابع العادي ما بيجدولش حاجة هنا.
+  void _syncNurseReminders() {
+    final holder = _holder;
+    final reminders = _nurseReminders;
+    if (holder == null || reminders == null) return;
+    final anyNurse = holder.patients.any((p) => p.isNurse) || (holder.snapshot?.patient.isNurse ?? false);
+    if (!anyNurse) return;
+    unawaited(reminders.sync(
+      patients: holder.patients.isEmpty ? [?holder.snapshot?.patient] : holder.patients,
+      current: holder.snapshot,
+      allowed: _nurse?.writesAllowed ?? true,
+    ));
   }
 
   /// **الشِل بيسمع للصورة عشان البوابة تعرف المريض.**
@@ -240,6 +265,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
   /// بيتبني مرة والصورة لسه `null`، والبوابة عمرها ما تشوف uuid المريض.
   /// ده كان هيخلّي التوصيل «موجود» وهو مش شغّال.
   void _onSnapshot() {
+    _syncNurseReminders();
     final patient = _holder?.snapshot?.patient;
     if (patient != null) {
       unawaited(_checkOnboarding(patient.uuid));
@@ -372,7 +398,15 @@ class _CaregiverShellState extends State<CaregiverShell> {
           NurseTodayScreen(controller: nurse, now: widget.now),
           NurseMedicationsScreen(controller: nurse, now: widget.now),
           NurseRecordsScreen(controller: nurse, now: widget.now),
-          Scaffold(body: SafeArea(child: CaregiverSettingsScreen(patient: patient))),
+          Scaffold(
+            body: SafeArea(
+              child: CaregiverSettingsScreen(
+                patient: patient,
+                nurseReminders: true,
+                onNurseRemindersChanged: _syncNurseReminders,
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: keyboardIsUp(context)
