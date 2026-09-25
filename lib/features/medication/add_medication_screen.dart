@@ -826,8 +826,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ),
                         if (_startsLater) ...[
                           const SizedBox(height: F.s10),
+                          // «بكرة» = اليوم اللي بعده **بالتقويم** — بالليل بعد نص الليل
+                          // ده مش الليلة الجاية، والتاريخ مكتوب عشان ده يبان
                           Text(
-                            'هيبدأ يوم ${arabicDate(_startDate)} — مفيش تذكير قبلها.',
+                            _startDate == DateTime(_today.year, _today.month, _today.day + 1)
+                                ? 'هيبدأ بكرة — ${arabicDate(_startDate)} — مفيش تذكير قبلها.'
+                                : 'هيبدأ يوم ${arabicDate(_startDate)} — مفيش تذكير قبلها.',
                             key: const ValueKey('start-date-line'),
                             style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                           ),

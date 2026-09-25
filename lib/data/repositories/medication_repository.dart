@@ -4,11 +4,14 @@ import '../../domain/medication/duplicate_check.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/day_pattern.dart';
+import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/routine_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../mappers.dart';
+import 'routine_repository.dart';
 
 /// دوا وجداوله مع بعض.
 class MedicationSummary {
@@ -241,6 +244,14 @@ class MedicationRepository {
         ),
       );
 
+  /// يوم البداية زي ما `isActiveOn` هتقارنه: بيوم الروتين، مش بالتقويم
+  /// ([startDayFor]). من غير روتين محفوظ الافتراضي — نفس اللي المجدول بيستعمله.
+  Future<DateTime> _effectiveStart(int medicationId, DateTime chosen, DateTime now) async {
+    final med = await (_db.select(_db.medications)..where((t) => t.id.equals(medicationId))).getSingleOrNull();
+    final routine = med == null ? null : await RoutineRepository(_db).getRoutine(med.patientId);
+    return startDayFor(routine ?? DayRoutine.fallback, chosen, now);
+  }
+
   /// الكتابة الوحيدة لصف جرعة: النوع بيتكتب مع الصف، والساعة الثابتة في
   /// جدولها — في نفس المعاملة، فمفيش صف `fixed` من غير ساعة ولا العكس.
   Future<int> _insertSchedule(
@@ -251,10 +262,12 @@ class MedicationRepository {
     required int? durationDays,
     DayPattern days = DayPattern.everyDay,
   }) async {
-    final day = DateTime(startDate.year, startDate.month, startDate.day);
-    final cols = dayPatternColumns(days);
     // القاعدة سارية من دلوقتي — جرعة معادها قبل كده ما كانتش موجودة.
     final activeFrom = _clock();
+    // «النهارده» بعد نص الليل وقبل الصحيان = يوم الروتين اللي لسه ماشي،
+    // عشان جرعة الليلة دي (١٢:٥٢ ص) ما تتشالش — شوف `startDayFor`.
+    final day = await _effectiveStart(medicationId, startDate, activeFrom);
+    final cols = dayPatternColumns(days);
 
     final id = await _db.into(_db.doseSchedules).insert(
           switch (timing) {
@@ -363,6 +376,11 @@ class MedicationRepository {
 
   Future<void> updateTiming(int scheduleId, DoseTiming timing) =>
       _db.transaction(() async {
+        final now = _clock();
+        // نفس قاعدة الإضافة: تعديل بعد نص الليل على دوا بادئ «النهارده» —
+        // البداية بتتحرك ليوم الروتين عشان جرعة الليلة دي تتحسب.
+        final row = await (_db.select(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).getSingle();
+        final start = await _effectiveStart(row.medicationId, row.startDate, now);
         await (_db.update(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).write(
           switch (timing) {
             AnchorTiming(:final anchor, :final offsetMinutes) => DoseSchedulesCompanion(
@@ -370,13 +388,15 @@ class MedicationRepository {
                 anchor: Value(anchor),
                 offsetMinutes: Value(offsetMinutes),
                 // التوقيت الجديد ساري من لحظة التعديل
-                activeFrom: Value(_clock()),
+                activeFrom: Value(now),
+                startDate: Value(start),
               ),
             FixedTiming() => DoseSchedulesCompanion(
                 timingKind: const Value(DoseTimingKind.fixed),
                 anchor: const Value(null),
                 offsetMinutes: const Value(null),
-                activeFrom: Value(_clock()),
+                activeFrom: Value(now),
+                startDate: Value(start),
               ),
           },
         );

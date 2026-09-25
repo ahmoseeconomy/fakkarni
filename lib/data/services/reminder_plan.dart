@@ -1,3 +1,4 @@
+import '../../domain/scheduling/routine_day.dart';
 import 'dart:convert';
 
 import '../../core/format/arabic_time.dart';
@@ -475,13 +476,7 @@ bool isRescheduledId(int id) => isDoseId(id) || isEscalationId(id) || isRepeatId
 ///
 /// اليوم بيبدأ من الصحيان مش من نص الليل: واحد بيصحى ٧ ص ولسه صاحي الساعة
 /// ١ بالليل، لسه في يوم امبارح — وجرعة «قبل النوم» بتاعته لسه مستنياه.
-DateTime currentRoutineDay(DayRoutine routine, DateTime now) {
-  final wakeToday =
-      DateTime(now.year, now.month, now.day, 0, routine.wake.minutes);
-  return now.isBefore(wakeToday)
-      ? DateTime(now.year, now.month, now.day - 1)
-      : DateTime(now.year, now.month, now.day);
-}
+DateTime currentRoutineDay(DayRoutine routine, DateTime now) => routineDayOf(routine, now);
 
 /// مفتاح «الجرعة دي في اليوم ده» — نفس مفتاح جدول الأحداث.
 ///

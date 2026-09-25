@@ -415,6 +415,19 @@ it rings, and the test pins that the instant is identical.
   the same operational choice as the checkup's 9:00 — and it is a notice
   about a visit, not a medication time.
 
+**«النهارده» بعد نص الليل = يوم الروتين اللي لسه ماشي** (٢٦ سبتمبر ٢٠٢٦، من
+الجهاز: دوا اتضاف ١٢:٥٠ بالليل بساعة ثابتة ١٢:٥٢ وبداية «النهارده» اتعرض
+«بكرة ١٢:٥٢ ص» وما رنّش). `start_date` بيتقارن بيوم الروتين في `isActiveOn`،
+والفورم بيدّي تاريخ التقويم؛ قبل الصحيان الاتنين مختلفين وجرعة الليلة دي كانت
+بتتشال. `startDayFor` في `domain/scheduling/routine_day.dart` (نقية؛
+`currentRoutineDay` في `reminder_plan` بقت بتنده `routineDayOf` منها) بترجّع
+يوم الروتين لما المختار = تاريخ النهارده ويوم الروتين قبله، وأي تاريخ تاني
+زي ما هو. بتتطبّق في **مكان واحد**: `MedicationRepository._insertSchedule`
+(كل إضافة: الفورم، المراجعة، التعديل، الممرض) و`updateTiming`. الماضي مقفول
+زي ما هو من `active_from` والخطة «الأقرب من دلوقتي» — `start_after_midnight_test`
+بيثبت ١٢:٥٠/١٢:٥٢ و١١:٥٠/١٢:١٠ و١٠ الصبح والتعديل بالليل، والخطط الذهبية
+والمجدول خضر بالحرف. «بكرة» تاريخ تقويم والفورم بيكتبه («هيبدأ بكرة — التاريخ»).
+
 **The day starts at wake, not midnight.** `minutesFromDayStart` is
 `(anchor - wake + 1440) % 1440`, so a 1 AM bedtime lands 18 hours *after*
 waking rather than 6 hours before it. A fixed time follows the same rule:
