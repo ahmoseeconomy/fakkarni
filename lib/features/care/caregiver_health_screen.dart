@@ -106,6 +106,40 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
   ///
   /// المدخل الفاضي مش بيظهر أصلاً: غيابه هو «مفيش حاجة هنا»، من غير لوحة
   /// بتقولها. ولو مفيش ولا حاجة خالص، جملة واحدة بدل خمس لوحات فاضية.
+  List<Widget> _notBought(CaregiverSnapshot snapshot) {
+    final meds = [for (final m in snapshot.medications) if (m.notBoughtAt != null) m];
+    if (meds.isEmpty) return const [];
+    return [
+      CareHead('أدوية لسه ماتشترتش', count: meds.length, accent: F.careAccentSkipped),
+      CareCard(
+        key: const ValueKey('care-not-bought'),
+        border: F.careAccentSkipped,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final m in meds)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: F.s4),
+                child: Text(
+                  m.name,
+                  style: TextStyle(
+                    fontSize: F.careBodySize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                    fontFamily: F.monoFamily,
+                    fontFamilyFallback: F.monoFallback,
+                  ),
+                ),
+              ),
+            Text('التذكير شغّال لها في ميعادها — دي بس لسه محتاجة تتشرى.',
+                style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.4)),
+          ],
+        ),
+      ),
+      const SizedBox(height: F.careRowGap),
+    ];
+  }
+
   List<Widget> _sections(CaregiverSnapshot snapshot) {
     final byKind = <String, List<CaregiverRecord>>{};
     for (final r in snapshot.records) {
@@ -167,6 +201,8 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
         chronicConditions: emergency?.chronicConditions,
       ),
       const SizedBox(height: F.careRowGap),
+      // ٠٠٣١: «أدوية لسه ماتشترتش» — قراية بس، ويختفي لو فاضي
+      ..._notBought(snapshot),
       if (entries.isEmpty)
         const CarePanel(text: 'لسه مفيش حاجة هنا.')
       else

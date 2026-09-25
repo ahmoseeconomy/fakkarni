@@ -84,8 +84,15 @@ void main() {
     final remote = FakeCaregiverRemote()
       ..next = CaregiverSnapshot(
         patient: const CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد'),
-        medications: const [
-          CaregiverMedication(uuid: 'm1', name: 'Concor 5mg', amountLabel: 'قرص واحد', rules: ['الفطار − ٣٠ د']),
+        // ٠٠٣١: دوا «لسه ماتشترتش» — الابن بيشوفه ومالوش زرار (المشّاي تحت بيثبت)
+        medications: [
+          CaregiverMedication(
+            uuid: 'm1',
+            name: 'Concor 5mg',
+            amountLabel: 'قرص واحد',
+            rules: const ['الفطار − ٣٠ د'],
+            notBoughtAt: DateTime(2026, 8, 30),
+          ),
         ],
         events: [
           event('Concor 5mg', DateTime(2026, 8, 31, 7), 'taken', actedAt: DateTime(2026, 8, 31, 7, 5)),
@@ -193,6 +200,9 @@ void main() {
     // الملف بقى مداخل: المحتوى جوّه قايمة كل مدخل
     expect(find.byKey(const ValueKey('care-entry-lab')), findsOneWidget);
     expect(find.byKey(const ValueKey('care-entry-questions')), findsOneWidget);
+    // ٠٠٣١: «أدوية لسه ماتشترتش» ظاهرة — قراية بس، من غير «اشتريته»
+    expect(find.byKey(const ValueKey('care-not-bought')), findsOneWidget);
+    expect(find.text('اشتريته'), findsNothing, reason: 'المتابع ما بيبعتش «اشتريته»');
     expect(find.byType(TextField), findsNothing);
     expect(find.byType(Image), findsNothing, reason: 'الصور في D5.3 — ولا مكان فاضي ولا صورة مكسورة');
     for (final word in ['ضيف', 'عدّل', 'امسح', 'رجّعه', 'اتصال', 'الإسعاف', 'احفظ', 'خيارات']) {

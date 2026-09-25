@@ -119,10 +119,11 @@ void main() {
     List<CaregiverRecord> records = const [],
     Set<String> shared = const {},
     List<Vital> vitals = const [],
+    DateTime? notBoughtAt,
   }) =>
       CaregiverSnapshot(
         patient: CaregiverPatient(uuid: uuid, name: name, permissions: permissions),
-        medications: const [
+        medications: [
           CaregiverMedication(
             uuid: 'm1',
             name: 'Concor 5mg',
@@ -133,6 +134,7 @@ void main() {
             alertMode: 'continuous',
             stockQuantity: 6,
             dosesPerDay: 2,
+            notBoughtAt: notBoughtAt,
           ),
         ],
         events: [
@@ -325,6 +327,36 @@ void main() {
       happenedAt: DateTime(2026, 8, 20),
       updatedAt: DateTime(2026, 8, 20),
     );
+
+    screenTest('٠٠٣١: «أدوية لسه ماتشترتش» — من غير «يعدّل الأدوية» قراية بس', (tester) async {
+      cloud.snapshots['p1'] = snap(notBoughtAt: DateTime(2026, 8, 30));
+      await pump(tester);
+      await tester.tap(find.text('السجل').last);
+      await settle(tester);
+      expect(find.text('أدوية لسه ماتشترتش (١)'), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-not-bought-m1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-bought-m1')), findsNothing);
+    });
+
+    screenTest('٠٠٣١: بـ«يعدّل الأدوية» «اشتريته» بيبعت تغيير bought — ومن غير المخزون', (tester) async {
+      cloud.snapshots['p1'] = snap(permissions: editor, notBoughtAt: DateTime(2026, 8, 30));
+      await pump(tester);
+      await tester.tap(find.text('السجل').last);
+      await settle(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('nurse-bought-m1')));
+      await tester.tap(find.byKey(const ValueKey('nurse-bought-m1')));
+      await settle(tester);
+      expect(changes.kinds, [MedicationChangeKind.bought]);
+      expect(changes.submitted.single.quantity, isNull, reason: 'مفيش كمية بتتخمّن');
+    });
+
+    screenTest('مفيش حاجة لسه ماتشترتش → القسم مش موجود', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      await tester.tap(find.text('السجل').last);
+      await settle(tester);
+      expect(find.textContaining('لسه ماتشترتش'), findsNothing);
+    });
 
     screenTest('التلات أقسام، والورقة من غير صورة مشاركة بتقول «الصورة على موبايل المريض»', (tester) async {
       cloud.snapshots['p1'] = snap(records: [paper]);

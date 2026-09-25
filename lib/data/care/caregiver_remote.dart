@@ -46,6 +46,7 @@ class CaregiverMedication {
     this.stockQuantity,
     this.stockWarnDays,
     this.dosesPerDay = 0,
+    this.notBoughtAt,
   });
   final String uuid;
   final String name;
@@ -65,6 +66,9 @@ class CaregiverMedication {
 
   /// الجرعات اليومية الشغّالة — منها «فاضله كام يوم» (مش ساعات محسوبة).
   final int dosesPerDay;
+
+  /// ٠٠٣١: «لسه ماتشترتش» — null = اتشرى. قراية بس.
+  final DateTime? notBoughtAt;
 
   int? get stockDaysLeft => stockQuantity == null
       ? null

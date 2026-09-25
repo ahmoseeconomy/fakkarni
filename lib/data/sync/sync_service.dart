@@ -555,7 +555,7 @@ class SyncService {
   /// يتنبّه عن جرعات اتاخدت. فبنعيد الدفعة من غير الأعمدة دي، ونكمّل.
   static const _optionalColumns = <String, Set<String>>{
     // ٠٠٢٦: تفاصيل الدوا اللي الممرض بيشوفها
-    'medications': {'purpose', 'instructions', 'alert_mode'},
+    'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at'},
   };
 
   /// «العمود مش موجود» من PostgREST (PGRST204) أو من بوستجرس (42703).
@@ -685,6 +685,9 @@ class SyncService {
                 'purpose': m.purpose,
                 'instructions': m.instructions,
                 'alert_mode': m.alertMode,
+                // ٠٠٣١: «لسه ماتشترتش» — null = اتشرى (أغلب الصفوف). الدائرة
+                // بتقراه، والتذكير والتصعيد عمرهم ما بيقروه.
+                'not_bought_at': m.notBoughtAt == null ? null : utcIso(m.notBoughtAt!),
               }
             );
           }(),

@@ -1809,7 +1809,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** و**`0031_not_bought`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030 ثم 0031، وبعدها `verify_migrations.sql` لازم يرجّع ٣١ صف كلهم `ok = true`. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 و0031 ملفات بس (0031 مستنية مراجعة، والتطبيق لسه ما بيرفعش العمود). من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** و**`0031_not_bought`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030 ثم 0031، وبعدها `verify_migrations.sql` لازم يرجّع ٣١ صف كلهم `ok = true`. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 و0031 المالك بيطبّقهم كمان (٢٥ سبتمبر). من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -4481,10 +4481,14 @@ asserts the notification set is identical). `NotBoughtSection` sits in
 quiet `NotBoughtLine` that opens it. «اطلبها من الصيدلية» is
 `orderListFromPharmacy` — the stock WhatsApp flow with one line per
 medicine, the user presses send; «اشتريته» clears the flag and, if stock is
-tracked, asks the box quantity through the restock sheet. **The circle side
-is not built**: it needs `medications.not_bought_at` in the cloud and a
-`bought` change kind, written as `0031_not_bought.sql` and waiting for
-review.
+tracked, asks the box quantity through the restock sheet. **Circle (0031):**
+`not_bought_at` rides the medications push (in `_optionalColumns`, so a
+project before 0031 still takes the row), the son sees a read-only card on
+his «السجل» and the nurse a list with «اشتريته» only with «يعدّل الأدوية» —
+a `bought` pending change the patient's phone applies by clearing the flag,
+**never** touching stock (no guessed quantity). `not_bought_not_scheduling_test`
+fails if scheduling, the ladder, the notification plan or any
+`due_escalations` body mentions the field.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

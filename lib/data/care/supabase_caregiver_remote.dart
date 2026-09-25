@@ -71,6 +71,7 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     purpose: row['purpose'] as String?,
     instructions: row['instructions'] as String?,
     alertMode: row['alert_mode'] as String?,
+    notBoughtAt: row['not_bought_at'] == null ? null : DateTime.tryParse(row['not_bought_at'] as String)?.toLocal(),
     rules: [
       // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن
       for (final s in schedules)
@@ -317,6 +318,8 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         // هجرة لسه ما اتشغّلتش = عمود/علاقة مش موجودة → الدرجة اللي بعدها،
         // وشاشة المتابع تفضل شغّالة.
         const tiers = [
+          // ٠٠٣١ — «لسه ماتشترتش»
+          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumns',
           'purpose, instructions, alert_mode, medication_stock(quantity, warn_days), $medColumns',
           'purpose, instructions, alert_mode, $medColumns',
           medColumns,

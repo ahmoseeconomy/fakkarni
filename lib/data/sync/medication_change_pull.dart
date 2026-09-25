@@ -15,6 +15,7 @@ import '../../domain/health/follow_up.dart';
 import '../db/tables.dart' show RecordKind;
 import '../repositories/medication_repository.dart';
 import '../repositories/records_repository.dart';
+import '../repositories/not_bought_repository.dart';
 import '../repositories/stock_repository.dart';
 import '../services/appointment_scheduler.dart';
 import '../services/checkup_service.dart';
@@ -234,6 +235,16 @@ class MedicationChangePuller {
         return ChangeOutcome.applied;
       case MedicationChangeKind.photo:
         return _applyPhoto(change);
+      case MedicationChangeKind.bought:
+        // ٠٠٣١: بيشيل العلامة وبس. **المخزون ما بيتلمسش** — مفيش كمية
+        // نخمّنها؛ لو متتبّع، المريض بيسجّل العلبة من «اشتريت علبة جديدة».
+        // ومفيش «تعديل الأب كسب»: العلامة دي مش بتكتب فوق حاجة.
+        final uuid = change.medicationUuid;
+        if (uuid == null) return ChangeOutcome.missing;
+        final med = await (db.select(db.medications)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+        if (med == null || med.removedAt != null) return ChangeOutcome.missing;
+        await NotBoughtRepository(db, clock: clock).markBought(med.id);
+        return ChangeOutcome.applied;
       case MedicationChangeKind.stop:
       case MedicationChangeKind.amount:
         final uuid = change.medicationUuid;

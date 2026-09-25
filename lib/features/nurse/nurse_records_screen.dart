@@ -105,6 +105,51 @@ class NurseRecordsScreen extends StatelessWidget {
                 onPressed: () => _newAppointment(context, today),
               ),
             const SizedBox(height: F.gap),
+            // ٠٠٣١: «أدوية لسه ماتشترتش» — زي عند المريض. «اشتريته» طلب
+            // معلّق لو معاك «يعدّل الأدوية»، وإلا قراية بس.
+            if ([for (final m in snapshot.medications) if (m.notBoughtAt != null) m] case final nb
+                when nb.isNotEmpty) ...[
+              FSectionHead('أدوية لسه ماتشترتش (${arabicNumber(nb.length)})'),
+              const SizedBox(height: F.s8),
+              for (final m in nb)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: F.s8),
+                  child: FCard(
+                    key: ValueKey('nurse-not-bought-${m.uuid}'),
+                    padding: const EdgeInsets.all(F.s12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          m.name,
+                          style: TextStyle(
+                            fontSize: F.minBodySize,
+                            fontWeight: FontWeight.w700,
+                            color: F.ink,
+                            fontFamily: F.monoFamily,
+                            fontFamilyFallback: F.monoFallback,
+                          ),
+                        ),
+                        if (canEdit) ...[
+                          const SizedBox(height: F.s8),
+                          FSecondaryButton(
+                            key: ValueKey('nurse-bought-${m.uuid}'),
+                            label: 'اشتريته',
+                            onPressed: () => controller.submit(
+                              kind: MedicationChangeKind.bought,
+                              payload: const MedicationChangePayload(),
+                              medicationUuid: m.uuid,
+                              medicationName: m.name,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              const NurseQuietLine('التذكير شغّال لها في ميعادها — دي بس لسه محتاجة تتشرى.'),
+              const SizedBox(height: F.gap),
+            ],
             const FSectionHead('أوراقك'),
             const SizedBox(height: F.s8),
             if (papers.isEmpty) const NurseQuietLine('لسه مفيش أوراق.'),

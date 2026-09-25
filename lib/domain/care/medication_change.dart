@@ -27,7 +27,10 @@ enum MedicationChangeKind {
 
   /// ٠٠٢٩: صورة جديدة للدوا من الممرض — بتترفع تحت `pending/` وموبايل
   /// المريض بيتحقق منها ويطبّقها بسكّته.
-  photo('غيّر صورة');
+  photo('غيّر صورة'),
+
+  /// ٠٠٣١: «اشتريته» من الممرض — بيشيل الدوا من «أدوية لسه ماتشترتش».
+  bought('علّم إنه اشترى');
 
   const MedicationChangeKind(this.verb);
 
@@ -206,7 +209,7 @@ String changeSubject(MedicationChange change) {
       return name == null || name.isEmpty ? what : '$what $name';
     case MedicationChangeKind.record:
       return name == null || name.isEmpty ? 'ورقة' : name;
-    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock || MedicationChangeKind.photo:
+    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock || MedicationChangeKind.photo || MedicationChangeKind.bought:
       return (name == null || name.isEmpty) ? (change.medicationName ?? 'دوا') : name;
   }
 }
