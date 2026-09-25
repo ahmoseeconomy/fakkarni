@@ -1486,6 +1486,17 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _photoPathMeta = const VerificationMeta(
+    'photoPath',
+  );
+  @override
+  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
+    'photo_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
     'stoppedAt',
   );
@@ -1535,6 +1546,7 @@ class $MedicationsTable extends Medications
     alertMode,
     purpose,
     instructions,
+    photoPath,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1648,6 +1660,12 @@ class $MedicationsTable extends Medications
         ),
       );
     }
+    if (data.containsKey('photo_path')) {
+      context.handle(
+        _photoPathMeta,
+        photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
+      );
+    }
     if (data.containsKey('stopped_at')) {
       context.handle(
         _stoppedAtMeta,
@@ -1727,6 +1745,10 @@ class $MedicationsTable extends Medications
         DriftSqlType.string,
         data['${effectivePrefix}instructions'],
       ),
+      photoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_path'],
+      ),
       stoppedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
@@ -1789,6 +1811,11 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   /// «تعليمات» حرّة (v23) — «مع كوباية مية كاملة». null = مفيش. محلي.
   final String? instructions;
 
+  /// صورة الحباية أو العلبة (v27) — مسار **نسبي** جوّه فولدر التطبيق
+  /// (`med-photos/<uuid>.jpg`)، متصغّرة ومن غير EXIF. null = مفيش صورة.
+  /// **محلي**: مش في حمولة الدفع (زي `attachment_path`).
+  final String? photoPath;
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
@@ -1817,6 +1844,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     this.alertMode,
     this.purpose,
     this.instructions,
+    this.photoPath,
     this.stoppedAt,
     this.removedAt,
     required this.createdAt,
@@ -1850,6 +1878,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     }
     if (!nullToAbsent || instructions != null) {
       map['instructions'] = Variable<String>(instructions);
+    }
+    if (!nullToAbsent || photoPath != null) {
+      map['photo_path'] = Variable<String>(photoPath);
     }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
@@ -1890,6 +1921,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       instructions: instructions == null && nullToAbsent
           ? const Value.absent()
           : Value(instructions),
+      photoPath: photoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoPath),
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
@@ -1919,6 +1953,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       alertMode: serializer.fromJson<String?>(json['alertMode']),
       purpose: serializer.fromJson<String?>(json['purpose']),
       instructions: serializer.fromJson<String?>(json['instructions']),
+      photoPath: serializer.fromJson<String?>(json['photoPath']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1941,6 +1976,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'alertMode': serializer.toJson<String?>(alertMode),
       'purpose': serializer.toJson<String?>(purpose),
       'instructions': serializer.toJson<String?>(instructions),
+      'photoPath': serializer.toJson<String?>(photoPath),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'removedAt': serializer.toJson<DateTime?>(removedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1961,6 +1997,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     Value<String?> alertMode = const Value.absent(),
     Value<String?> purpose = const Value.absent(),
     Value<String?> instructions = const Value.absent(),
+    Value<String?> photoPath = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
     Value<DateTime?> removedAt = const Value.absent(),
     DateTime? createdAt,
@@ -1980,6 +2017,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     alertMode: alertMode.present ? alertMode.value : this.alertMode,
     purpose: purpose.present ? purpose.value : this.purpose,
     instructions: instructions.present ? instructions.value : this.instructions,
+    photoPath: photoPath.present ? photoPath.value : this.photoPath,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     removedAt: removedAt.present ? removedAt.value : this.removedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -2011,6 +2049,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       instructions: data.instructions.present
           ? data.instructions.value
           : this.instructions,
+      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -2033,6 +2072,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('alertMode: $alertMode, ')
           ..write('purpose: $purpose, ')
           ..write('instructions: $instructions, ')
+          ..write('photoPath: $photoPath, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -2055,6 +2095,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     alertMode,
     purpose,
     instructions,
+    photoPath,
     stoppedAt,
     removedAt,
     createdAt,
@@ -2076,6 +2117,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.alertMode == this.alertMode &&
           other.purpose == this.purpose &&
           other.instructions == this.instructions &&
+          other.photoPath == this.photoPath &&
           other.stoppedAt == this.stoppedAt &&
           other.removedAt == this.removedAt &&
           other.createdAt == this.createdAt);
@@ -2095,6 +2137,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<String?> alertMode;
   final Value<String?> purpose;
   final Value<String?> instructions;
+  final Value<String?> photoPath;
   final Value<DateTime?> stoppedAt;
   final Value<DateTime?> removedAt;
   final Value<DateTime> createdAt;
@@ -2112,6 +2155,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.alertMode = const Value.absent(),
     this.purpose = const Value.absent(),
     this.instructions = const Value.absent(),
+    this.photoPath = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2130,6 +2174,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.alertMode = const Value.absent(),
     this.purpose = const Value.absent(),
     this.instructions = const Value.absent(),
+    this.photoPath = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2149,6 +2194,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<String>? alertMode,
     Expression<String>? purpose,
     Expression<String>? instructions,
+    Expression<String>? photoPath,
     Expression<DateTime>? stoppedAt,
     Expression<DateTime>? removedAt,
     Expression<DateTime>? createdAt,
@@ -2167,6 +2213,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (alertMode != null) 'alert_mode': alertMode,
       if (purpose != null) 'purpose': purpose,
       if (instructions != null) 'instructions': instructions,
+      if (photoPath != null) 'photo_path': photoPath,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (removedAt != null) 'removed_at': removedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -2187,6 +2234,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<String?>? alertMode,
     Value<String?>? purpose,
     Value<String?>? instructions,
+    Value<String?>? photoPath,
     Value<DateTime?>? stoppedAt,
     Value<DateTime?>? removedAt,
     Value<DateTime>? createdAt,
@@ -2205,6 +2253,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       alertMode: alertMode ?? this.alertMode,
       purpose: purpose ?? this.purpose,
       instructions: instructions ?? this.instructions,
+      photoPath: photoPath ?? this.photoPath,
       stoppedAt: stoppedAt ?? this.stoppedAt,
       removedAt: removedAt ?? this.removedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -2253,6 +2302,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (instructions.present) {
       map['instructions'] = Variable<String>(instructions.value);
     }
+    if (photoPath.present) {
+      map['photo_path'] = Variable<String>(photoPath.value);
+    }
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
@@ -2281,6 +2333,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('alertMode: $alertMode, ')
           ..write('purpose: $purpose, ')
           ..write('instructions: $instructions, ')
+          ..write('photoPath: $photoPath, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -11551,6 +11604,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       Value<String?> alertMode,
       Value<String?> purpose,
       Value<String?> instructions,
+      Value<String?> photoPath,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -11570,6 +11624,7 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<String?> alertMode,
       Value<String?> purpose,
       Value<String?> instructions,
+      Value<String?> photoPath,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -11701,6 +11756,11 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<String> get instructions => $composableBuilder(
     column: $table.instructions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11862,6 +11922,11 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnOrderings(column),
@@ -11957,6 +12022,9 @@ class $$MedicationsTableAnnotationComposer
     column: $table.instructions,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get photoPath =>
+      $composableBuilder(column: $table.photoPath, builder: (column) => column);
 
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
@@ -12086,6 +12154,7 @@ class $$MedicationsTableTableManager
                 Value<String?> alertMode = const Value.absent(),
                 Value<String?> purpose = const Value.absent(),
                 Value<String?> instructions = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -12103,6 +12172,7 @@ class $$MedicationsTableTableManager
                 alertMode: alertMode,
                 purpose: purpose,
                 instructions: instructions,
+                photoPath: photoPath,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,
@@ -12122,6 +12192,7 @@ class $$MedicationsTableTableManager
                 Value<String?> alertMode = const Value.absent(),
                 Value<String?> purpose = const Value.absent(),
                 Value<String?> instructions = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -12139,6 +12210,7 @@ class $$MedicationsTableTableManager
                 alertMode: alertMode,
                 purpose: purpose,
                 instructions: instructions,
+                photoPath: photoPath,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,

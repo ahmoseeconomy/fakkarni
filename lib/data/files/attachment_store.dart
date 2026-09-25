@@ -21,17 +21,22 @@ abstract interface class AttachmentStore {
 
 class DirectoryAttachmentStore implements AttachmentStore {
   /// [root] للاختبارات؛ الافتراضي فولدر مستندات التطبيق.
-  const DirectoryAttachmentStore({this.root});
+  const DirectoryAttachmentStore({this.root, this.subfolder = folder});
 
   final Directory? root;
 
+  /// الفولدر جوّه مستندات التطبيق — `attachments` للورق، و`med-photos`
+  /// لصور الأدوية ([medPhotoFolder]).
+  final String subfolder;
+
   static const folder = 'attachments';
+  static const medPhotoFolder = 'med-photos';
 
   Future<Directory> _base() async => root ?? await getApplicationDocumentsDirectory();
 
   @override
   Future<String> save(Uint8List bytes, {String extension = 'jpg'}) async {
-    final relative = p.join(folder, '${newSyncUuid()}.$extension');
+    final relative = p.join(subfolder, '${newSyncUuid()}.$extension');
     final file = File(p.join((await _base()).path, relative));
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);

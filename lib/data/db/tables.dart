@@ -385,6 +385,11 @@ class Medications extends Table with SyncIdentity {
   /// «تعليمات» حرّة (v23) — «مع كوباية مية كاملة». null = مفيش. محلي.
   TextColumn get instructions => text().nullable()();
 
+  /// صورة الحباية أو العلبة (v27) — مسار **نسبي** جوّه فولدر التطبيق
+  /// (`med-photos/<uuid>.jpg`)، متصغّرة ومن غير EXIF. null = مفيش صورة.
+  /// **محلي**: مش في حمولة الدفع (زي `attachment_path`).
+  TextColumn get photoPath => text().nullable()();
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش

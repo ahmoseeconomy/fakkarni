@@ -47,6 +47,7 @@ class AppServices {
     this.labReader,
     this.packageReader,
     this.attachments = const DirectoryAttachmentStore(),
+    this.medPhotoStore = const DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder),
     this.contacts = const NativeContactPicker(),
     this.auth,
     this.care,
@@ -179,6 +180,10 @@ class AppServices {
 
   /// صور التقارير — فولدر التطبيق. الاختبارات بتحط فولدر مؤقت.
   final AttachmentStore attachments;
+
+  /// صور الأدوية (`med-photos/`) — على الموبايل ده بس. الاختبارات بتحط
+  /// فولدر مؤقت.
+  final AttachmentStore medPhotoStore;
 
   /// منتقي جهة اتصال من النظام — شاشة الطوارئ بس بتستعمله، ومن زرار واحد.
   /// **ما بيقراش دفتر العناوين**: بيفتح شاشة النظام وبياخد اللي اتختار.

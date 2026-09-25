@@ -8,6 +8,7 @@ import '../../../domain/patient/sex.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/dose_state.dart';
 import '../dose_actions.dart';
+import '../../medication/med_photo.dart';
 import 'card_type_icon.dart';
 
 /// **كتلة «الآن» — واحدة، بعدّادها.**
@@ -219,7 +220,13 @@ class _DoseLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const CardTypeIcon(icon: Icons.medication_outlined),
+        // صورة الحباية لو موجودة — الأيقونة لو لأ
+        MedPhotoThumb(
+          path: dose.photoPath,
+          name: dose.medicationName,
+          size: 56,
+          fallback: const CardTypeIcon(icon: Icons.medication_outlined),
+        ),
         const SizedBox(width: F.s8),
         Expanded(
           child: Column(

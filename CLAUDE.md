@@ -296,7 +296,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v26 (v25 vitals, v26 medication_stock): patients (sex, age — local),
+  data/db/                    drift (SQLite) v27 (v25 vitals, v26 medication_stock, v27 medications.photo_path): patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -1809,7 +1809,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028، وبعدها `verify_migrations.sql` لازم يرجّع ٢٨ صف كلهم `ok = true`. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029، وبعدها `verify_migrations.sql` لازم يرجّع ٢٩ صف كلهم `ok = true`. **0029 مستنية مراجعة المالك** — سياسات جديدة على مسار `med-photos/` في باكت الورق (قراية للدائرة، والممرض بيرفع تحت `pending/`)؛ الكود اللي بيرفع ويسحب ما اتكتبش لحد ما تتراجع. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -4432,6 +4432,29 @@ what the person typed; its refill alert never fired for many users. Here:
   the patient's phone adds it without a conflict check — it is additive.
 - **Dose reminders, ladder and escalation untouched** — golden plan and
   scheduler tests green with no edit.
+
+**«إنت ماشي إزاي» وصورة الدوا (25 Sep 2026).**
+- **Adherence** (`domain/adherence/`, pure): day = complete / missed /
+  neutral / upcoming by the row's routine day; a dose missed **today**
+  greys today's dot but does not reset the number while today is open —
+  it resets once that routine day has closed. Card under the next-dose
+  card on «يومك», in elder mode (36px dots, no late-take), in the nurse
+  app and read-only on the son's «متابعة» (routine_day read from
+  `dose_events`, no migration). «أخدتها متأخر» goes through
+  `confirmGroup` / the nurse proxy path — no new write.
+- **Medication photo** (drift **v27**, `medications.photo_path`, local,
+  relative `med-photos/<uuid>.jpg`, not pushed): `prepareMedPhoto`
+  (`core/images/`) bakes orientation, resizes to ≤800 and **clears all
+  EXIF** before `MedPhotos` saves it; replacing, «شيلها» and removing the
+  medicine delete the file. Shown by `MedPhotoThumb` beside the name on
+  «الآن», the reminder screen, «جدول الأدوية», the edit screen, and large
+  (112) in elder mode; no photo, a missing file or bad bytes fall back to
+  the existing icon — never a broken image. «استخدم صورة العلبة» after a
+  box scan; **not** offered on a prescription line (a photo of paper does
+  not help recognise a pill). Notifications carry no photo.
+  **Circle sync is not built**: the 0026 bucket policies give followers no
+  read and nurses no write, so `0029_med_photos.sql` is written and waits
+  for review.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

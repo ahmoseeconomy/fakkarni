@@ -19,9 +19,13 @@ class DoseEventView {
     this.actedAt,
     this.actedBy,
     this.routineDay,
+    this.photoPath,
   });
 
   final int doseScheduleId;
+
+  /// صورة الدوا (نسبي، v27) — null = مفيش، والشاشة بترجع للأيقونة.
+  final String? photoPath;
 
   /// يوم الروتين بتاع الصف (جرعة ١ بالليل تبع امبارح). null في صفوف
   /// اتبنت يدوي في اختبارات قديمة.
@@ -168,6 +172,7 @@ class DoseEventRepository {
               actedAt: event.actedAt,
               actedBy: event.actedBy,
               routineDay: event.routineDay,
+              photoPath: med.photoPath,
             );
           }(),
       ];

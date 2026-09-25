@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../data/files/med_photos.dart';
+import 'med_photo.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
@@ -126,7 +129,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           label: 'أيوه، شيله',
           onPressed: () async {
             navigator.pop();
-            await services.medications.removeMedication(med.id);
+            // شيل الدوا بيشيل صورته كمان — مفيش ملف يتيم
+            await MedPhotos(services.db, services.medPhotoStore).removeMedication(services.medications, med.id);
             await services.scheduler.rescheduleAll();
           },
         ),
@@ -350,6 +354,10 @@ class _MedCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (med.photoPath != null) ...[
+            MedPhotoThumb(path: med.photoPath, name: med.name, size: 56, fallback: const SizedBox.shrink()),
+            const SizedBox(width: F.s12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

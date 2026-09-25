@@ -304,7 +304,13 @@ with expected(migration, kind, ident) as (
     ('0028_medication_stock', 'rls',    'public.medication_stock'),
     ('0028_medication_stock', 'policy', 'public.medication_stock|medication_stock_select'),
     ('0028_medication_stock', 'policysrc', 'public.medication_stock|medication_stock_insert|medications'),
-    ('0028_medication_stock', 'trigger', 'public.medication_stock|set_updated_at')
+    ('0028_medication_stock', 'trigger', 'public.medication_stock|set_updated_at'),
+    ('0029_med_photos',    'function', 'private.can_read_med_photo'),
+    ('0029_med_photos',    'function', 'private.can_stage_med_photo'),
+    ('0029_med_photos',    'policy',   'storage.objects|med_photos_select'),
+    ('0029_med_photos',    'policy',   'storage.objects|med_photos_insert'),
+    ('0029_med_photos',    'policysrc','storage.objects|med_photos_insert|can_stage_med_photo'),
+    ('0029_med_photos',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|photo')
 ),
 checked as (
   select

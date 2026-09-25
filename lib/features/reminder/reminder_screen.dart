@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../medication/med_photo.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
@@ -285,6 +287,11 @@ class _DoseRow extends StatelessWidget {
       children: [
         Row(
           children: [
+            // صورة الحباية جنب اسمها — العين بتعرفها قبل ما تقرا
+            if (dose.photoPath != null) ...[
+              MedPhotoThumb(path: dose.photoPath, name: dose.medicationName, size: 64, fallback: const SizedBox.shrink()),
+              const SizedBox(width: F.s12),
+            ],
             Expanded(
               child: Text(
                 dose.medicationName,

@@ -16,6 +16,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../adherence/patient_adherence_card.dart';
+import '../medication/med_photo.dart';
 import '../today/dose_actions.dart';
 
 /// «نمط كبار السن» (المخطط 18): تحية، **كارت جرعة واحد**، و«تم ✅» عملاق.
@@ -296,6 +297,20 @@ class _DoseCard extends StatelessWidget {
           if (overdue)
             Text(say.forgotIt, style: body.copyWith(fontWeight: FontWeight.w700, color: F.ink)),
           for (final dose in doses) ...[
+            // نمط كبار السن: الصورة أكبر (١١٢) — فوق الاسم، مش جنبه
+            if (dose.photoPath != null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: F.s8),
+                  child: MedPhotoThumb(
+                    path: dose.photoPath,
+                    name: dose.medicationName,
+                    size: 112,
+                    fallback: const SizedBox.shrink(),
+                  ),
+                ),
+              ),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: Text(

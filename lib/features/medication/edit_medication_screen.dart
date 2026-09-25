@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+
+import '../../data/files/med_photos.dart';
+import 'med_photo.dart';
 
 import 'stock_section.dart';
 
@@ -272,16 +277,27 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(F.gap),
                     children: [
-                      Text(
-                        med.name,
-                        style: TextStyle(
-                          fontSize: F.questionSize,
-                          fontWeight: FontWeight.w700,
-                          color: F.ink,
-                          fontFamily: F.monoFamily,
-                          fontFamilyFallback: F.monoFallback,
-                          height: 1.3,
-                        ),
+                      Row(
+                        children: [
+                          // الصورة جنب الاسم — ولو مفيش، مفيش مربع فاضي
+                          if (med.photoPath != null) ...[
+                            MedPhotoThumb(path: med.photoPath, name: med.name, size: 72, fallback: const SizedBox.shrink()),
+                            const SizedBox(width: F.s12),
+                          ],
+                          Expanded(
+                            child: Text(
+                              med.name,
+                              style: TextStyle(
+                                fontSize: F.questionSize,
+                                fontWeight: FontWeight.w700,
+                                color: F.ink,
+                                fontFamily: F.monoFamily,
+                                fontFamilyFallback: F.monoFallback,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: F.gap),
                       Text(
@@ -338,6 +354,21 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                       ),
                       const SizedBox(height: F.gap),
                       StockSection(medicationId: med.id, name: med.name, amountLabel: med.amountLabel),
+                      const SizedBox(height: F.gap),
+                      FutureBuilder<File?>(
+                        future: AppScope.of(context).medPhotoStore.fileFor(med.photoPath ?? ''),
+                        builder: (context, file) => MedPhotoSlot(
+                          previewFile: med.photoPath == null ? null : file.data,
+                          onPicked: (bytes) {
+                            final services = AppScope.of(context);
+                            MedPhotos(services.db, services.medPhotoStore).setFromBytes(med.id, bytes);
+                          },
+                          onRemove: () {
+                            final services = AppScope.of(context);
+                            MedPhotos(services.db, services.medPhotoStore).clear(med.id);
+                          },
+                        ),
+                      ),
                       const SizedBox(height: F.gap),
                       // المدة والتعليمات هنا بس — «ضيف دوا» ما بتسألش عنهم
                       Text(

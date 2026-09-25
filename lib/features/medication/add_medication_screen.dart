@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../data/repositories/stock_repository.dart';
@@ -19,6 +21,8 @@ import '../../domain/wording/rule_wording.dart';
 import '../../core/widgets/f_wheels.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor;
+import '../../data/files/med_photos.dart';
+import 'med_photo.dart';
 import 'medication_draft.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
@@ -54,6 +58,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialPurpose,
     this.initialInstructions,
     this.packageReading,
+    this.packageImage,
     this.draft = false,
     super.key,
   });
@@ -87,6 +92,9 @@ class AddMedicationScreen extends StatefulWidget {
 
   /// اللي اتقرا من صورة علبة — **حقول وبس، ولا موعد فيهم**.
   final PackageReading? packageReading;
+
+  /// صورة العلبة اللي اتقرت — بتتعرض «استخدم صورة العلبة» في خانة الصورة.
+  final Uint8List? packageImage;
 
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
@@ -126,6 +134,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// المخزون الاختياري — null لحد ما العجلة تتحرّك.
   bool _askStock = false;
   int? _stock;
+
+  /// صورة الدوا اللي اختارها — بايتس لحد الحفظ (بتتصغّر ويتشال الـEXIF
+  /// وقت الحفظ). null = من غير صورة.
+  Uint8List? _photo;
 
   DateTime get _today {
     final t = widget.today ?? DateTime.now();
@@ -376,6 +388,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       );
       if (_stock case final stock?) {
         await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
+      }
+      if (_photo case final photo?) {
+        // صورة ما اتفكّتش = الدوا بيتحفظ من غيرها، من غير كلام تقني
+        await MedPhotos(services.db, services.medPhotoStore).setFromBytes(medicationId, photo);
       }
       await services.scheduler.rescheduleAll();
       if (mounted) navigator.pop(result);
@@ -674,6 +690,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                               onChanged: (v) => setState(() => _stock = v),
                             ),
                           ],
+                          const SizedBox(height: F.gap),
+                          MedPhotoSlot(
+                            previewBytes: _photo,
+                            boxImage: widget.packageImage,
+                            onPicked: (bytes) => setState(() => _photo = bytes),
+                            onRemove: () => setState(() => _photo = null),
+                          ),
                         ],
                       ],
                     ),

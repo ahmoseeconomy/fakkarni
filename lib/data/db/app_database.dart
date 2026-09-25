@@ -38,7 +38,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -495,6 +495,15 @@ class AppDatabase extends _$AppDatabase {
                 if (existing.isEmpty) {
                   await customStatement('ALTER TABLE device_preferences ADD COLUMN $column TEXT NULL');
                 }
+              }
+            }
+            if (from < 27) {
+              // صورة الدوا — عمود نسبي محلي. بحماية وجود، **فوق** التطبيع.
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('medications') WHERE name = 'photo_path'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement('ALTER TABLE medications ADD COLUMN photo_path TEXT NULL');
               }
             }
             if (from < 6) {

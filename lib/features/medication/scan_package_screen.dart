@@ -86,6 +86,8 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
             today: widget.today,
             initialName: reading.nameField,
             packageReading: reading,
+            // «استخدم صورة العلبة» — نفس الصورة اللي اتقرت، بتتصغّر وقت الحفظ
+            packageImage: _image,
           ),
         ),
       );
