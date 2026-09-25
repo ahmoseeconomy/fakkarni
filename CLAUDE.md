@@ -4093,6 +4093,17 @@ correct a row it deleted. `test/data/no_hard_delete_test.dart` reads
   medications (live, removed, schedule-stopped, medication-stopped) and
   asserts only the live one is due, then rolls back.
 
+**«تمام» على المراجعة دايماً مفتوحة (٢٦ سبتمبر ٢٠٢٦، تعليق المختبِر) — واللي
+مش واضح بيتحفظ «مش معروف»، مش مخمّن.** ده بيعدّل القاعدة ٤ في نقطة واحدة:
+اسم أو توقيت **مش واضح** ما بقاش يقفل الزرار. الجرعة «مش معروفة» زي ما كانت؛
+الاسم بثقة قليلة بيتحفظ زي الورقة وعليه «اتأكد من الاسم» (`unsure-name-N`)؛
+والمرساة اللي ما اتحددتش بتتسأل **بعد** «تمام» مرة واحدة (`askAnchorTime`،
+وقفل الورقة = تخطّي) — الدوا محفوظ على مرساته والمحرّك ساكت عنها لحد ما تتحدد
+(«؟»)، وباقي الجرعات بتتجدول عادي. اللي **ما ينفعش يتحفظ** — من غير اسم خالص
+أو من غير ولا ميعاد — بيتساب برّه العدّ (الزرار بيعدّ اللي هيتحفظ) وبيتقال
+بالكلام (`unsaveable-note`)؛ الزرار بيتقفل بس لما مفيش حاجة تتحفظ.
+`review_without_routine_test` بيثبت السؤال مرة واحدة والثابتة بتتجدول قبلها.
+
 **The review screen is a draft. «تمام، ظبّطهم» is the only write.**
 Until this round «عدّل» opened `AddMedicationScreen`, which **saved
 immediately**, while «تمام» saved the rest — one prescription written by

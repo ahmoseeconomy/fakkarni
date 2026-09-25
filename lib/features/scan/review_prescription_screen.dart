@@ -148,8 +148,16 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// السطور اللي هتتحفظ فعلاً — اللي اتشال مش فيها.
   List<_DraftLine> get _keep => [for (final l in _lines) if (!l.deleted) l];
 
-  /// اللي بيقفل «تمام» فعلاً: اسم أو توقيت ناقص — من غيرهم مفيش حاجة تتجدول.
-  bool get _hasBlocking => _keep.any((l) => l.blocks || _unsetAnchorsOf(l).isNotEmpty);
+  /// **«تمام» دايماً مفتوحة** (٢٦ سبتمبر ٢٠٢٦ — تعليق المختبِر). اللي مش
+  /// واضح بيتحفظ «مش معروف» ومش بيتخمّن: الجرعة «مش معروفة»، والاسم بثقة
+  /// قليلة بيفضل مظلّل «اتأكد من الاسم»، والمرساة اللي ما اتحددتش بتتسأل
+  /// **بعد** «تمام» مرة واحدة (وممكن تتعدّى) — لحد ما تتحدد جرعاتها بس
+  /// هي اللي ساكتة وعليها «؟»، والباقي بيتجدول عادي.
+  ///
+  /// اللي **ما ينفعش يتحفظ أصلاً** — من غير اسم خالص أو من غير ولا ميعاد —
+  /// مفيش حاجة تتكتب منه، فبيتساب برّه العدّ وبيتقال بالكلام؛ الباقي بيتحفظ.
+  List<_DraftLine> get _saveable => [for (final l in _keep) if (!l.blocks) l];
+  bool get _hasUnsaveable => _keep.any((l) => l.blocks);
 
   /// جرعة مش معروفة بس — بتتحفظ «مش معروفة» ونسأل عنها بعدين.
   bool get _hasUnknownAmount => _keep.any((l) => l.amountUnknown);
@@ -157,7 +165,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// أول سطر «أعدّل» هيروح له: اللي بيقفل، وإلا اللي محتاج مراجعة، وإلا الأول.
   int? get _firstToEdit {
     for (final (i, l) in _lines.indexed) {
-      if (!l.deleted && (l.blocks || _unsetAnchorsOf(l).isNotEmpty)) return i;
+      if (!l.deleted && l.blocks) return i;
     }
     for (final (i, l) in _lines.indexed) {
       if (!l.deleted && l.needsReview) return i;
@@ -277,8 +285,8 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   /// «تمام، ظبّطهم»: **الكتابة الوحيدة في الشاشة دي** — كل السطور الباقية
   /// في معاملة واحدة، وبعدها الجدولة. ولا حاجة بتوصل القاعدة قبل الدوسة دي.
   Future<void> _confirm() async {
-    final keep = _keep;
-    if (_busy || _hasBlocking || keep.isEmpty) return;
+    final keep = _saveable;
+    if (_busy || keep.isEmpty) return;
     setState(() => _busy = true);
 
     final services = AppScope.of(context);
@@ -305,6 +313,21 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       ],
     );
     await services.scheduler.rescheduleAll();
+
+    // **مرساة ما اتحددتش — سؤال واحد بعد الحفظ، وممكن يتعدّى.** الدوا
+    // اتحفظ على مرساته زي ما الورقة قالت، والمحرّك بيسكت عن المرساة اللي
+    // ما اتحددتش (`routine_unset_test`) لحد ما تتحدد — هنا أو من «عدّل
+    // يومك». الإجابة بتتحفظ في روتينه وبتعيد الجدولة؛ القفل بيكتب ولا حاجة.
+    final unset = {for (final l in keep) ..._unsetAnchorsOf(l)};
+    var anySet = false;
+    for (final anchor in unset) {
+      if (!mounted) break;
+      final picked = await askAnchorTime(context, anchor: anchor, say: PatientVoice.of(context));
+      if (picked == null) continue;
+      await services.routines.setAnchor(services.patientId, anchor, picked);
+      anySet = true;
+    }
+    if (anySet) await services.scheduler.rescheduleAll();
 
     // «لسه ماتشترتش» — **بعد** الجدولة وبرّاها: علامة على الدوا وبس،
     // والتذكير اتجدول فوق زي ما هو بالظبط.
@@ -520,11 +543,12 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_hasBlocking)
+                  if (_hasUnsaveable)
                     Padding(
                       padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
-                        'في دوا اسمه أو توقيته مش واضح — دوس «أعدّل» وحدده الأول.',
+                        key: const ValueKey('unsaveable-note'),
+                        'في دوا من غير اسم أو من غير ميعاد — مش هيتحفظ لحد ما تكتبه من «أعدّل» أو تشيله. الباقي بيتحفظ.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
                       ),
@@ -577,9 +601,9 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         child: _EqualButton(
                           key: const ValueKey('confirm-review'),
                           // العدد على الزرار: اللي بيتأكّد لازم يعرف هيحفظ كام
-                          label: 'تمام — ${_countWord(_keep.length)}',
+                          label: 'تمام — ${_countWord(_saveable.length)}',
                           fill: F.green,
-                          onPressed: _busy || _hasBlocking || _keep.isEmpty ? null : _confirm,
+                          onPressed: _busy || _saveable.isEmpty ? null : _confirm,
                         ),
                       ),
                     ],
@@ -658,6 +682,9 @@ class _MedicineRow extends StatelessWidget {
     final unsure = line.needsReview;
     final name = line.name;
 
+    // الاسم بثقة قليلة بيفضل مظلّل بكلمته — بيتحفظ زي ما الورقة قالته، والإنسان
+    // هو اللي بيتأكد. مش بيقفل حاجة.
+    final unsureName = read != null && read.name.needsReview && !line.edited;
     final unsureFields = [
       if (read != null && !edited) ...[
         if (read.name.needsReview) ('الاسم', read.name.note),
@@ -693,6 +720,10 @@ class _MedicineRow extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (unsureName) ...[
+                      const SizedBox(height: F.s6),
+                      GoldNote('اتأكد من الاسم', key: ValueKey('unsure-name-$index')),
+                    ],
                     const SizedBox(height: F.s4),
                     Text(
                       [
@@ -777,7 +808,7 @@ class _MedicineRow extends StatelessWidget {
             GoldNote(
               key: ValueKey('unset-anchor-note-$index'),
               'الورقة بتقول ${unsetAnchors.map((a) => a.label).join(' و')} — وإنت لسه '
-              'ما حدّدتش ميعاده. قول لنا مرة واحدة، والدوا يتربط بيه.',
+              'ما حدّدتش ميعاده. هنسألك بعد «تمام»، ولحد ما تحدده الجرعة دي بس هتفضل ساكتة.',
             ),
             for (final anchor in unsetAnchors) ...[
               const SizedBox(height: F.s8),

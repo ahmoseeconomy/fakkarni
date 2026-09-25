@@ -49,7 +49,7 @@ void main() {
         find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
       );
 
-  screenTest('الفطار مش متحدد → مفيش ساعة، سؤال مكتوب، و«تمام» مقفولة', (tester) async {
+  screenTest('الفطار مش متحدد → مفيش ساعة، سؤال مكتوب — و«تمام» مفتوحة', (tester) async {
     await RoutineRepository(h.db).saveRoutine(h.services.patientId, DayRoutine.none);
     await pumpReview(tester, DayRoutine.none);
 
@@ -57,7 +57,7 @@ void main() {
     expect(find.text('٧:٠٠ ص'), findsNothing, reason: 'ولا رقم من الافتراضي');
     expect(find.byKey(const ValueKey('unset-anchor-note-0')), findsOneWidget);
     expect(find.text('حدّد ميعاد الفطار'), findsOneWidget);
-    expect(confirm(tester).onPressed, isNull);
+    expect(confirm(tester).onPressed, isNotNull, reason: 'المرساة بتتسأل بعد «تمام»، مش بتقفلها');
     expectNoRedAndMinSize(tester);
   });
 
@@ -100,5 +100,77 @@ void main() {
     expect(find.text('٧:٠٠ ص'), findsOneWidget);
     expect(find.text('حدّد ميعاد الفطار'), findsNothing);
     expect(confirm(tester).onPressed, isNotNull);
+  });
+
+  group('المرساة اللي ما اتحددتش بتتسأل بعد «تمام» — مرة واحدة، وممكن تتعدّى', () {
+    final fixedLine = ReadLine(
+      name: ok('Eltroxin 50'),
+      amount: ok('قرص'),
+      timings: ok([const FixedTiming(MinuteOfDay(1260))]), // ٩ بالليل
+      duration: const ReadField(value: null, confidence: 1),
+    );
+
+    Future<void> pumpTwo(WidgetTester tester) async {
+      await RoutineRepository(h.db).saveRoutine(h.services.patientId, DayRoutine.none);
+      await h.pump(
+        tester,
+        ReviewPrescriptionScreen(
+          reading: PrescriptionReading(
+            doctor: const ReadField(value: null, confidence: 1),
+            clinic: const ReadField(value: null, confidence: 1),
+            issuedAt: const ReadField(value: null, confidence: 1),
+            lines: [breakfastLine, fixedLine],
+          ),
+          routine: DayRoutine.none,
+          today: aug31,
+        ),
+      );
+      await settle(tester);
+    }
+
+    screenTest('«تمام» → السؤال بيظهر مرة → الإجابة بتتحفظ وبتتجدول، والثابتة اتجدولت قبلها', (tester) async {
+      await pumpTwo(tester);
+      expect(find.text('تمام — دواءين'), findsOneWidget);
+      await tester.tap(find.descendant(
+          of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)));
+      await settle(tester);
+
+      // الاتنين اتحفظوا قبل السؤال — والثابتة ليها إشعار خلاص
+      expect(await h.meds.activeSchedules(h.services.patientId), hasLength(2));
+      expect(find.text('بتفطر الساعة كام؟'), findsOneWidget, reason: 'سؤال واحد بعد الحفظ');
+      final beforeAnswer = h.sink.scheduled.values.where((n) => n.body.contains('Eltroxin'));
+      expect(beforeAnswer, isNotEmpty, reason: 'الجرعة الثابتة بتتجدول عادي وإحنا لسه بنسأل');
+      expect(h.sink.scheduled.values.where((n) => n.body.contains('Antodine')), isEmpty,
+          reason: 'جرعة الفطار ساكتة لحد ما يتحدد');
+
+      await tester.drag(find.byKey(FTimeWheel.minutesKey), const Offset(0, -FTimeWheel.itemExtent));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('anchor-confirm')));
+      await settle(tester);
+
+      final routine = (await RoutineRepository(h.db).getRoutine(h.services.patientId))!;
+      expect(routine.isSet(DayAnchor.breakfast), isTrue);
+      expect(h.sink.scheduled.values.where((n) => n.body.contains('Antodine')), isNotEmpty,
+          reason: 'اتحدد → اتجدول');
+      expect(find.text('بتفطر الساعة كام؟'), findsNothing, reason: 'ما بيتسألش تاني');
+    });
+
+    screenTest('القفل من غير إجابة: الدوا محفوظ على مرساته، ساكت، والمرساة لسه مش متحددة', (tester) async {
+      await pumpTwo(tester);
+      await tester.tap(find.descendant(
+          of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)));
+      await settle(tester);
+      expect(find.text('بتفطر الساعة كام؟'), findsOneWidget);
+      // تخطّي = قفل الورقة
+      await tester.tapAt(const Offset(20, 20));
+      await settle(tester);
+
+      final routine = (await RoutineRepository(h.db).getRoutine(h.services.patientId))!;
+      expect(routine.isSet(DayAnchor.breakfast), isFalse, reason: 'ولا رقم اتكتب');
+      final saved = await h.meds.activeSchedules(h.services.patientId);
+      expect(saved.map((s) => s.timing), contains(const AnchorTiming(DayAnchor.breakfast, -30)));
+      expect(h.sink.scheduled.values.where((n) => n.body.contains('Antodine')), isEmpty);
+      expect(h.sink.scheduled.values.where((n) => n.body.contains('Eltroxin')), isNotEmpty);
+    });
   });
 }

@@ -137,7 +137,7 @@ void main() {
     expect(h.sink.scheduled, isEmpty);
   });
 
-  screenTest('«تمام» مقفولة لما في سطر محتاج تحديد، ومفتوحة لما كله واضح',
+  screenTest('«تمام» مفتوحة حتى مع سطر من غير ميعاد — بتعدّ اللي هيتحفظ، والسطر ده بيتقال',
       (tester) async {
     await pumpReview(tester, [clearLine, unclearLine]);
     await open(tester);
@@ -145,8 +145,10 @@ void main() {
     FilledButton confirm() => tester.widget<FilledButton>(
           find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
         );
-    expect(confirm().onPressed, isNull);
-    expect(find.textContaining('مش واضح — دوس'), findsOneWidget);
+    expect(confirm().onPressed, isNotNull, reason: '«تمام» دايماً مفتوحة لما فيه حاجة تتحفظ');
+    expect(find.text('تمام — دوا واحد'), findsOneWidget, reason: 'العدّ على اللي هيتحفظ فعلاً');
+    expect(find.byKey(const ValueKey('unsaveable-note')), findsOneWidget);
+    expectNoRedAndMinSize(tester);
   });
 
   screenTest('«أعدّل» وزرار التأكيد بنفس الوزن بالظبط — نفس المقاس، مليانين، نفس الخط', (tester) async {
@@ -604,16 +606,24 @@ void main() {
       expect(row.amountUnknown, isTrue);
     });
 
-    screenTest('توقيت مش واضح → لسه بيقفل، والسطر الهادي مش بيظهر', (tester) async {
+    screenTest('توقيت مش واضح + جرعة مش معروفة → «تمام» مفتوحة، وبتحفظ اللي ليه ميعاد بجرعة «مش معروفة»',
+        (tester) async {
       await pumpReview(tester, [unclearLine, unknownAmount]);
       await open(tester);
 
       final confirm = tester.widget<FilledButton>(
         find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
       );
-      expect(confirm.onPressed, isNull);
-      expect(find.text('هتتحفظ من غير الجرعة — تقدر تضيفها بعدين'), findsNothing);
-      expect(find.textContaining('مش واضح — دوس'), findsOneWidget);
+      expect(confirm.onPressed, isNotNull);
+      expect(find.byKey(const ValueKey('unsaveable-note')), findsOneWidget);
+      await tester.tap(find.descendant(
+          of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)));
+      await settle(tester);
+      final saved = await h.meds.activeSchedules(h.services.patientId);
+      expect(saved, hasLength(1), reason: 'اللي من غير ميعاد ما اتحفظش — ولا اتخمّن له ميعاد');
+      expect(saved.single.amountLabel, isNull);
+      final rows = await h.db.select(h.db.medications).get();
+      expect(rows.single.amountUnknown, isTrue, reason: 'الجرعة «مش معروفة»، مش مخترعة');
     });
   });
 
@@ -649,5 +659,28 @@ void main() {
     expect(find.byType(DebugPanel), findsOneWidget);
     expect(find.text('pinned gemini-3.6-flash retired'), findsOneWidget);
     expect(result, isNull);
+  });
+
+  group('«تمام» دايماً مفتوحة، واللي مش واضح بيتحفظ مش معروف', () {
+    final lowName = ReadLine(
+      name: low('Concor 5 mg', 'الخط مش واضح'),
+      amount: const ReadField.missing('الجرعة مش مكتوبة'),
+      timings: ok([const AnchorTiming(DayAnchor.breakfast, -30)]),
+      duration: const ReadField(value: null, confidence: 1),
+    );
+
+    screenTest('اسم بثقة قليلة: «اتأكد من الاسم» ظاهر، و«تمام» مفتوحة، وبيتحفظ زي ما اتقرا — مش مخمّن', (tester) async {
+      await pumpReview(tester, [lowName]);
+      await open(tester);
+      expect(find.byKey(const ValueKey('unsure-name-0')), findsOneWidget);
+      expect(find.text('اتأكد من الاسم'), findsOneWidget);
+      expect(confirmButton(tester).onPressed, isNotNull);
+      await confirm(tester);
+      final rows = await h.db.select(h.db.medications).get();
+      expect(rows.single.name, 'Concor 5 mg', reason: 'الاسم زي الورقة بالحرف');
+      expect(rows.single.amountUnknown, isTrue);
+      expect(rows.single.amountLabel, isNull);
+      expect(await h.meds.activeSchedules(h.services.patientId), hasLength(1));
+    });
   });
 }
