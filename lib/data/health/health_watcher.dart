@@ -70,6 +70,8 @@ class HealthAutoFix {
       case HealthCode.escalationRungsOff:
       case HealthCode.noMedications:
       case HealthCode.accountMissing:
+      // صور الأدوية: الطابور نفسه بيعيد بتراجعه مع كل سحبة
+      case HealthCode.mediaSync:
         return null;
     }
   }

@@ -24,6 +24,10 @@ enum HealthCode {
   /// السيرفر رفض صف المريض (المفتاح الأجنبي أو صلاحيات الصف): الحساب اللي
   /// الموبايل ده مربوط بيه مش موجود هناك. الطابور بيقف لحد ما يربط تاني.
   accountMissing,
+
+  /// ٠٠٢٩: صورة دوا بقالها يوم ما اترفعتش للدائرة، أو صورة من الممرض
+  /// اترفضت. **للأدمن بس** — المريض ما بيشوفهاش ومفيش إشعار.
+  mediaSync,
 }
 
 /// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
@@ -371,6 +375,21 @@ HealthFinding? checkEscalationRungs(HealthSnapshot s) {
 ///
 /// موبايل مفيهوش ولا دوا بيعدّي كل الفحوص — وبيقول «كله تمام» عن وعد
 /// مش موجود أصلاً.
+/// صور الأدوية واقفة (٠٠٢٩) — بتروح للوحة الأدمن مع النبضة وبس.
+HealthFinding? checkMediaSync(HealthSnapshot s) {
+  final stuck = s.mediaProblemSince;
+  final rejected = s.mediaRejectedAt;
+  final recentReject = rejected != null && s.now.difference(rejected) < const Duration(hours: 24);
+  if (stuck == null && !recentReject) return null;
+  return HealthFinding(
+    code: HealthCode.mediaSync,
+    severity: Severity.broken,
+    title: stuck != null ? 'صورة دوا ما وصلتش للدائرة' : 'صورة من الدائرة ما اتقبلتش',
+    why: 'الموبايل بيعيد المحاولة لوحده.',
+    fix: HealthFix.none,
+  );
+}
+
 HealthFinding? checkNoMedications(HealthSnapshot s) {
   if (s.isCaregiver || s.activeDoseCount > 0) return null;
   return const HealthFinding(

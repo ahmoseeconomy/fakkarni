@@ -136,6 +136,7 @@ Future<void> main() async {
     medChanges: cloud?.medChanges,
     subscription: subscription,
     papers: cloud?.papers,
+    medPhotos: cloud?.medPhotos,
   );
 
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.

@@ -13,6 +13,7 @@ import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
+import 'package:fakkarni/features/medication/circle_med_photo.dart';
 import 'package:fakkarni/features/medication/med_photo.dart';
 import 'package:fakkarni/features/records/attachment_viewer.dart';
 
@@ -115,6 +116,16 @@ void main() {
 
   testWidgets('من غير AppScope (شاشة لوحدها) → الأيقونة', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: MedPhotoThumb(path: 'x.jpg', name: 'x', fallback: icon)));
+    expect(find.byKey(const ValueKey('fallback-icon')), findsOneWidget);
+  });
+
+  testWidgets('العيلة والممرض: من غير كاش صور (مفيش سحابة) → الأيقونة', (tester) async {
+    await tester.pumpWidget(AppScope(
+      services: services,
+      child: const MaterialApp(
+        home: CircleMedPhotoThumb(patientUuid: 'p', medicationUuid: 'm', name: 'x', fallback: icon),
+      ),
+    ));
     expect(find.byKey(const ValueKey('fallback-icon')), findsOneWidget);
   });
 }

@@ -68,7 +68,7 @@ class _CaregiverMedicationsScreenState extends State<CaregiverMedicationsScreen>
               else
                 // مفيش عنوان قسم هنا: الشريط العلوي بيقول «أدويته» خلاص،
                 // وسطر تاني بنفس الكلمة زحمة على شاشة الهدف منها الكثافة.
-                for (final m in meds) CaregiverMedicationRow(medication: m),
+                for (final m in meds) CaregiverMedicationRow(medication: m, patientUuid: snapshot.patient.uuid),
             ],
           ),
         ),

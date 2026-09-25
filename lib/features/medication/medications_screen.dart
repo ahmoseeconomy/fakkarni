@@ -131,6 +131,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             navigator.pop();
             // شيل الدوا بيشيل صورته كمان — مفيش ملف يتيم
             await MedPhotos(services.db, services.medPhotoStore).removeMedication(services.medications, med.id);
+            services.syncMedPhotosSoon();
             await services.scheduler.rescheduleAll();
           },
         ),

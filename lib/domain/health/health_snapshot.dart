@@ -49,10 +49,18 @@ class HealthSnapshot {
     this.aiKeyPresent = true,
     this.rungFirstOn = true,
     this.rungSecondOn = true,
+    this.mediaProblemSince,
+    this.mediaRejectedAt,
   });
 
   final DateTime now;
   final HealthPlatform platform;
+
+  /// ٠٠٢٩: أول فشل رفع صورة دوا قعد أكتر من يوم — null = الطابور ماشي.
+  final DateTime? mediaProblemSince;
+
+  /// ٠٠٢٩: آخر مرة صورة من الممرض اترفضت.
+  final DateTime? mediaRejectedAt;
   final NotificationPermission permission;
 
   /// الموبايل ده بتاع الابن (مربوط بأب) ولا بتاع المريض؟ فيه فحوص

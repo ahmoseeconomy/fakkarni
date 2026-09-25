@@ -361,11 +361,13 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           previewFile: med.photoPath == null ? null : file.data,
                           onPicked: (bytes) {
                             final services = AppScope.of(context);
-                            MedPhotos(services.db, services.medPhotoStore).setFromBytes(med.id, bytes);
+                            MedPhotos(services.db, services.medPhotoStore)
+                                .setFromBytes(med.id, bytes)
+                                .then((_) => services.syncMedPhotosSoon());
                           },
                           onRemove: () {
                             final services = AppScope.of(context);
-                            MedPhotos(services.db, services.medPhotoStore).clear(med.id);
+                            MedPhotos(services.db, services.medPhotoStore).clear(med.id).then((_) => services.syncMedPhotosSoon());
                           },
                         ),
                       ),

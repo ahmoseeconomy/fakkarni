@@ -310,7 +310,8 @@ with expected(migration, kind, ident) as (
     ('0029_med_photos',    'policy',   'storage.objects|med_photos_select'),
     ('0029_med_photos',    'policy',   'storage.objects|med_photos_insert'),
     ('0029_med_photos',    'policysrc','storage.objects|med_photos_insert|can_stage_med_photo'),
-    ('0029_med_photos',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|photo')
+    ('0029_med_photos',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|photo'),
+    ('0030_patient_papers_limits', 'bucket', 'patient-papers|10485760|image/jpeg')
 ),
 checked as (
   select
@@ -388,6 +389,13 @@ checked as (
         where c.conrelid = to_regclass(split_part(e.ident, '|', 1))
           and c.conname = split_part(e.ident, '|', 2)
           and pg_get_constraintdef(c.oid) like '%' || split_part(e.ident, '|', 3) || '%')
+
+      -- باكت بحدّه وأنواعه: 'patient-papers|10485760|image/jpeg'
+      when 'bucket' then exists (
+        select 1 from storage.buckets b
+        where b.id = split_part(e.ident, '|', 1)
+          and b.file_size_limit = split_part(e.ident, '|', 2)::bigint
+          and b.allowed_mime_types = array[split_part(e.ident, '|', 3)])
 
       -- مهمة cron بالاسم: 'fakkarni-escalate'
       --

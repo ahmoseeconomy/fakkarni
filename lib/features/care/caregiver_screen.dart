@@ -9,6 +9,7 @@ import '../../domain/health/follow_up.dart';
 import '../../domain/adherence/adherence.dart';
 import '../adherence/adherence_dots.dart';
 import '../adherence/circle_adherence.dart';
+import '../medication/circle_med_photo.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
@@ -450,9 +451,12 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
 
 /// شريط الأسبوع: لكل يوم «اتأكد س من ص» — عدّ، مش حكم.
 class CaregiverMedicationRow extends StatelessWidget {
-  const CaregiverMedicationRow({required this.medication, super.key});
+  const CaregiverMedicationRow({required this.medication, this.patientUuid, super.key});
 
   final CaregiverMedication medication;
+
+  /// لصورة الدوا (٠٠٢٩) — null = من غير صورة.
+  final String? patientUuid;
 
   @override
   Widget build(BuildContext context) => CareCard(
@@ -466,16 +470,32 @@ class CaregiverMedicationRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              medication.name,
-              style: TextStyle(
-                fontSize: F.careBodySize,
-                fontWeight: FontWeight.w700,
-                color: F.ink,
-                fontFamily: F.monoFamily,
-                fontFamilyFallback: F.monoFallback,
-                height: 1.3,
-              ),
+            Row(
+              children: [
+                // صورة الحباية لو المريض حطّها — قراية بس
+                if (patientUuid case final p?)
+                  CircleMedPhotoThumb(
+                    patientUuid: p,
+                    medicationUuid: medication.uuid,
+                    name: medication.name,
+                    size: 44,
+                    fallback: const SizedBox.shrink(),
+                  ),
+                const SizedBox(width: F.s8),
+                Expanded(
+                  child: Text(
+                    medication.name,
+                    style: TextStyle(
+                      fontSize: F.careBodySize,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                      fontFamily: F.monoFamily,
+                      fontFamilyFallback: F.monoFallback,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (medication.amountLabel != null || medication.rules.isNotEmpty)
               Padding(

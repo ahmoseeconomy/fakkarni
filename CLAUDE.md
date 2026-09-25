@@ -1809,7 +1809,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029، وبعدها `verify_migrations.sql` لازم يرجّع ٢٩ صف كلهم `ok = true`. **0029 مستنية مراجعة المالك** — سياسات جديدة على مسار `med-photos/` في باكت الورق (قراية للدائرة، والممرض بيرفع تحت `pending/`)؛ الكود اللي بيرفع ويسحب ما اتكتبش لحد ما تتراجع. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030، وبعدها `verify_migrations.sql` لازم يرجّع ٣٠ صف كلهم `ok = true`. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 ملف بس. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -4452,9 +4452,23 @@ what the person typed; its refill alert never fired for many users. Here:
   the existing icon — never a broken image. «استخدم صورة العلبة» after a
   box scan; **not** offered on a prescription line (a photo of paper does
   not help recognise a pill). Notifications carry no photo.
-  **Circle sync is not built**: the 0026 bucket policies give followers no
-  read and nurses no write, so `0029_med_photos.sql` is written and waits
-  for review.
+  **Circle sync (0029, 25 Sep 2026):** `MedPhotoSync` (patient phone only,
+  from `pullFromCircle` and right after a save/remove, never awaited by the
+  UI) upserts `{patient}/med-photos/{med}.jpg` and deletes it when the photo
+  or the medicine goes; failures back off 30 s → 6 h per medicine
+  (`media.failures` in shared_preferences) and a failure older than 24 h,
+  or a rejected nurse photo, becomes health code `mediaSync` — broken, so it
+  rides the heartbeat to the admin dashboard, and never shown to the
+  patient. The son and nurse read through `CircleMedPhotoCache`: one folder
+  listing per patient (kept a minute), a download only when `updated_at`
+  changed, the old copy when offline, the icon on any failure. A nurse
+  with «يعدّل الأدوية» uploads a shrunk, EXIF-free photo to
+  `pending/<uuid>.jpg` and sends a `photo` change; the patient's phone
+  accepts it only if the path is under **its own** `pending/` and the bytes
+  decode, re-runs `prepareMedPhoto`, saves, uploads it as the official copy
+  and deletes the pending one — otherwise `missing` + `mediaSync`.
+  `0030_patient_papers_limits.sql` (file only) caps the bucket at 10 MiB
+  and `image/jpeg`, the one type both uploaders send.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

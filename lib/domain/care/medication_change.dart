@@ -23,7 +23,11 @@ enum MedicationChangeKind {
   appointment('حط ميعاد'),
 
   /// ٠٠٢٨: «اشتريت علبة جديدة» من الممرض — كمية بتتزوّد على مخزون الدوا.
-  restock('سجّل علبة جديدة من');
+  restock('سجّل علبة جديدة من'),
+
+  /// ٠٠٢٩: صورة جديدة للدوا من الممرض — بتترفع تحت `pending/` وموبايل
+  /// المريض بيتحقق منها ويطبّقها بسكّته.
+  photo('غيّر صورة');
 
   const MedicationChangeKind(this.verb);
 
@@ -53,10 +57,15 @@ class MedicationChangePayload {
     this.followKind,
     this.day,
     this.quantity,
+    this.photoPath,
   });
 
   /// الكمية الجديدة — «علبة جديدة».
   final double? quantity;
+
+  /// ٠٠٢٩: مسار الصورة المرفوعة في الباكت — `{patient}/med-photos/pending/…`.
+  /// موبايل المريض **بيتحقق منه** قبل ما يلمسه.
+  final String? photoPath;
 
   // ---- ورقة/ميعاد (٠٠٢٦)
   /// اسم نوع السجل المخزّن (`RecordKind.name`) — «ورقة».
@@ -106,6 +115,7 @@ class MedicationChangePayload {
         if (followKind != null) 'follow_kind': followKind,
         if (day != null) 'day': _date(day),
         if (quantity != null) 'quantity': quantity,
+        if (photoPath != null) 'photo_path': photoPath,
       };
 
   static String? _date(DateTime? d) => d == null ? null : '${d.year}-${_two(d.month)}-${_two(d.day)}';
@@ -138,6 +148,7 @@ class MedicationChangePayload {
       followKind: json['follow_kind'] as String?,
       day: date(json['day']),
       quantity: (json['quantity'] as num?)?.toDouble(),
+      photoPath: json['photo_path'] as String?,
       name: json['name'] as String?,
       timings: timings,
       amountLabel: json['amount'] as String?,
@@ -195,7 +206,7 @@ String changeSubject(MedicationChange change) {
       return name == null || name.isEmpty ? what : '$what $name';
     case MedicationChangeKind.record:
       return name == null || name.isEmpty ? 'ورقة' : name;
-    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock:
+    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock || MedicationChangeKind.photo:
       return (name == null || name.isEmpty) ? (change.medicationName ?? 'دوا') : name;
   }
 }

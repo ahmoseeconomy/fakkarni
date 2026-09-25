@@ -1,4 +1,13 @@
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart' show ImageSource;
+
+import '../../app/app_scope.dart';
+import '../../core/images/med_photo.dart';
+import '../../data/db/tables.dart' show newSyncUuid;
+import '../../data/files/med_photo_sync.dart' show medPhotoPendingPath;
+import '../medication/circle_med_photo.dart';
+import '../medication/med_photo.dart' show pickMedPhoto;
 
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
@@ -32,6 +41,9 @@ class NurseMedicationsScreen extends StatefulWidget {
 class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
   /// بيعيش مع الشاشة — ورقة بتتقفل لسه ليها كادرات بتتبني (درس جولة ١٦).
   final _amount = TextEditingController();
+
+  /// سطر هادي لو الصورة ما نفعتش أو النت واقع — للممرض، مش للمريض.
+  String? _photoNote;
 
   NurseController get _c => widget.controller;
 
@@ -85,6 +97,57 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
       medicationUuid: med.uuid,
       medicationName: med.name,
     );
+  }
+
+  /// «غيّر الصورة»: بتتصغّر ويتشال منها الـEXIF هنا كمان، بتترفع تحت
+  /// `pending/`، وبيتبعت تغيير 'photo' — موبايل المريض بيتحقق ويطبّق.
+  Future<void> _changePhoto(CaregiverMedication med) async {
+    final source = await FSheet.show<ImageSource>(
+      context,
+      title: 'صورة ${med.name}',
+      children: [
+        FSecondaryButton(
+          key: const ValueKey('nurse-photo-camera'),
+          label: 'صوّر',
+          onPressed: () => Navigator.of(context).pop(ImageSource.camera),
+        ),
+        const SizedBox(height: F.s8),
+        FSecondaryButton(
+          key: const ValueKey('nurse-photo-gallery'),
+          label: 'من الصور',
+          onPressed: () => Navigator.of(context).pop(ImageSource.gallery),
+        ),
+      ],
+    );
+    if (source == null || !mounted) return;
+    final services = AppScope.of(context);
+    final remote = services.medPhotoRemote;
+    final patient = _c.snapshot?.patient.uuid;
+    if (remote == null || patient == null) return;
+    final raw = await pickMedPhoto(source);
+    if (raw == null || !mounted) return;
+    final clean = await compute(prepareMedPhoto, raw);
+    if (!mounted) return;
+    if (clean == null) {
+      setState(() => _photoNote = 'الصورة دي ما نفعتش — جرّب صورة تانية.');
+      return;
+    }
+    final path = medPhotoPendingPath(patient, newSyncUuid());
+    try {
+      await remote.upload(path, clean);
+    } catch (_) {
+      if (mounted) setState(() => _photoNote = 'مفيش نت دلوقتي — جرّب تاني بعد شوية.');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _photoNote = null);
+    await _c.submit(
+      kind: MedicationChangeKind.photo,
+      payload: MedicationChangePayload(photoPath: path),
+      medicationUuid: med.uuid,
+      medicationName: med.name,
+    );
+    services.circleMedPhotos?.invalidate(patient);
   }
 
   Future<void> _restock(CaregiverMedication med) async {
@@ -153,6 +216,10 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
                 GoldNote(e),
                 const SizedBox(height: F.s10),
               ],
+              if (_photoNote case final n?) ...[
+                GoldNote(n, key: const ValueKey('nurse-photo-note')),
+                const SizedBox(height: F.s10),
+              ],
               for (final c in _c.pending)
                 Padding(
                   padding: const EdgeInsets.only(bottom: F.s10),
@@ -161,6 +228,8 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
               if (snapshot.medications.isEmpty) const NurseQuietLine('لسه مفيش أدوية على موبايله.'),
               for (final m in snapshot.medications) _MedicationCard(
                 med: m,
+                patientUuid: snapshot.patient.uuid,
+                onPhoto: canEdit ? () => _changePhoto(m) : null,
                 onAmount: canEdit ? () => _editAmount(m) : null,
                 onStop: canEdit ? () => _stop(m) : null,
                 onRestock: canEdit ? () => _restock(m) : null,
@@ -179,9 +248,20 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
 }
 
 class _MedicationCard extends StatelessWidget {
-  const _MedicationCard({required this.med, this.onAmount, this.onStop, this.onRestock});
+  const _MedicationCard({
+    required this.med,
+    required this.patientUuid,
+    this.onAmount,
+    this.onStop,
+    this.onRestock,
+    this.onPhoto,
+  });
 
   final CaregiverMedication med;
+  final String patientUuid;
+
+  /// «غيّر الصورة» — طلب معلّق (٠٠٢٩)، لو المريض سمح بالتعديل.
+  final VoidCallback? onPhoto;
   final VoidCallback? onAmount;
   final VoidCallback? onStop;
 
@@ -210,15 +290,30 @@ class _MedicationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              med.name,
-              style: TextStyle(
-                fontSize: F.minBodySize,
-                fontWeight: FontWeight.w800,
-                color: F.ink,
-                fontFamily: F.monoFamily,
-                fontFamilyFallback: F.monoFallback,
-              ),
+            Row(
+              children: [
+                // صورة الحباية زي ما المريض شايفها — بتنزل من السحابة
+                CircleMedPhotoThumb(
+                  patientUuid: patientUuid,
+                  medicationUuid: med.uuid,
+                  name: med.name,
+                  size: 64,
+                  fallback: Icon(Icons.medication_outlined, color: F.mutedDark, size: 32),
+                ),
+                const SizedBox(width: F.s12),
+                Expanded(
+                  child: Text(
+                    med.name,
+                    style: TextStyle(
+                      fontSize: F.minBodySize,
+                      fontWeight: FontWeight.w800,
+                      color: F.ink,
+                      fontFamily: F.monoFamily,
+                      fontFamilyFallback: F.monoFallback,
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (med.amountLabel case final a?) line('الجرعة', a),
             for (final r in med.rules) line('الميعاد', r),
@@ -237,6 +332,14 @@ class _MedicationCard extends StatelessWidget {
                   child: Text(stock, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.45)),
                 ),
               ),
+            if (onPhoto != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-photo-${med.uuid}'),
+                label: 'غيّر الصورة',
+                onPressed: onPhoto,
+              ),
+            ],
             if (onRestock != null && med.stockQuantity != null) ...[
               const SizedBox(height: F.s8),
               FSecondaryButton(

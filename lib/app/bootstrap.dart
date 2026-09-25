@@ -18,6 +18,8 @@ import '../data/care/caregiver_remote.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
+import '../data/files/circle_med_photos.dart';
+import '../data/files/med_photo_sync.dart';
 import '../data/files/paper_share.dart';
 import '../data/files/attachment_store.dart';
 import '../data/sync/medication_change_pull.dart';
@@ -55,8 +57,10 @@ Future<AppServices> buildServices(
   MedicationChangeRemote? medChanges,
   SubscriptionService? subscription,
   PaperUploads? papers,
+  MedPhotoRemote? medPhotos,
 }) async {
   final routines = RoutineRepository(db);
+  const medPhotoStore = DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder);
   final patientId = await routines.ensurePatient();
   final patientIndex = await routines.patientIndex(patientId);
   final medications = MedicationRepository(db);
@@ -88,6 +92,8 @@ Future<AppServices> buildServices(
           medications: medications,
           scheduler: scheduler,
           patientId: patientId,
+          photoRemote: medPhotos,
+          photoStore: medPhotoStore,
         );
   // بعد كل رفعة ناجحة: السحبتين (التأكيدات وتغييرات الأدوية) — مجاملة بعد الوعد
   if (proxyPull != null || medChangePull != null) {
@@ -117,6 +123,9 @@ Future<AppServices> buildServices(
     papers: papers == null
         ? null
         : PaperShareService(db: db, uploads: papers, attachments: const DirectoryAttachmentStore()),
+    medPhotoSync: medPhotos == null ? null : MedPhotoSync(db: db, remote: medPhotos, store: medPhotoStore),
+    circleMedPhotos: medPhotos == null ? null : CircleMedPhotoCache(remote: medPhotos),
+    medPhotoRemote: medPhotos,
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,

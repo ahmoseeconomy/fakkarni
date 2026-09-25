@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../ai/lab_reader.dart';
@@ -14,6 +16,8 @@ import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
 import '../data/repositories/stock_repository.dart';
 import '../data/services/refill_alerts.dart';
+import '../data/files/circle_med_photos.dart';
+import '../data/files/med_photo_sync.dart';
 import '../data/files/paper_share.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
@@ -62,6 +66,9 @@ class AppServices {
     this.medChangePull,
     this.subscription,
     this.papers,
+    this.medPhotoSync,
+    this.circleMedPhotos,
+    this.medPhotoRemote,
   });
 
   final AppDatabase db;
@@ -90,6 +97,21 @@ class AppServices {
   /// ٠٠٢٦: «شارك صور الورق مع الممرض» — null من غير سحابة.
   final PaperShareService? papers;
 
+  /// ٠٠٢٩: رفع صور الأدوية من موبايل المريض — null من غير سحابة.
+  final MedPhotoSync? medPhotoSync;
+
+  /// ٠٠٢٩: كاش صور الأدوية عند العيلة والممرض — null من غير سحابة.
+  final CircleMedPhotoCache? circleMedPhotos;
+
+  /// ٠٠٢٩: الباكت نفسه — الممرض بيرفع عليه «غيّر الصورة».
+  final MedPhotoRemote? medPhotoRemote;
+
+  /// بعد ما صورة اتحفظت أو اتشالت: الطابور يشتغل **من غير ما حد يستناه**.
+  void syncMedPhotosSoon() {
+    final sync = medPhotoSync;
+    if (sync != null) unawaited(sync.sync(patientId: patientId));
+  }
+
   /// السحبتين مع بعض — عند الفتح والرجوع وبعد كل رفعة.
   Future<void> pullFromCircle() async {
     await proxyPull?.pull();
@@ -97,6 +119,8 @@ class AppServices {
     await subscription?.refresh();
     // صور الورق مع الممرض — من المقدمة بس، مش من صحوة شاشة القفل
     await papers?.sync(patientId: patientId);
+    // صور الأدوية (٠٠٢٩): اللي فشل قبل كده بيتعاد هنا بتراجعه
+    await medPhotoSync?.sync(patientId: patientId);
   }
 
   /// تفضيلات الجهاز (D3.3) — مشتقة من القاعدة، فكل مكان بيبني الخدمات

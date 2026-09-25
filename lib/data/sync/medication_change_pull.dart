@@ -2,10 +2,15 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:typed_data';
+
 import '../../core/diagnostics.dart';
 import '../../domain/care/medication_change.dart';
 import '../care/medication_changes.dart';
 import '../db/app_database.dart';
+import '../files/attachment_store.dart';
+import '../files/med_photo_sync.dart';
+import '../files/med_photos.dart';
 import '../../domain/health/follow_up.dart';
 import '../db/tables.dart' show RecordKind;
 import '../repositories/medication_repository.dart';
@@ -32,7 +37,18 @@ class MedicationChangePuller {
     required this.scheduler,
     required this.patientId,
     this.clock = DateTime.now,
+    this.photoRemote,
+    this.photoStore,
+    this.preparePhoto,
   });
+
+  /// ٠٠٢٩: الباكت ومكان صور الأدوية — null = مفيش سحابة للصور، والتغيير
+  /// من نوع 'photo' بيتساب مستني.
+  final MedPhotoRemote? photoRemote;
+  final AttachmentStore? photoStore;
+
+  /// التصغير وشيل الـEXIF — متحقن للاختبارات (الافتراضي `compute`).
+  final Future<Uint8List?> Function(Uint8List raw)? preparePhoto;
 
   final MedicationChangeRemote remote;
   final AppDatabase db;
@@ -103,6 +119,52 @@ class MedicationChangePuller {
     }
   }
 
+  /// ٠٠٢٩: صورة من الممرض. **بتتحقق الأول**: المسار لازم يبقى تحت
+  /// `pending/` بتاع المريض ده، والملف لازم يتفكّ كصورة. غير كده بتترفض
+  /// (`missing`) وبتتسجّل للأدمن — المريض ما بيشوفش حاجة. لو اتقبلت:
+  /// بتعدّي على نفس التجهيز (لفّ، ≤٨٠٠، من غير EXIF)، بتتحفظ محلي، بتترفع
+  /// كالنسخة الرسمية، وبعدين نسخة `pending/` بتتمسح.
+  Future<ChangeOutcome> _applyPhoto(MedicationChange change) async {
+    final remote = photoRemote;
+    final store = photoStore;
+    if (remote == null || store == null) {
+      diag('MedChange: صورة وصلت والموبايل ده مالوش باكت صور');
+      return ChangeOutcome.missing;
+    }
+    final patient = await routines.getPatient(patientId);
+    final uuid = change.medicationUuid;
+    final path = change.payload.photoPath;
+    if (patient == null || uuid == null) return ChangeOutcome.missing;
+    if (!pendingPhotoPathValid(path, patient.uuid)) {
+      await recordMediaRejected(clock(), 'مسار برّه pending بتاع المريض: $path');
+      return ChangeOutcome.missing;
+    }
+    final med = await (db.select(db.medications)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+    if (med == null || med.removedAt != null) return ChangeOutcome.missing;
+    final raw = await remote.download(path!);
+    if (raw == null) {
+      await recordMediaRejected(clock(), 'الصورة مش موجودة: $path');
+      return ChangeOutcome.missing;
+    }
+    final photos = MedPhotos(db, store, prepare: preparePhoto);
+    if (!await photos.setFromBytes(med.id, raw)) {
+      await recordMediaRejected(clock(), 'الملف مش صورة: $path');
+      try {
+        await remote.remove([path]);
+      } catch (_) {}
+      return ChangeOutcome.missing;
+    }
+    // النسخة الرسمية دلوقتي، ونسخة الممرض تتمسح — الاتنين مجاملة: الطابور
+    // بيكمّل الرفع لو فشل هنا
+    await MedPhotoSync(db: db, remote: remote, store: store, clock: clock).sync(patientId: patientId);
+    try {
+      await remote.remove([path]);
+    } catch (error) {
+      diag('MedChange: نسخة pending ما اتمسحتش ($error)');
+    }
+    return ChangeOutcome.applied;
+  }
+
   Future<ChangeOutcome> _apply(MedicationChange change) async {
     switch (change.kind) {
       case MedicationChangeKind.record:
@@ -170,6 +232,8 @@ class MedicationChangePuller {
           instructions: p.instructions,
         );
         return ChangeOutcome.applied;
+      case MedicationChangeKind.photo:
+        return _applyPhoto(change);
       case MedicationChangeKind.stop:
       case MedicationChangeKind.amount:
         final uuid = change.medicationUuid;

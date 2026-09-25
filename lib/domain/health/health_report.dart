@@ -20,6 +20,7 @@ const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
   checkNoCaregiver,
   checkNoMedications,
   checkAiKey,
+  checkMediaSync,
 ];
 
 class HealthReport {

@@ -9,6 +9,7 @@ import '../../domain/health/health_report.dart';
 import '../../domain/health/health_snapshot.dart';
 import '../battery/battery_optimisation.dart';
 import '../services/reminder_plan.dart';
+import '../files/med_photo_sync.dart' show mediaProblemSince, mediaRejectedAt;
 import '../sync/sync_service.dart' show SyncBlockReason;
 
 /// بيجمع اللقطة من الجهاز الحقيقي — **الطرف الوسخ من الفحص**.
@@ -83,6 +84,8 @@ class HealthCollector {
       aiKeyPresent: services.prescriptionReader != null,
       rungFirstOn: settings.$1,
       rungSecondOn: settings.$2,
+      mediaProblemSince: await mediaProblemSince(),
+      mediaRejectedAt: await mediaRejectedAt(),
     );
   }
 

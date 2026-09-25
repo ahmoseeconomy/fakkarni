@@ -392,6 +392,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       if (_photo case final photo?) {
         // صورة ما اتفكّتش = الدوا بيتحفظ من غيرها، من غير كلام تقني
         await MedPhotos(services.db, services.medPhotoStore).setFromBytes(medicationId, photo);
+        // للدائرة (٠٠٢٩): في الخلفية، من غير ما حد يستنى
+        services.syncMedPhotosSoon();
       }
       await services.scheduler.rescheduleAll();
       if (mounted) navigator.pop(result);
