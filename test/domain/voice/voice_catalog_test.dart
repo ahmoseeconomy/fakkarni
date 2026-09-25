@@ -13,7 +13,7 @@ void main() {
       .toList();
 
   test('كل جملة في الكتالوج هي نفس جملة السكريبت بالحرف — لا زيادة ولا نقصان', () {
-    expect(rows, hasLength(46), reason: 'السكريبت بيقول ٤٦ جملة ثابتة');
+    expect(rows, hasLength(45), reason: 'السكريبت بيقول ٤٥ جملة ثابتة');
     expect(voiceLines.keys.toList(), [for (final r in rows) r.id], reason: 'نفس الأرقام بنفس الترتيب');
     for (final r in rows) {
       expect(voiceLines[r.id], r.text, reason: 'الجملة ${r.id} اتغيّرت عن السكريبت');
@@ -43,6 +43,6 @@ void main() {
     expect(voiceAssetPath('intro_01'), 'assets/voices/intro_01.mp3');
     expect(() => voiceLine('help_nothing'), throwsArgumentError);
     expect(introSequence.every(voiceLines.containsKey), isTrue);
-    expect(helpIds, hasLength(35), reason: '٤٦ − ٧ مقدمة − ٤ عامة');
+    expect(helpIds, hasLength(34), reason: '٤٥ − ٧ مقدمة − ٤ عامة');
   });
 }
