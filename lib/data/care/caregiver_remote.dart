@@ -96,10 +96,15 @@ class CaregiverDoseEvent {
     required this.state,
     this.amountLabel,
     this.actedAt,
+    this.routineDay,
   });
 
   final String uuid;
   final String medicationName;
+
+  /// يوم الروتين اللي موبايل المريض كتبه (`dose_events.routine_day`، موجود
+  /// من `0001`). null = صف قديم/اختبار — الحساب بيرجع لتاريخ الساعة.
+  final DateTime? routineDay;
   final String? amountLabel;
 
   /// اللحظة اللي محرّك الأب حسبها — محلية الجهاز ده للعرض.

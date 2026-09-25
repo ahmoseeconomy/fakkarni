@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../db/app_database.dart';
+import '../db/converters.dart';
 import 'stock_repository.dart';
 import '../dose_state.dart';
 import '../services/reminder_plan.dart' show doneKey;
@@ -17,9 +18,14 @@ class DoseEventView {
     this.amountLabel,
     this.actedAt,
     this.actedBy,
+    this.routineDay,
   });
 
   final int doseScheduleId;
+
+  /// يوم الروتين بتاع الصف (جرعة ١ بالليل تبع امبارح). null في صفوف
+  /// اتبنت يدوي في اختبارات قديمة.
+  final DateTime? routineDay;
 
   /// اسم اللي أكّدها بدال المريض (٠٠٢٣) — null = هو بنفسه.
   final String? actedBy;
@@ -117,6 +123,15 @@ class DoseEventRepository {
         _db.doseEvents.scheduledAt.isBiggerOrEqualValue(from) & _db.doseEvents.scheduledAt.isSmallerThanValue(to),
       );
 
+  /// «إنت ماشي إزاي»: كل الأحداث من يوم روتين [from] لحد [to] (الاتنين
+  /// داخلين). قراية بس — نفس فلاتر «يومك» (من غير `superseded` ومن غير
+  /// الدوا المتشال).
+  Stream<List<DoseEventView>> watchRoutineDays(DateTime from, DateTime to) => _watch(
+        // العمود نص «YYYY-MM-DD» — بيترتّب زي التاريخ بالظبط
+        _db.doseEvents.routineDay.isBiggerOrEqualValue(const DateOnlyConverter().toSql(from)) &
+            _db.doseEvents.routineDay.isSmallerOrEqualValue(const DateOnlyConverter().toSql(to)),
+      );
+
   Stream<List<DoseEventView>> _watch(Expression<bool> where) {
     final query = _db.select(_db.doseEvents).join([
       innerJoin(
@@ -152,6 +167,7 @@ class DoseEventRepository {
               state: event.state,
               actedAt: event.actedAt,
               actedBy: event.actedBy,
+              routineDay: event.routineDay,
             );
           }(),
       ];

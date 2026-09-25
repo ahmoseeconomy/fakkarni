@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/adherence/adherence.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
 import 'package:fakkarni/features/today/tips/tips_ar.dart';
 
@@ -49,6 +50,12 @@ List<String> offendersIn(String text) => [
     ];
 
 void main() {
+  test('«إنت ماشي إزاي»: نفس الخطوط الحمرا على كل جملة في الكارت', () {
+    final offenders = [for (final text in adherenceSampleTexts()) ...offendersIn(text)];
+    expect(offenders, isEmpty);
+    expect(adherenceSampleTexts(), isNotEmpty);
+  });
+
   test('ولا كلمة ممنوعة في أي معلومة — الثابتة والقوالب بعيّناتها', () {
     final offenders = [for (final text in allTipTexts()) ...offendersIn(text)];
     expect(offenders, isEmpty);

@@ -28,6 +28,7 @@ import '../medication/edit_medication_screen.dart';
 import '../nearby/nearby_screen.dart';
 import '../records/checkup_screen.dart';
 import '../reminder/reminder_screen.dart';
+import '../adherence/patient_adherence_card.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/glucose_home_card.dart';
@@ -413,6 +414,9 @@ class _TodayScreenState extends State<TodayScreen> {
                 const _AllDonePanel(),
                 const SizedBox(height: F.gap),
               ],
+              // «إنت ماشي إزاي» — **تحت** كارت الجرعة، مش فوقه: التأكيد أعجل.
+              // قراية بس، وبيستخبّى أول يومين.
+              PatientAdherenceCard(routineDay: _routineDay, now: _now),
               Text(
                 'جدول النهاردة',
                 style: TextStyle(

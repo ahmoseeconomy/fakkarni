@@ -6,6 +6,9 @@ import '../../core/widgets/dark_mode_toggle.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
+import '../../domain/adherence/adherence.dart';
+import '../adherence/adherence_dots.dart';
+import '../adherence/circle_adherence.dart';
 import 'caregiver_status.dart';
 import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
@@ -164,7 +167,12 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 ..._followSections(snapshot),
                 // ٥ — الأسبوع في سطر واحد. الشبكة القديمة كانت سبع أعمدة
                 // كسور، والابن مكانش بيقرا منها حاجة (جولة ٣٠ شالتها).
-                ..._week(status),
+                // «ماشي إزاي» — العدّ ونقط الأسبوع (قراية بس). أول يومين
+                // لسه مفيش حاجة تتقال، فبيفضل سطر الأسبوع القديم.
+                if (circleAdherence(snapshot, _now) case final a?)
+                  ..._adherence(a)
+                else
+                  ..._week(status),
                 // ٥ — «الجديد»: تحليل اتضاف مش أعجل من جرعة النهارده.
                 ..._newest(snapshot),
                 if (snapshot.lastUpdated != null) _freshness(snapshot.lastUpdated!),
@@ -222,6 +230,45 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
   ///
   /// و«النهارده» **مش** محسوب: اليوم لسه ماشي، وعدّه ناقص بيخلّي كل يوم
   /// يبان مش كامل لحد آخره. مفيش أيام فيها جرعات؟ مفيش سطر خالص.
+  List<Widget> _adherence(Adherence a) {
+    final missed = a.missed.length;
+    return [
+      CareHead(circleAdherenceTitle, accent: F.careAccentTaken),
+      CareCard(
+        key: const ValueKey('care-adherence'),
+        border: F.careAccentTaken,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              streakLine(a.currentStreak, atLeast: a.currentAtLeast),
+              key: const ValueKey('care-adherence-streak'),
+              style: TextStyle(
+                fontFamily: F.displayFamily,
+                fontSize: F.careTitleSize,
+                fontWeight: FontWeight.w800,
+                color: a.currentStreak > 0 ? F.green : F.ink,
+              ),
+            ),
+            const SizedBox(height: F.s8),
+            AdherenceDots(week: a.week, today: a.today, dotSize: 22, labelSize: F.careMicroSize),
+            const SizedBox(height: F.s8),
+            Text(takenPercentLine(a.takenPercent),
+                style: TextStyle(fontSize: F.careTextSize, color: F.ink, height: 1.4)),
+            Text(
+              missed == 0
+                  ? 'مفيش ولا جرعة فاتت في آخر ٧ أيام.'
+                  : missed == 1
+                      ? 'جرعة واحدة ما اتأكدتش في آخر ٧ أيام.'
+                      : '${arabicNumber(missed)} جرعات ما اتأكدتش في آخر ٧ أيام.',
+              style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _week(CareStatus status) {
     if (status.daysWithDoses == 0) return const [];
     return [

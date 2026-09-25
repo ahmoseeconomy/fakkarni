@@ -15,6 +15,7 @@ import '../../data/services/reminder_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
+import '../adherence/patient_adherence_card.dart';
 import '../today/dose_actions.dart';
 
 /// «نمط كبار السن» (المخطط 18): تحية، **كارت جرعة واحد**، و«تم ✅» عملاق.
@@ -121,6 +122,9 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                 )
               else
                 _Quiet(text: events.isEmpty ? 'مفيش أدوية النهارده' : say.allDone),
+              const SizedBox(height: F.gap),
+              // «إنت ماشي إزاي» — تحت كارت الجرعة، بالمقاس الكبير، قراية بس.
+              PatientAdherenceCard(routineDay: _routineDay, now: _now, elder: true),
               // باقي اليوم — **للقراية بس**. الكارت فوق هو المكان الوحيد
               // اللي فيه «تمام» و«بعد شوية»؛ صف بزرار هنا معناه مكانين
               // للتأكيد، وده اللي نمط كبار السن موجود عشان يمنعه.

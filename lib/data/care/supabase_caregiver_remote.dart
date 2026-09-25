@@ -339,7 +339,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         final since = DateTime.now().toUtc().subtract(const Duration(days: 7));
         final events = await _supabase
             .from('dose_events')
-            .select('uuid, scheduled_at, state, acted_at, updated_at, '
+            .select('uuid, scheduled_at, routine_day, state, acted_at, updated_at, '
                 'dose_schedules!inner(medications!inner(name, amount_label, removed_at))')
             .gte('scheduled_at', since.toIso8601String())
             // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
@@ -473,6 +473,8 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
                 scheduledAt:
                     DateTime.parse(e['scheduled_at'] as String).toLocal(),
                 state: e['state'] as String,
+                // `routine_day` تاريخ من غير ساعة — بيتقرا زي ما هو
+                routineDay: e['routine_day'] == null ? null : DateTime.parse(e['routine_day'] as String),
                 actedAt: e['acted_at'] == null
                     ? null
                     : DateTime.parse(e['acted_at'] as String).toLocal(),

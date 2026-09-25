@@ -6,6 +6,9 @@ import '../../data/care/caregiver_remote.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../care/caregiver_status.dart';
 import '../care/caregiver_words.dart' show timeSince;
+import '../adherence/adherence_card.dart';
+import '../adherence/adherence_screen.dart';
+import '../adherence/circle_adherence.dart';
 import '../today/tips/tip_picker.dart';
 import '../today/widgets/tip_card.dart';
 import 'nurse_controller.dart';
@@ -102,6 +105,29 @@ class NurseTodayScreen extends StatelessWidget {
                 else
                   row(nowEvent, big: true),
                 const SizedBox(height: F.s12),
+                // «ماشي إزاي» — تحت «الآن»، قراية. «أخدتها متأخر» جوّه
+                // التفاصيل بس لو التأكيد مسموح، وعلى نفس سكّة التأكيد نيابةً.
+                if (circleAdherence(snapshot, t) case final a?) ...[
+                  AdherenceCard(
+                    adherence: a,
+                    title: circleAdherenceTitle,
+                    onOpen: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => AdherenceDetailScreen(
+                        initial: a,
+                        title: circleAdherenceTitle,
+                        missedTitle: 'فاته كام جرعة الأسبوع ده',
+                        updates: circleAdherenceUpdates(holder, () => holder.snapshot),
+                        onLateTake: controller.canConfirm
+                            ? (m) async {
+                                final e = holder.snapshot?.events.where((x) => x.uuid == m.id).firstOrNull;
+                                if (e != null) await controller.confirm(e);
+                              }
+                            : null,
+                      ),
+                    )),
+                  ),
+                  const SizedBox(height: F.s12),
+                ],
                 const FSectionHead('جدول النهارده'),
                 const SizedBox(height: F.s8),
                 if (day.isEmpty)
