@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 
@@ -111,6 +112,7 @@ class _FamilyPlanScreenState extends State<FamilyPlanScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
+          const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_family_plan')),
           GoldNote(
             remindersStayFreeLine,
             key: const ValueKey('plan-reminders-free'),

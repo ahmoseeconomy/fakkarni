@@ -1,3 +1,5 @@
+import '../voice/briefing_card.dart';
+import '../voice/help_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -101,6 +103,13 @@ class _TodayScreenState extends State<TodayScreen> {
   List<MedicationSummary> _summaries = const [];
   List<DoseEventView> _lastWeek = const [];
 
+  /// لملخص اليوم: ما بنقولش ملخص قبل ما كل مصادره توصل.
+  bool _schedulesLoaded = false;
+  bool _weekLoaded = false;
+  bool _followUpsLoaded = false;
+  StreamSubscription<List<RecordRow>>? _followUpsSub;
+  List<RecordRow> _openFollowUps = const [];
+
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
 
@@ -118,6 +127,14 @@ class _TodayScreenState extends State<TodayScreen> {
     unawaited(_loadFollowers(services));
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
     _followUps = services.checkups.watchOpen(services.patientId);
+    _followUpsSub = _followUps!.listen((rows) {
+      if (mounted) {
+        setState(() {
+          _openFollowUps = rows;
+          _followUpsLoaded = true;
+        });
+      }
+    });
     _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
       if (mounted) setState(() => _readings = rows);
     });
@@ -127,7 +144,12 @@ class _TodayScreenState extends State<TodayScreen> {
     _weekSub = services.events
         .watchBetween(DateTime(_now.year, _now.month, _now.day - 7), DateTime(_now.year, _now.month, _now.day))
         .listen((rows) {
-      if (mounted) setState(() => _lastWeek = rows);
+      if (mounted) {
+        setState(() {
+          _lastWeek = rows;
+          _weekLoaded = true;
+        });
+      }
     });
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
@@ -139,7 +161,10 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Future<void> _onSchedules(List<DoseSchedule> schedules) async {
     if (!mounted) return;
-    setState(() => _schedules = schedules);
+    setState(() {
+      _schedules = schedules;
+      _schedulesLoaded = true;
+    });
 
     final services = AppScope.of(context);
     final engine = ScheduleEngine(widget.routine);
@@ -167,6 +192,7 @@ class _TodayScreenState extends State<TodayScreen> {
     _schedulesSub?.cancel();
     _summariesSub?.cancel();
     _weekSub?.cancel();
+    _followUpsSub?.cancel();
     _readingsSub?.cancel();
     super.dispose();
   }
@@ -350,6 +376,22 @@ class _TodayScreenState extends State<TodayScreen> {
                   onOpenCircle: _openCircle,
                 ),
               ),
+              // ملخص اليوم بالصوت — أول فتحة في يوم الروتين، من البيانات
+              // المحلية، ومكتوب هنا بنفس الكلام. مش موجود من غير صوت.
+              if (AppScope.of(context).voice case final voice?)
+                BriefingCard(
+                  voice: voice,
+                  dayKey: briefingDayKey(_routineDay),
+                  ready: snapshot.hasData && _schedulesLoaded && _weekLoaded && _followUpsLoaded,
+                  input: briefingInputFor(
+                    now: _now,
+                    routineDay: _routineDay,
+                    today: events,
+                    schedules: _schedules,
+                    openFollowUps: _openFollowUps,
+                    lastWeek: _lastWeek,
+                  ),
+                ),
               SizedBox(height: nowCards.isNotEmpty ? F.s8 : F.gap),
               // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
               //
@@ -390,8 +432,11 @@ class _TodayScreenState extends State<TodayScreen> {
                 // **العدد في العنوان.** تلات كروت مكدّسة كانت بتخلّي
                 // السؤال «هما كام؟» محتاج نزول وعدّ؛ دلوقتي الإجابة في
                 // أول سطر بيقع عليه العين.
-                _SectionTitle(nowCountLabel(lines.due.length + lines.postponed.length),
-                    attention: true),
+                HelpRow(
+                  id: 'help_next_dose',
+                  child: _SectionTitle(nowCountLabel(lines.due.length + lines.postponed.length),
+                      attention: true),
+                ),
                 const SizedBox(height: F.s8),
                 if (nowCards.isNotEmpty) ...[
                   NowBlock(
@@ -663,14 +708,17 @@ class _HomeHeader extends StatelessWidget {
         // «يومك» بحجم العنوان — هي عنوان الشاشة، مش سطر فوقها.
         // `height` مش زينة: خط العناوين طالع فوق السطر، وبالارتفاع
         // الافتراضي كان نص «يومك» الأعلى بيتقص.
-        Text(
-          'يومك',
-          style: TextStyle(
-            fontFamily: F.displayFamily,
-            fontSize: F.screenTitleSize,
-            fontWeight: FontWeight.w700,
-            height: 1.35,
-            color: F.green,
+        HelpRow(
+          id: 'help_today',
+          child: Text(
+            'يومك',
+            style: TextStyle(
+              fontFamily: F.displayFamily,
+              fontSize: F.screenTitleSize,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+              color: F.green,
+            ),
           ),
         ),
         const SizedBox(height: F.s4),
@@ -1009,7 +1057,7 @@ class _AppointmentsCard extends StatelessWidget {
           // ومع جرعة مستنية تأكيد العنوان بيتشال: الكارت الذهبي بحدوده
           // وأيقونته بيقول إنه مواعيد، والبكسلات دي بتروح للزرار.
           if (!compact) ...[
-            const _SectionTitle('مواعيدك الجاية', attention: true),
+            const HelpRow(id: 'help_appointments', child: _SectionTitle('مواعيدك الجاية', attention: true)),
             const SizedBox(height: F.s6),
           ],
           Container(

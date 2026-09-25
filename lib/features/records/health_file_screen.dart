@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../medication/not_bought.dart';
@@ -275,7 +276,10 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
     final now = widget.today ?? DateTime.now();
     final today = _dayOf(now);
     return Scaffold(
-      appBar: AppBar(title: const Text('السجل')),
+      appBar: AppBar(
+        title: const Text('السجل'),
+        actions: const [Padding(padding: EdgeInsetsDirectional.only(end: F.s8), child: HelpButton('help_record'))],
+      ),
       body: StreamBuilder<List<RecordRow>>(
         stream: _records,
         builder: (context, snap) {
@@ -301,7 +305,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
             padding: EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
               // ============================================ مواعيدك الجاية
-              const FSectionHead('مواعيدك الجاية'),
+              const HelpRow(id: 'help_appointments', child: FSectionHead('مواعيدك الجاية')),
               const SizedBox(height: F.s8),
               if (all != null && upcoming.isEmpty && legacyBookings.isEmpty)
                 const RecordsEmpty(
@@ -336,7 +340,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               const NotBoughtSection(),
 
               // ================================================= أوراقك
-              const FSectionHead('أوراقك'),
+              const HelpRow(id: 'help_papers', child: FSectionHead('أوراقك')),
               const SizedBox(height: F.s8),
               Row(
                 children: [
@@ -412,7 +416,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               // ================================================= قياساتك
               // الضغط والنبض والوزن والأكسجين والحرارة: آخر رقم لكل نوع،
               // والدوسة بتفتح تاريخه. أرقام وبس — مفيش حكم ولا لون.
-              const FSectionHead('قياساتك'),
+              const HelpRow(id: 'help_vitals', child: FSectionHead('قياساتك')),
               const SizedBox(height: F.s8),
               StreamBuilder<List<Vital>>(
                 stream: _vitals,
@@ -446,7 +450,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               const SizedBox(height: F.gap),
 
               // ================================================= للدكتور
-              const FSectionHead('للدكتور'),
+              const HelpRow(id: 'help_doctor', child: FSectionHead('للدكتور')),
               const SizedBox(height: F.s8),
               FCard(
                 key: const ValueKey('for-doctor-entry'),

@@ -75,6 +75,9 @@ dependencies:
   latlong2: ^0.10.1
   geolocator: ^14.0.3
   in_app_purchase: ^3.3.0
+  audioplayers: ^6.8.1
+  flutter_tts: ^4.2.5
+  audio_session: ^0.2.4
 
 dev_dependencies:
   flutter_test:
@@ -148,6 +151,10 @@ flutter:
           weight: 600
 
   # To add assets to your application, add an assets section, like this:
+  assets:
+    # تسجيلات «الرفيق الصوتي» — ٤٦ ملف، صوت راجل مصري، بتاعتنا
+    - assets/voices/
+
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg

@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
@@ -38,13 +39,18 @@ class AdherenceCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: F.displayFamily,
-                  fontSize: elder ? F.elderTextSize : F.subtitleSize,
-                  fontWeight: FontWeight.w800,
-                  color: F.ink,
+              HelpRow(
+                // «لو فاتتك جرعة، مفيش مشكلة» لما الأسبوع فيه فايتة، وإلا الشرح
+                id: a.missed.isNotEmpty ? 'help_progress_missed' : 'help_progress',
+                elder: elder,
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: F.displayFamily,
+                    fontSize: elder ? F.elderTextSize : F.subtitleSize,
+                    fontWeight: FontWeight.w800,
+                    color: F.ink,
+                  ),
                 ),
               ),
               const SizedBox(height: F.s8),

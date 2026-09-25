@@ -1,3 +1,4 @@
+import '../../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_scope.dart';
@@ -58,6 +59,7 @@ class _RefillLinesState extends State<RefillLines> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_stock_low')),
                         Text(
                           stockLowLine(v.name, stock: v.quantity, daysLeft: v.daysLeft ?? 0),
                           style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.4),

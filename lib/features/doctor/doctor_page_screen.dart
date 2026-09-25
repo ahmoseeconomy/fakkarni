@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:async';
 
 import 'package:drift/drift.dart' show OrderingTerm, innerJoin, BooleanExpressionOperators;
@@ -201,7 +202,10 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
     final sub = TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('للدكتور')),
+      appBar: AppBar(
+        title: const Text('للدكتور'),
+        actions: const [Padding(padding: EdgeInsetsDirectional.only(end: F.s8), child: HelpButton('help_doctor'))],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [

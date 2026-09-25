@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -372,14 +373,17 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                 children: [
                   const Kicker('مراجعة وتأكيد'),
                   const SizedBox(height: F.s4),
-                  Text(
-                    'الذكاء يقترح، وأنت تؤكّد',
-                    style: TextStyle(
-                      fontFamily: F.displayFamily,
-                      fontSize: F.screenTitleSize,
-                      fontWeight: FontWeight.w700,
-                      color: F.ink,
-                      height: 1.3,
+                  HelpRow(
+                    id: 'help_review',
+                    child: Text(
+                      'الذكاء يقترح، وأنت تؤكّد',
+                      style: TextStyle(
+                        fontFamily: F.displayFamily,
+                        fontSize: F.screenTitleSize,
+                        fontWeight: FontWeight.w700,
+                        color: F.ink,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                   const SizedBox(height: F.s6),
@@ -786,7 +790,10 @@ class _MedicineRow extends StatelessWidget {
           ],
           if (onBought case final setBought?) ...[
             const SizedBox(height: F.s12),
-            Text('اشتريته؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+            HelpRow(
+              id: 'help_bought',
+              child: Text('اشتريته؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+            ),
             const SizedBox(height: F.s6),
             Row(
               children: [

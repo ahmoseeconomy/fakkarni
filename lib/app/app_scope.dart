@@ -23,6 +23,7 @@ import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/account/account_deletion.dart';
+import '../data/voice/voice_service.dart';
 import '../data/sync/departure_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
@@ -73,6 +74,7 @@ class AppServices {
     this.medPhotoRemote,
     this.accountDeletion,
     this.departurePull,
+    this.voice,
   });
 
   final AppDatabase db;
@@ -109,6 +111,10 @@ class AppServices {
 
   /// ٠٠٢٩: الباكت نفسه — الممرض بيرفع عليه «غيّر الصورة».
   final MedPhotoRemote? medPhotoRemote;
+
+  /// «الرفيق الصوتي» — بيتكلم بس. null = مفيش (اختبار بيبني الخدمات
+  /// بنفسه)؛ ساعتها مفيش زرار «ساعدني» ولا مقدمة ولا ملخص.
+  final VoiceService? voice;
 
   /// «امسح حسابي» (0033) — null من غير سحابة: الصف ما بيظهرش.
   final AccountDeletionRemote? accountDeletion;

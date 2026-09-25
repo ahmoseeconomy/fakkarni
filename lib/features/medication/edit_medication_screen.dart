@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -619,9 +620,12 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                         ),
                       const SizedBox(height: F.gap),
-                      Text(
-                        'تعليمات (اختياري)',
-                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      HelpRow(
+                        id: 'help_instructions',
+                        child: Text(
+                          'تعليمات (اختياري)',
+                          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(

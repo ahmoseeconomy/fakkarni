@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../data/repositories/dose_event_repository.dart';
@@ -33,6 +34,8 @@ Future<void> confirmGroup(AppServices services, DateTime routineDay, List<DoseEv
   await services.scheduler.afterConfirmation(group.first.scheduledAt);
   // المخزون نقص — لو عدّى حد «قرب يخلص» التنبيه بيطلع دلوقتي (بعد الجدولة)
   await services.refreshRefills();
+  // «تمام، سجّلت إن حضرتك أخدته» — بعد الوعد، ومن غير ما حد يستناه
+  unawaited(services.voice?.speakLine('help_confirm_done'));
 }
 
 /// «لاحقًا» / «بعد شوية» = التأجيل الحقيقي (ربع ساعة).
@@ -41,18 +44,21 @@ Future<void> snoozeGroup(
   DateTime routineDay,
   List<DoseEventView> group, {
   required DateTime now,
-}) =>
-    services.scheduler.snooze(
-      originalAt: group.first.scheduledAt,
-      body: reminderBodyFor([
-        for (final d in group) (name: d.medicationName, amount: d.amountLabel),
-      ]),
-      payload: encodePayloadFor(
-        routineDay,
-        [for (final d in group) d.doseScheduleId.toString()],
-      ),
-      now: now,
-    );
+}) async {
+  await services.scheduler.snooze(
+    originalAt: group.first.scheduledAt,
+    body: reminderBodyFor([
+      for (final d in group) (name: d.medicationName, amount: d.amountLabel),
+    ]),
+    payload: encodePayloadFor(
+      routineDay,
+      [for (final d in group) d.doseScheduleId.toString()],
+    ),
+    now: now,
+  );
+  // «هفكّرك تاني بعد شوية» — بعد التأجيل نفسه
+  unawaited(services.voice?.speakLine('help_later'));
+}
 
 // ---------------------------------------------------------- كتلة «الآن»
 //

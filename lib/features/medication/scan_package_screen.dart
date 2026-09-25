@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -122,6 +123,7 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
         appBar: AppBar(
           backgroundColor: F.inkDeep,
           foregroundColor: F.onDark,
+          actions: const [Padding(padding: EdgeInsetsDirectional.only(end: F.s8), child: HelpButton('help_scan', onDark: true))],
           title: const Text(
             'علبة الدوا',
             style: TextStyle(

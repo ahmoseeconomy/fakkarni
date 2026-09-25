@@ -1,3 +1,4 @@
+import '../../voice/help_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -130,6 +131,7 @@ class _VitalEntryBodyState extends State<_VitalEntryBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_vitals_add')),
         Wrap(
           spacing: F.s8,
           runSpacing: F.s8,

@@ -1,3 +1,6 @@
+import 'dart:async';
+import '../voice/voice_intro_screen.dart';
+import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -49,15 +52,21 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   Sex? _sex;
   String? _name;
 
+  /// المقدمة الصوتية قبل أول سؤال — مرة واحدة، و«تخطّي» ظاهر طول الوقت.
+  /// null = لسه ما اتقرّرش؛ من غير خدمة صوت = مفيش مقدمة.
+  bool? _introPending;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_needsProfile != null) return;
     if (!widget.askProfile) {
       _needsProfile = false;
+      _introPending = false;
       return;
     }
     final services = AppScope.of(context);
+    _introPending = (services.voice?.introDone ?? true) ? false : true;
     services.routines.getPatient(services.patientId).then((row) {
       if (!mounted) return;
       setState(() {
@@ -121,6 +130,12 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = _needsProfile == true;
+    if (_introPending == true && _needsProfile != null) {
+      return VoiceIntroScreen(
+        voice: AppScope.of(context).voice!,
+        onDone: () => setState(() => _introPending = false),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: _needsProfile == null
@@ -155,13 +170,16 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                             ),
                           Kicker(profile ? 'أول خطوة' : 'مرة واحدة بس'),
                           const SizedBox(height: F.s4),
-                          Text(
-                            profile ? 'نتعرّف عليك' : Say(_sex).routineTitle,
-                            style: TextStyle(
-                              fontFamily: F.displayFamily,
-                              fontSize: F.screenTitleSize,
-                              fontWeight: FontWeight.w700,
-                              color: F.ink,
+                          HelpRow(
+                            id: 'help_routine',
+                            child: Text(
+                              profile ? 'نتعرّف عليك' : Say(_sex).routineTitle,
+                              style: TextStyle(
+                                fontFamily: F.displayFamily,
+                                fontSize: F.screenTitleSize,
+                                fontWeight: FontWeight.w700,
+                                color: F.ink,
+                              ),
                             ),
                           ),
                           if (!profile) ...[
@@ -203,6 +221,8 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                                     // كأنه اختاره. بيحدّدها بعدين من «عدّل يومك»
                                     // أو أول ما دوا يحتاجها.
                                     _answers.remove(question.anchor);
+                                    // «مفيش مشكلة لو سيبتها دلوقتي» — بيتقال، مش بيوقف
+                                    unawaited(AppScope.of(context).voice?.speakLine('help_routine_skip'));
                                     _advance();
                                   },
                                 );

@@ -25,6 +25,7 @@ import '../data/files/attachment_store.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/account/account_deletion.dart';
+import '../data/voice/voice_service.dart';
 import '../data/care/circle_departures.dart';
 import '../data/sync/departure_pull.dart';
 import '../data/push/push_tokens.dart';
@@ -63,6 +64,7 @@ Future<AppServices> buildServices(
   MedPhotoRemote? medPhotos,
   AccountDeletionRemote? accountDeletion,
   CircleDepartureRemote? departures,
+  VoiceService? voice,
 }) async {
   final routines = RoutineRepository(db);
   const medPhotoStore = DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder);
@@ -132,6 +134,7 @@ Future<AppServices> buildServices(
     circleMedPhotos: medPhotos == null ? null : CircleMedPhotoCache(remote: medPhotos),
     medPhotoRemote: medPhotos,
     accountDeletion: accountDeletion,
+    voice: voice,
     departurePull: departures == null
         ? null
         : CircleDeparturePuller(remote: departures, routines: routines, patientId: patientId),

@@ -1,3 +1,8 @@
+import 'data/voice/audio_focus.dart';
+import 'data/voice/audio_voice_player.dart';
+import 'data/voice/device_tts.dart';
+import 'data/voice/voice_service.dart';
+import 'features/voice/voice_caption.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -123,6 +128,13 @@ Future<void> main() async {
   // المعلّقة والاشتراك، ونسيت تمرّرهم — فعلى الجهاز كانوا null واختبارات
   // الشاشات (اللي بتبني خدماتها بنفسها) خضرا. `main_wiring_test` بيقرا
   // النداء ده ويوقع لو خدمة من `CloudServices` مش متمرّرة.
+  // «الرفيق الصوتي» — بيتكلم بس، من المقدمة وبس (مفيش صوت في صحوة الخلفية).
+  // إعداداته بتتقرا هنا؛ تنبيه الجرعة بيوقّفه: دوسة الإشعار (lastPayload)
+  // وزرار الإشعار وشاشة التذكير كلهم بيندهوا stop().
+  final voice = VoiceService(player: AudioVoicePlayer(), tts: DeviceTts(), focus: AudioSessionFocus());
+  await voice.load();
+  voice.attachAlertSignal(NotificationService.lastPayload);
+
   final services = await buildServices(
     db,
     auth: cloud?.auth,
@@ -139,6 +151,7 @@ Future<void> main() async {
     medPhotos: cloud?.medPhotos,
     accountDeletion: cloud?.accountDeletion,
     departures: cloud?.departures,
+    voice: voice,
   );
 
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.
@@ -148,8 +161,11 @@ Future<void> main() async {
   // عشان التأكيد يرفع للسحابة كمان (٤.٢أ). قبل كده كانت على [promise]،
   // اللي عن قصد مالهاش سحابة.
   final actions = actionHandlerFor(services);
-  NotificationService.onAction =
-      (action, payload) => actions.handle(action, payload);
+  NotificationService.onAction = (action, payload) {
+    // تنبيه الجرعة بيكسب: الكلام يسكت قبل ما الزرار يتعالج
+    unawaited(voice.stop());
+    unawaited(actions.handle(action, payload));
+  };
 
   // **زرار الممرض — باب لوحده.** «أكّد إنه أخدها» على تذكير الممرض =
   // تأكيد نيابةً للسحابة، وعمره ما بيعدّي على معالج «أخدته» بتاع المريض.
@@ -249,7 +265,10 @@ class FakkarniApp extends StatelessWidget {
           child: PatientVoiceScope(
             // ودوسة برّه أي حقل بتقفل الكيبورد — في الجذر، فوق كل شاشة.
             child: KeyboardDismiss(
-              child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+              // الترجمة المكتوبة لكل جملة بيقولها الرفيق — فوق كل شاشة
+              child: VoiceCaptionOverlay(
+                child: SplashOverlay(child: child ?? const SizedBox.shrink()),
+              ),
             ),
           ),
         ),

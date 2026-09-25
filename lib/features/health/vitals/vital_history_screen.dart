@@ -1,3 +1,4 @@
+import '../../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_scope.dart';
@@ -30,7 +31,10 @@ class _VitalHistoryScreenState extends State<VitalHistoryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.kind.label)),
+        appBar: AppBar(
+          title: Text(widget.kind.label),
+          actions: const [Padding(padding: EdgeInsetsDirectional.only(end: F.s8), child: HelpButton('help_vitals'))],
+        ),
         body: StreamBuilder<List<Vital>>(
           stream: _stream,
           builder: (context, snap) => ListView(

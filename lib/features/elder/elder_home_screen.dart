@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -246,13 +247,17 @@ class _Greeting extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير',
-          style: TextStyle(
-            fontFamily: F.displayFamily,
-            fontSize: F.elderTitleSize,
-            fontWeight: FontWeight.w700,
-            color: F.ink,
+        HelpRow(
+          id: 'help_today',
+          elder: true,
+          child: Text(
+            now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير',
+            style: TextStyle(
+              fontFamily: F.displayFamily,
+              fontSize: F.elderTitleSize,
+              fontWeight: FontWeight.w700,
+              color: F.ink,
+            ),
           ),
         ),
         if (hasName)
@@ -294,6 +299,8 @@ class _DoseCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // نمط كبار السن: الزرار أكبر (٦٤ وخط ٢٤)
+          const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_next_dose', elder: true)),
           if (overdue)
             Text(say.forgotIt, style: body.copyWith(fontWeight: FontWeight.w700, color: F.ink)),
           for (final dose in doses) ...[

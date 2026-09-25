@@ -119,6 +119,8 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     final payload = decodePayload(raw);
     if (payload == null) return;
 
+    // تنبيه الجرعة بيكسب — الكلام يسكت قبل ما شاشة التذكير تتفتح
+    unawaited(AppScope.of(context).voice?.stop());
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ReminderScreen(

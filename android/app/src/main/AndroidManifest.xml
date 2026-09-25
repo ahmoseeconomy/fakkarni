@@ -74,5 +74,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- صوت الموبايل (flutter_tts): من أندرويد ١١ التطبيق لازم يعلن إنه بيدوّر
+             على محرّك TTS، وإلا getLanguages بترجّع فاضي ومفيش صوت -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
     </queries>
 </manifest>

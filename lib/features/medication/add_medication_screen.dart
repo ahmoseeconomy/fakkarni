@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -573,7 +574,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('اسم الدوا والتركيز'),
+                        const _FieldLabel('اسم الدوا والتركيز', help: 'help_add_med'),
                         _Field(
                           controller: _name,
                           hint: 'زي Concor 5mg',
@@ -587,7 +588,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ),
                         const SizedBox(height: F.gap),
                         // --------------------------------------- لإيه؟
-                        const _FieldLabel('الدوا ده لإيه؟ (لو حابب)'),
+                        const _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: 'help_purpose'),
                         Wrap(
                           spacing: F.s8,
                           runSpacing: F.s8,
@@ -611,7 +612,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('بياخده إزاي؟'),
+                        const _FieldLabel('بياخده إزاي؟', help: 'help_pattern'),
                         Wrap(
                           spacing: F.s8,
                           runSpacing: F.s8,
@@ -749,7 +750,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('مواعيد الجرعات'),
+                        const _FieldLabel('مواعيد الجرعات', help: 'help_timing'),
                         for (final (i, t) in _doses.indexed) ...[
                           _DoseRowTile(
                             key: ValueKey('dose-row-$i'),
@@ -780,7 +781,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('نوع التنبيه'),
+                        const _FieldLabel('نوع التنبيه', help: 'help_alert_mode'),
                         AlertModeChips(
                           value: _alertMode,
                           allowDefault: true,
@@ -798,7 +799,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _FieldLabel(_pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟'),
+                        _FieldLabel(_pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟', help: 'help_start_date'),
                         Row(
                           children: [
                             Expanded(
@@ -979,17 +980,23 @@ class _CompactChip extends StatelessWidget {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
+  const _FieldLabel(this.text, {this.help});
   final String text;
 
+  /// جملة «ساعدني» عن الخانة دي (الكتالوج) — null = من غير زرار.
+  final String? help;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s8),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final label = Text(
+      text,
+      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: F.s8),
+      child: help == null ? label : HelpRow(id: help!, child: label),
+    );
+  }
 }
 
 class _Field extends StatelessWidget {

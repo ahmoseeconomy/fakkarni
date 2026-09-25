@@ -1,3 +1,4 @@
+import '../../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/tokens.dart';
@@ -50,14 +51,17 @@ class TipCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        tipCardTitle,
-                        key: const ValueKey('tip-title'),
-                        style: TextStyle(
-                          fontFamily: F.displayFamily,
-                          fontSize: titleSize,
-                          fontWeight: FontWeight.w800,
-                          color: F.ink,
+                      HelpRow(
+                        id: 'help_tip',
+                        child: Text(
+                          tipCardTitle,
+                          key: const ValueKey('tip-title'),
+                          style: TextStyle(
+                            fontFamily: F.displayFamily,
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.w800,
+                            color: F.ink,
+                          ),
                         ),
                       ),
                       const SizedBox(height: F.s6),

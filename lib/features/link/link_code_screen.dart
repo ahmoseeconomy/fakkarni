@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -179,13 +180,16 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap),
           children: [
-            Text(
-              'دائرة الرعاية',
-              style: TextStyle(
-                fontFamily: F.displayFamily,
-                fontSize: F.screenTitleSize,
-                fontWeight: FontWeight.w700,
-                color: F.ink,
+            HelpRow(
+              id: 'help_invite_code',
+              child: Text(
+                'دائرة الرعاية',
+                style: TextStyle(
+                  fontFamily: F.displayFamily,
+                  fontSize: F.screenTitleSize,
+                  fontWeight: FontWeight.w700,
+                  color: F.ink,
+                ),
               ),
             ),
             const SizedBox(height: F.s6),
@@ -227,6 +231,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
               ),
               if (_role == FollowerRole.nurse) ...[
                 const SizedBox(height: F.s4),
+                const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_nurse')),
                 Text(
                   _nurseCanEdit
                       ? 'يقدر يعدّل الأدوية والمواعيد — كل تعديل بيوصل موبايلك ويتطبّق عليه.'

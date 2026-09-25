@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -106,8 +107,11 @@ class MedPhotoSlot extends StatelessWidget {
       key: const ValueKey('med-photo-slot'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('صورة الدوا (اختياري)',
-            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+        HelpRow(
+          id: 'help_photo',
+          child: Text('صورة الدوا (اختياري)',
+              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+        ),
         const SizedBox(height: F.s4),
         Text('صورة الحباية أو العلبة — بتساعدك تعرف الدوا من شكله.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),

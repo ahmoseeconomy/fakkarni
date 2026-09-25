@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -155,6 +156,8 @@ class _NotBoughtLineState extends State<NotBoughtLine> {
                           ),
                         ),
                         Text('شوفها', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+                        const SizedBox(width: F.s8),
+                        const HelpButton('help_not_bought'),
                       ],
                     ),
                   ),

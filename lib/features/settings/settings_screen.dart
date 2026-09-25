@@ -1,3 +1,5 @@
+import '../voice/voice_settings_screen.dart';
+import '../voice/help_button.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 
@@ -142,6 +144,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const NotificationsScreen()),
             ),
             _ElderModeRow(settings: services.preferences),
+            if (services.voice case final voice?)
+              _Row(
+                key: const ValueKey('settings-voice'),
+                icon: Icons.record_voice_over_outlined,
+                label: 'الرفيق الصوتي',
+                hint: 'بيقولّك الشاشة بتعمل إيه، وملخص يومك الصبح',
+                value: voice.enabled ? 'شغّال' : 'مقفول',
+                onTap: () => _open(VoiceSettingsScreen(voice: voice)),
+              ),
             // «الملف الصحي» تبويب في الدوك — بابين لأوضة واحدة بيخلّي
             // المستخدم يشك إنهم حاجتين مختلفتين.
             _Row(
@@ -309,12 +320,18 @@ class _ElderModeRowState extends State<_ElderModeRow> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s4),
-                child: FSwitch(
-                  key: const ValueKey('elder-mode'),
-                  label: 'نمط كبار السن',
-                  subtitle: 'كارت جرعة واحد، خط أكبر، وتبويبتين بس',
-                  value: on,
-                  onChanged: widget.settings.setElderMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FSwitch(
+                      key: const ValueKey('elder-mode'),
+                      label: 'نمط كبار السن',
+                      subtitle: 'كارت جرعة واحد، خط أكبر، وتبويبتين بس',
+                      value: on,
+                      onChanged: widget.settings.setElderMode,
+                    ),
+                    const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_elder_mode')),
+                  ],
                 ),
               ),
             ),
@@ -444,6 +461,7 @@ class _Row extends StatelessWidget {
     required this.onTap,
     this.value,
     this.attention = false,
+    super.key,
   });
 
   final IconData icon;

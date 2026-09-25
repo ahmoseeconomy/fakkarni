@@ -1,3 +1,4 @@
+import '../voice/help_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -73,6 +74,10 @@ class _EmergencyCardScreenState extends State<EmergencyCardScreen>
                 final data = snapshot;
                 return Column(
                   children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: F.s8),
+                      child: Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_emergency', onDark: true)),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: F.s8),
                       // Flexible مش Spacer: على ٣٩٠ وبخط أكبر، الزرارين كانوا بيفيضوا يمين

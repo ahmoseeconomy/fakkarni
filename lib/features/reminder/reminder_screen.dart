@@ -86,6 +86,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
     if (_events != null) return;
 
     final services = AppScope.of(context);
+    // **تنبيه الجرعة بيكسب**: أي كلام للرفيق الصوتي بيسكت لحظة ما الشاشة
+    // دي تتفتح، من أي باب (إشعار، «يومك»، السكة).
+    unawaited(services.voice?.stop());
     final ids = widget.scheduleIds.toSet();
     _events = services.events.watchDay(widget.routineDay).map(
           (events) => [
