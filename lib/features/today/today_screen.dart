@@ -360,11 +360,16 @@ class _TodayScreenState extends State<TodayScreen> {
             // مساحة تحت عشان آخر كارت يعدّي من تحت الدوك من غير ما يتخبّى
             // تحته. `padding.bottom` جوّه جسم الـScaffold المفرود بيساوي
             // طول الدوك — Flutter بيحطه هناك بالظبط للسبب ده.
+            // **وآخر صف عمره ما يبقى تحت «القريب مني».** الزرار العايم بيقعد
+            // فوق الدوك بمقاسه وهامشه؛ من غير المسافة دي كان بيغطّي صف العشا
+            // في «جدول النهاردة» على شاشة قصيرة. الحساب من مقاس الزرار نفسه
+            // ومن هامش الـFAB بتاع Material — مش رقم مكتوب. والكيبورد مرفوع
+            // الزرار مش موجود، فالمسافة بتختفي معاه.
             padding: EdgeInsets.fromLTRB(
               F.gap,
               F.gap,
               F.gap,
-              F.gap + MediaQuery.of(context).padding.bottom,
+              F.gap + MediaQuery.of(context).padding.bottom + (keyboardIsUp(context) ? 0 : _NearbyPill.clearance),
             ),
             children: [
               StreamBuilder<PatientRow?>(
@@ -964,6 +969,12 @@ class _NearbyPill extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  static const double height = 44;
+
+  /// المسافة اللي القايمة لازم تسيبها تحت آخر صف: الزرار + هامشه تحت
+  /// (`F.s10`) + هامش الـFAB بتاع Material + نفَس.
+  static const double clearance = height + F.s10 + kFloatingActionButtonMargin + F.s8;
+
   @override
   Widget build(BuildContext context) => Material(
         color: F.gold,
@@ -979,7 +990,7 @@ class _NearbyPill extends StatelessWidget {
           // من غير `alignment` — Container بـalignment بياخد كل العرض المتاح،
           // والبيل كان بيتمدّ على الشاشة كلها
           child: Container(
-            height: 44,
+            height: height,
             padding: const EdgeInsets.symmetric(horizontal: F.s12),
             child: Row(
               mainAxisSize: MainAxisSize.min,

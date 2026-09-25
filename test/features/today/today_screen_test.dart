@@ -862,4 +862,84 @@ void main() {
       expect(saved.timing, FixedTiming(MinuteOfDay.hm(8)));
     });
   });
+
+  group('«القريب مني» العايم ما بيغطّيش آخر صف في القايمة', () {
+    Future<void> pumpSmall(WidgetTester tester, {required double textScale}) async {
+      tester.view.physicalSize = const Size(375, 667); // آيفون SE
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        AppScope(
+          services: services,
+          child: MaterialApp(
+            theme: F.light,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: PatientVoice(say: Say(null), child: TodayScreen(routine: normalDay, now: morning)),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+    }
+
+    for (final scale in [1.0, 1.3]) {
+      screenTest('SE بخط ×$scale: مسافة القايمة تحت أكبر من الزرار العايم، وصف العشا بيبان كامل فوقه', (tester) async {
+        await addDose('Concor', DayAnchor.breakfast, offset: -30);
+        await addDose('Telfast', DayAnchor.dinner, offset: 0);
+        await pumpSmall(tester, textScale: scale);
+
+        final pill = tester.getRect(find.byKey(const ValueKey('nearby-pill')));
+        final screen = tester.getRect(find.byType(TodayScreen));
+        final list = tester.widget<ListView>(find.byType(ListView).first);
+        final bottomPad = list.padding!.resolve(TextDirection.rtl).bottom;
+        // من قاع الشاشة لحد قمة الزرار — القايمة لازم تسيب على الأقل قد كده
+        expect(bottomPad, greaterThanOrEqualTo(screen.bottom - pill.top),
+            reason: 'آخر صف كان بيقعد تحت الزرار');
+
+        // والدليل السلوكي: لفّ للآخر خالص — ولا نص واحد في القايمة تحت الزرار.
+        // (صفوف السكة بتتبني وهي على الشاشة بس، فالفحص على كل اللي مرسوم.)
+        await tester.drag(find.byType(ListView).first, const Offset(0, -6000));
+        await settle(tester);
+        final texts = find.descendant(of: find.byType(ListView).first, matching: find.byType(Text));
+        expect(texts, findsWidgets);
+        final under = [
+          for (final e in texts.evaluate())
+            if (tester.getRect(find.byWidget(e.widget)).overlaps(pill) && (e.widget as Text).data != null)
+              (e.widget as Text).data!,
+        ];
+        expect(under, isEmpty, reason: 'نصوص تحت «القريب مني» بعد اللفّ للآخر');
+      });
+    }
+
+    screenTest('والكيبورد مرفوع مفيش زرار ومفيش مسافة زيادة', (tester) async {
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        AppScope(
+          services: services,
+          child: MaterialApp(
+            theme: F.light,
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: PatientVoice(say: Say(null), child: TodayScreen(routine: normalDay, now: morning)),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+      expect(find.byKey(const ValueKey('nearby-pill')), findsNothing);
+      final list = tester.widget<ListView>(find.byType(ListView).first);
+      expect(list.padding!.resolve(TextDirection.rtl).bottom, lessThan(60));
+    });
+  });
 }
