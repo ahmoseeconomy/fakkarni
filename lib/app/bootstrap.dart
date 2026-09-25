@@ -1,3 +1,4 @@
+import '../data/services/pending_actions.dart';
 import 'dart:ui' show DartPluginRegistrant;
 
 import 'package:flutter/widgets.dart';
@@ -335,6 +336,14 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
     // المُجهَّز بيستنّى السطر ده (أو سطر الفشل) بدل ما يفتح القاعدة
     // ويزاحم اللي بيكتبها.
     diag('Isolate: خلص المعالج — handled=ok action=${response.actionId}');
+    // الدوسة دي سويفت كتبتها في الطابور كمان — اتعالجت، فتتشال؛ ولو فيه
+    // دوسات أقدم الإضافة ضيّعتها، دي فرصتها.
+    final store = PendingActionStore()
+      ..removeMatching(action: response.actionId, payload: response.payload);
+    await drainPendingActions(
+      store,
+      (action, payload) => handleNotificationAction(db: db, actionId: action, payload: payload),
+    );
   } catch (error, stack) {
     diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {

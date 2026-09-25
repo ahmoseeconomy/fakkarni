@@ -31,6 +31,12 @@ File? _resolveSink() {
   if (_resolved) return _sink;
   _resolved = true;
   try {
+    // سويفت بتحط المسار في البيئة عند الإطلاق (AppDelegate) — الأكيد
+    final docs = Platform.environment['FAKKARNI_DOCS'];
+    if (docs != null && docs.isNotEmpty) {
+      _sink = File('$docs/$diagFileName');
+      return _sink;
+    }
     if (!Platform.isIOS) return null;
     final home = Platform.environment['HOME'];
     if (home != null && home.isNotEmpty) {

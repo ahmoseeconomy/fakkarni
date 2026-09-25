@@ -1,3 +1,4 @@
+import 'data/services/pending_actions.dart';
 import 'data/voice/audio_focus.dart';
 import 'data/voice/audio_voice_player.dart';
 import 'data/voice/device_tts.dart';
@@ -84,6 +85,9 @@ Future<void> main() async {
   } catch (error, stack) {
     diag('التذكيرات مقدرتش تتهيّأ عند الفتح: $error\n$stack');
   }
+  // **الدوسات اللي الإضافة ضيّعتها** — سويفت كتبتها في طابور، ودي أول
+  // فتحة بعدها. قبل السحابة: ده وعد، وده ممكن يكون إطلاق خلفية عمره ثواني.
+  await drainPendingActions(PendingActionStore(), door);
 
   // ---------------------------------------------------------- السحابة
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،

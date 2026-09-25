@@ -1,3 +1,5 @@
+import 'bootstrap.dart' show handleNotificationAction;
+import '../data/services/pending_actions.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -72,8 +74,14 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       final services = AppScope.of(context);
       services.sync?.onAppForeground();
       unawaited(
-        services.scheduler
-            .rescheduleAll()
+        // الطابور الأول: دوسة على «أخدته» اتكتبت وإحنا في الخلفية بتتطبّق
+        // قبل ما الجدولة تتعاد، فـ«يومك» بتفتح على الصف الصح.
+        drainPendingActions(
+          PendingActionStore(),
+          (action, payload) => handleNotificationAction(
+              db: services.db, services: services, actionId: action, payload: payload),
+        )
+            .then((_) => services.scheduler.rescheduleAll())
             .catchError(
               (Object error) =>
                   debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),

@@ -81,6 +81,74 @@ enum FKDiag {
   }
 }
 
+/// **طابور زرار الإشعار — بيتكتب هنا، في سويفت، قبل أي حاجة فلاتر.**
+///
+/// الدليل من `fkdiag.log` (٢٥ سبتمبر ٢٠٢٦، نسخة profile): لما النظام
+/// بيشغّل التطبيق عشان الدوسة، الإضافة بترجّع `completionHandler` فوراً
+/// والعملية بتتقتل بعد ~٨ ثواني قبل ما المحرّك الخلفي يسجّل إضافاته
+/// (`didFinishLaunching 23:36:05.9` ← `didReceive 23:36:06.1` ← ولا سطر
+/// ← `didFinishLaunching 23:36:14.2`). ولما يفشل مرة، `startEngineIfNeeded`
+/// بترجع من أول سطر لباقي عمر العملية (`if (backgroundEngine) return`) —
+/// فكل دوسة بعدها في نفس العملية بتتبلع (١٩:٣٦، ١٩:٣٩، ١٩:٤٥). والإضافة
+/// **ما بتحفظش** رد الإطلاق لزرار مش `foreground`، فسكّة `main` ما بتشوفه.
+///
+/// فالدوسة بتتسجّل كملف صغير `Documents/pending_actions/<uuid>.json`
+/// **قبل** ما الرد يتسلّم للإضافة، وبناخد `beginBackgroundTask` عشان
+/// العملية تعيش لحد ما دارت تقرا الطابور (`main` عند الفتح، والرجوع
+/// للمقدمة، والـisolate لو اشتغل). ملف لكل دوسة = مفيش سباق قراية وكتابة.
+/// الأسامي دي مرآة لـ`pending_actions.dart` — اختبار بيقفل عليها.
+enum PendingActionQueue {
+  static let folder = "pending_actions"
+  static let category = "fakkarni_dose"
+  /// أطول من الوقت اللي `main` محتاجه لحد ما يوصل للطابور، وأقل من الـ٣٠
+  /// ثانية اللي النظام بيسمح بيها.
+  static let holdSeconds = 25.0
+
+  static var directory: URL? {
+    FileManager.default
+      .urls(for: .documentDirectory, in: .userDomainMask)
+      .first?
+      .appendingPathComponent(folder, isDirectory: true)
+  }
+
+  /// بترجّع true لو الملف اتكتب.
+  static func enqueue(_ response: UNNotificationResponse) -> Bool {
+    let content = response.notification.request.content
+    guard content.categoryIdentifier == category else { return false }
+    let action = response.actionIdentifier
+    guard action != UNNotificationDefaultActionIdentifier,
+          action != UNNotificationDismissActionIdentifier else { return false }
+    guard let dir = directory else { return false }
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    var record: [String: Any] = [
+      "v": 1,
+      "action": action,
+      "id": Int(response.notification.request.identifier) ?? -1,
+      "at": Int(Date().timeIntervalSince1970 * 1000),
+    ]
+    if let payload = content.userInfo["payload"] as? String { record["payload"] = payload }
+    guard let data = try? JSONSerialization.data(withJSONObject: record) else { return false }
+    let file = dir.appendingPathComponent("\(UUID().uuidString).json")
+    return (try? data.write(to: file, options: .atomic)) != nil
+  }
+
+  /// مهلة خلفية بإيدينا — الإضافة ما بتاخدش ولا واحدة.
+  static func hold() {
+    var token = UIBackgroundTaskIdentifier.invalid
+    token = UIApplication.shared.beginBackgroundTask(withName: "FakkarniPendingAction") {
+      UIApplication.shared.endBackgroundTask(token)
+      token = .invalid
+    }
+    guard token != .invalid else { return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + holdSeconds) {
+      if token != .invalid {
+        UIApplication.shared.endBackgroundTask(token)
+        token = .invalid
+      }
+    }
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
@@ -92,6 +160,14 @@ enum FKDiag {
     let keys = launchOptions.map { "\($0.keys.map(\.rawValue))" } ?? "nil"
     FKDiag.log("didFinishLaunching — launchOptions=\(keys) "
       + "state=\(FKDiag.name(of: UIApplication.shared.applicationState))")
+
+    // مجلد المستندات لدارت **من غير قناة**: `diag` والطابور بيتقروا من
+    // الـisolate، واللحظة دي مش وقت نداء قناة. `HOME` كان المفروض يكفي،
+    // بس ولا سطر دارت وصل الملف على الجهاز — فالمسار بيتحط في البيئة
+    // صراحةً قبل ما أي محرّك يقوم.
+    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+      setenv("FAKKARNI_DOCS", docs.path, 1)
+    }
 
     // من غير السطر ده iOS مش بيعرض التذكير والتطبيق مفتوح قدام المستخدم.
     UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
@@ -152,6 +228,11 @@ enum FKDiag {
   ) {
     FKDiag.log("didReceive — action=\(response.actionIdentifier) "
       + "category=\(response.notification.request.content.categoryIdentifier)")
+    // **الطابور الأول، وقبل الإضافة**: لو كل اللي بعده مات، الدوسة محفوظة.
+    if PendingActionQueue.enqueue(response) {
+      PendingActionQueue.hold()
+      FKDiag.log("queued — action=\(response.actionIdentifier) في pending_actions")
+    }
     super.userNotificationCenter(
       center, didReceive: response, withCompletionHandler: completionHandler)
   }

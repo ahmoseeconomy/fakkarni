@@ -742,6 +742,27 @@ they are the only visibility into a path no test can reach.
 - **والـisolate بيفضل مكانه**: اللوج ده عن iOS بس؛ على أندرويد الصحوة دي
   هي الطريق الحقيقي. الدليل متسجّل في `bootstrap.dart` بتاريخه.
 
+**«أخدته» من شاشة القفل — الطابور الأصلي في سويفت (٢٦ سبتمبر ٢٠٢٦، آيفون
+حقيقي، نسخة profile).** من `fkdiag.log` وقاعدة الجهاز: خمس دوسات في يوم،
+**أربعة ضاعوا**. النمط: لما النظام يشغّل التطبيق عشان الدوسة (`didFinishLaunching
+23:36:05.9` ← `didReceive 23:36:06.1` ← ولا سطر ← `didFinishLaunching 23:36:14.2`)
+الإضافة بترجّع `completionHandler` فوراً والعملية بتتقتل بعد ~٨ ثواني قبل ما
+المحرّك الخلفي يسجّل إضافاته؛ ولما تفشل مرة، `startEngineIfNeeded` بترجع من أول
+سطر لباقي عمر العملية (`if (backgroundEngine) return`) فكل دوسة بعدها تتبلع
+(١٩:٣٦، ١٩:٣٩، ١٩:٤٥)؛ والإضافة **ما بتحفظش** رد الإطلاق لزرار مش `foreground`،
+فسكّة `main` («الوعد الأول» تحت) ما بتشوفه أبداً — كانت بتنفع للدوسة العادية بس.
+الإصلاح: `PendingActionQueue` في `AppDelegate.swift` بيكتب كل دوسة ملف
+`Documents/pending_actions/<uuid>.json` **قبل** ما يسلّم الرد للإضافة، وبياخد
+`beginBackgroundTask` ٢٥ ثانية؛ ودارت بتطبّق الطابور (`drainPendingActions`،
+`data/services/pending_actions.dart`، نفس باب `handleNotificationAction`) عند
+الفتح في `main` قبل السحابة، وعند الرجوع للمقدمة قبل إعادة الجدولة، وفي
+الـisolate لو اشتغل (وبيشيل ملفه). التأجيل الأقدم من ٤٥ دقيقة بيتشال من غير
+تطبيق؛ التأكيد بيتطبّق مهما كان عمره. **ولا سطر دارت وصل `fkdiag.log` على
+الجهاز ولا مرة** (الـisolate كتب صف ١٩:٤٩:٣٠ ومفيش `Isolate:` قبله) — فسويفت
+بقت بتحط مجلد المستندات في البيئة (`FAKKARNI_DOCS`) و`diag` والطابور بيقروه
+من غير قناة. `pending_actions_test` بيثبت الباب الحقيقي (الصف taken والخانة
+كلها اتلغت) والمرايا والترتيب.
+
 **صحوة شاشة القفل على iOS: مقروءة من مصدر الإضافة، ومش متشافة على جهاز
 ولا مرة.** A confirmation from a locked iPhone was reported on
 20 Sep 2026 to leave the +15/+30 rungs ringing — which would mean the
