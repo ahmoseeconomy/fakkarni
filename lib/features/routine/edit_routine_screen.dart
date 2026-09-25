@@ -7,6 +7,7 @@ import '../../domain/scheduling/day_routine.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../onboarding/routine_presets.dart';
+import '../voice/help_button.dart';
 import '../../core/widgets/f_wheels.dart';
 
 /// تعديل روتين اليوم بعد الأسئلة الأولى.
@@ -89,13 +90,18 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
                     const GoldNote('وضع رمضان شغّال — عدّل من شاشة رمضان'),
                     const SizedBox(height: F.gap),
                   ],
-                  Text(
-                    'غيّر أي معاد — الجرعات المربوطة بيه بتتحرك معاه، '
-                    'والساعات الثابتة بتفضل زي ما هي.',
-                    style: TextStyle(
-                      fontSize: F.minTextSize,
-                      color: F.mutedDark,
-                      height: 1.6,
+                  // «هنا بتقولّي حضرتك بتصحى إمتى…» — كانت على عنوان أسئلة
+                  // البداية، وهناك بقت كل صفحة بجملتها (onb_*)
+                  HelpRow(
+                    id: 'help_routine',
+                    child: Text(
+                      'غيّر أي معاد — الجرعات المربوطة بيه بتتحرك معاه، '
+                      'والساعات الثابتة بتفضل زي ما هي.',
+                      style: TextStyle(
+                        fontSize: F.minTextSize,
+                        color: F.mutedDark,
+                        height: 1.6,
+                      ),
                     ),
                   ),
                   const SizedBox(height: F.gap),

@@ -147,8 +147,9 @@ class VoiceService extends ChangeNotifier {
   /// جملة من الكتالوج: التسجيل الأول، ولو ناقص أو وقع → صوت الموبايل بنفس
   /// النص. بترجع لما الكلام يخلص أو يتقطع. [force] للمقدمة (قبل ما يجاوب
   /// «تحب أكلّمك؟») ولإعادتها من الإعدادات — غير كده الصوت المقفول صامت.
-  Future<void> speakLine(String id, {bool force = false}) async {
-    if (!_enabled && !force) return;
+  /// بترجّع `true` لو الجملة اتقالت لآخرها من غير ما حاجة تقطعها.
+  Future<bool> speakLine(String id, {bool force = false}) async {
+    if (!_enabled && !force) return false;
     final text = voiceLine(id);
     final gen = await _begin(text);
     try {
@@ -158,8 +159,9 @@ class VoiceService extends ChangeNotifier {
       } catch (e) {
         diag('Voice: التسجيل $id وقع ($e) — صوت الموبايل بداله');
       }
-      if (gen != _generation) return;
+      if (gen != _generation) return false;
       if (!ok) await _tts(text);
+      return gen == _generation;
     } finally {
       await _end(gen);
     }
@@ -168,9 +170,9 @@ class VoiceService extends ChangeNotifier {
   /// كذا جملة ورا بعض (المقدمة). بتقف أول ما حاجة توقّفها.
   Future<void> speakLines(List<String> ids, {bool force = false}) async {
     for (final id in ids) {
-      final gen = _generation;
-      await speakLine(id, force: force);
-      if (_generation != gen + 1) return; // اتقطعت في النص
+      // اتقطعت في النص = الباقي ما يتقالش. (كانت بتقارن بـ«الجيل + ١»،
+      // و`_begin` بيزوّده مرتين — فكانت بتقف بعد أول جملة دايماً.)
+      if (!await speakLine(id, force: force)) return;
     }
   }
 

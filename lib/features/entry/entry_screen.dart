@@ -1,5 +1,11 @@
 import '../../core/widgets/legal_links_row.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../app/app_scope.dart';
+import '../onboarding/onboarding_voice.dart';
+import '../voice/help_button.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/fa_mark.dart';
@@ -40,7 +46,34 @@ enum _Choice { self, code, nurse }
 class _EntryScreenState extends State<EntryScreen> {
   _Choice? _choice;
 
+  /// «مين اللي ماسك التليفون ده؟…» بتتقال لوحدها لو الصوت شغّال — يعني
+  /// رجع هنا من البداية بعد ما قال «أيوه، اتكلّم». أول فتحة خالص المقدمة
+  /// لسه ما جتش، فالشاشة ساكتة.
+  OnboardingVoice _voice = OnboardingVoice(null);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_voice.voice != null) return;
+    _voice = OnboardingVoice(AppScope.maybeOf(context)?.voice);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_voice.auto(const ['onb_entry']));
+    });
+  }
+
+  @override
+  void dispose() {
+    _voice.hush();
+    super.dispose();
+  }
+
+  void _pick(_Choice c) {
+    _voice.hush();
+    setState(() => _choice = c);
+  }
+
   void _start() {
+    _voice.hush();
     switch (_choice) {
       case _Choice.self:
         widget.onSelf();
@@ -82,6 +115,8 @@ class _EntryScreenState extends State<EntryScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                     ),
+                    // بيظهر بس والصوت شغّال — وبيعيد نفس الجملة
+                    const Center(child: HelpButton('onb_entry')),
                     const SizedBox(height: F.s22),
                     _EntryCard(
                       itemKey: const ValueKey('entry-self'),
@@ -89,7 +124,7 @@ class _EntryScreenState extends State<EntryScreen> {
                       title: 'التليفون ده ليا',
                       hint: 'أنا اللي باخد الدوا',
                       selected: _choice == _Choice.self,
-                      onTap: () => setState(() => _choice = _Choice.self),
+                      onTap: () => _pick(_Choice.self),
                     ),
                     const SizedBox(height: F.s12),
                     _EntryCard(
@@ -98,7 +133,7 @@ class _EntryScreenState extends State<EntryScreen> {
                       title: 'معايا كود متابعة',
                       hint: 'ابن، بنت أو قريب',
                       selected: _choice == _Choice.code,
-                      onTap: () => setState(() => _choice = _Choice.code),
+                      onTap: () => _pick(_Choice.code),
                     ),
                     if (widget.onNurse != null) ...[
                       const SizedBox(height: F.s12),
@@ -108,7 +143,7 @@ class _EntryScreenState extends State<EntryScreen> {
                         title: 'أنا ممرض / مرافق',
                         hint: 'هتابع مريض وأساعده في أدويته',
                         selected: _choice == _Choice.nurse,
-                        onTap: () => setState(() => _choice = _Choice.nurse),
+                        onTap: () => _pick(_Choice.nurse),
                       ),
                     ],
                     // قبل أي حساب: الصفحتين قدّامه من أول شاشة

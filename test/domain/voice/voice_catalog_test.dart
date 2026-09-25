@@ -13,7 +13,7 @@ void main() {
       .toList();
 
   test('كل جملة في الكتالوج هي نفس جملة السكريبت بالحرف — لا زيادة ولا نقصان', () {
-    expect(rows, hasLength(45), reason: 'السكريبت بيقول ٤٥ جملة ثابتة');
+    expect(rows, hasLength(56), reason: 'السكريبت بيقول ٥٦ جملة ثابتة');
     expect(voiceLines.keys.toList(), [for (final r in rows) r.id], reason: 'نفس الأرقام بنفس الترتيب');
     for (final r in rows) {
       expect(voiceLines[r.id], r.text, reason: 'الجملة ${r.id} اتغيّرت عن السكريبت');
@@ -21,14 +21,20 @@ void main() {
   });
 
   test('لكل رقم ملف mp3، ومفيش ملف من غير رقم', () {
+    // تسجيل سبق الكود بتاعه مش يتيم لو رقمه مكتوب في سكريبت تاني تحت
+    // docs/voice/ (مرحلة جاية) — أي ملف تاني برّه الكتالوج بيوقّع.
+    final waiting = <String>{
+      for (final f in Directory('docs/voice').listSync().whereType<File>())
+        if (f.path.endsWith('.md') && !f.path.endsWith('/script_ar.md'))
+          for (final m in RegExp(r'^\| `([a-z_0-9]+)` \|', multiLine: true).allMatches(f.readAsStringSync()))
+            if (!voiceLines.containsKey(m.group(1))) '${m.group(1)}.mp3',
+    };
     final files = Directory('assets/voices')
         .listSync()
         .whereType<File>()
         .map((f) => f.uri.pathSegments.last)
         .where((n) => !n.startsWith('.'))
-        // تسجيلات المرحلة ٢ (أسئلة البداية) اتسجّلت قبل ما تدخل السكريبت —
-        // مش يتيمة، مستنية أرقامها. أي حاجة تانية برّه الكتالوج بتوقّع.
-        .where((n) => !n.startsWith('onb_'))
+        .where((n) => !waiting.contains(n))
         .toSet();
     final expected = {for (final id in voiceLines.keys) '$id.mp3'};
     expect(expected.difference(files), isEmpty, reason: 'تسجيلات ناقصة');
@@ -43,6 +49,6 @@ void main() {
     expect(voiceAssetPath('intro_01'), 'assets/voices/intro_01.mp3');
     expect(() => voiceLine('help_nothing'), throwsArgumentError);
     expect(introSequence.every(voiceLines.containsKey), isTrue);
-    expect(helpIds, hasLength(34), reason: '٤٥ − ٧ مقدمة − ٤ عامة');
+    expect(helpIds, hasLength(34), reason: '٥٦ − ٧ مقدمة − ٤ عامة − ١١ بداية');
   });
 }

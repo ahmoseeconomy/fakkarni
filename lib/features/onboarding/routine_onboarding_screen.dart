@@ -9,6 +9,7 @@ import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
+import 'onboarding_voice.dart';
 import 'profile_page.dart';
 import 'routine_presets.dart';
 import 'routine_question_page.dart';
@@ -56,9 +57,41 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   /// null = لسه ما اتقرّرش؛ من غير خدمة صوت = مفيش مقدمة.
   bool? _introPending;
 
+  /// صفحة «نتعرّف عليك» الحالية: ٠ الاسم، ١ الجنس، ٢ السن.
+  int _profileStep = 0;
+
+  /// جمل البداية اللي بتتقال لوحدها — لو قال «أيوه، اتكلّم» بس.
+  OnboardingVoice _voice = OnboardingVoice(null);
+
+  /// آخر سؤال اتجاوب — «تمام كده…» بتكمّل حتى والشاشة بتتقفل.
+  bool _finishing = false;
+
+  static const _profileLines = ['onb_name', 'onb_gender', 'onb_age'];
+  static const _routineLines = {
+    DayAnchor.wake: 'onb_wake',
+    DayAnchor.breakfast: 'onb_breakfast',
+    DayAnchor.lunch: 'onb_lunch',
+    DayAnchor.dinner: 'onb_dinner',
+    DayAnchor.sleep: 'onb_sleep',
+  };
+
+  /// جملة الصفحة اللي قدّامه دلوقتي — «ساعدني» فوق بيعيدها.
+  String get _pageLine => _needsProfile == true
+      ? _profileLines[_profileStep]
+      : _routineLines[routineQuestions[_index].anchor]!;
+
+  /// بتتقال لوحدها أول ما الصفحة تفتح، مرة واحدة. «مش دلوقتي» على أول سؤال
+  /// في المواعيد بتتقال مرة بس، بعد الصحيان.
+  void _announce() {
+    if (_introPending == true || _needsProfile == null) return;
+    final line = _pageLine;
+    unawaited(_voice.auto(line == 'onb_wake' ? const ['onb_wake', 'onb_routine_skip'] : [line], key: line));
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_voice.voice == null) _voice = OnboardingVoice(AppScope.of(context).voice);
     if (_needsProfile != null) return;
     if (!widget.askProfile) {
       _needsProfile = false;
@@ -74,6 +107,7 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
         _name = row?.name;
         _needsProfile = row?.sex == null;
       });
+      _announce();
     });
   }
 
@@ -85,21 +119,43 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
         _sex = sex;
         _needsProfile = false;
       });
+      _announce();
     }
   }
 
   @override
   void dispose() {
+    // سابت الصفحة = الكلام يسكت — إلا «تمام كده…» بعد آخر سؤال
+    if (!_finishing) _voice.hush();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _profileTo(int step) {
+    _voice.hush();
+    setState(() => _profileStep = step);
+    _announce();
+  }
+
+  /// «رجوع» فوق: صفحة لورا جوّه «نتعرّف عليك»، وإلا لشاشة البداية.
+  VoidCallback? get _back {
+    if (_needsProfile == true && _profileStep > 0) return () => _profileTo(_profileStep - 1);
+    final out = widget.onBack;
+    if (out == null) return null;
+    return () {
+      _voice.hush();
+      out();
+    };
   }
 
   MinuteOfDay _valueFor(RoutineQuestion question) =>
       _answers[question.anchor] ?? question.fallback;
 
-  Future<void> _advance() async {
+  Future<void> _advance({List<String> before = const []}) async {
     if (_index < routineQuestions.length - 1) {
       setState(() => _index++);
+      final line = _pageLine;
+      unawaited(_voice.auto([...before, line], key: line));
       await _controller.animateToPage(
         _index,
         duration: const Duration(milliseconds: 250),
@@ -107,12 +163,14 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
       );
       return;
     }
-    await _finish();
+    await _finish(before: before);
   }
 
-  Future<void> _finish() async {
+  Future<void> _finish({List<String> before = const []}) async {
     if (_saving) return;
     setState(() => _saving = true);
+    _finishing = _voice.on;
+    unawaited(_voice.auto([...before, 'onb_routine_done']));
 
     final services = AppScope.of(context);
     await services.routines
@@ -133,7 +191,10 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
     if (_introPending == true && _needsProfile != null) {
       return VoiceIntroScreen(
         voice: AppScope.of(context).voice!,
-        onDone: () => setState(() => _introPending = false),
+        onDone: () {
+          setState(() => _introPending = false);
+          _announce();
+        },
       );
     }
     return Scaffold(
@@ -151,13 +212,14 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (widget.onBack != null)
+                          if (_back != null)
                             Align(
                               alignment: AlignmentDirectional.centerStart,
                               child: SizedBox(
                                 height: F.minTapTarget,
                                 child: TextButton.icon(
-                                  onPressed: widget.onBack,
+                                  key: const ValueKey('onboarding-back'),
+                                  onPressed: _back,
                                   icon: const Icon(Icons.arrow_back, size: 22),
                                   label: const Text('رجوع'),
                                   style: TextButton.styleFrom(
@@ -171,7 +233,8 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                           Kicker(profile ? 'أول خطوة' : 'مرة واحدة بس'),
                           const SizedBox(height: F.s4),
                           HelpRow(
-                            id: 'help_routine',
+                            // جملة الصفحة نفسها — نفس اللي اتقالت لوحدها
+                            id: _pageLine,
                             child: Text(
                               profile ? 'نتعرّف عليك' : Say(_sex).routineTitle,
                               style: TextStyle(
@@ -194,7 +257,13 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                     ),
                     Expanded(
                       child: profile
-                          ? ProfilePage(initialName: _name, onDone: _saveProfile)
+                          ? ProfilePage(
+                              initialName: _name,
+                              onDone: _saveProfile,
+                              step: _profileStep,
+                              onStep: _profileTo,
+                              onInteract: _voice.hush,
+                            )
                           : PageView.builder(
                               controller: _controller,
                               // مفيش سحب بالإيد: كل سؤال بيتقفل بـ«تمام» أو «مش متأكد»،
@@ -208,10 +277,12 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                                   stepNumber: i + 1,
                                   totalSteps: routineQuestions.length,
                                   value: _valueFor(question),
-                                  onChanged: (value) => setState(
-                                    () => _answers[question.anchor] = value,
-                                  ),
+                                  onChanged: (value) {
+                                    _voice.hush();
+                                    setState(() => _answers[question.anchor] = value);
+                                  },
                                   onConfirm: () {
+                                    _voice.hush();
                                     _answers[question.anchor] = _valueFor(question);
                                     _advance();
                                   },
@@ -221,9 +292,12 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                                     // كأنه اختاره. بيحدّدها بعدين من «عدّل يومك»
                                     // أو أول ما دوا يحتاجها.
                                     _answers.remove(question.anchor);
-                                    // «مفيش مشكلة لو سيبتها دلوقتي» — بيتقال، مش بيوقف
-                                    unawaited(AppScope.of(context).voice?.speakLine('help_routine_skip'));
-                                    _advance();
+                                    // «مفيش مشكلة لو سيبتها دلوقتي» — بيتقال قبل
+                                    // جملة السؤال اللي بعده، مش فوقها
+                                    _voice.hush();
+                                    final voice = AppScope.of(context).voice;
+                                    final reassure = voice?.enabled == true ? ['help_routine_skip'] : <String>[];
+                                    _advance(before: reassure);
                                   },
                                 );
                               },

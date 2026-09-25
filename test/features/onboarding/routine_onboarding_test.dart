@@ -269,30 +269,70 @@ void main() {
       await pumpOnboarding(tester, askProfile: true);
     }
 
-    testWidgets('أول مرة: الاسم والجنس والسن الأول، و«كمّل» مقفولة لحد اسم وجنس', (tester) async {
+    FilledButton next(WidgetTester tester) =>
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'كمّل'));
+
+    /// صفحة الاسم ← الجنس ← السن، بـ«كمّل» بين كل صفحة والتانية.
+    Future<void> toAge(WidgetTester tester, String name, String sex) async {
+      await tester.enterText(find.byType(TextField), name);
+      await tester.pumpAndSettle();
+      await tapAndSettle(tester, 'كمّل');
+      await tapAndSettle(tester, sex);
+      await tapAndSettle(tester, 'كمّل');
+    }
+
+    testWidgets('تلات صفحات، سؤال في كل صفحة: الاسم ← الجنس ← السن، و«كمّل» مقفولة لحد ما يجاوب', (tester) async {
       await pumpTall(tester);
 
       expect(find.text('نتعرّف عليك'), findsOneWidget);
       expect(find.text('اسمك إيه؟'), findsOneWidget);
-      expect(find.text('راجل ولا ست؟'), findsOneWidget);
+      expect(find.text('راجل ولا ست؟'), findsNothing, reason: 'الجنس صفحة لوحده');
+      expect(find.byKey(const ValueKey('age-wheel')), findsNothing, reason: 'السن صفحة لوحده');
       expect(find.text(expectedQuestions.first), findsNothing, reason: 'الأسئلة بعدين');
+      expect(next(tester).onPressed, isNull);
 
-      FilledButton next() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'كمّل'));
-      expect(next().onPressed, isNull);
       await tester.enterText(find.byType(TextField), 'الحاج أحمد');
       await tester.pumpAndSettle();
-      expect(next().onPressed, isNull, reason: 'لسه الجنس');
+      expect(next(tester).onPressed, isNotNull);
+      await tapAndSettle(tester, 'كمّل');
+
+      expect(find.text('راجل ولا ست؟'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+      expect(next(tester).onPressed, isNull, reason: 'لسه الجنس');
       await tapAndSettle(tester, 'راجل');
-      expect(next().onPressed, isNotNull);
+      expect(next(tester).onPressed, isNotNull);
+      await tapAndSettle(tester, 'كمّل');
+
+      expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
+      expect(find.text('راجل ولا ست؟'), findsNothing);
+      expect(next(tester).onPressed, isNotNull, reason: 'السن اختياري');
+      expect(await services.routines.getPatient(services.patientId).then((r) => r?.sex), isNull,
+          reason: 'ولا حاجة بتتحفظ قبل آخر صفحة');
       expectNoRedAndMinSize(tester);
+    });
+
+    testWidgets('«رجوع» بيرجع صفحة، والمكتوب بيفضل زي ما هو', (tester) async {
+      await pumpTall(tester);
+      expect(find.byKey(const ValueKey('onboarding-back')), findsNothing, reason: 'أول صفحة ومفيش شاشة قبلها هنا');
+      await toAge(tester, 'الحاج أحمد', 'راجل');
+
+      await tester.tap(find.byKey(const ValueKey('onboarding-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('راجل ولا ست؟'), findsOneWidget);
+      final male = tester.widget<AnchorChip>(find.byKey(const ValueKey('sex-m')));
+      expect(male.selected, isTrue, reason: 'الاختيار فاضل');
+
+      await tester.tap(find.byKey(const ValueKey('onboarding-back')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'الحاج أحمد'), findsOneWidget);
+      expect(find.byKey(const ValueKey('onboarding-back')), findsNothing);
     });
 
     testWidgets('ست → الأسئلة بالمؤنث، والجنس والاسم اتحفظوا، والسن null لو ما اختارتش', (tester) async {
       await pumpTall(tester);
 
-      await tester.enterText(find.byType(TextField), 'الحاجة فاطمة');
-      await tapAndSettle(tester, 'ست');
-      // الكلام على الشاشة نفسها بيتبع الجنس فوراً
+      await toAge(tester, 'الحاجة فاطمة', 'ست');
+      // الكلام على الصفحة نفسها بيتبع الجنس فوراً
       expect(find.textContaining('بتفطري الساعة كام؟'), findsOneWidget);
       await tapAndSettle(tester, 'كمّل');
 
@@ -318,8 +358,7 @@ void main() {
     testWidgets('راجل وحرّك البكرة → الأسئلة بالمذكر والسن اللي وقف عنده اتحفظ', (tester) async {
       await pumpTall(tester);
 
-      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
-      await tapAndSettle(tester, 'راجل');
+      await toAge(tester, 'الحاج أحمد', 'راجل');
       await spin(tester, 5); // ٦٠ → ٦٥
       expect(hint(tester), 'سنّك ٦٥ سنة');
       await tapAndSettle(tester, 'كمّل');
@@ -333,6 +372,7 @@ void main() {
 
     testWidgets('البكرة واقفة على ٦٠ ومفيش حاجة بتتكتب لحد ما تتحرّك', (tester) async {
       await pumpTall(tester);
+      await toAge(tester, 'الحاج أحمد', 'راجل');
       // البكرة موجودة، والتلميح بيقول حرّكها، ومفيش سن معروض
       expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
       expect(hint(tester), AgeWheel.hint);
@@ -340,8 +380,6 @@ void main() {
       expect(AgeWheel.minAge, 18, reason: 'مريض بأدوية مزمنة ممكن يكون عنده ٢٠');
       expect(AgeWheel.maxAge, 110);
 
-      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
-      await tapAndSettle(tester, 'راجل');
       await tapAndSettle(tester, 'كمّل');
       final row = (await services.routines.getPatient(services.patientId))!;
       expect(row.age, isNull, reason: 'البكرة واقفة على ٦٠ مش معناه إنه قال ٦٠');
@@ -349,8 +387,7 @@ void main() {
 
     testWidgets('سن صغير بيتحفظ زي ما هو — مفيش أرضية ٦٠', (tester) async {
       await pumpTall(tester);
-      await tester.enterText(find.byType(TextField), 'محمد');
-      await tapAndSettle(tester, 'راجل');
+      await toAge(tester, 'محمد', 'راجل');
       await spin(tester, -30); // ٦٠ → ٣٠
       expect(hint(tester), 'سنّك ٣٠ سنة');
       await tapAndSettle(tester, 'كمّل');
@@ -360,8 +397,7 @@ void main() {
 
     testWidgets('«مش عايز أقول» بترجّع null بعد ما اختار، والبكرة بترجع لـ٦٠', (tester) async {
       await pumpTall(tester);
-      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
-      await tapAndSettle(tester, 'راجل');
+      await toAge(tester, 'الحاج أحمد', 'راجل');
       await spin(tester, 5);
       expect(hint(tester), 'سنّك ٦٥ سنة');
 
@@ -375,32 +411,44 @@ void main() {
       expect(row.age, isNull);
     });
 
-    testWidgets('ست → «مش عايزة أقول»', (tester) async {
+    testWidgets('ست → «مش عايزة أقول» — الصيغة بتمشي مع إجابة الجنس', (tester) async {
       await pumpTall(tester);
-      await tapAndSettle(tester, 'ست');
+      await toAge(tester, 'الحاجة فاطمة', 'ست');
       expect(find.text('مش عايزة أقول'), findsOneWidget);
       expect(find.text('مش عايز أقول'), findsNothing);
     });
 
-    testWidgets('على iPhone SE: البكرة و«كمّل» ظاهرين من غير لفّ ومن غير فيض', (tester) async {
+    testWidgets('على iPhone SE: كل صفحة و«كمّل» بتاعتها ظاهرين من غير لفّ ومن غير فيض', (tester) async {
       tester.view.physicalSize = const Size(750, 1334);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await pumpOnboarding(tester, askProfile: true);
 
-      expect(tester.takeException(), isNull, reason: 'فيض');
+      void fits(String page) {
+        expect(tester.takeException(), isNull, reason: 'فيض — $page');
+        final button = tester.getRect(find.widgetWithText(FilledButton, 'كمّل'));
+        expect(button.bottom, lessThanOrEqualTo(667), reason: page);
+        expect(button.top, greaterThanOrEqualTo(0), reason: page);
+        expectNoRedAndMinSize(tester);
+      }
+
+      fits('الاسم');
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tester.pumpAndSettle();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tapAndSettle(tester, 'كمّل');
+      fits('الجنس');
+      await tapAndSettle(tester, 'راجل');
+      await tapAndSettle(tester, 'كمّل');
+      fits('السن');
       final button = tester.getRect(find.widgetWithText(FilledButton, 'كمّل'));
-      expect(button.bottom, lessThanOrEqualTo(667));
-      expect(button.top, greaterThanOrEqualTo(0));
-      // البكرة نفسها كاملة على الشاشة من غير ما يلف — الاسم والجنس فوقها
       final wheel = tester.getRect(find.byKey(const ValueKey('age-wheel')));
       expect(wheel.height, AgeWheel.wheelHeight);
-      // وسطر التلميح و«مش عايز أقول» تحتها كمان — آخر حاجة في الكتلة
       final clear = tester.getRect(find.text('مش عايز أقول'));
       expect(clear.bottom, lessThanOrEqualTo(button.top),
           reason: 'كتلة السن كلها فوق «كمّل» من غير لفّ: ${wheel.bottom} / ${clear.bottom} / ${button.top}');
-      expectNoRedAndMinSize(tester);
     });
 
     testWidgets('الجنس متسجّل قبل كده → الأسئلة على طول من غير «نتعرّف عليك»', (tester) async {
