@@ -392,24 +392,22 @@ begin
     if not v_denied then raise exception 'FAIL 0026: المتابع كتب تغيير معلّق'; end if;
 
     -- ٤) الصور: المالك والممرض بيقروا، والمتابع والغريب لأ، والكتابة للمالك بس
+    -- (الدوال بتتنده هنا من غير set role: authenticated مالوش USAGE على schema private
+    --  وده صح — سياسات storage بتتحلّل وقت إنشائها، فمش محتاجاه وقت التشغيل.)
     v_path := v_pat::text || '/' || gen_random_uuid()::text || '.jpg';
     perform set_config('request.jwt.claims', json_build_object('sub', v_owner)::text, true);
-    execute 'set local role authenticated';
     if not private.can_read_paper(v_path) or not private.can_write_paper(v_path) then
       raise exception 'FAIL 0026: المالك مش بيقرا/يكتب صوره';
     end if;
     execute 'reset role';
     perform set_config('request.jwt.claims', json_build_object('sub', v_nurse)::text, true);
-    execute 'set local role authenticated';
     if not private.can_read_paper(v_path) then raise exception 'FAIL 0026: الممرض مش بيقرا الصورة'; end if;
     if private.can_write_paper(v_path) then raise exception 'FAIL 0026: الممرض بيكتب في صور المريض'; end if;
     execute 'reset role';
     perform set_config('request.jwt.claims', json_build_object('sub', v_son)::text, true);
-    execute 'set local role authenticated';
     if private.can_read_paper(v_path) then raise exception 'FAIL 0026: المتابع شاف الصورة'; end if;
     execute 'reset role';
     perform set_config('request.jwt.claims', json_build_object('sub', v_stranger)::text, true);
-    execute 'set local role authenticated';
     if private.can_read_paper(v_path) then raise exception 'FAIL 0026: غريب شاف الصورة'; end if;
     if private.can_read_paper('مش-uuid/x.jpg') then raise exception 'FAIL 0026: مسار بايظ عدّى'; end if;
     execute 'reset role';
