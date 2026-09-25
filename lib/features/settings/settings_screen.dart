@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.wb_sunny_outlined,
               label: 'مواعيد يومك',
               hint: 'الصحيان والأكل والنوم — كل الجرعات بتترتّب عليهم',
-              value: routine == null ? null : _hm(routine.breakfast),
+              // مفيش ساعة جنبه: «٧:٣٠ ص» لوحدها كانت ساعة الفطار من غير ما تقول
               onTap: routine == null ? null : () => _open(EditRoutineScreen(routine: routine)),
             ),
             _Row(
@@ -280,16 +280,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  static String _hm(MinuteOfDay t) {
-    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-    final m = t.minute.toString().padLeft(2, '0');
-    return '${_ar(h)}:${_ar(m)} ${t.hour < 12 ? 'ص' : 'م'}';
-  }
-
-  static String _ar(Object v) => v.toString().replaceAllMapped(
-        RegExp('[0-9]'),
-        (m) => String.fromCharCode(0x660 + int.parse(m.group(0)!)),
-      );
 }
 
 /// «نمط كبار السن» — مفتاح على طول، مش صف بيفتح شاشة: التغيير بيبان

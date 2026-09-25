@@ -163,6 +163,10 @@ void main() {
     await openSettings(tester);
     expect(find.text('وضع رمضان'), findsOneWidget);
     expect(find.text('مواعيد يومك'), findsOneWidget);
+    // مفيش ساعة جنب الصف: «٧:٣٠ ص» لوحدها ما بتقولش حاجة
+    final routineRow = find.ancestor(of: find.text('مواعيد يومك'), matching: find.byType(InkWell)).first;
+    final rowTexts = tester.widgetList<Text>(find.descendant(of: routineRow, matching: find.byType(Text)));
+    expect(rowTexts.map((t) => t.data ?? '').where((t) => RegExp('[٠-٩0-9]:[٠-٩0-9]').hasMatch(t)), isEmpty);
     expect(find.byType(SettingsScreen), findsOneWidget);
     // التبويبات بتفضل حيّة في IndexedStack — بس برّه الشاشة
     expect(find.byType(MedicationsScreen, skipOffstage: false), findsOneWidget);
