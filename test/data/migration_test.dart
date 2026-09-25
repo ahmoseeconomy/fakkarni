@@ -89,7 +89,7 @@ void main() {
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 27);
+    expect(version.read<int>('user_version'), 28);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);

@@ -311,7 +311,9 @@ with expected(migration, kind, ident) as (
     ('0029_med_photos',    'policy',   'storage.objects|med_photos_insert'),
     ('0029_med_photos',    'policysrc','storage.objects|med_photos_insert|can_stage_med_photo'),
     ('0029_med_photos',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|photo'),
-    ('0030_patient_papers_limits', 'bucket', 'patient-papers|10485760|image/jpeg')
+    ('0030_patient_papers_limits', 'bucket', 'patient-papers|10485760|image/jpeg'),
+    ('0031_not_bought',    'column',   'public.medications.not_bought_at'),
+    ('0031_not_bought',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|bought')
 ),
 checked as (
   select

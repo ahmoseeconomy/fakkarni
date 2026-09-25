@@ -81,6 +81,45 @@ Future<void> orderFromPharmacy(BuildContext context, String medicationName) asyn
   await openWhatsApp(Uri.https('wa.me', '/$number', {'text': pharmacyOrderMessage(medicationName, boxes)}));
 }
 
+/// **«اطلبها من الصيدلية»** لأكتر من دوا («أدوية لسه ماتشترتش») — نفس
+/// السكّة: «صيدليتي» لو ناقصة، الرسالة ظاهرة، وواتساب بيفتح والمستخدم
+/// هو اللي بيبعت.
+Future<void> orderListFromPharmacy(BuildContext context, List<String> medicationNames) async {
+  if (medicationNames.isEmpty) return;
+  final prefs = AppScope.of(context).preferences;
+  var pharmacy = await prefs.pharmacy();
+  if (!context.mounted) return;
+  if (pharmacy.whatsapp == null || whatsappNumber(pharmacy.whatsapp!) == null) {
+    final saved = await editPharmacy(context);
+    if (saved != true || !context.mounted) return;
+    pharmacy = await prefs.pharmacy();
+    if (!context.mounted) return;
+  }
+  final message = pharmacyListMessage(medicationNames);
+  final go = await FSheet.show<bool>(
+    context,
+    title: 'اطلبها من ${pharmacy.name ?? 'الصيدلية'}',
+    children: [
+      Text('الرسالة:', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+      Text(message, key: const ValueKey('order-list-message'), style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+      const SizedBox(height: F.s6),
+      Text('واتساب هيفتح والرسالة جاهزة — إنت اللي بتدوس «إرسال».',
+          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
+      const SizedBox(height: F.gap),
+      Builder(
+        builder: (context) => FPrimaryButton(
+          key: const ValueKey('order-list-open'),
+          label: 'افتح واتساب',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ),
+    ],
+  );
+  if (go != true) return;
+  final number = whatsappNumber(pharmacy.whatsapp!)!;
+  await openWhatsApp(Uri.https('wa.me', '/$number', {'text': message}));
+}
+
 class _OrderBody extends StatefulWidget {
   const _OrderBody({required this.name});
   final String name;

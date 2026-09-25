@@ -116,6 +116,13 @@ String pharmacyOrderMessage(String medicationName, int boxes) =>
       _ => '${_arabic(boxes)} علبة',
     }}';
 
+/// رسالة الصيدلية لأكتر من دوا («أدوية لسه ماتشترتش») — دوا في كل سطر
+/// بعلبة واحدة، والمستخدم بيعدّلها في واتساب لو حابب قبل ما يبعت.
+String pharmacyListMessage(List<String> medicationNames) {
+  if (medicationNames.length == 1) return pharmacyOrderMessage(medicationNames.single, 1);
+  return ['محتاج:', for (final n in medicationNames) '- $n — ١ علبة'].join('\n');
+}
+
 /// رقم واتساب مصري → صيغة wa.me (من غير + ولا مسافات). null = مش رقم.
 String? whatsappNumber(String raw) {
   final digits = _westernDigits(raw).replaceAll(RegExp(r'[^0-9]'), '');

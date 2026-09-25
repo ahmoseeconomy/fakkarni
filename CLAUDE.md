@@ -296,7 +296,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v27 (v25 vitals, v26 medication_stock, v27 medications.photo_path): patients (sex, age — local),
+  data/db/                    drift (SQLite) v28 (v25 vitals, v26 medication_stock, v27 medications.photo_path, v28 medications.not_bought_at): patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -1809,7 +1809,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030، وبعدها `verify_migrations.sql` لازم يرجّع ٣٠ صف كلهم `ok = true`. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 ملف بس. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** و**`0031_not_bought`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030 ثم 0031، وبعدها `verify_migrations.sql` لازم يرجّع ٣١ صف كلهم `ok = true`. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 و0031 ملفات بس (0031 مستنية مراجعة، والتطبيق لسه ما بيرفعش العمود). من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -4469,6 +4469,22 @@ what the person typed; its refill alert never fired for many users. Here:
   and deletes the pending one — otherwise `missing` + `mediaSync`.
   `0030_patient_papers_limits.sql` (file only) caps the bucket at 10 MiB
   and `image/jpeg`, the one type both uploaders send.
+
+**«أدوية لسه ماتشترتش» (25 Sep 2026).** Each line on the prescription
+review asks «اشتريته؟» — «أيوه» selected by default, so nothing changes for
+anyone who ignores it. «لسه» writes `medications.not_bought_at` (drift
+**v28**, local) **after** `rescheduleAll`, and nothing in scheduling reads
+it: the reminders start exactly when «هتبدأ الدوا من إمتى؟» said
+(`not_bought_test` confirms with «لسه», marks bought, reschedules, and
+asserts the notification set is identical). `NotBoughtSection` sits in
+«السجل» above «أوراقك» only while the list has something; «يومك» carries a
+quiet `NotBoughtLine` that opens it. «اطلبها من الصيدلية» is
+`orderListFromPharmacy` — the stock WhatsApp flow with one line per
+medicine, the user presses send; «اشتريته» clears the flag and, if stock is
+tracked, asks the box quantity through the restock sheet. **The circle side
+is not built**: it needs `medications.not_bought_at` in the cloud and a
+`bought` change kind, written as `0031_not_bought.sql` and waiting for
+review.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

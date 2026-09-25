@@ -29,6 +29,7 @@ import '../nearby/nearby_screen.dart';
 import '../records/checkup_screen.dart';
 import '../reminder/reminder_screen.dart';
 import '../adherence/patient_adherence_card.dart';
+import '../medication/not_bought.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
 import 'widgets/glucose_home_card.dart';
@@ -452,6 +453,8 @@ class _TodayScreenState extends State<TodayScreen> {
               // «كونكور فاضله ٤ أيام» — تحت الجدول: مش جرعة دلوقتي، وفوق كان
               // هيزقّ «تأكيد الجرعة» على SE
               const RefillLines(),
+              // «فيه دوا لسه ماتشترتش» — سطر هادي، ويختفي لما القايمة تفضى
+              const NotBoughtLine(),
               PatientFamilyNotice(
                 followerNames: [for (final f in _followers) f.name],
                 followersKnown: _followersKnown,

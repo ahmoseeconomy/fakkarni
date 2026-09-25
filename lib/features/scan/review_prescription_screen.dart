@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../ai/prescription_reading.dart';
 import '../../app/app_scope.dart';
+import '../../data/repositories/not_bought_repository.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
@@ -281,7 +282,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
 
-    await services.medications.addMedicationsWithDoses(
+    final ids = await services.medications.addMedicationsWithDoses(
       patientId: services.patientId,
       startDate: _today,
       medications: [
@@ -301,6 +302,13 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       ],
     );
     await services.scheduler.rescheduleAll();
+
+    // «لسه ماتشترتش» — **بعد** الجدولة وبرّاها: علامة على الدوا وبس،
+    // والتذكير اتجدول فوق زي ما هو بالظبط.
+    final notBought = NotBoughtRepository(services.db);
+    for (final (i, l) in keep.indexed) {
+      if (!l.bought && i < ids.length) await notBought.markNotBought(ids[i]);
+    }
 
     // الملف الصحي (D3.5): الروشتة اللي اتأكدت بتتسجّل — بالتاريخ والأدوية.
     // بعد الأدوية والجدولة (دول الوعد)؛ لو السطر ده فشل التأكيد ما بيتلغيش.
@@ -478,6 +486,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                           onAskAnchor: _busy ? null : _askAnchor,
                           onEdit: _busy ? null : () => _edit(i),
                           onDelete: _busy ? null : () => _delete(i),
+                          onBought: _busy ? null : (v) => setState(() => line.bought = v),
                         ),
                         const SizedBox(height: F.s12),
                       ],
@@ -616,7 +625,11 @@ class _MedicineRow extends StatelessWidget {
     required this.onDelete,
     this.unsetAnchors = const {},
     this.onAskAnchor,
+    this.onBought,
   });
+
+  /// «اشتريته؟» — null = السؤال مش معروض.
+  final ValueChanged<bool>? onBought;
 
   /// المراسي اللي السطر ده محتاجها والمستخدم ما حدّدهاش — سؤال لكل واحدة.
   final Set<DayAnchor> unsetAnchors;
@@ -765,6 +778,39 @@ class _MedicineRow extends StatelessWidget {
                 key: ValueKey('ask-anchor-$index-${anchor.name}'),
                 label: 'حدّد ميعاد ${anchor.label}',
                 onPressed: onAskAnchor == null ? null : () => onAskAnchor!(anchor),
+              ),
+            ],
+          ],
+          if (onBought case final setBought?) ...[
+            const SizedBox(height: F.s12),
+            Text('اشتريته؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+            const SizedBox(height: F.s6),
+            Row(
+              children: [
+                Expanded(
+                  child: _BoughtChip(
+                    key: ValueKey('bought-yes-$index'),
+                    label: 'أيوه',
+                    selected: line.bought,
+                    onTap: () => setBought(true),
+                  ),
+                ),
+                const SizedBox(width: F.s8),
+                Expanded(
+                  child: _BoughtChip(
+                    key: ValueKey('bought-no-$index'),
+                    label: 'لسه',
+                    selected: !line.bought,
+                    onTap: () => setBought(false),
+                  ),
+                ),
+              ],
+            ),
+            if (!line.bought) ...[
+              const SizedBox(height: F.s6),
+              Text(
+                'هيتحط في «أدوية لسه ماتشترتش» — والتذكير بيبدأ في ميعاده عادي.',
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
               ),
             ],
           ],
@@ -967,6 +1013,10 @@ class _DraftLine {
   /// «هتبدأ الدوا من إمتى؟» لو اتغيّرت من «عدّل» — null = يوم التأكيد.
   DateTime? startDate;
 
+  /// «اشتريته؟» — أيوه افتراضياً، فاللي ما ردّش ما بيتغيّرلوش حاجة. «لسه»
+  /// بيحطّه في «أدوية لسه ماتشترتش» وبس — **التذكير بيبدأ زي ما هو**.
+  bool bought = true;
+
   factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
         read: read,
         name: read.name.value,
@@ -1165,3 +1215,33 @@ String prescriptionRecordTitle(int count) => switch (count) {
       2 => 'روشتة — دواءين',
       _ => 'روشتة — ${arabicNumber(count)} أدوية',
     };
+
+/// «أيوه» / «لسه» — أخضر خفيف للمختار (زي كروت شاشة البداية)، مش ذهبي:
+/// الإجابة الافتراضية مش حاجة محتاجة انتباه.
+class _BoughtChip extends StatelessWidget {
+  const _BoughtChip({required this.label, required this.selected, required this.onTap, super.key});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: F.minTapTarget,
+        child: Material(
+          color: selected ? F.greenTint : F.railGround,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(F.radiusChip),
+            side: BorderSide(color: selected ? F.green : F.line, width: selected ? 2 : 1.5),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(F.radiusChip),
+            child: Center(
+              child: Text(label,
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+            ),
+          ),
+        ),
+      );
+}

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../medication/not_bought.dart';
+
 import '../../data/repositories/vitals_repository.dart';
 import '../../domain/health/vitals.dart';
 import '../health/vitals/vital_entry_sheet.dart';
@@ -329,6 +331,9 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 onPressed: _newAppointment,
               ),
               const SizedBox(height: F.gap),
+
+              // ============================== أدوية لسه ماتشترتش (لو فيه)
+              const NotBoughtSection(),
 
               // ================================================= أوراقك
               const FSectionHead('أوراقك'),

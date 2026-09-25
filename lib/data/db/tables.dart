@@ -390,6 +390,11 @@ class Medications extends Table with SyncIdentity {
   /// **محلي**: مش في حمولة الدفع (زي `attachment_path`).
   TextColumn get photoPath => text().nullable()();
 
+  /// «لسه ماتشترتش» (v28) — لحظة ما قال في مراجعة الروشتة إنه لسه ما
+  /// اشتراهوش. null = اشتراه (الافتراضي). **مالوش أي علاقة بالتذكير**:
+  /// الجرعات بتبدأ زي ما «هتبدأ الدوا من إمتى؟» قالت. محلي، مش في الدفع.
+  DateTimeColumn get notBoughtAt => dateTime().nullable()();
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
