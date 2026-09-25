@@ -5,6 +5,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/health/glucose_summary.dart';
+import '../../domain/health/vitals.dart';
 import '../care/caregiver_snapshot_holder.dart';
 import '../care/caregiver_words.dart' show glucoseContextLabel, labLineText;
 import '../export/export_actions.dart';
@@ -80,6 +81,15 @@ class _NurseDoctorScreenState extends State<NurseDoctorScreen> {
           const FSectionHead('السكر — آخر ٣٠ يوم'),
           const SizedBox(height: F.s6),
           for (final g in glucose) Text(g, style: text),
+          const SizedBox(height: F.s12),
+        ]);
+      }
+      final vitals = latestVitals(s.vitals);
+      if (vitals.isNotEmpty) {
+        children.addAll([
+          const FSectionHead('آخر قياس لكل نوع'),
+          const SizedBox(height: F.s6),
+          for (final v in vitals) Text('${v.kind.label}: ${vitalValueText(v)} — ${arabicDate(v.measuredAt)}', style: text),
           const SizedBox(height: F.s12),
         ]);
       }

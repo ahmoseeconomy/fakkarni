@@ -194,6 +194,7 @@ const List<String> syncedTableNames = [
   'lab_results',
   'visit_questions',
   'emergency_profile',
+  'vitals',
 ];
 
 class SyncService {
@@ -405,6 +406,7 @@ class SyncService {
       'lab_results': 'exists (select 1 from records r where r.id = t.record_id)',
       'visit_questions': patient,
       'emergency_profile': patient,
+      'vitals': patient,
     };
     final union = syncedTableNames
         .map((t) => 'select updated_at_ms, synced_at_ms from $t t where ${scoped[t] ?? '1'}')
@@ -470,6 +472,9 @@ class SyncService {
       await _pushLabResults();
       await _pushVisitQuestions();
       await _pushEmergencyProfile();
+      // القياسات الحيوية (v25) — **آخر حاجة**: لو ٠٠٢٧ لسه ما اتشغّلتش،
+      // غيابها ما يوقّفش حاجة قبلها.
+      await _pushVitals();
     } catch (error, stack) {
       // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز. إلا لو
       // السيرفر رفض الحساب نفسه: ساعتها الطابور بيقف بعلامة محفوظة.
@@ -906,6 +911,47 @@ class SyncService {
       (uuid, ms) => (_db.update(_db.readings)..where((t) => t.uuid.equals(uuid)))
           .write(ReadingsCompanion(syncedAtMs: Value(ms))),
     );
+  }
+
+  /// **القياسات الحيوية** (v25، سحابة ٠٠٢٧). الجدول لو لسه مش موجود على
+  /// السيرفر (PGRST205 / 42P01) بنسجّل ونسيب الصفوف متوسّخة — بتطلع لوحدها
+  /// أول ما الهجرة تتشغّل، ومن غير ما تعطّل أي جدول تاني.
+  Future<void> _pushVitals() async {
+    final query = _db.select(_db.vitals).join([
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.vitals.patientId)),
+    ])
+      ..where(_db.vitals.syncedAtMs.isNull() | _db.vitals.syncedAtMs.isSmallerThan(_db.vitals.updatedAtMs));
+    final rows = await query.get();
+    try {
+      await _upsertAndMark(
+        'vitals',
+        [
+          for (final row in rows)
+            () {
+              final v = row.readTable(_db.vitals);
+              final p = row.readTable(_db.patients);
+              return (
+                uuid: v.uuid,
+                updatedAtMs: v.updatedAtMs,
+                json: {
+                  'uuid': v.uuid,
+                  'patient_uuid': p.uuid,
+                  'kind': v.kind,
+                  'value': v.value,
+                  'value2': v.value2,
+                  'pulse': v.pulse,
+                  'measured_at': utcIso(v.measuredAt),
+                }
+              );
+            }(),
+        ],
+        (uuid, ms) => (_db.update(_db.vitals)..where((t) => t.uuid.equals(uuid)))
+            .write(VitalsCompanion(syncedAtMs: Value(ms))),
+      );
+    } on SyncRejected catch (e) {
+      if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
+      diag('Sync: جدول القياسات مش موجود على السيرفر (${e.code}) — شغّل ٠٠٢٧؛ الصفوف مستنية');
+    }
   }
 
   /// سطور التحليل بتتربط بسجلها بالـuuid — الـid المحلي عمره ما يطلع.

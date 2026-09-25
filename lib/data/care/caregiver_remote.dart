@@ -10,6 +10,7 @@ library;
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/health/lab_range.dart';
+import '../../domain/health/vitals.dart';
 import '../dose_state.dart';
 
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
@@ -172,7 +173,12 @@ class CaregiverSnapshot {
     this.questions = const [],
     this.proxied = const {},
     this.sharedPapers = const {},
+    this.vitals = const [],
   });
+
+  /// القياسات الحيوية (v25 / ٠٠٢٧) في آخر ٩٠ يوم، الأحدث الأول — قراية بس.
+  /// فاضية لو الهجرة لسه ما اتشغّلتش.
+  final List<Vital> vitals;
 
   final CaregiverPatient patient;
 

@@ -293,7 +293,13 @@ with expected(migration, kind, ident) as (
     ('0026_nurse_account', 'function', 'private.circle_writes_allowed'),
     ('0026_nurse_account', 'function', 'private.can_read_paper'),
     ('0026_nurse_account', 'policy',   'storage.objects|patient_papers_select'),
-    ('0026_nurse_account', 'policysrc','public.proxy_confirmations|proxy_confirmations_insert|circle_writes_allowed')
+    ('0026_nurse_account', 'policysrc','public.proxy_confirmations|proxy_confirmations_insert|circle_writes_allowed'),
+    ('0027_vitals',        'table',    'public.vitals'),
+    ('0027_vitals',        'rls',      'public.vitals'),
+    ('0027_vitals',        'column',   'public.vitals.value2'),
+    ('0027_vitals',        'policy',   'public.vitals|vitals_select'),
+    ('0027_vitals',        'policy',   'public.vitals|vitals_insert'),
+    ('0027_vitals',        'trigger',  'public.vitals|set_updated_at')
 ),
 checked as (
   select

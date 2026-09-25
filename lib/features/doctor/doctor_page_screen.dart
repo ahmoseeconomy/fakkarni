@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:drift/drift.dart' show OrderingTerm, innerJoin, BooleanExpressionOperators;
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/vitals_repository.dart';
+import '../../domain/health/vitals.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
@@ -66,6 +69,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
   final _subs = <StreamSubscription<Object?>>[];
   List<MedicationSummary> _meds = const [];
   List<ReadingRow> _readings = const [];
+  List<Vital> _vitals = const [];
   List<VisitQuestionRow> _questions = const [];
   List<_LabLine> _labs = const [];
 
@@ -94,6 +98,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
           .watch()
           .listen((v) => _set(() => _readings = v)))
       ..add(VisitQuestionsRepository(db).watch(s.patientId).listen((v) => _set(() => _questions = v)))
+      ..add(VitalsRepository(db).watch(s.patientId).listen((v) => _set(() => _vitals = v)))
       ..add((db.select(db.records)..where((t) => t.patientId.equals(s.patientId) & t.deletedAt.isNull()))
           .watch()
           .listen((rows) {
@@ -302,6 +307,22 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                       ],
                     ),
                   ),
+            ],
+          ),
+          // الضغط والنبض والوزن والأكسجين والحرارة: آخر رقم لكل نوع بوقته
+          if (latestVitals(_vitals).isNotEmpty)
+          _Section(
+            title: 'آخر قياس لكل نوع',
+            children: [
+              for (final v in latestVitals(_vitals))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: F.s6),
+                  child: Text(
+                    '${v.kind.label}: ${vitalValueText(v)} — ${arabicDate(v.measuredAt)}',
+                    key: ValueKey('doctor-vital-${v.kind.name}'),
+                    style: body,
+                  ),
+                ),
             ],
           ),
           if (_labs.isNotEmpty)

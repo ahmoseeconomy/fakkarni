@@ -30,13 +30,14 @@ part 'app_database.g.dart';
     Readings,
     LabResults,
     VisitQuestions,
+    Vitals,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -455,6 +456,23 @@ class AppDatabase extends _$AppDatabase {
                 await customStatement('ALTER TABLE dose_events ADD COLUMN acted_by TEXT NULL');
               }
             }
+            if (from < 25) {
+              // القياسات الحيوية — جدول جديد، SQL مجمّد بالحرف، **فوق** بلوك
+              // التطبيع. السكر فضل في readings زي ما هو.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "vitals" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"patient_id" INTEGER NOT NULL REFERENCES patients (id) ON DELETE CASCADE, '
+                '"kind" TEXT NOT NULL, '
+                '"value" REAL NOT NULL, '
+                '"value2" REAL NULL, '
+                '"pulse" INTEGER NULL, '
+                '"measured_at" INTEGER NOT NULL)',
+              );
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -497,6 +515,7 @@ class AppDatabase extends _$AppDatabase {
             'readings',
             'lab_results',
             'visit_questions',
+            'vitals',
           ]) {
             await customStatement('''
 CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at

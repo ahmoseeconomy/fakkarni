@@ -17,7 +17,9 @@ import '../records/record_kinds.dart' show RecordKindWords;
 import 'nurse_controller.dart';
 import 'nurse_doctor_screen.dart';
 import 'nurse_header.dart';
+import 'nurse_vitals_screen.dart';
 import 'nurse_widgets.dart';
+import '../health/vitals/vital_history.dart' show VitalsSummary;
 
 /// **«السجل» بتاع المريض** — نفس التلات أقسام اللي على موبايله:
 /// «مواعيدك الجاية» / «أوراقك» / «للدكتور».
@@ -126,6 +128,18 @@ class NurseRecordsScreen extends StatelessWidget {
                 key: const ValueKey('nurse-new-record'),
                 label: 'ورقة جديدة',
                 onPressed: () => _newRecord(context, today),
+              ),
+            const SizedBox(height: F.gap),
+            const FSectionHead('قياساته'),
+            const SizedBox(height: F.s8),
+            if (snapshot.vitals.isEmpty)
+              const NurseQuietLine('لسه مفيش قياسات من موبايله.')
+            else
+              VitalsSummary(
+                vitals: snapshot.vitals,
+                onOpen: (kind) => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => NurseVitalsScreen(holder: controller.holder, kind: kind, now: now),
+                )),
               ),
             const SizedBox(height: F.gap),
             const FSectionHead('للدكتور'),

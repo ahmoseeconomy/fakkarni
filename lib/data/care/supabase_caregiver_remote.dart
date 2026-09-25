@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../domain/health/lab_range.dart';
+import '../../domain/health/vitals.dart';
 import '../../domain/wording/rule_wording.dart';
 import 'caregiver_remote.dart';
 
@@ -16,6 +17,8 @@ const recordsLimit = 50;
 const readingsWindow = Duration(days: 30);
 const readingsLimit = 200;
 const questionsLimit = 50;
+const vitalsWindow = Duration(days: 90);
+const vitalsLimit = 500;
 
 /// صف escalations بالـembed بتاعه → [CaregiverAlert]. منفصلة عشان تتختبر
 /// من غير Supabase.
@@ -114,6 +117,20 @@ CaregiverRecord? recordFromRow(Map<String, dynamic> row) {
           );
         }(),
     ],
+  );
+}
+
+/// صف `vitals` (٠٠٢٧) → [Vital]. نوع مش معروف = null (نسخة أحدث رفعت نوع
+/// الموبايل ده ما يعرفوش).
+Vital? vitalFromRow(Map<String, dynamic> row) {
+  final kind = VitalKind.fromStored(row['kind'] as String?);
+  if (kind == null) return null;
+  return Vital(
+    kind: kind,
+    value: (row['value'] as num).toDouble(),
+    value2: (row['value2'] as num?)?.toDouble(),
+    pulse: (row['pulse'] as num?)?.toInt(),
+    measuredAt: _local(row['measured_at']),
   );
 }
 
@@ -401,7 +418,23 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             .order('updated_at', ascending: false)
             .limit(questionsLimit);
 
-        for (final rows in [records, readings, emergency, questions]) {
+        // القياسات الحيوية (٠٠٢٧) — **مجاملة**: لو الجدول لسه مش موجود على
+        // السيرفر، الشاشة كلها تفضل شغّالة من غيرها.
+        var vitals = const <Map<String, dynamic>>[];
+        try {
+          vitals = await _supabase
+              .from('vitals')
+              .select('kind, value, value2, pulse, measured_at, updated_at')
+              .eq('patient_uuid', patient.uuid)
+              .gte('measured_at', DateTime.now().toUtc().subtract(vitalsWindow).toIso8601String())
+              .order('measured_at', ascending: false)
+              .limit(vitalsLimit);
+        } on PostgrestException catch (e) {
+          if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
+          if (kDebugMode) debugPrint('Care: جدول القياسات مش موجود لسه (${e.code}) — شغّل ٠٠٢٧');
+        }
+
+        for (final rows in [records, readings, emergency, questions, vitals]) {
           for (final r in rows) {
             bump(r['updated_at']);
           }
@@ -440,6 +473,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
           emergency: emergencyFromRow(emergency.isEmpty ? null : emergency.first),
           questions: [for (final q in questions) questionFromRow(q)],
           sharedPapers: await _sharedPapers(patient),
+          vitals: [for (final v in vitals) ?vitalFromRow(v)],
         );
       });
 

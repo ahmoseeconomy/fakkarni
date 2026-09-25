@@ -8640,6 +8640,613 @@ class VisitQuestionsCompanion extends UpdateCompanion<VisitQuestionRow> {
   }
 }
 
+class $VitalsTable extends Vitals with TableInfo<$VitalsTable, VitalRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VitalsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES patients (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<double> value = GeneratedColumn<double>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _value2Meta = const VerificationMeta('value2');
+  @override
+  late final GeneratedColumn<double> value2 = GeneratedColumn<double>(
+    'value2',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pulseMeta = const VerificationMeta('pulse');
+  @override
+  late final GeneratedColumn<int> pulse = GeneratedColumn<int>(
+    'pulse',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _measuredAtMeta = const VerificationMeta(
+    'measuredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> measuredAt = GeneratedColumn<DateTime>(
+    'measured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    kind,
+    value,
+    value2,
+    pulse,
+    measuredAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'vitals';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VitalRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patientIdMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('value2')) {
+      context.handle(
+        _value2Meta,
+        value2.isAcceptableOrUnknown(data['value2']!, _value2Meta),
+      );
+    }
+    if (data.containsKey('pulse')) {
+      context.handle(
+        _pulseMeta,
+        pulse.isAcceptableOrUnknown(data['pulse']!, _pulseMeta),
+      );
+    }
+    if (data.containsKey('measured_at')) {
+      context.handle(
+        _measuredAtMeta,
+        measuredAt.isAcceptableOrUnknown(data['measured_at']!, _measuredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_measuredAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VitalRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VitalRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}value'],
+      )!,
+      value2: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}value2'],
+      ),
+      pulse: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pulse'],
+      ),
+      measuredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}measured_at'],
+      )!,
+    );
+  }
+
+  @override
+  $VitalsTable createAlias(String alias) {
+    return $VitalsTable(attachedDatabase, alias);
+  }
+}
+
+class VitalRow extends DataClass implements Insertable<VitalRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int patientId;
+  final String kind;
+  final double value;
+  final double? value2;
+  final int? pulse;
+  final DateTime measuredAt;
+  const VitalRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.patientId,
+    required this.kind,
+    required this.value,
+    this.value2,
+    this.pulse,
+    required this.measuredAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['patient_id'] = Variable<int>(patientId);
+    map['kind'] = Variable<String>(kind);
+    map['value'] = Variable<double>(value);
+    if (!nullToAbsent || value2 != null) {
+      map['value2'] = Variable<double>(value2);
+    }
+    if (!nullToAbsent || pulse != null) {
+      map['pulse'] = Variable<int>(pulse);
+    }
+    map['measured_at'] = Variable<DateTime>(measuredAt);
+    return map;
+  }
+
+  VitalsCompanion toCompanion(bool nullToAbsent) {
+    return VitalsCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      patientId: Value(patientId),
+      kind: Value(kind),
+      value: Value(value),
+      value2: value2 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(value2),
+      pulse: pulse == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pulse),
+      measuredAt: Value(measuredAt),
+    );
+  }
+
+  factory VitalRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VitalRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      patientId: serializer.fromJson<int>(json['patientId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      value: serializer.fromJson<double>(json['value']),
+      value2: serializer.fromJson<double?>(json['value2']),
+      pulse: serializer.fromJson<int?>(json['pulse']),
+      measuredAt: serializer.fromJson<DateTime>(json['measuredAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'patientId': serializer.toJson<int>(patientId),
+      'kind': serializer.toJson<String>(kind),
+      'value': serializer.toJson<double>(value),
+      'value2': serializer.toJson<double?>(value2),
+      'pulse': serializer.toJson<int?>(pulse),
+      'measuredAt': serializer.toJson<DateTime>(measuredAt),
+    };
+  }
+
+  VitalRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? patientId,
+    String? kind,
+    double? value,
+    Value<double?> value2 = const Value.absent(),
+    Value<int?> pulse = const Value.absent(),
+    DateTime? measuredAt,
+  }) => VitalRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    patientId: patientId ?? this.patientId,
+    kind: kind ?? this.kind,
+    value: value ?? this.value,
+    value2: value2.present ? value2.value : this.value2,
+    pulse: pulse.present ? pulse.value : this.pulse,
+    measuredAt: measuredAt ?? this.measuredAt,
+  );
+  VitalRow copyWithCompanion(VitalsCompanion data) {
+    return VitalRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      value: data.value.present ? data.value.value : this.value,
+      value2: data.value2.present ? data.value2.value : this.value2,
+      pulse: data.pulse.present ? data.pulse.value : this.pulse,
+      measuredAt: data.measuredAt.present
+          ? data.measuredAt.value
+          : this.measuredAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VitalRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('kind: $kind, ')
+          ..write('value: $value, ')
+          ..write('value2: $value2, ')
+          ..write('pulse: $pulse, ')
+          ..write('measuredAt: $measuredAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    patientId,
+    kind,
+    value,
+    value2,
+    pulse,
+    measuredAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VitalRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.patientId == this.patientId &&
+          other.kind == this.kind &&
+          other.value == this.value &&
+          other.value2 == this.value2 &&
+          other.pulse == this.pulse &&
+          other.measuredAt == this.measuredAt);
+}
+
+class VitalsCompanion extends UpdateCompanion<VitalRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> patientId;
+  final Value<String> kind;
+  final Value<double> value;
+  final Value<double?> value2;
+  final Value<int?> pulse;
+  final Value<DateTime> measuredAt;
+  const VitalsCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.patientId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.value = const Value.absent(),
+    this.value2 = const Value.absent(),
+    this.pulse = const Value.absent(),
+    this.measuredAt = const Value.absent(),
+  });
+  VitalsCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int patientId,
+    required String kind,
+    required double value,
+    this.value2 = const Value.absent(),
+    this.pulse = const Value.absent(),
+    required DateTime measuredAt,
+  }) : patientId = Value(patientId),
+       kind = Value(kind),
+       value = Value(value),
+       measuredAt = Value(measuredAt);
+  static Insertable<VitalRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? patientId,
+    Expression<String>? kind,
+    Expression<double>? value,
+    Expression<double>? value2,
+    Expression<int>? pulse,
+    Expression<DateTime>? measuredAt,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (patientId != null) 'patient_id': patientId,
+      if (kind != null) 'kind': kind,
+      if (value != null) 'value': value,
+      if (value2 != null) 'value2': value2,
+      if (pulse != null) 'pulse': pulse,
+      if (measuredAt != null) 'measured_at': measuredAt,
+    });
+  }
+
+  VitalsCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? patientId,
+    Value<String>? kind,
+    Value<double>? value,
+    Value<double?>? value2,
+    Value<int?>? pulse,
+    Value<DateTime>? measuredAt,
+  }) {
+    return VitalsCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      patientId: patientId ?? this.patientId,
+      kind: kind ?? this.kind,
+      value: value ?? this.value,
+      value2: value2 ?? this.value2,
+      pulse: pulse ?? this.pulse,
+      measuredAt: measuredAt ?? this.measuredAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<double>(value.value);
+    }
+    if (value2.present) {
+      map['value2'] = Variable<double>(value2.value);
+    }
+    if (pulse.present) {
+      map['pulse'] = Variable<int>(pulse.value);
+    }
+    if (measuredAt.present) {
+      map['measured_at'] = Variable<DateTime>(measuredAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VitalsCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('patientId: $patientId, ')
+          ..write('kind: $kind, ')
+          ..write('value: $value, ')
+          ..write('value2: $value2, ')
+          ..write('pulse: $pulse, ')
+          ..write('measuredAt: $measuredAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8659,6 +9266,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReadingsTable readings = $ReadingsTable(this);
   late final $LabResultsTable labResults = $LabResultsTable(this);
   late final $VisitQuestionsTable visitQuestions = $VisitQuestionsTable(this);
+  late final $VitalsTable vitals = $VitalsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8677,6 +9285,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readings,
     labResults,
     visitQuestions,
+    vitals,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -8756,6 +9365,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('visit_questions', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'patients',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('vitals', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -8911,6 +9527,25 @@ final class $$PatientsTableReferences
     ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_visitQuestionsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$VitalsTable, List<VitalRow>> _vitalsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.vitals,
+    aliasName: 'patients__id__vitals__patient_id',
+  );
+
+  $$VitalsTableProcessedTableManager get vitalsRefs {
+    final manager = $$VitalsTableTableManager(
+      $_db,
+      $_db.vitals,
+    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_vitalsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -9138,6 +9773,31 @@ class $$PatientsTableFilterComposer
           }) => $$VisitQuestionsTableFilterComposer(
             $db: $db,
             $table: $db.visitQuestions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> vitalsRefs(
+    Expression<bool> Function($$VitalsTableFilterComposer f) f,
+  ) {
+    final $$VitalsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.vitals,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VitalsTableFilterComposer(
+            $db: $db,
+            $table: $db.vitals,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9419,6 +10079,31 @@ class $$PatientsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> vitalsRefs<T extends Object>(
+    Expression<T> Function($$VitalsTableAnnotationComposer a) f,
+  ) {
+    final $$VitalsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.vitals,
+      getReferencedColumn: (t) => t.patientId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VitalsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.vitals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PatientsTableTableManager
@@ -9442,6 +10127,7 @@ class $$PatientsTableTableManager
             bool recordsRefs,
             bool readingsRefs,
             bool visitQuestionsRefs,
+            bool vitalsRefs,
           })
         > {
   $$PatientsTableTableManager(_$AppDatabase db, $PatientsTable table)
@@ -9516,6 +10202,7 @@ class $$PatientsTableTableManager
                 recordsRefs = false,
                 readingsRefs = false,
                 visitQuestionsRefs = false,
+                vitalsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -9527,6 +10214,7 @@ class $$PatientsTableTableManager
                     if (recordsRefs) db.records,
                     if (readingsRefs) db.readings,
                     if (visitQuestionsRefs) db.visitQuestions,
+                    if (vitalsRefs) db.vitals,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -9678,6 +10366,27 @@ class $$PatientsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (vitalsRefs)
+                        await $_getPrefetchedData<
+                          PatientRow,
+                          $PatientsTable,
+                          VitalRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PatientsTableReferences
+                              ._vitalsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PatientsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).vitalsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.patientId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -9706,6 +10415,7 @@ typedef $$PatientsTableProcessedTableManager =
         bool recordsRefs,
         bool readingsRefs,
         bool visitQuestionsRefs,
+        bool vitalsRefs,
       })
     >;
 typedef $$DayRoutinesTableCreateCompanionBuilder =
@@ -15215,6 +15925,412 @@ typedef $$VisitQuestionsTableProcessedTableManager =
       VisitQuestionRow,
       PrefetchHooks Function({bool patientId})
     >;
+typedef $$VitalsTableCreateCompanionBuilder = VitalsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  required int patientId,
+  required String kind,
+  required double value,
+  Value<double?> value2,
+  Value<int?> pulse,
+  required DateTime measuredAt,
+});
+typedef $$VitalsTableUpdateCompanionBuilder = VitalsCompanion Function({
+  Value<String> uuid,
+  Value<int> updatedAtMs,
+  Value<int?> syncedAtMs,
+  Value<int> id,
+  Value<int> patientId,
+  Value<String> kind,
+  Value<double> value,
+  Value<double?> value2,
+  Value<int?> pulse,
+  Value<DateTime> measuredAt,
+});
+
+final class $$VitalsTableReferences
+    extends BaseReferences<_$AppDatabase, $VitalsTable, VitalRow> {
+  $$VitalsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
+      db.patients.createAlias('vitals__patient_id__patients__id');
+
+  $$PatientsTableProcessedTableManager get patientId {
+    final $_column = $_itemColumn<int>('patient_id')!;
+
+    final manager = $$PatientsTableTableManager(
+      $_db,
+      $_db.patients,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$VitalsTableFilterComposer
+    extends Composer<_$AppDatabase, $VitalsTable> {
+  $$VitalsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get value2 => $composableBuilder(
+    column: $table.value2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pulse => $composableBuilder(
+    column: $table.pulse,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PatientsTableFilterComposer get patientId {
+    final $$PatientsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableFilterComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VitalsTableOrderingComposer
+    extends Composer<_$AppDatabase, $VitalsTable> {
+  $$VitalsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get value2 => $composableBuilder(
+    column: $table.value2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pulse => $composableBuilder(
+    column: $table.pulse,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PatientsTableOrderingComposer get patientId {
+    final $$PatientsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableOrderingComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VitalsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VitalsTable> {
+  $$VitalsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<double> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<double> get value2 =>
+      $composableBuilder(column: $table.value2, builder: (column) => column);
+
+  GeneratedColumn<int> get pulse =>
+      $composableBuilder(column: $table.pulse, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get measuredAt => $composableBuilder(
+    column: $table.measuredAt,
+    builder: (column) => column,
+  );
+
+  $$PatientsTableAnnotationComposer get patientId {
+    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.patientId,
+      referencedTable: $db.patients,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PatientsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.patients,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$VitalsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VitalsTable,
+          VitalRow,
+          $$VitalsTableFilterComposer,
+          $$VitalsTableOrderingComposer,
+          $$VitalsTableAnnotationComposer,
+          $$VitalsTableCreateCompanionBuilder,
+          $$VitalsTableUpdateCompanionBuilder,
+          (VitalRow, $$VitalsTableReferences),
+          VitalRow,
+          PrefetchHooks Function({bool patientId})
+        > {
+  $$VitalsTableTableManager(_$AppDatabase db, $VitalsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VitalsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VitalsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VitalsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> patientId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<double> value = const Value.absent(),
+                Value<double?> value2 = const Value.absent(),
+                Value<int?> pulse = const Value.absent(),
+                Value<DateTime> measuredAt = const Value.absent(),
+              }) => VitalsCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                kind: kind,
+                value: value,
+                value2: value2,
+                pulse: pulse,
+                measuredAt: measuredAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int patientId,
+                required String kind,
+                required double value,
+                Value<double?> value2 = const Value.absent(),
+                Value<int?> pulse = const Value.absent(),
+                required DateTime measuredAt,
+              }) => VitalsCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                patientId: patientId,
+                kind: kind,
+                value: value,
+                value2: value2,
+                pulse: pulse,
+                measuredAt: measuredAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$VitalsTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({patientId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (patientId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.patientId,
+                        referencedTable: $$VitalsTableReferences
+                            ._patientIdTable(db),
+                        referencedColumn: $$VitalsTableReferences
+                            ._patientIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$VitalsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VitalsTable,
+      VitalRow,
+      $$VitalsTableFilterComposer,
+      $$VitalsTableOrderingComposer,
+      $$VitalsTableAnnotationComposer,
+      $$VitalsTableCreateCompanionBuilder,
+      $$VitalsTableUpdateCompanionBuilder,
+      (VitalRow, $$VitalsTableReferences),
+      VitalRow,
+      PrefetchHooks Function({bool patientId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15245,4 +16361,6 @@ class $AppDatabaseManager {
       $$LabResultsTableTableManager(_db, _db.labResults);
   $$VisitQuestionsTableTableManager get visitQuestions =>
       $$VisitQuestionsTableTableManager(_db, _db.visitQuestions);
+  $$VitalsTableTableManager get vitals =>
+      $$VitalsTableTableManager(_db, _db.vitals);
 }

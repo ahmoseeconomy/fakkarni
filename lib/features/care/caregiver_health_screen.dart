@@ -13,6 +13,7 @@ import '../records/record_kinds.dart' show RecordKindWords;
 import 'caregiver_snapshot_holder.dart';
 import 'caregiver_status.dart' show careStageDate;
 import 'caregiver_ui.dart';
+import 'caregiver_vitals_screen.dart';
 import 'caregiver_words.dart';
 
 /// «الملف الصحي» عند الابن (D5.2) — نفس الصورة اللي «متابعة» بتقرا منها.
@@ -135,6 +136,18 @@ class _CaregiverHealthScreenState extends State<CaregiverHealthScreen> {
           count: byKind[kind]!.length,
           accent: careRecordAccent(kind),
           onTap: () => _open(CareListKind.records, recordKind: kind),
+        ),
+      // الضغط والنبض والوزن والأكسجين والحرارة (٠٠٢٧) — قراية بس
+      if (snapshot.vitals.isNotEmpty)
+        _Entry(
+          key: const ValueKey('care-entry-vitals'),
+          icon: Icons.monitor_heart_outlined,
+          label: 'القياسات — الضغط والوزن وغيرهم',
+          count: snapshot.vitals.length,
+          accent: F.careAccentSkipped,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => CaregiverVitalsScreen(holder: widget.holder, now: widget.now),
+          )),
         ),
       if (snapshot.questions.isNotEmpty)
         _Entry(

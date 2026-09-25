@@ -261,6 +261,25 @@ class Readings extends Table with SyncIdentity {
   TextColumn get context => textEnum<GlucoseContext>()();
 }
 
+/// **القياسات الحيوية** (v25) — الضغط والنبض والوزن والأكسجين والحرارة.
+///
+/// جدول لوحده مش امتداد لـ[Readings]: السكر ليه سياقه (صايم/بعد الأكل)
+/// و«المعتاد» بتاعه وشاشاته وجدوله في السحابة من ١٢ نسخة — توسيعه كان
+/// هيعمل هجرة على بيانات حقيقية شغّالة عشان يشيل أعمدة مالهاش معنى للسكر.
+/// هنا صف لكل قياس: [kind] بالاسم المخزّن (`VitalKind.name`)، و[value]
+/// الانقباضي أو القيمة نفسها، و[value2] الانبساطي، و[pulse] نبض مع الضغط.
+@DataClassName('VitalRow')
+class Vitals extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get patientId =>
+      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
+  TextColumn get kind => text()();
+  RealColumn get value => real()();
+  RealColumn get value2 => real().nullable()();
+  IntColumn get pulse => integer().nullable()();
+  DateTimeColumn get measuredAt => dateTime()();
+}
+
 /// نتايج تقرير تحليل اتأكد بإيد إنسان (D3.6، المخطط ٨) — سطر لكل تحليل،
 /// متعلّق بصف `records` نوعه lab. بيتقرا عشان «المعتاد ليه هو»: نفس التحليل
 /// في تقاريره اللي فاتت، مش نطاق من كتاب. **مفيش عمود لنطاق مرجعي ولا

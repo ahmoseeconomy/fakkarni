@@ -5,7 +5,9 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/emergency_repository.dart';
 import '../../data/repositories/lab_results_repository.dart' show rangeOfRow;
+import '../../data/repositories/vitals_repository.dart';
 import '../../domain/health/glucose_summary.dart';
+import '../../domain/health/vitals.dart';
 import '../../domain/health/lab_range.dart';
 import '../health/usual_words.dart'
     show GlucoseContextWords, arabicDecimal, labFlagWord, labRangeFooter, labRangeText;
@@ -18,6 +20,9 @@ enum ExportSection {
   imaging('الأشعة', visibleByDefault: true),
   prescriptions('الروشتات', visibleByDefault: true),
   glucose('قراءات السكر', visibleByDefault: true),
+
+  /// الضغط والنبض والوزن والأكسجين والحرارة — آخر قياس لكل نوع في الفترة.
+  vitals('القياسات', visibleByDefault: true),
   visits('الزيارات والحجوزات', visibleByDefault: true),
 
   /// فصيلة الدم والحساسية والأمراض — **مخفي من الأول**. أرقام جهات الاتصال
@@ -126,6 +131,7 @@ Future<ExportDocument> collectExport(
       ExportSection.imaging => await _records(db, patientId, RecordKind.imaging, inRange),
       ExportSection.prescriptions => await _records(db, patientId, RecordKind.prescription, inRange),
       ExportSection.glucose => await _glucose(db, patientId, inRange),
+      ExportSection.vitals => await _vitals(db, patientId, inRange),
       ExportSection.visits => [
         ...await _records(db, patientId, RecordKind.visit, inRange),
         ...await _records(db, patientId, RecordKind.booking, inRange),
@@ -247,6 +253,14 @@ Future<List<String>> _glucose(AppDatabase db, int patientId, bool Function(DateT
         '${c.label}: ${arabicNumber(s.count)} قياس — أقل ${arabicNumber(s.lowest)} — أعلى ${arabicNumber(s.highest)} — متوسط ${arabicNumber(s.average)} ملّيجرام/ديسيلتر',
     for (final r in shown.take(30))
       '${arabicNumber(r.valueMgDl)} ${r.context.label} — ${arabicDate(r.measuredAt)} ${arabicTime(r.measuredAt)}',
+  ];
+}
+
+Future<List<String>> _vitals(AppDatabase db, int patientId, bool Function(DateTime) inRange) async {
+  final all = await VitalsRepository(db).all(patientId);
+  return [
+    for (final v in latestVitals([for (final v in all) if (inRange(v.measuredAt)) v]))
+      '${v.kind.label}: ${vitalValueText(v)} — ${arabicDate(v.measuredAt)} ${arabicTime(v.measuredAt)}',
   ];
 }
 

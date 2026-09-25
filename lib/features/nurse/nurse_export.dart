@@ -2,6 +2,7 @@ import '../../core/format/arabic_time.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/health/glucose_summary.dart';
 import '../../domain/health/lab_range.dart';
+import '../../domain/health/vitals.dart';
 import '../care/caregiver_words.dart' show glucoseContextLabel;
 import '../export/export_document.dart';
 import '../health/usual_words.dart' show arabicDecimal, labFlagWord, labRangeFooter, labRangeText;
@@ -68,6 +69,13 @@ ExportDocument nurseExportDocument(CaregiverSnapshot s, DateTime now) {
       ExportBlock(section: ExportSection.imaging, lines: orNone(records('imaging'))),
       ExportBlock(section: ExportSection.prescriptions, lines: orNone(records('prescription'))),
       ExportBlock(section: ExportSection.glucose, lines: orNone(glucose)),
+      ExportBlock(
+        section: ExportSection.vitals,
+        lines: orNone([
+          for (final v in latestVitals(s.vitals))
+            '${v.kind.label}: ${vitalValueText(v)} — ${arabicDate(v.measuredAt)} ${arabicTime(v.measuredAt)}',
+        ]),
+      ),
       ExportBlock(section: ExportSection.visits, lines: orNone([...records('visit'), ...records('booking')])),
     ],
   );

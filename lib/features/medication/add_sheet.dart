@@ -6,7 +6,7 @@ import '../../core/widgets/primitives.dart';
 import '../../domain/billing/family_plan.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../billing/feature_gate.dart';
-import '../health/glucose_screen.dart';
+import '../health/vitals/vital_entry_sheet.dart';
 import '../health/scan_lab_screen.dart';
 import '../records/manual_entry_screen.dart';
 import '../scan/scan_prescription_screen.dart';
@@ -54,8 +54,16 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
         label: addSheetLabels[2],
         onPressed: () => open(AddMedicationScreen(routine: routine)),
       ),
-      // سكر الدم وتقارير التحاليل (D3.6)
-      FSecondaryButton(label: addSheetLabels[3], onPressed: () => open(const GlucoseScreen())),
+      // القياسات (٢٥ سبتمبر ٢٠٢٦): ضغط/نبض/وزن/أكسجين/حرارة — والسكر شريحة
+      // جوّه الورقة بتفتح شاشته زي ما هي. التقارير لوحدها تحت.
+      FSecondaryButton(
+        key: const ValueKey('add-vital'),
+        label: addSheetLabels[3],
+        onPressed: () {
+          navigator.pop();
+          if (context.mounted) showVitalEntrySheet(context);
+        },
+      ),
       FSecondaryButton(
         label: addSheetLabels[4],
         onPressed: () => openScan(ScanLabScreen(reader: services.labReader)),
@@ -73,7 +81,7 @@ const addSheetLabels = [
   'صوّر العلبة أو الشريط',
   'صوّر روشتة',
   'أكتبها بإيدي',
-  'قيس السكر',
+  'سجّل قياس',
   'صوّر تقرير تحليل',
   'سجّل زيارة أو تحليل أو أشعة',
 ];

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/vitals_repository.dart';
+import '../../domain/health/vitals.dart';
+import '../health/vitals/vital_entry_sheet.dart';
+import '../health/vitals/vital_history.dart';
+import '../health/vitals/vital_history_screen.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
@@ -45,6 +51,7 @@ class HealthFileScreen extends StatefulWidget {
 
 class _HealthFileScreenState extends State<HealthFileScreen> {
   Stream<List<RecordRow>>? _records;
+  Stream<List<Vital>>? _vitals;
   final _query = TextEditingController();
 
   RecordsRepository get _repo => RecordsRepository(AppScope.of(context).db);
@@ -53,6 +60,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _records ??= _repo.watchAll(AppScope.of(context).patientId);
+    _vitals ??= VitalsRepository(AppScope.of(context).db).watch(AppScope.of(context).patientId);
   }
 
   @override
@@ -394,6 +402,42 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     ),
                   RecordRowCard(record: r, today: widget.today),
                 ],
+              const SizedBox(height: F.gap),
+
+              // ================================================= قياساتك
+              // الضغط والنبض والوزن والأكسجين والحرارة: آخر رقم لكل نوع،
+              // والدوسة بتفتح تاريخه. أرقام وبس — مفيش حكم ولا لون.
+              const FSectionHead('قياساتك'),
+              const SizedBox(height: F.s8),
+              StreamBuilder<List<Vital>>(
+                stream: _vitals,
+                builder: (context, snap) {
+                  final vitals = snap.data ?? const <Vital>[];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (vitals.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: F.s8),
+                          child: Text('لسه مفيش قياسات — الضغط والنبض والوزن والأكسجين والحرارة بيتسجّلوا من هنا.',
+                              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
+                        )
+                      else
+                        VitalsSummary(
+                          vitals: vitals,
+                          onOpen: (kind) => Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => VitalHistoryScreen(kind: kind, now: widget.today),
+                          )),
+                        ),
+                      FSecondaryButton(
+                        key: const ValueKey('records-add-vital'),
+                        label: 'سجّل قياس',
+                        onPressed: () => showVitalEntrySheet(context, now: widget.today),
+                      ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: F.gap),
 
               // ================================================= للدكتور

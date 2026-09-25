@@ -33,15 +33,18 @@ class _ExportScreenState extends State<ExportScreen> {
   late final Set<ExportSection> _visible = {...ExportOptions.defaults().visible};
   bool _busy = false;
 
-  static const _hints = {
-    ExportSection.medications: 'الأدوية الشغّالة دلوقتي',
-    ExportSection.labs: 'النتايج اللي اتأكدت',
-    ExportSection.imaging: 'تقارير الأشعة',
-    ExportSection.prescriptions: 'الروشتات المتسجّلة',
-    ExportSection.glucose: 'ملخص وأرقام',
-    ExportSection.visits: 'الزيارات والحجوزات',
-    ExportSection.emergency: 'فصيلة الدم والحساسية — من غير أرقام جهات الاتصال',
-  };
+  /// **switch شامل مش خريطة**: قسم جديد في [ExportSection] من غير سطر هنا
+  /// كان بيوقّع الشاشة وقت التشغيل (`_hints[s]!`) — دلوقتي بيبقى خطأ بناء.
+  static String _hint(ExportSection s) => switch (s) {
+        ExportSection.medications => 'الأدوية الشغّالة دلوقتي',
+        ExportSection.labs => 'النتايج اللي اتأكدت',
+        ExportSection.imaging => 'تقارير الأشعة',
+        ExportSection.prescriptions => 'الروشتات المتسجّلة',
+        ExportSection.glucose => 'ملخص وأرقام',
+        ExportSection.vitals => 'آخر ضغط ونبض ووزن وأكسجين وحرارة',
+        ExportSection.visits => 'الزيارات والحجوزات',
+        ExportSection.emergency => 'فصيلة الدم والحساسية — من غير أرقام جهات الاتصال',
+      };
 
   Future<void> _preview() async {
     setState(() => _busy = true);
@@ -108,7 +111,7 @@ class _ExportScreenState extends State<ExportScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(s.label, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
-                            Text(_hints[s]!, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
+                            Text(_hint(s), style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4)),
                           ],
                         ),
                       ),

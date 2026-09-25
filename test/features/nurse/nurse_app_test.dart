@@ -16,6 +16,7 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/care/medication_change.dart';
+import 'package:fakkarni/domain/health/vitals.dart';
 import 'package:fakkarni/data/services/nurse_reminder_plan.dart';
 import 'package:fakkarni/features/nurse/nurse_records_screen.dart';
 import 'package:fakkarni/features/nurse/nurse_reminders.dart';
@@ -117,6 +118,7 @@ void main() {
     Map<String, String?> proxied = const {},
     List<CaregiverRecord> records = const [],
     Set<String> shared = const {},
+    List<Vital> vitals = const [],
   }) =>
       CaregiverSnapshot(
         patient: CaregiverPatient(uuid: uuid, name: name, permissions: permissions),
@@ -141,6 +143,7 @@ void main() {
         proxied: proxied,
         records: records,
         sharedPapers: shared,
+        vitals: vitals,
       );
 
   setUp(() async {
@@ -381,5 +384,36 @@ void main() {
         expect(find.byKey(const ValueKey('nurse-switch')), findsOneWidget);
       });
     }
+  });
+
+  group('القياسات عند العيلة والممرض — قراية بس', () {
+    final vitals = [Vital(kind: VitalKind.weight, value: 72.5, measuredAt: DateTime(2026, 8, 31, 9))];
+
+    screenTest('الممرض: «قياساته» في «السجل»، والتاريخ من غير «سجّل قياس»', (tester) async {
+      cloud.snapshots['p1'] = snap(vitals: vitals);
+      await pump(tester);
+      await tester.tap(find.text('السجل').last);
+      await settle(tester);
+      expect(find.text('قياساته'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('vital-summary-weight')));
+      await settle(tester);
+      expect(find.text('٧٢٫٥ كيلو'), findsWidgets);
+      expect(find.byKey(const ValueKey('vital-add')), findsNothing);
+      expect(find.text('بتتابع: الحاج أحمد'), findsOneWidget);
+    });
+
+    screenTest('المتابع: مدخل «القياسات» في «السجل» بيفتح قراية بس', (tester) async {
+      cloud.snapshots['p1'] = snap(permissions: FollowerPermissions.plainFollower, vitals: vitals);
+      await pump(tester);
+      await tester.tap(find.text('السجل').last);
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('care-entry-vitals')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('vital-summary-weight')));
+      await settle(tester);
+      expect(find.text('٧٢٫٥ كيلو'), findsWidgets);
+      expect(find.byKey(const ValueKey('vital-add')), findsNothing);
+      expect(find.byKey(const ValueKey('vital-ask-doctor')), findsNothing);
+    });
   });
 }
