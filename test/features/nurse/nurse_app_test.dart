@@ -193,10 +193,10 @@ void main() {
   }
 
   group('تطبيق الممرض', () {
-    screenTest('علاقة ممرض = تطبيق المريض: «يومك» و«أدويته» و«السجل» و«بتتابع: الاسم» فوق', (tester) async {
+    screenTest('علاقة ممرض = تطبيق المريض: «يومك» و«أدويته» و«الملف الطبي» و«بتتابع: الاسم» فوق', (tester) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
-      for (final tab in ['يومك', 'أدويته', 'السجل', 'الإعدادات']) {
+      for (final tab in ['يومك', 'أدويته', 'الملف الطبي', 'الإعدادات']) {
         expect(find.text(tab), findsWidgets, reason: tab);
       }
       expect(find.text('متابعة'), findsNothing);
@@ -319,7 +319,7 @@ void main() {
     });
   });
 
-  group('«السجل»', () {
+  group('«الملف الطبي»', () {
     final paper = CaregiverRecord(
       uuid: 'r1',
       kind: 'prescription',
@@ -331,7 +331,7 @@ void main() {
     screenTest('٠٠٣١: «أدوية لسه ماتشترتش» — من غير «يعدّل الأدوية» قراية بس', (tester) async {
       cloud.snapshots['p1'] = snap(notBoughtAt: DateTime(2026, 8, 30));
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.text('أدوية لسه ماتشترتش (١)'), findsOneWidget);
       expect(find.byKey(const ValueKey('nurse-not-bought-m1')), findsOneWidget);
@@ -341,7 +341,7 @@ void main() {
     screenTest('٠٠٣١: بـ«يعدّل الأدوية» «اشتريته» بيبعت تغيير bought — ومن غير المخزون', (tester) async {
       cloud.snapshots['p1'] = snap(permissions: editor, notBoughtAt: DateTime(2026, 8, 30));
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       await tester.ensureVisible(find.byKey(const ValueKey('nurse-bought-m1')));
       await tester.tap(find.byKey(const ValueKey('nurse-bought-m1')));
@@ -353,7 +353,7 @@ void main() {
     screenTest('مفيش حاجة لسه ماتشترتش → القسم مش موجود', (tester) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.textContaining('لسه ماتشترتش'), findsNothing);
     });
@@ -361,7 +361,7 @@ void main() {
     screenTest('التلات أقسام، والورقة من غير صورة مشاركة بتقول «الصورة على موبايل المريض»', (tester) async {
       cloud.snapshots['p1'] = snap(records: [paper]);
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.text('مواعيدك الجاية'), findsOneWidget);
       expect(find.text('أوراقك'), findsOneWidget);
@@ -377,7 +377,7 @@ void main() {
     screenTest('الصورة مشاركة: بيحاول ينزّلها بدل السطر', (tester) async {
       cloud.snapshots['p1'] = snap(records: [paper], shared: {'r1'});
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('nurse-paper-r1')));
       await settle(tester);
@@ -388,7 +388,7 @@ void main() {
     screenTest('بصلاحية التعديل: «ميعاد جديد» بيبعت طلب ميعاد للمريض', (tester) async {
       cloud.snapshots['p1'] = snap(permissions: editor);
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('nurse-new-appointment')));
       await settle(tester);
@@ -403,7 +403,7 @@ void main() {
     screenTest('بصلاحية التعديل: «ورقة جديدة» بعنوان بتتبعت كطلب ورقة', (tester) async {
       cloud.snapshots['p1'] = snap(permissions: editor);
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('nurse-new-record')));
       await settle(tester);
@@ -419,7 +419,7 @@ void main() {
     screenTest('من غير صلاحية التعديل: مفيش «ميعاد جديد» ولا «ورقة جديدة»', (tester) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.byKey(const ValueKey('nurse-new-appointment')), findsNothing);
       expect(find.byKey(const ValueKey('nurse-new-record')), findsNothing);
@@ -427,7 +427,7 @@ void main() {
   });
 
   group('آيفون SE بخط ×١٫٣', () {
-    for (final tab in ['يومك', 'أدويته', 'السجل']) {
+    for (final tab in ['يومك', 'أدويته', 'الملف الطبي']) {
       screenTest('«$tab»: مفيش فيض، و«بتتابع» ظاهرة', (tester) async {
         cloud.snapshots['p1'] = snap(permissions: editor, name: 'الحاج أحمد عبد الرحمن');
         cloud.snapshots['p2'] = snap(uuid: 'p2', name: 'الحاجة فاطمة');
@@ -448,10 +448,10 @@ void main() {
   group('القياسات عند العيلة والممرض — قراية بس', () {
     final vitals = [Vital(kind: VitalKind.weight, value: 72.5, measuredAt: DateTime(2026, 8, 31, 9))];
 
-    screenTest('الممرض: «قياساته» في «السجل»، والتاريخ من غير «سجّل قياس»', (tester) async {
+    screenTest('الممرض: «قياساته» في «الملف الطبي»، والتاريخ من غير «سجّل قياس»', (tester) async {
       cloud.snapshots['p1'] = snap(vitals: vitals);
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.text('قياساته'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('vital-summary-weight')));
@@ -461,10 +461,10 @@ void main() {
       expect(find.text('بتتابع: الحاج أحمد'), findsOneWidget);
     });
 
-    screenTest('المتابع: مدخل «القياسات» في «السجل» بيفتح قراية بس', (tester) async {
+    screenTest('المتابع: مدخل «القياسات» في «الملف الطبي» بيفتح قراية بس', (tester) async {
       cloud.snapshots['p1'] = snap(permissions: FollowerPermissions.plainFollower, vitals: vitals);
       await pump(tester);
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('care-entry-vitals')));
       await settle(tester);

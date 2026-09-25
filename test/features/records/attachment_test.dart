@@ -69,7 +69,7 @@ void main() {
   /// «الملف الصحي» بقى مداخل: الدوسة على المدخل بتفتح قايمة النوع، وهي
   /// اللي فيها صفوف السجلات بكل اللي بتعمله (مسح، صورة، متابعة).
   Future<void> openKind(WidgetTester tester, String kind) async {
-    // «السجل»: المداخل بالنوع ورا كلمة «فلتر» — دوسة واحدة زيادة
+    // «الملف الطبي»: المداخل بالنوع ورا كلمة «فلتر» — دوسة واحدة زيادة
     await tester.tap(find.byKey(const ValueKey('records-filter')));
     await settle(tester);
     await tester.tap(find.byKey(ValueKey('kind-entry-$kind')));

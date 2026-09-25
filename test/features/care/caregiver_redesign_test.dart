@@ -213,7 +213,7 @@ void main() {
     expectCaregiverDensity(tester);
     _expectReadable(tester, 'الأدوية/$mode');
 
-    await tester.tap(find.text('السجل'));
+    await tester.tap(find.text('الملف الطبي'));
     await settle(tester);
     expectCaregiverDensity(tester);
     _expectReadable(tester, 'الملف الصحي/$mode');
@@ -352,7 +352,7 @@ void main() {
     );
 
     // **الملف: كل نوع بلونه** — وتحليل ≠ روشتة
-    await tester.tap(find.text('السجل'));
+    await tester.tap(find.text('الملف الطبي'));
     await settle(tester);
     Color entryEdge(String key) {
       final card = tester.widget<Container>(

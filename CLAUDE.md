@@ -4308,6 +4308,14 @@ screen — and they are different screens on purpose.**
   the `ContactPickerDenied` mapping is read from the plugin's Kotlin, not
   observed, and it may instead come back as a plain cancel.
 
+**«السجل» اتسمّى «الملف الطبي» للمستخدم** (٢٦ سبتمبر ٢٠٢٦، من الآيفون):
+التبويب عند المريض والابن والممرض وعنوان الصفحة وجملة `help_record` في
+`docs/voice/script_ar.md`. أسماء الكود (`HealthFileScreen`, `help_record`)
+ما اتغيّرتش، وملف الـmp3 نفس الاسم لحد ما يتسجّل تاني. وتحت بالإنجليزي
+«السجل» = نفس الشاشة. `voice_catalog_test` بيسيب ملفات `onb_*.mp3` —
+تسجيلات أسئلة البداية اللي سبقت السكريبت — وأي ملف تاني برّه الكتالوج
+بيوقّع.
+
 **«السجل» — one door, three plain sections** (owner-approved, 24 Sep 2026;
 tester feedback #8 «الملف الصحي معقّد»). The dock tab «الملف» is now «السجل»
 (the son's «الملف الصحي» tab is «السجل» too), and `HealthFileScreen` (same

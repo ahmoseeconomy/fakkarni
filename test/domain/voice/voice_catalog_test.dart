@@ -26,6 +26,9 @@ void main() {
         .whereType<File>()
         .map((f) => f.uri.pathSegments.last)
         .where((n) => !n.startsWith('.'))
+        // تسجيلات المرحلة ٢ (أسئلة البداية) اتسجّلت قبل ما تدخل السكريبت —
+        // مش يتيمة، مستنية أرقامها. أي حاجة تانية برّه الكتالوج بتوقّع.
+        .where((n) => !n.startsWith('onb_'))
         .toSet();
     final expected = {for (final id in voiceLines.keys) '$id.mp3'};
     expect(expected.difference(files), isEmpty, reason: 'تسجيلات ناقصة');

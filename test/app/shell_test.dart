@@ -139,7 +139,7 @@ void main() {
     }
     expect(find.text('ضيف'), findsOneWidget, reason: 'الـ+ مش لوحده');
     // المخطط ٤ + طلب المالك: «الملف» و«الإعدادات» في الدوك، ومفتاح الوضع فوق
-    expect(find.text('السجل'), findsOneWidget);
+    expect(find.text('الملف الطبي'), findsOneWidget);
     expect(find.text('الإعدادات'), findsOneWidget);
     expect(find.text('العائلة'), findsNothing, reason: 'الربط من الإعدادات وصف الدايرة');
     expect(find.byKey(const ValueKey('dark-mode-toggle')), findsOneWidget);
@@ -156,9 +156,9 @@ void main() {
     await settle(tester);
     expect(find.text('لسه مفيش أدوية.'), findsOneWidget);
 
-    await tester.tap(find.text('السجل').last);
+    await tester.tap(find.text('الملف الطبي').last);
     await settle(tester);
-    expect(find.text('السجل'), findsWidgets, reason: 'التبويب التالت بقى السجل');
+    expect(find.text('الملف الطبي'), findsWidgets, reason: 'التبويب التالت بقى السجل');
 
     await openSettings(tester);
     expect(find.text('وضع رمضان'), findsOneWidget);

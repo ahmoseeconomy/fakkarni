@@ -398,7 +398,7 @@ void main() {
       await h.pump(tester, const HealthFileScreen());
       await settle(tester);
 
-      // «السجل»: الورقة على السكة، ومدخل نوعها ورا «فلتر»
+      // «الملف الطبي»: الورقة على السكة، ومدخل نوعها ورا «فلتر»
       expect(find.byKey(const ValueKey('papers-empty')), findsNothing, reason: 'الملف مش فاضي');
       await tester.tap(find.byKey(const ValueKey('records-filter')));
       await settle(tester);

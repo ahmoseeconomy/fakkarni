@@ -56,7 +56,7 @@ void main() {
       expect(find.textContaining('ده للتسجيل بس'), findsOneWidget);
       expect(find.byKey(const ValueKey('record-place')), findsNothing, reason: 'الروشتة مالهاش مكان');
 
-      // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «السجل» وبيعمل تذكيره
+      // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «الملف الطبي» وبيعمل تذكيره
       expect(find.byKey(const ValueKey('kind-booking')), findsNothing);
       expect(find.text('اكتب ورقة بإيدك'), findsOneWidget);
 
@@ -84,11 +84,11 @@ void main() {
     });
   });
 
-  group('«السجل» — تلات أقسام', () {
+  group('«الملف الطبي» — تلات أقسام', () {
     screenTest('فاضي → كل قسم بيقول تعمل إيه، ومفيش سبع زرارات', (tester) async {
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      expect(find.text('السجل'), findsOneWidget);
+      expect(find.text('الملف الطبي'), findsOneWidget);
       for (final head in ['مواعيدك الجاية', 'أوراقك', 'للدكتور']) {
         expect(find.text(head), findsOneWidget, reason: head);
       }
@@ -333,7 +333,7 @@ void main() {
 
       // الباب الوحيد للملف الصحي: تبويب الدوك. صف الإعدادات اتشال —
       // بابين لأوضة واحدة بيخلّي المستخدم يشك إنهم حاجتين.
-      await tester.tap(find.text('السجل').last);
+      await tester.tap(find.text('الملف الطبي').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
     });

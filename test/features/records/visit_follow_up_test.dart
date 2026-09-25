@@ -54,7 +54,7 @@ void main() {
     await settle(tester);
   }
 
-  /// «السجل» → «ميعاد جديد» → النوع → «عندي ورقة» = نفس الطرق التلاتة القديمة.
+  /// «الملف الطبي» → «ميعاد جديد» → النوع → «عندي ورقة» = نفس الطرق التلاتة القديمة.
   Future<void> startFollow(WidgetTester tester, String kind) async {
     await tester.tap(find.byKey(const ValueKey('new-appointment')));
     await settle(tester);

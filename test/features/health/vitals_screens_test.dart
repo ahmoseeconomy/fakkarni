@@ -154,7 +154,7 @@ void main() {
     });
   });
 
-  screenTest('«السجل»: «قياساتك» بآخر رقم لكل نوع و«سجّل قياس»', (tester) async {
+  screenTest('«الملف الطبي»: «قياساتك» بآخر رقم لكل نوع و«سجّل قياس»', (tester) async {
     await VitalsRepository(h.db).add(h.services.patientId, const VitalEntry(kind: VitalKind.weight, value: 72.5),
         measuredAt: now.subtract(const Duration(hours: 2)));
     await h.pump(tester, HealthFileScreen(today: now));

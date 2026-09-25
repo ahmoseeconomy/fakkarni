@@ -96,7 +96,7 @@ void main() {
       await settle(tester);
 
       expect(find.textContaining('بكرة'), findsWidgets);
-      expectNoPaperDate(tester, 'السجل');
+      expectNoPaperDate(tester, 'الملف الطبي');
     });
 
     screenTest('«يومك»: المتابعة اللي مالهاش ميعاد بتقول كده بالحرف', (tester) async {
