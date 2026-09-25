@@ -276,10 +276,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
     final now = widget.today ?? DateTime.now();
     final today = _dayOf(now);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('السجل'),
-        actions: const [Padding(padding: EdgeInsetsDirectional.only(end: F.s8), child: HelpButton('help_record'))],
-      ),
+      appBar: AppBar(title: const Text('السجل')),
       body: StreamBuilder<List<RecordRow>>(
         stream: _records,
         builder: (context, snap) {
