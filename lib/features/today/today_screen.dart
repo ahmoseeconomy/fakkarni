@@ -39,6 +39,7 @@ import '../../domain/medication/medication_purpose.dart';
 import 'notifications_off_line.dart';
 import '../billing/family_notice_cards.dart';
 import 'widgets/circle_notices.dart';
+import 'widgets/refill_lines.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
@@ -444,6 +445,9 @@ class _TodayScreenState extends State<TodayScreen> {
               // دلوقتي». **تحت الجدول عن قصد**: فوق كان هيزقّ «تأكيد
               // الجرعة» تحت الزرار العايم على SE — وده كلام عن المتابعين،
               // مش عن دوا دلوقتي.
+              // «كونكور فاضله ٤ أيام» — تحت الجدول: مش جرعة دلوقتي، وفوق كان
+              // هيزقّ «تأكيد الجرعة» على SE
+              const RefillLines(),
               PatientFamilyNotice(
                 followerNames: [for (final f in _followers) f.name],
                 followersKnown: _followersKnown,

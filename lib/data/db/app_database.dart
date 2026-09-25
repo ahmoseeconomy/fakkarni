@@ -31,13 +31,14 @@ part 'app_database.g.dart';
     LabResults,
     VisitQuestions,
     Vitals,
+    MedicationStock,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -473,6 +474,29 @@ class AppDatabase extends _$AppDatabase {
                 '"measured_at" INTEGER NOT NULL)',
               );
             }
+            if (from < 26) {
+              // مخزون الدوا — جدول لوحده (شوف MedicationStock ليه)، و«صيدليتي»
+              // على تفضيلات الجهاز. SQL مجمّد، وبحماية وجود، **فوق** التطبيع.
+              await customStatement(
+                'CREATE TABLE IF NOT EXISTS "medication_stock" ('
+                '"uuid" TEXT NOT NULL UNIQUE, '
+                '"updated_at_ms" INTEGER NOT NULL, '
+                '"synced_at_ms" INTEGER NULL, '
+                '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                '"medication_id" INTEGER NOT NULL UNIQUE REFERENCES medications (id) ON DELETE CASCADE, '
+                '"quantity" REAL NOT NULL, '
+                '"warn_days" INTEGER NULL, '
+                '"notified_at" INTEGER NULL)',
+              );
+              for (final column in ['pharmacy_name', 'pharmacy_whatsapp']) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('device_preferences') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE device_preferences ADD COLUMN $column TEXT NULL');
+                }
+              }
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -516,6 +540,7 @@ class AppDatabase extends _$AppDatabase {
             'lab_results',
             'visit_questions',
             'vitals',
+            'medication_stock',
           ]) {
             await customStatement('''
 CREATE TRIGGER IF NOT EXISTS ${table}_touch_updated_at

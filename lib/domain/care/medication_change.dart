@@ -20,7 +20,10 @@ enum MedicationChangeKind {
 
   /// ٠٠٢٦: ميعاد دكتور أو معمل — بيبقى متابعة بميعادها وإشعاراتها على
   /// موبايل المريض، بنفس سكّة «ميعاد جديد».
-  appointment('حط ميعاد');
+  appointment('حط ميعاد'),
+
+  /// ٠٠٢٨: «اشتريت علبة جديدة» من الممرض — كمية بتتزوّد على مخزون الدوا.
+  restock('سجّل علبة جديدة من');
 
   const MedicationChangeKind(this.verb);
 
@@ -49,7 +52,11 @@ class MedicationChangePayload {
     this.notes,
     this.followKind,
     this.day,
+    this.quantity,
   });
+
+  /// الكمية الجديدة — «علبة جديدة».
+  final double? quantity;
 
   // ---- ورقة/ميعاد (٠٠٢٦)
   /// اسم نوع السجل المخزّن (`RecordKind.name`) — «ورقة».
@@ -98,6 +105,7 @@ class MedicationChangePayload {
         if (notes != null) 'notes': notes,
         if (followKind != null) 'follow_kind': followKind,
         if (day != null) 'day': _date(day),
+        if (quantity != null) 'quantity': quantity,
       };
 
   static String? _date(DateTime? d) => d == null ? null : '${d.year}-${_two(d.month)}-${_two(d.day)}';
@@ -129,6 +137,7 @@ class MedicationChangePayload {
       notes: json['notes'] as String?,
       followKind: json['follow_kind'] as String?,
       day: date(json['day']),
+      quantity: (json['quantity'] as num?)?.toDouble(),
       name: json['name'] as String?,
       timings: timings,
       amountLabel: json['amount'] as String?,
@@ -186,7 +195,7 @@ String changeSubject(MedicationChange change) {
       return name == null || name.isEmpty ? what : '$what $name';
     case MedicationChangeKind.record:
       return name == null || name.isEmpty ? 'ورقة' : name;
-    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount:
+    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock:
       return (name == null || name.isEmpty) ? (change.medicationName ?? 'دوا') : name;
   }
 }

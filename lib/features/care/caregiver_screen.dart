@@ -438,6 +438,26 @@ class CaregiverMedicationRow extends StatelessWidget {
                   style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark, height: 1.4),
                 ),
               ),
+            // المخزون — قراية بس (٠٠٢٨). «قرب يخلص» بعلامة ذهبي والنص بلون المتن
+            if (medication.stockLine case final line?)
+              Padding(
+                padding: const EdgeInsets.only(top: F.s4),
+                child: Row(
+                  children: [
+                    if (medication.stockLow) ...[
+                      Icon(Icons.inventory_2_outlined, size: 16, color: F.gold),
+                      const SizedBox(width: F.s4),
+                    ],
+                    Expanded(
+                      child: Text(
+                        line,
+                        key: ValueKey('care-stock-${medication.uuid}'),
+                        style: TextStyle(fontSize: F.careTextSize, color: F.ink, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       );

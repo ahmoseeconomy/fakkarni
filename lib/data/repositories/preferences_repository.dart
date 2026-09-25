@@ -66,6 +66,17 @@ class PreferencesRepository {
       });
 
   /// نوع التنبيه الافتراضي. الاستدعاء بعده لازم يعيد الجدولة — الشاشة بتعمل ده.
+  /// «صيدليتي» — اسم ورقم واتساب (v26). على الموبايل ده بس.
+  Future<({String? name, String? whatsapp})> pharmacy() async {
+    final row = await _row.getSingleOrNull();
+    return (name: row?.pharmacyName, whatsapp: row?.pharmacyWhatsapp);
+  }
+
+  Future<void> setPharmacy({required String? name, required String? whatsapp}) => _write(DevicePreferencesCompanion(
+        pharmacyName: Value(name == null || name.trim().isEmpty ? null : name.trim()),
+        pharmacyWhatsapp: Value(whatsapp == null || whatsapp.trim().isEmpty ? null : whatsapp.trim()),
+      ));
+
   Future<void> setAlertMode(AlertMode mode) =>
       _write(DevicePreferencesCompanion(alertMode: Value(mode.storageName)));
 

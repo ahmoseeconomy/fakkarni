@@ -10,6 +10,7 @@ import '../../domain/health/follow_up.dart';
 import '../db/tables.dart' show RecordKind;
 import '../repositories/medication_repository.dart';
 import '../repositories/records_repository.dart';
+import '../repositories/stock_repository.dart';
 import '../services/appointment_scheduler.dart';
 import '../services/checkup_service.dart';
 import '../repositories/routine_repository.dart';
@@ -120,6 +121,16 @@ class MedicationChangePuller {
           place: _blankToNull(p.place),
           notes: _blankToNull(p.notes),
         );
+        return ChangeOutcome.applied;
+      case MedicationChangeKind.restock:
+        // **بيتزوّد، مش بيتكتب فوق** — فمفيش «تعديل الأب كسب» هنا: الجرعات
+        // اللي اتاخدت بعد الطلب بتحرّك المخزون، وده مش تعارض.
+        final uuid = change.medicationUuid;
+        final q = change.payload.quantity;
+        if (uuid == null || q == null || q <= 0) return ChangeOutcome.missing;
+        final med = await (db.select(db.medications)..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+        if (med == null || med.removedAt != null) return ChangeOutcome.missing;
+        await StockRepository(db).restock(med.id, q);
         return ChangeOutcome.applied;
       case MedicationChangeKind.appointment:
         // ٠٠٢٦: نفس «ميعاد جديد» بالظبط — المتابعة وميعادها وإشعاراتها

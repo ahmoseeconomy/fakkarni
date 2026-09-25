@@ -299,7 +299,12 @@ with expected(migration, kind, ident) as (
     ('0027_vitals',        'column',   'public.vitals.value2'),
     ('0027_vitals',        'policy',   'public.vitals|vitals_select'),
     ('0027_vitals',        'policy',   'public.vitals|vitals_insert'),
-    ('0027_vitals',        'trigger',  'public.vitals|set_updated_at')
+    ('0027_vitals',        'trigger',  'public.vitals|set_updated_at'),
+    ('0028_medication_stock', 'table',  'public.medication_stock'),
+    ('0028_medication_stock', 'rls',    'public.medication_stock'),
+    ('0028_medication_stock', 'policy', 'public.medication_stock|medication_stock_select'),
+    ('0028_medication_stock', 'policysrc', 'public.medication_stock|medication_stock_insert|medications'),
+    ('0028_medication_stock', 'trigger', 'public.medication_stock|set_updated_at')
 ),
 checked as (
   select

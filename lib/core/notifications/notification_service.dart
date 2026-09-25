@@ -365,6 +365,42 @@ class NotificationService {
   /// ما بياخدش خانة خالص.
   ///
   /// ومالوش payload ولا أزرار: الأزرار دي بتسجّل جرعات.
+  /// قناة «قرب يخلص» — نغمة النظام، **مفيش أزرار ولا نغمة جرعة**: ده مش
+  /// ميعاد دوا.
+  static const refillChannelId = 'fakkarni_refill';
+
+  static const _refillChannel = AndroidNotificationChannel(
+    refillChannelId,
+    'دوا قرب يخلص',
+    description: 'لما اللي فاضل من دوا يكفّي أيام قليلة',
+    importance: Importance.high,
+  );
+
+  /// **تنبيه «قرب يخلص» — معروض دلوقتي، مش متجدول.** iOS بيمسك ٦٤ إشعار
+  /// متجدول والخانات كلها محجوزة للجرعات والسلّم والإعادات؛ الإشعار المعروض
+  /// ما بياخدش خانة، فمفيش حاجة من تذكير الدوا بتدفع تمنه.
+  static Future<void> showRefill({required int id, required String title, required String body}) async {
+    await init();
+    await _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_refillChannel);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          refillChannelId,
+          _refillChannel.name,
+          channelDescription: _refillChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: const DarwinNotificationDetails(interruptionLevel: InterruptionLevel.active),
+      ),
+    );
+  }
+
   static Future<void> showNow({
     required int id,
     required String title,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'stock_section.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
@@ -334,6 +336,8 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: F.gap),
+                      StockSection(medicationId: med.id, name: med.name, amountLabel: med.amountLabel),
                       const SizedBox(height: F.gap),
                       // المدة والتعليمات هنا بس — «ضيف دوا» ما بتسألش عنهم
                       Text(

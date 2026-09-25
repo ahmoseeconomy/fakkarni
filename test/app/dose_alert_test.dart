@@ -133,6 +133,7 @@ void main() {
         'static Future<void> scheduleCheckup(',
         'static Future<void> scheduleAppointment(',
         'static Future<void> showNow(',
+        'static Future<void> showRefill(',
       ]) {
         final body = member(service, name);
         for (final banned in ['doseSoundFile', 'doseSoundResource', 'additionalFlags', 'androidFlagInsistent']) {

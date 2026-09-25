@@ -13,6 +13,7 @@ import '../routine/ramadan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
 import '../../data/files/paper_share.dart';
 import '../billing/family_plan_screen.dart';
+import '../medication/refill_actions.dart';
 import 'followers_screen.dart';
 import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
@@ -163,6 +164,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 caregiver: services.caregiver,
                 push: services.push,
               )),
+            ),
+            // «صيدليتي» — الرقم اللي «اطلبه من الصيدلية» بيفتح واتساب عليه
+            _Row(
+              icon: Icons.local_pharmacy_outlined,
+              label: 'صيدليتي',
+              hint: 'اسمها ورقم الواتساب — عشان تطلب الدوا لما يقرب يخلص',
+              onTap: () => editPharmacy(context),
             ),
             if (services.subscription case final sub?)
               _Row(

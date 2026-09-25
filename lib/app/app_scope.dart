@@ -12,6 +12,8 @@ import '../data/care/caregiver_preferences.dart';
 import '../data/care/caregiver_remote.dart';
 import '../data/billing/subscription_service.dart';
 import '../data/care/medication_changes.dart';
+import '../data/repositories/stock_repository.dart';
+import '../data/services/refill_alerts.dart';
 import '../data/files/paper_share.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
@@ -116,6 +118,15 @@ class AppServices {
   ///
   /// ميعاد دكتور ما اتجدولش حاجة وحشة؛ جرعة ما اتجدولتش حاجة تانية خالص.
   /// السطر ده هو اللي بيفصل بينهم.
+  /// «قرب يخلص» — سكّة لوحدها بعد الجرعات زي المواعيد، وبتبلع أي عطل.
+  Future<void> refreshRefills({DateTime? now}) async {
+    try {
+      await RefillAlerts(stock: StockRepository(db), patientId: patientId).sync(now: now ?? DateTime.now());
+    } catch (error) {
+      diag('Refill: فشل — التذكيرات مش متأثرة ($error)');
+    }
+  }
+
   Future<void> refreshAppointments({DateTime? now}) async {
     try {
       await appointments.refresh(now: now);

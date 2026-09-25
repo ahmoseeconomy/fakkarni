@@ -80,6 +80,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             )
             // المواعيد **بعدها**، ومن غير ما تقدر توقّعها.
             .then((_) => services.refreshAppointments())
+            .then((_) => services.refreshRefills())
             // وتأكيدات الممرض (٠٠٢٣) بعد الجدولة — بتلغي وتعيد بنفسها
             .then((_) => services.pullFromCircle()),
       );

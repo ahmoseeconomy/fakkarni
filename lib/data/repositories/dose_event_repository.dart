@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../db/app_database.dart';
+import 'stock_repository.dart';
 import '../dose_state.dart';
 import '../services/reminder_plan.dart' show doneKey;
 
@@ -193,11 +194,28 @@ class DoseEventRepository {
         .write(const DoseEventsCompanion(state: Value(DoseState.missed)));
   }
 
-  Future<void> markTaken(int doseScheduleId, DateTime routineDay) =>
-      _setState(doseScheduleId, routineDay, DoseState.taken);
+  Future<void> markTaken(int doseScheduleId, DateTime routineDay) async {
+    await _setState(doseScheduleId, routineDay, DoseState.taken);
+    await _flushStock();
+  }
 
-  Future<void> markSkipped(int doseScheduleId, DateTime routineDay) =>
-      _setState(doseScheduleId, routineDay, DoseState.skipped);
+  Future<void> markSkipped(int doseScheduleId, DateTime routineDay) async {
+    await _setState(doseScheduleId, routineDay, DoseState.skipped);
+    await _flushStock();
+  }
+
+  /// **إلغاء «اتاخدت»** — الجرعة بترجع مستنية، والمخزون بيرجع. مفيش زرار
+  /// ليها في الواجهة لسه؛ الانتقال محسوب هنا عشان أي باب يتفتح بعدين ياخده.
+  Future<void> undoTaken(int doseScheduleId, DateTime routineDay) async {
+    final day = DateTime(routineDay.year, routineDay.month, routineDay.day);
+    final before = await (_db.select(_db.doseEvents)
+          ..where((t) => t.doseScheduleId.equals(doseScheduleId) & t.routineDay.equalsValue(day)))
+        .getSingleOrNull();
+    if (before?.state != DoseState.taken) return;
+    await (_db.update(_db.doseEvents)..where((t) => t.id.equals(before!.id)))
+        .write(const DoseEventsCompanion(state: Value(DoseState.pending), actedAt: Value(null), actedBy: Value(null)));
+    await StockRepository(_db).onDoseStateChanged(doseScheduleId, DoseState.taken, DoseState.pending);
+  }
 
   /// بيسجّل تأكيد جرعة واحدة، حتى لو صف اليوم لسه ما اتنزّلش.
   ///
@@ -229,7 +247,12 @@ class DoseEventRepository {
           );
       await _setState(doseScheduleId, day, state);
     });
+    // **المخزون مش هنا**: ده باب شاشة القفل، والإلغاءات (القاعدة ٥) لازم
+    // تيجي على طول بعد الصف. المعالج بينده [flushStock] كمجاملة بعدها.
   }
+
+  /// تعديلات المخزون المستنية من [confirmDose] — مجاملة، بعد الإلغاءات.
+  Future<void> flushStock() => _flushStock();
 
   /// تأكيد وصل من السيرفر باسم ممرض (٠٠٢٣). بيكتب `taken` على الحدث
   /// **لو لسه مش مؤكَّد** وبيرجّع ميعاده عشان المُنادي يلغي سلّمه وإعاداته؛
@@ -250,6 +273,8 @@ class DoseEventRepository {
         actedBy: Value(actorName),
       ),
     );
+    // تأكيد الممرض = «اتاخدت» — المخزون بينقص زي تأكيد المريض بالظبط
+    await StockRepository(_db).onDoseStateChanged(row.doseScheduleId, row.state, DoseState.taken);
     return row.scheduledAt;
   }
 
@@ -259,6 +284,9 @@ class DoseEventRepository {
     DoseState state,
   ) async {
     final day = DateTime(routineDay.year, routineDay.month, routineDay.day);
+    final before = await (_db.select(_db.doseEvents)
+          ..where((t) => t.doseScheduleId.equals(doseScheduleId) & t.routineDay.equalsValue(day)))
+        .getSingleOrNull();
     await (_db.update(_db.doseEvents)
           ..where(
             (t) =>
@@ -271,5 +299,18 @@ class DoseEventRepository {
         actedAt: Value(DateTime.now()),
       ),
     );
+    _pendingStock.add((doseScheduleId, before?.state, state));
+  }
+
+  /// تعديلات المخزون اللي مستنية لحد ما كتابة الجرعة تخلص — **بعد**
+  /// المعاملة، مش جوّاها: المخزون مجاملة والتأكيد هو الوعد.
+  final _pendingStock = <(int, DoseState?, DoseState)>[];
+
+  Future<void> _flushStock() async {
+    final pending = List.of(_pendingStock);
+    _pendingStock.clear();
+    for (final (schedule, before, after) in pending) {
+      await StockRepository(_db).onDoseStateChanged(schedule, before, after);
+    }
   }
 }

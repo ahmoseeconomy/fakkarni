@@ -195,6 +195,7 @@ const List<String> syncedTableNames = [
   'visit_questions',
   'emergency_profile',
   'vitals',
+  'medication_stock',
 ];
 
 class SyncService {
@@ -407,6 +408,7 @@ class SyncService {
       'visit_questions': patient,
       'emergency_profile': patient,
       'vitals': patient,
+      'medication_stock': 'exists (select 1 from medications m where m.id = t.medication_id)',
     };
     final union = syncedTableNames
         .map((t) => 'select updated_at_ms, synced_at_ms from $t t where ${scoped[t] ?? '1'}')
@@ -475,6 +477,8 @@ class SyncService {
       // القياسات الحيوية (v25) — **آخر حاجة**: لو ٠٠٢٧ لسه ما اتشغّلتش،
       // غيابها ما يوقّفش حاجة قبلها.
       await _pushVitals();
+      // مخزون الأدوية (v26، سحابة ٠٠٢٨) — آخر حاجة لنفس السبب
+      await _pushMedicationStock();
     } catch (error, stack) {
       // بنسجّل ونسيب الصفوف متوسّخة — المحاولة الجاية مع أي محفّز. إلا لو
       // السيرفر رفض الحساب نفسه: ساعتها الطابور بيقف بعلامة محفوظة.
@@ -951,6 +955,45 @@ class SyncService {
     } on SyncRejected catch (e) {
       if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
       diag('Sync: جدول القياسات مش موجود على السيرفر (${e.code}) — شغّل ٠٠٢٧؛ الصفوف مستنية');
+    }
+  }
+
+  /// **مخزون الأدوية** (v26، سحابة ٠٠٢٨) — الكمية وحد التنبيه بس؛ آخر مرة
+  /// التنبيه اتعرض محلية. الجدول لو مش موجود لسه: الصفوف بتستنى.
+  Future<void> _pushMedicationStock() async {
+    final query = _db.select(_db.medicationStock).join([
+      innerJoin(_db.medications, _db.medications.id.equalsExp(_db.medicationStock.medicationId)),
+      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.medications.patientId)),
+    ])
+      ..where(_db.medicationStock.syncedAtMs.isNull() |
+          _db.medicationStock.syncedAtMs.isSmallerThan(_db.medicationStock.updatedAtMs));
+    final rows = await query.get();
+    try {
+      await _upsertAndMark(
+        'medication_stock',
+        [
+          for (final row in rows)
+            () {
+              final st = row.readTable(_db.medicationStock);
+              return (
+                uuid: st.uuid,
+                updatedAtMs: st.updatedAtMs,
+                json: {
+                  'uuid': st.uuid,
+                  'medication_uuid': row.readTable(_db.medications).uuid,
+                  'patient_uuid': row.readTable(_db.patients).uuid,
+                  'quantity': st.quantity,
+                  'warn_days': st.warnDays,
+                }
+              );
+            }(),
+        ],
+        (uuid, ms) => (_db.update(_db.medicationStock)..where((t) => t.uuid.equals(uuid)))
+            .write(MedicationStockCompanion(syncedAtMs: Value(ms))),
+      );
+    } on SyncRejected catch (e) {
+      if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
+      diag('Sync: جدول المخزون مش موجود على السيرفر (${e.code}) — شغّل ٠٠٢٨؛ الصفوف مستنية');
     }
   }
 

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/stock_repository.dart';
+import '../../domain/medication/stock.dart' show stockUnitOf;
+
 import '../../ai/package_reading.dart';
 import 'scan_package_screen.dart' show unreadablePackage;
 import '../../app/app_scope.dart';
@@ -119,6 +122,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   /// «هتبدأ الدوا من إمتى؟» — النهارده افتراضياً، أو يوم تاني لحد ٦٠ يوم.
   late DateTime _startDate = _today;
+
+  /// المخزون الاختياري — null لحد ما العجلة تتحرّك.
+  bool _askStock = false;
+  int? _stock;
 
   DateTime get _today {
     final t = widget.today ?? DateTime.now();
@@ -354,7 +361,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         return;
       }
 
-      await services.medications.addMedicationWithDoses(
+      final medicationId = await services.medications.addMedicationWithDoses(
         patientId: services.patientId,
         name: result.name,
         amountLabel: result.amountLabel,
@@ -367,6 +374,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         purpose: result.purpose,
         instructions: result.instructions,
       );
+      if (_stock case final stock?) {
+        await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
+      }
       await services.scheduler.rescheduleAll();
       if (mounted) navigator.pop(result);
     } finally {
@@ -639,6 +649,31 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             key: const ValueKey('start-date-line'),
                             style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
                           ),
+                        ],
+                        // المخزون — **اختياري**، سطر مقفول لحد ما يدوس عليه، والعجلة
+                        // ما بتكتبش حاجة لحد ما تتحرّك. للحفظ بس (مش لمراجعة الروشتة).
+                        if (!widget.draft) ...[
+                          const SizedBox(height: F.gap),
+                          if (!_askStock)
+                            _CompactChip(
+                              key: const ValueKey('add-stock-open'),
+                              label: 'عندك كام ${stockUnitOf(_amount.text)} دلوقتي؟ (لو حابب)',
+                              selected: false,
+                              onTap: () => setState(() => _askStock = true),
+                            )
+                          else ...[
+                            _FieldLabel('عندك كام ${stockUnitOf(_amount.text)} دلوقتي؟'),
+                            FNumberWheel(
+                              key: const ValueKey('add-stock-wheel'),
+                              value: _stock,
+                              rest: 30,
+                              min: 0,
+                              max: 500,
+                              unit: stockUnitOf(_amount.text),
+                              semanticsLabel: 'المخزون',
+                              onChanged: (v) => setState(() => _stock = v),
+                            ),
+                          ],
                         ],
                       ],
                     ),

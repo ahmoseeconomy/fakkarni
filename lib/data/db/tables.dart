@@ -145,6 +145,11 @@ class DevicePreferences extends Table {
   /// صحوة شاشة القفل بتعيد الجدولة كمان.
   TextColumn get alertMode => text().withDefault(const Constant('repeating'))();
 
+  /// «صيدليتي» (v26) — اسم ورقم واتساب، للرسالة اللي المريض بيبعتها بنفسه.
+  /// على الموبايل ده بس — مش بيتزامن، والسيرفر ما بيشيلش ولا رقم تليفون.
+  TextColumn get pharmacyName => text().nullable()();
+  TextColumn get pharmacyWhatsapp => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -259,6 +264,30 @@ class Readings extends Table with SyncIdentity {
   IntColumn get valueMgDl => integer()();
   DateTimeColumn get measuredAt => dateTime()();
   TextColumn get context => textEnum<GlucoseContext>()();
+}
+
+/// **مخزون الدوا** (v26) — **جدول لوحده، مش عمود على [Medications]**.
+///
+/// المخزون بيتغيّر مع كل جرعة بتتأكّد، وأي كتابة على صف الدوا بتحرّك
+/// `updated_at_ms` بتاعه (التريجر). و«تعديل الأب المحلي بيكسب» في طلبات
+/// الممرض (٠٠٢٤) بيقارن بالرقم ده بالظبط — يعني عمود مخزون على الدوا كان
+/// هيخلّي أي جرعة اتاخدت ترمي طلب الممرض المعلّق كتعارض. وكمان كان هيرفع صف
+/// الدوا كله مع كل جرعة. صف هنا لكل دوا عنده مخزون؛ مفيش صف = المستخدم
+/// ما كتبش مخزون (اختياري).
+@DataClassName('StockRow')
+class MedicationStock extends Table with SyncIdentity {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get medicationId =>
+      integer().unique().references(Medications, #id, onDelete: KeyAction.cascade)();
+
+  /// اللي فاضل — بالوحدة بتاعة الجرعة (قرص/كبسولة/…). عمره ما بيتحسب من الجدول.
+  RealColumn get quantity => real()();
+
+  /// «قرب يخلص» لما يكفّي ≤ الأيام دي. null = الافتراضي (٥).
+  IntColumn get warnDays => integer().nullable()();
+
+  /// آخر مرة تنبيه «قرب يخلص» اتعرض — محلي، مش بيترفع.
+  DateTimeColumn get notifiedAt => dateTime().nullable()();
 }
 
 /// **القياسات الحيوية** (v25) — الضغط والنبض والوزن والأكسجين والحرارة.

@@ -296,7 +296,7 @@ lib/
   core/images/                shrink_for_ai — PURE DART, no Flutter: the
                               one place an image is resized before Gemini
   core/notifications/         NotificationService — local scheduling; tap → lastPayload
-  data/db/                    drift (SQLite) v20: patients (sex, age — local),
+  data/db/                    drift (SQLite) v26 (v25 vitals, v26 medication_stock): patients (sex, age — local),
                               day_routines, routine_backups (v7, local),
                               device_preferences (v9, local: elder mode +
                               the +15/+30 rung switches), emergency_profile
@@ -611,7 +611,8 @@ for days — that waste is now the patient dimension.
 | Caregiver appointments | `70_000_000` – `75_898_239` | **مواصفة المواعيد**, live. `caregiverAppointmentIdBase` / `caregiverAppointmentIdFor(day, notice)` — **نفس اشتقاق الأب من نطاق تاني**؛ `caregiverAppointmentCap` (٤) بقى عدّ **أيام** مش عدّ مواعيد |
 | Repeat alerts | `80_000_000` – `175_898_239` (ten bands, 80M … 170M) | **«التذكير مش بيرن»** + alert modes, live. `repeatIdBase` / `repeatIdFor(at, index)` / `isRepeatId()` / `repeatIndexOf()`. One band per repeat index — «مستمر» reaches ten — for the same reason the ladder has one per rung; derived from the **original** dose slot; in `isRescheduledId` like the ladder, so a dose confirmed anywhere drops its pending repeats on the next rebuild; `cancelReminderAt` cancels all ten whatever the mode was |
 | Nurse reminders | `180_000_000` – `185_898_239` | **حساب الممرض** (24 Sep 2026). `nurseIdBase` / `nurseIdFor(at, patientIndex)` / `isNurseId()`. On the **nurse's** phone only, about a patient's doses, derived from the slot like a dose with `patientIndex` = the patient's position among the nurse's patients sorted by uuid. **Not** in `isRescheduledId`: the patient's reschedule never touches it and the nurse scheduler cancels only inside it — `nurse_reminders_test`, mutation-checked. Capped at `maxPendingNurseReminders` (40) |
-| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`190_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
+| Refill alerts | `190_000_000` – `195_898_239` | **المخزون** (25 Sep 2026). `refillIdBase` / `refillIdFor(medicationId)` / `isRefillId()`. One id per medication, **shown** with `NotificationService.showRefill` (channel `fakkarni_refill`, system sound, no buttons) on a wake-up — never scheduled, so it takes **no** iOS pending slot and costs the dose window nothing. **Not** in `isRescheduledId` |
+| — | everything else | unclaimed; take the next free band at a `10_000_000` boundary (`200_000_000` is next) and add an `isXxxId()` guard beside `isDoseId()` |
 
 Band width is unchanged at 5,898,240 — `128 × 46,080` is exactly the old
 `4096 × 1440`. The gap between bands is deliberate slack, and every band stays
@@ -1808,7 +1809,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027، وبعدها `verify_migrations.sql` لازم يرجّع ٢٧ صف كلهم `ok = true`. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** — اتكتبوا ٢٤ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028، وبعدها `verify_migrations.sql` لازم يرجّع ٢٨ صف كلهم `ok = true`. من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -4385,6 +4386,52 @@ and its tests (paths updated where the hub changed).
   جرعات وإن علبة واضحة بتتقرا. **والفولدر في `.gitignore`** — صورة
   شريط متصرّف ممكن يكون عليها ستيكر باسم مريض، والقاعدة أسهل ما تتبع
   لما تبقى «ولا صورة تتكوميت».
+
+**المخزون و«قرب يخلص» (25 Sep 2026, built, not device-tested).**
+The older app recomputed stock as «remaining doses × amount» and overwrote
+what the person typed; its refill alert never fired for many users. Here:
+- **Optional, and only a human writes the number.** `medication_stock`
+  (drift **v26**, its own `SyncIdentity` table, one row per medication —
+  *not* a column on `medications`: a dose confirmation would bump the
+  medication's `updated_at_ms` every time, which breaks 0024's
+  «local edit wins» and re-pushes the whole row). No row = no stock, no
+  line, no alert. Written on «عندك كام قرص دلوقتي؟» (an `FNumberWheel`
+  that writes nothing until moved) on `EditMedicationScreen`
+  (`StockSection`) and as an optional chip on «ضيف دوا» (save mode only).
+  Unit from the amount field (`stockUnitOf`), else «وحدة».
+- **Decrement only on `taken`, by the dose amount** (`doseAmountOf`: digits,
+  نص/ربع, «قرصين»; default 1), restore on any taken → non-taken transition
+  (`undoTaken`, or taken → skipped), never below 0; missed and skipped never
+  touch it. It lives in `DoseEventRepository._setState` → `StockRepository
+  .onDoseStateChanged`, so patient, «يومك», reminder screen and nurse proxy
+  (`confirmByProxy`) all go through it. **The lock-screen `confirmDose`
+  does not**: it queues, and the handler calls `events.flushStock()` as a
+  courtesy *after* the cancels and `rescheduleAll` — rule 5's order.
+  There is no undo button anywhere in the app yet; `undoTaken` exists for
+  when there is.
+- **«قرب يخلص» = days left ≤ warn days** (default 5, per medication, a
+  wheel 1–30). Days = floor(stock ÷ (daily doses × amount)) from the
+  medication's own daily schedules, never guessed; a non-daily schedule
+  gives no number. «يومك» shows `RefillLines` below the rail: one gold-edged
+  card per low medication («Concor فاضله ٤ أيام»), «اشتريت علبة جديدة»
+  (wheel resting on 30 → adds) and «اطلبه من الصيدلية».
+- **The alert is shown on a wake, not scheduled** — `RefillAlerts.sync`
+  from `refreshRefills()` after launch, resume and every in-app
+  confirmation, only 9:00–21:00, the first time a medication crosses and
+  then every 3 days while still low (`notified_at`, local, never pushed);
+  a restock clears it. Scheduling it would take an iOS slot from the dose
+  window. The cost: a patient who never opens the app and never confirms
+  in it gets no refill alert — the line waits on «يومك».
+- **«اطلبه من الصيدلية» opens WhatsApp and stops there.** «صيدليتي» (name
+  + number, `device_preferences`, local) is asked the first time; the
+  message «محتاج X — ١ علبة» is on screen before «افتح واتساب», and
+  `wa.me` only prefills — the person presses send.
+- **Family and nurse read it** (0028 embed on the medications query, tiered
+  fallback so an un-migrated project still loads). A nurse with
+  `can_edit_meds` sends «اشتريت علبة جديدة» as a `restock` pending change;
+  the patient's phone adds it without a conflict check — it is additive.
+- **Dose reminders, ladder and escalation untouched** — golden plan and
+  scheduler tests green with no edit.
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

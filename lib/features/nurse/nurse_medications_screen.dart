@@ -7,7 +7,9 @@ import '../../data/care/caregiver_remote.dart';
 import '../../domain/care/medication_change.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/stock.dart' show stockUnitOf;
 import '../medication/nurse_draft.dart';
+import '../medication/refill_actions.dart' show showRestockSheet;
 import 'nurse_controller.dart';
 import 'nurse_widgets.dart';
 
@@ -85,6 +87,17 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
     );
   }
 
+  Future<void> _restock(CaregiverMedication med) async {
+    final added = await showRestockSheet(context, name: med.name, unit: stockUnitOf(med.amountLabel));
+    if (added == null || !mounted) return;
+    await _c.submit(
+      kind: MedicationChangeKind.restock,
+      payload: MedicationChangePayload(quantity: added.toDouble()),
+      medicationUuid: med.uuid,
+      medicationName: med.name,
+    );
+  }
+
   Future<void> _editAmount(CaregiverMedication med) async {
     _amount.text = med.amountLabel ?? '';
     final amount = await FSheet.show<String>(
@@ -150,6 +163,7 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
                 med: m,
                 onAmount: canEdit ? () => _editAmount(m) : null,
                 onStop: canEdit ? () => _stop(m) : null,
+                onRestock: canEdit ? () => _restock(m) : null,
               ),
               if (canEdit) ...[
                 const SizedBox(height: F.s8),
@@ -165,11 +179,14 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
 }
 
 class _MedicationCard extends StatelessWidget {
-  const _MedicationCard({required this.med, this.onAmount, this.onStop});
+  const _MedicationCard({required this.med, this.onAmount, this.onStop, this.onRestock});
 
   final CaregiverMedication med;
   final VoidCallback? onAmount;
   final VoidCallback? onStop;
+
+  /// «اشتريت علبة جديدة» — طلب معلّق (٠٠٢٨)، لو المريض سمح بالتعديل.
+  final VoidCallback? onRestock;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +225,26 @@ class _MedicationCard extends StatelessWidget {
             if (purpose != null) line('الدوا ده لإيه', purpose.label),
             if (med.instructions case final i? when i.trim().isNotEmpty) line('تعليمات', i.trim()),
             line('التنبيه', mode?.label ?? 'زي إعداد موبايله'),
+            if (med.stockLine case final stock?)
+              Padding(
+                padding: const EdgeInsets.only(top: F.s6),
+                child: Container(
+                  key: ValueKey('nurse-stock-${med.uuid}'),
+                  padding: const EdgeInsetsDirectional.only(start: F.s8),
+                  decoration: med.stockLow
+                      ? const BoxDecoration(border: BorderDirectional(start: BorderSide(color: F.gold, width: 3)))
+                      : null,
+                  child: Text(stock, style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.45)),
+                ),
+              ),
+            if (onRestock != null && med.stockQuantity != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-restock-${med.uuid}'),
+                label: 'اشتريت علبة جديدة',
+                onPressed: onRestock,
+              ),
+            ],
             if (onAmount != null || onStop != null) ...[
               const SizedBox(height: F.s10),
               Row(

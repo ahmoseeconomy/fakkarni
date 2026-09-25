@@ -298,6 +298,22 @@ bool isNurseId(int id) => id >= nurseIdBase && id < nurseIdLimit;
 /// (٤ أيام × ٢) تحت ٦٤ بمسافة.
 const int maxPendingNurseReminders = 40;
 
+/// **«قرب يخلص»** (٢٥ سبتمبر ٢٠٢٦) — رقم واحد لكل دوا: `base + medicationId`.
+/// الإشعار ده **معروض مش متجدول** (`showRefill`)، فما بياخدش خانة من الـ٦٤
+/// ومش في [isRescheduledId]. بيرمي برّه النطاق بدل ما يلفّ.
+const int refillIdBase = 190000000;
+const int refillIdLimit = refillIdBase + maxPatients * patientIdSpan;
+
+int refillIdFor(int medicationId) {
+  final id = refillIdBase + medicationId;
+  if (medicationId < 0 || id >= refillIdLimit) {
+    throw RangeError.range(medicationId, 0, refillIdLimit - refillIdBase - 1, 'medicationId');
+  }
+  return id;
+}
+
+bool isRefillId(int id) => id >= refillIdBase && id < refillIdLimit;
+
 /// سقف إشعارات التصعيد المعلّقة — اللي فاضل تحت سقف iOS بعد الجرعات
 /// ومكان التأجيل والصيام والمتابعة وإعادة التنبيه:
 /// ٦٤ − ٢٤ − ٢ − ٢ − ٢ − ٢٠ = ١٤.

@@ -11,6 +11,7 @@ import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/health/lab_range.dart';
 import '../../domain/health/vitals.dart';
+import '../../domain/medication/stock.dart' as stock_math;
 import '../dose_state.dart';
 
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
@@ -42,6 +43,9 @@ class CaregiverMedication {
     this.purpose,
     this.instructions,
     this.alertMode,
+    this.stockQuantity,
+    this.stockWarnDays,
+    this.dosesPerDay = 0,
   });
   final String uuid;
   final String name;
@@ -54,6 +58,29 @@ class CaregiverMedication {
   final String? purpose;
   final String? instructions;
   final String? alertMode;
+
+  /// ٠٠٢٨ — المخزون زي ما موبايل المريض رفعه. null = ما كتبش مخزون.
+  final double? stockQuantity;
+  final int? stockWarnDays;
+
+  /// الجرعات اليومية الشغّالة — منها «فاضله كام يوم» (مش ساعات محسوبة).
+  final int dosesPerDay;
+
+  int? get stockDaysLeft => stockQuantity == null
+      ? null
+      : stock_math.stockDaysLeft(stock: stockQuantity!, dosesPerDay: dosesPerDay, amount: stock_math.doseAmountOf(amountLabel));
+
+  bool get stockLow =>
+      stockQuantity != null && stock_math.stockIsLow(daysLeft: stockDaysLeft, warnDays: stockWarnDays ?? stock_math.defaultRefillWarnDays);
+
+  /// «معاك ٢٠ قرص — تكفّي ١٠ أيام» / لو قرب يخلص «كونكور فاضله ٤ أيام».
+  /// null = المريض ما كتبش مخزون.
+  String? get stockLine {
+    final q = stockQuantity;
+    if (q == null) return null;
+    if (stockLow) return stock_math.stockLowLine(name, stock: q, daysLeft: stockDaysLeft ?? 0);
+    return stock_math.stockSummaryLine(stock: q, unit: stock_math.stockUnitOf(amountLabel), daysLeft: stockDaysLeft);
+  }
 
   /// قاعدة كل جرعة زي ما اتسجلت — «الفطار − ٣٠ د» أو «ساعة ثابتة · ٨:٠٠ ص».
   /// نص من `domain/wording`، مش ساعة محسوبة: جانب الابن ما بيحلّش مراسي.

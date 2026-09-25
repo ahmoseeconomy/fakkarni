@@ -56,7 +56,15 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     return anchorRuleWording(word, (s['offset_minutes'] as int?) ?? 0);
   }
 
+  final stock = row['medication_stock'];
+  final stockRow = (stock is List ? (stock.isEmpty ? null : stock.first) : stock) as Map?;
   return CaregiverMedication(
+    stockQuantity: (stockRow?['quantity'] as num?)?.toDouble(),
+    stockWarnDays: (stockRow?['warn_days'] as num?)?.toInt(),
+    dosesPerDay: [
+      for (final s in schedules)
+        if ((s as Map)['stopped_at'] == null && (s['repeat'] ?? 'daily') == 'daily') s,
+    ].length,
     uuid: row['uuid'] as String,
     name: row['name'] as String,
     amountLabel: row['amount_label'] as String?,
@@ -303,25 +311,29 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
         // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
         const medColumns = 'uuid, name, amount_label, stopped_at, updated_at, '
-            'dose_schedules(timing_kind, anchor, offset_minutes, stopped_at, '
+            'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
             'fixed_timings(minute_of_day))';
-        List<Map<String, dynamic>> meds;
-        try {
-          meds = await _supabase
-              .from('medications')
-              // ٠٠٢٦: تفاصيل الدوا للممرض
-              .select('purpose, instructions, alert_mode, $medColumns')
-              .eq('patient_uuid', patient.uuid)
-              .isFilter('removed_at', null);
-        } on PostgrestException catch (e) {
-          // **الهجرة لسه ما اتشغّلتش** — العمود مش موجود. شاشة المتابع لازم
-          // تفضل شغّالة؛ التفاصيل بس اللي بتغيب.
-          if (e.code != '42703' && e.code != 'PGRST204') rethrow;
-          meds = await _supabase
-              .from('medications')
-              .select(medColumns)
-              .eq('patient_uuid', patient.uuid)
-              .isFilter('removed_at', null);
+        // **من الأغنى للأبسط**: ٠٠٢٨ (المخزون) ← ٠٠٢٦ (التفاصيل) ← الأصل.
+        // هجرة لسه ما اتشغّلتش = عمود/علاقة مش موجودة → الدرجة اللي بعدها،
+        // وشاشة المتابع تفضل شغّالة.
+        const tiers = [
+          'purpose, instructions, alert_mode, medication_stock(quantity, warn_days), $medColumns',
+          'purpose, instructions, alert_mode, $medColumns',
+          medColumns,
+        ];
+        List<Map<String, dynamic>> meds = const [];
+        for (final (i, columns) in tiers.indexed) {
+          try {
+            meds = await _supabase
+                .from('medications')
+                .select(columns)
+                .eq('patient_uuid', patient.uuid)
+                .isFilter('removed_at', null);
+            break;
+          } on PostgrestException catch (e) {
+            final missing = e.code == '42703' || e.code == 'PGRST204' || e.code == 'PGRST200' || e.code == '42P01';
+            if (!missing || i == tiers.length - 1) rethrow;
+          }
         }
 
         final since = DateTime.now().toUtc().subtract(const Duration(days: 7));

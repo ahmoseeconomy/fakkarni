@@ -31,6 +31,8 @@ Future<void> confirmGroup(AppServices services, DateTime routineDay, List<DoseEv
     await services.events.markTaken(dose.doseScheduleId, routineDay);
   }
   await services.scheduler.afterConfirmation(group.first.scheduledAt);
+  // المخزون نقص — لو عدّى حد «قرب يخلص» التنبيه بيطلع دلوقتي (بعد الجدولة)
+  await services.refreshRefills();
 }
 
 /// «لاحقًا» / «بعد شوية» = التأجيل الحقيقي (ربع ساعة).

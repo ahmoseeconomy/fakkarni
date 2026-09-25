@@ -106,6 +106,8 @@ class NotificationActionHandler {
         // واحد فيهم وعد. فشلهم بيتسجّل بصوت عالي وبيتساب، ومش مسموح له
         // يوقّع تأكيد اتسجّل خلاص.
         await _courtesy('مدّ النافذة', () => scheduler.rescheduleAll(now: now));
+        // المخزون بينقص بعد الإلغاءات والجدولة — مجاملة، زي الرفع
+        await _courtesy('المخزون', events.flushStock);
 
       case NotificationActions.snooze:
         // التأجيل نفسه إشعار، فمفيش حاجة تتكتب قبل التهيئة هنا — هو ده

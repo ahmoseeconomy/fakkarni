@@ -7,6 +7,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
@@ -133,6 +134,20 @@ void main() {
     expect((await db.select(db.medications).get()).single.amountLabel, 'قرصين');
     expect(remote.marked, containsAll([('c-amount', ChangeOutcome.applied), ('c-missing', ChangeOutcome.missing)]));
     expect(await puller().pull(), 0);
+  });
+
+  test('٠٠٢٨: «اشتريت علبة جديدة» من الممرض بتزوّد المخزون — ومن غير فحص تعارض (إضافة مش كتابة فوق)', () async {
+    final id = await meds.addMedication(patientId: patientId, name: 'Concor', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: DateTime(2026, 9, 1));
+    final row = (await db.select(db.medications).get()).single;
+    await StockRepository(db).setQuantity(id, 4);
+    // اتبعت **قبل** آخر تعديل محلي — ومع ذلك بيتطبّق: علبة اتشرت فعلاً
+    remote.pending.add(change('c-restock', MedicationChangeKind.restock, medUuid: row.uuid,
+        payload: const MedicationChangePayload(quantity: 30),
+        at: DateTime.fromMillisecondsSinceEpoch(row.updatedAtMs).subtract(const Duration(hours: 1))));
+    expect(await puller().pull(), 1);
+    expect((await StockRepository(db).rowFor(id))!.quantity, 34);
+    expect(remote.marked.last, ('c-restock', ChangeOutcome.applied));
+    expect(sink.scheduled.keys.where(isRefillId), isEmpty, reason: 'المخزون ما بيلمسش التذكيرات');
   });
 
   test('٠٠٢٦: ميعاد من الممرض → متابعة زيارة بميعادها وإشعاراتها على موبايل الأب، والجملة بتسمّيه', () async {

@@ -131,6 +131,8 @@ void main() {
             purpose: 'pressure',
             instructions: 'بعد الأكل',
             alertMode: 'continuous',
+            stockQuantity: 6,
+            dosesPerDay: 2,
           ),
         ],
         events: [
@@ -286,6 +288,31 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nurse-stop-confirm')));
       await settle(tester);
       expect(changes.kinds, [MedicationChangeKind.stop]);
+      expect(find.textContaining('اتبعت لموبايله'), findsOneWidget);
+    });
+  });
+
+  group('المخزون', () {
+    screenTest('سطر المخزون قراية، وبصلاحية التعديل «اشتريت علبة جديدة» طلب مستني موبايل المريض', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      await tester.tap(find.text('أدويته').last);
+      await settle(tester);
+      expect(find.text('Concor 5mg فاضله ٣ أيام'), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-restock-m1')), findsNothing, reason: 'من غير صلاحية التعديل');
+    });
+
+    screenTest('بصلاحية التعديل: العلبة الجديدة بتتبعت كتغيير «restock» بالكمية', (tester) async {
+      cloud.snapshots['p1'] = snap(permissions: editor);
+      await pump(tester);
+      await tester.tap(find.text('أدويته').last);
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('nurse-restock-m1')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('restock-save')));
+      await settle(tester);
+      expect(changes.kinds, [MedicationChangeKind.restock]);
+      expect(changes.submitted.single.quantity, 30);
       expect(find.textContaining('اتبعت لموبايله'), findsOneWidget);
     });
   });

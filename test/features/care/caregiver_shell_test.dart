@@ -232,6 +232,23 @@ void main() {
       expect(med.amountLabel, 'قرص واحد');
     });
 
+    test('٠٠٢٨: المخزون من الـembed — قراية بس، والأيام من جداوله اليومية', () {
+      final med = medicationFromRow({
+        'uuid': 'm1',
+        'name': 'Concor',
+        'amount_label': 'قرص واحد',
+        'medication_stock': {'quantity': 8, 'warn_days': null},
+        'dose_schedules': [
+          {'timing_kind': 'anchor', 'anchor': 'breakfast', 'offset_minutes': 0, 'repeat': 'daily', 'fixed_timings': null},
+          {'timing_kind': 'anchor', 'anchor': 'dinner', 'offset_minutes': 0, 'repeat': 'daily', 'fixed_timings': null},
+        ],
+      });
+      expect((med.stockQuantity, med.dosesPerDay, med.stockDaysLeft, med.stockLow), (8.0, 2, 4, true));
+      expect(med.stockLine, 'Concor فاضله ٤ أيام');
+      final none = medicationFromRow({'uuid': 'm2', 'name': 'X', 'amount_label': null});
+      expect(none.stockLine, isNull, reason: 'من غير مخزون متكتب مفيش سطر');
+    });
+
     test('من غير جداول → من غير قواعد (ما بنخمّنش)', () {
       final med = medicationFromRow({'uuid': 'm1', 'name': 'X', 'amount_label': null});
       expect(med.rules, isEmpty);

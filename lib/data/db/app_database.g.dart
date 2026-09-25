@@ -4798,6 +4798,28 @@ class $DevicePreferencesTable extends DevicePreferences
     requiredDuringInsert: false,
     defaultValue: const Constant('repeating'),
   );
+  static const VerificationMeta _pharmacyNameMeta = const VerificationMeta(
+    'pharmacyName',
+  );
+  @override
+  late final GeneratedColumn<String> pharmacyName = GeneratedColumn<String>(
+    'pharmacy_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pharmacyWhatsappMeta = const VerificationMeta(
+    'pharmacyWhatsapp',
+  );
+  @override
+  late final GeneratedColumn<String> pharmacyWhatsapp = GeneratedColumn<String>(
+    'pharmacy_whatsapp',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4805,6 +4827,8 @@ class $DevicePreferencesTable extends DevicePreferences
     rungFirstOn,
     rungSecondOn,
     alertMode,
+    pharmacyName,
+    pharmacyWhatsapp,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4851,6 +4875,24 @@ class $DevicePreferencesTable extends DevicePreferences
         alertMode.isAcceptableOrUnknown(data['alert_mode']!, _alertModeMeta),
       );
     }
+    if (data.containsKey('pharmacy_name')) {
+      context.handle(
+        _pharmacyNameMeta,
+        pharmacyName.isAcceptableOrUnknown(
+          data['pharmacy_name']!,
+          _pharmacyNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pharmacy_whatsapp')) {
+      context.handle(
+        _pharmacyWhatsappMeta,
+        pharmacyWhatsapp.isAcceptableOrUnknown(
+          data['pharmacy_whatsapp']!,
+          _pharmacyWhatsappMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4880,6 +4922,14 @@ class $DevicePreferencesTable extends DevicePreferences
         DriftSqlType.string,
         data['${effectivePrefix}alert_mode'],
       )!,
+      pharmacyName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pharmacy_name'],
+      ),
+      pharmacyWhatsapp: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pharmacy_whatsapp'],
+      ),
     );
   }
 
@@ -4900,12 +4950,19 @@ class DevicePreferencesRow extends DataClass
   /// الدوا اللي مالوش نوع بياخده. في drift مش shared_preferences عشان
   /// صحوة شاشة القفل بتعيد الجدولة كمان.
   final String alertMode;
+
+  /// «صيدليتي» (v26) — اسم ورقم واتساب، للرسالة اللي المريض بيبعتها بنفسه.
+  /// على الموبايل ده بس — مش بيتزامن، والسيرفر ما بيشيلش ولا رقم تليفون.
+  final String? pharmacyName;
+  final String? pharmacyWhatsapp;
   const DevicePreferencesRow({
     required this.id,
     required this.elderMode,
     required this.rungFirstOn,
     required this.rungSecondOn,
     required this.alertMode,
+    this.pharmacyName,
+    this.pharmacyWhatsapp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4915,6 +4972,12 @@ class DevicePreferencesRow extends DataClass
     map['rung_first_on'] = Variable<bool>(rungFirstOn);
     map['rung_second_on'] = Variable<bool>(rungSecondOn);
     map['alert_mode'] = Variable<String>(alertMode);
+    if (!nullToAbsent || pharmacyName != null) {
+      map['pharmacy_name'] = Variable<String>(pharmacyName);
+    }
+    if (!nullToAbsent || pharmacyWhatsapp != null) {
+      map['pharmacy_whatsapp'] = Variable<String>(pharmacyWhatsapp);
+    }
     return map;
   }
 
@@ -4925,6 +4988,12 @@ class DevicePreferencesRow extends DataClass
       rungFirstOn: Value(rungFirstOn),
       rungSecondOn: Value(rungSecondOn),
       alertMode: Value(alertMode),
+      pharmacyName: pharmacyName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pharmacyName),
+      pharmacyWhatsapp: pharmacyWhatsapp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pharmacyWhatsapp),
     );
   }
 
@@ -4939,6 +5008,8 @@ class DevicePreferencesRow extends DataClass
       rungFirstOn: serializer.fromJson<bool>(json['rungFirstOn']),
       rungSecondOn: serializer.fromJson<bool>(json['rungSecondOn']),
       alertMode: serializer.fromJson<String>(json['alertMode']),
+      pharmacyName: serializer.fromJson<String?>(json['pharmacyName']),
+      pharmacyWhatsapp: serializer.fromJson<String?>(json['pharmacyWhatsapp']),
     );
   }
   @override
@@ -4950,6 +5021,8 @@ class DevicePreferencesRow extends DataClass
       'rungFirstOn': serializer.toJson<bool>(rungFirstOn),
       'rungSecondOn': serializer.toJson<bool>(rungSecondOn),
       'alertMode': serializer.toJson<String>(alertMode),
+      'pharmacyName': serializer.toJson<String?>(pharmacyName),
+      'pharmacyWhatsapp': serializer.toJson<String?>(pharmacyWhatsapp),
     };
   }
 
@@ -4959,12 +5032,18 @@ class DevicePreferencesRow extends DataClass
     bool? rungFirstOn,
     bool? rungSecondOn,
     String? alertMode,
+    Value<String?> pharmacyName = const Value.absent(),
+    Value<String?> pharmacyWhatsapp = const Value.absent(),
   }) => DevicePreferencesRow(
     id: id ?? this.id,
     elderMode: elderMode ?? this.elderMode,
     rungFirstOn: rungFirstOn ?? this.rungFirstOn,
     rungSecondOn: rungSecondOn ?? this.rungSecondOn,
     alertMode: alertMode ?? this.alertMode,
+    pharmacyName: pharmacyName.present ? pharmacyName.value : this.pharmacyName,
+    pharmacyWhatsapp: pharmacyWhatsapp.present
+        ? pharmacyWhatsapp.value
+        : this.pharmacyWhatsapp,
   );
   DevicePreferencesRow copyWithCompanion(DevicePreferencesCompanion data) {
     return DevicePreferencesRow(
@@ -4977,6 +5056,12 @@ class DevicePreferencesRow extends DataClass
           ? data.rungSecondOn.value
           : this.rungSecondOn,
       alertMode: data.alertMode.present ? data.alertMode.value : this.alertMode,
+      pharmacyName: data.pharmacyName.present
+          ? data.pharmacyName.value
+          : this.pharmacyName,
+      pharmacyWhatsapp: data.pharmacyWhatsapp.present
+          ? data.pharmacyWhatsapp.value
+          : this.pharmacyWhatsapp,
     );
   }
 
@@ -4987,14 +5072,23 @@ class DevicePreferencesRow extends DataClass
           ..write('elderMode: $elderMode, ')
           ..write('rungFirstOn: $rungFirstOn, ')
           ..write('rungSecondOn: $rungSecondOn, ')
-          ..write('alertMode: $alertMode')
+          ..write('alertMode: $alertMode, ')
+          ..write('pharmacyName: $pharmacyName, ')
+          ..write('pharmacyWhatsapp: $pharmacyWhatsapp')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, elderMode, rungFirstOn, rungSecondOn, alertMode);
+  int get hashCode => Object.hash(
+    id,
+    elderMode,
+    rungFirstOn,
+    rungSecondOn,
+    alertMode,
+    pharmacyName,
+    pharmacyWhatsapp,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5003,7 +5097,9 @@ class DevicePreferencesRow extends DataClass
           other.elderMode == this.elderMode &&
           other.rungFirstOn == this.rungFirstOn &&
           other.rungSecondOn == this.rungSecondOn &&
-          other.alertMode == this.alertMode);
+          other.alertMode == this.alertMode &&
+          other.pharmacyName == this.pharmacyName &&
+          other.pharmacyWhatsapp == this.pharmacyWhatsapp);
 }
 
 class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
@@ -5012,12 +5108,16 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
   final Value<bool> rungFirstOn;
   final Value<bool> rungSecondOn;
   final Value<String> alertMode;
+  final Value<String?> pharmacyName;
+  final Value<String?> pharmacyWhatsapp;
   const DevicePreferencesCompanion({
     this.id = const Value.absent(),
     this.elderMode = const Value.absent(),
     this.rungFirstOn = const Value.absent(),
     this.rungSecondOn = const Value.absent(),
     this.alertMode = const Value.absent(),
+    this.pharmacyName = const Value.absent(),
+    this.pharmacyWhatsapp = const Value.absent(),
   });
   DevicePreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -5025,6 +5125,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     this.rungFirstOn = const Value.absent(),
     this.rungSecondOn = const Value.absent(),
     this.alertMode = const Value.absent(),
+    this.pharmacyName = const Value.absent(),
+    this.pharmacyWhatsapp = const Value.absent(),
   });
   static Insertable<DevicePreferencesRow> custom({
     Expression<int>? id,
@@ -5032,6 +5134,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     Expression<bool>? rungFirstOn,
     Expression<bool>? rungSecondOn,
     Expression<String>? alertMode,
+    Expression<String>? pharmacyName,
+    Expression<String>? pharmacyWhatsapp,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5039,6 +5143,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
       if (rungFirstOn != null) 'rung_first_on': rungFirstOn,
       if (rungSecondOn != null) 'rung_second_on': rungSecondOn,
       if (alertMode != null) 'alert_mode': alertMode,
+      if (pharmacyName != null) 'pharmacy_name': pharmacyName,
+      if (pharmacyWhatsapp != null) 'pharmacy_whatsapp': pharmacyWhatsapp,
     });
   }
 
@@ -5048,6 +5154,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     Value<bool>? rungFirstOn,
     Value<bool>? rungSecondOn,
     Value<String>? alertMode,
+    Value<String?>? pharmacyName,
+    Value<String?>? pharmacyWhatsapp,
   }) {
     return DevicePreferencesCompanion(
       id: id ?? this.id,
@@ -5055,6 +5163,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
       rungFirstOn: rungFirstOn ?? this.rungFirstOn,
       rungSecondOn: rungSecondOn ?? this.rungSecondOn,
       alertMode: alertMode ?? this.alertMode,
+      pharmacyName: pharmacyName ?? this.pharmacyName,
+      pharmacyWhatsapp: pharmacyWhatsapp ?? this.pharmacyWhatsapp,
     );
   }
 
@@ -5076,6 +5186,12 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     if (alertMode.present) {
       map['alert_mode'] = Variable<String>(alertMode.value);
     }
+    if (pharmacyName.present) {
+      map['pharmacy_name'] = Variable<String>(pharmacyName.value);
+    }
+    if (pharmacyWhatsapp.present) {
+      map['pharmacy_whatsapp'] = Variable<String>(pharmacyWhatsapp.value);
+    }
     return map;
   }
 
@@ -5086,7 +5202,9 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
           ..write('elderMode: $elderMode, ')
           ..write('rungFirstOn: $rungFirstOn, ')
           ..write('rungSecondOn: $rungSecondOn, ')
-          ..write('alertMode: $alertMode')
+          ..write('alertMode: $alertMode, ')
+          ..write('pharmacyName: $pharmacyName, ')
+          ..write('pharmacyWhatsapp: $pharmacyWhatsapp')
           ..write(')'))
         .toString();
   }
@@ -9247,6 +9365,537 @@ class VitalsCompanion extends UpdateCompanion<VitalRow> {
   }
 }
 
+class $MedicationStockTable extends MedicationStock
+    with TableInfo<$MedicationStockTable, StockRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MedicationStockTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    clientDefault: newSyncUuid,
+  );
+  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
+    'updatedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
+    'updated_at_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    clientDefault: nowMs,
+  );
+  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
+    'syncedAtMs',
+  );
+  @override
+  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
+    'synced_at_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _medicationIdMeta = const VerificationMeta(
+    'medicationId',
+  );
+  @override
+  late final GeneratedColumn<int> medicationId = GeneratedColumn<int>(
+    'medication_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'UNIQUE REFERENCES medications (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _warnDaysMeta = const VerificationMeta(
+    'warnDays',
+  );
+  @override
+  late final GeneratedColumn<int> warnDays = GeneratedColumn<int>(
+    'warn_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notifiedAtMeta = const VerificationMeta(
+    'notifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> notifiedAt = GeneratedColumn<DateTime>(
+    'notified_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    medicationId,
+    quantity,
+    warnDays,
+    notifiedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'medication_stock';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StockRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
+    }
+    if (data.containsKey('updated_at_ms')) {
+      context.handle(
+        _updatedAtMsMeta,
+        updatedAtMs.isAcceptableOrUnknown(
+          data['updated_at_ms']!,
+          _updatedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synced_at_ms')) {
+      context.handle(
+        _syncedAtMsMeta,
+        syncedAtMs.isAcceptableOrUnknown(
+          data['synced_at_ms']!,
+          _syncedAtMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('medication_id')) {
+      context.handle(
+        _medicationIdMeta,
+        medicationId.isAcceptableOrUnknown(
+          data['medication_id']!,
+          _medicationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_medicationIdMeta);
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_quantityMeta);
+    }
+    if (data.containsKey('warn_days')) {
+      context.handle(
+        _warnDaysMeta,
+        warnDays.isAcceptableOrUnknown(data['warn_days']!, _warnDaysMeta),
+      );
+    }
+    if (data.containsKey('notified_at')) {
+      context.handle(
+        _notifiedAtMeta,
+        notifiedAt.isAcceptableOrUnknown(data['notified_at']!, _notifiedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StockRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StockRow(
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      )!,
+      updatedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_ms'],
+      )!,
+      syncedAtMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced_at_ms'],
+      ),
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      medicationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}medication_id'],
+      )!,
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity'],
+      )!,
+      warnDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}warn_days'],
+      ),
+      notifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}notified_at'],
+      ),
+    );
+  }
+
+  @override
+  $MedicationStockTable createAlias(String alias) {
+    return $MedicationStockTable(attachedDatabase, alias);
+  }
+}
+
+class StockRow extends DataClass implements Insertable<StockRow> {
+  final String uuid;
+
+  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
+  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
+  final int updatedAtMs;
+
+  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
+  final int? syncedAtMs;
+  final int id;
+  final int medicationId;
+
+  /// اللي فاضل — بالوحدة بتاعة الجرعة (قرص/كبسولة/…). عمره ما بيتحسب من الجدول.
+  final double quantity;
+
+  /// «قرب يخلص» لما يكفّي ≤ الأيام دي. null = الافتراضي (٥).
+  final int? warnDays;
+
+  /// آخر مرة تنبيه «قرب يخلص» اتعرض — محلي، مش بيترفع.
+  final DateTime? notifiedAt;
+  const StockRow({
+    required this.uuid,
+    required this.updatedAtMs,
+    this.syncedAtMs,
+    required this.id,
+    required this.medicationId,
+    required this.quantity,
+    this.warnDays,
+    this.notifiedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    map['updated_at_ms'] = Variable<int>(updatedAtMs);
+    if (!nullToAbsent || syncedAtMs != null) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs);
+    }
+    map['id'] = Variable<int>(id);
+    map['medication_id'] = Variable<int>(medicationId);
+    map['quantity'] = Variable<double>(quantity);
+    if (!nullToAbsent || warnDays != null) {
+      map['warn_days'] = Variable<int>(warnDays);
+    }
+    if (!nullToAbsent || notifiedAt != null) {
+      map['notified_at'] = Variable<DateTime>(notifiedAt);
+    }
+    return map;
+  }
+
+  MedicationStockCompanion toCompanion(bool nullToAbsent) {
+    return MedicationStockCompanion(
+      uuid: Value(uuid),
+      updatedAtMs: Value(updatedAtMs),
+      syncedAtMs: syncedAtMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAtMs),
+      id: Value(id),
+      medicationId: Value(medicationId),
+      quantity: Value(quantity),
+      warnDays: warnDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(warnDays),
+      notifiedAt: notifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notifiedAt),
+    );
+  }
+
+  factory StockRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StockRow(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
+      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
+      id: serializer.fromJson<int>(json['id']),
+      medicationId: serializer.fromJson<int>(json['medicationId']),
+      quantity: serializer.fromJson<double>(json['quantity']),
+      warnDays: serializer.fromJson<int?>(json['warnDays']),
+      notifiedAt: serializer.fromJson<DateTime?>(json['notifiedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
+      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
+      'id': serializer.toJson<int>(id),
+      'medicationId': serializer.toJson<int>(medicationId),
+      'quantity': serializer.toJson<double>(quantity),
+      'warnDays': serializer.toJson<int?>(warnDays),
+      'notifiedAt': serializer.toJson<DateTime?>(notifiedAt),
+    };
+  }
+
+  StockRow copyWith({
+    String? uuid,
+    int? updatedAtMs,
+    Value<int?> syncedAtMs = const Value.absent(),
+    int? id,
+    int? medicationId,
+    double? quantity,
+    Value<int?> warnDays = const Value.absent(),
+    Value<DateTime?> notifiedAt = const Value.absent(),
+  }) => StockRow(
+    uuid: uuid ?? this.uuid,
+    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
+    id: id ?? this.id,
+    medicationId: medicationId ?? this.medicationId,
+    quantity: quantity ?? this.quantity,
+    warnDays: warnDays.present ? warnDays.value : this.warnDays,
+    notifiedAt: notifiedAt.present ? notifiedAt.value : this.notifiedAt,
+  );
+  StockRow copyWithCompanion(MedicationStockCompanion data) {
+    return StockRow(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      updatedAtMs: data.updatedAtMs.present
+          ? data.updatedAtMs.value
+          : this.updatedAtMs,
+      syncedAtMs: data.syncedAtMs.present
+          ? data.syncedAtMs.value
+          : this.syncedAtMs,
+      id: data.id.present ? data.id.value : this.id,
+      medicationId: data.medicationId.present
+          ? data.medicationId.value
+          : this.medicationId,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      warnDays: data.warnDays.present ? data.warnDays.value : this.warnDays,
+      notifiedAt: data.notifiedAt.present
+          ? data.notifiedAt.value
+          : this.notifiedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StockRow(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('quantity: $quantity, ')
+          ..write('warnDays: $warnDays, ')
+          ..write('notifiedAt: $notifiedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    uuid,
+    updatedAtMs,
+    syncedAtMs,
+    id,
+    medicationId,
+    quantity,
+    warnDays,
+    notifiedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StockRow &&
+          other.uuid == this.uuid &&
+          other.updatedAtMs == this.updatedAtMs &&
+          other.syncedAtMs == this.syncedAtMs &&
+          other.id == this.id &&
+          other.medicationId == this.medicationId &&
+          other.quantity == this.quantity &&
+          other.warnDays == this.warnDays &&
+          other.notifiedAt == this.notifiedAt);
+}
+
+class MedicationStockCompanion extends UpdateCompanion<StockRow> {
+  final Value<String> uuid;
+  final Value<int> updatedAtMs;
+  final Value<int?> syncedAtMs;
+  final Value<int> id;
+  final Value<int> medicationId;
+  final Value<double> quantity;
+  final Value<int?> warnDays;
+  final Value<DateTime?> notifiedAt;
+  const MedicationStockCompanion({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    this.medicationId = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.warnDays = const Value.absent(),
+    this.notifiedAt = const Value.absent(),
+  });
+  MedicationStockCompanion.insert({
+    this.uuid = const Value.absent(),
+    this.updatedAtMs = const Value.absent(),
+    this.syncedAtMs = const Value.absent(),
+    this.id = const Value.absent(),
+    required int medicationId,
+    required double quantity,
+    this.warnDays = const Value.absent(),
+    this.notifiedAt = const Value.absent(),
+  }) : medicationId = Value(medicationId),
+       quantity = Value(quantity);
+  static Insertable<StockRow> custom({
+    Expression<String>? uuid,
+    Expression<int>? updatedAtMs,
+    Expression<int>? syncedAtMs,
+    Expression<int>? id,
+    Expression<int>? medicationId,
+    Expression<double>? quantity,
+    Expression<int>? warnDays,
+    Expression<DateTime>? notifiedAt,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
+      if (id != null) 'id': id,
+      if (medicationId != null) 'medication_id': medicationId,
+      if (quantity != null) 'quantity': quantity,
+      if (warnDays != null) 'warn_days': warnDays,
+      if (notifiedAt != null) 'notified_at': notifiedAt,
+    });
+  }
+
+  MedicationStockCompanion copyWith({
+    Value<String>? uuid,
+    Value<int>? updatedAtMs,
+    Value<int?>? syncedAtMs,
+    Value<int>? id,
+    Value<int>? medicationId,
+    Value<double>? quantity,
+    Value<int?>? warnDays,
+    Value<DateTime?>? notifiedAt,
+  }) {
+    return MedicationStockCompanion(
+      uuid: uuid ?? this.uuid,
+      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
+      id: id ?? this.id,
+      medicationId: medicationId ?? this.medicationId,
+      quantity: quantity ?? this.quantity,
+      warnDays: warnDays ?? this.warnDays,
+      notifiedAt: notifiedAt ?? this.notifiedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (updatedAtMs.present) {
+      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
+    }
+    if (syncedAtMs.present) {
+      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (medicationId.present) {
+      map['medication_id'] = Variable<int>(medicationId.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<double>(quantity.value);
+    }
+    if (warnDays.present) {
+      map['warn_days'] = Variable<int>(warnDays.value);
+    }
+    if (notifiedAt.present) {
+      map['notified_at'] = Variable<DateTime>(notifiedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MedicationStockCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('updatedAtMs: $updatedAtMs, ')
+          ..write('syncedAtMs: $syncedAtMs, ')
+          ..write('id: $id, ')
+          ..write('medicationId: $medicationId, ')
+          ..write('quantity: $quantity, ')
+          ..write('warnDays: $warnDays, ')
+          ..write('notifiedAt: $notifiedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9267,6 +9916,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LabResultsTable labResults = $LabResultsTable(this);
   late final $VisitQuestionsTable visitQuestions = $VisitQuestionsTable(this);
   late final $VitalsTable vitals = $VitalsTable(this);
+  late final $MedicationStockTable medicationStock = $MedicationStockTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9286,6 +9938,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     labResults,
     visitQuestions,
     vitals,
+    medicationStock,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -9372,6 +10025,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('vitals', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'medications',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('medication_stock', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -10953,6 +11613,26 @@ final class $$MedicationsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$MedicationStockTable, List<StockRow>>
+  _medicationStockRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.medicationStock,
+    aliasName: 'medications__id__medication_stock__medication_id',
+  );
+
+  $$MedicationStockTableProcessedTableManager get medicationStockRefs {
+    final manager = $$MedicationStockTableTableManager(
+      $_db,
+      $_db.medicationStock,
+    ).filter((f) => f.medicationId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _medicationStockRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$MedicationsTableFilterComposer
@@ -11078,6 +11758,31 @@ class $$MedicationsTableFilterComposer
           }) => $$DoseSchedulesTableFilterComposer(
             $db: $db,
             $table: $db.doseSchedules,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> medicationStockRefs(
+    Expression<bool> Function($$MedicationStockTableFilterComposer f) f,
+  ) {
+    final $$MedicationStockTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.medicationStock,
+      getReferencedColumn: (t) => t.medicationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MedicationStockTableFilterComposer(
+            $db: $db,
+            $table: $db.medicationStock,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -11309,6 +12014,31 @@ class $$MedicationsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> medicationStockRefs<T extends Object>(
+    Expression<T> Function($$MedicationStockTableAnnotationComposer a) f,
+  ) {
+    final $$MedicationStockTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.medicationStock,
+      getReferencedColumn: (t) => t.medicationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MedicationStockTableAnnotationComposer(
+            $db: $db,
+            $table: $db.medicationStock,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$MedicationsTableTableManager
@@ -11324,7 +12054,11 @@ class $$MedicationsTableTableManager
           $$MedicationsTableUpdateCompanionBuilder,
           (MedicationRow, $$MedicationsTableReferences),
           MedicationRow,
-          PrefetchHooks Function({bool patientId, bool doseSchedulesRefs})
+          PrefetchHooks Function({
+            bool patientId,
+            bool doseSchedulesRefs,
+            bool medicationStockRefs,
+          })
         > {
   $$MedicationsTableTableManager(_$AppDatabase db, $MedicationsTable table)
     : super(
@@ -11418,11 +12152,16 @@ class $$MedicationsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({patientId = false, doseSchedulesRefs = false}) {
+              ({
+                patientId = false,
+                doseSchedulesRefs = false,
+                medicationStockRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (doseSchedulesRefs) db.doseSchedules,
+                    if (medicationStockRefs) db.medicationStock,
                   ],
                   addJoins:
                       <
@@ -11477,6 +12216,27 @@ class $$MedicationsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (medicationStockRefs)
+                        await $_getPrefetchedData<
+                          MedicationRow,
+                          $MedicationsTable,
+                          StockRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MedicationsTableReferences
+                              ._medicationStockRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MedicationsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).medicationStockRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.medicationId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -11497,7 +12257,11 @@ typedef $$MedicationsTableProcessedTableManager =
       $$MedicationsTableUpdateCompanionBuilder,
       (MedicationRow, $$MedicationsTableReferences),
       MedicationRow,
-      PrefetchHooks Function({bool patientId, bool doseSchedulesRefs})
+      PrefetchHooks Function({
+        bool patientId,
+        bool doseSchedulesRefs,
+        bool medicationStockRefs,
+      })
     >;
 typedef $$DoseSchedulesTableCreateCompanionBuilder =
     DoseSchedulesCompanion Function({
@@ -13323,6 +14087,8 @@ typedef $$DevicePreferencesTableCreateCompanionBuilder =
       Value<bool> rungFirstOn,
       Value<bool> rungSecondOn,
       Value<String> alertMode,
+      Value<String?> pharmacyName,
+      Value<String?> pharmacyWhatsapp,
     });
 typedef $$DevicePreferencesTableUpdateCompanionBuilder =
     DevicePreferencesCompanion Function({
@@ -13331,6 +14097,8 @@ typedef $$DevicePreferencesTableUpdateCompanionBuilder =
       Value<bool> rungFirstOn,
       Value<bool> rungSecondOn,
       Value<String> alertMode,
+      Value<String?> pharmacyName,
+      Value<String?> pharmacyWhatsapp,
     });
 
 class $$DevicePreferencesTableFilterComposer
@@ -13364,6 +14132,16 @@ class $$DevicePreferencesTableFilterComposer
 
   ColumnFilters<String> get alertMode => $composableBuilder(
     column: $table.alertMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pharmacyName => $composableBuilder(
+    column: $table.pharmacyName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pharmacyWhatsapp => $composableBuilder(
+    column: $table.pharmacyWhatsapp,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -13401,6 +14179,16 @@ class $$DevicePreferencesTableOrderingComposer
     column: $table.alertMode,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pharmacyName => $composableBuilder(
+    column: $table.pharmacyName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pharmacyWhatsapp => $composableBuilder(
+    column: $table.pharmacyWhatsapp,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DevicePreferencesTableAnnotationComposer
@@ -13430,6 +14218,16 @@ class $$DevicePreferencesTableAnnotationComposer
 
   GeneratedColumn<String> get alertMode =>
       $composableBuilder(column: $table.alertMode, builder: (column) => column);
+
+  GeneratedColumn<String> get pharmacyName => $composableBuilder(
+    column: $table.pharmacyName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pharmacyWhatsapp => $composableBuilder(
+    column: $table.pharmacyWhatsapp,
+    builder: (column) => column,
+  );
 }
 
 class $$DevicePreferencesTableTableManager
@@ -13477,12 +14275,16 @@ class $$DevicePreferencesTableTableManager
                 Value<bool> rungFirstOn = const Value.absent(),
                 Value<bool> rungSecondOn = const Value.absent(),
                 Value<String> alertMode = const Value.absent(),
+                Value<String?> pharmacyName = const Value.absent(),
+                Value<String?> pharmacyWhatsapp = const Value.absent(),
               }) => DevicePreferencesCompanion(
                 id: id,
                 elderMode: elderMode,
                 rungFirstOn: rungFirstOn,
                 rungSecondOn: rungSecondOn,
                 alertMode: alertMode,
+                pharmacyName: pharmacyName,
+                pharmacyWhatsapp: pharmacyWhatsapp,
               ),
           createCompanionCallback:
               ({
@@ -13491,12 +14293,16 @@ class $$DevicePreferencesTableTableManager
                 Value<bool> rungFirstOn = const Value.absent(),
                 Value<bool> rungSecondOn = const Value.absent(),
                 Value<String> alertMode = const Value.absent(),
+                Value<String?> pharmacyName = const Value.absent(),
+                Value<String?> pharmacyWhatsapp = const Value.absent(),
               }) => DevicePreferencesCompanion.insert(
                 id: id,
                 elderMode: elderMode,
                 rungFirstOn: rungFirstOn,
                 rungSecondOn: rungSecondOn,
                 alertMode: alertMode,
+                pharmacyName: pharmacyName,
+                pharmacyWhatsapp: pharmacyWhatsapp,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -16331,6 +17137,385 @@ typedef $$VitalsTableProcessedTableManager =
       VitalRow,
       PrefetchHooks Function({bool patientId})
     >;
+typedef $$MedicationStockTableCreateCompanionBuilder =
+    MedicationStockCompanion Function({
+      Value<String> uuid,
+      Value<int> updatedAtMs,
+      Value<int?> syncedAtMs,
+      Value<int> id,
+      required int medicationId,
+      required double quantity,
+      Value<int?> warnDays,
+      Value<DateTime?> notifiedAt,
+    });
+typedef $$MedicationStockTableUpdateCompanionBuilder =
+    MedicationStockCompanion Function({
+      Value<String> uuid,
+      Value<int> updatedAtMs,
+      Value<int?> syncedAtMs,
+      Value<int> id,
+      Value<int> medicationId,
+      Value<double> quantity,
+      Value<int?> warnDays,
+      Value<DateTime?> notifiedAt,
+    });
+
+final class $$MedicationStockTableReferences
+    extends BaseReferences<_$AppDatabase, $MedicationStockTable, StockRow> {
+  $$MedicationStockTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MedicationsTable _medicationIdTable(_$AppDatabase db) => db
+      .medications
+      .createAlias('medication_stock__medication_id__medications__id');
+
+  $$MedicationsTableProcessedTableManager get medicationId {
+    final $_column = $_itemColumn<int>('medication_id')!;
+
+    final manager = $$MedicationsTableTableManager(
+      $_db,
+      $_db.medications,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_medicationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MedicationStockTableFilterComposer
+    extends Composer<_$AppDatabase, $MedicationStockTable> {
+  $$MedicationStockTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get warnDays => $composableBuilder(
+    column: $table.warnDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get notifiedAt => $composableBuilder(
+    column: $table.notifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MedicationsTableFilterComposer get medicationId {
+    final $$MedicationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.medicationId,
+      referencedTable: $db.medications,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MedicationsTableFilterComposer(
+            $db: $db,
+            $table: $db.medications,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MedicationStockTableOrderingComposer
+    extends Composer<_$AppDatabase, $MedicationStockTable> {
+  $$MedicationStockTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get warnDays => $composableBuilder(
+    column: $table.warnDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get notifiedAt => $composableBuilder(
+    column: $table.notifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MedicationsTableOrderingComposer get medicationId {
+    final $$MedicationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.medicationId,
+      referencedTable: $db.medications,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MedicationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.medications,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MedicationStockTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MedicationStockTable> {
+  $$MedicationStockTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
+    column: $table.updatedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
+    column: $table.syncedAtMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<int> get warnDays =>
+      $composableBuilder(column: $table.warnDays, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get notifiedAt => $composableBuilder(
+    column: $table.notifiedAt,
+    builder: (column) => column,
+  );
+
+  $$MedicationsTableAnnotationComposer get medicationId {
+    final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.medicationId,
+      referencedTable: $db.medications,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MedicationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.medications,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MedicationStockTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MedicationStockTable,
+          StockRow,
+          $$MedicationStockTableFilterComposer,
+          $$MedicationStockTableOrderingComposer,
+          $$MedicationStockTableAnnotationComposer,
+          $$MedicationStockTableCreateCompanionBuilder,
+          $$MedicationStockTableUpdateCompanionBuilder,
+          (StockRow, $$MedicationStockTableReferences),
+          StockRow,
+          PrefetchHooks Function({bool medicationId})
+        > {
+  $$MedicationStockTableTableManager(
+    _$AppDatabase db,
+    $MedicationStockTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MedicationStockTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MedicationStockTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MedicationStockTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                Value<int> medicationId = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
+                Value<int?> warnDays = const Value.absent(),
+                Value<DateTime?> notifiedAt = const Value.absent(),
+              }) => MedicationStockCompanion(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                medicationId: medicationId,
+                quantity: quantity,
+                warnDays: warnDays,
+                notifiedAt: notifiedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> uuid = const Value.absent(),
+                Value<int> updatedAtMs = const Value.absent(),
+                Value<int?> syncedAtMs = const Value.absent(),
+                Value<int> id = const Value.absent(),
+                required int medicationId,
+                required double quantity,
+                Value<int?> warnDays = const Value.absent(),
+                Value<DateTime?> notifiedAt = const Value.absent(),
+              }) => MedicationStockCompanion.insert(
+                uuid: uuid,
+                updatedAtMs: updatedAtMs,
+                syncedAtMs: syncedAtMs,
+                id: id,
+                medicationId: medicationId,
+                quantity: quantity,
+                warnDays: warnDays,
+                notifiedAt: notifiedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MedicationStockTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({medicationId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (medicationId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.medicationId,
+                        referencedTable: $$MedicationStockTableReferences
+                            ._medicationIdTable(db),
+                        referencedColumn: $$MedicationStockTableReferences
+                            ._medicationIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MedicationStockTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MedicationStockTable,
+      StockRow,
+      $$MedicationStockTableFilterComposer,
+      $$MedicationStockTableOrderingComposer,
+      $$MedicationStockTableAnnotationComposer,
+      $$MedicationStockTableCreateCompanionBuilder,
+      $$MedicationStockTableUpdateCompanionBuilder,
+      (StockRow, $$MedicationStockTableReferences),
+      StockRow,
+      PrefetchHooks Function({bool medicationId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16363,4 +17548,6 @@ class $AppDatabaseManager {
       $$VisitQuestionsTableTableManager(_db, _db.visitQuestions);
   $$VitalsTableTableManager get vitals =>
       $$VitalsTableTableManager(_db, _db.vitals);
+  $$MedicationStockTableTableManager get medicationStock =>
+      $$MedicationStockTableTableManager(_db, _db.medicationStock);
 }
