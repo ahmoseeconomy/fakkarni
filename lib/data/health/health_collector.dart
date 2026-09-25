@@ -86,6 +86,7 @@ class HealthCollector {
       rungSecondOn: settings.$2,
       mediaProblemSince: await mediaProblemSince(),
       mediaRejectedAt: await mediaRejectedAt(),
+      planTruncated: services.scheduler.lastPlanTruncated,
     );
   }
 

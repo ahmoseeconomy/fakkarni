@@ -165,10 +165,13 @@ class MedicationRepository {
     required int patientId,
     required List<MedicationWrite> medications,
     required DateTime startDate,
+
+    /// ترتيب الأدوية اللي «مرة واحدة» (`DoseRepeat.once`) — الباقي كل يوم.
+    Set<int> onceAt = const {},
   }) =>
       _db.transaction(() async {
         final ids = <int>[];
-        for (final m in medications) {
+        for (final (i, m) in medications.indexed) {
           ids.add(
             await addMedicationWithDoses(
               patientId: patientId,
@@ -181,6 +184,7 @@ class MedicationRepository {
               alertMode: m.alertMode,
               purpose: m.purpose,
               instructions: m.instructions,
+              repeat: onceAt.contains(i) ? DoseRepeat.once : DoseRepeat.daily,
             ),
           );
         }

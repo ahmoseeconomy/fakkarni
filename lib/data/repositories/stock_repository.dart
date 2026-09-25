@@ -22,7 +22,7 @@ class MedicationStockView {
   final double quantity;
   final String unit;
   final double amount;
-  final int dosesPerDay;
+  final double dosesPerDay;
   final int warnDays;
 
   int? get daysLeft => stockDaysLeft(stock: quantity, dosesPerDay: dosesPerDay, amount: amount);
@@ -130,11 +130,10 @@ class StockRepository {
 
   /// الجرعات اليومية الشغّالة — جداول `daily` مش موقوفة. «مرة واحدة» مش
   /// جدول يومي، فما بتدخلش في «فاضله كام يوم».
-  Future<int> _dosesPerDay(int medicationId) async {
-    final schedules = await (_db.select(_db.doseSchedules)
-          ..where((t) => t.medicationId.equals(medicationId) & t.stoppedAt.isNull()))
-        .get();
-    return schedules.where((s) => s.repeat.name == 'daily').length;
+  Future<double> _dosesPerDay(int medicationId) async {
+    final schedules =
+        await (_db.select(_db.doseSchedules)..where((t) => t.medicationId.equals(medicationId))).get();
+    return averageDosesPerDay([for (final s in schedules) (repeat: s.repeat.name, stopped: s.stoppedAt != null)]);
   }
 
   Future<void> markNotified(int medicationId, DateTime? at) async {

@@ -181,6 +181,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialAmount: line.amountLabel,
           initialTimings: line.timings,
           initialDurationDays: line.durationDays,
+          initialOnce: line.once,
           initialAlertMode: line.alertMode,
           initialPurpose: line.purpose,
           initialInstructions: line.instructions,
@@ -285,6 +286,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     final ids = await services.medications.addMedicationsWithDoses(
       patientId: services.patientId,
       startDate: _today,
+      onceAt: {for (final (i, l) in keep.indexed) if (l.once) i},
       medications: [
         for (final l in keep)
           (
@@ -694,6 +696,7 @@ class _MedicineRow extends StatelessWidget {
                             ? 'الجرعة مش معروفة'
                             : (line.amountLabel ?? 'الجرعة مش معروفة'),
                         switch (line.durationDays) {
+                          _ when line.once => 'مرة واحدة بس',
                           null => 'مفتوحة — لحد ما توقفه',
                           final d => '${arabicNumber(d)} يوم',
                         },
@@ -1017,15 +1020,20 @@ class _DraftLine {
   /// بيحطّه في «أدوية لسه ماتشترتش» وبس — **التذكير بيبدأ زي ما هو**.
   bool bought = true;
 
+  /// «مرة واحدة» (`DoseRepeat.once`).
+  bool once = false;
+
   factory _DraftLine.fromRead(ReadLine read) => _DraftLine(
         read: read,
         name: read.name.value,
         amountLabel: read.amount.value,
         amountUnknown: read.amount.needsReview,
         timings: read.timings.value ?? const [],
-        durationDays: read.duration.value,
+        // «اليوم فقط» / «مرة واحدة» (القارئ بيرجّعها ١) = `DoseRepeat.once`
+        // — نفس السلوك بالظبط، بكلمته
+        durationDays: read.duration.value == 1 ? null : read.duration.value,
         instructions: read.instructions.needsReview ? null : read.instructions.value,
-      );
+      )..once = read.duration.value == 1;
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
   factory _DraftLine.fromDraft(MedicationDraft d) => _DraftLine(
@@ -1039,7 +1047,9 @@ class _DraftLine {
         purpose: d.purpose,
         instructions: d.instructions,
         edited: true,
-      )..startDate = d.startDate;
+      )
+        ..startDate = d.startDate
+        ..once = d.once;
 
   /// null = السطر اتكتب بالإيد، مش من الورقة.
   final ReadLine? read;
@@ -1066,6 +1076,7 @@ class _DraftLine {
     purpose = d.purpose;
     instructions = d.instructions;
     startDate = d.startDate;
+    once = d.once;
     edited = true;
   }
 

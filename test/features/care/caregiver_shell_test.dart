@@ -264,4 +264,19 @@ void main() {
       expect(med.rules, isEmpty);
     });
   });
+
+  test('المخزون: الابن بيحسب الأيام بنفس المتوسط اللي على موبايل المريض', () {
+    final med = medicationFromRow({
+      'uuid': 'm1',
+      'name': 'Augmentin',
+      'amount_label': 'قرص',
+      'medication_stock': {'quantity': 9, 'warn_days': null},
+      'dose_schedules': [
+        for (final m in [480, 960, 0]) {'timing_kind': 'fixed', 'repeat': 'daily', 'stopped_at': null, 'fixed_timings': {'minute_of_day': m}},
+        {'timing_kind': 'anchor', 'anchor': 'breakfast', 'offset_minutes': 0, 'repeat': 'once', 'stopped_at': null},
+      ],
+    });
+    expect(med.dosesPerDay, 3, reason: 'كل ٨ ساعات = ٣، والمرة الواحدة مش بتتكرر');
+    expect(med.stockDaysLeft, 3);
+  });
 }

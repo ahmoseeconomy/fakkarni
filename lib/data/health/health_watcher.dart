@@ -72,6 +72,8 @@ class HealthAutoFix {
       case HealthCode.accountMissing:
       // صور الأدوية: الطابور نفسه بيعيد بتراجعه مع كل سحبة
       case HealthCode.mediaSync:
+      // التغطية بتتجدد مع كل فتحة وتأكيد — إعادة الجدولة ما بتزوّدش خانات
+      case HealthCode.lowCoverage:
         return null;
     }
   }

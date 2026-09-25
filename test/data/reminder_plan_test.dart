@@ -896,7 +896,9 @@ void main() {
 
       await scheduler.rescheduleAll(now: aug31at6);
 
-      expect(sink.doses.length, maxPendingReminders);
+      // جولة أنماط الجدولة: الميزانية قصرت (١٨ ميعاد في اليوم) → الأساسي بياخد
+      // خانات الإعادات لحد ٤٤، الأقرب الأول. ده الرقم الوحيد اللي اتغيّر هنا.
+      expect(sink.doses.length, mainAndRepeatBudget);
       // الجرعات + السلّم + مكان التأجيل = السقف بالظبط، ولا واحد فوقه
       expect(
         sink.scheduled.length + snoozePendingSlack,
@@ -920,7 +922,7 @@ void main() {
         from: aug31at6,
         maxPending: 1000,
       );
-      final dropped = everything.skip(maxPendingReminders);
+      final dropped = everything.skip(mainAndRepeatBudget);
       expect(dropped.isNotEmpty, isTrue);
       expect(dropped.every((p) => p.at.isAfter(scheduled.last)), isTrue);
     });
@@ -940,7 +942,7 @@ void main() {
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      expect(sink.doses.length, maxPendingReminders);
+      expect(sink.doses.length, mainAndRepeatBudget);
       expect(secondEnd.isAfter(firstEnd), isTrue);
       expect(sink.cancelled, isNotEmpty, reason: 'اللي فات اتلغى');
     });
@@ -972,7 +974,7 @@ void main() {
       expect(sink.cancelled, contains(firstId));
       expect(sink.doses.containsKey(firstId), isFalse,
           reason: 'اتأكدت بدري — ما بترجعش');
-      expect(sink.doses.length, maxPendingReminders, reason: 'الخانة اتملت');
+      expect(sink.doses.length, mainAndRepeatBudget, reason: 'الخانة اتملت');
       final endAfter = sink.doses.values
           .map((p) => p.at)
           .reduce((a, b) => a.isAfter(b) ? a : b);

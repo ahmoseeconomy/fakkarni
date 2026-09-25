@@ -65,7 +65,7 @@ class CaregiverMedication {
   final int? stockWarnDays;
 
   /// الجرعات اليومية الشغّالة — منها «فاضله كام يوم» (مش ساعات محسوبة).
-  final int dosesPerDay;
+  final double dosesPerDay;
 
   /// ٠٠٣١: «لسه ماتشترتش» — null = اتشرى. قراية بس.
   final DateTime? notBoughtAt;

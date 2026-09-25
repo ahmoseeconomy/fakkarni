@@ -47,6 +47,13 @@ class ReminderScheduler {
   /// العملية دي. بيتقرا في فحص السلامة وبس.
   int? lastPlannedDoseCount;
 
+  /// آخر خطة اتقصّت؟ (تذكيرات أساسية في النافذة أكتر من الميزانية) —
+  /// فحص السلامة بيقراها عشان «التغطية قليلة» تتقال بس لما دي الحقيقة.
+  bool lastPlanTruncated = false;
+
+  /// لحد آخر تذكير أساسي متجدول — null = الخطة ما اتقصّتش.
+  Duration? lastCoverage;
+
   /// بيعيد جدولة النافذة كلها من الأول.
   ///
   /// الأرقام مشتقة من الوقت، فتشغيل الدالة دي مية مرة ورا بعض بيدي نفس
@@ -99,13 +106,20 @@ class ReminderScheduler {
     // هتتجدول تاني وترن على حاجة اتعملت.
     final done = {...await events.doneKeys(from: from), ...notYetActive};
 
-    final planned = planWindow(
+    // **كل** التذكيرات الأساسية في النافذة، وبعدين القسمة: لحد ٢٤ الخطة زي
+    // الأول بالحرف؛ فوقه الأساسي بياخد من خانات الإعادات (الأقرب الأول).
+    final everything = planWindow(
       routine: routine,
       schedules: schedules,
       from: from,
       patientIndex: patientIndex,
       done: done,
+      maxPending: 1 << 20,
     );
+    final budget = splitPendingBudget(everything.length);
+    final planned = everything.take(budget.mains).toList();
+    lastPlanTruncated = everything.length > planned.length;
+    lastCoverage = coverageOf(planned, from: from, truncated: lastPlanTruncated);
 
     // السلّم بيتبني من قبل «دلوقتي» بمهلة: جرعة رنّت من ١٠ دقايق لسه
     // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها. الإعادات بتتبني من
@@ -137,6 +151,7 @@ class ReminderScheduler {
       from: from,
       patientIndex: patientIndex,
       enabledRungs: enabled,
+      maxPending: budget.repeats,
       // نوع التنبيه: بتاع الدوا، وإلا إعداد الجهاز — بيتقرا وقت الجدولة بس
       modeOf: (r) => alertModeOf(r, fallback: defaultMode),
     );

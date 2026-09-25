@@ -630,6 +630,20 @@ nearest two reminders with ten each, «يتكرر» the nearest six with three),
 `fastingPendingSlack` (2 — at most two fasting reminders exist at once, and
 the button says so) and `checkupPendingSlack` (2, same reasoning), so dose +
 ladder + repeats + a snooze + fasting + follow-up dates never reach 65.
+**When the budget is short, main alerts outrank repeats** (schedule
+patterns round 1, 25 Sep 2026). `splitPendingBudget` in `reminder_plan.dart`:
+while the 7-day window holds ≤ 24 main alerts the plan is byte-identical to
+before (24 + 20 repeats — `pending_budget_test` replays the old algorithm and
+compares); above that, main alerts take the repeat slots nearest-first up to
+`mainAndRepeatBudget` (44 = 64 − 14 ladder − 6 slack) and repeats get what is
+left — **zero** for a patient with ≥ 44 mains in the week, so a heavy patient
+(12+ distinct times a day) has no +5/+10/+15 repeats. The ladder's 14 never
+move. Measured from 06:00: 3 medicines every 4 h (unaligned) 32 h → 59 h of
+coverage; 2 every 2 h + 3 daily 23 h → 42 h. `lastPlanTruncated` /
+`lastCoverage` on the scheduler feed health code `lowCoverage` (broken, admin
+only, when the plan was cut **and** `horizon_until` is < 48 h away); the
+coverage itself is the existing `device_health.horizon_until`, so no
+migration.
 **Every new band pays for itself out of the dose window, never out of the
 ladder.** `planWindow` sorts and keeps the **nearest** 24, so the horizon
 shortens by itself as medications accumulate — a patient on one drug gets the
@@ -4489,6 +4503,19 @@ a `bought` pending change the patient's phone applies by clearing the flag,
 **never** touching stock (no guessed quantity). `not_bought_not_scheduling_test`
 fails if scheduling, the ladder, the notification plan or any
 `due_escalations` body mentions the field.
+
+**Schedule patterns, round 1 (25 Sep 2026; audit in
+`docs/schedule_patterns_audit.md`).** «ضيف دوا» asks «بياخده إزاي؟»: «كل يوم»
+(the old form), «كل كام ساعة» (2/3/4/6/8/12 only — `everyHoursTimes` in
+`domain/scheduling/every_hours.dart` expands to 24/N **fixed daily
+schedules**, with a preview «هتاخده الساعة: …» before saving; no engine
+type, no schema change), and «مرة واحدة» (`DoseRepeat.once`, reachable at
+last). The edit screen has «خليه كل كام ساعة»: new fixed schedules are
+added first, then the old ones soft-stopped. A prescription line the reader
+returns as one day («اليوم فقط») is shown as «مرة واحدة بس» and saved `once`
+(`addMedicationsWithDoses(onceAt:)`) — same behaviour as `durationDays: 1`.
+Stock days-left uses one `averageDosesPerDay` for the patient and the
+circle (every-8-h = 3, once and stopped = 0).
 
 **D3.6 — glucose + labs (built)**
 - Schema v12 (written red first): `readings` — **blood glucose only**

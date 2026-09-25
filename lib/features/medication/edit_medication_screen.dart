@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
+import 'every_hours_picker.dart';
+import '../../core/widgets/f_sheet.dart';
+import '../../domain/scheduling/every_hours.dart';
 
 import 'stock_section.dart';
 
@@ -158,6 +161,74 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
         ),
       ),
     );
+    await _loadSchedules();
+  }
+
+  /// «خليه كل كام ساعة» لدوا موجود: الساعات الجديدة بتتكتب **الأول**
+  /// (`addDoseSchedule`، نفس «أضف جرعة»)، وبعدين القديمة بتتوقف إيقاف ناعم
+  /// (`stopDoseSchedule`) — فمفيش لحظة الدوا فيها من غير جرعة، والتاريخ
+  /// والسحابة زي أي «شيل». وبعدين `rescheduleAll` مرة.
+  Future<void> _makeEveryHours(String name) async {
+    if (_busy) return;
+    final services = AppScope.of(context);
+    var hours = 8;
+    var first = MinuteOfDay.hm(8, 0);
+    final fixed = [
+      for (final s in _schedules)
+        if (s.timing case FixedTiming(:final minuteOfDay)) minuteOfDay,
+    ];
+    final h = fixed.length == _schedules.length ? everyHoursOf(fixed) : null;
+    if (h != null) {
+      hours = h;
+      first = (fixed..sort((a, b) => a.minutes.compareTo(b.minutes))).first;
+    }
+    final picked = await FSheet.show<(int, MinuteOfDay)>(
+      context,
+      title: 'كل كام ساعة',
+      children: [
+        StatefulBuilder(
+          builder: (context, setSheet) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              EveryHoursPicker(
+                hours: hours,
+                first: first,
+                onChanged: (h, t) => setSheet(() {
+                  hours = h;
+                  first = t;
+                }),
+              ),
+              const SizedBox(height: F.gap),
+              FPrimaryButton(
+                key: const ValueKey('every-hours-save'),
+                label: 'احفظ',
+                onPressed: () => Navigator.of(context).pop((hours, first)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final days = _schedules.map((s) => s.durationDays).whereType<int>();
+      final old = [..._schedules];
+      for (final t in everyHoursTimes(picked.$2, picked.$1)) {
+        await services.medications.addDoseSchedule(
+          widget.medicationId,
+          timing: FixedTiming(t),
+          startDate: DateTime.now(),
+          durationDays: days.isEmpty ? null : days.first,
+        );
+      }
+      for (final s in old) {
+        await services.medications.stopDoseSchedule(int.parse(s.id));
+      }
+      await services.scheduler.rescheduleAll();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
     await _loadSchedules();
   }
 
@@ -324,6 +395,12 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                           label: 'أضف جرعة',
                           onPressed: _busy ? null : () => _addTiming(med.name),
                         ),
+                      ),
+                      const SizedBox(height: F.s8),
+                      FSecondaryButton(
+                        key: const ValueKey('make-every-hours'),
+                        label: 'خليه كل كام ساعة',
+                        onPressed: _busy ? null : () => _makeEveryHours(med.name),
                       ),
                       const SizedBox(height: F.gap),
                       Text(

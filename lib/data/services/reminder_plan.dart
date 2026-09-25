@@ -330,6 +330,33 @@ const int maxPendingEscalations = iosPendingLimit -
 /// نافذة الجدولة الافتراضية.
 const int reminderWindowDays = 7;
 
+/// **المساحة المشتركة للتذكير الأساسي والإعادات** — اللي فاضل من الـ٦٤ بعد
+/// السلّم (محجوز زي ما هو) والتأجيل والصيام والمتابعة: ٦٤ − ١٤ − ٢ − ٢ − ٢ = ٤٤
+/// = [maxPendingReminders] + [maxPendingRepeats] بالظبط.
+const int mainAndRepeatBudget =
+    iosPendingLimit - maxPendingEscalations - snoozePendingSlack - fastingPendingSlack - checkupPendingSlack;
+
+/// **لما الميزانية تقصر: التذكير الأساسي لكل جرعة (الأقرب الأول) قبل أي
+/// إعادة.** [mainsWanted] = كل التذكيرات الأساسية اللي في النافذة.
+///
+/// لحد [maxPendingReminders] الخطة **هي هي زي الأول** (الإعادات بتاخد
+/// [maxPendingRepeats] كاملة) — فالخطط الذهبية ما بتتغيّرش. فوقه، التذكير
+/// الأساسي بياخد من خانات الإعادات لحد [mainAndRepeatBudget]، والإعادات
+/// بتاخد اللي فاضل للجرعات الأقرب. السلّم ما بيتلمسش.
+({int mains, int repeats}) splitPendingBudget(int mainsWanted) {
+  if (mainsWanted <= maxPendingReminders) return (mains: mainsWanted, repeats: maxPendingRepeats);
+  final mains = mainsWanted < mainAndRepeatBudget ? mainsWanted : mainAndRepeatBudget;
+  return (mains: mains, repeats: mainAndRepeatBudget - mains);
+}
+
+/// التغطية = لحد آخر تذكير أساسي متجدول — **بس لو الخطة اتقصّت**. لو كل
+/// اللي في النافذة اتجدول، مفيش حاجة ناقصة (null): دوا بيخلص بكرة مش
+/// «تغطية قليلة».
+Duration? coverageOf(List<PlannedNotification> planned, {required DateTime from, required bool truncated}) {
+  if (!truncated || planned.isEmpty) return null;
+  return planned.last.at.difference(from);
+}
+
 /// iOS بيقبل **٦٤ إشعار معلّق للتطبيق كله** وبيرمي أي زيادة في صمت —
 /// من غير خطأ ومن غير تحذير.
 const int iosPendingLimit = 64;

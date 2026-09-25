@@ -28,6 +28,11 @@ enum HealthCode {
   /// ٠٠٢٩: صورة دوا بقالها يوم ما اترفعتش للدائرة، أو صورة من الممرض
   /// اترفضت. **للأدمن بس** — المريض ما بيشوفهاش ومفيش إشعار.
   mediaSync,
+
+  /// مواعيد كتير (زي «كل ٤ ساعات» لكذا دوا) والتذكيرات المتجهّزة على
+  /// الموبايل بتغطّي أقل من ٤٨ ساعة. **للأدمن بس** — التغطية بتتجدد لوحدها
+  /// مع كل فتحة وكل تأكيد.
+  lowCoverage,
 }
 
 /// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
@@ -375,6 +380,25 @@ HealthFinding? checkEscalationRungs(HealthSnapshot s) {
 ///
 /// موبايل مفيهوش ولا دوا بيعدّي كل الفحوص — وبيقول «كله تمام» عن وعد
 /// مش موجود أصلاً.
+/// أقل تغطية مقبولة قبل ما الأدمن يتبلّغ.
+const Duration lowCoverageLimit = Duration(hours: 48);
+
+/// **الخطة اتقصّت والتغطية أقل من ٤٨ ساعة** — بتروح للأدمن مع النبضة وبس.
+/// لو الخطة ما اتقصّتش (كل اللي في النافذة اتجدول) مفيش حاجة ناقصة، حتى لو
+/// آخر تذكير قريب — دوا بيخلص بكرة مش «تغطية قليلة».
+HealthFinding? checkLowCoverage(HealthSnapshot s) {
+  if (s.isCaregiver || !s.planTruncated) return null;
+  final until = s.horizonUntil;
+  if (until == null || until.difference(s.now) >= lowCoverageLimit) return null;
+  return const HealthFinding(
+    code: HealthCode.lowCoverage,
+    severity: Severity.broken,
+    title: 'التذكيرات المتجهّزة بتغطّي أقل من يومين',
+    why: 'مواعيد كتير في اليوم — كل فتحة أو تأكيد بيمدّها لوحدها.',
+    fix: HealthFix.none,
+  );
+}
+
 /// صور الأدوية واقفة (٠٠٢٩) — بتروح للوحة الأدمن مع النبضة وبس.
 HealthFinding? checkMediaSync(HealthSnapshot s) {
   final stuck = s.mediaProblemSince;

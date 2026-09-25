@@ -35,6 +35,7 @@ String deviceCheckedLine(AdminDevice device, DateTime now) {
 String deviceCodeLabel(String code, {AdminDevice? device, DateTime? now}) => switch (code) {
       'accountMissing' => 'الحساب مش موجود على السيرفر',
       'mediaSync' => 'صور الأدوية ما بتترفعش (أو صورة من الممرض اترفضت)',
+      'lowCoverage' => 'التذكيرات المتجهّزة أقل من ٤٨ ساعة (مواعيد كتير)',
       'staleSync' => _staleSyncLabel(device, now),
       'notificationPermission' => 'الإشعارات مقفولة',
       'pushToken' => 'مفيش توكن',
@@ -74,4 +75,5 @@ const List<String> knownDeviceCodes = [
   'noMedications',
   'accountMissing',
   'mediaSync',
+  'lowCoverage',
 ];

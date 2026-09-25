@@ -19,6 +19,7 @@ class MedicationDraft {
     this.purpose,
     this.instructions,
     this.startDate,
+    this.once = false,
   });
 
   final String name;
@@ -44,4 +45,7 @@ class MedicationDraft {
 
   /// «هتبدأ الدوا من إمتى؟» — null = النهارده (يوم الحفظ).
   final DateTime? startDate;
+
+  /// «مرة واحدة» (`DoseRepeat.once`) — المدة ساعتها null.
+  final bool once;
 }

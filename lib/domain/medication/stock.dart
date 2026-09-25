@@ -70,7 +70,19 @@ double stockAfterUndo(double stock, double amount) => stock + amount;
 
 /// **فاضله كام يوم** من الجدول الحالي. null = مفيش جدول يومي يتحسب منه
 /// (مفيش جرعات شغّالة) — ساعتها مفيش «قرب يخلص» أصلاً.
-int? stockDaysLeft({required double stock, required int dosesPerDay, required double amount}) {
+/// جدول واحد زي ما حساب المخزون محتاجه — اسم التكرار (`daily` / `once`)
+/// وهل هو موقوف.
+typedef StockDose = ({String repeat, bool stopped});
+
+/// **متوسط الجرعات في اليوم — تعريف واحد للمريض والدائرة.** «كل يوم» = ١
+/// لكل جدول، و«كل كام ساعة» بتتفرد لجداول يومية فبتتحسب لوحدها (كل ٨
+/// ساعات = ٣). «مرة واحدة» والموقوف = صفر: مش جرعات بتتكرر.
+double averageDosesPerDay(Iterable<StockDose> schedules) => [
+      for (final s in schedules)
+        if (!s.stopped && s.repeat == 'daily') 1,
+    ].length.toDouble();
+
+int? stockDaysLeft({required double stock, required num dosesPerDay, required double amount}) {
   if (dosesPerDay <= 0 || amount <= 0) return null;
   return (stock / (dosesPerDay * amount)).floor();
 }

@@ -63,4 +63,15 @@ void main() {
     expect(whatsappNumber('+20 101 234 5678'), '201012345678');
     expect(whatsappNumber('123'), isNull);
   });
+
+  test('متوسط الجرعات في اليوم: تعريف واحد — كل ٨ ساعات = ٣، ومرة واحدة والموقوف صفر', () {
+    expect(averageDosesPerDay([
+      for (var i = 0; i < 3; i++) (repeat: 'daily', stopped: false),
+    ]), 3);
+    expect(averageDosesPerDay(const [(repeat: 'once', stopped: false)]), 0);
+    expect(averageDosesPerDay(const [(repeat: 'daily', stopped: true), (repeat: 'daily', stopped: false)]), 1);
+    // كل ٤ ساعات = ٦ جداول يومية → ٣٠ قرص = ٥ أيام
+    final perDay = averageDosesPerDay([for (var i = 0; i < 6; i++) (repeat: 'daily', stopped: false)]);
+    expect(stockDaysLeft(stock: 30, dosesPerDay: perDay, amount: 1), 5);
+  });
 }

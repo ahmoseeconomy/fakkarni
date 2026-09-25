@@ -48,3 +48,14 @@ String spokenTimingWording(String anchorWord, int offsetMinutes) {
 
 /// «الساعة ٩:٠٠ م» — الثابتة بساعتها.
 String spokenFixedWording(String time) => 'الساعة $time';
+
+/// «كل ساعتين» / «كل ٣ ساعات» / «كل ١٢ ساعة».
+String everyHoursLabel(int hours) => switch (hours) {
+      2 => 'كل ساعتين',
+      <= 10 => 'كل ${arabicNumber(hours)} ساعات',
+      _ => 'كل ${arabicNumber(hours)} ساعة',
+    };
+
+/// «هتاخده الساعة: ٨:٠٠ ص، ١٢:٠٠ م، ٤:٠٠ م…» — المعاينة قبل الحفظ.
+String everyHoursPreview(List<DateTime> times) =>
+    'هتاخده الساعة: ${times.map(arabicTime).join('، ')}';

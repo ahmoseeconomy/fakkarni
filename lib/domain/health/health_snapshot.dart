@@ -51,6 +51,7 @@ class HealthSnapshot {
     this.rungSecondOn = true,
     this.mediaProblemSince,
     this.mediaRejectedAt,
+    this.planTruncated = false,
   });
 
   final DateTime now;
@@ -61,6 +62,10 @@ class HealthSnapshot {
 
   /// ٠٠٢٩: آخر مرة صورة من الممرض اترفضت.
   final DateTime? mediaRejectedAt;
+
+  /// آخر خطة جدولة اتقصّت؟ (تذكيرات أساسية أكتر من الميزانية) — من غيرها
+  /// «التغطية قليلة» ما تتقالش.
+  final bool planTruncated;
   final NotificationPermission permission;
 
   /// الموبايل ده بتاع الابن (مربوط بأب) ولا بتاع المريض؟ فيه فحوص

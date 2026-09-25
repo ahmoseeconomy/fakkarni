@@ -23,6 +23,8 @@ import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor;
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
+import '../../domain/scheduling/every_hours.dart';
+import 'every_hours_picker.dart';
 import 'medication_draft.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
@@ -54,6 +56,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialStartDate,
     this.initialTimings = const [],
     this.initialDurationDays,
+    this.initialOnce = false,
     this.initialAlertMode,
     this.initialPurpose,
     this.initialInstructions,
@@ -86,6 +89,9 @@ class AddMedicationScreen extends StatefulWidget {
   /// جرعات الروشتة **كلها** — فاضية يعني إدخال بإيد من الأول.
   final List<DoseTiming> initialTimings;
   final int? initialDurationDays;
+
+  /// الدوا ده «مرة واحدة» (`DoseRepeat.once`).
+  final bool initialOnce;
   final AlertMode? initialAlertMode;
   final MedicationPurpose? initialPurpose;
   final String? initialInstructions;
@@ -103,6 +109,10 @@ class AddMedicationScreen extends StatefulWidget {
 /// «قبل / مع / بعد الأكل» — أو ساعة محددة لكل جرعة.
 enum TimingChoice { before, with_, after, fixed }
 
+/// بياخده إزاي: كل يوم (المراسي أو ساعات)، كل كام ساعة (بيتفرد لساعات
+/// ثابتة)، أو مرة واحدة (`DoseRepeat.once`).
+enum DosePattern { daily, everyHours, once }
+
 /// مع الأكل: قبل / مع / بعد — بتحدد إزاحة المرساة الافتراضية. (اسم قديم
 /// بيفضل عشان اللي بيقرا التاريخ.)
 typedef FoodRelation = TimingChoice;
@@ -113,6 +123,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   late final _instructions = TextEditingController(text: widget.initialInstructions ?? '');
   int _timesPerDay = 1;
   TimingChoice _choice = TimingChoice.before;
+
+  /// «كل يوم» افتراضياً — نفس الفورم اللي كان.
+  DosePattern _pattern = DosePattern.daily;
+
+  /// «كل كام ساعة»: الفاصل وأول جرعة (العجلة بتقف على ٨ الصبح).
+  int _everyHours = 8;
+  MinuteOfDay _firstDose = MinuteOfDay.hm(8, 0);
   MedicationPurpose? _purpose;
 
   /// الروتين الحي: لما المحرّر يسأل «بتفطر الساعة كام؟» ويتحفظ الفطار،
@@ -166,6 +183,23 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     _alertMode = widget.initialAlertMode;
     _purpose = widget.initialPurpose;
     if (widget.initialStartDate case final d?) _startDate = DateTime(d.year, d.month, d.day);
+    // «اليوم فقط» من الورقة = «مرة واحدة» (نفس السلوك بالظبط، بكلمته)
+    if (widget.initialOnce || widget.initialDurationDays == 1) {
+      _pattern = DosePattern.once;
+      _openEnded = true;
+    }
+    final fixedTimes = [
+      for (final t in widget.initialTimings)
+        if (t case FixedTiming(:final minuteOfDay)) minuteOfDay,
+    ];
+    final hours = _pattern == DosePattern.daily && fixedTimes.length == widget.initialTimings.length
+        ? everyHoursOf(fixedTimes)
+        : null;
+    if (hours != null) {
+      _pattern = DosePattern.everyHours;
+      _everyHours = hours;
+      _firstDose = (fixedTimes..sort((a, b) => a.minutes.compareTo(b.minutes))).first;
+    }
     if (widget.initialTimings.isNotEmpty) {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
@@ -281,6 +315,36 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     _reseed(() => _choice = c);
   }
 
+  void _pickPattern(DosePattern p) {
+    if (_pattern == p) return;
+    setState(() {
+      _pattern = p;
+      switch (p) {
+        case DosePattern.everyHours:
+          _choice = TimingChoice.fixed;
+          _customCount = false;
+          _expandEveryHours();
+        case DosePattern.once:
+          _timesPerDay = 1;
+          _customCount = false;
+          _openEnded = true;
+          _doses = _fromConvention();
+        case DosePattern.daily:
+          _choice = TimingChoice.before;
+          _timesPerDay = 1;
+          _doses = _fromConvention();
+      }
+    });
+  }
+
+  /// «كل كام ساعة» → ٢٤÷ن جرعة بساعة ثابتة — **في الصفوف قدّامه**، وكل
+  /// صف لسه بيتعدّل لوحده.
+  void _expandEveryHours() {
+    final times = everyHoursTimes(_firstDose, _everyHours);
+    _timesPerDay = times.length;
+    _doses = [for (final t in times) FixedTiming(t)];
+  }
+
   Future<void> _setAnchor(DayAnchor anchor, MinuteOfDay time) async {
     final services = AppScope.of(context);
     await services.routines.setAnchor(services.patientId, anchor, time);
@@ -361,7 +425,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         // ورقة ما اتقرتش بس
         amountUnknown: amount.isEmpty && widget.initialAmountUnknown,
         timings: [for (final d in _doses) d!],
-        durationDays: _openEnded ? null : _days,
+        durationDays: _pattern == DosePattern.once || _openEnded ? null : _days,
+        once: _pattern == DosePattern.once,
         alertMode: _alertMode,
         purpose: _purpose,
         instructions: instructions.isEmpty ? null : instructions,
@@ -381,6 +446,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         timings: result.timings,
         startDate: _startDate,
         durationDays: result.durationDays,
+        repeat: result.once ? DoseRepeat.once : DoseRepeat.daily,
         activeIngredient: widget.packageReading?.ingredientField,
         alertMode: result.alertMode,
         purpose: result.purpose,
@@ -510,6 +576,37 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const _FieldLabel('بياخده إزاي؟'),
+                        Wrap(
+                          spacing: F.s8,
+                          runSpacing: F.s8,
+                          children: [
+                            for (final p in DosePattern.values)
+                              AnchorChip(
+                                key: ValueKey('pattern-${p.name}'),
+                                label: switch (p) {
+                                  DosePattern.daily => 'كل يوم',
+                                  DosePattern.everyHours => 'كل كام ساعة',
+                                  DosePattern.once => 'مرة واحدة',
+                                },
+                                selected: _pattern == p,
+                                onTap: () => _pickPattern(p),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: F.gap),
+                        if (_pattern == DosePattern.everyHours) ...[
+                          EveryHoursPicker(
+                            hours: _everyHours,
+                            first: _firstDose,
+                            onChanged: (h, t) => setState(() {
+                              _everyHours = h;
+                              _firstDose = t;
+                              _expandEveryHours();
+                            }),
+                          ),
+                        ] else ...[
+                        if (_pattern == DosePattern.daily) ...[
                         const _FieldLabel('كام مرة في اليوم؟'),
                         Wrap(
                           spacing: F.s8,
@@ -551,6 +648,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           ),
                         ],
                         const SizedBox(height: F.gap),
+                        ],
                         const _FieldLabel('مع الأكل؟'),
                         // شبكة ٢×٢ بعرض متساوي: أربعة في صف واحد كانوا بيقصّوا
                         // «ساعة محددة» على SE — والكلمة كاملة أهم من الصف الواحد.
@@ -579,6 +677,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             ],
                           ),
                           if (pair.first != TimingChoice.after) const SizedBox(height: F.s8),
+                        ],
                         ],
                       ],
                     ),
@@ -638,7 +737,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('هتبدأ الدوا من إمتى؟'),
+                        _FieldLabel(_pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟'),
                         Row(
                           children: [
                             Expanded(

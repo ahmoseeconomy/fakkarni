@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebu
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
+import '../../domain/medication/stock.dart' show averageDosesPerDay;
 import '../../domain/health/lab_range.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/wording/rule_wording.dart';
@@ -61,10 +62,11 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
   return CaregiverMedication(
     stockQuantity: (stockRow?['quantity'] as num?)?.toDouble(),
     stockWarnDays: (stockRow?['warn_days'] as num?)?.toInt(),
-    dosesPerDay: [
+    // نفس تعريف موبايل المريض بالظبط (`averageDosesPerDay`)
+    dosesPerDay: averageDosesPerDay([
       for (final s in schedules)
-        if ((s as Map)['stopped_at'] == null && (s['repeat'] ?? 'daily') == 'daily') s,
-    ].length,
+        (repeat: ((s as Map)['repeat'] as String?) ?? 'daily', stopped: s['stopped_at'] != null),
+    ]),
     uuid: row['uuid'] as String,
     name: row['name'] as String,
     amountLabel: row['amount_label'] as String?,
