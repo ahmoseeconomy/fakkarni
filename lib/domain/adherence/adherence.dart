@@ -80,7 +80,8 @@ class Adherence {
     required this.today,
   });
 
-  /// أيام كاملة ورا بعض لحد النهارده (النهارده بيتحسب لما يكمل بس).
+  /// أيام كاملة ورا بعض لحد النهارده (النهارده بيتحسب لما يكمل بس، وجرعة
+  /// فاتت النهارده ما بتصفّرهوش طول ما اليوم مفتوح).
   final int currentStreak;
   final int bestStreak;
 
@@ -159,6 +160,14 @@ Adherence computeAdherence(
 
   DayMark mark(DateTime day) => markDay(byDay[day] ?? const [], day, today: t, now: now);
 
+  /// شكل اليوم **للعدّ**: النهارده لسه مفتوح، فجرعة فاتت الصبح ما بتصفّرش
+  /// الرقم — النقطة بتبقى رمادي، والرقم بيفضل. أول ما يوم الروتين يقفل
+  /// وفيه فايت (بقى «امبارح»)، العدّ بيبدأ من جديد من اليوم اللي بعده.
+  DayMark streakMark(DateTime day) {
+    final m = mark(day);
+    return day == t && m == DayMark.missed ? DayMark.upcoming : m;
+  }
+
   // الأيام اللي عندنا، من أولها لحد النهارده.
   final known = byDay.keys.where((d) => !d.isAfter(t)).toList()..sort();
   final start = from ?? (known.isEmpty ? t : known.first);
@@ -167,7 +176,7 @@ Adherence computeAdherence(
   var current = 0;
   var currentAtLeast = false;
   for (var day = t; !day.isBefore(start); day = _plus(day, -1)) {
-    final m = mark(day);
+    final m = streakMark(day);
     if (m == DayMark.missed) break;
     if (m == DayMark.complete) current++;
     if (from != null && day == from && current > 0) currentAtLeast = true;
@@ -177,7 +186,7 @@ Adherence computeAdherence(
   var best = 0, run = 0;
   var bestAtLeast = false, runAtLeast = false;
   for (var day = start; !day.isAfter(t); day = _plus(day, 1)) {
-    final m = mark(day);
+    final m = streakMark(day);
     if (m == DayMark.missed) {
       run = 0;
       runAtLeast = false;

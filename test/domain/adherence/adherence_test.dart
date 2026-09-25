@@ -68,11 +68,31 @@ void main() {
       expect(a.currentStreak, 4);
     });
 
-    test('النهارده فيه جرعة فاتت مهلتها → العدّ صفر («النهارده بداية جديدة»)', () {
-      final a = run([...fullDays([21, 22, 23]), dose(today, 8, pending)]);
+    test('فاتته جرعة الصبح واليوم لسه مفتوح → الرقم زي ما هو، والنقطة رمادي', () {
+      final a = run([...fullDays([21, 22, 23]), dose(today, 8, pending), dose(today, 21, pending)]);
+      expect(a.week.firstWhere((w) => w.day == today).mark, DayMark.missed, reason: 'النقطة رمادي على النهارده');
+      expect(a.currentStreak, 3, reason: 'اليوم لسه مفتوح — الرقم ما يتصفّرش');
+      expect(a.missed.single.routineDay, today);
+      // «أخدتها متأخر» → النهارده بيكمل وبيتحسب
+      final b = run([...fullDays([21, 22, 23]), dose(today, 8, taken), dose(today, 17, taken)]);
+      expect(b.currentStreak, 4);
+    });
+
+    test('اليوم قفل وفيه فايت → العدّ بيبدأ من جديد من اليوم اللي بعده', () {
+      final doses = [...fullDays([20, 21, 22]), dose(d(23), 8, missedS), dose(today, 8, pending)];
+      // النهارده ٢٤ لسه مفتوح: امبارح ٢٣ قفل بفايت → صفر (والنهارده لسه)
+      final a = run(doses);
       expect(a.currentStreak, 0);
       expect(streakLine(a.currentStreak), 'النهارده بداية جديدة');
       expect(a.bestStreak, 3);
+      // ونفس الحكاية بعد ما ٢٤ نفسه يقفل بفايت: بكرة ٢٥ بيبدأ من الصفر
+      final next = computeAdherence(
+        [...fullDays([21, 22, 23]), dose(today, 8, pending)],
+        today: d(25),
+        now: DateTime(2026, 9, 25, 9),
+      );
+      expect(next.currentStreak, 0, reason: 'يوم ٢٤ قفل وفيه فايت');
+      expect(next.bestStreak, 3);
     });
 
     test('جرعة بعد نص الليل تبع يوم الروتين اللي قبلها', () {
