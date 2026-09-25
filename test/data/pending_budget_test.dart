@@ -8,6 +8,7 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
+import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/health/health_check.dart' show lowCoverageLimit;
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -30,13 +31,13 @@ void main() {
       expect(maxPendingEscalations, 14);
     });
 
-    test('لحد ٢٤: زي الأول؛ فوقه الأساسي بياخد من الإعادات لحد ٤٤', () {
+    test('لحد ٢٤: زي الأول؛ فوقه إعادات أقرب ميعادين محفوظة والأساسي بياخد الباقي من ٤٤', () {
       expect(splitPendingBudget(0), (mains: 0, repeats: 20));
-      expect(splitPendingBudget(21), (mains: 21, repeats: 20));
-      expect(splitPendingBudget(24), (mains: 24, repeats: 20));
+      expect(splitPendingBudget(24, reservedRepeats: 4), (mains: 24, repeats: 20), reason: 'مش قاصرة = زي الأول');
       expect(splitPendingBudget(30), (mains: 30, repeats: 14));
-      expect(splitPendingBudget(44), (mains: 44, repeats: 0));
-      expect(splitPendingBudget(126), (mains: 44, repeats: 0));
+      expect(splitPendingBudget(126, reservedRepeats: 4), (mains: 40, repeats: 4));
+      expect(splitPendingBudget(126, reservedRepeats: 20), (mains: 24, repeats: 20), reason: '«مستمر» لميعادين = ٢٠');
+      expect(splitPendingBudget(42, reservedRepeats: 4), (mains: 40, repeats: 4));
     });
 
     test('التغطية بتتحسب بس لو الخطة اتقصّت', () {
@@ -93,10 +94,29 @@ void main() {
       return all.take(maxPendingReminders).last.at.difference(from);
     }
 
+    /// أقرب ميعادين لسه ليهم إعادات جاية (التذكير المجمّع = ميعاد واحد،
+    /// والجرعة اللي رنّت من شوية جوّه مهلتها بتتحسب) — ليهم إعاداتهم، والباقي لأ.
+    Future<void> expectNearestTwoKeepRepeats() async {
+      final recent = planWindow(
+        routine: normalDay,
+        schedules: await meds.activeSchedules(patientId),
+        from: from.subtract(graceWindow),
+        maxPending: 1 << 20,
+      );
+      final nearest = [
+        for (final r in recent)
+          if (repeatsFor(r.at).any((st) => st.at.isAfter(from) && st.delay != EscalationRung.first.delay)) r.payload,
+      ].take(protectedDoseTimes).toSet();
+      final withRepeats = {for (final r in kind(NotificationKind.repeat)) r.payload};
+      expect(withRepeats, nearest);
+      expect(nearest, hasLength(2));
+    }
+
     Future<void> expectMainsMaximised() async {
       final mains = kind(NotificationKind.dose);
       final all = await allMains();
-      expect(mains.length, all.length < mainAndRepeatBudget ? all.length : mainAndRepeatBudget);
+      final repeats = kind(NotificationKind.repeat).length;
+      expect(mains.length, mainAndRepeatBudget - repeats);
       // الأقرب الأول: كل اللي اتساب بعد آخر واحد اتجدول
       expect([for (final m in mains) m.id], [for (final m in all.take(mains.length)) m.id]);
       expect(sink.scheduled.length + snoozePendingSlack + fastingPendingSlack + checkupPendingSlack,
@@ -104,23 +124,24 @@ void main() {
       expect(kind(NotificationKind.escalation).length, lessThanOrEqualTo(maxPendingEscalations));
     }
 
-    test('٣ أدوية كل ٤ ساعات (مش متوازية) — ٤٤ تذكير أساسي، صفر إعادات، والسلّم محجوز', () async {
+    test('٣ أدوية كل ٤ ساعات (مش متوازية) — إعادات أقرب ميعادين محفوظة، والأساسي بالباقي، والسلّم محجوز', () async {
       await everyHours('A', 4, MinuteOfDay.hm(8, 0));
       await everyHours('B', 4, MinuteOfDay.hm(9, 0));
       await everyHours('C', 4, MinuteOfDay.hm(10, 0));
       await scheduler.rescheduleAll(now: from);
 
       await expectMainsMaximised();
-      expect(kind(NotificationKind.dose), hasLength(44));
-      expect(kind(NotificationKind.repeat), isEmpty, reason: 'الأساسي قبل أي إعادة');
+      await expectNearestTwoKeepRepeats();
+      expect(kind(NotificationKind.dose).length + kind(NotificationKind.repeat).length, mainAndRepeatBudget);
       expect(kind(NotificationKind.escalation), hasLength(14));
       expect(scheduler.lastPlanTruncated, isTrue);
 
       final before = await coverageBefore();
       final after = scheduler.lastCoverage!;
-      // ١٨ ميعاد في اليوم: ٢٤ كانت بتغطّي ٣٢ ساعة، و٤٤ بتغطّي ٥٩ (من ٦ الصبح)
+      // ١٨ ميعاد في اليوم: ٢٤ كانت بتغطّي ٣٢ ساعة؛ دلوقتي ٥٤ (من ٦ الصبح)،
+      // وإعادات أقرب ميعادين محفوظة
       expect(before.inHours, 32);
-      expect(after.inHours, 59);
+      expect(after.inHours, 54);
       expect(after, greaterThan(before));
     });
 
@@ -138,14 +159,13 @@ void main() {
       await scheduler.rescheduleAll(now: from);
 
       await expectMainsMaximised();
-      expect(kind(NotificationKind.dose), hasLength(44));
-      expect(kind(NotificationKind.repeat), isEmpty);
+      await expectNearestTwoKeepRepeats();
+      expect(kind(NotificationKind.dose).length + kind(NotificationKind.repeat).length, mainAndRepeatBudget);
       final before = await coverageBefore();
       final after = scheduler.lastCoverage!;
-      // P وQ بالتبادل = ميعاد كل ساعة + ٣ يومي: ٢٤ كانت بتغطّي ٢٣ ساعة، و٤٤
-      // بتغطّي ٤٢ — لسه أقل من ٤٨، فـ«lowCoverage» بيوصل للأدمن
+      // ميعاد كل ساعة + ٣ يومي: ٢٣ ساعة → ٣٨ — لسه أقل من ٤٨، فـ«lowCoverage» للأدمن
       expect(before.inHours, 23);
-      expect(after.inHours, 42);
+      expect(after.inHours, 38);
       expect(after < lowCoverageLimit, isTrue);
     });
   });

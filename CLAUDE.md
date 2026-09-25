@@ -634,12 +634,12 @@ ladder + repeats + a snooze + fasting + follow-up dates never reach 65.
 patterns round 1, 25 Sep 2026). `splitPendingBudget` in `reminder_plan.dart`:
 while the 7-day window holds ≤ 24 main alerts the plan is byte-identical to
 before (24 + 20 repeats — `pending_budget_test` replays the old algorithm and
-compares); above that, main alerts take the repeat slots nearest-first up to
-`mainAndRepeatBudget` (44 = 64 − 14 ladder − 6 slack) and repeats get what is
-left — **zero** for a patient with ≥ 44 mains in the week, so a heavy patient
-(12+ distinct times a day) has no +5/+10/+15 repeats. The ladder's 14 never
-move. Measured from 06:00: 3 medicines every 4 h (unaligned) 32 h → 59 h of
-coverage; 2 every 2 h + 3 daily 23 h → 42 h. `lastPlanTruncated` /
+compares); above that, the repeats of the **next 2 dose times** are kept first
+(`protectedRepeatCount` — a grouped notification is one dose time, and a dose
+still inside its 45-minute grace counts), then main alerts nearest-first up to
+`mainAndRepeatBudget` (44 = 64 − 14 ladder − 6 slack), then any repeats left.
+The ladder's 14 never move. Measured from 06:00: 3 medicines every 4 h
+(unaligned) 32 h → 54 h of coverage; 2 every 2 h + 3 daily 23 h → 38 h. `lastPlanTruncated` /
 `lastCoverage` on the scheduler feed health code `lowCoverage` (broken, admin
 only, when the plan was cut **and** `horizon_until` is < 48 h away); the
 coverage itself is the existing `device_health.horizon_until`, so no

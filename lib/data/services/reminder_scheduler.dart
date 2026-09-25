@@ -116,10 +116,6 @@ class ReminderScheduler {
       done: done,
       maxPending: 1 << 20,
     );
-    final budget = splitPendingBudget(everything.length);
-    final planned = everything.take(budget.mains).toList();
-    lastPlanTruncated = everything.length > planned.length;
-    lastCoverage = coverageOf(planned, from: from, truncated: lastPlanTruncated);
 
     // السلّم بيتبني من قبل «دلوقتي» بمهلة: جرعة رنّت من ١٠ دقايق لسه
     // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها. الإعادات بتتبني من
@@ -143,6 +139,17 @@ class ReminderScheduler {
         if (enabled.contains(escalationRungOf(n.id))) n,
     ];
 
+    // الميزانية: لحد ٢٤ زي الأول بالحرف؛ لو قصرت، إعادات أقرب ميعادين
+    // محفوظة، وبعدين الأساسي الأقرب الأول، وبعدين باقي الإعادات.
+    AlertMode modeOf(PlannedNotification r) => alertModeOf(r, fallback: defaultMode);
+    final budget = splitPendingBudget(
+      everything.length,
+      reservedRepeats: protectedRepeatCount(recent, from: from, enabledRungs: enabled, modeOf: modeOf),
+    );
+    final planned = everything.take(budget.mains).toList();
+    lastPlanTruncated = everything.length > planned.length;
+    lastCoverage = coverageOf(planned, from: from, truncated: lastPlanTruncated);
+
     // إعادة التنبيه (+٥/+١٠/+١٥): نفس التذكير تاني لحد ما حد يتصرّف.
     // بتعرف الدرجات الشغّالة عشان ما ترنّش مرتين في نفس الدقيقة — السلّم
     // نفسه ما اتلمسش، ولا وقته ولا أرقامه.
@@ -153,7 +160,7 @@ class ReminderScheduler {
       enabledRungs: enabled,
       maxPending: budget.repeats,
       // نوع التنبيه: بتاع الدوا، وإلا إعداد الجهاز — بيتقرا وقت الجدولة بس
-      modeOf: (r) => alertModeOf(r, fallback: defaultMode),
+      modeOf: modeOf,
     );
 
     // **الرقم ده بيتسجّل من الخطة الحقيقية، مش من نسخة منها.** فحص

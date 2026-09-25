@@ -336,17 +336,43 @@ const int reminderWindowDays = 7;
 const int mainAndRepeatBudget =
     iosPendingLimit - maxPendingEscalations - snoozePendingSlack - fastingPendingSlack - checkupPendingSlack;
 
-/// **لما الميزانية تقصر: التذكير الأساسي لكل جرعة (الأقرب الأول) قبل أي
-/// إعادة.** [mainsWanted] = كل التذكيرات الأساسية اللي في النافذة.
+/// **لما الميزانية تقصر: إعادات أقرب [protectedDoseTimes] مواعيد الأول،
+/// وبعدين التذكير الأساسي لكل جرعة (الأقرب الأول)، وبعدين باقي الإعادات.**
+/// [mainsWanted] = كل التذكيرات الأساسية اللي في النافذة، و[reservedRepeats]
+/// = إعادات أقرب ميعادين ([protectedRepeatCount]).
 ///
 /// لحد [maxPendingReminders] الخطة **هي هي زي الأول** (الإعادات بتاخد
-/// [maxPendingRepeats] كاملة) — فالخطط الذهبية ما بتتغيّرش. فوقه، التذكير
-/// الأساسي بياخد من خانات الإعادات لحد [mainAndRepeatBudget]، والإعادات
-/// بتاخد اللي فاضل للجرعات الأقرب. السلّم ما بيتلمسش.
-({int mains, int repeats}) splitPendingBudget(int mainsWanted) {
+/// [maxPendingRepeats] كاملة) — فالخطط الذهبية ما بتتغيّرش. فوقه، الأساسي
+/// بياخد من خانات الإعادات لحد [mainAndRepeatBudget] ناقص المحجوز، والإعادات
+/// بتاخد الباقي (والأقرب بياخدوا الأول). السلّم ما بيتلمسش.
+({int mains, int repeats}) splitPendingBudget(int mainsWanted, {int reservedRepeats = 0}) {
   if (mainsWanted <= maxPendingReminders) return (mains: mainsWanted, repeats: maxPendingRepeats);
-  final mains = mainsWanted < mainAndRepeatBudget ? mainsWanted : mainAndRepeatBudget;
+  final room = mainAndRepeatBudget - reservedRepeats.clamp(0, maxPendingRepeats);
+  final mains = mainsWanted < room ? mainsWanted : room;
   return (mains: mains, repeats: mainAndRepeatBudget - mains);
+}
+
+/// كام ميعاد قريب إعاداته محفوظة حتى لو الميزانية قصرت — تذكير مجمّع في
+/// دقيقة واحدة بيتحسب ميعاد واحد.
+const int protectedDoseTimes = 2;
+
+/// عدد إعادات أقرب [protectedDoseTimes] مواعيد لسه ليهم إعادات جاية — بنفس
+/// قواعد [planRepeats] بالظبط (الدرجات الشغّالة ونوع التنبيه).
+int protectedRepeatCount(
+  List<PlannedNotification> reminders, {
+  required DateTime from,
+  Set<EscalationRung> enabledRungs = const {EscalationRung.first, EscalationRung.second},
+  AlertMode Function(PlannedNotification reminder)? modeOf,
+}) {
+  var times = 0, count = 0;
+  for (final r in reminders) {
+    if (times >= protectedDoseTimes) break;
+    final steps = planRepeats([r], from: from, enabledRungs: enabledRungs, modeOf: modeOf).length;
+    if (steps == 0) continue;
+    times++;
+    count += steps;
+  }
+  return count;
 }
 
 /// التغطية = لحد آخر تذكير أساسي متجدول — **بس لو الخطة اتقصّت**. لو كل

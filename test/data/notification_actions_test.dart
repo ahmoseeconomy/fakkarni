@@ -333,12 +333,13 @@ void main() {
   });
 
   // جولة أنماط الجدولة: المريض ده ميزانيته قصرت (٨٤ تذكير في النافذة)، فالأساسي
-  // بياخد ٤٤ بدل ٢٤ — ده الرقم الوحيد اللي اتغيّر في الاختبارين دول.
+  // والإعادات بيتقاسموا ٤٤ (إعادات أقرب ميعادين محفوظة) بدل ٢٤ + ٢٠ — ده الرقم
+  // الوحيد اللي اتغيّر في الاختبارين دول.
   test('«أخدته» من الإشعار والتطبيق مقفول: الجرعة اتسجّلت والنافذة اتمدّت',
       () async {
     final first = firstReminder();
     expect(first.at, DateTime(2026, 8, 31, 7));
-    expect(device.doses.length, mainAndRepeatBudget);
+    expect(device.doses.length + device.scheduled.keys.where(isRepeatId).length, mainAndRepeatBudget);
     final endBefore = device.coverageEnd;
     // الصفوف موجودة من قبل — الجدولة بتنزّلها عشان السحابة تعرف الجرعة
     // قبل معادها (٤.٢ب جزء ١) — بس ولا واحدة اتأكدت لسه.
@@ -367,7 +368,7 @@ void main() {
     expect(device.cancelled, contains(snoozeIdFor(first.at)));
     expect(device.doses.containsKey(first.id), isFalse,
         reason: 'اتأكدت بدري وما رجعتش');
-    expect(device.doses.length, mainAndRepeatBudget);
+    expect(device.doses.length + device.scheduled.keys.where(isRepeatId).length, mainAndRepeatBudget);
     expect(device.coverageEnd.isAfter(endBefore), isTrue,
         reason: 'التغطية اتمدّت من غير ما التطبيق يتفتح');
   });
@@ -381,7 +382,7 @@ void main() {
       final next = firstReminder();
       now = next.at.subtract(const Duration(minutes: 2));
       await wake().handle(NotificationActions.taken, next.payload, now: now);
-      expect(device.doses.length, mainAndRepeatBudget);
+      expect(device.doses.length + device.scheduled.keys.where(isRepeatId).length, mainAndRepeatBudget);
       expect(
         device.scheduled.length + snoozePendingSlack,
         lessThanOrEqualTo(iosPendingLimit),
@@ -468,14 +469,6 @@ void main() {
   });
   test('«أخدته» من إعادة التنبيه على شاشة القفل: بتسجّل وبتلغي باقي الإعادات والسلّم',
       () async {
-    // الميزانية على المريض التقيل (١٢ ميعاد في اليوم) بتروح كلها للتذكير
-    // الأساسي، فمفيش إعادات أصلاً. الاختبار ده عن القاعدة الخامسة على
-    // الإعادة، فبيوقف تلات أدوية الأول عشان الإعادات تتجدول.
-    final meds = MedicationRepository(db, clock: seededLongAgo);
-    for (final m in await db.select(db.medications).get()) {
-      if (m.name != 'Med0') await meds.stopMedication(m.id, now: aug31at6);
-    }
-    await wake().scheduler.rescheduleAll(now: aug31at6);
     final first = firstReminder();
     final repeat = device.scheduled[repeatIdFor(first.at, 0)]!;
     expect(repeat.at, DateTime(2026, 8, 31, 7, 5));
