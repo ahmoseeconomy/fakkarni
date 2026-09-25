@@ -22,6 +22,7 @@ const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
   checkAiKey,
   checkMediaSync,
   checkLowCoverage,
+  checkPatternSync,
 ];
 
 class HealthReport {

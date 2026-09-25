@@ -1,5 +1,6 @@
 import '../domain/escalation/alert_mode.dart';
 import '../domain/scheduling/day_routine.dart';
+import '../domain/scheduling/day_pattern.dart';
 import '../domain/scheduling/dose_schedule.dart';
 import 'db/app_database.dart';
 import 'db/tables.dart';
@@ -43,7 +44,27 @@ DoseSchedule doseScheduleFromRow(
       durationDays: row.durationDays,
       amountLabel: med.amountLabel,
       alertMode: AlertMode.fromStorage(med.alertMode),
+      days: dayPatternFromRow(row),
     );
+
+/// النمط من أعمدة v29 — كلهم null = «كل يوم». قيمة برّه الحدود (صف اتكتب
+/// غلط) بترجع «كل يوم» بدل ما توقّع الجدولة: الجرعة ترن أكتر أحسن من ما ترنش.
+DayPattern dayPatternFromRow(DoseScheduleRow row) {
+  try {
+    if (row.weekdaysMask case final m? when m > 0) return OnWeekdays.fromMask(m);
+    if (row.everyDays case final n?) return EveryNDays(n);
+    if ((row.cycleOn, row.cycleOff) case (final on?, final off?)) return OnOffCycle(on, off);
+  } catch (_) {}
+  return DayPattern.everyDay;
+}
+
+/// أعمدة v29 من النمط — للكتابة.
+({int? weekdaysMask, int? everyDays, int? cycleOn, int? cycleOff}) dayPatternColumns(DayPattern p) => switch (p) {
+      EveryDay() => (weekdaysMask: null, everyDays: null, cycleOn: null, cycleOff: null),
+      OnWeekdays() => (weekdaysMask: p.mask, everyDays: null, cycleOn: null, cycleOff: null),
+      EveryNDays(:final days) => (weekdaysMask: null, everyDays: days, cycleOn: null, cycleOff: null),
+      OnOffCycle(:final on, :final off) => (weekdaysMask: null, everyDays: null, cycleOn: on, cycleOff: off),
+    };
 
 /// بيرجّع نوع التوقيت من الصف وصف الساعة الثابتة (لو موجود).
 ///

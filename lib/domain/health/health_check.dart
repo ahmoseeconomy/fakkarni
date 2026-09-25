@@ -33,6 +33,11 @@ enum HealthCode {
   /// الموبايل بتغطّي أقل من ٤٨ ساعة. **للأدمن بس** — التغطية بتتجدد لوحدها
   /// مع كل فتحة وكل تأكيد.
   lowCoverage,
+
+  /// ٠٠٣٢ لسه ما اتشغّلتش: جدول بنمط أيام (أيام معيّنة / كل كام يوم / فترة
+  /// وراحة) فاضل على الموبايل ما وصلش السحابة. التذكير شغّال عادي؛ الابن
+  /// ما بيشوفش الجرعات دي. **للأدمن بس.**
+  patternSync,
 }
 
 /// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
@@ -395,6 +400,18 @@ HealthFinding? checkLowCoverage(HealthSnapshot s) {
     severity: Severity.broken,
     title: 'التذكيرات المتجهّزة بتغطّي أقل من يومين',
     why: 'مواعيد كتير في اليوم — كل فتحة أو تأكيد بيمدّها لوحدها.',
+    fix: HealthFix.none,
+  );
+}
+
+/// جدول بنمط أيام السحابة رفضته — بيتبلّغ للأدمن.
+HealthFinding? checkPatternSync(HealthSnapshot s) {
+  if (s.patternRejectedSince == null) return null;
+  return const HealthFinding(
+    code: HealthCode.patternSync,
+    severity: Severity.broken,
+    title: 'جدول بأيام معيّنة ما وصلش للدائرة',
+    why: 'التذكير شغّال على الموبايل؛ الرفع بيتعاد لوحده.',
     fix: HealthFix.none,
   );
 }

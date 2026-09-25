@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../domain/medication/duplicate_check.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/escalation/alert_mode.dart';
+import '../../domain/scheduling/day_pattern.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import '../db/app_database.dart';
@@ -123,6 +124,9 @@ class MedicationRepository {
     /// «الدوا ده لإيه؟» و«تعليمات» — اختياريين، null = ما قالش.
     MedicationPurpose? purpose,
     String? instructions,
+
+    /// أنهي أيام (الجولة ٢) — «كل يوم» افتراضياً.
+    DayPattern days = DayPattern.everyDay,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -147,6 +151,7 @@ class MedicationRepository {
           startDate: startDate,
           repeat: repeat,
           durationDays: durationDays,
+          days: days,
         );
       }
       return medicationId;
@@ -223,6 +228,7 @@ class MedicationRepository {
     required DateTime startDate,
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
+    DayPattern days = DayPattern.everyDay,
   }) =>
       _db.transaction(
         () => _insertSchedule(
@@ -231,6 +237,7 @@ class MedicationRepository {
           startDate: startDate,
           repeat: repeat,
           durationDays: durationDays,
+          days: days,
         ),
       );
 
@@ -242,8 +249,10 @@ class MedicationRepository {
     required DateTime startDate,
     required DoseRepeat repeat,
     required int? durationDays,
+    DayPattern days = DayPattern.everyDay,
   }) async {
     final day = DateTime(startDate.year, startDate.month, startDate.day);
+    final cols = dayPatternColumns(days);
     // القاعدة سارية من دلوقتي — جرعة معادها قبل كده ما كانتش موجودة.
     final activeFrom = _clock();
 
@@ -260,6 +269,10 @@ class MedicationRepository {
                 // null = مدة مفتوحة. ما بنخمّنش مدة أبداً.
                 durationDays: Value(durationDays),
                 activeFrom: Value(activeFrom),
+                weekdaysMask: Value(cols.weekdaysMask),
+                everyDays: Value(cols.everyDays),
+                cycleOn: Value(cols.cycleOn),
+                cycleOff: Value(cols.cycleOff),
               ),
             FixedTiming() => DoseSchedulesCompanion.insert(
                 medicationId: medicationId,
@@ -268,6 +281,10 @@ class MedicationRepository {
                 startDate: day,
                 durationDays: Value(durationDays),
                 activeFrom: Value(activeFrom),
+                weekdaysMask: Value(cols.weekdaysMask),
+                everyDays: Value(cols.everyDays),
+                cycleOn: Value(cols.cycleOn),
+                cycleOff: Value(cols.cycleOff),
               ),
           },
         );

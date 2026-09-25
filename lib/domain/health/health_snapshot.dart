@@ -52,6 +52,7 @@ class HealthSnapshot {
     this.mediaProblemSince,
     this.mediaRejectedAt,
     this.planTruncated = false,
+    this.patternRejectedSince,
   });
 
   final DateTime now;
@@ -66,6 +67,9 @@ class HealthSnapshot {
   /// آخر خطة جدولة اتقصّت؟ (تذكيرات أساسية أكتر من الميزانية) — من غيرها
   /// «التغطية قليلة» ما تتقالش.
   final bool planTruncated;
+
+  /// ٠٠٣٢: أول مرة السحابة رفضت جدول بنمط أيام — null = مفيش مشكلة.
+  final DateTime? patternRejectedSince;
   final NotificationPermission permission;
 
   /// الموبايل ده بتاع الابن (مربوط بأب) ولا بتاع المريض؟ فيه فحوص

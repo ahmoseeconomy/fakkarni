@@ -2548,6 +2548,50 @@ class $DoseSchedulesTable extends DoseSchedules
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _weekdaysMaskMeta = const VerificationMeta(
+    'weekdaysMask',
+  );
+  @override
+  late final GeneratedColumn<int> weekdaysMask = GeneratedColumn<int>(
+    'weekdays_mask',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _everyDaysMeta = const VerificationMeta(
+    'everyDays',
+  );
+  @override
+  late final GeneratedColumn<int> everyDays = GeneratedColumn<int>(
+    'every_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cycleOnMeta = const VerificationMeta(
+    'cycleOn',
+  );
+  @override
+  late final GeneratedColumn<int> cycleOn = GeneratedColumn<int>(
+    'cycle_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cycleOffMeta = const VerificationMeta(
+    'cycleOff',
+  );
+  @override
+  late final GeneratedColumn<int> cycleOff = GeneratedColumn<int>(
+    'cycle_off',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     uuid,
@@ -2563,6 +2607,10 @@ class $DoseSchedulesTable extends DoseSchedules
     startDate,
     durationDays,
     activeFrom,
+    weekdaysMask,
+    everyDays,
+    cycleOn,
+    cycleOff,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2644,6 +2692,33 @@ class $DoseSchedulesTable extends DoseSchedules
         activeFrom.isAcceptableOrUnknown(data['active_from']!, _activeFromMeta),
       );
     }
+    if (data.containsKey('weekdays_mask')) {
+      context.handle(
+        _weekdaysMaskMeta,
+        weekdaysMask.isAcceptableOrUnknown(
+          data['weekdays_mask']!,
+          _weekdaysMaskMeta,
+        ),
+      );
+    }
+    if (data.containsKey('every_days')) {
+      context.handle(
+        _everyDaysMeta,
+        everyDays.isAcceptableOrUnknown(data['every_days']!, _everyDaysMeta),
+      );
+    }
+    if (data.containsKey('cycle_on')) {
+      context.handle(
+        _cycleOnMeta,
+        cycleOn.isAcceptableOrUnknown(data['cycle_on']!, _cycleOnMeta),
+      );
+    }
+    if (data.containsKey('cycle_off')) {
+      context.handle(
+        _cycleOffMeta,
+        cycleOff.isAcceptableOrUnknown(data['cycle_off']!, _cycleOffMeta),
+      );
+    }
     return context;
   }
 
@@ -2713,6 +2788,22 @@ class $DoseSchedulesTable extends DoseSchedules
         DriftSqlType.dateTime,
         data['${effectivePrefix}active_from'],
       ),
+      weekdaysMask: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekdays_mask'],
+      ),
+      everyDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}every_days'],
+      ),
+      cycleOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_on'],
+      ),
+      cycleOff: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_off'],
+      ),
     );
   }
 
@@ -2775,6 +2866,15 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   /// كانتش موجودة. null = صف من قبل النسخة ١٥، ساري من الأول (ما بنخترعش له
   /// وقت). مش `updatedAtMs` — دي ماكينة المزامنة، والجدولة ما تتعلّقش بيها.
   final DateTime? activeFrom;
+
+  /// **أنماط الأيام (v29)** — كلهم null = «كل يوم» (كل الصفوف القديمة).
+  /// واحد بس بيبقى متعبّي: أيام معيّنة (بت لكل يوم، الاتنين = البت ٠)، أو
+  /// كل كام يوم، أو فترة وراحة (الاتنين مع بعض). الحساب في
+  /// `domain/scheduling/day_pattern.dart` من `start_date`.
+  final int? weekdaysMask;
+  final int? everyDays;
+  final int? cycleOn;
+  final int? cycleOff;
   const DoseScheduleRow({
     required this.uuid,
     required this.updatedAtMs,
@@ -2789,6 +2889,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     required this.startDate,
     this.durationDays,
     this.activeFrom,
+    this.weekdaysMask,
+    this.everyDays,
+    this.cycleOn,
+    this.cycleOff,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2832,6 +2936,18 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     if (!nullToAbsent || activeFrom != null) {
       map['active_from'] = Variable<DateTime>(activeFrom);
     }
+    if (!nullToAbsent || weekdaysMask != null) {
+      map['weekdays_mask'] = Variable<int>(weekdaysMask);
+    }
+    if (!nullToAbsent || everyDays != null) {
+      map['every_days'] = Variable<int>(everyDays);
+    }
+    if (!nullToAbsent || cycleOn != null) {
+      map['cycle_on'] = Variable<int>(cycleOn);
+    }
+    if (!nullToAbsent || cycleOff != null) {
+      map['cycle_off'] = Variable<int>(cycleOff);
+    }
     return map;
   }
 
@@ -2862,6 +2978,18 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       activeFrom: activeFrom == null && nullToAbsent
           ? const Value.absent()
           : Value(activeFrom),
+      weekdaysMask: weekdaysMask == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weekdaysMask),
+      everyDays: everyDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(everyDays),
+      cycleOn: cycleOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cycleOn),
+      cycleOff: cycleOff == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cycleOff),
     );
   }
 
@@ -2890,6 +3018,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       durationDays: serializer.fromJson<int?>(json['durationDays']),
       activeFrom: serializer.fromJson<DateTime?>(json['activeFrom']),
+      weekdaysMask: serializer.fromJson<int?>(json['weekdaysMask']),
+      everyDays: serializer.fromJson<int?>(json['everyDays']),
+      cycleOn: serializer.fromJson<int?>(json['cycleOn']),
+      cycleOff: serializer.fromJson<int?>(json['cycleOff']),
     );
   }
   @override
@@ -2915,6 +3047,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       'startDate': serializer.toJson<DateTime>(startDate),
       'durationDays': serializer.toJson<int?>(durationDays),
       'activeFrom': serializer.toJson<DateTime?>(activeFrom),
+      'weekdaysMask': serializer.toJson<int?>(weekdaysMask),
+      'everyDays': serializer.toJson<int?>(everyDays),
+      'cycleOn': serializer.toJson<int?>(cycleOn),
+      'cycleOff': serializer.toJson<int?>(cycleOff),
     };
   }
 
@@ -2932,6 +3068,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     DateTime? startDate,
     Value<int?> durationDays = const Value.absent(),
     Value<DateTime?> activeFrom = const Value.absent(),
+    Value<int?> weekdaysMask = const Value.absent(),
+    Value<int?> everyDays = const Value.absent(),
+    Value<int?> cycleOn = const Value.absent(),
+    Value<int?> cycleOff = const Value.absent(),
   }) => DoseScheduleRow(
     uuid: uuid ?? this.uuid,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
@@ -2948,6 +3088,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     startDate: startDate ?? this.startDate,
     durationDays: durationDays.present ? durationDays.value : this.durationDays,
     activeFrom: activeFrom.present ? activeFrom.value : this.activeFrom,
+    weekdaysMask: weekdaysMask.present ? weekdaysMask.value : this.weekdaysMask,
+    everyDays: everyDays.present ? everyDays.value : this.everyDays,
+    cycleOn: cycleOn.present ? cycleOn.value : this.cycleOn,
+    cycleOff: cycleOff.present ? cycleOff.value : this.cycleOff,
   );
   DoseScheduleRow copyWithCompanion(DoseSchedulesCompanion data) {
     return DoseScheduleRow(
@@ -2978,6 +3122,12 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       activeFrom: data.activeFrom.present
           ? data.activeFrom.value
           : this.activeFrom,
+      weekdaysMask: data.weekdaysMask.present
+          ? data.weekdaysMask.value
+          : this.weekdaysMask,
+      everyDays: data.everyDays.present ? data.everyDays.value : this.everyDays,
+      cycleOn: data.cycleOn.present ? data.cycleOn.value : this.cycleOn,
+      cycleOff: data.cycleOff.present ? data.cycleOff.value : this.cycleOff,
     );
   }
 
@@ -2996,7 +3146,11 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
           ..write('durationDays: $durationDays, ')
-          ..write('activeFrom: $activeFrom')
+          ..write('activeFrom: $activeFrom, ')
+          ..write('weekdaysMask: $weekdaysMask, ')
+          ..write('everyDays: $everyDays, ')
+          ..write('cycleOn: $cycleOn, ')
+          ..write('cycleOff: $cycleOff')
           ..write(')'))
         .toString();
   }
@@ -3016,6 +3170,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     startDate,
     durationDays,
     activeFrom,
+    weekdaysMask,
+    everyDays,
+    cycleOn,
+    cycleOff,
   );
   @override
   bool operator ==(Object other) =>
@@ -3033,7 +3191,11 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           other.repeat == this.repeat &&
           other.startDate == this.startDate &&
           other.durationDays == this.durationDays &&
-          other.activeFrom == this.activeFrom);
+          other.activeFrom == this.activeFrom &&
+          other.weekdaysMask == this.weekdaysMask &&
+          other.everyDays == this.everyDays &&
+          other.cycleOn == this.cycleOn &&
+          other.cycleOff == this.cycleOff);
 }
 
 class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
@@ -3050,6 +3212,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   final Value<DateTime> startDate;
   final Value<int?> durationDays;
   final Value<DateTime?> activeFrom;
+  final Value<int?> weekdaysMask;
+  final Value<int?> everyDays;
+  final Value<int?> cycleOn;
+  final Value<int?> cycleOff;
   const DoseSchedulesCompanion({
     this.uuid = const Value.absent(),
     this.updatedAtMs = const Value.absent(),
@@ -3064,6 +3230,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.startDate = const Value.absent(),
     this.durationDays = const Value.absent(),
     this.activeFrom = const Value.absent(),
+    this.weekdaysMask = const Value.absent(),
+    this.everyDays = const Value.absent(),
+    this.cycleOn = const Value.absent(),
+    this.cycleOff = const Value.absent(),
   });
   DoseSchedulesCompanion.insert({
     this.uuid = const Value.absent(),
@@ -3079,6 +3249,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     required DateTime startDate,
     this.durationDays = const Value.absent(),
     this.activeFrom = const Value.absent(),
+    this.weekdaysMask = const Value.absent(),
+    this.everyDays = const Value.absent(),
+    this.cycleOn = const Value.absent(),
+    this.cycleOff = const Value.absent(),
   }) : medicationId = Value(medicationId),
        repeat = Value(repeat),
        startDate = Value(startDate);
@@ -3096,6 +3270,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Expression<String>? startDate,
     Expression<int>? durationDays,
     Expression<DateTime>? activeFrom,
+    Expression<int>? weekdaysMask,
+    Expression<int>? everyDays,
+    Expression<int>? cycleOn,
+    Expression<int>? cycleOff,
   }) {
     return RawValuesInsertable({
       if (uuid != null) 'uuid': uuid,
@@ -3111,6 +3289,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       if (startDate != null) 'start_date': startDate,
       if (durationDays != null) 'duration_days': durationDays,
       if (activeFrom != null) 'active_from': activeFrom,
+      if (weekdaysMask != null) 'weekdays_mask': weekdaysMask,
+      if (everyDays != null) 'every_days': everyDays,
+      if (cycleOn != null) 'cycle_on': cycleOn,
+      if (cycleOff != null) 'cycle_off': cycleOff,
     });
   }
 
@@ -3128,6 +3310,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Value<DateTime>? startDate,
     Value<int?>? durationDays,
     Value<DateTime?>? activeFrom,
+    Value<int?>? weekdaysMask,
+    Value<int?>? everyDays,
+    Value<int?>? cycleOn,
+    Value<int?>? cycleOff,
   }) {
     return DoseSchedulesCompanion(
       uuid: uuid ?? this.uuid,
@@ -3143,6 +3329,10 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       startDate: startDate ?? this.startDate,
       durationDays: durationDays ?? this.durationDays,
       activeFrom: activeFrom ?? this.activeFrom,
+      weekdaysMask: weekdaysMask ?? this.weekdaysMask,
+      everyDays: everyDays ?? this.everyDays,
+      cycleOn: cycleOn ?? this.cycleOn,
+      cycleOff: cycleOff ?? this.cycleOff,
     );
   }
 
@@ -3196,6 +3386,18 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     if (activeFrom.present) {
       map['active_from'] = Variable<DateTime>(activeFrom.value);
     }
+    if (weekdaysMask.present) {
+      map['weekdays_mask'] = Variable<int>(weekdaysMask.value);
+    }
+    if (everyDays.present) {
+      map['every_days'] = Variable<int>(everyDays.value);
+    }
+    if (cycleOn.present) {
+      map['cycle_on'] = Variable<int>(cycleOn.value);
+    }
+    if (cycleOff.present) {
+      map['cycle_off'] = Variable<int>(cycleOff.value);
+    }
     return map;
   }
 
@@ -3214,7 +3416,11 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
           ..write('durationDays: $durationDays, ')
-          ..write('activeFrom: $activeFrom')
+          ..write('activeFrom: $activeFrom, ')
+          ..write('weekdaysMask: $weekdaysMask, ')
+          ..write('everyDays: $everyDays, ')
+          ..write('cycleOn: $cycleOn, ')
+          ..write('cycleOff: $cycleOff')
           ..write(')'))
         .toString();
   }
@@ -12429,6 +12635,10 @@ typedef $$DoseSchedulesTableCreateCompanionBuilder =
       required DateTime startDate,
       Value<int?> durationDays,
       Value<DateTime?> activeFrom,
+      Value<int?> weekdaysMask,
+      Value<int?> everyDays,
+      Value<int?> cycleOn,
+      Value<int?> cycleOff,
     });
 typedef $$DoseSchedulesTableUpdateCompanionBuilder =
     DoseSchedulesCompanion Function({
@@ -12445,6 +12655,10 @@ typedef $$DoseSchedulesTableUpdateCompanionBuilder =
       Value<DateTime> startDate,
       Value<int?> durationDays,
       Value<DateTime?> activeFrom,
+      Value<int?> weekdaysMask,
+      Value<int?> everyDays,
+      Value<int?> cycleOn,
+      Value<int?> cycleOff,
     });
 
 final class $$DoseSchedulesTableReferences
@@ -12581,6 +12795,26 @@ class $$DoseSchedulesTableFilterComposer
 
   ColumnFilters<DateTime> get activeFrom => $composableBuilder(
     column: $table.activeFrom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weekdaysMask => $composableBuilder(
+    column: $table.weekdaysMask,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get everyDays => $composableBuilder(
+    column: $table.everyDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cycleOn => $composableBuilder(
+    column: $table.cycleOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cycleOff => $composableBuilder(
+    column: $table.cycleOff,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12727,6 +12961,26 @@ class $$DoseSchedulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get weekdaysMask => $composableBuilder(
+    column: $table.weekdaysMask,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get everyDays => $composableBuilder(
+    column: $table.everyDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cycleOn => $composableBuilder(
+    column: $table.cycleOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cycleOff => $composableBuilder(
+    column: $table.cycleOff,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$MedicationsTableOrderingComposer get medicationId {
     final $$MedicationsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12808,6 +13062,20 @@ class $$DoseSchedulesTableAnnotationComposer
     column: $table.activeFrom,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get weekdaysMask => $composableBuilder(
+    column: $table.weekdaysMask,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get everyDays =>
+      $composableBuilder(column: $table.everyDays, builder: (column) => column);
+
+  GeneratedColumn<int> get cycleOn =>
+      $composableBuilder(column: $table.cycleOn, builder: (column) => column);
+
+  GeneratedColumn<int> get cycleOff =>
+      $composableBuilder(column: $table.cycleOff, builder: (column) => column);
 
   $$MedicationsTableAnnotationComposer get medicationId {
     final $$MedicationsTableAnnotationComposer composer = $composerBuilder(
@@ -12928,6 +13196,10 @@ class $$DoseSchedulesTableTableManager
                 Value<DateTime> startDate = const Value.absent(),
                 Value<int?> durationDays = const Value.absent(),
                 Value<DateTime?> activeFrom = const Value.absent(),
+                Value<int?> weekdaysMask = const Value.absent(),
+                Value<int?> everyDays = const Value.absent(),
+                Value<int?> cycleOn = const Value.absent(),
+                Value<int?> cycleOff = const Value.absent(),
               }) => DoseSchedulesCompanion(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12942,6 +13214,10 @@ class $$DoseSchedulesTableTableManager
                 startDate: startDate,
                 durationDays: durationDays,
                 activeFrom: activeFrom,
+                weekdaysMask: weekdaysMask,
+                everyDays: everyDays,
+                cycleOn: cycleOn,
+                cycleOff: cycleOff,
               ),
           createCompanionCallback:
               ({
@@ -12958,6 +13234,10 @@ class $$DoseSchedulesTableTableManager
                 required DateTime startDate,
                 Value<int?> durationDays = const Value.absent(),
                 Value<DateTime?> activeFrom = const Value.absent(),
+                Value<int?> weekdaysMask = const Value.absent(),
+                Value<int?> everyDays = const Value.absent(),
+                Value<int?> cycleOn = const Value.absent(),
+                Value<int?> cycleOff = const Value.absent(),
               }) => DoseSchedulesCompanion.insert(
                 uuid: uuid,
                 updatedAtMs: updatedAtMs,
@@ -12972,6 +13252,10 @@ class $$DoseSchedulesTableTableManager
                 startDate: startDate,
                 durationDays: durationDays,
                 activeFrom: activeFrom,
+                weekdaysMask: weekdaysMask,
+                everyDays: everyDays,
+                cycleOn: cycleOn,
+                cycleOff: cycleOff,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -74,6 +74,8 @@ class HealthAutoFix {
       case HealthCode.mediaSync:
       // التغطية بتتجدد مع كل فتحة وتأكيد — إعادة الجدولة ما بتزوّدش خانات
       case HealthCode.lowCoverage:
+      // الرفع بيتعاد مع كل رفعة لوحده
+      case HealthCode.patternSync:
         return null;
     }
   }

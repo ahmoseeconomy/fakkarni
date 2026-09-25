@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebu
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
-import '../../domain/medication/stock.dart' show averageDosesPerDay;
+import '../../domain/medication/stock.dart' show averageDosesPerDay, patternShare;
 import '../../domain/health/lab_range.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/wording/rule_wording.dart';
@@ -65,7 +65,17 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     // نفس تعريف موبايل المريض بالظبط (`averageDosesPerDay`)
     dosesPerDay: averageDosesPerDay([
       for (final s in schedules)
-        (repeat: ((s as Map)['repeat'] as String?) ?? 'daily', stopped: s['stopped_at'] != null),
+        (
+          repeat: ((s as Map)['repeat'] as String?) ?? 'daily',
+          stopped: s['stopped_at'] != null,
+          // ٠٠٣٢: أعمدة النمط — مش موجودة قبلها = «كل يوم»
+          share: patternShare(
+            weekdaysMask: s['weekdays'] as int?,
+            everyDays: s['every_days'] as int?,
+            cycleOn: s['cycle_on'] as int?,
+            cycleOff: s['cycle_off'] as int?,
+          ),
+        ),
     ]),
     uuid: row['uuid'] as String,
     name: row['name'] as String,
@@ -75,9 +85,20 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     alertMode: row['alert_mode'] as String?,
     notBoughtAt: row['not_bought_at'] == null ? null : DateTime.tryParse(row['not_bought_at'] as String)?.toLocal(),
     rules: [
-      // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن
+      // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن. والنمط (٠٠٣٢)
+      // قبل القاعدة: «السبت والتلات — الفطار − ٣٠ د».
       for (final s in schedules)
-        if ((s as Map)['stopped_at'] == null) ?rule(s),
+        if ((s as Map)['stopped_at'] == null)
+          if (rule(s) case final r?)
+            switch (dayPatternWording(
+              weekdaysMask: s['weekdays'] as int?,
+              everyDays: s['every_days'] as int?,
+              cycleOn: s['cycle_on'] as int?,
+              cycleOff: s['cycle_off'] as int?,
+            )) {
+              final p? => '$p — $r',
+              null => r,
+            },
     ],
   );
 }
@@ -319,7 +340,12 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         // **من الأغنى للأبسط**: ٠٠٢٨ (المخزون) ← ٠٠٢٦ (التفاصيل) ← الأصل.
         // هجرة لسه ما اتشغّلتش = عمود/علاقة مش موجودة → الدرجة اللي بعدها،
         // وشاشة المتابع تفضل شغّالة.
+        // ٠٠٣٢: أعمدة أنماط الأيام على الجداول
+        const medColumnsPatterns = 'uuid, name, amount_label, stopped_at, updated_at, '
+            'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
+            'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
         const tiers = [
+          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsPatterns',
           // ٠٠٣١ — «لسه ماتشترتش»
           'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumns',
           'purpose, instructions, alert_mode, medication_stock(quantity, warn_days), $medColumns',

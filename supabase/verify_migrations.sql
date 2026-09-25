@@ -313,7 +313,10 @@ with expected(migration, kind, ident) as (
     ('0029_med_photos',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|photo'),
     ('0030_patient_papers_limits', 'bucket', 'patient-papers|10485760|image/jpeg'),
     ('0031_not_bought',    'column',   'public.medications.not_bought_at'),
-    ('0031_not_bought',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|bought')
+    ('0031_not_bought',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|bought'),
+    ('0032_schedule_patterns', 'column', 'public.dose_schedules.weekdays'),
+    ('0032_schedule_patterns', 'column', 'public.dose_schedules.cycle_off'),
+    ('0032_schedule_patterns', 'constraintdef', 'public.dose_schedules|dose_schedules_pattern_check|every_days')
 ),
 checked as (
   select

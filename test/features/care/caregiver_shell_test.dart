@@ -279,4 +279,20 @@ void main() {
     expect(med.dosesPerDay, 3, reason: 'كل ٨ ساعات = ٣، والمرة الواحدة مش بتتكرر');
     expect(med.stockDaysLeft, 3);
   });
+
+  test('٠٠٣٢: الابن بيقرا نمط الأيام قبل القاعدة، والمخزون بنصيب الأيام', () {
+    final med = medicationFromRow({
+      'uuid': 'm1',
+      'name': 'Concor',
+      'amount_label': 'قرص',
+      'medication_stock': {'quantity': 9, 'warn_days': null},
+      'dose_schedules': [
+        {'timing_kind': 'anchor', 'anchor': 'breakfast', 'offset_minutes': -30, 'repeat': 'daily', 'stopped_at': null, 'weekdays': 42},
+        {'timing_kind': 'anchor', 'anchor': 'dinner', 'offset_minutes': 0, 'repeat': 'daily', 'stopped_at': null, 'cycle_on': 21, 'cycle_off': 7},
+        {'timing_kind': 'anchor', 'anchor': 'lunch', 'offset_minutes': 0, 'repeat': 'daily', 'stopped_at': null, 'every_days': 2},
+      ],
+    });
+    expect(med.rules, ['السبت والتلات والخميس — الفطار − ٣٠ د', '٢١ يوم وراحة ٧ — العشا', 'يوم ويوم — الغدا']);
+    expect(med.dosesPerDay, closeTo(3 / 7 + 0.75 + 0.5, 1e-9));
+  });
 }

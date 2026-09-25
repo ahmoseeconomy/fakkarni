@@ -133,7 +133,15 @@ class StockRepository {
   Future<double> _dosesPerDay(int medicationId) async {
     final schedules =
         await (_db.select(_db.doseSchedules)..where((t) => t.medicationId.equals(medicationId))).get();
-    return averageDosesPerDay([for (final s in schedules) (repeat: s.repeat.name, stopped: s.stoppedAt != null)]);
+    return averageDosesPerDay([
+      for (final s in schedules)
+        (
+          repeat: s.repeat.name,
+          stopped: s.stoppedAt != null,
+          share: patternShare(
+              weekdaysMask: s.weekdaysMask, everyDays: s.everyDays, cycleOn: s.cycleOn, cycleOff: s.cycleOff),
+        ),
+    ]);
   }
 
   Future<void> markNotified(int medicationId, DateTime? at) async {

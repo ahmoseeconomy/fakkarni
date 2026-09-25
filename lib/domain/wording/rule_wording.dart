@@ -59,3 +59,44 @@ String everyHoursLabel(int hours) => switch (hours) {
 /// «هتاخده الساعة: ٨:٠٠ ص، ١٢:٠٠ م، ٤:٠٠ م…» — المعاينة قبل الحفظ.
 String everyHoursPreview(List<DateTime> times) =>
     'هتاخده الساعة: ${times.map(arabicTime).join('، ')}';
+
+// ---------------------------------------------------------------- أنماط الأيام
+
+/// أسامي الأيام بالترتيب المصري — السبت الأول.
+const List<(int, String)> weekdayNamesSatFirst = [
+  (DateTime.saturday, 'السبت'),
+  (DateTime.sunday, 'الحد'),
+  (DateTime.monday, 'الاتنين'),
+  (DateTime.tuesday, 'التلات'),
+  (DateTime.wednesday, 'الأربع'),
+  (DateTime.thursday, 'الخميس'),
+  (DateTime.friday, 'الجمعة'),
+];
+
+String weekdayName(int weekday) => weekdayNamesSatFirst.firstWhere((e) => e.$1 == weekday).$2;
+
+/// «السبت والتلات والخميس» / «يوم ويوم» / «كل ٣ أيام» / «٢١ يوم وراحة ٧».
+/// من الأعمدة نفسها — عشان جانب الابن يقراها من غير ما يستورد الجدولة.
+/// null = «كل يوم» (مفيش حاجة تتقال).
+String? dayPatternWording({int? weekdaysMask, int? everyDays, int? cycleOn, int? cycleOff}) {
+  if (weekdaysMask case final m? when m > 0) {
+    final days = [for (final (d, name) in weekdayNamesSatFirst) if (m & (1 << (d - 1)) != 0) name];
+    if (days.length == 7) return null;
+    return days.join(' و');
+  }
+  if (everyDays case final n?) {
+    return switch (n) {
+      2 => 'يوم ويوم',
+      <= 10 => 'كل ${arabicNumber(n)} أيام',
+      _ => 'كل ${arabicNumber(n)} يوم',
+    };
+  }
+  if ((cycleOn, cycleOff) case (final on?, final off?)) {
+    return '${arabicNumber(on)} يوم وراحة ${arabicNumber(off)}';
+  }
+  return null;
+}
+
+/// «الأيام الجاية: السبت ٢٧، التلات ٣٠، …» — المعاينة قبل الحفظ.
+String nextDaysPreview(List<DateTime> days) =>
+    'الأيام الجاية: ${days.map((d) => '${weekdayName(d.weekday)} ${arabicNumber(d.day)}').join('، ')}';

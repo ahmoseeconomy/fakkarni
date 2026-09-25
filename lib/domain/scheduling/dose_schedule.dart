@@ -1,3 +1,4 @@
+import 'day_pattern.dart';
 import '../escalation/alert_mode.dart';
 import '../wording/rule_wording.dart';
 import 'day_routine.dart';
@@ -92,9 +93,13 @@ class DoseSchedule {
     this.durationDays,
     this.amountLabel,
     this.alertMode,
+    this.days = DayPattern.everyDay,
   });
 
   final String id;
+
+  /// أنهي أيام (الجولة ٢) — «كل يوم» افتراضياً. الأيام بس؛ الدقيقة من [timing].
+  final DayPattern days;
   final String medicationName;
   final DoseTiming timing;
 
@@ -132,7 +137,8 @@ class DoseSchedule {
     if (d.isBefore(_startDay)) return false;
     if (repeat == DoseRepeat.once) return d == _startDay;
     final last = lastActiveDay;
-    return last == null || !d.isAfter(last);
+    if (last != null && d.isAfter(last)) return false;
+    return dayPatternActive(days, start: _startDay, day: d);
   }
 
   DoseSchedule copyWith({
@@ -144,6 +150,7 @@ class DoseSchedule {
     int? durationDays,
     bool clearDuration = false,
     String? amountLabel,
+    DayPattern? days,
   }) =>
       DoseSchedule(
         id: id ?? this.id,
@@ -153,6 +160,7 @@ class DoseSchedule {
         startDate: startDate ?? this.startDate,
         durationDays: clearDuration ? null : (durationDays ?? this.durationDays),
         amountLabel: amountLabel ?? this.amountLabel,
+        days: days ?? this.days,
       );
 
   /// وصف القاعدة بالعربي — «الفطار − ٣٠ د».

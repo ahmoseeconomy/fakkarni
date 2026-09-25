@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
 import 'every_hours_picker.dart';
+import 'day_pattern_picker.dart';
+import 'add_medication_screen.dart' show DosePattern;
+import '../../domain/scheduling/day_pattern.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../domain/scheduling/every_hours.dart';
 
@@ -232,6 +235,116 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     await _loadSchedules();
   }
 
+  /// «غيّر الأيام» (الجولة ٢): كل جرعة بتتكتب من جديد بنفس معادها والأيام
+  /// الجديدة (من النهارده)، **وبعدين** القديمة بتتوقف إيقاف ناعم — زي «كل
+  /// كام ساعة» بالظبط.
+  Future<void> _changeDays() async {
+    if (_busy || _schedules.isEmpty) return;
+    final services = AppScope.of(context);
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    var kind = switch (_schedules.first.days) {
+      OnWeekdays() => DosePattern.weekdays,
+      EveryNDays() => DosePattern.everyNDays,
+      OnOffCycle() => DosePattern.cycle,
+      EveryDay() => DosePattern.daily,
+    };
+    var weekdays = switch (_schedules.first.days) {
+      OnWeekdays(:final weekdays) => {...weekdays},
+      _ => <int>{},
+    };
+    var everyN = switch (_schedules.first.days) {
+      EveryNDays(:final days) => days,
+      _ => 2,
+    };
+    var (cycleOn, cycleOff) = switch (_schedules.first.days) {
+      OnOffCycle(:final on, :final off) => (on, off),
+      _ => (21, 7),
+    };
+    DayPattern? picked() => switch (kind) {
+          DosePattern.weekdays when weekdays.isNotEmpty => OnWeekdays(weekdays),
+          DosePattern.weekdays => null,
+          DosePattern.everyNDays => EveryNDays(everyN),
+          DosePattern.cycle => OnOffCycle(cycleOn, cycleOff),
+          _ => DayPattern.everyDay,
+        };
+    final result = await FSheet.show<DayPattern>(
+      context,
+      title: 'غيّر الأيام',
+      children: [
+        StatefulBuilder(
+          builder: (context, setSheet) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: F.s8,
+                runSpacing: F.s8,
+                children: [
+                  for (final (k, label) in const [
+                    (DosePattern.daily, 'كل يوم'),
+                    (DosePattern.weekdays, 'أيام معينة'),
+                    (DosePattern.everyNDays, 'كل كام يوم'),
+                    (DosePattern.cycle, 'فترة وراحة'),
+                  ])
+                    AnchorChip(
+                      key: ValueKey('days-${k.name}'),
+                      label: label,
+                      selected: kind == k,
+                      onTap: () => setSheet(() => kind = k),
+                    ),
+                ],
+              ),
+              const SizedBox(height: F.gap),
+              if (kind != DosePattern.daily)
+                DayPatternPicker(
+                  pattern: kind,
+                  weekdays: weekdays,
+                  everyN: everyN,
+                  cycleOn: cycleOn,
+                  cycleOff: cycleOff,
+                  start: day,
+                  today: day,
+                  onWeekdays: (d) => setSheet(() => weekdays = d),
+                  onEveryN: (n) => setSheet(() => everyN = n),
+                  onCycle: (on, off) => setSheet(() {
+                    cycleOn = on;
+                    cycleOff = off;
+                  }),
+                ),
+              const SizedBox(height: F.gap),
+              FPrimaryButton(
+                key: const ValueKey('days-save'),
+                label: 'احفظ',
+                onPressed: picked() == null ? null : () => Navigator.of(context).pop(picked()),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final old = [..._schedules];
+      for (final s in old) {
+        await services.medications.addDoseSchedule(
+          widget.medicationId,
+          timing: s.timing,
+          startDate: day,
+          durationDays: s.durationDays,
+          days: result,
+        );
+      }
+      for (final s in old) {
+        await services.medications.stopDoseSchedule(int.parse(s.id));
+      }
+      await services.scheduler.rescheduleAll();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    await _loadSchedules();
+  }
+
   /// «شيل» لجرعة **محفوظة** — إيقاف ناعم، مش مسح.
   ///
   /// `stopDoseSchedule` بيحط `stopped_at` وبيعلّم الأحداث الجاية
@@ -401,6 +514,19 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         key: const ValueKey('make-every-hours'),
                         label: 'خليه كل كام ساعة',
                         onPressed: _busy ? null : () => _makeEveryHours(med.name),
+                      ),
+                      const SizedBox(height: F.s8),
+                      if (dayPatternLabel(_schedules.firstOrNull?.days ?? DayPattern.everyDay) case final label?)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: F.s8),
+                          child: Text(label,
+                              key: const ValueKey('days-label'),
+                              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                        ),
+                      FSecondaryButton(
+                        key: const ValueKey('change-days'),
+                        label: 'غيّر الأيام',
+                        onPressed: _busy ? null : _changeDays,
                       ),
                       const SizedBox(height: F.gap),
                       Text(

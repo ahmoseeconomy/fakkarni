@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
+import '../../domain/scheduling/day_pattern.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
@@ -345,7 +346,11 @@ class _MedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final med = summary.medication;
-    final rule = schedule?.ruleLabel ?? summary.schedules.map((s) => s.ruleLabel).join(' + ');
+    String ruleOf(DoseSchedule s) => switch (dayPatternLabel(s.days)) {
+          final p? => '$p — ${s.ruleLabel}',
+          null => s.ruleLabel,
+        };
+    final rule = schedule == null ? summary.schedules.map(ruleOf).join(' + ') : ruleOf(schedule!);
     return Container(
       padding: const EdgeInsets.all(F.s14),
       decoration: BoxDecoration(

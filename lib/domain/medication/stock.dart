@@ -70,17 +70,34 @@ double stockAfterUndo(double stock, double amount) => stock + amount;
 
 /// **فاضله كام يوم** من الجدول الحالي. null = مفيش جدول يومي يتحسب منه
 /// (مفيش جرعات شغّالة) — ساعتها مفيش «قرب يخلص» أصلاً.
-/// جدول واحد زي ما حساب المخزون محتاجه — اسم التكرار (`daily` / `once`)
-/// وهل هو موقوف.
-typedef StockDose = ({String repeat, bool stopped});
+/// جدول واحد زي ما حساب المخزون محتاجه — اسم التكرار (`daily` / `once`)،
+/// وهل هو موقوف، ونصيبه من الأيام ([patternShare]: كل يوم = ١).
+typedef StockDose = ({String repeat, bool stopped, double share});
 
-/// **متوسط الجرعات في اليوم — تعريف واحد للمريض والدائرة.** «كل يوم» = ١
-/// لكل جدول، و«كل كام ساعة» بتتفرد لجداول يومية فبتتحسب لوحدها (كل ٨
-/// ساعات = ٣). «مرة واحدة» والموقوف = صفر: مش جرعات بتتكرر.
+/// نصيب الجدول من الأيام من أعمدة النمط (v29) — أيام معيّنة ن/٧، كل ن يوم
+/// ١/ن، فترة وراحة شغّال/(شغّال+راحة)، وكل يوم ١. نفس
+/// `dayPatternShare` بالظبط، من الأرقام الخام عشان جانب الابن.
+double patternShare({int? weekdaysMask, int? everyDays, int? cycleOn, int? cycleOff}) {
+  if (weekdaysMask case final m? when m > 0) {
+    var n = 0;
+    for (var d = 0; d < 7; d++) {
+      if (m & (1 << d) != 0) n++;
+    }
+    return n / 7;
+  }
+  if (everyDays case final n? when n > 0) return 1 / n;
+  if ((cycleOn, cycleOff) case (final on?, final off?) when on + off > 0) return on / (on + off);
+  return 1;
+}
+
+/// **متوسط الجرعات في اليوم — تعريف واحد للمريض والدائرة.** كل جدول بنصيبه
+/// من الأيام: «كل يوم» = ١، «كل كام ساعة» بتتفرد لجداول يومية (كل ٨ = ٣)،
+/// أيام معيّنة ن/٧، كل ن يوم ١/ن، فترة وراحة شغّال/(الاتنين). «مرة واحدة»
+/// والموقوف = صفر.
 double averageDosesPerDay(Iterable<StockDose> schedules) => [
       for (final s in schedules)
-        if (!s.stopped && s.repeat == 'daily') 1,
-    ].length.toDouble();
+        if (!s.stopped && s.repeat == 'daily') s.share,
+    ].fold(0.0, (a, b) => a + b);
 
 int? stockDaysLeft({required double stock, required num dosesPerDay, required double amount}) {
   if (dosesPerDay <= 0 || amount <= 0) return null;

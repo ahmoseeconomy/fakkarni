@@ -66,12 +66,12 @@ void main() {
 
   test('متوسط الجرعات في اليوم: تعريف واحد — كل ٨ ساعات = ٣، ومرة واحدة والموقوف صفر', () {
     expect(averageDosesPerDay([
-      for (var i = 0; i < 3; i++) (repeat: 'daily', stopped: false),
+      for (var i = 0; i < 3; i++) (repeat: 'daily', stopped: false, share: 1.0),
     ]), 3);
-    expect(averageDosesPerDay(const [(repeat: 'once', stopped: false)]), 0);
-    expect(averageDosesPerDay(const [(repeat: 'daily', stopped: true), (repeat: 'daily', stopped: false)]), 1);
+    expect(averageDosesPerDay(const [(repeat: 'once', stopped: false, share: 1.0)]), 0);
+    expect(averageDosesPerDay(const [(repeat: 'daily', stopped: true, share: 1.0), (repeat: 'daily', stopped: false, share: 1.0)]), 1);
     // كل ٤ ساعات = ٦ جداول يومية → ٣٠ قرص = ٥ أيام
-    final perDay = averageDosesPerDay([for (var i = 0; i < 6; i++) (repeat: 'daily', stopped: false)]);
+    final perDay = averageDosesPerDay([for (var i = 0; i < 6; i++) (repeat: 'daily', stopped: false, share: 1.0)]);
     expect(stockDaysLeft(stock: 30, dosesPerDay: perDay, amount: 1), 5);
   });
 }

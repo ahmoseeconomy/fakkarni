@@ -36,6 +36,7 @@ String deviceCodeLabel(String code, {AdminDevice? device, DateTime? now}) => swi
       'accountMissing' => 'الحساب مش موجود على السيرفر',
       'mediaSync' => 'صور الأدوية ما بتترفعش (أو صورة من الممرض اترفضت)',
       'lowCoverage' => 'التذكيرات المتجهّزة أقل من ٤٨ ساعة (مواعيد كتير)',
+      'patternSync' => 'جدول بأيام معيّنة مستني هجرة ٠٠٣٢ على السيرفر',
       'staleSync' => _staleSyncLabel(device, now),
       'notificationPermission' => 'الإشعارات مقفولة',
       'pushToken' => 'مفيش توكن',
@@ -76,4 +77,5 @@ const List<String> knownDeviceCodes = [
   'accountMissing',
   'mediaSync',
   'lowCoverage',
+  'patternSync',
 ];

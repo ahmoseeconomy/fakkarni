@@ -24,7 +24,9 @@ import 'dose_editor.dart' show DoseEditor;
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
 import '../../domain/scheduling/every_hours.dart';
+import 'day_pattern_picker.dart';
 import 'every_hours_picker.dart';
+import '../../domain/scheduling/day_pattern.dart';
 import 'medication_draft.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
@@ -111,7 +113,7 @@ enum TimingChoice { before, with_, after, fixed }
 
 /// بياخده إزاي: كل يوم (المراسي أو ساعات)، كل كام ساعة (بيتفرد لساعات
 /// ثابتة)، أو مرة واحدة (`DoseRepeat.once`).
-enum DosePattern { daily, everyHours, once }
+enum DosePattern { daily, everyHours, weekdays, everyNDays, cycle, once }
 
 /// مع الأكل: قبل / مع / بعد — بتحدد إزاحة المرساة الافتراضية. (اسم قديم
 /// بيفضل عشان اللي بيقرا التاريخ.)
@@ -130,6 +132,27 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// «كل كام ساعة»: الفاصل وأول جرعة (العجلة بتقف على ٨ الصبح).
   int _everyHours = 8;
   MinuteOfDay _firstDose = MinuteOfDay.hm(8, 0);
+
+  /// الجولة ٢ — أنماط الأيام (من يوم البداية).
+  Set<int> _weekdays = {};
+  int _everyN = 2;
+  int _cycleOn = 21;
+  int _cycleOff = 7;
+
+  /// الأيام اللي هتتسجّل على كل جدول. «كل كام ساعة» و«كل يوم» = كل يوم.
+  DayPattern get _dayPattern => switch (_pattern) {
+        DosePattern.weekdays when _weekdays.isNotEmpty => OnWeekdays(_weekdays),
+        DosePattern.everyNDays => EveryNDays(_everyN),
+        DosePattern.cycle => OnOffCycle(_cycleOn, _cycleOff),
+        _ => DayPattern.everyDay,
+      };
+
+  /// الأنماط اللي بتحتاج «كام مرة» و«مع الأكل» زي «كل يوم».
+  bool get _dailyLike =>
+      _pattern == DosePattern.daily ||
+      _pattern == DosePattern.weekdays ||
+      _pattern == DosePattern.everyNDays ||
+      _pattern == DosePattern.cycle;
   MedicationPurpose? _purpose;
 
   /// الروتين الحي: لما المحرّر يسأل «بتفطر الساعة كام؟» ويتحفظ الفطار،
@@ -317,6 +340,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   void _pickPattern(DosePattern p) {
     if (_pattern == p) return;
+    // بين «كل يوم» وأنماط الأيام: الأيام بس بتتغيّر، والمواعيد زي ما هي
+    final keepTimes = _dailyLike;
     setState(() {
       _pattern = p;
       switch (p) {
@@ -330,6 +355,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           _openEnded = true;
           _doses = _fromConvention();
         case DosePattern.daily:
+        case DosePattern.weekdays:
+        case DosePattern.everyNDays:
+        case DosePattern.cycle:
+          if (keepTimes) break;
           _choice = TimingChoice.before;
           _timesPerDay = 1;
           _doses = _fromConvention();
@@ -408,7 +437,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       };
 
   bool get _ready =>
-      !_busy && _name.text.trim().isNotEmpty && _doses.isNotEmpty && _doses.every(_rowReady);
+      !_busy &&
+      _name.text.trim().isNotEmpty &&
+      _doses.isNotEmpty &&
+      _doses.every(_rowReady) &&
+      // «أيام معينة» من غير ولا يوم = مفيش جرعة ترن
+      (_pattern != DosePattern.weekdays || _weekdays.isNotEmpty);
 
   Future<void> _save() async {
     if (!_ready) return;
@@ -447,6 +481,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         startDate: _startDate,
         durationDays: result.durationDays,
         repeat: result.once ? DoseRepeat.once : DoseRepeat.daily,
+        days: _dayPattern,
         activeIngredient: widget.packageReading?.ingredientField,
         alertMode: result.alertMode,
         purpose: result.purpose,
@@ -582,11 +617,17 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           runSpacing: F.s8,
                           children: [
                             for (final p in DosePattern.values)
+                              // المراجعة (مسوّدة الروشتة) من غير أنماط الأيام — الجولة دي «ضيف دوا» والتعديل
+                              if (!widget.draft ||
+                                  !const {DosePattern.weekdays, DosePattern.everyNDays, DosePattern.cycle}.contains(p))
                               AnchorChip(
                                 key: ValueKey('pattern-${p.name}'),
                                 label: switch (p) {
                                   DosePattern.daily => 'كل يوم',
                                   DosePattern.everyHours => 'كل كام ساعة',
+                                  DosePattern.weekdays => 'أيام معينة',
+                                  DosePattern.everyNDays => 'كل كام يوم',
+                                  DosePattern.cycle => 'فترة وراحة',
                                   DosePattern.once => 'مرة واحدة',
                                 },
                                 selected: _pattern == p,
@@ -606,7 +647,27 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                             }),
                           ),
                         ] else ...[
-                        if (_pattern == DosePattern.daily) ...[
+                        if (_pattern == DosePattern.weekdays ||
+                            _pattern == DosePattern.everyNDays ||
+                            _pattern == DosePattern.cycle) ...[
+                          DayPatternPicker(
+                            pattern: _pattern,
+                            weekdays: _weekdays,
+                            everyN: _everyN,
+                            cycleOn: _cycleOn,
+                            cycleOff: _cycleOff,
+                            start: _startDate,
+                            today: _today,
+                            onWeekdays: (d) => setState(() => _weekdays = d),
+                            onEveryN: (n) => setState(() => _everyN = n),
+                            onCycle: (on, off) => setState(() {
+                              _cycleOn = on;
+                              _cycleOff = off;
+                            }),
+                          ),
+                          const SizedBox(height: F.gap),
+                        ],
+                        if (_dailyLike) ...[
                         const _FieldLabel('كام مرة في اليوم؟'),
                         Wrap(
                           spacing: F.s8,

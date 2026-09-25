@@ -706,7 +706,15 @@ class SyncService {
       ..where(_db.doseSchedules.syncedAtMs.isNull() |
           _db.doseSchedules.syncedAtMs
               .isSmallerThan(_db.doseSchedules.updatedAtMs));
-    final rows = await query.get();
+    final all = await query.get();
+    // «كل يوم» بنفس الحمولة بالحرف؛ الأنماط الجديدة (٠٠٣٢) لوحدها تحت.
+    bool patterned(TypedResult r) {
+      final s = r.readTable(_db.doseSchedules);
+      return s.weekdaysMask != null || s.everyDays != null || s.cycleOn != null || s.cycleOff != null;
+    }
+
+    final rows = [for (final r in all) if (!patterned(r)) r];
+    await _pushPatternedSchedules([for (final r in all) if (patterned(r)) r]);
     await _upsertAndMark(
       'dose_schedules',
       [
@@ -737,14 +745,63 @@ class SyncService {
     );
   }
 
+  /// **جداول بنمط أيام (٠٠٣٢)**. لو السحابة لسه من غير الأعمدة، الصف بيفضل
+  /// على الموبايل متوسّخ (والجدولة شغّالة عادي عليه)، وبيتعاد مع كل رفعة،
+  /// وبيتسجّل للأدمن (`patternSync`) — والمريض ما بيشوفش حاجة. وأولاده
+  /// (الساعة الثابتة والأحداث) بيستنّوه: من غيره المفتاح الأجنبي كان هيوقّف
+  /// الطابور كله.
+  Future<void> _pushPatternedSchedules(List<TypedResult> rows) async {
+    if (rows.isEmpty) return;
+    try {
+      await _upsertAndMark(
+        'dose_schedules',
+        [
+          for (final row in rows)
+            () {
+              final s = row.readTable(_db.doseSchedules);
+              final m = row.readTable(_db.medications);
+              return (
+                uuid: s.uuid,
+                updatedAtMs: s.updatedAtMs,
+                json: {
+                  'uuid': s.uuid,
+                  'medication_uuid': m.uuid,
+                  'timing_kind': s.timingKind.name,
+                  'anchor': s.anchor?.name,
+                  'offset_minutes': s.offsetMinutes,
+                  'repeat': s.repeat.name,
+                  'start_date': dateOnly(s.startDate),
+                  'duration_days': s.durationDays,
+                  'stopped_at': s.stoppedAt == null ? null : utcIso(s.stoppedAt!),
+                  'weekdays': s.weekdaysMask,
+                  'every_days': s.everyDays,
+                  'cycle_on': s.cycleOn,
+                  'cycle_off': s.cycleOff,
+                }
+              );
+            }(),
+        ],
+        (uuid, ms) => (_db.update(_db.doseSchedules)..where((t) => t.uuid.equals(uuid)))
+            .write(DoseSchedulesCompanion(syncedAtMs: Value(ms))),
+      );
+      await clearPatternRejected();
+    } on SyncRejected catch (e) {
+      // عمود مش موجود أو قيد اترفض = السحابة لسه قبل ٠٠٣٢
+      if (!_missingColumn(e) && e.code != '23514') rethrow;
+      await recordPatternRejected(DateTime.now(), e.code);
+    }
+  }
+
   Future<void> _pushFixedTimings() async {
     final query = _db.select(_db.fixedTimings).join([
       innerJoin(_db.doseSchedules,
           _db.doseSchedules.id.equalsExp(_db.fixedTimings.doseScheduleId)),
     ])
-      ..where(_db.fixedTimings.syncedAtMs.isNull() |
-          _db.fixedTimings.syncedAtMs
-              .isSmallerThan(_db.fixedTimings.updatedAtMs));
+      // الأب لازم يكون وصل السحابة الأول (جدول بنمط مستني ٠٠٣٢) — في الطريق
+      // العادي الأب بيترفع قبله في نفس الدفعة، فالشرط ده ما بيغيّرش حاجة
+      ..where((_db.fixedTimings.syncedAtMs.isNull() |
+              _db.fixedTimings.syncedAtMs.isSmallerThan(_db.fixedTimings.updatedAtMs)) &
+          _db.doseSchedules.syncedAtMs.isNotNull());
     final rows = await query.get();
     await _upsertAndMark(
       'fixed_timings',
@@ -775,8 +832,10 @@ class SyncService {
       innerJoin(_db.doseSchedules,
           _db.doseSchedules.id.equalsExp(_db.doseEvents.doseScheduleId)),
     ])
-      ..where(_db.doseEvents.syncedAtMs.isNull() |
-          _db.doseEvents.syncedAtMs.isSmallerThan(_db.doseEvents.updatedAtMs));
+      // نفس الشرط: حدث جدول لسه ما وصلش السحابة بيستناه
+      ..where((_db.doseEvents.syncedAtMs.isNull() |
+              _db.doseEvents.syncedAtMs.isSmallerThan(_db.doseEvents.updatedAtMs)) &
+          _db.doseSchedules.syncedAtMs.isNotNull());
     final rows = await query.get();
     await _upsertAndMark(
       'dose_events',
@@ -1116,3 +1175,29 @@ class SyncIdentityColumns {
 
 SyncIdentityColumns _cols(Column<int> synced, Column<int> updated) =>
     SyncIdentityColumns(synced, updated);
+
+/// ٠٠٣٢ لسه ما اتشغّلتش والسحابة رفضت جدول بنمط أيام — للأدمن (`patternSync`).
+const patternRejectedKey = 'sync.patternRejectedAt';
+
+Future<void> recordPatternRejected(DateTime at, String code) async {
+  diag('Sync: جدول بنمط أيام اترفض ($code) — فاضل على الموبايل ومستني ٠٠٣٢');
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(patternRejectedKey) == null) await prefs.setString(patternRejectedKey, at.toIso8601String());
+  } catch (_) {}
+}
+
+Future<void> clearPatternRejected() async {
+  try {
+    await (await SharedPreferences.getInstance()).remove(patternRejectedKey);
+  } catch (_) {}
+}
+
+Future<DateTime?> patternRejectedSince() async {
+  try {
+    final s = (await SharedPreferences.getInstance()).getString(patternRejectedKey);
+    return s == null ? null : DateTime.tryParse(s);
+  } catch (_) {
+    return null;
+  }
+}

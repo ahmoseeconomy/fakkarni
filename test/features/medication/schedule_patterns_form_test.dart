@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
+import 'package:fakkarni/domain/scheduling/day_pattern.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/every_hours.dart';
@@ -134,5 +135,33 @@ void main() {
     expect(active.every((s) => s.timing is FixedTiming), isTrue);
     final all = await h.db.select(h.db.doseSchedules).get();
     expect(all.where((s) => s.stoppedAt != null), hasLength(1), reason: 'القديمة اتوقفت، ما اتمسحتش');
+  });
+
+  screenTest('الجولة ٢: «أيام معينة» بمعاينة الأيام الجاية، وبتتحفظ بالنمط', (tester) async {
+    await pumpAdd(tester);
+    await tester.tap(find.byKey(const ValueKey('pattern-weekdays')));
+    await settle(tester);
+    expect(find.text('اختار يوم واحد على الأقل.'), findsOneWidget);
+    for (final d in [DateTime.saturday, DateTime.tuesday]) {
+      await tester.tap(find.byKey(ValueKey('weekday-$d')));
+      await settle(tester);
+    }
+    // ٣١ أغسطس ٢٠٢٦ اتنين: التلات ١، السبت ٥، التلات ٨، …
+    expect(find.text('الأيام الجاية: التلات ١، السبت ٥، التلات ٨، السبت ١٢، التلات ١٥'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
+    await settle(tester);
+    final saved = await h.meds.activeSchedules(h.services.patientId);
+    expect(saved.single.days, OnWeekdays({DateTime.saturday, DateTime.tuesday}));
+    expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('الجولة ٢: «فترة وراحة» ٢١/٧ افتراضياً بتتحفظ، و«كل كام يوم» بعجلة', (tester) async {
+    await pumpAdd(tester);
+    await tester.tap(find.byKey(const ValueKey('pattern-cycle')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('cycle-on')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('save-medication')));
+    await settle(tester);
+    expect((await h.meds.activeSchedules(h.services.patientId)).single.days, OnOffCycle(21, 7));
   });
 }

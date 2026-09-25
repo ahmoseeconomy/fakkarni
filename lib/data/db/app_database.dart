@@ -38,7 +38,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -513,6 +513,17 @@ class AppDatabase extends _$AppDatabase {
               ).get();
               if (existing.isEmpty) {
                 await customStatement('ALTER TABLE medications ADD COLUMN not_bought_at INTEGER NULL');
+              }
+            }
+            if (from < 29) {
+              // أنماط الأيام — أربع أعمدة null = «كل يوم». بحماية وجود، **فوق** التطبيع.
+              for (final column in ['weekdays_mask', 'every_days', 'cycle_on', 'cycle_off']) {
+                final existing = await customSelect(
+                  "SELECT 1 FROM pragma_table_info('dose_schedules') WHERE name = '$column'",
+                ).get();
+                if (existing.isEmpty) {
+                  await customStatement('ALTER TABLE dose_schedules ADD COLUMN $column INTEGER NULL');
+                }
               }
             }
             if (from < 6) {

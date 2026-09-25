@@ -464,6 +464,15 @@ class DoseSchedules extends Table with SyncIdentity {
   /// كانتش موجودة. null = صف من قبل النسخة ١٥، ساري من الأول (ما بنخترعش له
   /// وقت). مش `updatedAtMs` — دي ماكينة المزامنة، والجدولة ما تتعلّقش بيها.
   DateTimeColumn get activeFrom => dateTime().nullable()();
+
+  /// **أنماط الأيام (v29)** — كلهم null = «كل يوم» (كل الصفوف القديمة).
+  /// واحد بس بيبقى متعبّي: أيام معيّنة (بت لكل يوم، الاتنين = البت ٠)، أو
+  /// كل كام يوم، أو فترة وراحة (الاتنين مع بعض). الحساب في
+  /// `domain/scheduling/day_pattern.dart` من `start_date`.
+  IntColumn get weekdaysMask => integer().nullable()();
+  IntColumn get everyDays => integer().nullable()();
+  IntColumn get cycleOn => integer().nullable()();
+  IntColumn get cycleOff => integer().nullable()();
 }
 
 /// الساعة الثابتة لجرعة — صف واحد لكل جرعة نوعها `fixed`.
