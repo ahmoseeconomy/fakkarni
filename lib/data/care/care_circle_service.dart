@@ -48,7 +48,7 @@ class CareCircleException implements Exception {
         CareCircleFailure.invalidOrExpiredCode =>
           'الكود مش مضبوط أو خلّص وقته',
         CareCircleFailure.ownCode =>
-          'ده الكود بتاعك انت — الكود ده يكتبه ابنك على موبايله هو.',
+          'ده الكود بتاعك انت — الكود ده يكتبه ابنك أو ممرضك على موبايله هو.',
         CareCircleFailure.alreadyLinked => 'انتو مربوطين خلاص. كله تمام.',
         CareCircleFailure.followerCodeAtNurseDoor => 'الكود ده لمتابع — اطلب من المريض كود ممرض',
         CareCircleFailure.nurseCodeAtFollowerDoor =>

@@ -106,7 +106,7 @@ class _FollowersScreenState extends State<FollowersScreen> {
   Widget build(BuildContext context) {
     final rows = _rows;
     return Scaffold(
-      appBar: AppBar(title: const Text('اللي بيتابعوك')),
+      appBar: AppBar(title: const Text('عيلتك أو ممرضك')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
@@ -124,7 +124,7 @@ class _FollowersScreenState extends State<FollowersScreen> {
             Center(child: CircularProgressIndicator(color: F.green))
           else if (rows != null && rows.isEmpty)
             Text(
-              'محدش بيتابعك لسه — اعمل كود من «دائرة الرعاية».',
+              'مفيش حد من عيلتك أو ممرضك لسه — اعمل كود من «دائرة الرعاية».',
               key: const ValueKey('followers-empty'),
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
             )

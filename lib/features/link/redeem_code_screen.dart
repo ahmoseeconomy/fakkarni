@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter/services.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/code_boxes.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
 import '../../data/care/caregiver_remote.dart';
@@ -34,34 +34,14 @@ class RedeemCodeScreen extends StatefulWidget {
 }
 
 class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
-  final _code = TextEditingController();
+  /// اللي اتكتب في الخانات — أرقام غربية دايماً.
+  String _entered = '';
   String? _error;
   String? _linkedName;
   bool _busy = false;
 
-  @override
-  void dispose() {
-    _code.dispose();
-    super.dispose();
-  }
 
-  /// الأرقام العربي-الهندي → غربية، وأي حاجة تانية بتتشال.
-  static String normalize(String raw) {
-    const arabic = '٠١٢٣٤٥٦٧٨٩';
-    final out = StringBuffer();
-    for (final rune in raw.runes) {
-      final ch = String.fromCharCode(rune);
-      final i = arabic.indexOf(ch);
-      if (i >= 0) {
-        out.write(i);
-      } else if (rune >= 0x30 && rune <= 0x39) {
-        out.write(ch);
-      }
-    }
-    return out.toString();
-  }
-
-  String get _digits => normalize(_code.text);
+  String get _digits => _entered;
   bool get _complete => _digits.length == 6;
 
   Future<void> _redeem() async {
@@ -180,54 +160,19 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
                   ),
                   const SizedBox(height: F.s6),
                   Text(
-                    'اكتب الكود اللي والدك قالهولك — ٦ أرقام. بعدها هتشوف أدويته ومواعيده.',
+                    widget.door == FollowerRole.nurse
+                        ? 'اكتب الكود اللي المريض أو أهله إدوهولك — ٦ أرقام. بعدها هتشوف يومه وأدويته.'
+                        : 'اكتب الكود اللي والدك أو قريبك قالهولك — ٦ أرقام. بعدها هتشوف أدويته ومواعيده.',
                     style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
                   ),
                   const SizedBox(height: F.gap),
-                  TextField(
-                    textInputAction: TextInputAction.done,
-                    controller: _code,
-                    onChanged: (_) => setState(() {}),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      // أرقام عربي أو غربي — الحروف بتتشال
-                      FilteringTextInputFormatter.allow(RegExp('[0-9٠-٩]')),
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.ltr,
-                    style: const TextStyle(
-                      fontSize: F.bigTimeSize,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 8,
-                      fontFamily: F.monoFamily,
-                      fontFamilyFallback: F.monoFallback,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '000000',
-                      hintStyle: TextStyle(
-                        fontSize: F.bigTimeSize,
-                        letterSpacing: 8,
-                        color: F.placeholder,
-                        fontFamily: F.monoFamily,
-                        fontFamilyFallback: F.monoFallback,
-                      ),
-                      filled: true,
-                      fillColor: F.fieldGround,
-                      contentPadding: const EdgeInsets.symmetric(vertical: F.s18),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: BorderSide(color: F.line),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: BorderSide(color: F.line),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(F.radiusCard),
-                        borderSide: BorderSide(color: F.green, width: 2),
-                      ),
-                    ),
+                  // ست خانات — الإرسال لوحده مع الرقم السادس (والزرار فاضل لو
+                  // حاجة وقفته: شبكة، أو كود غلط اتصلّح)
+                  CodeBoxes(
+                    key: const ValueKey('redeem-code'),
+                    enabled: !_busy,
+                    onChanged: (digits) => setState(() => _entered = digits),
+                    onCompleted: (_) => _redeem(),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),

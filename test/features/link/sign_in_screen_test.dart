@@ -109,7 +109,7 @@ void main() {
 
     // الدورين من البيانات: نفس الشاشة بتعرض الطريقين بعد الدخول (كروت المخطط ٢)
     expect(find.text('اعرض كود الربط'), findsOneWidget);
-    expect(find.text('عندي كود من والدي'), findsOneWidget);
+    expect(find.text('عندي كود متابعة'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'كمّل بحساب تجريبي'), findsNothing);
     expect(find.text('المتابعة بحساب Google'), findsNothing, reason: 'بعد الدخول مفيش صفوف دخول');
 

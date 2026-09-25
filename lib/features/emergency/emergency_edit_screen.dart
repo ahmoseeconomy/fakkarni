@@ -247,7 +247,7 @@ class _EmergencyEditScreenState extends State<EmergencyEditScreen> {
                     style: body,
                     decoration: _field(
                       'صلة القرابة',
-                      hint: 'ابني، بنتي، دكتوري…',
+                      hint: 'ابني، بنتي، ممرضي، دكتوري…',
                     ),
                   ),
                   const SizedBox(height: F.s8),

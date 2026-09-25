@@ -207,8 +207,8 @@ class NotificationService {
   /// واحدة، إسكات واحدة بيسكّت التانية.
   static final _caregiverChannel = AndroidNotificationChannel(
     caregiverChannelId,
-    'تنبيه عن والدك',
-    description: 'لما جرعة تعدّي من غير تأكيد على موبايل والدك',
+    'تنبيه عن اللي بتتابعه',
+    description: 'لما جرعة تعدّي من غير تأكيد على موبايل المريض',
     importance: Importance.max,
     enableVibration: true,
     vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),

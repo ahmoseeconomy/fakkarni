@@ -449,6 +449,12 @@ class _TodayScreenState extends State<TodayScreen> {
                 followersKnown: _followersKnown,
                 now: _now,
               ),
+              // «مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا» — دعوة، مش شغل
+              // دلوقتي؛ مكانها تحت الجدول عشان ما تزقّش زرار التأكيد.
+              if (_followers.isEmpty) ...[
+                CareCircleRow(onOpen: _openCircle, followers: const []),
+                const SizedBox(height: F.gap),
+              ],
               StreamBuilder<List<DoseEventView>>(
                 stream: _tomorrow,
                 builder: (context, snap) {
@@ -672,7 +678,10 @@ class _HomeHeader extends StatelessWidget {
         const NotificationsOffLine(),
         // اللي الممرض غيّره واتطبّق هنا (المرحلة ب) — بيتقال بالاسم
         const CircleNotices(),
-        CareCircleRow(onOpen: onOpenCircle, followers: followers),
+        // مين بيتابعه — **بأساميهم** فوق. الدعوة لما محدش مربوط اتنقلت تحت
+        // الجدول: جملتها أطول وبتلفّ سطرين على SE، وده كان بيزقّ «تأكيد
+        // الجرعة» تحت «ضيف» العايم (هامش القياس بكسل ونص).
+        if (followers.isNotEmpty) CareCircleRow(onOpen: onOpenCircle, followers: followers),
       ],
     );
   }

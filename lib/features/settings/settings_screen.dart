@@ -34,7 +34,7 @@ import '../../data/repositories/preferences_repository.dart';
 /// الرعاية». لو السحابة بقت بتشيل حاجة جديدة، السطر ده بيتغيّر معاها في نفس
 /// الجولة. مش بيقول «مش مربوط» ولا «مربوط» — الموبايل ده ما يعرفش ده بيقين.
 const caregiverCanSee =
-    'لو ربطت ابنك أو بنتك، هيشوفوا: أدويتك ومواعيدها، جرعاتك، قياسات السكر، '
+    'لو ربطت حد من عيلتك، هيشوفوا: أدويتك ومواعيدها، جرعاتك، قياسات السكر، '
     'الملف الصحي والتحاليل، أسئلة الدكتور، وفصيلة الدم والحساسية والأمراض المزمنة. '
     'مش هيشوفوا أرقام الطوارئ ولا الصور، ومش هيقدروا يغيّروا أي حاجة. '
     'الممرض أو المرافق بيشوف نفس ده، وبيأكّد الجرعة بدالك، ويعدّل الأدوية والمواعيد لو سمحتله — '
@@ -135,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _Row(
               icon: Icons.notifications_outlined,
               label: 'التنبيهات',
-              hint: 'سلّم التذكير، وإمتى ابنك بيتبلّغ',
+              hint: 'سلّم التذكير، وإمتى عيلتك أو ممرضك بيتبلّغوا',
               onTap: () => _open(const NotificationsScreen()),
             ),
             _ElderModeRow(settings: services.preferences),
@@ -156,7 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _Row(
               icon: Icons.people_outline,
               label: 'دائرة الرعاية',
-              hint: 'اربط ابنك أو بنتك عشان يتابعوك',
+              hint: 'اربط حد من عيلتك أو ممرضك',
               value: user == null ? 'مش مربوط' : 'مربوط',
               onTap: () => _open(SignInScreen(
                 auth: services.auth,
@@ -168,7 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _Row(
                 icon: Icons.family_restroom_outlined,
                 label: 'اشتراك العيلة',
-                hint: 'اشتراك واحد ليك وللي بيتابعوك — التذكير مجاني للأبد',
+                hint: 'اشتراك واحد ليك ولعيلتك أو ممرضك — التذكير مجاني للأبد',
                 onTap: () async {
                   final patient = await services.routines.getPatient(services.patientId);
                   if (!context.mounted) return;
@@ -182,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (user != null && services.careAdmin != null)
               _Row(
                 icon: Icons.manage_accounts_outlined,
-                label: 'اللي بيتابعوك',
+                label: 'عيلتك أو ممرضك',
                 hint: 'الدور والصلاحيات لكل واحد، وشيل اللي مش عايزه',
                 onTap: () async {
                   final patient = await services.routines.getPatient(services.patientId);
@@ -340,7 +340,7 @@ class _SharePapersRowState extends State<_SharePapersRow> {
               key: const ValueKey('share-papers'),
               label: 'شارك صور الورق مع الممرض',
               subtitle: _on
-                  ? 'الممرض بيشوف صور روشتاتك وتحاليلك — اللي بيتابعوك بس لأ'
+                  ? 'الممرض بيشوف صور روشتاتك وتحاليلك — المتابعين من عيلتك لأ'
                   : 'صور الورق على موبايلك بس — الممرض بيشوف الورقة من غير صورتها',
               value: _on,
               onChanged: (on) async {

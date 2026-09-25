@@ -49,10 +49,9 @@ void main() {
     await settle(tester);
   }
 
+  /// الخانات بتربط لوحدها مع الرقم السادس — مفيش دوسة «اربط».
   Future<void> type(WidgetTester tester, String code) async {
-    await tester.enterText(find.byType(TextField), code);
-    await settle(tester);
-    await tester.tap(find.text('اربط'));
+    await tester.enterText(find.byKey(const ValueKey('code-field')), code);
     await settle(tester);
   }
 

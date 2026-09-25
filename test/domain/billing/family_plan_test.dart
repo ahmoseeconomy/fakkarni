@@ -105,13 +105,13 @@ void main() {
       final n = at(sub(SubscriptionStatus.trial, trialEnds: DateTime(2026, 9, 27, 12)), DateTime(2026, 9, 24, 9));
       expect(familyEndingLine(notice: n, date: d, followerNames: ['محمد', 'سارة']),
           'تنبيهات محمد وسارة هتقف يوم 27/9 لو الاشتراك ما اتجددش');
-      expect(familyEndingLine(notice: n, date: d), 'تنبيهات اللي بيتابعوك هتقف يوم 27/9 لو الاشتراك ما اتجددش');
+      expect(familyEndingLine(notice: n, date: d), 'تنبيهات عيلتك أو ممرضك هتقف يوم 27/9 لو الاشتراك ما اتجددش');
       expect(familyEndingLine(notice: n, date: d, patientName: 'الحاج أحمد', forFollower: true),
           'تنبيهاتك عن الحاج أحمد هتقف يوم 27/9 لو الاشتراك ما اتجددش');
       final today = at(sub(SubscriptionStatus.trial, trialEnds: DateTime(2026, 9, 24, 20)), DateTime(2026, 9, 24, 9));
       expect(familyEndingLine(notice: today, date: d, followerNames: ['محمد']), 'تنبيهات محمد هتقف النهارده لو الاشتراك ما اتجددش');
       expect(familyEndedFollowerLine('الحاج أحمد'), 'التنبيهات واقفة — مش هتتبلّغ لو الحاج أحمد فوّت جرعة');
-      expect(familyEndedPatientLine, 'اللي بيتابعوك مش بيتبلّغوا دلوقتي');
+      expect(familyEndedPatientLine, 'عيلتك أو ممرضك مش بيتبلّغوا دلوقتي');
       expect(joinArabicNames(['أ', 'ب', 'ج']), 'أ، ب وج');
     });
   });

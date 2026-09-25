@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/code_boxes.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/care/care_circle_service.dart';
@@ -143,15 +144,15 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
   }
 
   /// نص الرسالة اللي بتتبعت — الكود بأرقام غربية عشان يتكتب زي ما هو.
-  static String message(InviteCode invite) =>
-      'كود ربط فكّرني: ${invite.code} — اكتبه في التطبيق من «عندي كود». '
+  static String message(InviteCode invite, [FollowerRole role = FollowerRole.follower]) =>
+      'كود ربط فكّرني: ${invite.code} — اكتبه في التطبيق من «${role.door}». '
       'صالح لحد ${arabicTime(invite.expiresAt)}.';
 
   Future<void> _copy() async {
     final invite = _invite;
     if (invite == null) return;
     await Clipboard.setData(ClipboardData(text: invite.code));
-    if (mounted) setState(() => _notice = 'اتنسخ — ابعته لابنك في واتساب أو رسالة.');
+    if (mounted) setState(() => _notice = 'اتنسخ — ابعته ${_role == FollowerRole.nurse ? 'للممرض' : 'لابنك أو بنتك'} في واتساب أو رسالة.');
   }
 
   Future<void> _share() async {
@@ -159,12 +160,12 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
     if (invite == null) return;
     final share = widget.share;
     if (share != null) {
-      await share(message(invite));
+      await share(message(invite, _role));
       return;
     }
     // مفيش ورقة مشاركة — بننسخ الرسالة كاملة وبنقول كده، مش بنخلّي الزرار يعمل لا شيء
-    await Clipboard.setData(ClipboardData(text: message(invite)));
-    if (mounted) setState(() => _notice = 'الرسالة اتنسخت — الصقها لابنك في واتساب.');
+    await Clipboard.setData(ClipboardData(text: message(invite, _role)));
+    if (mounted) setState(() => _notice = 'الرسالة اتنسخت — الصقها ${_role == FollowerRole.nurse ? 'للممرض' : 'لابنك أو بنتك'} في واتساب.');
   }
 
   @override
@@ -189,7 +190,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
             ),
             const SizedBox(height: F.s6),
             Text(
-              'الكود ده بيربط موبايل ابنك بموبايلك: يشوف أدويتك ومواعيدك، '
+              'الكود ده بيربط موبايل حد من عيلتك أو ممرضك بموبايلك: يشوف أدويتك ومواعيدك، '
               'ولو جرعة اتنست يوصله تنبيه. قوله في التليفون أو ابعته.',
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.7),
             ),
@@ -209,7 +210,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                     Expanded(
                       child: AnchorChip(
                         key: ValueKey('invite-role-${role.name}'),
-                        label: role.label,
+                        label: role.inviteLabel,
                         selected: _role == role,
                         onTap: () => _pickRole(role),
                       ),
@@ -234,7 +235,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                   style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
                 ),
                 Text(
-                  'تقدر تغيّر ده بعدين من «اللي بيتابعوك».',
+                  'تقدر تغيّر ده بعدين من «عيلتك أو ممرضك».',
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
               ],
@@ -272,24 +273,9 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
                       style: TextStyle(fontSize: 56, fontWeight: FontWeight.w700, color: F.line, height: 1.2),
                     )
                   else
-                    Text(
-                      // ستة أرقام في تتابع واحد — من غير تجميع ولا مسافة: التجميع
-                      // بيفتح سؤال ترتيب مجموعات في bidi مالوش لازمة، والكود بيتقرا
-                      // بصوت عالي في التليفون رقم رقم.
-                      arabicDigits(invite.code),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        // أكبر خط في التطبيق كله — بيتقري من بعيد
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
-                        color: F.greenDeep,
-                        fontFamily: F.monoFamily,
-                        fontFamilyFallback: F.monoFallback,
-                        // أرقام — مش حروف متصلة، فالتباعد هنا مسموح
-                        letterSpacing: 4,
-                        height: 1.2,
-                      ),
-                    ),
+                    // **نفس الست خانات اللي الابن أو الممرض بيكتب فيها** —
+                    // اللي بيتقري هنا هو اللي بيتكتب هناك، رقم رقم ومن الشمال.
+                    CodeBoxes(key: const ValueKey('invite-code'), value: invite.code, readOnly: true),
                   const SizedBox(height: F.s8),
                   Text(
                     invite == null
@@ -338,7 +324,7 @@ class _LinkCodeScreenState extends State<LinkCodeScreen> {
             ),
             const SizedBox(height: F.s12),
             Text(
-              'ابنك بيفتح التطبيق عنده ويدوس «عندي كود» ويكتبه. الكود بيشتغل مرة واحدة.',
+              '${_role.holder} بيفتح التطبيق عنده ويختار «${_role.door}» ويكتبه. الكود بيشتغل مرة واحدة.',
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
             ),
             const SizedBox(height: F.gap),

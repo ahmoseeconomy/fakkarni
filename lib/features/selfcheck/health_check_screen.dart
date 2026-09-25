@@ -160,7 +160,7 @@ class _AllWellCard extends StatelessWidget {
                   ),
                   const SizedBox(height: F.s4),
                   Text(
-                    'التذكير هيرن في معاده، واللي بيتابعك بيشوف جرعاتك أول بأول.',
+                    'التذكير هيرن في معاده، وعيلتك أو ممرضك بيشوفوا جرعاتك أول بأول.',
                     style: TextStyle(
                         fontSize: F.minBodySize, color: F.mutedDark, height: 1.5),
                   ),
@@ -230,7 +230,7 @@ class _FindingCard extends StatelessWidget {
         HealthFix.openNotificationSettings => 'افتح إعدادات التنبيهات',
         HealthFix.openExactAlarmSettings => 'اسمح بالتنبيه في معاده',
         HealthFix.openBatterySettings => 'افتح إعدادات البطارية',
-        HealthFix.linkCaregiver => 'اربط حد يتابعك',
+        HealthFix.linkCaregiver => 'اربط حد من عيلتك أو ممرضك',
         HealthFix.none => '',
       };
 }

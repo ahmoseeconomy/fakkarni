@@ -221,7 +221,7 @@ HealthFinding? checkNoCaregiver(HealthSnapshot s) {
   return const HealthFinding(
     code: HealthCode.noCaregiver,
     severity: Severity.note,
-    title: 'مفيش حد مربوط يتابعك',
+    title: 'مفيش حد من عيلتك أو ممرضك مربوط',
     why: 'لو جرعة عدّت من غير تأكيد، مفيش حد هيتبلّغ. التذكير على الموبايل '
         'شغّال زي ما هو.',
     fix: HealthFix.linkCaregiver,

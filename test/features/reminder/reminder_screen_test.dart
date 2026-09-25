@@ -248,13 +248,13 @@ void main() {
     ]);
   });
 
-  screenTest('بعد ٦٠ دقيقة → المرحلة ٤ «إشعار لابنك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
+  screenTest('بعد ٦٠ دقيقة → المرحلة ٤ «إشعار لعيلتك أو ممرضك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 15, 5));
 
     expect(find.text('تنبيه — المرحلة ٤'), findsOneWidget);
     expect(find.text('مرّت ٦٠ دقيقة على موعد الجرعة'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+٦٠ د — إشعار لابنك')).style?.color, F.amber);
+    expect(tester.widget<Text>(find.text('+٦٠ د — إشعار لعيلتك أو ممرضك')).style?.color, F.amber);
     expect(ladderSteps.length, 4, reason: 'الدرجة الخامسة مش مبنية');
     expect(find.textContaining('دائرة الرعاية'), findsNothing);
     expect(find.textContaining('+٩٠'), findsNothing);

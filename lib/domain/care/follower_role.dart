@@ -15,6 +15,24 @@ enum FollowerRole {
   final String label;
   final String explain;
 
+  /// على شريحة عمل الكود — النوعين اللي حوالين المريض بالاسم.
+  String get inviteLabel => switch (this) {
+        follower => 'متابع — من العيلة',
+        nurse => 'ممرض أو مرافق',
+      };
+
+  /// اللي بيكتب الكود ده — للجمل اللي بتقول للمريض يعمل إيه بيه.
+  String get holder => switch (this) {
+        follower => 'ابنك أو بنتك',
+        nurse => 'الممرض',
+      };
+
+  /// الباب اللي بيتكتب فيه الكود على الموبايل التاني.
+  String get door => switch (this) {
+        follower => 'معايا كود متابعة',
+        nurse => 'أنا ممرض / مرافق',
+      };
+
   static FollowerRole fromStored(String? stored) => stored == 'nurse' ? nurse : follower;
 
   /// افتراضياً الممرض يقدر يأكّد؛ المتابع لأ. تعديل الأدوية للاتنين مقفول

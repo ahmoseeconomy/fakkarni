@@ -201,9 +201,9 @@ class _SignInScreenState extends State<SignInScreen> {
             const SizedBox(height: F.s8),
             Text(
               widget.forCaregiver
-                  ? 'عشان تشوف أدوية والدك ومواعيده، ونبلّغك لو نسي جرعة، لازم حساب '
+                  ? '${widget.door == FollowerRole.nurse ? 'عشان تشوف يوم المريض وأدويته وتأكّد جرعاته' : 'عشان تشوف أدوية والدك ومواعيده'}، ونبلّغك لو نسي جرعة، لازم حساب '
                       'يعرّفنا مين أنت. ده المكان الوحيد في التطبيق اللي بنطلب فيه حساب.'
-                  : 'عشان لو جرعة مهمة فاتت، نعرف نكلّم ابنك على موبايله هو. '
+                  : 'عشان لو جرعة مهمة فاتت، نعرف نبلّغ عيلتك أو ممرضك على موبايلهم. '
                       'الربط ده محتاج حساب يعرّفنا مين أنت — والتطبيق من غيره '
                       'شغّال بكل حاجة تانية عادي.',
               textAlign: TextAlign.center,
@@ -221,7 +221,9 @@ class _SignInScreenState extends State<SignInScreen> {
               _PathCard(
                 icon: Icons.link,
                 title: 'اكتب الكود',
-                hint: 'الكود اللي والدك أو والدتك قالهولك — ٦ أرقام',
+                hint: widget.door == FollowerRole.nurse
+                    ? 'الكود اللي المريض إداهولك — ٦ أرقام'
+                    : 'الكود اللي والدك أو والدتك قالهولك — ٦ أرقام',
                 onTap: _busy ? null : _openRedeem,
               ),
             ] else if (_user != null) ...[
@@ -230,7 +232,7 @@ class _SignInScreenState extends State<SignInScreen> {
               _PathCard(
                 icon: Icons.person_outline,
                 title: 'اعرض كود الربط',
-                hint: 'أنا صاحب الأدوية — عايز ابني يتابعني',
+                hint: 'أنا صاحب الأدوية — عايز حد من عيلتي أو ممرضي يتابعني',
                 onTap: _busy ? null : _showCode,
               ),
               const SizedBox(height: F.s10),
@@ -249,7 +251,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ],
               _PathCard(
                 icon: Icons.link,
-                title: 'عندي كود من والدي',
+                title: 'عندي كود متابعة',
                 hint: 'أنا بتابع حد — معايا كود الربط بتاعه',
                 onTap: _busy
                     ? null

@@ -66,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.s30 * 2),
             children: [
               Text(
-                'إيه اللي بيرن على الموبايل ده، وإمتى ابنك بيتبلّغ.',
+                'إيه اللي بيرن على الموبايل ده، وإمتى عيلتك أو ممرضك بيتبلّغوا.',
                 style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
               ),
               const SizedBox(height: F.s12),
@@ -107,7 +107,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: _LockedRow(
                   label: 'تفويت جرعة',
                   hint: 'لو عدّت ${arabicNumber(serverGraceWindow.inMinutes)} دقيقة من غير تأكيد، '
-                      'ابنك بيتبلّغ — ما بيتقفلش',
+                      'عيلتك أو ممرضك بيتبلّغوا — ما بيتقفلش',
                 ),
               ),
               const SizedBox(height: F.gap),
@@ -135,15 +135,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                     Divider(color: F.lineSoft, height: F.s16),
                     _LockedRow(
-                      label: '${minutes(serverGraceWindow)} — إشعار لابنك',
-                      hint: 'من السيرفر، لو الموبايل مربوط بابنك',
+                      label: '${minutes(serverGraceWindow)} — إشعار لعيلتك أو ممرضك',
+                      hint: 'من السيرفر، لو الموبايل مربوط بحد من عيلتك أو ممرضك',
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: F.s10),
               Text(
-                '${say.pick('لو قفلت', 'لو قفلتي')} +١٥ و+٣٠، التذكير في الموعد وإشعار ابنك بيفضلوا زي ما هم.',
+                '${say.pick('لو قفلت', 'لو قفلتي')} +١٥ و+٣٠، التذكير في الموعد وإشعار عيلتك أو ممرضك بيفضلوا زي ما هم.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
             ],

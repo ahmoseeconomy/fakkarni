@@ -404,7 +404,7 @@ void main() {
       expect(find.text('دائمًا'), findsNWidgets(3));
       expect(find.text('تفويت جرعة'), findsOneWidget);
       expect(find.text('في الموعد'), findsOneWidget);
-      expect(find.text('+٦٠ د — إشعار لابنك'), findsOneWidget);
+      expect(find.text('+٦٠ د — إشعار لعيلتك أو ممرضك'), findsOneWidget);
       expect(find.byType(Switch), findsNWidgets(2));
       expect(find.text('+١٥ د'), findsOneWidget);
       expect(find.text('+٣٠ د'), findsOneWidget);

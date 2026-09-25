@@ -250,7 +250,7 @@ String familyEndingLine({
   final when = notice.daysLeft == 0 ? 'النهارده' : 'يوم ${date(notice.endsAt!)}';
   final who = forFollower
       ? (patientName == null || patientName.trim().isEmpty ? 'تنبيهاتك' : 'تنبيهاتك عن ${patientName.trim()}')
-      : (joinArabicNames(followerNames).isEmpty ? 'تنبيهات اللي بيتابعوك' : 'تنبيهات ${joinArabicNames(followerNames)}');
+      : (joinArabicNames(followerNames).isEmpty ? 'تنبيهات عيلتك أو ممرضك' : 'تنبيهات ${joinArabicNames(followerNames)}');
   return '$who هتقف $when لو الاشتراك ما اتجددش';
 }
 
@@ -261,4 +261,4 @@ String familyEndedFollowerLine(String? patientName) {
 }
 
 /// السطر الواحد عند المريض بعد النهاية.
-const String familyEndedPatientLine = 'اللي بيتابعوك مش بيتبلّغوا دلوقتي';
+const String familyEndedPatientLine = 'عيلتك أو ممرضك مش بيتبلّغوا دلوقتي';

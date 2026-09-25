@@ -157,7 +157,7 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
                 const SizedBox(height: F.s6),
                 const NurseQuietLine('أي تعديل بيتبعت لموبايله ويتطبّق أول ما يفتح التطبيق.'),
               ] else if (!snapshot.patient.permissions.canEditMeds)
-                const NurseQuietLine('تعديل الأدوية محتاج المريض يسمح بيه من «اللي بيتابعوك» على موبايله.'),
+                const NurseQuietLine('تعديل الأدوية محتاج المريض يسمح بيه من «عيلتك أو ممرضك» على موبايله.'),
             ],
           );
         },

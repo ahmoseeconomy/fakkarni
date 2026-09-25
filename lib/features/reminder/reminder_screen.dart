@@ -37,7 +37,7 @@ final List<LadderStep> ladderSteps = [
   LadderStep('+${arabicNumber(EscalationRung.second.delay.inMinutes)} د', EscalationRung.second.delay),
   // السيرفر هو اللي بيبلّغ الابن، بعد مهلته هو (٦٠) — مش مهلة الجهاز (٤٥).
   // «+٤٥» كان بيوعد بإشعار قبل ما حد يبعته فعلاً.
-  LadderStep('+${arabicNumber(serverGraceWindow.inMinutes)} د — إشعار لابنك', serverGraceWindow),
+  LadderStep('+${arabicNumber(serverGraceWindow.inMinutes)} د — إشعار لعيلتك أو ممرضك', serverGraceWindow),
 ];
 
 /// المرحلة الحالية (0..3) من الوقت اللي عدّى فعلاً على معاد الجرعة.

@@ -53,7 +53,7 @@ class FollowerProfile {
 /// واحد بياخد جملته كاملة بصيغتها؛ أكتر من واحد بيتعدّوا بأسمائهم وصلاتهم،
 /// والفعل بيبقى جمع — «بيتابعوك».
 String followersLine(List<FollowerProfile> followers) => switch (followers.length) {
-      0 => 'محدش بيتابعك لسه — اربط ابنك أو بنتك',
+      0 => 'مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا',
       1 => followers.single.sentence,
       _ => 'بيتابعوك: ${followers.map((f) => f.title).join('، ')}',
     };

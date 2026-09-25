@@ -321,13 +321,11 @@ void main() {
       expect(auth.signInCalls, 1);
       expect(find.text('عندي كود'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), '123456');
-      await tester.pump();
-      await tester.tap(find.text('اربط'));
+      // الست خانات بتربط لوحدها مع الرقم السادس
+      await tester.enterText(find.byKey(const ValueKey('code-field')), '123456');
       await settle(tester);
       expect(care.redeemed, ['123456']);
       expect(sink.permissionRequests, 1, reason: 'من غير الإذن تنبيه ابنه ما بيظهرش');
-
       await tester.tap(find.text('افتح المتابعة'));
       await settle(tester);
 

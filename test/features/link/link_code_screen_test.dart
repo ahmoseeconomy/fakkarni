@@ -10,6 +10,12 @@ import 'package:fakkarni/features/link/link_code_screen.dart';
 import '../../data/care/care_circle_service_test.dart' show FakeCareCircleService;
 import '../scan/scan_test_support.dart' show settle, screenTest, expectNoRedAndMinSize;
 
+/// الكود زي ما بيتعرض في الست خانات، من الشمال لليمين.
+String shownCode(WidgetTester tester) => [
+      for (var i = 0; i < 6; i++)
+        tester.widget<Text>(find.descendant(of: find.byKey(ValueKey('code-box-$i')), matching: find.byType(Text))).data,
+    ].join();
+
 void main() {
   late FakeCareCircleService care;
 
@@ -43,11 +49,14 @@ void main() {
     expect(care.upserts, [(uuid: 'p-uuid-1', name: 'الحاج أحمد')]);
     expect(care.createdFor, ['p-uuid-1']);
 
-    // «١٢٣٤٥١» — عربي زي باقي التطبيق، ستة أرقام في تتابع واحد من غير مسافة
-    expect(find.text('١٢٣٤٥١'), findsOneWidget);
-    final code = tester.widget<Text>(find.text('١٢٣٤٥١'));
-    expect(code.style?.letterSpacing, greaterThan(0), reason: 'أرقام — التباعد مسموح');
-    expect(code.style?.fontSize, greaterThanOrEqualTo(48), reason: 'بيتقري عبر أوضة');
+    // «١٢٣٤٥١» — عربي زي باقي التطبيق، في نفس الست خانات اللي بتتكتب فيها،
+    // ومن الشمال لليمين
+    expect(shownCode(tester), '١٢٣٤٥١');
+    expect(tester.getSize(find.byKey(const ValueKey('code-box-0'))).height, greaterThanOrEqualTo(48),
+        reason: 'بيتقري عبر أوضة');
+    expect(tester.getCenter(find.byKey(const ValueKey('code-box-0'))).dx,
+        lessThan(tester.getCenter(find.byKey(const ValueKey('code-box-5'))).dx));
+    expect(find.byKey(const ValueKey('code-field')), findsNothing, reason: 'عرض بس — مش حقل');
     expect(find.text('دائرة الرعاية'), findsOneWidget);
     expect(find.textContaining('يشوف أدويتك ومواعيدك'), findsOneWidget);
     expect(find.textContaining('صالح ١٥ دقيقة'), findsOneWidget);
@@ -102,7 +111,7 @@ void main() {
     await settle(tester);
 
     expect(shared, contains('123451'));
-    expect(shared, contains('عندي كود'));
+    expect(shared, contains('معايا كود متابعة'));
   });
 
   screenTest('«كود جديد» ٦٤ وبيجيب كوداً مختلفاً', (tester) async {
@@ -114,8 +123,7 @@ void main() {
     await tester.tap(find.text('كود جديد'));
     await settle(tester);
 
-    expect(find.text('١٢٣٤٥٢'), findsOneWidget);
-    expect(find.text('١٢٣٤٥١'), findsNothing);
+    expect(shownCode(tester), '١٢٣٤٥٢');
     expect(care.createdFor.length, 2);
   });
 
@@ -145,8 +153,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('الكود ده لمين؟'), findsOneWidget);
-    expect(find.text('متابع'), findsOneWidget);
-    expect(find.text('ممرض / مرافق'), findsOneWidget);
+    expect(find.text('متابع — من العيلة'), findsOneWidget);
+    expect(find.text('ممرض أو مرافق'), findsOneWidget);
     expect(roles.created, [FollowerRole.follower], reason: 'الافتراضي متابع — زي كل الأكواد القديمة');
     expect(care.createdFor, isEmpty, reason: 'مع الأدوار الكود بيتعمل من الدالة اللي بتاخد الدور');
 
@@ -159,7 +167,7 @@ void main() {
     await settle(tester);
     expect(roles.created, [FollowerRole.follower, FollowerRole.nurse]);
     expect(roles.canEdit.last, isTrue, reason: 'الإجابة بتروح مع الكود');
-    expect(find.text('٦٥٤٣٢٢'), findsOneWidget, reason: 'كود جديد بدوره');
+    expect(shownCode(tester), '٦٥٤٣٢٢', reason: 'كود جديد بدوره');
     expect(find.byKey(const ValueKey('invite-nurse-edit-line')), findsOneWidget);
     expect(find.textContaining('يأكّد الجرعة بدالك'), findsOneWidget);
     expectNoRedAndMinSize(tester);
@@ -194,6 +202,8 @@ void main() {
     expect(roles.created.last, FollowerRole.nurse);
     expect(roles.canEdit.last, isFalse);
     expect(find.textContaining('بيشوف ويأكّد بس'), findsOneWidget);
+    // الجملة بتسمّي اللي هيكتب الكود والباب اللي هيكتبه فيه
+    expect(find.textContaining('الممرض بيفتح التطبيق عنده ويختار «أنا ممرض / مرافق»'), findsOneWidget);
   });
 }
 
