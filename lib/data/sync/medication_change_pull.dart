@@ -109,7 +109,7 @@ class MedicationChangePuller {
       }
       if (applied > 0) {
         await scheduler.rescheduleAll(now: clock());
-        await _remember(lines);
+        await remember(lines);
       }
       return applied;
     } catch (error) {
@@ -275,7 +275,8 @@ class MedicationChangePuller {
 
   static String? _blankToNull(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
 
-  Future<void> _remember(List<String> lines) async {
+  /// بيضيف جُمل لكارت «يومك» — سحبة «خرج من الدايرة» بتنده عليها كمان.
+  static Future<void> remember(List<String> lines) async {
     final merged = [...lines, ...notices.value].take(maxNotices).toList();
     notices.value = merged;
     try {

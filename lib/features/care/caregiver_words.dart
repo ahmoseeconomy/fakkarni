@@ -1,3 +1,4 @@
+import '../../domain/care/circle_departure.dart';
 import '../../core/format/arabic_time.dart';
 import '../../data/care/caregiver_remote.dart';
 import '../../data/db/tables.dart' show GlucoseContext, RecordKind;
@@ -70,6 +71,7 @@ String newItemTitle(CaregiverNewItem item) => switch (item.type) {
       NewItemType.reading =>
         'قياس سكر ${glucoseContextLabel(item.reading!.context)}: ${glucoseValue(item.reading!.valueMgDl)}',
       NewItemType.question => 'سؤال للدكتور: ${item.question!.body}',
+      NewItemType.departure => departureLine(item.departure!),
     };
 
 // ---------------------------------------------------------------- «كمان …»

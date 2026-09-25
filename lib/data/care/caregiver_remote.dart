@@ -7,6 +7,7 @@
 /// هو اللي على موبايل الأب؛ إحنا بنعرض اللي كتبه، أو ما نعرضش.
 library;
 
+import '../../domain/care/circle_departure.dart';
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/health/lab_range.dart';
@@ -210,7 +211,12 @@ class CaregiverSnapshot {
     this.proxied = const {},
     this.sharedPapers = const {},
     this.vitals = const [],
+    this.departures = const [],
   });
+
+  /// «فلان خرج من الدايرة» (0033) — اللي مسح حسابه، الأحدث الأول. فاضية
+  /// قبل 0033.
+  final List<CircleDeparture> departures;
 
   /// القياسات الحيوية (v25 / ٠٠٢٧) في آخر ٩٠ يوم، الأحدث الأول — قراية بس.
   /// فاضية لو الهجرة لسه ما اتشغّلتش.
@@ -366,7 +372,7 @@ class CaregiverQuestion {
 }
 
 /// حاجة واحدة في «الجديد» — أي نوع.
-enum NewItemType { record, reading, question }
+enum NewItemType { record, reading, question, departure }
 
 class CaregiverNewItem {
   const CaregiverNewItem({
@@ -376,8 +382,10 @@ class CaregiverNewItem {
     this.record,
     this.reading,
     this.question,
+    this.departure,
   });
   final NewItemType type;
+  final CircleDeparture? departure;
 
   /// الترتيب — لحظة الوصول.
   final DateTime arrivedAt;
@@ -406,6 +414,8 @@ List<CaregiverNewItem> newestArrivals(CaregiverSnapshot snapshot, {int limit = 1
       CaregiverNewItem(type: NewItemType.reading, arrivedAt: r.updatedAt, happenedAt: r.measuredAt, reading: r),
     for (final q in snapshot.questions)
       CaregiverNewItem(type: NewItemType.question, arrivedAt: q.updatedAt, happenedAt: q.writtenAt, question: q),
+    for (final d in snapshot.departures)
+      CaregiverNewItem(type: NewItemType.departure, arrivedAt: d.leftAt, happenedAt: d.leftAt, departure: d),
   ]..sort((a, b) => b.arrivedAt.compareTo(a.arrivedAt));
   return items.take(limit).toList();
 }

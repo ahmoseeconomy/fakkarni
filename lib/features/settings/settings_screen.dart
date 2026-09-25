@@ -15,6 +15,8 @@ import '../../data/files/paper_share.dart';
 import '../billing/family_plan_screen.dart';
 import '../medication/refill_actions.dart';
 import 'followers_screen.dart';
+import '../../core/widgets/legal_links_row.dart';
+import '../account/delete_account_screen.dart';
 import 'diagnostics_log_screen.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
@@ -207,6 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
               ),
             ),
+            const LegalLinksRow(),
             const _Row(
               icon: Icons.translate_outlined,
               label: 'اللغة',
@@ -247,6 +250,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'الأدوية والتذكيرات بتفضل على الموبايل زي ما هي — الخروج بيفكّ الربط بس.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
+              // Apple 5.1.1(v): المسح من جوّه التطبيق — صفحته بتقول بالظبط إيه اللي بيتمسح
+              if (services.accountDeletion != null) ...[
+                const SizedBox(height: F.gap),
+                FSecondaryButton(
+                  key: const ValueKey('settings-delete-account'),
+                  label: 'امسح حسابي',
+                  onPressed: _busy
+                      ? null
+                      : () => _open(const DeleteAccountScreen(who: DeletingAs.patient)),
+                ),
+              ],
             ],
           ],
         );

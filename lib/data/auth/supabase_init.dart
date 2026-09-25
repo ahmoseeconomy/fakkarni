@@ -1,3 +1,7 @@
+import '../account/account_deletion.dart';
+import '../account/supabase_account_deletion.dart';
+import '../care/circle_departures.dart';
+import '../care/supabase_circle_departures.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -149,6 +153,8 @@ typedef CloudServices = ({
   SubscriptionRemote subscriptions,
   PaperUploads papers,
   MedPhotoRemote medPhotos,
+  AccountDeletionRemote accountDeletion,
+  CircleDepartureRemote departures,
 });
 
 /// بيجهّز Supabase ويرجّع خدمات السحابة — أو null لو الإعداد ناقص.
@@ -185,6 +191,8 @@ Future<CloudServices?> initSupabaseAuth() async {
       subscriptions: SupabaseSubscriptionRemote(supabase.client),
       papers: SupabasePaperUploads(supabase.client),
       medPhotos: SupabaseMedPhotos(supabase.client),
+      accountDeletion: SupabaseAccountDeletion(supabase.client),
+      departures: SupabaseCircleDepartures(supabase.client),
     );
   } catch (error, stack) {
     // جلسة منتهية أو تخزين بايظ أو أي حاجة — مش هنوقّع تطبيق تذكير دوا

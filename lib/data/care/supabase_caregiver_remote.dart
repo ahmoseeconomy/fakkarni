@@ -1,3 +1,4 @@
+import 'supabase_circle_departures.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
@@ -519,6 +520,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
           questions: [for (final q in questions) questionFromRow(q)],
           sharedPapers: await _sharedPapers(patient),
           vitals: [for (final v in vitals) ?vitalFromRow(v)],
+          departures: await fetchDepartures(_supabase, patient.uuid),
         );
       });
 

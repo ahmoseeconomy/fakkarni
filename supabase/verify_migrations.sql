@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0025: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0033: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -316,7 +316,17 @@ with expected(migration, kind, ident) as (
     ('0031_not_bought',    'constraintdef', 'public.medication_changes|medication_changes_kind_check|bought'),
     ('0032_schedule_patterns', 'column', 'public.dose_schedules.weekdays'),
     ('0032_schedule_patterns', 'column', 'public.dose_schedules.cycle_off'),
-    ('0032_schedule_patterns', 'constraintdef', 'public.dose_schedules|dose_schedules_pattern_check|every_days')
+    ('0032_schedule_patterns', 'constraintdef', 'public.dose_schedules|dose_schedules_pattern_check|every_days'),
+    ('0033_delete_account', 'table',    'public.circle_departures'),
+    ('0033_delete_account', 'rls',      'public.circle_departures'),
+    ('0033_delete_account', 'policy',   'public.circle_departures|circle_departures_select'),
+    ('0033_delete_account', 'table',    'private.account_deletions'),
+    ('0033_delete_account', 'function', 'public.account_deletion_objects_for_service'),
+    ('0033_delete_account', 'funcsrc',  'public.delete_account_for_service|circle_departures'),
+    ('0033_delete_account', 'funcsrc',  'public.admin_counts|account_deletions'),
+    ('0033_delete_account', 'constraintdef', 'public.invite_codes|invite_codes_used_by_fkey|SET NULL'),
+    ('0033_delete_account', 'constraintdef', 'public.proxy_confirmations|proxy_confirmations_actor_id_fkey|SET NULL'),
+    ('0033_delete_account', 'constraintdef', 'public.medication_changes|medication_changes_actor_id_fkey|SET NULL')
 ),
 checked as (
   select

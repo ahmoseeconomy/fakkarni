@@ -13,6 +13,8 @@ import 'caregiver_ui.dart';
 import '../billing/family_plan_screen.dart';
 import '../nurse/nurse_reminders.dart';
 import '../selfcheck/health_check_screen.dart';
+import '../account/delete_account_screen.dart';
+import '../../core/widgets/legal_links_row.dart';
 
 /// «الإعدادات» عند الابن (D4) — الحساب واللغة وبس.
 ///
@@ -179,6 +181,26 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                     onPressed: _busy ? () {} : _signOut,
                   ),
                 ),
+                // Apple 5.1.1(v): المسح من جوّه التطبيق — للمتابع والممرض كمان
+                if (AppScope.of(context).accountDeletion != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: CareTextAction(
+                      key: const ValueKey('care-delete-account'),
+                      label: 'امسح حسابي',
+                      icon: Icons.person_remove_outlined,
+                      onPressed: _busy
+                          ? () {}
+                          : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                                builder: (_) => DeleteAccountScreen(
+                                  who: (widget.patient?.isNurse ?? false)
+                                      ? DeletingAs.nurse
+                                      : DeletingAs.follower,
+                                  patientName: widget.patient?.name ?? '',
+                                ),
+                              )),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -308,6 +330,7 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
               ],
             ),
           ),
+          const LegalLinksRow(fontSize: F.careTextSize, minHeight: F.careTapTarget),
         ],
       );
 }

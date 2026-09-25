@@ -22,6 +22,8 @@ import '../data/files/paper_share.dart';
 import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
+import '../data/account/account_deletion.dart';
+import '../data/sync/departure_pull.dart';
 import '../data/push/push_tokens.dart';
 import '../data/sync/sync_service.dart';
 import '../data/db/app_database.dart';
@@ -69,6 +71,8 @@ class AppServices {
     this.medPhotoSync,
     this.circleMedPhotos,
     this.medPhotoRemote,
+    this.accountDeletion,
+    this.departurePull,
   });
 
   final AppDatabase db;
@@ -106,6 +110,12 @@ class AppServices {
   /// ٠٠٢٩: الباكت نفسه — الممرض بيرفع عليه «غيّر الصورة».
   final MedPhotoRemote? medPhotoRemote;
 
+  /// «امسح حسابي» (0033) — null من غير سحابة: الصف ما بيظهرش.
+  final AccountDeletionRemote? accountDeletion;
+
+  /// «فلان خرج من الدايرة» على «يومك» — null من غير سحابة.
+  final CircleDeparturePuller? departurePull;
+
   /// بعد ما صورة اتحفظت أو اتشالت: الطابور يشتغل **من غير ما حد يستناه**.
   void syncMedPhotosSoon() {
     final sync = medPhotoSync;
@@ -116,6 +126,7 @@ class AppServices {
   Future<void> pullFromCircle() async {
     await proxyPull?.pull();
     await medChangePull?.pull();
+    await departurePull?.pull();
     await subscription?.refresh();
     // صور الورق مع الممرض — من المقدمة بس، مش من صحوة شاشة القفل
     await papers?.sync(patientId: patientId);

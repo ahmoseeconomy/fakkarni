@@ -182,6 +182,9 @@ class OverviewScreen extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: F.s16),
+        // 0033: الممسوح بيختفي من كل قايمة — اللي فاضل عدّ مجهول
+        AdminPanel(key: const ValueKey('overview-deleted'), text: deletedAccountsLine(counts)),
       ],
     );
   }

@@ -129,8 +129,15 @@
 31. `migrations/0032_schedule_patterns.sql` — أنماط الأيام على
     `dose_schedules` (أيام معيّنة / كل كام يوم / فترة وراحة)، كلها null =
     كل يوم. `due_escalations` ما اتغيّرتش. **لسه ما اتشغّلتش** — بعد 0031.
-32. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
-    كتابة): صف لكل ترحيل من 0001 لـ0032 بـ`expected`/`found`/`ok`/
+32. `migrations/0033_delete_account.sql` — «امسح حسابي»: دالتين لمفتاح
+    الخدمة بس (`account_deletion_objects_for_service` و
+    `delete_account_for_service`)، جدول `circle_departures` («خرج من
+    الدايرة»)، عدّاد مجهول `private.account_deletions`، `admin_counts` بعمودين
+    زيادة، وتلات مفاتيح أجنبية بقت `set null`. `due_escalations` ما اتغيّرتش.
+    **لسه ما اتشغّلتش** — بعد 0032. وبعدها الـEdge Function **`delete-account`**
+    (أسرارها الاتنين التلقائيين بس: `SUPABASE_URL` و`SUPABASE_SERVICE_ROLE_KEY`).
+33. `verify_migrations.sql` — **بيقرا بس** (SELECT واحد، مفيش DDL ولا
+    كتابة): صف لكل ترحيل من 0001 لـ0033 بـ`expected`/`found`/`ok`/
     `missing`. شغّله **قبل** أي جولة بتلمس السحابة — `0014` عمرها ما
     اتشغّلت واكتشافها كلّف ساعة، والسكريبت ده بيجاوب نفس السؤال بلصقة
     واحدة. آخر تأكيد: ٢٢ سبتمبر ٢٠٢٦، ٢٠ صف كلهم تمام (قبل ٠٠٢١).

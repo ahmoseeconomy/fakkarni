@@ -1,3 +1,4 @@
+import '../../core/widgets/legal_links_row.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
@@ -110,6 +111,9 @@ class _EntryScreenState extends State<EntryScreen> {
                         onTap: () => setState(() => _choice = _Choice.nurse),
                       ),
                     ],
+                    // قبل أي حساب: الصفحتين قدّامه من أول شاشة
+                    const SizedBox(height: F.s12),
+                    const LegalLinksRow(),
                   ],
                 ),
               ),

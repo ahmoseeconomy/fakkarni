@@ -23,6 +23,8 @@ class AdminCounts {
     required this.totalFollowers,
     required this.active7d,
     required this.batteryRestricted,
+    this.deletedTotal = 0,
+    this.deleted30d = 0,
   });
 
   factory AdminCounts.fromRow(Map<String, dynamic> row) => AdminCounts(
@@ -30,6 +32,10 @@ class AdminCounts {
         totalFollowers: _int(row['total_followers']),
         active7d: _int(row['active_7d']),
         batteryRestricted: _int(row['battery_restricted']),
+        // 0033 — عدّ مجهول بس (اليوم والنوع)، ولا اسم ولا معرّف. قبل 0033
+        // العمودين مش موجودين، فالعدّ صفر.
+        deletedTotal: _int(row['deleted_total']),
+        deleted30d: _int(row['deleted_30d']),
       );
 
   static const empty =
@@ -39,7 +45,19 @@ class AdminCounts {
   final int totalFollowers;
   final int active7d;
   final int batteryRestricted;
+
+  /// حسابات اتمسحت من «امسح حسابي» — الحساب نفسه مش في أي قايمة بعدها.
+  final int deletedTotal;
+  final int deleted30d;
 }
+
+/// سطر النظرة العامة عن الحسابات اللي اتمسحت — أرقام وبس.
+String deletedAccountsLine(AdminCounts counts) => counts.deletedTotal == 0
+    ? 'مفيش حسابات اتمسحت لسه.'
+    : 'حسابات اتمسحت: ${_arabic(counts.deletedTotal)} — منهم ${_arabic(counts.deleted30d)} في آخر ٣٠ يوم.';
+
+String _arabic(int n) =>
+    n.toString().replaceAllMapped(RegExp('[0-9]'), (m) => String.fromCharCode(0x660 + int.parse(m[0]!)));
 
 /// صف واحد في الجدول: حساب مريض + آخر نبضة من موبايله.
 class AdminAccount {

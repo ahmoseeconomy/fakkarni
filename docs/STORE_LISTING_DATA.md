@@ -1,3 +1,7 @@
+> **Superseded (25 Sep 2026) by `docs/legal/store_forms.md`**, which reflects
+> account deletion, medicine photos, vitals, stock and the family subscription.
+> Kept for history.
+
 # Store listing — data collection draft
 
 Input for **Apple's App Privacy labels** and **Google Play's Data Safety**
