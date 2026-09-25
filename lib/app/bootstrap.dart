@@ -318,15 +318,9 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
       cloud: () async {
         final ready = await initSupabaseForIsolate();
         cloud = ready;
-        return ready == null
-            ? null
-            // من غير start(): مفيش مستمعين ولا مؤقّتات في صحوة بتموت
-            // بعد ثواني — دفعة واحدة محدودة وبس.
-            : SyncService(
-                db: db,
-                remote: ready.syncRemote,
-                hasSession: ready.hasSession,
-              );
+        // من غير start(): مفيش مستمعين ولا مؤقّتات في صحوة بتموت
+        // بعد ثواني — دفعة واحدة محدودة وبس.
+        return ready == null ? null : SyncService(db: db, remote: ready.syncRemote, hasSession: ready.hasSession);
       },
     );
     // **سطر النهاية الناجحة — تسجيل وبس، مفيش أي سلوك وراه.**
@@ -338,12 +332,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
     diag('Isolate: خلص المعالج — handled=ok action=${response.actionId}');
     // الدوسة دي سويفت كتبتها في الطابور كمان — اتعالجت، فتتشال؛ ولو فيه
     // دوسات أقدم الإضافة ضيّعتها، دي فرصتها.
-    final store = PendingActionStore()
-      ..removeMatching(action: response.actionId, payload: response.payload);
-    await drainPendingActions(
-      store,
-      (action, payload) => handleNotificationAction(db: db, actionId: action, payload: payload),
-    );
+    await PendingActionStore().drainOthers(action: response.actionId, payload: response.payload, door: (a, p) => handleNotificationAction(db: db, actionId: a, payload: p));
   } catch (error, stack) {
     diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {

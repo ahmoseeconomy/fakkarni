@@ -109,6 +109,17 @@ class PendingActionStore {
     }
   }
 
+  /// للـisolate: دوسته هو اتعالجت خلاص — تتشال، والباقي يتطبّق. سطر واحد
+  /// عند النداء عشان محوّل أندرويد يفضل رفيع (`one_door_test`).
+  Future<int> drainOthers({
+    required String? action,
+    required String? payload,
+    required Future<void> Function(String? action, String? payload) door,
+  }) {
+    removeMatching(action: action, payload: payload);
+    return drainPendingActions(this, door);
+  }
+
   void _delete(File f) {
     try {
       f.deleteSync();

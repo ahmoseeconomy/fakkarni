@@ -172,8 +172,7 @@ void main() {
       expect(drain, greaterThan(resumed));
       expect(drain, lessThan(resched));
       final done = boot.indexOf("diag('Isolate: خلص المعالج");
-      expect(boot.indexOf('removeMatching(action: response.actionId', done), greaterThan(done));
-      expect(boot.indexOf('drainPendingActions(', done), greaterThan(done));
+      expect(boot.indexOf('drainOthers(action: response.actionId, payload: response.payload', done), greaterThan(done));
     });
   });
 }
