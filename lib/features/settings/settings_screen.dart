@@ -204,6 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _Row(
                 icon: Icons.manage_accounts_outlined,
                 label: 'عيلتك أو ممرضك',
+                help: 'help_family',
                 hint: 'الدور والصلاحيات لكل واحد، وشيل اللي مش عايزه',
                 onTap: () async {
                   final patient = await services.routines.getPatient(services.patientId);
@@ -461,8 +462,12 @@ class _Row extends StatelessWidget {
     required this.onTap,
     this.value,
     this.attention = false,
+    this.help,
     super.key,
   });
+
+  /// جملة «ساعدني» عن الصف ده (الكتالوج) — null = من غير زرار.
+  final String? help;
 
   final IconData icon;
   final String label;
@@ -519,6 +524,10 @@ class _Row extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (help case final id?) ...[
+                  const SizedBox(width: F.s8),
+                  HelpButton(id),
+                ],
                 if (value != null) ...[
                   const SizedBox(width: F.s8),
                   Text(

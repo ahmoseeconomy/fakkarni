@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../voice/help_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +33,8 @@ Future<VitalKind?> showVitalEntrySheet(BuildContext context, {VitalKind? initial
   }
   final services = AppScope.of(context);
   await VitalsRepository(services.db).add(services.patientId, result.entry!, measuredAt: result.at!);
+  // «تمام، اتحفظ» — بعد الحفظ، ومن غير ما حد يستناه
+  unawaited(services.voice?.speakLine('gen_saved'));
   return result.entry!.kind;
 }
 

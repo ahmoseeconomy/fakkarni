@@ -8,6 +8,7 @@
 // على كل ناتج من هنا بعيّنات.
 
 import '../../core/format/arabic_time.dart';
+import 'voice_time.dart';
 
 /// امبارح — من حساب «إنت ماشي إزاي» نفسه (قواعد الأيام زي ما هي).
 enum YesterdayOutcome {
@@ -90,14 +91,14 @@ String? briefingText(BriefingInput b) {
     final first = b.firstDoseAt;
     var s = 'النهارده عندك ${dosesWord(b.dosesToday)}';
     if (first != null) {
-      s += '، ${b.dosesToday == 1 ? 'معادها' : 'أولها'} الساعة ${spokenTime(first)}';
+      s += '، ${b.dosesToday == 1 ? 'معادها' : 'أولها'} الساعة ${voiceTime(first)}';
       if (b.firstDoseWording case final w? when w.isNotEmpty) s += ' $w';
     }
     parts.add('$s.');
   }
 
   for (final a in b.appointments) {
-    parts.add('وعندك ميعاد ${a.kind} الساعة ${spokenTime(a.at)}.');
+    parts.add('وعندك ميعاد ${a.kind} الساعة ${voiceTime(a.at)}.');
   }
 
   switch (b.yesterday) {

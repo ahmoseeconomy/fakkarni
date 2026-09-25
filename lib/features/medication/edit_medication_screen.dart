@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../voice/help_button.dart';
 import 'dart:io';
 
@@ -417,6 +418,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     // نص التذكير فيه الجرعة — لازم يتعاد بناؤه بالنص الجديد.
     await services.scheduler.rescheduleAll();
 
+    unawaited(services.voice?.speakLine('gen_saved'));
     if (mounted) navigator.pop(true);
   }
 

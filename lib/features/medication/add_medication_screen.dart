@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../voice/help_button.dart';
 import 'dart:typed_data';
 
@@ -498,6 +499,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         services.syncMedPhotosSoon();
       }
       await services.scheduler.rescheduleAll();
+      // «تمام، اتحفظ» — بعد الحفظ والجدولة، مش قبلهم
+      unawaited(services.voice?.speakLine('gen_saved'));
       if (mounted) navigator.pop(result);
     } finally {
       if (mounted) setState(() => _busy = false);
