@@ -170,6 +170,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   int _days = 7;
   bool _busy = false;
 
+  /// الصفوف التانية لسه ماشية ورا عجلة أول جرعة (اتوزّعت منها ومحدش لمسها
+  /// بإيده) — فلفّ العجلة بيعيد توزيعها بدل ما أول دقيقة تثبّتها.
+  bool _spreadLive = false;
+
   /// «هتبدأ الدوا من إمتى؟» — النهارده افتراضياً، أو يوم تاني لحد ٦٠ يوم.
   late DateTime _startDate = _today;
 
@@ -321,6 +325,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   void _reseed(VoidCallback change) => setState(() {
         change();
         _doses = _fromConvention();
+        _spreadLive = false;
       });
 
   void _pickCount(int n) {
@@ -409,6 +414,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     if (picked == null || !mounted) return; // رجع من غير ما يختار — الصف زي ما هو
     setState(() {
       _doses[i] = picked;
+      _spreadLive = false; // صف اتعدّل بإيده — العجلة ما بتلمسوش تاني
       if (picked case FixedTiming(:final minuteOfDay)) _spreadFrom(i, minuteOfDay);
     });
   }
@@ -416,10 +422,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// **أول ساعة محددة بتوزّع الباقي على يومه بالتساوي** — قدّامه في الصفوف،
   /// وكل صف بيتعدّل. نافذة اليوم من صحيانه لنومه لو محددين، وإلا ٧ ص
   /// لـ١١ م كعُرف تشغيلي (مش من روتين افتراضي — هو اللي اختار أول ساعة).
-  void _spreadFrom(int index, MinuteOfDay first) {
+  void _spreadFrom(int index, MinuteOfDay first, {bool force = false}) {
     if (_doses.length < 2) return;
     for (final (i, d) in _doses.indexed) {
-      if (i != index && d != null) return; // فيه صفوف اتحددت قبل كده — ما نلمسهاش
+      if (!force && i != index && d != null) return; // فيه صفوف اتحددت قبل كده — ما نلمسهاش
     }
     final wake = _routine.isSet(DayAnchor.wake) ? _routine.wake.minutes : 7 * 60;
     final sleep = _routine.isSet(DayAnchor.sleep) ? _routine.sleep.minutes : 23 * 60;
@@ -431,6 +437,18 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _doses[k] = FixedTiming(MinuteOfDay((first.minutes + (k - index) * step + 1440 * 2) % 1440));
     }
   }
+
+  /// عجلة «ساعة محددة» تحت الشرايح على طول: بتكتب **أول جرعة**، والباقي
+  /// بيتوزّع وراها طول ما محدش عدّله بإيده. من غير لفّ مفيش ساعة اتاختارت.
+  void _pickFirstFixed(MinuteOfDay m) => setState(() {
+        final othersEmpty = _doses.skip(1).every((d) => d == null);
+        final live = _spreadLive || othersEmpty;
+        _doses[0] = FixedTiming(m);
+        if (live) {
+          _spreadFrom(0, m, force: true);
+          _spreadLive = _doses.length > 1;
+        }
+      });
 
   bool _rowReady(DoseTiming? t) => switch (t) {
         null => false,
@@ -743,6 +761,20 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           ),
                           if (pair.first != TimingChoice.after) const SizedBox(height: F.s8),
                         ],
+                        // الساعة تحت الشرايح على طول (من الآيفون، ٢٦ سبتمبر
+                        // ٢٠٢٦): كانت مستخبية في محرّر ورا صف «مواعيد الجرعات».
+                        if (_choice == TimingChoice.fixed && _doses.isNotEmpty) ...[
+                          const SizedBox(height: F.s12),
+                          _InlineFixedClock(
+                            key: const ValueKey('inline-fixed-clock'),
+                            label: _doses.length == 1 ? 'الساعة' : 'ساعة الجرعة الأولى',
+                            chosen: switch (_doses.first) {
+                              FixedTiming(:final minuteOfDay) => minuteOfDay,
+                              _ => null,
+                            },
+                            onChanged: _pickFirstFixed,
+                          ),
+                        ],
                         ],
                       ],
                     ),
@@ -769,7 +801,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           fromPaper
                               ? 'دي اللي الورقة قالتها — دوس على أي جرعة لو مش مظبوطة.'
                               : _choice == TimingChoice.fixed
-                                  ? 'اختار أول ساعة، والباقي هيتوزّع على يومك — وتقدر تعدّل أي واحدة.'
+                                  ? 'البكرة فوق بتختار أول ساعة، والباقي بيتوزّع على يومك — دوس على أي جرعة لو عايز تغيّرها.'
                                   : _routine.isComplete
                                       ? 'الأوقات محسوبة من مراسي يومك — دوس على أي جرعة لو عايز تغيّرها.'
                                       : 'ما حدّدتش مواعيد يومك كلها — دوس على الجرعة وقول ميعاد الأكل مرة، أو اختار ساعة.',
@@ -891,6 +923,49 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
 /// صف جرعة في الفورم: الرقم، والساعة اللي هترن فيها (أو السبب اللي مش
 /// هترن عشانه)، وكلمة الفعل — الكارت كله هدف لمس.
+/// عجلة الساعة الثابتة جوّه الفورم: الجملة اللي القاعدة ١ بتطلبها، والساعة
+/// لما تتختار، والعجلة. بترتاح على ٨:٠٠ ص زي المحرّر، ومش بتكتب حاجة لحد
+/// ما تتلفّ.
+class _InlineFixedClock extends StatelessWidget {
+  const _InlineFixedClock({required this.label, required this.chosen, required this.onChanged, super.key});
+
+  static const rest = MinuteOfDay(8 * 60);
+
+  final String label;
+  final MinuteOfDay? chosen;
+  final ValueChanged<MinuteOfDay> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = chosen ?? rest;
+    final time = arabicTime(DateTime(2026, 1, 1, shown.hour, shown.minute));
+    return Container(
+      padding: const EdgeInsets.all(F.s12),
+      decoration: BoxDecoration(
+        color: F.railGround,
+        borderRadius: BorderRadius.circular(F.radiusCard),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ساعة ثابتة — مش هتتحرك مع روتين يومك',
+            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink, height: 1.5),
+          ),
+          const SizedBox(height: F.s8),
+          Text(
+            chosen == null ? '$label — حرّك البكرة للساعة اللي عايزها' : '$label — $time',
+            key: const ValueKey('inline-fixed-label'),
+            style: TextStyle(fontSize: F.minBodySize, color: chosen == null ? F.mutedDark : F.ink, height: 1.5),
+          ),
+          const SizedBox(height: F.s8),
+          FTimeWheel(value: shown, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
 class _DoseRowTile extends StatelessWidget {
   const _DoseRowTile({
     required this.title,

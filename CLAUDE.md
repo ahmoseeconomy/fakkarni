@@ -4028,6 +4028,13 @@ start today vs start in three days — nothing at all before the start, and
 the dose notifications inside the overlap window are identical by id and
 instant; the ladder and repeats move with the start because they take the
 *nearest* reminders of each plan, which is the documented behaviour.
+**«ساعة محددة» puts the clock right under the timing chips** (26 Sep 2026,
+iPhone): an inline `FTimeWheel` card («ساعة ثابتة — مش هتتحرك مع روتين
+يومك») writes the **first** dose, rests on 8:00 and writes nothing until
+moved. While no other row was edited by hand, every turn re-spreads the
+rest (`_spreadLive`); editing a row stops that. The rows and `DoseEditor`
+are unchanged — the edit screen's per-dose editor already had its wheel
+directly under its two mode chips.
 **«ساعة محددة»: the first clock the person picks spreads the other rows
 evenly across the waking day** (`_spreadFrom` — routine wake → sleep when
 both are set, else 07:00 → 23:00 as an operational window) *in the rows,

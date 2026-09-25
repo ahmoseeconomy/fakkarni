@@ -762,6 +762,55 @@ void main() {
       expect(saved.map((s) => s.timing).toList(), [FixedTiming(MinuteOfDay.hm(8)), FixedTiming(MinuteOfDay.hm(16, 15))]);
     });
 
+    screenTest('«ساعة محددة»: العجلة تحت الشرايح على طول، ولفّها بيوزّع الباقي وراه لحد الحفظ', (tester) async {
+      await pumpAdd(tester);
+      await tester.enterText(find.byType(TextField).first, 'Augmentin');
+      await tester.tap(find.text('مرتين'));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('inline-fixed-clock')), findsNothing, reason: 'قبل الأكل = مفيش ساعة');
+      await tester.tap(find.byKey(const ValueKey('timing-fixed')));
+      await settle(tester);
+
+      final clock = find.byKey(const ValueKey('inline-fixed-clock'));
+      expect(clock, findsOneWidget);
+      // تحت الشرايح مباشرة، وفوق «مواعيد الجرعات»
+      final chipBottom = tester.getBottomLeft(find.byKey(const ValueKey('timing-fixed'))).dy;
+      final clockTop = tester.getTopLeft(clock).dy;
+      expect(clockTop, greaterThan(chipBottom));
+      expect(clockTop - chipBottom, lessThan(F.gap * 2), reason: 'لازقة في الشرايح');
+      expect(tester.getBottomLeft(clock).dy, lessThan(tester.getTopLeft(find.text('مواعيد الجرعات')).dy));
+      expect(find.descendant(of: clock, matching: find.byType(FTimeWheel)), findsOneWidget);
+      expect(find.descendant(of: clock, matching: find.text('ساعة ثابتة — مش هتتحرك مع روتين يومك')), findsOneWidget);
+
+      // العجلة مرتاحة على ٨ ومش كاتبة حاجة
+      FilledButton save() => tester.widget<FilledButton>(find.descendant(
+          of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+      expect(find.text('اختار الساعة'), findsNWidgets(2));
+      expect(save().onPressed, isNull);
+
+      Future<void> hourUp() async {
+        await tester.drag(
+          find.descendant(of: clock, matching: find.byKey(FTimeWheel.hoursKey)),
+          const Offset(0, -FTimeWheel.itemExtent),
+        );
+        await settle(tester);
+      }
+
+      await hourUp(); // ٩:٠٠ ص، والتانية بعد ٨ ساعات و١٥ د
+      expect(find.text('الساعة ٩:٠٠ ص'), findsOneWidget);
+      expect(find.text('الساعة ٥:١٥ م'), findsOneWidget);
+      await hourUp(); // اللفّ تاني بيحرّك التانية معاها — مش أول دقيقة بتثبّتها
+      expect(find.text('الساعة ١٠:٠٠ ص'), findsOneWidget);
+      expect(find.text('الساعة ٦:١٥ م'), findsOneWidget);
+      expect(find.text('الساعة ٥:١٥ م'), findsNothing);
+      expect(await meds.activeSchedules(services.patientId), isEmpty, reason: 'لسه ما داسش «احفظ»');
+
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
+      await settle(tester);
+      final saved = await meds.activeSchedules(services.patientId);
+      expect(saved.map((s) => s.timing).toList(), [FixedTiming(MinuteOfDay.hm(10)), FixedTiming(MinuteOfDay.hm(18, 15))]);
+    });
+
     screenTest('من غير «تفاصيل أكتر»: الحفظ بيكتب «ما قالش» مش «مش معروفة»، والمدة مفتوحة، والبداية النهارده', (tester) async {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, 'Concor 5mg');
