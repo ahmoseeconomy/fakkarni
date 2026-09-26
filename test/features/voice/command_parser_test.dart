@@ -208,8 +208,8 @@ void main() {
       expect(medKey('أومبيرازول ٢٠'), 'اومبيرازول');
       expect(medKey('الأوجمنتين'), 'اوجمنتين');
     });
-    test('بالاسم زي ما اتقال — عربي على لاتيني ما بيتطابقش بالحروف، بس اللاتيني على اللاتيني أيوه', () {
-      expect(matchMedication('كونكور', names).none, isTrue, reason: 'حروف مختلفة — الغرض هو الطريق');
+    test('بالاسم زي ما اتقال — لاتيني على لاتيني بالحروف، وعربي على لاتيني بالصوت', () {
+      expect(matchMedication('كونكور', names).names, ['Concor 5mg'], reason: 'الهيكل الصوتي');
       expect(matchMedication('concor', names).names, ['Concor 5mg']);
       expect(matchMedication('اومبيرازول', names).names, ['اومبيرازول ٢٠']);
       expect(matchMedication('الأومبيرازول', names).names, ['اومبيرازول ٢٠']);
@@ -229,6 +229,84 @@ void main() {
       expect(matchMedication('الفيتامين', names, purposes: purposes).none, isTrue);
       expect(matchMedication(null, names).none, isTrue);
       expect(matchMedication('ال', names).none, isTrue);
+    });
+  });
+
+  group('عربي ↔ لاتيني — الهيكل الصوتي', () {
+    // الروشتة بتتحفظ باللاتيني، والمريض بيقولها بالمصري
+    const pairs = <String, String>{
+      'كونكور': 'Concor 5mg',
+      'جلوكوفاج': 'Glucophage 1000',
+      'أملور': 'Amlor 5',
+      'نكسيوم': 'Nexium 40mg',
+      'كونجستال': 'Congestal',
+      'بنادول': 'Panadol Extra',
+      'بروفين': 'Brufen 400',
+      'كتافلام': 'Cataflam 50',
+      'ليبيتور': 'Lipitor 20mg',
+      'كريستور': 'Crestor 10',
+      'نورفاسك': 'Norvasc 5',
+      'بلافيكس': 'Plavix 75',
+      'زيرتك': 'Zyrtec',
+      'فنتولين': 'Ventolin',
+      'أوجمنتين': 'Augmentin 1g',
+      'أموكسيل': 'Amoxil',
+      'فلاجيل': 'Flagyl 500',
+      'موتيليوم': 'Motilium',
+      'أوميبرازول': 'Omeprazole 20',
+      'فولتارين': 'Voltaren',
+      'أنتينال': 'Antinal',
+      'دافلون': 'Daflon 500',
+      'بيتاسيرك': 'Betaserc 24',
+      'دياميكرون': 'Diamicron MR',
+      'جانوفيا': 'Januvia 100',
+      'التروكسين': 'Eltroxin 50',
+      'أسبوسيد': 'Aspocid 75',
+      'لازيكس': 'Lasix 40',
+      'كابوتين': 'Capoten',
+      'تلفاست': 'Telfast 180',
+      'كلاريتين': 'Claritine',
+      'زيثروماكس': 'Zithromax',
+      'سيبرو': 'Cipro 500',
+      'ميكارديس': 'Micardis',
+      'إكسفورج': 'Exforge',
+    };
+    pairs.forEach((spoken, saved) {
+      test('«$spoken» ↔ $saved', () {
+        expect(matchMedication(spoken, [saved]).names, [saved]);
+        expect(matchMedication('دوا $spoken', [saved]).names, [saved], reason: 'مع «دوا»');
+        expect(phoneticClose(spoken, medKey(saved).split(' ').first), isTrue, reason: '${phoneticKey(spoken)} ≠ ${phoneticKey(saved)}');
+      });
+    });
+
+    test('والعكس: الاسم متحفوظ بالعربي والمتعرّف رجّع لاتيني', () {
+      expect(matchMedication('concor', ['كونكور ٥']).names, ['كونكور ٥']);
+      expect(matchMedication('Glucophage', ['جلوكوفاج']).names, ['جلوكوفاج']);
+    });
+
+    test('قريب-مش-هو: ما يتطابقش', () {
+      const saved = ['Concor 5mg', 'Congestal', 'Amlor 5', 'Amoxil', 'Nexium 40mg', 'Lipitor 20mg', 'Lasix 40', 'Zyrtec', 'Brufen 400', 'Panadol Extra'];
+      for (final s in ['كوندور', 'كانتور', 'أموتريل', 'نيكسافار', 'ليبيدور', 'لاميكتال', 'زيلتك', 'بروفيلاك', 'بانتوجار', 'كوجيت']) {
+        final m = matchMedication(s, saved);
+        expect(m.names, isEmpty, reason: '«$s» طلع ${m.names} (${phoneticKey(s)})');
+      }
+    });
+
+    test('اسم بيقرّب من اتنين = الاتنين يرجعوا (الشاشة بتسأل «أنهي واحد؟») — مش تخمين', () {
+      final m = matchMedication('كونكور', ['Concor 5mg', 'Concor 10mg']);
+      expect(m.ambiguous, isTrue);
+      expect(m.names, ['Concor 5mg', 'Concor 10mg']);
+    });
+
+    test('الهياكل نفسها — للمراجعة بالعين', () {
+      expect(phoneticKey('كونكور'), 'knkr');
+      expect(phoneticKey('Concor'), 'knkr');
+      expect(phoneticKey('Glucophage'), 'glkfg');
+      expect(phoneticKey('جلوكوفاج'), 'glkfg');
+      expect(phoneticKey('Aspocid'), 'sbsd');
+      expect(phoneticKey('أسبوسيد'), 'sbsd');
+      expect(phoneticKey('Nexium'), 'nksm');
+      expect(phoneticKey('نكسيوم'), 'nksm');
     });
   });
 }

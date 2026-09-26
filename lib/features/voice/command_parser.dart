@@ -373,7 +373,112 @@ bool _tokenMatches(String spoken, String candidate) {
   if (spoken == candidate) return true;
   if (spoken.length >= 4 && candidate.length >= 4 && (candidate.startsWith(spoken) || spoken.startsWith(candidate))) return true;
   if (spoken.length >= 5 && candidate.length >= 5 && _editDistance(spoken, candidate) <= 1) return true;
-  return false;
+  return phoneticClose(spoken, candidate);
+}
+
+// ---------------------------------------------------------------- الصوت عبر الحروف
+
+final _arabicLetter = RegExp(r'[\u0600-\u06FF]');
+final _latinLetter = RegExp(r'[a-z]');
+
+/// الهيكل الصوتي — حروف ساكنة لاتينية من غير حركات، عشان «كونكور» و«Concor»
+/// يطلعوا `knkr`. الحركات (a e i o u y و ا ي) بتتشال، والأصوات اللي المصري
+/// بينطقها واحد بتتوحّد: ك/ق/c/q → k، ب/p → b، ف/v → f، ج/g/j → g،
+/// س/ص/ز/z/ث → s، ت/ط → t، د/ض/ذ → d، ph → f، x → ks، c قبل e/i/y → s.
+String phoneticKey(String word) {
+  final w = normalizeArabic(word);
+  final b = StringBuffer();
+  final runes = w.runes.toList();
+  for (var i = 0; i < runes.length; i++) {
+    final c = String.fromCharCode(runes[i]);
+    final next = i + 1 < runes.length ? String.fromCharCode(runes[i + 1]) : '';
+    String out;
+    switch (c) {
+      // عربي
+      case 'ا' || 'و' || 'ي' || 'ع' || 'ء' || 'ه' when c == 'ه' && i == runes.length - 1:
+        out = '';
+      case 'ا' || 'و' || 'ي' || 'ع' || 'ء':
+        out = '';
+      case 'ب':
+        out = 'b';
+      case 'ت' || 'ط':
+        out = 't';
+      case 'ث' || 'س' || 'ص' || 'ز' || 'ش':
+        out = 's';
+      case 'ج' || 'غ':
+        out = 'g';
+      case 'ح' || 'ه' || 'خ':
+        out = 'h';
+      case 'د' || 'ض' || 'ذ':
+        out = 'd';
+      case 'ر':
+        out = 'r';
+      case 'ف':
+        out = 'f';
+      case 'ق' || 'ك':
+        out = 'k';
+      case 'ل':
+        out = 'l';
+      case 'م':
+        out = 'm';
+      case 'ن':
+        out = 'n';
+      // لاتيني
+      case 'a' || 'e' || 'i' || 'o' || 'u' || 'y' || 'w':
+        out = '';
+      case 'p' when next == 'h':
+        out = 'f';
+        i++;
+      case 'c' when next == 'h' || next == 'k':
+        out = 'k';
+        i++;
+      case 's' when next == 'h':
+        out = 's';
+        i++;
+      case 't' when next == 'h':
+        out = 's'; // «ث» بالمصري «س»: Zithromax → زيثروماكس → سيسروماكس
+        i++;
+      case 'c' when next == 'e' || next == 'i' || next == 'y':
+        out = 's';
+      case 'c' || 'q' || 'k':
+        out = 'k';
+      case 'x':
+        out = 'ks';
+      case 'p' || 'b':
+        out = 'b';
+      case 'v' || 'f':
+        out = 'f';
+      case 'g' || 'j':
+        out = 'g';
+      case 'z' || 's':
+        out = 's';
+      case 'd':
+        out = 'd';
+      case 't':
+        out = 't';
+      case 'h' when i == runes.length - 1:
+        out = ''; // «Zyrteh»؟ لأ — h في الآخر صامتة زي ة
+      default:
+        out = _latinLetter.hasMatch(c) ? c : '';
+    }
+    if (out.isNotEmpty && (b.isEmpty || !b.toString().endsWith(out[0]) || out.length > 1)) b.write(out);
+  }
+  // الحرفين المكررين واحد (Augmentin ← «أوجمنتين» نفس الشكل)
+  return b.toString().replaceAllMapped(RegExp(r'(.)\1+'), (m) => m.group(1)!);
+}
+
+/// عربي على لاتيني (أو العكس) بالهيكل الصوتي — **متطابق**، أو حرف واحد فرق
+/// في هيكل طويل (٦ حروف وأكتر): «كوندور» (kndr) مش Concor (knkr) — الفرق
+/// الواحد في اسم قصير هو الفرق بين دواءين. نفس الحروف مع بعض مش هنا.
+bool phoneticClose(String spoken, String candidate) {
+  final spokenArabic = _arabicLetter.hasMatch(spoken);
+  final candidateArabic = _arabicLetter.hasMatch(candidate);
+  if (spokenArabic == candidateArabic) return false;
+  final a = phoneticKey(spoken);
+  final b = phoneticKey(candidate);
+  if (a.length < 3 || b.length < 3) return false;
+  if (a == b) return true;
+  return a.length >= 6 && b.length >= 6 && _editDistance(a, b) <= 1;
 }
 
 /// مطابقة الكلام على أسامي أدوية المريض **المحلية** (وأغراضها لو اتبعتت في
@@ -383,7 +488,13 @@ MedMatch matchMedication(String? spoken, List<String> names, {Map<String, String
   if (spoken == null) return const MedMatch([]);
   final key = medKey(spoken);
   if (key.isEmpty) return const MedMatch([]);
-  final spokenTokens = key.split(' ');
+  final spokenTokens = {
+    ...key.split(' '),
+    // «التروكسين» ↔ «Eltroxin»: الـ«ال» جزء من الاسم مش أداة تعريف — بنجرّب
+    // الكلمة زي ما اتقالت كمان
+    for (final w in normalizeArabic(spoken).split(' '))
+      if (w.startsWith('ال') && w.length > 3) w,
+  }.where((t) => t.isNotEmpty).toList();
   final hits = <String>[];
   for (final name in names) {
     final nameTokens = medKey(name).split(' ');
