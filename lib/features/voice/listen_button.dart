@@ -28,8 +28,13 @@ class ListenButton<T> extends StatefulWidget {
     this.force = false,
     this.elder = false,
     this.onDark = false,
+    this.hint,
     super.key,
   });
+
+  /// كلمة جنب الزرار بتقول إيه اللي يتقال («قول «أخدته» أو دوس») — بتظهر
+  /// وتختفي مع الزرار نفسه، وأكبر في نمط كبار السن.
+  final String? hint;
 
   /// بيدخل في مفتاح الزرار: `listen-<tag>`.
   final String tag;
@@ -123,7 +128,8 @@ class _ListenButtonState<T> extends State<ListenButton<T>> with WidgetsBindingOb
         final size = widget.elder ? F.elderTextSize : F.minTextSize;
         final height = widget.elder ? F.primaryButtonHeight : F.minTapTarget;
         final ink = widget.onDark ? F.onDark : F.ink;
-        return Semantics(
+        final hint = widget.hint;
+        final button = Semantics(
           button: true,
           label: 'اتكلم',
           child: Material(
@@ -150,6 +156,21 @@ class _ListenButtonState<T> extends State<ListenButton<T>> with WidgetsBindingOb
               ),
             ),
           ),
+        );
+        if (hint == null) return button;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                hint,
+                key: ValueKey('listen-hint-${widget.tag}'),
+                style: TextStyle(fontSize: widget.elder ? F.elderTextSize : F.minBodySize, color: ink, height: 1.4),
+              ),
+            ),
+            const SizedBox(width: F.s10),
+            button,
+          ],
         );
       },
     );

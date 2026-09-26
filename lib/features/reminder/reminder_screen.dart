@@ -8,6 +8,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
+import '../../data/repositories/preferences_repository.dart';
 import '../../domain/voice/answer_parser.dart';
 import '../voice/listen_button.dart';
 import '../../data/repositories/dose_event_repository.dart';
@@ -76,6 +77,7 @@ class ReminderScreen extends StatefulWidget {
 
 class _ReminderScreenState extends State<ReminderScreen> {
   Stream<List<DoseEventView>>? _events;
+  Stream<DeviceSettings>? _settings;
   StreamSubscription<List<DoseSchedule>>? _schedulesSub;
   Map<String, DoseSchedule> _schedules = const {};
   bool _busy = false;
@@ -88,6 +90,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
     if (_events != null) return;
 
     final services = AppScope.of(context);
+    // نمط كبار السن: الكلمة اللي جنب المايك أكبر
+    _settings = services.preferences.watch();
     // **تنبيه الجرعة بيكسب**: أي كلام للرفيق الصوتي بيسكت لحظة ما الشاشة
     // دي تتفتح، من أي باب (إشعار، «يومك»، السكة).
     unawaited(services.voice?.stop());
@@ -221,12 +225,19 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             onTaken: () => _taken(pending),
                             onSnooze: () => _snooze(pending),
                             onSkipped: () => _skipped(pending),
-                            listen: ListenButton<DoseAnswer>(
-                              tag: 'dose',
-                              onDark: true,
-                              parse: parseDoseAnswer,
-                              describe: (a) => a == DoseAnswer.taken ? 'أخدته' : 'فكّرني بعدين',
-                              onApply: (a) => _spoken(a, pending),
+                            // «قول «أخدته» أو دوس» — المايك كان صعب يتلاقى
+                            // (٢٦ سبتمبر ٢٠٢٦)؛ الكلمة بتقول إن الصوت هنا
+                            listen: StreamBuilder<DeviceSettings>(
+                              stream: _settings,
+                              builder: (context, snap) => ListenButton<DoseAnswer>(
+                                tag: 'dose',
+                                onDark: true,
+                                elder: snap.data?.elderMode ?? false,
+                                hint: 'قول «أخدته» أو دوس',
+                                parse: parseDoseAnswer,
+                                describe: (a) => a == DoseAnswer.taken ? 'أخدته' : 'فكّرني بعدين',
+                                onApply: (a) => _spoken(a, pending),
+                              ),
                             ),
                           ),
                   ),

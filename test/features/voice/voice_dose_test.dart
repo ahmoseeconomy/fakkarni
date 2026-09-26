@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
+import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
@@ -112,5 +113,29 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('listen-yes')));
     await settle(tester);
     expect(await stateOf(tester), DoseState.taken);
+  });
+
+  screenTest('«قول «أخدته» أو دوس» جنب المايك — وأكبر في نمط كبار السن', (tester) async {
+    await setUpWith(const []);
+    final id = await seedDinner();
+    await h.pump(tester, ReminderScreen(routineDay: aug31, scheduleIds: ['$id'], now: DateTime(2026, 8, 31, 20, 5)));
+    final hint = find.byKey(const ValueKey('listen-hint-dose'));
+    expect(hint, findsOneWidget);
+    expect(tester.widget<Text>(hint).data, 'قول «أخدته» أو دوس');
+    expect(tester.widget<Text>(hint).style!.fontSize, F.minBodySize);
+    expect(tester.getTopLeft(hint).dy, lessThan(tester.getTopLeft(find.text('تم التناول ✅')).dy), reason: 'فوق الزرارين');
+
+    await h.services.preferences.setElderMode(true);
+    await settle(tester);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('listen-hint-dose'))).style!.fontSize, F.elderTextSize);
+  });
+
+  screenTest('الصوت مقفول: ولا مايك ولا كلمته', (tester) async {
+    await setUpWith(const []);
+    await h.services.voice!.setEnabled(false);
+    final id = await seedDinner();
+    await h.pump(tester, ReminderScreen(routineDay: aug31, scheduleIds: ['$id'], now: DateTime(2026, 8, 31, 20, 5)));
+    expect(find.byKey(const ValueKey('listen-hint-dose')), findsNothing);
+    expect(find.byKey(const ValueKey('listen-dose')), findsNothing);
   });
 }
