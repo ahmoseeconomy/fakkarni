@@ -74,8 +74,19 @@ who are alerted if a dose is not confirmed.
 | Server logs kept by our hosting provider (e.g. IP address and request time) | Security and operations. [CONFIRM: log retention for the Supabase plan] |
 
 We do **not** collect: your contacts list (the contact picker returns only the
-one contact you pick, and we store it on your phone only), microphone or voice,
-advertising ID, browsing history, or precise location (see §5).
+one contact you pick, and we store it on your phone only), advertising ID,
+browsing history, or precise location (see §5).
+
+**Voice («اتكلم»):** with the voice companion on, you can answer short
+questions by voice (yes/no, a time, a number). The microphone is on **only
+while you press the «اتكلم» button** and stops by itself after a short
+silence. **We never record, store or upload your voice**, nor the transcript —
+it is interpreted on the phone and discarded. Speech is converted to text by
+your phone's own speech-recognition service (Apple or Google); we ask it to run
+**on the device** without internet, and where the phone cannot do that for
+Arabic, the system sends the audio to Apple's or Google's servers under their
+terms (see §5). You can turn voice off in Settings or decline the microphone
+permission; everything keeps working by touch.
 
 ## 4. How long we keep it
 
@@ -98,6 +109,7 @@ advertising ID, browsing history, or precise location (see §5).
 | **Apple** (App Store) / **Google** (Play) | Purchase receipts, verified by our server | When someone buys or restores the family subscription. |
 | **Map search**: Apple Maps on iPhone; OpenStreetMap (Overpass and map tiles) on Android | Your **approximate** location, rounded to about 110 m before it leaves the phone | Only when you open «القريب مني» and search. |
 | **WhatsApp**, maps apps, the phone dialer | Only what you choose to send or call | Only when you tap the button. |
+| **System speech recognition** (Apple on iPhone, Google on Android) | **Your voice** while you answer with the «اتكلم» button — to turn it into text | Only when you press «اتكلم». We request **on-device** recognition; where the phone cannot do that for Arabic, the system sends the audio to Apple/Google servers. We never receive or store the audio. [CONFIRM: which devices and OS versions recognise Arabic on-device — the company measures this on real phones] |
 | **Our operators** ([COMPANY_NAME]) | An admin dashboard showing account names, follower names and device health — **no medicines, doses, health file, measurements or phone numbers** | For keeping reminders working. |
 
 We do not sell or rent personal data, and we do not share it for advertising.

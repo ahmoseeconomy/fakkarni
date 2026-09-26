@@ -14,8 +14,11 @@ import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
+import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 
+import '../../data/voice/fake_listener.dart';
 import '../../data/voice/voice_service_test.dart' show FakePlayer, FakeTts;
 import '../../support/seeded_clock.dart';
 import 'routine_onboarding_test.dart' show SilentSink;
@@ -25,18 +28,20 @@ void main() {
   late AppServices services;
   late FakePlayer player;
   late VoiceService voice;
+  FakeListener? listener;
 
-  Future<void> setUpWith({required bool voiceOn}) async {
+  Future<void> setUpWith({required bool voiceOn, List<String?>? answers}) async {
     SharedPreferences.setMockInitialValues({
       VoiceService.enabledKey: voiceOn,
       VoiceService.introDoneKey: true,
     });
+    listener = answers == null ? null : FakeListener(answers: answers);
     db = AppDatabase(NativeDatabase.memory());
     final routines = RoutineRepository(db);
     final medications = MedicationRepository(db, clock: seededLongAgo);
     final patientId = await routines.ensurePatient();
     player = FakePlayer();
-    voice = VoiceService(player: player, tts: FakeTts());
+    voice = VoiceService(player: player, tts: FakeTts(), listener: listener);
     await voice.load();
     services = AppServices(
       db: db,
@@ -165,5 +170,50 @@ void main() {
     await setUpWith(voiceOn: false);
     await pump(tester, EntryScreen(onSelf: () {}, onHaveCode: () {}));
     expect(player.played, isEmpty);
+  });
+
+  testWidgets('المايك في البداية: الاسم والجنس والسن والصحيان بالصوت — بنفس سكّة الإيد، وlis_intro مرة بعد جملة الصفحة', (tester) async {
+    await setUpWith(voiceOn: true, answers: ['اسمي أحمد', 'أيوه', 'ست', 'أيوه', 'خمسة وسبعين', 'أيوه', 'سبعة ونص', 'أيوه']);
+    await pump(tester, const RoutineOnboardingScreen());
+    expect(find.byKey(const ValueKey('listen-name')), findsOneWidget);
+    expect(said(), ['onb_name', 'lis_intro'], reason: '«دلوقتي تقدر تكلّمني» بعد جملة الصفحة');
+
+    await tester.tap(find.byKey(const ValueKey('listen-name')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'أحمد'), findsOneWidget);
+    await tap(tester, 'كمّل');
+
+    expect(find.text('راجل ولا ست؟'), findsOneWidget, reason: 'الصفحة التانية اتفتحت');
+    expect(find.byKey(const ValueKey('listen-gender')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('listen-gender')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnchorChip>(find.byKey(const ValueKey('sex-f'))).selected, isTrue);
+    await tap(tester, 'كمّل');
+
+    await tester.tap(find.byKey(const ValueKey('listen-age')));
+    await tester.pumpAndSettle();
+    expect(find.text('سنّك ٧٥ سنة'), findsOneWidget);
+    await tap(tester, 'كمّل');
+
+    expect(find.byKey(const ValueKey('listen-wake')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('listen-wake')));
+    await tester.pumpAndSettle();
+    expect(find.text('٧:٣٠ ص'), findsOneWidget, reason: 'البكرة اتحرّكت للساعة — و«تمام» لسه بإيده');
+    for (var i = 0; i < 5; i++) {
+      await tap(tester, 'تمام');
+    }
+    final row = (await services.routines.getPatient(services.patientId))!;
+    expect(row.name, 'أحمد');
+    expect(row.age, 75);
+    final routine = (await services.routines.getRoutine(services.patientId))!;
+    expect(routine.wake, MinuteOfDay.hm(7, 30));
+    expect(said().where((id) => id == 'lis_intro'), hasLength(1));
+  });
+
+  testWidgets('من غير مايك في النسخة = مفيش زرار «اتكلم» في البداية', (tester) async {
+    await setUpWith(voiceOn: true);
+    await pump(tester, const RoutineOnboardingScreen());
+    expect(find.text('اتكلم'), findsNothing);
+    expect(find.text('ساعدني'), findsOneWidget);
   });
 }

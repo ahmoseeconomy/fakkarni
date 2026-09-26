@@ -150,4 +150,32 @@ void main() {
     expect(again.shouldBrief('2026-09-25'), isFalse);
     expect(again.shouldBrief('2026-09-26'), isTrue);
   });
+
+  test('speakQueued: بيستنّى اللي بيتقال يخلص، وبيقول بالترتيب، وstop() من برّه بيلغي اللي لسه ما بدأش', () async {
+    player.holdPlayback = true;
+    final first = voice.speakLine('help_today');
+    await Future<void>.delayed(Duration.zero);
+    final queued = voice.speakQueued(['help_tip']);
+    await Future<void>.delayed(Duration.zero);
+    expect(player.played, ['assets/voices/help_today.mp3'], reason: 'لسه مستني');
+    player.holdPlayback = false;
+    await player.stop(); // التسجيل الأول خلص
+    await first;
+    await queued;
+    expect(player.played, ['assets/voices/help_today.mp3', 'assets/voices/help_tip.mp3']);
+
+    // من غير حاجة بتتقال: بيقول على طول
+    await voice.speakQueued(['help_later']);
+    expect(player.played.last, 'assets/voices/help_later.mp3');
+
+    // stop() بعد ما اتحطّ في الطابور وقبل ما يبدأ = ما بيتقالش
+    player.holdPlayback = true;
+    final held = voice.speakLine('help_today');
+    await Future<void>.delayed(Duration.zero);
+    final cancelled = voice.speakQueued(['help_scan']);
+    await voice.stop();
+    await held;
+    await cancelled;
+    expect(player.played.where((p) => p.contains('help_scan')), isEmpty);
+  });
 }

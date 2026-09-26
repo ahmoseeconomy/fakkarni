@@ -3,11 +3,15 @@ import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/patient/sex.dart';
 import '../../domain/scheduling/day_routine.dart';
+import '../../domain/voice/answer_parser.dart';
+import '../../domain/voice/voice_time.dart';
+import '../voice/listen_button.dart';
 import 'onboarding_voice.dart';
 import 'profile_page.dart';
 import 'routine_presets.dart';
@@ -43,6 +47,7 @@ class RoutineOnboardingScreen extends StatefulWidget {
 
 class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   final _controller = PageController();
+  final _profile = GlobalKey<ProfilePageState>();
   final Map<DayAnchor, MinuteOfDay> _answers = {};
   int _index = 0;
   bool _saving = false;
@@ -69,6 +74,50 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
     DayAnchor.dinner: 'onb_dinner',
     DayAnchor.sleep: 'onb_sleep',
   };
+
+  /// «اتكلم» لصفحة دلوقتي — إجابة مقفولة: الاسم، راجل/ست، السن، أو ساعة.
+  /// كل واحد بيطبّق **بنفس** سكّة الإيد (الحقل، الشريحة، البكرة).
+  Widget _listenFor() {
+    if (_needsProfile == true) {
+      return switch (_profileStep) {
+        0 => ListenButton<String>(
+            tag: 'name',
+            parse: parseName,
+            describe: (n) => 'اسمك $n',
+            onApply: (n) async => _profile.currentState?.applyName(n),
+          ),
+        1 => ListenButton<SpokenSex>(
+            tag: 'gender',
+            parse: parseSex,
+            describe: (s) => s == SpokenSex.male ? 'راجل' : 'ست',
+            onApply: (s) async => _profile.currentState?.applySex(s == SpokenSex.male ? Sex.m : Sex.f),
+          ),
+        _ => ListenButton<int>(
+            tag: 'age',
+            parse: parseAge,
+            describe: (a) => 'سنّك ${arabicNumber(a)} سنة',
+            onApply: (a) async => _profile.currentState?.applyAge(a),
+          ),
+      };
+    }
+    final question = routineQuestions[_index];
+    return ListenButton<SpokenTime>(
+      tag: question.anchor.name,
+      parse: (heard) => parseTime(heard, hint: _hintFor(question.anchor)),
+      describe: (t) => 'الساعة ${voiceTime(DateTime(2026, 1, 1, t.hour, t.minute))}',
+      // = حرّك البكرة لحد الساعة دي — «تمام» لسه بإيده
+      onApply: (t) async => setState(() => _answers[question.anchor] = MinuteOfDay(t.minutes)),
+    );
+  }
+
+  /// السؤال نفسه بيقول جزء اليوم: «تمانيه» في «بتفطر الساعة كام؟» الصبح،
+  /// وفي «بتتعشى» بالليل. من غير ده الساعة الناقصة ما بتتفهمش.
+  static DayPartHint _hintFor(DayAnchor anchor) => switch (anchor) {
+        DayAnchor.wake || DayAnchor.breakfast => DayPartHint.morning,
+        DayAnchor.lunch => DayPartHint.noon,
+        DayAnchor.dinner => DayPartHint.evening,
+        DayAnchor.sleep => DayPartHint.night,
+      };
 
   /// جملة الصفحة اللي قدّامه دلوقتي — «ساعدني» فوق بيعيدها.
   String get _pageLine => _needsProfile == true
@@ -216,18 +265,26 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                             ),
                           Kicker(profile ? 'أول خطوة' : 'مرة واحدة بس'),
                           const SizedBox(height: F.s4),
-                          HelpRow(
-                            // جملة الصفحة نفسها — نفس اللي اتقالت لوحدها
-                            id: _pageLine,
-                            child: Text(
-                              profile ? 'نتعرّف عليك' : Say(_sex).routineTitle,
-                              style: TextStyle(
-                                fontFamily: F.displayFamily,
-                                fontSize: F.screenTitleSize,
-                                fontWeight: FontWeight.w700,
-                                color: F.ink,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  profile ? 'نتعرّف عليك' : Say(_sex).routineTitle,
+                                  style: TextStyle(
+                                    fontFamily: F.displayFamily,
+                                    fontSize: F.screenTitleSize,
+                                    fontWeight: FontWeight.w700,
+                                    color: F.ink,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: F.s8),
+                              // «اتكلم» جنب «ساعدني» — والاتنين عن صفحة دلوقتي
+                              _listenFor(),
+                              const SizedBox(width: F.s6),
+                              // جملة الصفحة نفسها — نفس اللي اتقالت لوحدها
+                              HelpButton(_pageLine),
+                            ],
                           ),
                           if (!profile) ...[
                             const SizedBox(height: F.s4),
@@ -242,6 +299,7 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
                     Expanded(
                       child: profile
                           ? ProfilePage(
+                              key: _profile,
                               initialName: _name,
                               onDone: _saveProfile,
                               step: _profileStep,

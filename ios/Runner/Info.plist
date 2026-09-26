@@ -76,6 +76,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>عشان نسمع إجابتك لما تدوس على زرار «اتكلم» — وهو داوس بس، ومش بنسجّل صوتك.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>عشان نحوّل كلامك لكلام مكتوب ونفهم إجابتك. مش بنخزّن صوتك ولا كلامك.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>عشان تصوّر الروشتة ونقراها لك.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

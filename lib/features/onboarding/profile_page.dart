@@ -45,10 +45,12 @@ class ProfilePage extends StatefulWidget {
   static const int steps = 3;
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  State<ProfilePage> createState() => ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+/// حالة الصفحة — عامة عشان زرار «اتكلم» في ترويسة البداية يطبّق اللي
+/// اتفهم بالصوت **بنفس** اللي الحقل والشريحة والبكرة بيعملوه.
+class ProfilePageState extends State<ProfilePage> {
   late final _name = TextEditingController(
     // «أنا» اللي ensurePatient بيحطّه مش اسم — الحقل يبدأ فاضي
     text: widget.initialName == 'أنا' ? '' : (widget.initialName ?? ''),
@@ -89,6 +91,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _touch() => widget.onInteract?.call();
+
+  /// الاسم بالصوت = نفس ما لو كتبه.
+  void applyName(String name) => setState(() => _name.text = name);
+
+  /// «راجل» / «ست» بالصوت = نفس دوسة الشريحة.
+  void applySex(Sex sex) => setState(() => _sex = sex);
+
+  /// السن بالصوت = نفس ما لو حرّك البكرة لحد الرقم.
+  void applyAge(int age) => setState(() => _age = age);
 
   List<Widget> _page(Say say) => switch (widget.step) {
         0 => [

@@ -17,39 +17,21 @@ class OnboardingVoice {
 
   final VoiceService? voice;
   final _played = <String>{};
-  int _token = 0;
 
   bool get on => voice?.enabled == true;
 
-  /// [ids] ورا بعض، مرة واحدة لكل [key] (أول رقم لو مش محدد).
-  Future<void> auto(List<String> ids, {String? key}) async {
+  /// [ids] ورا بعض، مرة واحدة لكل [key] (أول رقم لو مش محدد) — في طابور
+  /// الخدمة، فـ«دلوقتي تقدر تكلّمني» بتيجي بعد جملة الصفحة مش فوقها.
+  Future<void> auto(List<String> ids, {String? key}) {
     final v = voice;
-    if (v == null || !v.enabled) return;
-    if (!_played.add(key ?? ids.first)) return;
-    final token = ++_token;
-    await _quiet(v);
-    if (token != _token || !v.enabled) return;
-    await v.speakLines(ids);
+    if (v == null || !v.enabled) return Future.value();
+    if (!_played.add(key ?? ids.first)) return Future.value();
+    return v.speakQueued(ids);
   }
 
-  /// بيسكّت اللي بيتقال، وبيلغي أي جملة لسه مستنية دورها.
+  /// بيسكّت اللي بيتقال والسماع، وبيلغي أي جملة لسه مستنية دورها.
   void hush() {
-    _token++;
     final v = voice;
-    if (v != null && v.speaking) unawaited(v.stop());
-  }
-
-  static Future<void> _quiet(VoiceService v) {
-    if (!v.speaking) return Future.value();
-    final done = Completer<void>();
-    void listen() {
-      if (v.caption.value == null && !done.isCompleted) {
-        v.caption.removeListener(listen);
-        done.complete();
-      }
-    }
-
-    v.caption.addListener(listen);
-    return done.future;
+    if (v != null) unawaited(v.stop());
   }
 }

@@ -8,6 +8,8 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/patient_voice.dart';
+import '../../domain/voice/answer_parser.dart';
+import '../voice/listen_button.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/widgets/primitives.dart';
@@ -130,7 +132,14 @@ class _ReminderScreenState extends State<ReminderScreen> {
         }
         // فوراً وقبل أي حاجة تانية: التأكيد بيلغي التذكير في نفس اللحظة.
         await services.scheduler.afterConfirmation(doses.first.scheduledAt);
+        // «تمام، سجّلت إن حضرتك أخدته» — بعد الوعد، زي «يومك»؛ بالصوت وبالإيد
+        unawaited(services.voice?.speakLine('help_confirm_done'));
       });
+
+  /// «أخدته» / «فكّرني بعدين» بالصوت — **نفس** [_taken] و[_snooze] بتوع
+  /// الزرارين، ولا سطر زيادة.
+  Future<void> _spoken(DoseAnswer answer, List<DoseEventView> pending) =>
+      answer == DoseAnswer.taken ? _taken(pending) : _snooze(pending);
 
   Future<void> _skipped(List<DoseEventView> doses) => _act((services) async {
         for (final dose in doses) {
@@ -212,6 +221,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             onTaken: () => _taken(pending),
                             onSnooze: () => _snooze(pending),
                             onSkipped: () => _skipped(pending),
+                            listen: ListenButton<DoseAnswer>(
+                              tag: 'dose',
+                              onDark: true,
+                              parse: parseDoseAnswer,
+                              describe: (a) => a == DoseAnswer.taken ? 'أخدته' : 'فكّرني بعدين',
+                              onApply: (a) => _spoken(a, pending),
+                            ),
                           ),
                   ),
                   if (pending.isNotEmpty) ...[
@@ -344,8 +360,11 @@ class _PendingActions extends StatelessWidget {
     required this.onTaken,
     required this.onSnooze,
     required this.onSkipped,
+    required this.listen,
   });
 
+  /// «اتكلم» — فوق الزرارين، على نفس السكّة.
+  final Widget listen;
   final bool enabled;
   final VoidCallback onTaken;
   final VoidCallback onSnooze;
@@ -356,6 +375,8 @@ class _PendingActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Align(alignment: AlignmentDirectional.centerEnd, child: listen),
+        const SizedBox(height: F.s10),
         FPrimaryButton(label: 'تم التناول ✅', onPressed: enabled ? onTaken : null),
         const SizedBox(height: F.s10),
         Row(

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/diagnostics.dart';
 import '../../domain/voice/voice_catalog.dart';
+import 'speech_listener.dart';
 
 /// تشغيل تسجيل من الحزمة. `true` = اتقال لآخره، `false` = ما عرفش
 /// (ملف ناقص، عطل في المشغّل) — ساعتها الخدمة بترجع لصوت الموبايل.
@@ -62,12 +63,16 @@ class VoiceService extends ChangeNotifier {
     required this.player,
     required this.tts,
     this.focus,
+    this.listener,
     Future<SharedPreferences> Function()? prefs,
   }) : _prefs = prefs ?? SharedPreferences.getInstance;
 
   final VoicePlayer player;
   final VoiceTts tts;
   final VoiceAudioFocus? focus;
+
+  /// «بيسمع» (المرحلة ٢) — null = مفيش مايك في النسخة دي (ولا زرار).
+  final SpeechListener? listener;
   final Future<SharedPreferences> Function() _prefs;
 
   static const enabledKey = 'voice.enabled';
@@ -75,12 +80,21 @@ class VoiceService extends ChangeNotifier {
   static const volumeKey = 'voice.volume';
   static const introDoneKey = 'voice.introDone';
   static const briefingDayKey = 'voice.briefingDay';
+  static const listenIntroDoneKey = 'voice.listenIntroDone';
 
   bool _enabled = false;
   VoiceSpeed _speed = VoiceSpeed.slow;
   VoiceVolume _volume = VoiceVolume.normal;
   bool _introDone = false;
   String? _briefingDay;
+  bool _listenIntroDone = false;
+  bool _micDenied = false;
+  int _interrupts = 0;
+
+  /// آخر جملة في الطابور — null لما يخلص. **مش `Future.value()` جاهزة**: الـ
+  ///`Future` بيتعمل في منطقة (zone) اللي بينده، وواحدة اتعملت قبل الاختبار
+  /// (في `setUp`) `.then` بتاعها ما بيتشغّلش جوّه المنطقة المزيّفة أبداً.
+  Future<void>? _queue;
 
   bool get enabled => _enabled;
   VoiceSpeed get speed => _speed;
@@ -94,6 +108,16 @@ class VoiceService extends ChangeNotifier {
 
   bool get speaking => caption.value != null;
 
+  /// «دلوقتي تقدر تكلّمني…» اتقالت مرة (أول ما زرار المايك ظهر).
+  bool get listenIntroDone => _listenIntroDone;
+
+  /// رفض إذن المايك في الجلسة دي — الزرار بيختفي وكل حاجة بالإيد.
+  bool get micDenied => _micDenied;
+
+  /// بيزيد مع كل [stop] من برّه (تنبيه جرعة، شاشة اتقفلت، لمسة) — اللي
+  /// بيسمع بيقارنه قبل وبعد كل خطوة، ولو اتغيّر بيسكت من غير ما يكمّل.
+  int get interrupts => _interrupts;
+
   int _generation = 0;
   ValueListenable<String?>? _alert;
 
@@ -105,6 +129,7 @@ class VoiceService extends ChangeNotifier {
       _volume = VoiceVolume.values.asNameMap()[p.getString(volumeKey)] ?? VoiceVolume.normal;
       _introDone = p.getBool(introDoneKey) ?? false;
       _briefingDay = p.getString(briefingDayKey);
+      _listenIntroDone = p.getBool(listenIntroDoneKey) ?? false;
     } catch (e) {
       diag('Voice: قراية الإعدادات وقعت ($e)');
     }
@@ -134,6 +159,16 @@ class VoiceService extends ChangeNotifier {
     _introDone = true;
     notifyListeners();
     await _put((p) => p.setBool(introDoneKey, true));
+  }
+
+  Future<void> markListenIntroDone() async {
+    _listenIntroDone = true;
+    await _put((p) => p.setBool(listenIntroDoneKey, true));
+  }
+
+  void markMicDenied() {
+    _micDenied = true;
+    notifyListeners();
   }
 
   /// ملخص اليوم مرة واحدة لكل يوم روتين — [dayKey] هو اليوم بصيغة ثابتة.
@@ -176,6 +211,40 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
+  /// جمل بتستنّى دورها: بعد اللي بيتقال دلوقتي وبعد أي حاجة اتحطّت قبلها
+  /// (جملة الصفحة في البداية، وبعدها «دلوقتي تقدر تكلّمني»). [stop] من
+  /// برّه بيلغي اللي لسه ما بدأش.
+  Future<void> speakQueued(List<String> ids, {bool force = false}) {
+    final gen = _interrupts;
+    Future<void> run() async {
+      if (gen != _interrupts) return;
+      await _quiet();
+      if (gen != _interrupts) return;
+      await speakLines(ids, force: force);
+    }
+
+    final prev = _queue;
+    late final Future<void> mine;
+    mine = (prev == null ? run() : prev.then((_) => run())).whenComplete(() {
+      if (identical(_queue, mine)) _queue = null;
+    });
+    return _queue = mine;
+  }
+
+  Future<void> _quiet() {
+    if (!speaking) return Future.value();
+    final done = Completer<void>();
+    void listen() {
+      if (caption.value == null && !done.isCompleted) {
+        caption.removeListener(listen);
+        done.complete();
+      }
+    }
+
+    caption.addListener(listen);
+    return done.future;
+  }
+
   /// نص حر (ملخص اليوم) — **صوت الموبايل بس**، مفيش تسجيل ليه.
   Future<void> speakText(String text, {bool force = false}) async {
     if (!_enabled && !force) return;
@@ -187,8 +256,18 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// بيوقّف كل حاجة فوراً — تسجيل وصوت موبايل — ويشيل الترجمة.
+  /// بيوقّف كل حاجة فوراً — تسجيل وصوت موبايل **والسماع** — ويشيل الترجمة.
+  /// ده الباب اللي تنبيه الجرعة والشاشات بيدخلوا منه؛ الكلام اللي الخدمة
+  /// نفسها بتبدأه بيوقّف اللي قبله من [_stopSpeaking] من غير ما يعدّ مقاطعة.
   Future<void> stop() async {
+    _interrupts++;
+    await Future.wait([
+      _stopSpeaking(),
+      if (listener case final l?) l.stop().catchError((Object e) => diag('Voice: وقف السماع ($e)')),
+    ]);
+  }
+
+  Future<void> _stopSpeaking() async {
     _generation++;
     caption.value = null;
     await Future.wait([
@@ -210,7 +289,7 @@ class VoiceService extends ChangeNotifier {
   }
 
   Future<int> _begin(String text) async {
-    await stop();
+    await _stopSpeaking();
     final gen = ++_generation;
     caption.value = text;
     try {

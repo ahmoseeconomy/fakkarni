@@ -72,7 +72,8 @@ void main() {
     expect(said(), ['intro_01', 'intro_02', 'intro_03', 'intro_04', 'intro_05']);
 
     await tester.tap(find.byKey(const ValueKey('intro-yes')));
-    for (var i = 0; i < 20; i++) {
+    // الحفظ والطابور كام دورة — نبض محدود أطول من أي انتقال
+    for (var i = 0; i < 60; i++) {
       await tester.pump(const Duration(milliseconds: 25));
     }
     expect(find.byType(EntryScreen), findsOneWidget);

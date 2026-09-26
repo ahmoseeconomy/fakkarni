@@ -8,6 +8,8 @@
     <!-- إعادة جدولة التذكيرات بعد إعادة تشغيل الجهاز -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- «اتكلم»: المايك وهو داوس على الزرار بس — مفيش تسجيل ولا رفع -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="فكرني"
         android:name="${applicationName}"
@@ -70,6 +72,10 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- متعرّف الكلام (speech_to_text): من أندرويد ١١ لازم نعلن إننا بندوّر عليه -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

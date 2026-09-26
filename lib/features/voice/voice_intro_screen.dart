@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../domain/voice/answer_parser.dart';
+import 'listen_button.dart';
+
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/fa_mark.dart';
 import '../../core/widgets/primitives.dart';
@@ -71,7 +74,9 @@ class _VoiceIntroScreenState extends State<VoiceIntroScreen> {
 
   @override
   void dispose() {
-    unawaited(widget.voice.stop());
+    // «تمام، أنا معاك» بتكمّل والشاشة اللي بعدها بتفتح — الوقف هنا للي
+    // ساب الشاشة وهي لسه بتقدّم نفسها
+    if (!_closing) unawaited(widget.voice.stop());
     super.dispose();
   }
 
@@ -116,6 +121,18 @@ class _VoiceIntroScreenState extends State<VoiceIntroScreen> {
                 ),
                 const Spacer(),
                 if (_asking && !_closing) ...[
+                  // «تحب أكلّمك بصوتي؟» بالصوت كمان — الإجابة مقفولة
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: ListenButton<bool>(
+                      tag: 'intro',
+                      force: true,
+                      parse: parseYesNo,
+                      describe: (yes) => yes ? 'أيوه، اتكلم' : 'لأ، من غير صوت',
+                      onApply: _answer,
+                    ),
+                  ),
+                  const SizedBox(height: F.s12),
                   FPrimaryButton(
                     key: const ValueKey('intro-yes'),
                     label: 'أيوه، اتكلم',
@@ -128,7 +145,7 @@ class _VoiceIntroScreenState extends State<VoiceIntroScreen> {
                     onPressed: () => _answer(false),
                   ),
                 ] else
-                  const SizedBox(height: F.primaryButtonHeight + F.s12 + F.minTapTarget),
+                  const SizedBox(height: F.primaryButtonHeight + F.s12 + F.minTapTarget + F.s12 + F.minTapTarget),
               ],
             ),
           ),
