@@ -240,7 +240,7 @@ class _DoseEditorState extends State<DoseEditor> {
                     ),
                   ] else ...[
                     Text(
-                      'اختار المرساة الأول — الساعة بتتحسب لوحدها.',
+                      'اختار الأكلة أو الميعاد الأول — الساعة بتتحسب لوحدها.',
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                     ),
                     const SizedBox(height: F.s12),

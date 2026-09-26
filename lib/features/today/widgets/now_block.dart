@@ -1,3 +1,4 @@
+import '../../../domain/escalation/dose_moment.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
@@ -7,6 +8,7 @@ import '../../../core/widgets/patient_voice.dart';
 import '../../../domain/patient/sex.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/dose_state.dart';
+import '../../../data/repositories/dose_event_repository.dart' show DoseEventView;
 import '../dose_actions.dart';
 import '../../medication/med_photo.dart';
 import 'card_type_icon.dart';
@@ -165,9 +167,18 @@ class _NowBlockState extends State<NowBlock> {
 String? _kicker(NowLine line, Say say, DateTime now) {
   if (line.postponed) return null;
   final dose = line.dose;
-  final overdue = dose.scheduledAt.isBefore(now) || dose.state == DoseState.missed;
-  return overdue ? say.forgotIt : 'الجاية';
+  return _kickerFor(_momentOf(dose, now), say);
 }
+
+DoseMoment _momentOf(DoseEventView dose, DateTime now) =>
+    doseMomentOf(scheduledAt: dose.scheduledAt, now: now, markedMissed: dose.state == DoseState.missed);
+
+/// «نسيتها؟» بعد المهلة بس — في معادها «دلوقتي».
+String _kickerFor(DoseMoment m, Say say) => switch (m) {
+      DoseMoment.missed => say.forgotIt,
+      DoseMoment.dueNow => 'دلوقتي',
+      DoseMoment.upcoming => 'الجاية',
+    };
 
 class _LineGap extends StatelessWidget {
   const _LineGap();
@@ -203,18 +214,20 @@ class _DoseLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final dose = line.dose;
     final at = dose.scheduledAt;
-    final overdue = at.isBefore(now) || dose.state == DoseState.missed;
+    final moment = _momentOf(dose, now);
     final status = switch (line.remindAgainAt) {
       // **الإجابة على «أجّلته لإمتى؟»** — نفس اللحظة اللي الإشعار
       // اتجدول عليها، مش حساب تاني.
       final again? => 'هيفكّرك ${arabicTime(again)}',
-      _ when overdue => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
-      _ => '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
+      _ => switch (moment) {
+          DoseMoment.missed => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
+          DoseMoment.dueNow => 'معادها دلوقتي — ${arabicTime(at)}',
+          DoseMoment.upcoming => '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
+        },
     };
-    // كلمة الحالة زي ما كانت على الكارت المثبّت («نسيتها؟» / «الجاية»)،
-    // ومتشالة عن المأجّلة: عنوان المجموعة فوقها بيقول «أجّلتها» خلاص.
-    final kicker =
-        !showKicker || line.postponed ? null : (overdue ? say.forgotIt : 'الجاية');
+    // كلمة الحالة («نسيتها؟» بعد المهلة / «دلوقتي» / «الجاية»)، ومتشالة عن
+    // المأجّلة: عنوان المجموعة فوقها بيقول «أجّلتها» خلاص.
+    final kicker = !showKicker || line.postponed ? null : _kickerFor(moment, say);
     final amount = dose.amountLabel;
 
     return Row(

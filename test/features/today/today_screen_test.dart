@@ -618,7 +618,7 @@ void main() {
 
       expect(find.text('إمتى؟'), findsOneWidget);
       expect(find.text('Concor 5mg'), findsOneWidget);
-      expect(find.text('اختار المرساة الأول — الساعة بتتحسب لوحدها.'), findsOneWidget);
+      expect(find.text('اختار الأكلة أو الميعاد الأول — الساعة بتتحسب لوحدها.'), findsOneWidget);
       final labels = [for (final c in anchorChoices) c.label];
       expect(labels, anchorChipLabels, reason: 'ترتيب التصميم');
       for (final label in labels) {

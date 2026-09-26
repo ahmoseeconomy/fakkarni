@@ -1,3 +1,4 @@
+import '../../domain/escalation/dose_moment.dart';
 import '../voice/help_button.dart';
 import '../voice/talk_button.dart';
 import 'dart:async';
@@ -294,7 +295,10 @@ class _DoseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final say = PatientVoice.of(context);
     final at = doses.first.scheduledAt;
-    final overdue = at.isBefore(now) || doses.any((d) => d.state == DoseState.missed);
+    final moment = doseMomentOf(
+        scheduledAt: at, now: now, markedMissed: doses.any((d) => d.state == DoseState.missed));
+    // «نسيتها؟» بعد مهلة الـ٤٥ دقيقة بس — في معادها «معادها دلوقتي»
+    final overdue = moment == DoseMoment.missed;
     final body = TextStyle(fontSize: F.elderTextSize, color: F.mutedDark, height: 1.45);
 
     return FCard(
@@ -340,7 +344,11 @@ class _DoseCard extends StatelessWidget {
           ],
           if (rule != null) Text(rule!, style: body),
           Text(
-            overdue ? 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}' : 'الساعة ${arabicTime(at)}',
+            switch (moment) {
+              DoseMoment.missed => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
+              DoseMoment.dueNow => 'معادها دلوقتي — الساعة ${arabicTime(at)}',
+              DoseMoment.upcoming => 'الساعة ${arabicTime(at)}',
+            },
             style: body.copyWith(color: F.ink),
           ),
           if (snoozed)

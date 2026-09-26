@@ -484,7 +484,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
               const SizedBox(height: F.s4),
               Text(
-                'المراسي ثابتة، والجرعات معلّقة عليها.',
+                'مواعيد يومك، وأدويتك مربوطة بيها.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               ),
               const SizedBox(height: F.s12),

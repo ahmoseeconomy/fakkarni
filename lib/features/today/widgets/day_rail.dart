@@ -1,3 +1,4 @@
+import '../../../domain/escalation/dose_moment.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
@@ -184,8 +185,11 @@ class DayRail extends StatelessWidget {
   Widget _card(List<DoseEventView> group) {
     final at = group.first.scheduledAt;
     // فات معادها أو جهازه كتب «اتنست» — نفس الجملة الهادية. نسي، ما فشلش.
-    final unconfirmed =
-        at.isBefore(now) || group.any((d) => d.state == DoseState.missed);
+    final moment = doseMomentOf(
+        scheduledAt: at, now: now, markedMissed: group.any((d) => d.state == DoseState.missed));
+    // «لسه ما اتأكدتش» بعد المهلة بس؛ في معادها «معادها دلوقتي»
+    final unconfirmed = moment == DoseMoment.missed;
+    final dueNow = moment == DoseMoment.dueNow;
 
     return Material(
       color: F.cardGround,
@@ -227,10 +231,10 @@ class DayRail extends StatelessWidget {
                       ].nonNulls.join(' — '),
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
                     ),
-                    if (unconfirmed) ...[
+                    if (unconfirmed || dueNow) ...[
                       const SizedBox(height: F.s4),
                       Text(
-                        'لسه ما اتأكدتش',
+                        unconfirmed ? 'لسه ما اتأكدتش' : 'معادها دلوقتي',
                         style: TextStyle(
                           fontSize: F.minTextSize,
                           fontWeight: FontWeight.w700,

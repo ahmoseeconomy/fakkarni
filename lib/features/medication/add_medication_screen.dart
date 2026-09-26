@@ -803,7 +803,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                               : _choice == TimingChoice.fixed
                                   ? 'البكرة فوق بتختار أول ساعة، والباقي بيتوزّع على يومك — دوس على أي جرعة لو عايز تغيّرها.'
                                   : _routine.isComplete
-                                      ? 'الأوقات محسوبة من مراسي يومك — دوس على أي جرعة لو عايز تغيّرها.'
+                                      ? 'الأوقات محسوبة من مواعيد يومك — دوس على أي جرعة لو عايز تغيّرها.'
                                       : 'ما حدّدتش مواعيد يومك كلها — دوس على الجرعة وقول ميعاد الأكل مرة، أو اختار ساعة.',
                           style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                         ),

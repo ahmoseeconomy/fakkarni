@@ -132,7 +132,7 @@ class _RamadanScreenState extends State<RamadanScreen> {
                   const SizedBox(height: F.s6),
                   Text(
                     'في رمضان يومك بيترسي على السحور والفطار (المغرب) والنوم — '
-                    'بدل الخمس مراسي العادية. كل جرعة مربوطة بالأكل هتتحرك معاها لوحدها.',
+                    'بدل مواعيد يومك العادية. كل جرعة مربوطة بالأكل هتتحرك معاها لوحدها.',
                     style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
                   ),
                   const SizedBox(height: F.gap),

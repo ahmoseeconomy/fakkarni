@@ -34,7 +34,7 @@ List<String> deletedLines(DeletingAs who, {String patientName = '', bool linked 
       DeletingAs.follower || DeletingAs.nurse => [
           'حسابك',
           'ربطك بـ${_or(patientName, 'المريض')}، واسمك وتفضيلاتك',
-          'التنبيهات اللي وصلتك عنه، وتوكن الإشعارات على الموبايل ده',
+          'التنبيهات اللي وصلتك عنه، وتسجيل الإشعارات على الموبايل ده',
           if (who == DeletingAs.nurse) 'تذكيرات مواعيده على الموبايل ده',
         ],
     };
