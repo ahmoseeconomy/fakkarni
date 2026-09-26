@@ -166,6 +166,8 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
                 if (_phase == _Phase.failed && _error != null) ...[
                   const SizedBox(height: F.gap),
                   PanelOnDark(text: _error!),
+                  // «مش قادر أساعد في دي دلوقتي. ممكن حضرتك تكمّل بإيدك.»
+                  const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('gen_try_hands', onDark: true)),
                   if (kDebugMode && _cause != null) ...[
                     const SizedBox(height: F.s8),
                     DebugPanel(_cause!),

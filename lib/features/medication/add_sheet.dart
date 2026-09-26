@@ -10,6 +10,7 @@ import '../health/vitals/vital_entry_sheet.dart';
 import '../health/scan_lab_screen.dart';
 import '../records/manual_entry_screen.dart';
 import '../scan/scan_prescription_screen.dart';
+import '../voice/help_button.dart';
 import 'add_medication_screen.dart';
 import 'scan_package_screen.dart';
 
@@ -39,6 +40,8 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
     context,
     title: addSheetTitle,
     children: [
+      // «ممكن تكتب اسمه، أو تصوّر العلبة أو الروشتة» — بتوصف الشيت ده
+      const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_add_med')),
       // **الصورة الأول** (طلب المالك): العلبة في إيده دلوقتي، وده
       // أقصر طريق بين حاجة موجودة قدّامه وحاجة متسجّلة.
       FPrimaryButton(

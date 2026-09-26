@@ -170,6 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _Row(
               icon: Icons.people_outline,
               label: 'دائرة الرعاية',
+              help: 'help_family',
               hint: 'اربط حد من عيلتك أو ممرضك',
               value: user == null ? 'مش مربوط' : 'مربوط',
               onTap: () => _open(SignInScreen(
@@ -204,7 +205,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _Row(
                 icon: Icons.manage_accounts_outlined,
                 label: 'عيلتك أو ممرضك',
-                help: 'help_family',
                 hint: 'الدور والصلاحيات لكل واحد، وشيل اللي مش عايزه',
                 onTap: () async {
                   final patient = await services.routines.getPatient(services.patientId);

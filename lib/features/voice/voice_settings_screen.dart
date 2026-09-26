@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
@@ -40,7 +42,11 @@ class VoiceSettingsScreen extends StatelessWidget {
                   label: 'الصوت',
                   subtitle: voice.enabled ? 'شغّال' : 'مقفول',
                   value: voice.enabled,
-                  onChanged: voice.setEnabled,
+                  onChanged: (on) async {
+                    await voice.setEnabled(on);
+                    // «ربنا يديك الصحة» — آخر جملة لما يقفله، وبعدها ساكت
+                    if (!on) unawaited(voice.speakLine('gen_goodbye', force: true));
+                  },
                 ),
               ),
               const SizedBox(height: F.gap),

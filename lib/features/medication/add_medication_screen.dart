@@ -595,7 +595,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('اسم الدوا والتركيز', help: 'help_add_med'),
+                        const _FieldLabel('اسم الدوا والتركيز'),
                         _Field(
                           controller: _name,
                           hint: 'زي Concor 5mg',

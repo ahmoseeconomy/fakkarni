@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../voice/help_button.dart';
+
 import '../../../core/format/arabic_time.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/primitives.dart';
@@ -118,7 +120,11 @@ class _VitalHistoryViewState extends State<VitalHistoryView> {
     if (widget.onAdd != null) {
       children.addAll([
         const SizedBox(height: F.gap),
-        Text(vitalsAskDoctor, key: const ValueKey('vital-ask-doctor'), style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+        // «دي حاجة لازم تسأل فيها الدكتور…» — على سطر «اسأل دكتورك» نفسه
+        HelpRow(
+          id: 'gen_no_medical',
+          child: Text(vitalsAskDoctor, key: const ValueKey('vital-ask-doctor'), style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+        ),
       ]);
     }
 
