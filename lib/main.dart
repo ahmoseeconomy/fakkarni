@@ -89,6 +89,9 @@ Future<void> main() async {
   // **الدوسات اللي الإضافة ضيّعتها** — سويفت كتبتها في طابور، ودي أول
   // فتحة بعدها. قبل السحابة: ده وعد، وده ممكن يكون إطلاق خلفية عمره ثواني.
   await drainPendingActions(PendingActionStore(), door);
+  // من هنا: «أخدته» والتطبيق عايش بتيجي للإنجن ده على طول، مش لإنجن تاني
+  LiveActions.door = door;
+  await LiveActions.listen();
 
   // ---------------------------------------------------------- السحابة
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،
@@ -172,6 +175,11 @@ Future<void> main() async {
     // تنبيه الجرعة بيكسب: الكلام يسكت قبل ما الزرار يتعالج
     unawaited(voice.stop());
     unawaited(actions.handle(action, payload));
+  };
+  // ونفس الخدمات للدوسات اللي سويفت بتسلّمها وإحنا عايشين (مع السحابة)
+  LiveActions.door = (action, payload) async {
+    unawaited(voice.stop());
+    await actions.handle(action, payload);
   };
 
   // **زرار الممرض — باب لوحده.** «أكّد إنه أخدها» على تذكير الممرض =

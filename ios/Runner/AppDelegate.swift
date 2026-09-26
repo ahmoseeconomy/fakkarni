@@ -149,6 +149,54 @@ enum PendingActionQueue {
   }
 }
 
+/// **«أخدته» والتطبيق عايش** — للإنجن الرئيسي مباشرة، مش لإنجن تاني.
+///
+/// الإضافة بتبعت الزرار (مش `foreground`) لإنجن فلاتر تاني بتقوّمه ساعتها
+/// وبترجّع `completionHandler()` فوراً — حتى والتطبيق شغّال. على الآيفون
+/// (٢٦ سبتمبر ٢٠٢٦، release، التطبيق في الخلفية): أول «أخدته» ما اتسجّلتش
+/// وإعادة الـ+٥ رنّت. فلو دارت على الإنجن الرئيسي قالت `ready`، الدوسة (اللي
+/// اتكتبت في الطابور خلاص) بتتطبّق هناك بـ`drain`، و`completionHandler`
+/// بيستنى الرد — ومفيش إنجن تاني. إطلاق جديد في الخلفية (لسه مفيش `ready`)
+/// بيمشي زي الأول: الإضافة، و`main` بتطبّق الطابور لما توصله.
+/// اسم القناة مرآة لـ`LiveActions.channelName` — اختبار بيقفل عليها.
+enum LiveActionChannel {
+  static let name = "fakkarni/actions"
+  static var channel: FlutterMethodChannel?
+  static var ready = false
+  /// أقل من مهلة الخلفية (`holdSeconds`) — الرد لازم يرجع قبلها.
+  static let replySeconds = 20.0
+
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let ch = FlutterMethodChannel(name: name, binaryMessenger: messenger)
+    ch.setMethodCallHandler { call, result in
+      if call.method == "ready" {
+        ready = true
+        FKDiag.log("live — دارت جاهزة على الإنجن الرئيسي")
+      }
+      result(nil)
+    }
+    channel = ch
+  }
+
+  /// true = اتسلّمت للإنجن الرئيسي، و[done] هيتنده لما يرد (أو بعد المهلة).
+  static func deliver(_ done: @escaping () -> Void) -> Bool {
+    guard ready, let ch = channel else { return false }
+    var finished = false
+    let finish = {
+      if !finished {
+        finished = true
+        done()
+      }
+    }
+    ch.invokeMethod("drain", arguments: nil) { reply in
+      FKDiag.log("live — drain رجع \(reply ?? "nil")")
+      finish()
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + replySeconds) { finish() }
+    return true
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
@@ -204,6 +252,11 @@ enum PendingActionQueue {
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
+    // «أخدته» والتطبيق عايش — على الإنجن الرئيسي بس
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LiveActionChannel") {
+      LiveActionChannel.register(with: registrar.messenger())
+    }
+
     // «قريب منك» من خرايط أبل — قناة صغيرة، على المحرّك الرئيسي بس (صحوة
     // الخلفية ما بتدوّرش على صيدليات).
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PlacesChannel") {
@@ -232,6 +285,12 @@ enum PendingActionQueue {
     if PendingActionQueue.enqueue(response) {
       PendingActionQueue.hold()
       FKDiag.log("queued — action=\(response.actionIdentifier) في pending_actions")
+      // التطبيق عايش ودارت جاهزة: الإنجن الرئيسي بيطبّق الطابور، والإضافة ما
+      // بتقوّمش إنجن تاني لنفس الدوسة
+      if LiveActionChannel.deliver(completionHandler) {
+        FKDiag.log("live — اتسلّمت للإنجن الرئيسي")
+        return
+      }
     }
     super.userNotificationCenter(
       center, didReceive: response, withCompletionHandler: completionHandler)

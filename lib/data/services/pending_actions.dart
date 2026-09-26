@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 import '../../core/diagnostics.dart';
 import '../../domain/escalation/escalation_ladder.dart' show graceWindow;
 import '../../core/notifications/notification_service.dart' show NotificationActions;
@@ -153,4 +155,54 @@ Future<int> drainPendingActions(
     }
   }
   return applied;
+}
+
+/// **«أخدته» والتطبيق عايش (في الخلفية أو قدّامه)** — سويفت بتسلّم الدوسة
+/// للإنجن الرئيسي على طول، من غير الإضافة.
+///
+/// الإضافة (`flutter_local_notifications` 22.3.0،
+/// `FlutterLocalNotificationsPlugin.m`) بتبعت أي زرار مش `foreground` لإنجن
+/// فلاتر **تاني** بتقوّمه ساعتها (`startEngineIfNeeded`)، وبترجّع
+/// `completionHandler()` على طول — حتى والتطبيق عايش. فالتطبيق اللي شغّال
+/// ما بيعرفش، والكتابة والإلغاء معلّقين على إنجن جديد يقوم في ثواني الخلفية.
+/// على الآيفون (٢٦ سبتمبر ٢٠٢٦، release): أول «أخدته» ما اتسجّلتش، إعادة
+/// الـ+٥ رنّت، و«يومك» قالت «نسيتها؟».
+///
+/// فسويفت (`LiveActionChannel` في `AppDelegate.swift`) بتكتب الدوسة في
+/// الطابور زي ما هي، ولو دارت قالت [ready] بتنده `drain` هنا **بدل** الإضافة:
+/// نفس الطابور، نفس الباب، على نفس قاعدة البيانات اللي «يومك» بتسمعها.
+abstract final class LiveActions {
+  static const channelName = 'fakkarni/actions';
+  static const MethodChannel _channel = MethodChannel(channelName);
+
+  /// الباب الحالي — `main` بيبدّله لما الخدمات الكاملة تتبني.
+  static Future<void> Function(String? action, String? payload)? door;
+
+  /// للاختبارات.
+  static PendingActionStore store = PendingActionStore();
+
+  /// سويفت بتنده ده — بيطبّق الطابور ويرجّع عدد اللي اتطبّق.
+  static Future<int> drain() async {
+    final d = door;
+    if (d == null) return 0;
+    final n = await drainPendingActions(store, d);
+    diag('Live: الإنجن الرئيسي طبّق $n من الطابور');
+    return n;
+  }
+
+  static Future<Object?> handle(MethodCall call) async => switch (call.method) {
+        'drain' => drain(),
+        _ => null,
+      };
+
+  /// بيسجّل المعالج وبيقول لسويفت «أنا جاهز» — من هنا الدوسات بتيجي هنا.
+  static Future<void> listen() async {
+    _channel.setMethodCallHandler(handle);
+    try {
+      await _channel.invokeMethod<void>('ready').timeout(const Duration(milliseconds: 500));
+    } catch (e) {
+      // أندرويد والاختبارات: مفيش سويفت — الصحوة هناك isolate زي ما هي
+      diag('Live: مفيش قناة سويفت ($e)');
+    }
+  }
 }
