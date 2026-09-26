@@ -36,6 +36,7 @@ import '../adherence/patient_adherence_card.dart';
 import '../medication/not_bought.dart';
 import 'dose_actions.dart';
 import 'widgets/day_rail.dart';
+import 'widgets/home_top_bar.dart';
 import 'widgets/glucose_home_card.dart';
 import 'widgets/now_block.dart';
 import 'widgets/tip_card.dart';
@@ -373,13 +374,17 @@ class _TodayScreenState extends State<TodayScreen> {
             // الزرار مش موجود، فالمسافة بتختفي معاه.
             padding: EdgeInsets.fromLTRB(
               F.gap,
-              F.gap,
+              // شريط النظام — الشريط العلوي بتاعنا أول ولد في القايمة (HomeTopBar)
+              MediaQuery.of(context).padding.top,
               F.gap,
               // الدوك (`padding.bottom` جوّه الهيكل) + طلعة «ضيف» (اللي الهيكل
               // زوّدها) + البيل بهامشه — فآخر كارت بيطلع فوق التلاتة
               F.gap + MediaQuery.of(context).padding.bottom + (keyboardIsUp(context) ? 0 : _NearbyPill.clearance),
             ),
             children: [
+              // العلامة والوضع الليلي و«طوارئ» — جزء من الصفحة، بيطلعوا معاها
+              const HomeTopBar(),
+              const SizedBox(height: F.gap),
               StreamBuilder<PatientRow?>(
                 stream: _patient,
                 builder: (context, snap) => _HomeHeader(

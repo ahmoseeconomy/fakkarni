@@ -323,7 +323,8 @@ void main() {
 
       // صفوف باقي اليوم للقراية: ولا زرار فيها
       final home = find.byType(ElderHomeScreen);
-      expect(find.descendant(of: home, matching: find.byType(FilledButton)), findsOneWidget);
+      // من غير بيل «طوارئ» — بقى جوّه الصفحة وهو مش فعل من أفعالها
+      expect(find.descendant(of: home, matching: find.byWidgetPredicate((w) => w is FilledButton && w.key != const ValueKey('emergency-shortcut'))), findsOneWidget);
       expect(find.descendant(of: home, matching: find.byType(OutlinedButton)), findsOneWidget,
           reason: '«بعد شوية» بتاع الكارت وبس');
     });
@@ -352,7 +353,7 @@ void main() {
       // **كارت الفعل واحد**: زرار واحد أساسي في الشاشة كلها، وهو بتاع الكارت
       // اللي فوق — صفوف باقي اليوم من غير أي زرار.
       expect(
-        find.descendant(of: find.byType(ElderHomeScreen), matching: find.byType(FilledButton)),
+        find.descendant(of: find.byType(ElderHomeScreen), matching: find.byWidgetPredicate((w) => w is FilledButton && w.key != const ValueKey('emergency-shortcut'))),
         findsOneWidget,
       );
       expect(tester.getSize(find.widgetWithText(FilledButton, 'تم ✅')).height, F.elderPrimaryButtonHeight);

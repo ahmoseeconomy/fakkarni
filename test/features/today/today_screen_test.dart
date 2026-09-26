@@ -89,6 +89,10 @@ void expectNoRed(WidgetTester tester) {
   }
 }
 
+/// أزرار الشاشة نفسها — من غير بيل «طوارئ» اللي بقى جوّه الصفحة (الشريط
+/// العلوي بقى جزء من «يومك»، ٢٦ سبتمبر ٢٠٢٦) وهو مش فعل من أفعالها.
+final actionButtons = find.byWidgetPredicate((w) => w is FilledButton && w.key != const ValueKey('emergency-shortcut'));
+
 void main() {
   late AppDatabase db;
   late MedicationRepository meds;
@@ -171,7 +175,7 @@ void main() {
     expect(find.text('الجاية'), findsOneWidget);
     expect(find.text('كمان ٦ ساعات — ٢:٠٠ م'), findsOneWidget);
 
-    final button = tester.getSize(find.byType(FilledButton).first);
+    final button = tester.getSize(actionButtons.first);
     expect(button.height, F.primaryButtonHeight);
     // اسم الدوا mono LTR ٢٤+
     final name = tester.widget<Text>(find.text('Antodine').first);
@@ -316,7 +320,7 @@ void main() {
     expect(find.text('Antodine'), findsWidgets);
     expect(find.byIcon(Icons.check), findsOneWidget);
     // زرار أساسي واحد بس — مفيش «أخدته» على كل كارت
-    expect(find.byType(FilledButton), findsOneWidget);
+    expect(actionButtons, findsOneWidget);
     expectNoRed(tester);
   });
 
@@ -348,7 +352,7 @@ void main() {
     for (final gone in ['وضع رمضان', 'اربط ابني', 'ضيف دوا', 'صوّر روشتة', 'عدّل يومك', 'أدويتك']) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
-    expect(find.byType(FilledButton).evaluate().length, lessThanOrEqualTo(2));
+    expect(actionButtons.evaluate().length, lessThanOrEqualTo(2));
   });
 
   screenTest('دوا جرعته مش معروفة → سطر هادي «اسأل الصيدلي عن جرعة …»', (tester) async {
@@ -445,7 +449,7 @@ void main() {
         FCardTone.attention,
       );
       // زرار أساسي واحد للكتلة كلها
-      expect(find.byType(FilledButton), findsOneWidget);
+      expect(actionButtons, findsOneWidget);
       expect(find.text('تأكيد الكل'), findsOneWidget);
       expectNoRed(tester);
     });
@@ -512,7 +516,7 @@ void main() {
       expect(find.text('أعلى من أعلى قياس معتاد ليك (١٣١) بـ ٢١'), findsOneWidget);
       expect(tester.getCenter(find.byKey(const ValueKey('glucose-home'))).dy,
           lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));
-      expect(find.byType(FilledButton), findsNothing, reason: '«افتح» مش أساسي');
+      expect(actionButtons, findsNothing, reason: '«افتح» مش أساسي');
       // كلام السكر بس — «معلومة تهمك» ليها خطوطها الحمرا في `tips_banned_words_test`
       // (وبتقول «اسأل دكتورك» عن قصد)، فبنستثني نصّها هنا
       final tipTexts = tester.widgetList<Text>(find.descendant(of: find.byKey(const ValueKey('tip-card')), matching: find.byType(Text))).toSet();
@@ -681,7 +685,7 @@ void main() {
     screenTest('من غير اسم «احفظ» مقفولة', (tester) async {
       await pumpAdd(tester);
       final button = tester.widget<FilledButton>(find.descendant(
-          of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+          of: find.byKey(const ValueKey('save-medication')), matching: actionButtons));
       expect(button.onPressed, isNull);
     });
 
@@ -741,7 +745,7 @@ void main() {
       await settle(tester);
       expect(find.text('اختار الساعة'), findsNWidgets(2));
       FilledButton save() => tester.widget<FilledButton>(find.descendant(
-          of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+          of: find.byKey(const ValueKey('save-medication')), matching: actionButtons));
       expect(save().onPressed, isNull, reason: 'مفيش ساعة اتاختارت لسه');
 
       await tester.tap(find.byKey(const ValueKey('dose-row-0')));
@@ -784,7 +788,7 @@ void main() {
 
       // العجلة مرتاحة على ٨ ومش كاتبة حاجة
       FilledButton save() => tester.widget<FilledButton>(find.descendant(
-          of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+          of: find.byKey(const ValueKey('save-medication')), matching: actionButtons));
       expect(find.text('اختار الساعة'), findsNWidgets(2));
       expect(save().onPressed, isNull);
 
@@ -953,8 +957,11 @@ void main() {
 
         // والدليل السلوكي: لفّ للآخر خالص — ولا نص واحد في القايمة تحت الزرار.
         // (صفوف السكة بتتبني وهي على الشاشة بس، فالفحص على كل اللي مرسوم.)
-        await tester.drag(find.byType(ListView).first, const Offset(0, -6000));
-        await settle(tester);
+        // لحد الآخر فعلاً — القايمة بتبني صفوفها وهي بتتلف، فطولها بيكبر
+        for (var i = 0; i < 6; i++) {
+          await tester.drag(find.byType(ListView).first, const Offset(0, -6000));
+          await settle(tester);
+        }
         final texts = find.descendant(of: find.byType(ListView).first, matching: find.byType(Text));
         expect(texts, findsWidgets);
         final under = [

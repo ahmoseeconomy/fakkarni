@@ -9,6 +9,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../today/widgets/home_top_bar.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
@@ -108,8 +109,11 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
           ];
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(F.gap, MediaQuery.of(context).padding.top, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
+              // الشريط العلوي جزء من الصفحة — زي «يومك»
+              const HomeTopBar(),
+              const SizedBox(height: F.gap),
               StreamBuilder<PatientRow?>(
                 stream: _patient,
                 builder: (context, snap) => _Greeting(patient: snap.data, now: _now),

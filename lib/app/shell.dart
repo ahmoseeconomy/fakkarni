@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import '../core/widgets/shell_bottom_extra.dart';
 import '../core/widgets/keyboard_dismiss.dart';
-import '../core/widgets/fa_mark.dart';
-import '../core/widgets/dark_mode_toggle.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
@@ -25,7 +23,6 @@ import '../features/care/onboarding/onboarding_gate.dart';
 import '../features/care/caregiver_snapshot_holder.dart';
 import '../features/care/caregiver_settings_screen.dart';
 import '../features/elder/elder_home_screen.dart';
-import '../features/emergency/emergency_pill.dart';
 import '../features/medication/add_sheet.dart';
 import '../features/medication/medications_screen.dart';
 import '../features/records/health_file_screen.dart';
@@ -84,40 +81,14 @@ class _AppShellState extends State<AppShell> {
             snap.data?.elderMode ?? false ? _buildElder(context) : _buildNormal(context),
       );
 
-  AppBar _appBar() => AppBar(
-        automaticallyImplyLeading: false,
-        titleSpacing: F.gap,
-        actions: [
-          // الفولدر سابه للدوك («الملف»)، ومكان الشخص بقى مفتاح الوضع الليلي.
-          const DarkModeToggle(),
-          const Padding(
-            padding: EdgeInsetsDirectional.only(end: F.gap),
-            child: EmergencyPill(),
-          ),
-        ],
-        // علامة ف بس. «الإعدادات» تبويب تحت — زرار فوق كان تكرار.
-        title: Row(
-          children: [
-            // على بلاطة خضرا عشان العاجي يبان
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: F.greenDeep,
-                borderRadius: BorderRadius.circular(F.radiusTile),
-              ),
-              alignment: Alignment.center,
-              child: const FaMark(size: 24, breathing: true),
-            ),
-          ],
-        ),
-      );
-
+  // **مفيش شريط علوي على الهيكل** (المالك، ٢٦ سبتمبر ٢٠٢٦): العلامة والوضع
+  // الليلي و«طوارئ» بقوا `HomeTopBar` جوّه صفحة «يومك» (ونمط كبار السن)،
+  // بيتزحلقوا معاها؛ باقي التبويبات من غيرهم، وكل تبويب بيسيب مكان شريط
+  // النظام لنفسه.
   Widget _buildElder(BuildContext context) => Scaffold(
         // الشاشة بتعدّي من تحت الدوك — من غير كده الزجاج مالوش حاجة يشفّ
         // عليها غير أرضية الصفحة، فبيبان مصمت.
         extendBody: true,
-        appBar: _appBar(),
         body: IndexedStack(
           index: _elderTab,
           children: [
@@ -149,7 +120,6 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       extendBody: true,
-      appBar: _appBar(),
       // **«ضيف» طالع فوق الدوك** (مركزه على حافته)، فكل تبويب بياخد طوله
       // الزيادة في `padding.bottom` — آخر حاجة في أي صفحة («امسح حسابي» في
       // الإعدادات) بتتزحلق لحد فوقه (آيفون، ٢٦ سبتمبر ٢٠٢٦: كان بيغطّيها).

@@ -17,6 +17,7 @@ import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/routine_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
+import 'package:fakkarni/features/today/widgets/home_top_bar.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
@@ -119,19 +120,23 @@ void main() {
     expectLabelsApart(tester, AppShell.elderTabs);
   });
 
-  screenTestish('الشريط العلوي مصمت بلون الصفحة — من غير خط ولا ظل، حتى بعد اللفّ (المالك رجّعهم)', (tester) async {
+  screenTestish('الشريط العلوي على «يومك» بس، جزء من الصفحة: بيطلع مع اللفّ، ومش على باقي التبويبات', (tester) async {
     await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)));
-    final bar = tester.getRect(find.byType(AppBar).first);
-    Material barMaterial() => tester.widget<Material>(
-        find.descendant(of: find.byType(AppBar).first, matching: find.byType(Material)).first);
-    expect(barMaterial().color, F.pageGround, reason: 'نفس لون الصفحة، مصمت');
-    expect(barMaterial().color?.a, 1.0);
-    expect(barMaterial().shape, isNot(isA<Border>()), reason: 'الخط اللي تحت اترجع');
-    // المحتوى بيتقصّ عند حافة الشريط — مش تحته
-    expect(tester.getRect(find.byType(ListView).first).top, greaterThanOrEqualTo(bar.bottom));
+    expect(find.byType(AppBar), findsNothing, reason: 'مفيش شريط مثبّت على الهيكل');
+    final bar = find.byType(HomeTopBar);
+    expect(find.descendant(of: find.byType(ListView).first, matching: bar), findsOneWidget, reason: 'جزء من القايمة');
+    expect(find.text('طوارئ'), findsOneWidget);
+    expect(tester.getRect(bar).top, 0, reason: 'أول حاجة في الصفحة');
     await tester.drag(find.byType(ListView).first, const Offset(0, -400));
     await settle(tester);
-    expect(barMaterial().elevation, 0, reason: 'ولا ظل بعد اللفّ');
+    // طلع مع الصفحة: القايمة بتشيله من الشجرة أول ما يخرج من الشاشة
+    expect(find.byType(HomeTopBar).hitTestable(), findsNothing, reason: 'بيتزحلق مع الصفحة — مش مثبّت');
+    for (final tab in ['الأدوية', 'الملف الطبي', 'الإعدادات']) {
+      await tester.tap(find.text(tab).last);
+      await settle(tester);
+      expect(find.byType(HomeTopBar).hitTestable(), findsNothing, reason: '«$tab» من غير الشريط');
+      expect(find.text('طوارئ').hitTestable(), findsNothing);
+    }
   });
 
   for (final scale in [1.0, 1.3]) {

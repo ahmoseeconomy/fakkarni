@@ -156,7 +156,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             final groups = _groupByAnchor(active, routine, widget.today ?? DateTime.now());
 
             return ListView(
-              padding: EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+              // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
+              padding: EdgeInsets.fromLTRB(F.gap, MediaQuery.of(context).padding.top + F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
               children: [
                 Text(
                   'جدول الأدوية',

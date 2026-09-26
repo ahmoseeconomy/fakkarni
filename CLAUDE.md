@@ -4189,6 +4189,16 @@ device-verified)**
   ×1.3 the moment the tile grew; and the quiet tile's fill is
   `railGround`→`cardGround`, semantic surfaces, because a fixed light colour
   becomes a white tile under a pale icon in night mode.
+- **The top bar (mark, night toggle, «طوارئ») lives on «يومك» only, as
+  page content** (owner, 26 Sep 2026): `HomeTopBar` in
+  `features/today/widgets/` is the first child of the «يومك» and elder-home
+  lists, scrolls away with them, has no line and no shadow and the page
+  ground. The patient shell has **no `AppBar`** any more; «الأدوية» and
+  «الإعدادات» add `MediaQuery.padding.top` to their own list padding for the
+  status bar («الملف الطبي» has its own `AppBar`). Tests that count a
+  screen's primary buttons exclude the pill by key (`emergency-shortcut`):
+  it is on the page now but is not one of its actions.
+  `layout_iphone_test` pins bar-on-home-only and bar-scrolls-away.
 - **The visual reference is TestFlight 1.13.1 (87), the last build the
   boss saw** (owner, 26 Sep 2026). No archive of it exists on this Mac; the
   only release iOS build before today's 2.0.0 ran at 00:38–00:42 on 26 Sep,
