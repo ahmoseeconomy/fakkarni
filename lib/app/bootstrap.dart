@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
 
 import '../ai/command_reader.dart';
+import '../data/services/daily_cloud_budget.dart';
 import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
 import '../ai/package_reader.dart';
@@ -71,6 +72,10 @@ Future<AppServices> buildServices(
   final routines = RoutineRepository(db);
   const medPhotoStore = DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder);
   final patientId = await routines.ensurePatient();
+  // «كلّمني» بالسحابة: ٢٠ مرة في يوم الروتين (المرحلة ٣ — ٤/٤). بيقرا الروتين
+  // مرة هنا عشان يعرف اليوم بيبدأ إمتى؛ من غير روتين = الافتراضي.
+  final cloudBudget = DailyCloudBudget();
+  await cloudBudget.load(routine: await routines.getRoutine(patientId));
   final patientIndex = await routines.patientIndex(patientId);
   final medications = MedicationRepository(db);
   final events = DoseEventRepository(db);
@@ -145,6 +150,7 @@ Future<AppServices> buildServices(
     caregiverPreferences: caregiverPreferences,
     prescriptionReader: _readerFromEnvironment(),
     commandReader: _commandReaderFromEnvironment(),
+    cloudCommandBudget: cloudBudget,
     labReader: _labReaderFromEnvironment(),
     packageReader: _packageReaderFromEnvironment(),
     auth: auth,
