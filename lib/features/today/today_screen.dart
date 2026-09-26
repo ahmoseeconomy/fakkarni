@@ -1,5 +1,6 @@
 import '../voice/briefing_card.dart';
 import '../voice/help_button.dart';
+import '../voice/talk_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -379,6 +380,10 @@ class _TodayScreenState extends State<TodayScreen> {
                   now: _now,
                   followers: _followers,
                   onOpenCircle: _openCircle,
+                  // «كلّمني» (المرحلة ٣): تحت التحية، فوق كل حاجة — طلب مفتوح
+                  // بالصوت. جوّه الترويسة مش ولد لوحده في القايمة: ولد بصفر
+                  // ارتفاع كان بيحرّك اختبار لفّ SE.
+                  talk: TalkButton(routine: widget.routine, routineDay: _routineDay, now: widget.now, gapAbove: F.s12),
                 ),
               ),
               // ملخص اليوم بالصوت — أول فتحة في يوم الروتين، من البيانات
@@ -695,8 +700,11 @@ class _HomeHeader extends StatelessWidget {
     required this.now,
     required this.onOpenCircle,
     this.followers = const [],
+    this.talk,
   });
 
+  /// «كلّمني» — تحت التحية مباشرة.
+  final Widget? talk;
   final PatientRow? patient;
   final DateTime now;
   final List<FollowerProfile> followers;
@@ -736,6 +744,7 @@ class _HomeHeader extends StatelessWidget {
             '$name — ${arabicNumber(patient!.age!)} سنة',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
+        ?talk,
         const SizedBox(height: F.s12),
         // الاستثناء الوحيد اللي المريض بيشوفه: إذن التنبيهات مقفول.
         // أي مشكلة تانية بتتصلّح لوحدها أو بتروح للأدمن — مش هنا.

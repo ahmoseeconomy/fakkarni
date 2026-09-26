@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
 
+import '../ai/command_reader.dart';
 import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
 import '../ai/package_reader.dart';
@@ -143,6 +144,7 @@ Future<AppServices> buildServices(
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,
     prescriptionReader: _readerFromEnvironment(),
+    commandReader: _commandReaderFromEnvironment(),
     labReader: _labReaderFromEnvironment(),
     packageReader: _packageReaderFromEnvironment(),
     auth: auth,
@@ -205,6 +207,12 @@ PrescriptionReader? _readerFromEnvironment() {
     return null;
   }
   return GeminiPrescriptionReader(config);
+}
+
+/// «كلّمني» بالسحابة — نفس المفتاح؛ ناقص = محلي بس.
+VoiceCommandReader? _commandReaderFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  return config == null ? null : GeminiCommandReader(config);
 }
 
 NotificationActionHandler actionHandlerFor(

@@ -23,6 +23,8 @@ import '../data/care/proxy_confirmations.dart';
 import '../data/sync/medication_change_pull.dart';
 import '../data/sync/proxy_pull.dart';
 import '../data/account/account_deletion.dart';
+import '../ai/command_reader.dart';
+import '../data/voice/cloud_command_budget.dart';
 import '../data/voice/voice_service.dart';
 import '../data/sync/departure_pull.dart';
 import '../data/push/push_tokens.dart';
@@ -53,6 +55,8 @@ class AppServices {
     this.prescriptionReader,
     this.labReader,
     this.packageReader,
+    this.commandReader,
+    this.cloudCommandBudget,
     this.attachments = const DirectoryAttachmentStore(),
     this.medPhotoStore = const DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder),
     this.contacts = const NativeContactPicker(),
@@ -186,6 +190,13 @@ class AppServices {
   /// قارئ الروشتة — null لو مفتاح Gemini مش متظبط. التذكيرات ما بتعتمدش
   /// عليه؛ شاشة التصوير بس هي اللي بتقول إنه ناقص.
   final PrescriptionReader? prescriptionReader;
+
+  /// «كلّمني» — فهم الطلب من السحابة لو المحلي ما فهمش (المرحلة ٣). null =
+  /// مفتاح ناقص: المحلي بس، من غير ما حد يعرف.
+  final VoiceCommandReader? commandReader;
+
+  /// الحد اليومي لسؤال السحابة — null = من غير حد (اختبار).
+  final CloudCommandBudget? cloudCommandBudget;
 
   /// الهوية الاختيارية — null لو إعداد Supabase مش موجود، والتطبيق كامل
   /// من غيرها. بابها الوحيد «اربط ابني».

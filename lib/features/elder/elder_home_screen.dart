@@ -1,4 +1,5 @@
 import '../voice/help_button.dart';
+import '../voice/talk_button.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -112,6 +113,8 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                 stream: _patient,
                 builder: (context, snap) => _Greeting(patient: snap.data, now: _now),
               ),
+              // «كلّمني» — أكبر هنا (٨٠ وخط ٢٤)؛ مسافته معاه، فالشاشة من غيره زي ما كانت
+              TalkButton(routine: widget.routine, routineDay: _routineDay, elder: true, now: widget.now, gapAbove: F.s12),
               const SizedBox(height: F.gap),
               if (group != null)
                 _DoseCard(

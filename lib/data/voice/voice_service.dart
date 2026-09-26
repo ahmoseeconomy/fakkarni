@@ -81,6 +81,7 @@ class VoiceService extends ChangeNotifier {
   static const introDoneKey = 'voice.introDone';
   static const briefingDayKey = 'voice.briefingDay';
   static const listenIntroDoneKey = 'voice.listenIntroDone';
+  static const cmdHintDoneKey = 'voice.cmdHintDone';
 
   bool _enabled = false;
   VoiceSpeed _speed = VoiceSpeed.slow;
@@ -88,6 +89,7 @@ class VoiceService extends ChangeNotifier {
   bool _introDone = false;
   String? _briefingDay;
   bool _listenIntroDone = false;
+  bool _cmdHintDone = false;
   bool _micDenied = false;
   int _interrupts = 0;
 
@@ -130,6 +132,7 @@ class VoiceService extends ChangeNotifier {
       _introDone = p.getBool(introDoneKey) ?? false;
       _briefingDay = p.getString(briefingDayKey);
       _listenIntroDone = p.getBool(listenIntroDoneKey) ?? false;
+      _cmdHintDone = p.getBool(cmdHintDoneKey) ?? false;
     } catch (e) {
       diag('Voice: قراية الإعدادات وقعت ($e)');
     }
@@ -159,6 +162,14 @@ class VoiceService extends ChangeNotifier {
     _introDone = true;
     notifyListeners();
     await _put((p) => p.setBool(introDoneKey, true));
+  }
+
+  /// «تقدر تقولّي مثلاً…» اتقالت مرة (أول دوسة على «كلّمني»).
+  bool get cmdHintDone => _cmdHintDone;
+
+  Future<void> markCmdHintDone() async {
+    _cmdHintDone = true;
+    await _put((p) => p.setBool(cmdHintDoneKey, true));
   }
 
   Future<void> markListenIntroDone() async {
