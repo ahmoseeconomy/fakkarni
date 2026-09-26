@@ -48,6 +48,7 @@ void main() {
     DeletionOutcome outcome, {
     DeletingAs who = DeletingAs.patient,
     String patientName = '',
+    bool linked = true,
   }) async {
     final remote = FakeDeletion(outcome);
     final wipes = <int>[];
@@ -68,6 +69,7 @@ void main() {
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => DeleteAccountScreen(
                     who: who,
+                    linked: linked,
                     patientName: patientName,
                     wipe: (_) async => wipes.add(1),
                   ),
@@ -83,6 +85,20 @@ void main() {
     await settle(tester);
     return (remote: remote, wipes: wipes);
   }
+
+  screenTest('مش مربوط: نفس الخطوتين، ولا نداء سيرفر — الموبايل بيتمسح وبنرجع لأول شاشة', (tester) async {
+    final r = await open(tester, DeletionOutcome.failed, linked: false);
+    expect(find.byKey(const ValueKey('delete-local-only')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('delete-continue')));
+    await settle(tester);
+    expect(r.wipes, isEmpty, reason: '«كمّل للمسح» لسه ما بتمسحش');
+    await tester.tap(find.byKey(const ValueKey('delete-confirm')));
+    await settle(tester);
+    expect(r.remote.calls, 0, reason: 'مفيش سيرفر يتسأل');
+    expect(r.wipes, [1]);
+    expect(find.byType(DeleteAccountScreen), findsNothing);
+    expect(find.text('البيت'), findsOneWidget);
+  });
 
   screenTest('خطوتين: «كمّل للمسح» ما بتمسحش — «امسح حسابي نهائي» بس اللي بتنده السيرفر', (tester) async {
     final r = await open(tester, DeletionOutcome.deleted);
@@ -159,24 +175,37 @@ void main() {
       await settle(tester);
     }
 
-    screenTest('المريض: الصف بيظهر بس لما فيه حساب وسحابة — وبيفتح كلام المريض', (tester) async {
+    screenTest('المريض المربوط: الزرار آخر الإعدادات وبيفتح كلام المريض المربوط (السيرفر الأول)', (tester) async {
       final auth = FakeAuthService();
-      await pumpScreen(tester, const SettingsScreen(), _with(h.services, FakeDeletion(DeletionOutcome.failed), auth: auth));
-      expect(find.byKey(const ValueKey('settings-delete-account')), findsNothing, reason: 'من غير حساب مفيش حساب يتمسح');
-
       await auth.signInToLink();
-      await settle(tester);
+      await pumpScreen(tester, const SettingsScreen(), _with(h.services, FakeDeletion(DeletionOutcome.failed), auth: auth));
       await tester.ensureVisible(find.byKey(const ValueKey('settings-delete-account')));
       await tester.tap(find.byKey(const ValueKey('settings-delete-account')));
       await settle(tester);
       expect(find.text(deletedLines(DeletingAs.patient).last), findsOneWidget);
+      expect(find.byKey(const ValueKey('delete-local-only')), findsNothing);
+      expect(find.byKey(const ValueKey('delete-store-note')), findsOneWidget);
     });
 
-    screenTest('المريض من غير سحابة: مفيش صف', (tester) async {
+    screenTest('المريض مش مربوط: الزرار موجود برضه — وبيفتح «الموبايل ده بس»', (tester) async {
+      await pumpScreen(tester, const SettingsScreen(), _with(h.services, null, auth: FakeAuthService()));
+      await tester.ensureVisible(find.byKey(const ValueKey('settings-delete-account')));
+      await tester.tap(find.byKey(const ValueKey('settings-delete-account')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('delete-local-only')), findsOneWidget);
+      expect(find.text(localOnlyLine), findsOneWidget);
+      expect(find.text('حسابك'), findsNothing, reason: 'مفيش حساب يتمسح');
+      expect(find.byKey(const ValueKey('delete-store-note')), findsNothing);
+    });
+
+    screenTest('المريض بجلسة بس من غير خدمة مسح: بيتعامل كمش مربوط — الموبايل ده بس', (tester) async {
       final auth = FakeAuthService();
       await auth.signInToLink();
       await pumpScreen(tester, const SettingsScreen(), _with(h.services, null, auth: auth));
-      expect(find.byKey(const ValueKey('settings-delete-account')), findsNothing);
+      await tester.ensureVisible(find.byKey(const ValueKey('settings-delete-account')));
+      await tester.tap(find.byKey(const ValueKey('settings-delete-account')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('delete-local-only')), findsOneWidget);
     });
 
     screenTest('الممرض: الصف في إعداداته وبيفتح كلام الممرض باسم المريض', (tester) async {

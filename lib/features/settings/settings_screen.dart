@@ -262,18 +262,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'الأدوية والتذكيرات بتفضل على الموبايل زي ما هي — الخروج بيفكّ الربط بس.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
-              // Apple 5.1.1(v): المسح من جوّه التطبيق — صفحته بتقول بالظبط إيه اللي بيتمسح
-              if (services.accountDeletion != null) ...[
-                const SizedBox(height: F.gap),
-                FSecondaryButton(
-                  key: const ValueKey('settings-delete-account'),
-                  label: 'امسح حسابي',
-                  onPressed: _busy
-                      ? null
-                      : () => _open(const DeleteAccountScreen(who: DeletingAs.patient)),
-                ),
-              ],
             ],
+            // Apple 5.1.1(v): المسح من جوّه التطبيق — لكل واحد، مربوط أو لأ
+            // (٢٦ سبتمبر ٢٠٢٦: المختبِر شاف «مش مربوط» ومفيش زرار). مش مربوط =
+            // الموبايل ده بس، من غير شبكة. آخر حاجة في الإعدادات.
+            const SizedBox(height: F.gap),
+            FSecondaryButton(
+              key: const ValueKey('settings-delete-account'),
+              label: 'امسح حسابي',
+              onPressed: _busy
+                  ? null
+                  : () => _open(DeleteAccountScreen(
+                        who: DeletingAs.patient,
+                        linked: user != null && services.accountDeletion != null,
+                      )),
+            ),
           ],
         );
       },

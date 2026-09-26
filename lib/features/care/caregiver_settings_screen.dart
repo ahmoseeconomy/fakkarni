@@ -181,26 +181,27 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                     onPressed: _busy ? () {} : _signOut,
                   ),
                 ),
-                // Apple 5.1.1(v): المسح من جوّه التطبيق — للمتابع والممرض كمان
-                if (AppScope.of(context).accountDeletion != null)
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: CareTextAction(
-                      key: const ValueKey('care-delete-account'),
-                      label: 'امسح حسابي',
-                      icon: Icons.person_remove_outlined,
-                      onPressed: _busy
-                          ? () {}
-                          : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                                builder: (_) => DeleteAccountScreen(
-                                  who: (widget.patient?.isNurse ?? false)
-                                      ? DeletingAs.nurse
-                                      : DeletingAs.follower,
-                                  patientName: widget.patient?.name ?? '',
-                                ),
-                              )),
-                    ),
+                // Apple 5.1.1(v): المسح من جوّه التطبيق — للمتابع والممرض كمان،
+                // دايماً ظاهر؛ من غير خدمة سحابة = الموبايل ده بس
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: CareTextAction(
+                    key: const ValueKey('care-delete-account'),
+                    label: 'امسح حسابي',
+                    icon: Icons.person_remove_outlined,
+                    onPressed: _busy
+                        ? () {}
+                        : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => DeleteAccountScreen(
+                                who: (widget.patient?.isNurse ?? false)
+                                    ? DeletingAs.nurse
+                                    : DeletingAs.follower,
+                                linked: AppScope.of(context).accountDeletion != null,
+                                patientName: widget.patient?.name ?? '',
+                              ),
+                            )),
                   ),
+                ),
               ],
             ),
           ),

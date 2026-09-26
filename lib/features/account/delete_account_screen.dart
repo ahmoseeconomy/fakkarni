@@ -11,7 +11,16 @@ enum DeletingAs { patient, follower, nurse }
 
 /// اللي بيتمسح، سطر سطر — **بالظبط** اللي `delete_account_for_service`
 /// (0033) بيمسحه، مش وصف عام. لو الدالة اتغيّرت، القايمة دي بتتغيّر معاها.
-List<String> deletedLines(DeletingAs who, {String patientName = ''}) => switch (who) {
+List<String> deletedLines(DeletingAs who, {String patientName = '', bool linked = true}) => switch (who) {
+      // مش مربوط = مفيش حساب على السيرفر — الموبايل ده بس
+      DeletingAs.patient when !linked => const [
+          'أدويتك ومواعيدها، وكل الجرعات اللي اتسجّلت',
+          'الملف الصحي: الروشتات والتحاليل والزيارات والأشعة',
+          'قياسات السكر والضغط وباقي القياسات',
+          'صور الأدوية وصور الورق',
+          'بيانات الطوارئ وأسئلة الدكتور',
+          'التذكيرات على الموبايل ده هتقف',
+        ],
       DeletingAs.patient => const [
           'حسابك',
           'أدويتك ومواعيدها، وكل الجرعات اللي اتسجّلت',
@@ -39,6 +48,9 @@ String? keptLine(DeletingAs who, {String patientName = ''}) => switch (who) {
           'الجرعات اللي أكّدتها بتفضل متأكّدة من غير اسمك، وهيعرف إنك خرجت من الدايرة.',
     };
 
+/// مش مربوط: مفيش سيرفر — الجملة بتقول المسح على الموبايل ده وبس.
+const localOnlyLine = 'هنمسح كل بياناتك من على الموبايل ده.';
+
 /// الاشتراك مش بتاعنا نلغيه — المتجر هو اللي بيحاسب.
 const storeSubscriptionLine = 'لو عندك اشتراك، الغيه من إعدادات آبل أو جوجل — إحنا مش بنقدر نلغيه من هنا.';
 
@@ -61,12 +73,17 @@ String _or(String s, String fallback) => s.trim().isEmpty ? fallback : s.trim();
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({
     required this.who,
+    required this.linked,
     this.patientName = '',
     this.wipe,
     super.key,
   });
 
   final DeletingAs who;
+
+  /// فيه حساب على السيرفر (جلسة + خدمة المسح)؟ لأ = **الموبايل ده بس**:
+  /// نفس الخطوتين، ومفيش نداء شبكة خالص — `LocalWipe` وخلاص.
+  final bool linked;
   final String patientName;
 
   /// للاختبارات — الافتراضي [LocalWipe] على خدمات التطبيق.
@@ -84,12 +101,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   Future<void> _delete() async {
     final services = AppScope.of(context);
     final remote = services.accountDeletion;
-    if (remote == null || _busy) return;
+    if (_busy) return;
     setState(() {
       _busy = true;
       _outcome = null;
     });
-    final outcome = await remote.deleteAccount();
+    // مربوط: السيرفر الأول. مش مربوط: مفيش سيرفر يتسأل — الموبايل على طول.
+    final outcome = widget.linked && remote != null ? await remote.deleteAccount() : DeletionOutcome.deleted;
     if (outcome == DeletionOutcome.deleted) {
       final wipe = widget.wipe ??
           (AppServices s) => LocalWipe(
@@ -119,9 +137,15 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       body: ListView(
         padding: EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
         children: [
+          if (!widget.linked) ...[
+            Text(localOnlyLine,
+                key: const ValueKey('delete-local-only'),
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5)),
+            const SizedBox(height: F.s12),
+          ],
           const FSectionHead('اللي هيتمسح'),
           const SizedBox(height: F.s8),
-          for (final line in deletedLines(widget.who, patientName: widget.patientName))
+          for (final line in deletedLines(widget.who, patientName: widget.patientName, linked: widget.linked))
             Padding(
               padding: const EdgeInsets.only(bottom: F.s8),
               child: Row(
@@ -146,6 +170,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 style: TextStyle(fontSize: F.minBodySize, color: F.mutedDark, height: 1.5)),
           ],
           const SizedBox(height: F.gap),
+          if (widget.linked)
           Container(
             key: const ValueKey('delete-store-note'),
             padding: const EdgeInsets.all(F.s12),
