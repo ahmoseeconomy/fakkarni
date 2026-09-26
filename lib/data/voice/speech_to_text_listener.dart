@@ -1,31 +1,37 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/services.dart' show PlatformException;
 
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../core/diagnostics.dart';
+import 'listen_session.dart';
 import 'speech_listener.dart';
 
 /// متعرّف كلام الموبايل — **الملف الوحيد اللي بيستورد `speech_to_text`.**
 ///
-/// - اللغة: `ar_EG` لو الموبايل عنده، وإلا أي عربي، وإلا لغة النظام.
-/// - **على الموبايل الأول**: أول سماع بيطلب التعرّف على الجهاز
-///   (`onDevice`). لو الموبايل ما بيعرفش (آيفون: العربي مش من اللغات اللي
-///   أبل بتعرّفها على الجهاز) بنعيد **مرة** من غير الشرط — يعني الصوت
-///   بيتبعت لأبل/جوجل — وبنكتب ده في سجل التشخيص، ومش بنحاول على الجهاز
-///   تاني في الجلسة دي. `lastOnDevice` بيقول اللي حصل فعلاً.
-///   على أندرويد `EXTRA_PREFER_OFFLINE` طلب مش أمر: من أندرويد ١٢ بيتعمل
-///   متعرّف على الجهاز لو موجود، وقبلها جوجل هي اللي بتقرر — فـ`true` هناك
-///   معناه «طلبنا»، مش «اتأكدنا».
+/// كل قرار («الحدث ده بتاع مين؟ سكوت ولا عطل؟ نعيد عبر السيرفر؟») في
+/// [ListenSession] — دارت نقية ومتختبرة. الملف ده بيوصّل أحداث الإضافة ليها
+/// وبيكتب كل خطوة سطر `Listen:` (التجهيز، اللغة، على الجهاز ولا لأ، كل حالة،
+/// كل كود عطل، والمدة) — بيبان في طرفية نسخة profile وفي «سجل التشخيص».
 ///
-/// **الرفض ده بيجي كاستثناء من `listen()`، مش كنداء `onError`** (مقروء من
-/// مصدر الإضافة `SpeechToTextPlugin.swift`: `result(FlutterError(onDeviceError))`
-/// ثم بتكمّل وتشغّل مهمة تعرّف بشرط «على الجهاز» بيفشل بعدها). أول نسخة
-/// كانت مستنياه في `onError` بس، فالاستثناء كان بيتعامل معاه على إنه
-/// «سكوت» — والمريض بيسمع «معلش، مافهمتش» فوراً من غير ما المايك يتفتح
-/// (آيفون، ٢٦ سبتمبر ٢٠٢٦). والمهمة اللي الإضافة سابتها شغّالة كانت بتخلّي
-/// كل سماع بعده يرجع «مشغول» — عشان كده [stop] بتلغي على الناحية الأصلية
-/// **دايماً**، مش بس لما دارت فاكرة إنها بتسمع.
+/// - اللغة: `ar_EG` لو الموبايل عنده، وإلا أي عربي، وإلا لغة النظام.
+/// - **آيفون: من غير شرط «على الجهاز»** (`onDevice: false`). الإضافة لما
+///   بنطلبه والعربي مش مدعوم على الجهاز بترجّع خطأ **وبتكمّل** تشغّل مهمة
+///   بالشرط ده — حالة ملخبطة بتفضل للسماع اللي بعده. الصوت بيروح لأبل (مكتوب
+///   في سياسة الخصوصية)، و`ar-SA` هي العربي اللي أبل عندها — قارئنا المصري
+///   زي ما هو. أندرويد: على الجهاز الأول، وأي رفض قبل أول كلمة = إعادة عبر
+///   سيرفر النظام. `lastOnDevice` بيقول اللي حصل.
+/// - **وقعة في البداية = إعادة مرة بعد ٣٠٠ ملّي**، وبعدها «كمّل بإيدك»
+///   ([ListenSession.startFailure]). والاستثناء بيتكتب **بحقوله** (message،
+///   details، stackTrace) — كان بيتكتب «Instance of 'ListenFailedException'»
+///   وده اللي خلّى رفض «على الجهاز» عمره ما يتعرف.
+/// - **`cancelOnError: false`**: بـ`true` الإضافة بتلغي السماع **الشغّال** لما
+///   عطل «دايم» من مهمة قديمة يوصل — ده جزء من «سامعك» وبعدها «مش قادر أساعد».
+/// - **مفيش إلغاء في أول كل سماع إلا لو فيه حاجة شغّالة**، وبعد أي إلغاء بنستنى
+///   الأحداث القديمة تخلص ([_settle]) قبل ما نبدأ.
 class SpeechToTextListener implements SpeechListener {
   final SpeechToText _stt = SpeechToText();
   bool _ready = false;
@@ -33,11 +39,33 @@ class SpeechToTextListener implements SpeechListener {
   bool _onDeviceRefused = false;
   bool? _lastOnDevice;
   Completer<ListenResult>? _pending;
-  String _partial = '';
+  ListenSession? _session;
   Timer? _guard;
+  int _attempt = 0;
+  final _clock = Stopwatch()..start();
+  int _startedAt = 0;
+  bool _nativeMayRun = false;
+  Duration _silence = ListenTimings.silence;
+
+  /// الأحداث القديمة بتاعة مهمة اتلغت بتوصل في الـrunloop اللي بعده —
+  /// بنستناها تخلص قبل مهمة جديدة.
+  static const _settle = Duration(milliseconds: 300);
+
+  /// آيفون ما بنطلبش «على الجهاز» (شوف فوق).
+  static bool get _preferOnDevice => !Platform.isIOS;
+
+  /// الاستثناء بحقوله — مش «Instance of …».
+  static String describe(Object e) => switch (e) {
+        ListenFailedException() =>
+          'ListenFailedException message=${e.message} details=${e.details} stack=${e.stackTrace}',
+        PlatformException() => 'PlatformException(${e.code}) message=${e.message} details=${e.details}',
+        _ => '$e',
+      };
 
   @override
   bool? get lastOnDevice => _lastOnDevice;
+
+  String get _tag => '#$_attempt +${_clock.elapsedMilliseconds - _startedAt}ms';
 
   @override
   Future<bool> hasPermission() async {
@@ -54,6 +82,7 @@ class SpeechToTextListener implements SpeechListener {
     if (_ready) return null;
     try {
       final ok = await _stt.initialize(onError: _onError, onStatus: _onStatus);
+      diag('Listen: initialize=$ok');
       if (!ok) {
         // الإضافة بترجّع false للرفض وللموبايل اللي مفيهوش تعرّف — الإذن
         // هو اللي بيفرّق بينهم
@@ -67,7 +96,7 @@ class SpeechToTextListener implements SpeechListener {
       final ids = [for (final l in locales) l.localeId];
       _localeId = ids.cast<String?>().firstWhere((id) => norm(id!) == 'ar_eg',
           orElse: () => ids.cast<String?>().firstWhere((id) => norm(id!).startsWith('ar'), orElse: () => null));
-      diag('Listen: جاهز — اللغة ${_localeId ?? 'لغة النظام'} (${ids.length} لغة)');
+      diag('Listen: جاهز — اللغة ${_localeId ?? 'لغة النظام'} (${ids.length} لغة، ar_EG ${ids.any((i) => norm(i) == 'ar_eg') ? 'موجودة' : 'مش موجودة'})');
       _ready = true;
       return null;
     } catch (e) {
@@ -78,98 +107,107 @@ class SpeechToTextListener implements SpeechListener {
 
   @override
   Future<ListenResult> listen({
-    Duration silence = const Duration(seconds: 6),
-    Duration maxLength = const Duration(seconds: 12),
+    Duration silence = ListenTimings.silence,
+    Duration maxLength = ListenTimings.maxLength,
+    Duration firstWordWithin = ListenTimings.firstWordWithin,
   }) async {
     if (!_ready) return const ListenFailed('not_ready');
-    await stop();
+    await _endPrevious();
     final result = _pending = Completer<ListenResult>();
-    _partial = '';
-    final onDevice = !_onDeviceRefused;
-    try {
-      await _start(onDevice: onDevice, silence: silence, maxLength: maxLength);
-    } catch (e) {
-      if (onDevice && _isOnDeviceRefusal(e)) {
-        _onDeviceRefused = true;
-        diag('Listen: التعرّف على الجهاز مش متاح للعربي هنا — الصوت هيتبعت للسيرفر بتاع النظام ($e)');
-        // الإضافة بتسيب مهمة شغّالة ورا الاستثناء — لازم تتلغي قبل الإعادة
-        await _cancelNative();
-        try {
-          await _start(onDevice: false, silence: silence, maxLength: maxLength);
-        } catch (e2) {
-          return _startFailed('start(server): $e2');
-        }
-      } else {
-        return _startFailed('start: $e');
-      }
-    }
+    _session = ListenSession(onDevice: _preferOnDevice && !_onDeviceRefused, serverRetried: _onDeviceRefused);
+    _silence = silence;
+    await _startAttempt(maxLength: maxLength, firstWordWithin: firstWordWithin);
     // حارس: لو المتعرّف ما رجّعش ولا حالة (بيحصل)، بنقفل بإيدنا
-    _guard = Timer(maxLength + silence + const Duration(seconds: 2), () {
+    _guard?.cancel();
+    _guard = Timer(maxLength + const Duration(seconds: 3), () {
+      diag('Listen: $_tag الحارس قفل — مفيش نهاية من المتعرّف');
       unawaited(_cancelNative());
-      _finish(_heardOr(const ListenSilence()));
+      final s = _session;
+      _finish(s != null && s.words.isNotEmpty ? ListenHeard(s.words) : const ListenSilence());
     });
     return result.future;
   }
 
-  ListenResult _startFailed(String why) {
-    diag('Listen: بدء السماع وقع ($why)');
-    final failed = ListenFailed(why, permission: why.contains('not_authorized') || why.contains('permission'));
-    _finish(failed);
-    return failed;
+  Future<void> _startAttempt({required Duration maxLength, required Duration firstWordWithin}) async {
+    final session = _session!;
+    _attempt++;
+    _startedAt = _clock.elapsedMilliseconds;
+    _lastOnDevice = session.onDevice;
+    diag('Listen: $_tag بداية — onDevice=${session.onDevice} locale=${_localeId ?? 'النظام'} '
+        'listenFor=${maxLength.inSeconds}s pauseFor=${firstWordWithin.inSeconds}s→${_silence.inSeconds}s');
+    try {
+      _nativeMayRun = true;
+      await _stt.listen(
+        onResult: (r) {
+          final first = session.words.isEmpty && r.recognizedWords.isNotEmpty;
+          session.heard(r.recognizedWords);
+          if (first) {
+            // بدأ يتكلم: من هنا السكوت القصير بيقفل
+            diag('Listen: $_tag أول كلام');
+            try {
+              _stt.changePauseFor(_silence);
+            } catch (_) {}
+          }
+          if (r.finalResult) {
+            diag('Listen: $_tag نتيجة نهائية');
+            _finish(ListenHeard(session.words));
+          }
+        },
+        listenOptions: SpeechListenOptions(
+          localeId: _localeId,
+          partialResults: true,
+          onDevice: session.onDevice,
+          cancelOnError: false,
+          listenMode: ListenMode.confirmation,
+          // أول كلمة ليها وقتها — الإضافة بتعدّ السكوت من أول السماع
+          pauseFor: firstWordWithin,
+          listenFor: maxLength,
+        ),
+      );
+    } catch (e) {
+      final why = describe(e);
+      diag('Listen: $_tag listen() رمت: $why');
+      _apply(session.startFailure(why), maxLength: maxLength, firstWordWithin: firstWordWithin);
+    }
   }
 
-  static bool _isOnDeviceRefusal(Object e) {
-    final s = e.toString().toLowerCase().replaceAll(' ', '');
-    return s.contains('ondevice');
+  void _apply(ListenDecision? d, {Duration maxLength = ListenTimings.maxLength, Duration firstWordWithin = ListenTimings.firstWordWithin}) {
+    switch (d) {
+      case null:
+        return;
+      case ListenFinish(:final result):
+        diag('Listen: $_tag النهاية ← $result (${_clock.elapsedMilliseconds - _startedAt}ms)');
+        if (result is ListenFailed && !result.started) _nativeMayRun = false;
+        _finish(result);
+      case ListenRetry(:final why, :final onDevice):
+        if (!onDevice && (_session?.serverRetried ?? false)) _onDeviceRefused = true;
+        diag('Listen: $_tag إعادة بعد ${ListenSession.retryAfter.inMilliseconds}ms '
+            '(onDevice=$onDevice) — السبب: $why');
+        unawaited(() async {
+          await _cancelNative();
+          await Future<void>.delayed(ListenSession.retryAfter);
+          final s = _session;
+          if (s == null || _pending == null || _pending!.isCompleted) return;
+          s.restart(onDevice: onDevice);
+          await _startAttempt(maxLength: maxLength, firstWordWithin: firstWordWithin);
+        }());
+    }
   }
-
-  Future<void> _start({required bool onDevice, required Duration silence, required Duration maxLength}) async {
-    _lastOnDevice = onDevice;
-    await _stt.listen(
-      onResult: (r) {
-        if (r.recognizedWords.isNotEmpty) _partial = r.recognizedWords;
-        if (r.finalResult) _finish(_heardOr(const ListenSilence()));
-      },
-      listenOptions: SpeechListenOptions(
-        localeId: _localeId,
-        partialResults: true,
-        onDevice: onDevice,
-        cancelOnError: true,
-        listenMode: ListenMode.confirmation,
-        pauseFor: silence,
-        listenFor: maxLength,
-      ),
-    );
-  }
-
-  ListenResult _heardOr(ListenResult otherwise) => _partial.isEmpty ? otherwise : ListenHeard(_partial);
 
   void _onError(SpeechRecognitionError e) {
-    final msg = e.errorMsg;
-    // آيفون قديم: الرفض ممكن يجي كنداء كمان — نعيد مرة عبر أبل، ونقولها
-    if (!_onDeviceRefused && msg.toLowerCase().contains('ondevice') && _pending != null && !_pending!.isCompleted) {
-      _onDeviceRefused = true;
-      diag('Listen: التعرّف على الجهاز مش متاح — الصوت هيتبعت للسيرفر بتاع النظام');
-      unawaited(_cancelNative().then((_) => _start(onDevice: false, silence: const Duration(seconds: 6), maxLength: const Duration(seconds: 12)))
-          .catchError((Object err) {
-        _finish(ListenFailed('retry: $err'));
-        diag('Listen: الإعادة وقعت ($err)');
-      }));
-      return;
-    }
-    if (msg == 'error_no_match' || msg == 'error_speech_timeout') {
-      _finish(_heardOr(const ListenSilence()));
-      return;
-    }
-    diag('Listen: $msg (${e.permanent ? 'دايم' : 'عابر'})');
-    _finish(_heardOr(ListenFailed(msg, permission: msg.contains('not_authorized') || msg.contains('permission'))));
+    diag('Listen: $_tag عطل ${e.errorMsg} (${e.permanent ? 'دايم' : 'عابر'})');
+    final s = _session;
+    if (s == null || _pending == null) return;
+    final d = s.error(e.errorMsg);
+    if (d == null) diag('Listen: $_tag العطل ده اتساب (قديم أو إلغاء)');
+    _apply(d);
   }
 
   void _onStatus(String status) {
-    if (status == SpeechToText.doneStatus || status == SpeechToText.notListeningStatus) {
-      // النهاية من غير نتيجة نهائية — آخر جزء مسموع هو الإجابة
-      Future<void>.delayed(const Duration(milliseconds: 300), () => _finish(_heardOr(const ListenSilence())));
-    }
+    diag('Listen: $_tag حالة $status');
+    final s = _session;
+    if (s == null || _pending == null) return;
+    _apply(s.status(status));
   }
 
   void _finish(ListenResult result) {
@@ -178,11 +216,18 @@ class SpeechToTextListener implements SpeechListener {
     final p = _pending;
     if (p == null || p.isCompleted) return;
     _pending = null;
+    _session = null;
     p.complete(result);
   }
 
-  /// إلغاء على الناحية الأصلية — **من غير شرط `isListening`**: بعد استثناء من
-  /// `listen()` دارت فاكرة إنها مش بتسمع والإضافة سايبة مهمة شغّالة.
+  /// لو فيه سماع شغّال أو ممكن يكون: إلغاء، وبعدين نستنى أحداثه القديمة.
+  Future<void> _endPrevious() async {
+    _finish(const ListenSilence());
+    if (!_nativeMayRun && !_stt.isListening) return;
+    await _cancelNative();
+    await Future<void>.delayed(_settle);
+  }
+
   Future<void> _cancelNative() async {
     if (!_ready) return;
     try {
@@ -190,11 +235,12 @@ class SpeechToTextListener implements SpeechListener {
     } catch (e) {
       diag('Listen: الإلغاء وقع ($e)');
     }
+    _nativeMayRun = false;
   }
 
   @override
   Future<void> stop() async {
     _finish(const ListenSilence());
-    await _cancelNative();
+    if (_nativeMayRun || _stt.isListening) await _cancelNative();
   }
 }

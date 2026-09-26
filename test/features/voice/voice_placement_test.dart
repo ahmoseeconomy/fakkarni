@@ -51,6 +51,9 @@ class TimedPlayer implements VoicePlayer {
   }
 
   @override
+  Future<void> release() => stop();
+
+  @override
   Future<void> stop() async {
     final c = _c;
     if (c != null && !c.isCompleted) {
@@ -108,7 +111,7 @@ const placement = <String, Set<String>>{
     'lis_intro': {'features/voice/listen_button.dart'},
     // الورقة بتكتب نفس الجملة من الكتالوج (listen_button) — مرة، والترجمة اللي تحت ساكتة
     'lis_listening': {'features/voice/listen_button.dart', 'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},
-    'lis_not_understood': {'features/voice/listen_button.dart', 'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},
+    'lis_not_understood': {'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},
     'lis_confirm': {'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},
     'lis_mic_permission': {'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},
     'lis_mic_denied': {'features/voice/listen_flow.dart', 'features/voice/command_flow.dart'},

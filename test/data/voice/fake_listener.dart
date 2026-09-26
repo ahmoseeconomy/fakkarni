@@ -31,6 +31,9 @@ class FakeListener implements SpeechListener {
 
   /// السماع «بيفضل مفتوح» لحد ما `stop()` تتنده — زي مايك حقيقي مستني.
   bool hold = false;
+
+  /// بيتنده لحظة ما السماع يبدأ — الاختبار بيشوف كان إيه حاصل ساعتها.
+  void Function()? onListen;
   Completer<ListenResult>? _open;
 
   @override
@@ -56,9 +59,14 @@ class FakeListener implements SpeechListener {
       };
 
   @override
-  Future<ListenResult> listen({Duration silence = const Duration(seconds: 6), Duration maxLength = const Duration(seconds: 12)}) async {
+  Future<ListenResult> listen({
+    Duration silence = ListenTimings.silence,
+    Duration maxLength = ListenTimings.maxLength,
+    Duration firstWordWithin = ListenTimings.firstWordWithin,
+  }) async {
     if (!prepared) throw StateError('listen قبل prepare');
     listens++;
+    onListen?.call();
     if (hold) {
       final c = _open = Completer<ListenResult>();
       return c.future;

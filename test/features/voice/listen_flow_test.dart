@@ -294,4 +294,57 @@ void main() {
       expect(saved, isEmpty);
     });
   });
+
+  // ── صفحة الجنس على الآيفون: «سامعك» وبعدها على طول «مش قادر أساعد» ─────
+
+  test('الترتيب: «اتكلم، أنا سامعك» بتتقال لآخرها، والمشغّل بيتساب، وبعدين بس المايك يتفتح', () async {
+    await setUpWith(answers: ['تمانية', 'أيوه']);
+    player.holdPlayback = true;
+    var releasesAtListen = -1;
+    var playedAtListen = <String>[];
+    listener.onListen = () {
+      if (releasesAtListen != -1) return; // أول سماع بس
+      releasesAtListen = player.releases;
+      playedAtListen = said();
+    };
+    final f = flow();
+    final run = f.start();
+    for (var i = 0; i < 50; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(said(), ['lis_listening']);
+    expect(listener.listens, 0, reason: 'الجملة لسه بتتقال — المايك ما يتفتحش فوقها');
+
+    // الجملة خلصت لآخرها
+    player.holdPlayback = false;
+    await player.stop();
+    await run;
+    expect(releasesAtListen, greaterThanOrEqualTo(1), reason: 'المشغّل اتساب قبل المايك');
+    expect(playedAtListen, ['lis_listening']);
+  });
+
+  test('سكوت ← «مافهمتش» والمايك فاضل؛ التانية ورا بعض ← «كمّل بإيدك» والمايك برضه فاضل', () async {
+    await setUpWith(answers: [const ListenSilence(), const ListenSilence(), 'تمانية', 'أيوه']);
+    final f = flow();
+    await f.start();
+    expect(said().last, 'lis_not_understood');
+    expect(f.available, isTrue);
+    await f.start();
+    expect(said().last, 'gen_try_hands');
+    expect(f.missLine, 'gen_try_hands');
+    expect(f.available, isTrue, reason: 'ده مش «المايك ما اشتغلش»');
+    expect(startFailures, isEmpty);
+    // وبعدها بيسمع عادي
+    await f.start();
+    expect(applied, hasLength(1));
+  });
+
+  test('عطل بعد ما السماع بدأ = تعثّرة («مافهمتش»)، مش «مش قادر أساعد» ومش إخفا', () async {
+    await setUpWith(answers: [const ListenFailed('error_audio', started: true)]);
+    final f = flow();
+    await f.start();
+    expect(said(), ['lis_listening', 'lis_not_understood']);
+    expect(f.available, isTrue);
+    expect(startFailures, isEmpty);
+  });
 }

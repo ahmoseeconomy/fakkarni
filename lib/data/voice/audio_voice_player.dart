@@ -50,6 +50,12 @@ class AudioVoicePlayer implements VoicePlayer {
   }
 
   @override
+  Future<void> release() async {
+    await stop();
+    await _player.release();
+  }
+
+  @override
   Future<void> stop() async {
     final done = _done;
     if (done != null && !done.isCompleted) done.complete(true);

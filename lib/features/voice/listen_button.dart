@@ -262,7 +262,7 @@ class _ListenBodyState extends State<_ListenBody> {
                 style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
               ),
             ListenPhase.notUnderstood => Text(
-                voiceLine('lis_not_understood'),
+                voiceLine(flow.missLine),
                 key: const ValueKey('listen-not-understood'),
                 style: body,
               ),

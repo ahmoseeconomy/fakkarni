@@ -14,6 +14,10 @@ import 'speech_listener.dart';
 abstract interface class VoicePlayer {
   Future<bool> play(String assetPath, {required double volume});
   Future<void> stop();
+
+  /// بيسيب المشغّل الأصلي خالص (مش بس يوقّف) — قبل المايك، عشان جلسة الصوت
+  /// ما تفضلش ماسكها.
+  Future<void> release();
 }
 
 /// صوت الموبايل (TTS) — عربي، ومصري لو موجود. التنفيذ في `device_tts.dart`
@@ -65,7 +69,15 @@ class VoiceService extends ChangeNotifier {
     this.focus,
     this.listener,
     Future<SharedPreferences> Function()? prefs,
+    this.micSettle = Duration.zero,
   }) : _prefs = prefs ?? SharedPreferences.getInstance;
+
+  /// بعد ما جملتنا تخلص وجلسة الصوت تتسلّم، قبل ما المايك يتفتح — المشغّل
+  /// بيقفل ملفه في الخلفية، والمتعرّف محتاج الجلسة فاضية.
+  /// (صفر في الاختبارات؛ `main` بيحط [defaultMicSettle].)
+  final Duration micSettle;
+
+  static const defaultMicSettle = Duration(milliseconds: 250);
 
   final VoicePlayer player;
   final VoiceTts tts;
@@ -292,7 +304,22 @@ class VoiceService extends ChangeNotifier {
   /// **قبل ما المايك يتفتح**: التسجيل وصوت الموبايل بيقفوا وجلسة الصوت
   /// بتتسلّم — عشان متعرّف الكلام ياخد الجلسة (تسجيل) من غير ما يزاحم جملة
   /// لسه شغّالة (زي `onb_name`). مش مقاطعة: اللي بيسمع ما بيتلغيش.
-  Future<void> yieldToMic() => _stopSpeaking();
+  ///
+  /// **الترتيب** (لوج الجهاز، ٢٦ سبتمبر ٢٠٢٦: `error_listen_failed` = تجهيز
+  /// جلسة الصوت أو محرّكه رمى، وقبله على طول تحذير من `audioplayers`): جملتنا
+  /// خلصت (اللي بينده استناها) ← المشغّل والـTTS بيقفوا ← **المشغّل بيتساب**
+  /// ← الجلسة بتتسلّم ← نفَس ← المتعرّف ياخد الجلسة (`playAndRecord`). وبعد
+  /// السماع، أول جملة بتعيد ضبط الجلسة للتشغيل ([VoiceAudioFocus.begin]).
+  Future<void> yieldToMic() async {
+    await _stopSpeaking();
+    try {
+      await player.release();
+    } catch (e) {
+      diag('Voice: سيب المشغّل وقع ($e)');
+    }
+    diag('Listen: الجلسة اتسلّمت للمايك (المشغّل اتساب، الـTTS وقف)');
+    if (micSettle > Duration.zero) await Future<void>.delayed(micSettle);
+  }
 
   Future<void> _stopSpeaking() async {
     _generation++;

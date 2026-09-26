@@ -195,8 +195,9 @@ class CommandFlow extends ChangeNotifier {
     await voice.yieldToMic();
     final result = await listener.listen();
     if (_interrupted(gen)) return;
-    // المايك ما اشتغلش ≠ «مافهمتش»
-    if (result is ListenFailed) return _cantListen(result);
+    // المايك ما اشتغلش ≠ «مافهمتش»؛ اشتغل ووقع في النص = تعثّرة
+    if (result is ListenFailed && (!result.started || result.permission)) return _cantListen(result);
+    if (result is ListenFailed) return _fail(gen);
     unawaited(clearListenProblem());
     final text = result is ListenHeard ? result.text : null;
     if (text == null || text.trim().isEmpty) return _fail(gen);

@@ -29,6 +29,13 @@ class FakePlayer implements VoicePlayer {
     return ok;
   }
 
+  int releases = 0;
+  @override
+  Future<void> release() async {
+    releases++;
+    await stop();
+  }
+
   @override
   Future<void> stop() async {
     stops++;

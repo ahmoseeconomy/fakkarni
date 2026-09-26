@@ -13,11 +13,13 @@ abstract interface class SpeechListener {
   /// (الموبايل مفيهوش تعرّف كلام، اللغة مش موجودة، …).
   Future<ListenFailed?> prepare();
 
-  /// بيسمع لحد [silence] سكوت أو [maxLength] كله. **ثلاث نتايج مختلفة**:
+  /// بيسمع لحد [maxLength] كله (١٠ ثواني). أول كلمة ليها [firstWordWithin]
+  /// (٦ ثواني — حد كبير في السن بياخد نفَس قبل ما يتكلم)، وبعد ما يبدأ
+  /// يتكلم [silence] (٣ ثواني) سكوت بيقفل. **ثلاث نتايج مختلفة**:
   /// اتقال كلام ([ListenHeard])، سكوت أو ما اتفهمش ([ListenSilence])، أو
   /// **السماع نفسه ما بدأش أو وقع** ([ListenFailed]) — والتالتة عمرها ما
   /// تتقال للمريض على إنها «مافهمتش».
-  Future<ListenResult> listen({Duration silence, Duration maxLength});
+  Future<ListenResult> listen({Duration silence, Duration maxLength, Duration firstWordWithin});
 
   /// بيوقّف السماع فوراً — [listen] بترجّع [ListenSilence].
   Future<void> stop();
@@ -43,13 +45,30 @@ final class ListenSilence extends ListenResult {
   const ListenSilence();
 }
 
-/// السماع ما بدأش أو وقع في نصه — **مش** «مافهمتش». [reason] تقني، للسجل
-/// وللأدمن بس؛ [permission] = الإذن هو السبب.
+/// السماع وقع — **مش** «مافهمتش». [reason] تقني، للسجل وللأدمن بس؛
+/// [permission] = الإذن هو السبب.
+///
+/// [started] بيفرّق بين حاجتين الشاشة بتتعامل معاهم مختلف: false = المايك
+/// **ما اشتغلش أصلاً** («كمّل بإيدك» والزرار يختفي)؛ true = اشتغل ووقع في
+/// النص — دي تعثّرة زي «مافهمتش»، والمايك فاضل.
 final class ListenFailed extends ListenResult {
-  const ListenFailed(this.reason, {this.permission = false});
+  const ListenFailed(this.reason, {this.permission = false, this.started = false});
   final String reason;
   final bool permission;
+  final bool started;
 
   @override
-  String toString() => 'ListenFailed($reason${permission ? ', permission' : ''})';
+  String toString() => 'ListenFailed($reason${permission ? ', permission' : ''}${started ? ', started' : ''})';
+}
+
+/// التوقيتات — مكان واحد، والاختبار بيقفل عليها.
+abstract final class ListenTimings {
+  /// السماع كله.
+  static const maxLength = Duration(seconds: 10);
+
+  /// بعد ما بدأ يتكلم: سكوت قد كده بيقفل.
+  static const silence = Duration(seconds: 3);
+
+  /// لسه ما قالش ولا كلمة: السماع ما يقفلش قبل كده.
+  static const firstWordWithin = Duration(seconds: 6);
 }

@@ -188,4 +188,13 @@ void main() {
     expect(normalizeArabic('تَمانِيَة ٨ الأُولى'), 'تمانيه 8 الاولي');
     expect(normalizeArabic('لأ، مش كده!'), 'لا مش كده');
   });
+
+  test('صفحة الجنس: «راجل / ست / راجل أنا / ست أنا / ذكر / أنثى»', () {
+    for (final t in ['راجل', 'راجل أنا', 'أنا راجل', 'ذكر']) {
+      expect(parseSex(t), SpokenSex.male, reason: t);
+    }
+    for (final t in ['ست', 'ست أنا', 'أنا ست', 'أنثى']) {
+      expect(parseSex(t), SpokenSex.female, reason: t);
+    }
+  });
 }

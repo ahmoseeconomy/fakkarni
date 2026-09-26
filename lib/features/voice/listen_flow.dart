@@ -17,8 +17,9 @@ enum ListenPhase {
   /// «فهمت: …» + «صح كده؟» — مستني «أيوه» (بالصوت أو بالإيد).
   confirming,
 
-  /// «معلش، مافهمتش» — المايك **اشتغل** وما سمعش حاجة مفهومة. بيقدر يقول
-  /// تاني أو يدوس بإيده.
+  /// «معلش، مافهمتش» — المايك **اشتغل** وما سمعش حاجة مفهومة (أو وقع في
+  /// النص). بيقدر يقول تاني أو يدوس بإيده؛ التانية ورا بعض «كمّل بإيدك»
+  /// والمايك فاضل ([missLine]).
   notUnderstood,
 
   /// المايك **ما اشتغلش أصلاً** (مش الإذن): «كمّل بإيدك» مرة، والزرار
@@ -103,6 +104,13 @@ class ListenFlow<T> extends ChangeNotifier {
   bool _retry = false;
   bool _disposed = false;
   bool _previewed = false;
+
+  /// تعثّرات ورا بعض (سكوت، مش مفهوم، أو وقع بعد ما بدأ). التانية =
+  /// `gen_try_hands` بدل «مافهمتش» — والمايك فاضل. بتتصفّر مع أي فهم.
+  int _misses = 0;
+
+  /// جملة آخر تعثّر — الورقة بتكتبها زي ما اتقالت.
+  String missLine = 'lis_not_understood';
 
   /// المايك ما اشتغلش على الشاشة دي — الزرار بيختفي لحد ما تتقفل.
   bool startFailed = false;
@@ -191,20 +199,21 @@ class ListenFlow<T> extends ChangeNotifier {
     if (_interrupted(gen)) return;
     final String? text;
     switch (result) {
-      case ListenFailed():
+      // المايك ما اشتغلش أصلاً، أو الإذن
+      case ListenFailed(started: false) || ListenFailed(permission: true):
         return _cantListen(result);
+      // اشتغل ووقع في النص = تعثّرة، مش «المايك ما اشتغلش»
+      case ListenFailed():
+        text = null;
       case ListenSilence():
         text = null;
       case ListenHeard(text: final t):
         text = t;
     }
-    unawaited(clearListenProblem());
+    if (result is! ListenFailed) unawaited(clearListenProblem());
     final value = text == null ? null : parse(text);
-    if (value == null) {
-      _set(ListenPhase.notUnderstood);
-      await voice.speakLine('lis_not_understood', force: force);
-      return;
-    }
+    if (value == null) return _miss();
+    _misses = 0;
     heard = value;
     heardText = describe(value);
     if (preview case final p?) {
@@ -242,6 +251,15 @@ class ListenFlow<T> extends ChangeNotifier {
       case null:
         break; // الزرارين فاضلين قدّامه
     }
+  }
+
+  /// «مافهمتش» — والتانية ورا بعض «كمّل بإيدك». المايك فاضل في الحالتين.
+  Future<void> _miss() async {
+    _misses++;
+    missLine = _misses >= 2 ? 'gen_try_hands' : 'lis_not_understood';
+    if (_misses >= 2) _misses = 0;
+    _set(ListenPhase.notUnderstood);
+    await voice.speakLine(missLine, force: force);
   }
 
   /// «أيوه» — التطبيق الوحيد.

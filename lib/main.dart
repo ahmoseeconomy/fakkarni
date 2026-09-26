@@ -144,7 +144,13 @@ Future<void> main() async {
   // وزرار الإشعار وشاشة التذكير كلهم بيندهوا stop().
   // «بيسمع» (المرحلة ٢): متعرّف كلام الموبايل — بيتجهّز عند أول دوسة مايك، مش هنا
   final voice = VoiceService(
-      player: AudioVoicePlayer(), tts: DeviceTts(), focus: AudioSessionFocus(), listener: SpeechToTextListener());
+    player: AudioVoicePlayer(),
+    tts: DeviceTts(),
+    focus: AudioSessionFocus(),
+    listener: SpeechToTextListener(),
+    // جملتنا خلصت والجلسة اتسلّمت — نفَس قبل ما المايك يتفتح
+    micSettle: VoiceService.defaultMicSettle,
+  );
   await voice.load();
   voice.attachAlertSignal(NotificationService.lastPayload);
 
