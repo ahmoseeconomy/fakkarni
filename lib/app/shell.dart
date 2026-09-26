@@ -149,7 +149,19 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       extendBody: true,
       appBar: _appBar(),
-      body: IndexedStack(index: _tab, children: pages),
+      // **«ضيف» طالع فوق الدوك** (مركزه على حافته)، فكل تبويب بياخد طوله
+      // الزيادة في `padding.bottom` — آخر حاجة في أي صفحة («امسح حسابي» في
+      // الإعدادات) بتتزحلق لحد فوقه (آيفون، ٢٦ سبتمبر ٢٠٢٦: كان بيغطّيها).
+      body: Builder(
+        builder: (context) {
+          final mq = MediaQuery.of(context);
+          final extra = keyboardIsUp(context) ? 0.0 : _AddButton.overhang;
+          return MediaQuery(
+            data: mq.copyWith(padding: mq.padding.copyWith(bottom: mq.padding.bottom + extra)),
+            child: IndexedStack(index: _tab, children: pages),
+          );
+        },
+      ),
       // **الدوك و«ضيف» بيختفوا والكيبورد مرفوع** — ده اللي كان بيحط «ضيف»
       // فوق «تأكيد الجرعة».
       floatingActionButton: keyboardIsUp(context) ? null : _AddButton(onPressed: _openAdd),
@@ -437,6 +449,12 @@ class _AddButton extends StatelessWidget {
 
   final VoidCallback onPressed;
 
+  static const double _circle = 62;
+
+  /// قد إيه الزرار طالع فوق حافة الدوك: `centerDocked` بيحط **نص** الزرار
+  /// (الدايرة + الكلمة تحتها) فوق الحافة — ونفَس.
+  static const double overhang = (_circle + F.s4 + F.minTextSize * 1.6) / 2 + F.s8;
+
   @override
   Widget build(BuildContext context) => Semantics(
         label: 'ضيف',
@@ -446,8 +464,8 @@ class _AddButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 62,
-              height: 62,
+              width: _circle,
+              height: _circle,
               child: FloatingActionButton(
                 onPressed: onPressed,
                 backgroundColor: F.greenDeep,
@@ -482,6 +500,12 @@ class _TabBar extends StatelessWidget {
 
   /// نمط كبار السن: ٢٤ — حتى في شريط التبويبات.
   final double labelSize;
+
+  /// بين كل كلمة والتبويب اللي جنبها — مجموعهم فاصل ٨ بكسل على الأقل.
+  static const double _labelInset = F.s4;
+
+  /// سطر الكلمة — والشريط بيتحسب بيه، فالعمود ما بيفيضش.
+  static const double _labelLineHeight = 1.3;
 
   final List<String> labels;
   final List<IconData> icons;
@@ -519,7 +543,7 @@ class _TabBar extends StatelessWidget {
                 // الطول بيتحسب من البلاطة + الكلمة بمقاسها الحقيقي (نمط كبار
                 // السن ٢٤، وخط النظام ممكن يكبّرها كمان) — رقمين ثابتين كانوا
                 // بيفيضوا ٦ بكسل أول ما البلاطة كبرت.
-                height: 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * 1.3 + F.s10,
+                height: 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * _labelLineHeight + F.s10,
                 child: Row(
                   children: [
                     for (var i = 0; i < labels.length; i++) ...[
@@ -562,16 +586,25 @@ class _TabBar extends StatelessWidget {
                               ),
                               const SizedBox(height: F.s4),
                               // خط النظام الكبير كان بيلف «الإعدادات» سطرين ويفيض من
-                              // الشريط — سطر واحد بيصغر بس لو ما دخلش
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  labels[i],
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontSize: labelSize,
-                                    fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
-                                    color: i == current ? F.green : F.mutedDark,
+                              // الشريط — سطر واحد بيصغر بس لو ما دخلش.
+                              // **وهامش على الجنبين**: الكلمة كانت بتصغر لحد عرض
+                              // التبويب بالظبط، فـ«الملف الطبي» و«الإعدادات» كانوا
+                              // لازقين على ٣٧٥ (آيفون، ٢٦ سبتمبر ٢٠٢٦).
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: _labelInset),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    labels[i],
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: labelSize,
+                                      // نفس المعامل اللي طول الشريط بيتحسب بيه —
+                                      // الخط العربي سطره أطول من ١٫٣ لوحده
+                                      height: _labelLineHeight,
+                                      fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
+                                      color: i == current ? F.green : F.mutedDark,
+                                    ),
                                   ),
                                 ),
                               ),

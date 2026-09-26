@@ -346,11 +346,18 @@ abstract final class F {
           secondary: gold,
           surface: cardGround,
         ),
+        // **شريط مصمت بحافة** (آيفون، ٢٦ سبتمبر ٢٠٢٦: «الصفحة بتعدّي تحت
+        // الشريط»). اللون كان مصمت أصلاً، بس أبيض على صفحة بيضا من غير حافة
+        // ولا ظل — فالكلام اللي بيتزحلق كان باين إنه بيدخل تحت شريط شفّاف.
+        // دلوقتي خط تحت دايماً، وظل لما في محتوى تحته. لكل الشاشات، من هنا.
         appBarTheme: AppBarTheme(
           backgroundColor: pageGround,
           foregroundColor: ink,
           elevation: 0,
-          scrolledUnderElevation: 0,
+          scrolledUnderElevation: 3,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: ink.withValues(alpha: 0.25),
+          shape: Border(bottom: BorderSide(color: line)),
           titleTextStyle: TextStyle(
             fontFamily: displayFamily,
             fontSize: subtitleSize,

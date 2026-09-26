@@ -9,7 +9,6 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/keyboard_dismiss.dart';
 import '../../data/services/appointment_card.dart';
 import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
@@ -336,17 +335,8 @@ class _TodayScreenState extends State<TodayScreen> {
     // Scaffold جوّه تبويب الهيكل: الأرضية، وMaterial للـInkWell لما الشاشة
     // تتبني لوحدها في الاختبار.
     return Scaffold(
-      // «القريب مني» عايم في آخر السطر (ناحية الشمال في RTL) — ثانوي، مش
-      // أساسي: الأساسي الوحيد على الشاشة دي «تأكيد الجرعة».
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      // **وبيختفي والكيبورد مرفوع** — عايم يعني بيغطّي، والكيبورد بيرفعه
-      // لحد «تأكيد الجرعة». شوف `keyboard_dismiss.dart`.
-      floatingActionButton: keyboardIsUp(context)
-          ? null
-          : Padding(
-              padding: EdgeInsets.only(bottom: F.s10 + MediaQuery.of(context).padding.bottom),
-              child: _NearbyPill(onTap: _openNearby),
-            ),
+      // «القريب مني» **مابقاش عايم** (آيفون، ٢٦ سبتمبر ٢٠٢٦): كان بيقعد فوق
+      // كارت الجرعة. بقى سطر جوّه الصفحة، بعد «معلومة تهمك».
       body: StreamBuilder<List<DoseEventView>>(
         stream: _events,
         builder: (context, snapshot) {
@@ -370,7 +360,7 @@ class _TodayScreenState extends State<TodayScreen> {
               F.gap,
               F.gap,
               F.gap,
-              F.gap + MediaQuery.of(context).padding.bottom + (keyboardIsUp(context) ? 0 : _NearbyPill.clearance),
+              F.gap + MediaQuery.of(context).padding.bottom,
             ),
             children: [
               StreamBuilder<PatientRow?>(
@@ -588,6 +578,12 @@ class _TodayScreenState extends State<TodayScreen> {
                 onOpenMedication: (id) => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => EditMedicationScreen(medicationId: id)),
                 ),
+              ),
+              const SizedBox(height: F.gap),
+              // «القريب مني» — سطر في الصفحة، مش زرار عايم فوق المحتوى
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: _NearbyPill(onTap: _openNearby),
               ),
               const SizedBox(height: F.gap),
               // القاعدة ٤: مجهول اتسجّل لازم يفضل ظاهر هنا — سؤال هادي للصيدلي
@@ -969,7 +965,8 @@ class _EmptyPanel extends StatelessWidget {
       );
 }
 
-/// «القريب مني» — بيل عايم صغير تحت الشمال، **في الرئيسية وبس**.
+/// «القريب مني» — بيل صغير **جوّه صفحة «يومك»** (كان عايم وبيغطّي كارت
+/// الجرعة على SE). هدف اللمس ٥٦ زي أي زرار.
 ///
 /// دهبي مليان بحد زيتي زي ما المالك طلب. الدهبي هنا حالة «تقدر تروح
 /// دلوقتي» مش تنبيه، وهو الزرار الوحيد بالشكل ده على الشاشة.
@@ -978,11 +975,7 @@ class _NearbyPill extends StatelessWidget {
 
   final VoidCallback onTap;
 
-  static const double height = 44;
-
-  /// المسافة اللي القايمة لازم تسيبها تحت آخر صف: الزرار + هامشه تحت
-  /// (`F.s10`) + هامش الـFAB بتاع Material + نفَس.
-  static const double clearance = height + F.s10 + kFloatingActionButtonMargin + F.s8;
+  static const double height = F.minTapTarget;
 
   @override
   Widget build(BuildContext context) => Material(
