@@ -89,11 +89,63 @@ String _stamp(DateTime now) {
 /// **وبيتكتب في ملف كمان**، لأن السؤال ده مالوش مصحّح متوصّل: الـisolate
 /// بيصحى والتطبيق مقفول، والسطر اللي بيتطبع في os_log بيروح مع الجلسة.
 /// الملف بيفضل، وسويفت بتكتب في نفس الملف — فالترتيب بين الناحيتين بيبان.
+///
+/// **وفي release فيه باب واحد للمطوّر** (نسخة TestFlight، ٢٦ سبتمبر ٢٠٢٦):
+/// لو ملف [diagOptInFileName] موجود جنب السجل، `diag` بتكتب في **الملف
+/// بس** — مفيش `debugPrint` في release أبداً. الباب ملف مش
+/// `shared_preferences` عن قصد: الـisolate بيشوفه بنفس [_resolveSink]
+/// من غير أي نداء قناة، فصحوة شاشة القفل بتتسجّل هي كمان.
 void diag(String message) {
-  if (kReleaseMode) return;
+  if (kReleaseMode && !_releaseOptIn()) return;
   final line = '$diagPrefix$message';
-  debugPrint(line);
+  if (!kReleaseMode) debugPrint(line);
   _append('${_stamp(DateTime.now())}  $line');
+}
+
+/// علامة «باب المطوّر مفتوح» في release — ملف فاضي جنب [diagFileName].
+const diagOptInFileName = 'fkdiag.on';
+
+bool? _optIn;
+
+bool _releaseOptIn() {
+  if (_optIn case final v?) return v;
+  final sink = _resolveSink();
+  if (sink == null) return false;
+  try {
+    _optIn = File('${sink.parent.path}/$diagOptInFileName').existsSync();
+  } catch (_) {
+    _optIn = false;
+  }
+  return _optIn!;
+}
+
+/// الباب مفتوح؟ — من الواجهة (بتمرّ على `path_provider` لو لزم).
+Future<bool> diagReleaseOptIn() async {
+  final sink = await diagResolveDirectory();
+  if (sink == null) return false;
+  try {
+    return File('${sink.parent.path}/$diagOptInFileName').existsSync();
+  } catch (_) {
+    return false;
+  }
+}
+
+/// بيفتح الباب أو يقفله — بيرجّع الحالة الفعلية بعد الكتابة.
+Future<bool> setDiagReleaseOptIn(bool on) async {
+  final sink = await diagResolveDirectory();
+  if (sink == null) return false;
+  try {
+    final marker = File('${sink.parent.path}/$diagOptInFileName');
+    if (on) {
+      marker.writeAsStringSync('', flush: true);
+    } else if (marker.existsSync()) {
+      marker.deleteSync();
+    }
+    _optIn = null;
+    return marker.existsSync();
+  } catch (_) {
+    return false;
+  }
 }
 
 void _append(String line) {

@@ -79,7 +79,9 @@ void main() {
     });
 
     test('في الإعدادات: صف الفحص تحت «للمطوّر» وجوّه !kReleaseMode', () {
-      final gate = settings.indexOf('if (!kReleaseMode)');
+      // البوابة: مخفي في release إلا من باب المطوّر (٧ دوسات على سطر النسخة)
+      expect(settings, contains('bool get developerVisible => !kReleaseMode || _devDoor;'));
+      final gate = settings.indexOf('if (developerVisible)');
       final head = settings.indexOf("FSectionHead('للمطوّر')");
       final row = settings.indexOf("label: 'اطمن إن التذكير هيشتغل'");
       expect(gate, isNot(-1));

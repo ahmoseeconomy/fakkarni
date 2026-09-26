@@ -20,6 +20,9 @@ import 'followers_screen.dart';
 import '../../core/widgets/legal_links_row.dart';
 import '../account/delete_account_screen.dart';
 import 'diagnostics_log_screen.dart';
+import '../../core/diagnostics.dart';
+import '../../core/format/arabic_time.dart';
+import '../../data/health/health_heartbeat.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
 import '../nearby/nearby_screen.dart';
@@ -59,12 +62,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
   bool _loaded = false;
 
+  /// باب المطوّر في release: ٧ دوسات على سطر النسخة. في debug/profile
+  /// القسم ظاهر على طول، والباب بيغيّر بس إن `diag` تكتب في الملف.
+  bool _devDoor = false;
+  int _versionTaps = 0;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_loaded) return;
     _loaded = true;
     _reload();
+    diagReleaseOptIn().then((v) {
+      if (mounted && v != _devDoor) setState(() => _devDoor = v);
+    });
+  }
+
+  bool get developerVisible => !kReleaseMode || _devDoor;
+
+  Future<void> _versionTap() async {
+    _versionTaps++;
+    if (_versionTaps < 7) return;
+    _versionTaps = 0;
+    final on = await setDiagReleaseOptIn(!_devDoor);
+    if (mounted) setState(() => _devDoor = on);
   }
 
   Future<void> _reload() async {
@@ -232,7 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // قسم المطوّر — **مش موجود في نسخة المتجر**. سكّة صحوة شاشة
             // القفل مالهاش مصحّح متوصّل، فالسجل ده هو الشاهد الوحيد
             // عليها، ونسخة profile هي الوحيدة اللي بتشغّلها أصلاً.
-            if (!kReleaseMode) ...[
+            if (developerVisible) ...[
               const SizedBox(height: F.gap),
               const FSectionHead('للمطوّر'),
               const SizedBox(height: F.s8),
@@ -263,6 +284,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
             ],
+            // سطر النسخة — وهو باب المطوّر في release (٧ دوسات).
+            const SizedBox(height: F.gap),
+            _Row(
+              key: const ValueKey('settings-version'),
+              icon: Icons.info_outline,
+              label: 'فكرني',
+              hint: _devDoor ? 'باب المطوّر اتفتح — ٧ دوسات تاني بتقفله' : 'النسخة ${arabicDigits(appVersion)}',
+              onTap: _versionTap,
+            ),
             // Apple 5.1.1(v): المسح من جوّه التطبيق — لكل واحد، مربوط أو لأ
             // (٢٦ سبتمبر ٢٠٢٦: المختبِر شاف «مش مربوط» ومفيش زرار). مش مربوط =
             // الموبايل ده بس، من غير شبكة. آخر حاجة في الإعدادات.

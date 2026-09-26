@@ -2952,6 +2952,35 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
   عند العيلة بترجع فاضية بدل ما الشاشة تقع.
 - **التذكير والجدولة ما اتلمسوش** — الخطة الذهبية والمجدول خضر.
 
+## نسخة TestFlight على سجل التطبيق القديم (٢٦ سبتمبر ٢٠٢٦)
+
+**`docs/release/testflight.md` هو الدليل** — أمر البناء بأسامي التعريفات
+(ولا قيمة)، ثم Xcode Organizer. الهوية `com.fakrny.app` (`RunnerTests` =
+`com.fakrny.app.RunnerTests`، مفيش extension؛ أندرويد فضل `com.fakkarni.fakkarni`
+— الطلب كان iOS بس)، والنسخة `2.0.0+1` فوق `1.12.1` بتاعة التطبيق القديم.
+**مفيش رفع اتعمل** — الملف بيقول إزاي، والمالك هو اللي بيرفع. والدينين ٢ و2b
+لسه واقفين: TestFlight داخلي بقرار المالك، المتجر لأ.
+- **باب المطوّر في release**: الإعدادات → سطر «فكرني — النسخة …» (آخر صف قبل
+  «امسح حسابي») → **٧ دوسات** بتكتب ملف فاضي `Documents/fkdiag.on`
+  (`diagOptInFileName`) جنب السجل، و٧ تاني بتشيله. `diag` في release بتقرا
+  العلامة **بنفس `_resolveSink`** — ملف، مش `shared_preferences`، عشان
+  الـisolate يشوفها من غير قناة — وبتكتب في **الملف بس**: `debugPrint` عمرها
+  ما تطلع في release حتى والباب مفتوح (`diagnostics_gated_test` بيثبّت
+  السطرين بالحرف). القسم نفسه ظاهر على `developerVisible =
+  !kReleaseMode || _devDoor` (`health_is_last_test` بيقرا الاسم ده).
+  `developer_door_test` بيثبت العلامة (بـ`PathProviderPlatform` وهمي على
+  مجلد مؤقت — `path_provider_platform_interface` دخلت dev_dependencies
+  عشان كده) والـ٧ دوسات — مُتحقَّق بالطفرة (٦ بتوقّع).
+- **اللي بيختلف في release وما بيكسرش حاجة للمختبِر**: الدخول المجهول نفسه
+  (الربط والمزامنة والمسح شغّالين — مفيش فرق كود بين الوضعين، بس
+  «Allow new users to sign up» لازم تفضل ON)؛ `voiceCommandsCloud` مقفول
+  فـ«كلّمني» محلي بس (`command_flow_test` «العلم مقفول»)؛ التشخيصات اللي على
+  الشاشة (`kDebugMode`) مش موجودة.
+- **Entitlements**: Time Sensitive بس، على Release بس (زي ما هو). مفيش
+  `aps-environment` ولا `UIBackgroundModes` عن قصد — مفيش APNs (الدين ٣)
+  ومفيش شغل خلفية غير إشعارات محلية؛ إضافة `aps-environment` من غير Push على
+  الـApp ID بتوقّع التوقيع. لو الـApp ID القديم عليه Push، سيبه — مش بيضر.
+
 ## مسح الحساب والسياسات — B4 وB5 (٢٥ سبتمبر ٢٠٢٦)
 
 **«امسح حسابي» (Apple 5.1.1(v))** — في إعدادات المريض (لما فيه حساب) وإعدادات

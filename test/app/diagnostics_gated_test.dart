@@ -40,7 +40,10 @@ void main() {
         .readAsLinesSync()
         .where((l) => !l.trimLeft().startsWith('///'))
         .join('\n');
-    expect(code, contains('if (kReleaseMode) return;'));
+    // release: ساكتة إلا لو باب المطوّر مفتوح — وساعتها ملف بس، من غير طباعة
+    expect(code, contains('if (kReleaseMode && !_releaseOptIn()) return;'));
+    expect(code, contains('if (!kReleaseMode) debugPrint(line);'),
+        reason: 'debugPrint عمرها ما تطلع في release حتى والباب مفتوح');
     expect(code, isNot(contains('kDebugMode')),
         reason: 'على kDebugMode التشخيص بيسكت في نسخة profile — وهي '
             'الوحيدة اللي تقدر تشغّل صحوة شاشة القفل على iOS');
