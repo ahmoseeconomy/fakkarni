@@ -170,6 +170,45 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     return (json: _parse(res.raw), warning: warning);
   }
 
+  /// **نص بس** (المرحلة ٣ — طلب مسموع): نفس المفتاح ونفس الرأس ونفس الموديل،
+  /// من غير صورة ومن غير رجوع لبديل: محاولة واحدة، واللي بينده بيحط مهلته.
+  /// الجسم فيه [prompt] وبس — ولا بايت زيادة عن اللي اتبعت هنا.
+  Future<Map<String, dynamic>> generateText({
+    required String prompt,
+    required Map<String, dynamic> schema,
+    required String failure,
+    String? systemInstruction,
+  }) async {
+    final body = jsonEncode({
+      if (systemInstruction != null)
+        'systemInstruction': {
+          'parts': [
+            {'text': systemInstruction},
+          ],
+        },
+      'contents': [
+        {
+          'parts': [
+            {'text': prompt},
+          ],
+        },
+      ],
+      'generationConfig': {
+        'temperature': 0,
+        'responseMimeType': 'application/json',
+        'responseSchema': schema,
+        if (config.thinkingBudget != null && !_thinkingRejected) 'thinkingConfig': {'thinkingBudget': config.thinkingBudget},
+      },
+    });
+    final res = await _post(config.model, body);
+    if (res.status != 200) {
+      final cause = 'HTTP ${res.status}: ${_excerpt(res.raw)}';
+      debugPrint('Gemini: $cause');
+      throw PrescriptionReadException(failure, cause);
+    }
+    return _parse(res.raw);
+  }
+
   Future<_Attempt> _post(String model, String body) async {
     try {
       final response = await _client
