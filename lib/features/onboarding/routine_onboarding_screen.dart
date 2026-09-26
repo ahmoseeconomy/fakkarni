@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../voice/voice_intro_screen.dart';
 import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
@@ -53,10 +52,6 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   Sex? _sex;
   String? _name;
 
-  /// المقدمة الصوتية قبل أول سؤال — مرة واحدة، و«تخطّي» ظاهر طول الوقت.
-  /// null = لسه ما اتقرّرش؛ من غير خدمة صوت = مفيش مقدمة.
-  bool? _introPending;
-
   /// صفحة «نتعرّف عليك» الحالية: ٠ الاسم، ١ الجنس، ٢ السن.
   int _profileStep = 0;
 
@@ -83,7 +78,7 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   /// بتتقال لوحدها أول ما الصفحة تفتح، مرة واحدة. «مش دلوقتي» على أول سؤال
   /// في المواعيد بتتقال مرة بس، بعد الصحيان.
   void _announce() {
-    if (_introPending == true || _needsProfile == null) return;
+    if (_needsProfile == null) return;
     final line = _pageLine;
     unawaited(_voice.auto(line == 'onb_wake' ? const ['onb_wake', 'onb_routine_skip'] : [line], key: line));
   }
@@ -95,11 +90,9 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
     if (_needsProfile != null) return;
     if (!widget.askProfile) {
       _needsProfile = false;
-      _introPending = false;
       return;
     }
     final services = AppScope.of(context);
-    _introPending = (services.voice?.introDone ?? true) ? false : true;
     services.routines.getPatient(services.patientId).then((row) {
       if (!mounted) return;
       setState(() {
@@ -188,15 +181,6 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = _needsProfile == true;
-    if (_introPending == true && _needsProfile != null) {
-      return VoiceIntroScreen(
-        voice: AppScope.of(context).voice!,
-        onDone: () {
-          setState(() => _introPending = false);
-          _announce();
-        },
-      );
-    }
     return Scaffold(
       body: SafeArea(
         child: _needsProfile == null

@@ -14,6 +14,7 @@ import '../features/entry/entry_screen.dart';
 import '../features/link/sign_in_screen.dart';
 import '../features/onboarding/routine_onboarding_screen.dart';
 import '../features/reminder/reminder_screen.dart';
+import '../features/voice/voice_intro_screen.dart';
 import 'app_scope.dart';
 import 'shell.dart';
 
@@ -205,6 +206,12 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
           return CaregiverShell(onNotLinked: () {
             if (mounted) setState(() => _notLinked = true);
           });
+        }
+        // **المقدمة الصوتية أول شاشة في تنزيلة جديدة** — قبل «مين ماسك
+        // التليفون ده؟»، عشان لو قال «أيوه، اتكلّم» تلاقي `onb_entry`
+        // بتتقال من أول شاشة. مرة واحدة (`introDone`)، و«تخطّي» ظاهر.
+        if (services.voice case final voice? when !voice.introDone) {
+          return VoiceIntroScreen(voice: voice, onDone: () => setState(() {}));
         }
         return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode, onNurse: _nurseCode);
       },

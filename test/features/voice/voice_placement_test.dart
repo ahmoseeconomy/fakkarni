@@ -81,6 +81,9 @@ void main() {
     }
     expect(unused, isEmpty, reason: 'جمل مسجّلة ومحدش بيقولها');
     expect(src.values.where((s) => s.contains('introSequence')), isNotEmpty, reason: 'المقدمة بتتقال');
+    // المقدمة أول شاشة في تنزيلة جديدة (الجذر) — مش جوّه أسئلة البداية
+    expect(src['app/root.dart'], contains('VoiceIntroScreen('));
+    expect(src['features/onboarding/routine_onboarding_screen.dart'], isNot(contains('VoiceIntroScreen')));
   });
 
   test('كل «ساعدني» وكل speakLine على رقم موجود في الكتالوج', () {
