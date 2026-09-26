@@ -1,3 +1,4 @@
+import 'data/app_version.dart';
 import 'data/services/pending_actions.dart';
 import 'data/voice/audio_focus.dart';
 import 'data/voice/audio_voice_player.dart';
@@ -92,6 +93,8 @@ Future<void> main() async {
   // من هنا: «أخدته» والتطبيق عايش بتيجي للإنجن ده على طول، مش لإنجن تاني
   LiveActions.door = door;
   await LiveActions.listen();
+  // النسخة الحقيقية للإعدادات والنبضة — بعد الوعد، ومن غير ما نستناها
+  unawaited(AppVersion.load());
 
   // ---------------------------------------------------------- السحابة
   // الهوية اختيارية: التهيئة محلية وسريعة ومتلفوفة — لو فشلت (أوفلاين،

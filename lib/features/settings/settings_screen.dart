@@ -22,7 +22,7 @@ import '../account/delete_account_screen.dart';
 import 'diagnostics_log_screen.dart';
 import '../../core/diagnostics.dart';
 import '../../core/format/arabic_time.dart';
-import '../../data/health/health_heartbeat.dart';
+import '../../data/app_version.dart';
 import 'notifications_screen.dart';
 import '../emergency/emergency_info_screen.dart';
 import '../nearby/nearby_screen.dart';
@@ -290,7 +290,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               key: const ValueKey('settings-version'),
               icon: Icons.info_outline,
               label: 'فكرني',
-              hint: _devDoor ? 'باب المطوّر اتفتح — ٧ دوسات تاني بتقفله' : 'النسخة ${arabicDigits(appVersion)}',
+              hint: _devDoor
+                  ? 'باب المطوّر اتفتح — ٧ دوسات تاني بتقفله'
+                  : (AppVersion.label.isEmpty ? 'فكّرني' : 'النسخة ${arabicDigits(AppVersion.label)}'),
               onTap: _versionTap,
             ),
             // Apple 5.1.1(v): المسح من جوّه التطبيق — لكل واحد، مربوط أو لأ

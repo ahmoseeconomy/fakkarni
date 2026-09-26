@@ -79,6 +79,8 @@ dependencies:
   flutter_tts: ^4.2.5
   audio_session: ^0.2.4
   speech_to_text: ^7.5.0
+  # النسخة الحقيقية من الحزمة (pubspec → Info.plist) — «النسخة» في الإعدادات والنبضة
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
+import '../app_version.dart';
 import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,7 +59,8 @@ class HealthHeartbeat {
         'patient_uuid': patientUuid,
         'install_id': await _installId(prefs),
         'checked_at': snapshot.now.toUtc().toIso8601String(),
-        'app_version': appVersion,
+        // الحقيقية من الحزمة لو اتقرت — التعريف لو لأ
+        'app_version': AppVersion.current ?? appVersion,
         'platform': snapshot.platform.name,
         'os_version': _osVersion(),
         'tz': snapshot.deviceTimezone,
