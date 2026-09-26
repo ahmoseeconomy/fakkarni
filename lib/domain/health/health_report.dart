@@ -23,6 +23,7 @@ const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
   checkMediaSync,
   checkLowCoverage,
   checkPatternSync,
+  checkListenUnavailable,
 ];
 
 class HealthReport {

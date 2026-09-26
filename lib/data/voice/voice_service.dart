@@ -108,6 +108,17 @@ class VoiceService extends ChangeNotifier {
   /// اللي بيتقال دلوقتي — الشاشة بتكتبه (ترجمة مكتوبة لكل جملة).
   final ValueNotifier<String?> caption = ValueNotifier<String?>(null);
 
+  /// عدد الشاشات اللي **كاتبة الجملة بنفسها** دلوقتي (ورقة «اتكلم» و«كلّمني»).
+  /// طول ما هو أكبر من صفر الترجمة المكتوبة تحت ما بتظهرش — وإلا نفس الجملة
+  /// بتتكتب مرتين: في الورقة وفي الكارت اللي تحتها (آيفون، ٢٦ سبتمبر ٢٠٢٦).
+  final ValueNotifier<int> captionHolds = ValueNotifier<int>(0);
+
+  void holdCaption() => captionHolds.value++;
+
+  void releaseCaption() {
+    if (captionHolds.value > 0) captionHolds.value--;
+  }
+
   bool get speaking => caption.value != null;
 
   /// «دلوقتي تقدر تكلّمني…» اتقالت مرة (أول ما زرار المايك ظهر).
@@ -278,6 +289,11 @@ class VoiceService extends ChangeNotifier {
     ]);
   }
 
+  /// **قبل ما المايك يتفتح**: التسجيل وصوت الموبايل بيقفوا وجلسة الصوت
+  /// بتتسلّم — عشان متعرّف الكلام ياخد الجلسة (تسجيل) من غير ما يزاحم جملة
+  /// لسه شغّالة (زي `onb_name`). مش مقاطعة: اللي بيسمع ما بيتلغيش.
+  Future<void> yieldToMic() => _stopSpeaking();
+
   Future<void> _stopSpeaking() async {
     _generation++;
     caption.value = null;
@@ -345,6 +361,7 @@ class VoiceService extends ChangeNotifier {
   void dispose() {
     _alert?.removeListener(_onAlert);
     caption.dispose();
+    captionHolds.dispose();
     super.dispose();
   }
 }

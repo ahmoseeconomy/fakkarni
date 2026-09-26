@@ -10,6 +10,7 @@ import '../../domain/health/health_snapshot.dart';
 import '../battery/battery_optimisation.dart';
 import '../services/reminder_plan.dart';
 import '../files/med_photo_sync.dart' show mediaProblemSince, mediaRejectedAt;
+import '../voice/listen_health.dart' show listenProblemSince;
 import '../sync/sync_service.dart' show SyncBlockReason, patternRejectedSince;
 
 /// بيجمع اللقطة من الجهاز الحقيقي — **الطرف الوسخ من الفحص**.
@@ -88,6 +89,7 @@ class HealthCollector {
       mediaRejectedAt: await mediaRejectedAt(),
       planTruncated: services.scheduler.lastPlanTruncated,
       patternRejectedSince: await patternRejectedSince(),
+      listenProblemSince: await listenProblemSince(),
     );
   }
 

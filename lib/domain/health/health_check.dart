@@ -38,6 +38,12 @@ enum HealthCode {
   /// وراحة) فاضل على الموبايل ما وصلش السحابة. التذكير شغّال عادي؛ الابن
   /// ما بيشوفش الجرعات دي. **للأدمن بس.**
   patternSync,
+
+  /// زرار «اتكلم» أو «كلّمني» اتداس والمايك ما اشتغلش لسبب مش الإذن (المتعرّف
+  /// ما اتجهّزش، اللغة، جلسة الصوت، …) في آخر ٢٤ ساعة. المريض سمع «كمّل
+  /// بإيدك» مرة والزرار اختفى؛ **السبب في سجل التشخيص (`Listen:`) وللأدمن
+  /// الكود ده بس.**
+  listenUnavailable,
 }
 
 /// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
@@ -427,6 +433,20 @@ HealthFinding? checkMediaSync(HealthSnapshot s) {
     severity: Severity.broken,
     title: stuck != null ? 'صورة دوا ما وصلتش للدائرة' : 'صورة من الدائرة ما اتقبلتش',
     why: 'الموبايل بيعيد المحاولة لوحده.',
+    fix: HealthFix.none,
+  );
+}
+
+/// المايك ما اشتغلش (٢٦ سبتمبر ٢٠٢٦) — للأدمن مع النبضة وبس.
+HealthFinding? checkListenUnavailable(HealthSnapshot s) {
+  final at = s.listenProblemSince;
+  if (at == null || s.now.difference(at) >= const Duration(hours: 24)) return null;
+  return const HealthFinding(
+    code: HealthCode.listenUnavailable,
+    severity: Severity.broken,
+    title: 'المايك ما اشتغلش',
+    why: 'زرار الكلام اتداس والتعرّف على الكلام ما بدأش. المريض كمّل بإيده، '
+        'والسبب مكتوب في سجل التشخيص.',
     fix: HealthFix.none,
   );
 }

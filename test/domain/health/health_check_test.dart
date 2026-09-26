@@ -40,6 +40,7 @@ void main() {
     bool aiKeyPresent = true,
     bool rungFirstOn = true,
     bool rungSecondOn = true,
+    DateTime? listenProblemSince,
   }) =>
       HealthSnapshot(
         caregiverName: caregiverName,
@@ -58,6 +59,7 @@ void main() {
         scheduledTimezone: scheduledTimezone,
         hasCaregiver: hasCaregiver,
         hasPushToken: hasPushToken,
+        listenProblemSince: listenProblemSince,
         cloudConfigured: cloudConfigured,
         signedIn: signedIn,
         dirtyRowCount: dirtyRowCount,
@@ -408,6 +410,18 @@ void main() {
     });
   });
 
+  group('المايك ما اشتغلش (للأدمن بس)', () {
+    test('مفيش عطل → نضيف', () => expectClean(well(), HealthCode.listenUnavailable));
+    test('عطل من أكتر من ٢٤ ساعة → نضيف', () => expectClean(
+        well(listenProblemSince: now.subtract(const Duration(hours: 25))), HealthCode.listenUnavailable));
+    test('عطل من ساعة → مكسور، ومش للمريض', () {
+      final f = expectRaised(
+          well(listenProblemSince: now.subtract(const Duration(hours: 1))), HealthCode.listenUnavailable, Severity.broken);
+      expect(f.patientVisible, isFalse);
+      expect(f.autoFixes, isFalse);
+    });
+  });
+
   group('الترتيب والتجميع', () {
     test('المكسور بيطلع فوق الملاحظة', () {
       final report = runHealthChecks(well(
@@ -470,4 +484,5 @@ HealthSnapshot _allBroken(DateTime now) => HealthSnapshot(
       aiKeyPresent: false,
       rungFirstOn: false,
       rungSecondOn: false,
+      listenProblemSince: now.subtract(const Duration(minutes: 5)),
     );

@@ -53,7 +53,11 @@ class HealthSnapshot {
     this.mediaRejectedAt,
     this.planTruncated = false,
     this.patternRejectedSince,
+    this.listenProblemSince,
   });
+
+  /// آخر مرة المايك اتداس والسماع ما بدأش (مش الإذن) — null = مفيش.
+  final DateTime? listenProblemSince;
 
   final DateTime now;
   final HealthPlatform platform;

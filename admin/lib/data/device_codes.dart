@@ -37,6 +37,7 @@ String deviceCodeLabel(String code, {AdminDevice? device, DateTime? now}) => swi
       'mediaSync' => 'صور الأدوية ما بتترفعش (أو صورة من الممرض اترفضت)',
       'lowCoverage' => 'التذكيرات المتجهّزة أقل من ٤٨ ساعة (مواعيد كتير)',
       'patternSync' => 'جدول بأيام معيّنة مستني هجرة ٠٠٣٢ على السيرفر',
+      'listenUnavailable' => 'المايك ما اشتغلش لما اتداس (السبب في سجل التشخيص على الموبايل)',
       'staleSync' => _staleSyncLabel(device, now),
       'notificationPermission' => 'الإشعارات مقفولة',
       'pushToken' => 'مفيش توكن',
@@ -78,4 +79,5 @@ const List<String> knownDeviceCodes = [
   'mediaSync',
   'lowCoverage',
   'patternSync',
+  'listenUnavailable',
 ];

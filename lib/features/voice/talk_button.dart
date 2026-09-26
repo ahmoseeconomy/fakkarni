@@ -104,7 +104,8 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
     final flow = _flow;
     if (flow == null) return const SizedBox.shrink();
     return ListenableBuilder(
-      listenable: flow.voice,
+      // الخدمة (مرفوض) والدورة نفسها (المايك ما اشتغلش = الزرار يختفي)
+      listenable: Listenable.merge([flow.voice, flow]),
       builder: (context, _) {
         if (!flow.available) return const SizedBox.shrink();
         final height = widget.elder ? 80.0 : F.primaryButtonHeight;
@@ -143,6 +144,11 @@ class _CommandBodyState extends State<_CommandBody> {
   @override
   void initState() {
     super.initState();
+    // الورقة بتكتب الجملة بنفسها — الترجمة اللي تحت تسكت، عشان تتكتب مرة
+    // بعد الفريم: الورقة بتتبني جوّه build، والترجمة فوقها في الشجرة —
+    // تنبيهها وسط البناء ممنوع وكانت بتفضل ظاهرة
+    final voice = widget.flow.voice;
+    scheduleMicrotask(voice.holdCaption);
     widget.flow.addListener(_onPhase);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onPhase());
   }
@@ -154,6 +160,9 @@ class _CommandBodyState extends State<_CommandBody> {
   @override
   void dispose() {
     widget.flow.removeListener(_onPhase);
+    // برّه مرحلة القفل بتاعة الشجرة
+    final voice = widget.flow.voice;
+    scheduleMicrotask(voice.releaseCaption);
     super.dispose();
   }
 

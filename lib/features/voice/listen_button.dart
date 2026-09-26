@@ -6,10 +6,12 @@ import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/voice/voice_catalog.dart';
 import 'listen_flow.dart';
 
-/// «🎤 اتكلم» — جنب «ساعدني»، **بس فين الإجابة مقفولة**: أيوه/لأ، ساعة،
-/// رقم، راجل/ست، الاسم، ورد التذكير. الدوسة بتفتح ورقة صغيرة فيها اللي
+/// «🎤 اتكلم» — جنب «ساعدني»، **بس فين الإجابة مقفولة أو حقل كلام حر**:
+/// أيوه/لأ، ساعة، رقم، راجل/ست، ورد التذكير — والاسم (حر: الكلام بيتكتب في
+/// الحقل وبيتسأل «اسمك …، صح كده؟»). حقل مش متدعوم = مفيش مايك جنبه. الدوسة بتفتح ورقة صغيرة فيها اللي
 /// بيحصل بالكلام الكبير: «اتكلم، أنا سامعك» ← «فهمت: …» + «أيوه»/«لأ» ←
 /// اتطبّق. المايك مفتوح وهو داوس بس، وبيقفل لوحده بعد سكوت قصير.
 ///
@@ -25,12 +27,21 @@ class ListenButton<T> extends StatefulWidget {
     required this.parse,
     required this.describe,
     required this.onApply,
+    this.ask,
+    this.preview,
+    this.revert,
     this.force = false,
     this.elder = false,
     this.onDark = false,
     this.hint,
     super.key,
   });
+
+  /// حقل كلام حر: سؤال التأكيد كامل بصوت الموبايل («اسمك أحمد، صح كده؟»)،
+  /// والكلام بيتكتب في الحقل قبل «أيوه» ([preview]) وبيرجع لو «لأ» ([revert]).
+  final String Function(T value)? ask;
+  final void Function(T value)? preview;
+  final VoidCallback? revert;
 
   /// كلمة جنب الزرار بتقول إيه اللي يتقال («قول «أخدته» أو دوس») — بتظهر
   /// وتختفي مع الزرار نفسه، وأكبر في نمط كبار السن.
@@ -68,11 +79,17 @@ class _ListenButtonState<T> extends State<ListenButton<T>> with WidgetsBindingOb
     super.didChangeDependencies();
     final voice = AppScope.maybeOf(context)?.voice;
     if (voice == null || _flow != null) return;
+    // **الدوال بتتقري من الودجت الحالي وقت النداء**، مش وقت الإنشاء: صفحات
+    // المواعيد الخمسة بتشارك نفس الـState (نفس النوع في نفس المكان)، فالنسخة
+    // القديمة كانت بتفضل ماسكة سؤال الصحيان وهو على الفطار.
     _flow = ListenFlow<T>(
       voice: voice,
-      parse: widget.parse,
-      describe: widget.describe,
-      onApply: widget.onApply,
+      parse: (heard) => widget.parse(heard),
+      describe: (v) => widget.describe(v),
+      onApply: (v) => widget.onApply(v),
+      ask: widget.ask == null ? null : (v) => widget.ask!(v),
+      preview: widget.preview == null ? null : (v) => widget.preview?.call(v),
+      revert: widget.revert == null ? null : () => widget.revert?.call(),
       force: widget.force,
       autoApply: false,
     );
@@ -122,7 +139,8 @@ class _ListenButtonState<T> extends State<ListenButton<T>> with WidgetsBindingOb
     final flow = _flow;
     if (flow == null) return const SizedBox.shrink();
     return ListenableBuilder(
-      listenable: flow.voice,
+      // الخدمة (مقفول/مرفوض) والدورة نفسها (المايك ما اشتغلش = الزرار يختفي)
+      listenable: Listenable.merge([flow.voice, flow]),
       builder: (context, _) {
         if (!flow.available) return const SizedBox.shrink();
         final size = widget.elder ? F.elderTextSize : F.minTextSize;
@@ -197,6 +215,11 @@ class _ListenBodyState extends State<_ListenBody> {
   @override
   void initState() {
     super.initState();
+    // الورقة بتكتب الجملة بنفسها — الترجمة اللي تحت تسكت، عشان تتكتب مرة
+    // بعد الفريم: الورقة بتتبني جوّه build، والترجمة فوقها في الشجرة —
+    // تنبيهها وسط البناء ممنوع وكانت بتفضل ظاهرة
+    final voice = widget.flow.voice;
+    scheduleMicrotask(voice.holdCaption);
     widget.flow.addListener(_onPhase);
     // خلص قبل ما الورقة تتبني (إجابة جاهزة فوراً) — تتقفل برضه
     WidgetsBinding.instance.addPostFrameCallback((_) => _onPhase());
@@ -209,6 +232,9 @@ class _ListenBodyState extends State<_ListenBody> {
   @override
   void dispose() {
     widget.flow.removeListener(_onPhase);
+    // برّه مرحلة القفل بتاعة الشجرة
+    final voice = widget.flow.voice;
+    scheduleMicrotask(voice.releaseCaption);
     super.dispose();
   }
 
@@ -227,17 +253,23 @@ class _ListenBodyState extends State<_ListenBody> {
                 children: [
                   Icon(Icons.mic, size: 32, color: F.gold),
                   const SizedBox(width: F.s10),
-                  Expanded(child: Text('اتكلم، أنا سامعك.', style: body)),
+                  Expanded(child: Text(voiceLine('lis_listening'), style: body)),
                 ],
               ),
             ListenPhase.confirming => Text(
-                'فهمت: ${flow.heardText}\nصح كده؟',
+                flow.confirmText,
                 key: const ValueKey('listen-heard'),
                 style: TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
               ),
             ListenPhase.notUnderstood => Text(
-                'معلش، مافهمتش. ممكن تقولها تاني، أو تدوس بإيدك.',
+                voiceLine('lis_not_understood'),
                 key: const ValueKey('listen-not-understood'),
+                style: body,
+              ),
+            // المايك ما اشتغلش — مش «مافهمتش». الزرار اختفى من الشاشة.
+            ListenPhase.unavailable => Text(
+                voiceLine('gen_try_hands'),
+                key: const ValueKey('listen-unavailable'),
                 style: body,
               ),
             ListenPhase.idle || ListenPhase.done => Text('ثواني…', style: body),

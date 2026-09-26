@@ -173,7 +173,8 @@ void main() {
   });
 
   testWidgets('المايك في البداية: الاسم والجنس والسن والصحيان بالصوت — بنفس سكّة الإيد، وlis_intro مرة بعد جملة الصفحة', (tester) async {
-    await setUpWith(voiceOn: true, answers: ['اسمي أحمد', 'أيوه', 'ست', 'أيوه', 'خمسة وسبعين', 'أيوه', 'سبعة ونص', 'أيوه']);
+    // الاسم حقل حر: اللي اتقال بيتكتب زي ما هو (مفيش قارئ بيشيل «اسمي»)
+    await setUpWith(voiceOn: true, answers: ['أحمد', 'أيوه', 'ست', 'أيوه', 'خمسة وسبعين', 'أيوه', 'سبعة ونص', 'أيوه']);
     await pump(tester, const RoutineOnboardingScreen());
     expect(find.byKey(const ValueKey('listen-name')), findsOneWidget);
     expect(said(), ['onb_name', 'lis_intro'], reason: '«دلوقتي تقدر تكلّمني» بعد جملة الصفحة');

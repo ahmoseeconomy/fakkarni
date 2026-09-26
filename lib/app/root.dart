@@ -50,6 +50,13 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   /// السطر ده الجذر كان هيقراه «ابن» ويوديه للمتابعة.
   bool _patientPath = false;
 
+  /// شاشة الدخول مفتوحة في مسار المريض ولسه ما اتقفلتش. **تحتها بتفضل شاشة
+  /// البداية زي ما هي — مش أسئلة البداية**: الأسئلة كانت بتتبني تحت شاشة
+  /// الدخول وبتقول «اسم حضرتك إيه؟» والمريض لسه قدّام التسجيل، وصفحة الاسم
+  /// نفسها بعدها كانت ساكتة (آيفون، ٢٦ سبتمبر ٢٠٢٦). وفي نفس الوقت الفلاج ده
+  /// بيمنع الجلسة اللي ممكن تتعمل من الشاشة دي إنها تتقري «ابن».
+  bool _patientSignIn = false;
+
   /// السحابة قالت «الجلسة دي مالهاش مريض مربوط» — نرجع لشاشة البداية بدل ما
   /// نفضل على متابعة فاضية. بيتصفّر بعد ربط ناجح.
   bool _notLinked = false;
@@ -146,7 +153,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   /// حارس `root_test` لسه واقف.
   Future<void> _startPatient() async {
     final services = AppScope.of(context);
-    setState(() => _patientPath = true);
+    setState(() => _patientSignIn = true);
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => SignInScreen(
@@ -157,6 +164,14 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         ),
       ),
     );
+    // الأسئلة بتتبني **بعد** ما شاشة الدخول تتقفل — فجملة الاسم بتتقال على
+    // صفحة الاسم، مش تحت شاشة التسجيل
+    if (mounted) {
+      setState(() {
+        _patientSignIn = false;
+        _patientPath = true;
+      });
+    }
   }
 
   /// «ابني أو والدي بعتلي كود»: الدخول (النداء الوحيد، من زرار الشاشة دي)
@@ -194,12 +209,21 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             body: Center(child: CircularProgressIndicator(color: F.green)),
           );
         }
-        if (snapshot.data == true) return _patientApp(context);
-
+        // **أسئلة البداية ودي State واحدة لحد ما الروتين يتحفظ.** حفظ الجنس
+        // بيقلب `hasPatient` لـtrue في النص؛ لو الفرع اتغيّر هنا، الأسئلة
+        // كانت بتتبني من جديد في مكان تاني — State تانية بتعيد جملة الصفحة
+        // من الأول والأولى لسه بتتقال (الجملة بتتقطع وتبدأ تاني لوحدها).
         if (_patientPath) {
           return RoutineOnboardingScreen(
-            onBack: () => setState(() => _patientPath = false),
+            onBack: snapshot.data == true ? null : () => setState(() => _patientPath = false),
+            onDone: () {
+              if (mounted) setState(() => _patientPath = false);
+            },
           );
+        }
+        if (snapshot.data == true) return _patientApp(context);
+        if (_patientSignIn) {
+          return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode, onNurse: _nurseCode);
         }
         final services = AppScope.of(context);
         if (services.auth?.currentUser != null && !_notLinked) {

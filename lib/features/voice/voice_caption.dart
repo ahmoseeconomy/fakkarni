@@ -22,10 +22,12 @@ class VoiceCaptionOverlay extends StatelessWidget {
           left: F.gap,
           right: F.gap,
           bottom: F.gap + MediaQuery.paddingOf(context).bottom,
-          child: ValueListenableBuilder<String?>(
-            valueListenable: voice.caption,
-            builder: (context, text, _) {
-              if (text == null) return const SizedBox.shrink();
+          child: ListenableBuilder(
+            // ورقة بتكتب الجملة بنفسها = الكارت ده بيسكت، عشان الجملة تتكتب مرة
+            listenable: Listenable.merge([voice.caption, voice.captionHolds]),
+            builder: (context, _) {
+              final text = voice.caption.value;
+              if (text == null || voice.captionHolds.value > 0) return const SizedBox.shrink();
               return Material(
                 key: const ValueKey('voice-caption'),
                 color: F.dialogGround,

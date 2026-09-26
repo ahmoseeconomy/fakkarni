@@ -3,12 +3,27 @@ import 'dart:async';
 import 'package:fakkarni/data/voice/speech_listener.dart';
 
 /// متعرّف كلام مزيّف: بيرجّع الإجابات بالترتيب، وبيسجّل كل سماع.
+///
+/// الإجابة `String` = اتقال كلام، `null` = سكوت، و[ListenFailed] = **السماع
+/// ما بدأش** — التالتة هي اللي الآيفون كان بيقلبها «مافهمتش».
 class FakeListener implements SpeechListener {
-  FakeListener({this.permission = true, this.prepareOk = true, List<String?> answers = const []}) : answers = [...answers];
+  FakeListener({
+    this.permission = true,
+    this.prepareOk = true,
+    this.prepareFailure,
+    List<Object?> answers = const [],
+  }) : answers = [...answers];
 
   bool permission;
+
+  /// false = الإذن اترفض (زي قبل).
   bool prepareOk;
-  final List<String?> answers;
+
+  /// عطل في التجهيز مش الإذن — المتعرّف ما اشتغلش.
+  ListenFailed? prepareFailure;
+
+  /// `String` كلام، `null` سكوت، [ListenFailed] السماع ما بدأش.
+  final List<Object?> answers;
   int listens = 0;
   int stops = 0;
   int prepares = 0;
@@ -16,7 +31,7 @@ class FakeListener implements SpeechListener {
 
   /// السماع «بيفضل مفتوح» لحد ما `stop()` تتنده — زي مايك حقيقي مستني.
   bool hold = false;
-  Completer<String?>? _open;
+  Completer<ListenResult>? _open;
 
   @override
   bool? lastOnDevice = true;
@@ -25,24 +40,30 @@ class FakeListener implements SpeechListener {
   Future<bool> hasPermission() async => permission;
 
   @override
-  Future<bool> prepare() async {
+  Future<ListenFailed?> prepare() async {
     prepares++;
-    if (prepareOk) {
-      permission = true;
-      prepared = true;
-    }
-    return prepareOk;
+    if (prepareFailure case final f?) return f;
+    if (!prepareOk) return const ListenFailed('permission', permission: true);
+    permission = true;
+    prepared = true;
+    return null;
   }
 
+  static ListenResult _asResult(Object? a) => switch (a) {
+        final ListenResult r => r,
+        final String t => ListenHeard(t),
+        _ => const ListenSilence(),
+      };
+
   @override
-  Future<String?> listen({Duration silence = const Duration(seconds: 6), Duration maxLength = const Duration(seconds: 12)}) async {
+  Future<ListenResult> listen({Duration silence = const Duration(seconds: 6), Duration maxLength = const Duration(seconds: 12)}) async {
     if (!prepared) throw StateError('listen قبل prepare');
     listens++;
     if (hold) {
-      final c = _open = Completer<String?>();
+      final c = _open = Completer<ListenResult>();
       return c.future;
     }
-    return answers.isEmpty ? null : answers.removeAt(0);
+    return _asResult(answers.isEmpty ? null : answers.removeAt(0));
   }
 
   /// المايك مفتوح دلوقتي (سماع مستني).
@@ -60,7 +81,7 @@ class FakeListener implements SpeechListener {
   void hear(String? text) {
     final c = _open;
     _open = null;
-    if (c != null && !c.isCompleted) c.complete(text);
+    if (c != null && !c.isCompleted) c.complete(_asResult(text));
   }
 
   @override

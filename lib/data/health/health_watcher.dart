@@ -76,6 +76,8 @@ class HealthAutoFix {
       case HealthCode.lowCoverage:
       // الرفع بيتعاد مع كل رفعة لوحده
       case HealthCode.patternSync:
+      // المايك: مفيش حاجة الموبايل يصلّحها لوحده — للأدمن والسجل
+      case HealthCode.listenUnavailable:
         return null;
     }
   }

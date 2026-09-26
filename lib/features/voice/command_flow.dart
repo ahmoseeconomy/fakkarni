@@ -7,6 +7,8 @@ import '../../app/app_scope.dart';
 import '../../core/diagnostics.dart';
 import '../../core/format/arabic_time.dart';
 import '../../data/repositories/dose_event_repository.dart';
+import '../../data/voice/listen_health.dart';
+import '../../data/voice/speech_listener.dart';
 import '../../data/voice/voice_service.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/day_routine.dart';
@@ -79,7 +81,9 @@ class CommandFlow extends ChangeNotifier {
     DateTime Function()? clock,
     Future<List<DoseEventView>> Function(DateTime day)? dosesFor,
     Future<Map<String, MedicationPurpose?>> Function()? purposesFor,
+    Future<void> Function(String reason)? onStartFailure,
   })  : _clock = clock ?? DateTime.now,
+        _onStartFailure = onStartFailure ?? recordListenProblem,
         _dosesFor = dosesFor ?? ((day) => services.events.watchDay(day).first),
         _purposesFor = purposesFor ??
             (() async => {
@@ -90,6 +94,10 @@ class CommandFlow extends ChangeNotifier {
   final VoiceService voice;
   final AppServices services;
   final DateTime routineDay;
+  final Future<void> Function(String reason) _onStartFailure;
+
+  /// المايك ما اشتغلش (مش الإذن) — «كلّمني» بيختفي من الشاشة دي.
+  bool startFailed = false;
 
   /// بيفتح الفورم متعبّي وبيرجّع «اتحفظ؟» — «تمام، عملتها» بعدها بس.
   final Future<bool> Function(AddMedPrefill prefill) onOpenAdd;
@@ -120,7 +128,7 @@ class CommandFlow extends ChangeNotifier {
   bool _disposed = false;
   bool _retry = false;
 
-  bool get available => voice.listener != null && !voice.micDenied;
+  bool get available => voice.listener != null && !voice.micDenied && !startFailed;
 
   void _set(CommandPhase p, [String? text]) {
     if (_disposed) return;
@@ -158,11 +166,10 @@ class CommandFlow extends ChangeNotifier {
         await _say('lis_mic_permission', phase: CommandPhase.listening);
         if (_interrupted(gen)) return;
       }
-      final ok = await listener.prepare();
+      final failed = await listener.prepare();
       if (_interrupted(gen)) return;
-      if (!ok) {
-        voice.markMicDenied();
-        await _say('lis_mic_denied', phase: CommandPhase.answering);
+      if (failed != null) {
+        await _cantListen(failed);
         return;
       }
       if (!voice.cmdHintDone) {
@@ -185,8 +192,13 @@ class CommandFlow extends ChangeNotifier {
     prefill = null;
     await _say('lis_listening', phase: CommandPhase.listening);
     if (_interrupted(gen)) return;
-    final text = await listener.listen();
+    await voice.yieldToMic();
+    final result = await listener.listen();
     if (_interrupted(gen)) return;
+    // المايك ما اشتغلش ≠ «مافهمتش»
+    if (result is ListenFailed) return _cantListen(result);
+    unawaited(clearListenProblem());
+    final text = result is ListenHeard ? result.text : null;
     if (text == null || text.trim().isEmpty) return _fail(gen);
 
     final started = _clock();
@@ -237,6 +249,20 @@ class CommandFlow extends ChangeNotifier {
       default:
         return VoiceCommand.unknown;
     }
+  }
+
+  /// المايك ما اشتغلش. الإذن = «كمّل بإيدك» ومش هنسأل تاني؛ أي سبب تاني =
+  /// `gen_try_hands` مرة، و«كلّمني» يختفي، والسبب للسجل والأدمن بس.
+  Future<void> _cantListen(ListenFailed failed) async {
+    if (failed.permission) {
+      voice.markMicDenied();
+      await _say('lis_mic_denied', phase: CommandPhase.answering);
+      return;
+    }
+    startFailed = true;
+    diag('Cmd: intent=none source=none — المايك ما اشتغلش');
+    await _onStartFailure(failed.reason);
+    await _say('gen_try_hands', phase: CommandPhase.answering);
   }
 
   Future<void> _fail(int gen) async {
@@ -351,8 +377,11 @@ class CommandFlow extends ChangeNotifier {
   Future<void> _askYes(int gen) async {
     await _say('lis_confirm');
     if (_interrupted(gen)) return;
-    final answer = await voice.listener!.listen();
+    await voice.yieldToMic();
+    final heard = await voice.listener!.listen();
     if (_interrupted(gen)) return;
+    // «أيوه» ما بقتش تتسمع — الأزرار فاضلة قدّامه، مفيش «مافهمتش»
+    final answer = heard is ListenHeard ? heard.text : null;
     if (_retry) {
       _retry = false;
       return _round(gen);

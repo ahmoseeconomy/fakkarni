@@ -80,10 +80,15 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
   Widget _listenFor() {
     if (_needsProfile == true) {
       return switch (_profileStep) {
+        // **الاسم حقل حر** — مفيش قارئ: اللي اتسمع بيتكتب في الحقل زي ما هو،
+        // والسؤال «اسمك …، صح كده؟» بصوت الموبايل. «لأ» بترجّع اللي كان مكتوب.
         0 => ListenButton<String>(
             tag: 'name',
-            parse: parseName,
-            describe: (n) => 'اسمك $n',
+            parse: _freeText,
+            describe: (n) => n,
+            ask: (n) => 'اسمك $n، صح كده؟',
+            preview: (n) => _profile.currentState?.previewName(n),
+            revert: () => _profile.currentState?.revertName(),
             onApply: (n) async => _profile.currentState?.applyName(n),
           ),
         1 => ListenButton<SpokenSex>(
@@ -108,6 +113,12 @@ class _RoutineOnboardingScreenState extends State<RoutineOnboardingScreen> {
       // = حرّك البكرة لحد الساعة دي — «تمام» لسه بإيده
       onApply: (t) async => setState(() => _answers[question.anchor] = MinuteOfDay(t.minutes)),
     );
+  }
+
+  /// كلام حر: زي ما اتقال، من غير مسافات زيادة — فاضي = ما اتقالش حاجة.
+  static String? _freeText(String heard) {
+    final t = heard.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return t.isEmpty ? null : t;
   }
 
   /// السؤال نفسه بيقول جزء اليوم: «تمانيه» في «بتفطر الساعة كام؟» الصبح،

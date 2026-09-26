@@ -93,7 +93,29 @@ class ProfilePageState extends State<ProfilePage> {
   void _touch() => widget.onInteract?.call();
 
   /// الاسم بالصوت = نفس ما لو كتبه.
-  void applyName(String name) => setState(() => _name.text = name);
+  void applyName(String name) => setState(() {
+        _name.text = name;
+        _beforeVoice = null;
+      });
+
+  /// اللي كان مكتوب قبل ما الصوت يكتب — «لأ» بترجّعه.
+  String? _beforeVoice;
+
+  /// الكلام المسموع بيتكتب في الحقل **قبل** «أيوه» — والحقل لسه بتاعه.
+  void previewName(String name) => setState(() {
+        _beforeVoice ??= _name.text;
+        _name.text = name;
+      });
+
+  /// «لأ» أو قفل الورقة من غير «أيوه» — الحقل يرجع زي ما كان.
+  void revertName() {
+    final before = _beforeVoice;
+    if (before == null) return;
+    setState(() {
+      _name.text = before;
+      _beforeVoice = null;
+    });
+  }
 
   /// «راجل» / «ست» بالصوت = نفس دوسة الشريحة.
   void applySex(Sex sex) => setState(() => _sex = sex);

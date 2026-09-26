@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fakkarni/data/voice/speech_listener.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/domain/voice/answer_parser.dart';
 import 'package:fakkarni/features/voice/listen_flow.dart';
@@ -19,11 +20,20 @@ void main() {
   late VoiceService voice;
   late List<SpokenTime> applied;
 
-  Future<void> setUpWith({bool permission = true, bool prepareOk = true, List<String?> answers = const [], bool enabled = true}) async {
+  late List<String> startFailures;
+
+  Future<void> setUpWith({
+    bool permission = true,
+    bool prepareOk = true,
+    ListenFailed? prepareFailure,
+    List<Object?> answers = const [],
+    bool enabled = true,
+  }) async {
     SharedPreferences.setMockInitialValues({VoiceService.enabledKey: enabled});
     player = FakePlayer();
     tts = FakeTts();
-    listener = FakeListener(permission: permission, prepareOk: prepareOk, answers: answers);
+    startFailures = [];
+    listener = FakeListener(permission: permission, prepareOk: prepareOk, prepareFailure: prepareFailure, answers: answers);
     voice = VoiceService(player: player, tts: tts, listener: listener);
     await voice.load();
     applied = [];
@@ -37,6 +47,7 @@ void main() {
         describe: (t) => 'الساعة ${t.hour}:${t.minute}',
         onApply: (t) async => applied.add(t),
         force: force,
+        onStartFailure: (why) async => startFailures.add(why),
       );
 
   test('سمع «تمانية ونص» → قال اللي فهمه → «صح كده؟» → «أيوه» بالصوت → اتطبّق', () async {
@@ -179,5 +190,108 @@ void main() {
     expect(f.available, isFalse);
     await f.start();
     expect(f.phase, ListenPhase.idle);
+  });
+
+  // ── المايك ما اشتغلش ≠ «مافهمتش» (آيفون، ٢٦ سبتمبر ٢٠٢٦) ──────────────
+  // الآيفون كان بيقول «معلش، مافهمتش» فوراً والمايك عمره ما اتفتح: رفض
+  // «التعرّف على الجهاز» كان بيرجع كأنه سكوت.
+
+  test('التجهيز وقع (مش الإذن) → «كمّل بإيدك» مرة، الزرار يختفي، والسبب للسجل والأدمن — مش «مافهمتش»', () async {
+    await setUpWith(prepareFailure: const ListenFailed('init: no recognizer'));
+    final f = flow();
+    await f.start();
+    expect(said(), ['gen_try_hands']);
+    expect(said(), isNot(contains('lis_not_understood')));
+    expect(f.phase, ListenPhase.unavailable);
+    expect(f.available, isFalse, reason: 'الزرار بيختفي من الشاشة دي');
+    expect(voice.micDenied, isFalse, reason: 'ده مش رفض إذن');
+    expect(startFailures, ['init: no recognizer']);
+    expect(tts.spoken, isEmpty, reason: 'السبب التقني عمره ما يتقال');
+
+    // دوسة تانية (لو فضل الزرار لأي سبب) = ولا حاجة — «كمّل بإيدك» مرة واحدة
+    await f.start();
+    expect(said(), ['gen_try_hands']);
+    expect(listener.listens, 0);
+  });
+
+  test('السماع نفسه ما بدأش بعد «اتكلم، أنا سامعك» → نفس الحكم، مش «مافهمتش»', () async {
+    await setUpWith(answers: [const ListenFailed('start: onDeviceError')]);
+    final f = flow();
+    await f.start();
+    expect(said(), ['lis_listening', 'gen_try_hands']);
+    expect(f.phase, ListenPhase.unavailable);
+    expect(f.available, isFalse);
+    expect(startFailures, ['start: onDeviceError']);
+    expect(applied, isEmpty);
+  });
+
+  test('السماع وقع بسبب الإذن → «كمّل بإيدك» بتاعة الإذن، والزرار يختفي في الجلسة', () async {
+    await setUpWith(answers: [const ListenFailed('error_speech_recognizer_request_not_authorized', permission: true)]);
+    final f = flow();
+    await f.start();
+    expect(said(), ['lis_listening', 'lis_mic_denied']);
+    expect(voice.micDenied, isTrue);
+    expect(startFailures, isEmpty, reason: 'الإذن مش عطل للأدمن');
+  });
+
+  test('المايك اشتغل وما سمعش حاجة → دي بس «مافهمتش»', () async {
+    await setUpWith(answers: [const ListenSilence()]);
+    final f = flow();
+    await f.start();
+    expect(said(), ['lis_listening', 'lis_not_understood']);
+    expect(f.phase, ListenPhase.notUnderstood);
+    expect(f.available, isTrue, reason: 'يقدر يقول تاني');
+    expect(startFailures, isEmpty);
+  });
+
+  group('حقل حر (الاسم): الكلام بيتكتب في الحقل، والسؤال بصوت الموبايل', () {
+    late String field;
+    late List<String> saved;
+
+    ListenFlow<String> nameFlow() => ListenFlow<String>(
+          voice: voice,
+          parse: (h) => h.trim().isEmpty ? null : h.trim(),
+          describe: (n) => n,
+          ask: (n) => 'اسمك $n، صح كده؟',
+          preview: (n) => field = n,
+          revert: () => field = 'قبل',
+          onApply: (n) async => saved.add(n),
+          onStartFailure: (why) async => startFailures.add(why),
+        );
+
+    test('اللي اتقال بيتكتب زي ما هو — مفيش قارئ — و«اسمك …، صح كده؟» جملة واحدة بصوت الموبايل', () async {
+      await setUpWith(answers: ['الحاج أحمد عبد الله', 'أيوه']);
+      field = 'قبل';
+      saved = [];
+      final f = nameFlow();
+      await f.start();
+      expect(field, 'الحاج أحمد عبد الله');
+      expect(tts.spoken, ['اسمك الحاج أحمد عبد الله، صح كده؟']);
+      expect(said(), ['lis_listening'], reason: 'مفيش «فهمت:» ولا lis_confirm — السؤال كله في جملة واحدة');
+      expect(saved, ['الحاج أحمد عبد الله']);
+    });
+
+    test('«لأ» بترجّع الحقل زي ما كان وبتسمع تاني', () async {
+      await setUpWith(answers: ['أحمد', 'لأ', 'محمود', 'أيوه']);
+      field = 'قبل';
+      saved = [];
+      final f = nameFlow();
+      await f.start();
+      expect(field, 'محمود');
+      expect(saved, ['محمود']);
+      expect(tts.spoken, ['اسمك أحمد، صح كده؟', 'اسمك محمود، صح كده؟']);
+    });
+
+    test('قفل الورقة من غير «أيوه» → الحقل يرجع زي ما كان، ومفيش حفظ', () async {
+      await setUpWith(answers: ['أحمد', null]);
+      field = 'قبل';
+      saved = [];
+      final f = nameFlow();
+      await f.start();
+      expect(field, 'أحمد', reason: 'مكتوب وهو مستني «أيوه»');
+      await f.cancel();
+      expect(field, 'قبل');
+      expect(saved, isEmpty);
+    });
   });
 }
