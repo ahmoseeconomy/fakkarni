@@ -50,7 +50,18 @@ void main() {
       final f = parseTimingText('مرتين قبل الفطار');
       expect(f.timesPerDay, 2);
       expect(f.mealRelation, MealRelation.before);
+      expect(f.stepHours, isNull, reason: '«مرتين» مش فاصل — ما بنحسبش ساعات (٢٤÷N = نص الليل)');
+      expect(f.timesToPick, 2);
+    });
+    test('«٣ مرات في اليوم» → مفيش اقتراح، ولازم ٣ ساعات تتختار', () {
+      final f = parseTimingText('٣ مرات في اليوم');
+      expect(f.stepHours, isNull);
+      expect(f.timesToPick, 3);
+    });
+    test('«كل ١٢ ساعة» → اقتراح، ومفيش عدد إجباري', () {
+      final f = parseTimingText('كل ١٢ ساعة');
       expect(f.stepHours, 12);
+      expect(f.timesToPick, isNull);
     });
     test('«كل ٨ ساعات» = ٣ جرعات، والفاصل ٨', () {
       final f = parseTimingText('كل ٨ ساعات');

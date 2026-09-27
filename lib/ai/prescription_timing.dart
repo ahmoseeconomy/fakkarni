@@ -67,14 +67,17 @@ class TimingFacts {
       ? 24 ~/ everyHours!
       : timesPerDay;
 
-  /// الفاصل اللي «كمّل» بيقترحه بعد أول ساعة يختارها الإنسان — «كل ١٢ ساعة»
-  /// زي ما الورقة قالت، أو ٢٤÷N لـ«N مرات». اقتراح بدوسة، مش ساعة بنختارها.
+  /// الفاصل اللي «كمّل» بيقترحه بعد أول ساعة يختارها الإنسان — **بس لما الورقة
+  /// كاتبة فاصل بالحرف** («كل ١٢ ساعة»). «٣ مرات في اليوم» مالهاش اقتراح:
+  /// ٢٤÷٣ بيطلّع جرعة نص الليل، والمريض بيختار كل ساعة بنفسه (قرار المالك).
   int? get stepHours {
-    if (everyHours != null && everyHours! > 0 && everyHours! < 24 && 24 % everyHours! == 0) return everyHours;
-    final n = timesPerDay;
-    if (n != null && n > 1 && 24 % n == 0) return 24 ~/ n;
+    final h = everyHours;
+    if (h != null && h > 0 && h < 24 && 24 % h == 0) return h;
     return null;
   }
+
+  /// «٣ مرات في اليوم» من غير فاصل — عدد الساعات اللي لازم تتختار قبل الحفظ.
+  int? get timesToPick => everyHours == null && timesPerDay != null && timesPerDay! > 1 ? timesPerDay : null;
 
   /// الحقايق كلام — «كل ١٢ ساعة»، «٣ مرات في اليوم»، «بعد الأكل»، «قبل النوم».
   List<String> get words => [

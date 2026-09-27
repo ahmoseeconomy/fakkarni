@@ -182,6 +182,51 @@ void main() {
       expect(saved.firstWhere((s) => s.medicationName == 'Augmentin 1g').mealRelation, MealRelation.after);
     });
 
+    screenTest('«٣ مرات في اليوم» → مفيش «كمّل»، والحفظ مقفول لحد ما ٣ ساعات تتختار', (tester) async {
+      final line = PrescriptionReading.fromJson({
+        'medications': [
+          {
+            'name': {'value': 'Panadol', 'confidence': 0.95},
+            'amount': {'value': 'قرص', 'confidence': 0.95},
+            'timing': {'text': '٣ مرات في اليوم', 'confidence': 0.95},
+          },
+        ],
+      }).lines.single;
+      await pumpReview(tester, [line]);
+      await open(tester);
+
+      expect(find.text('الروشتة بتقول: ٣ مرات في اليوم'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'اختار ٣ ساعات'), findsOneWidget);
+      expect(confirmButton(tester).onPressed, isNull);
+
+      Future<void> pickOne(int minute) async {
+        await tester.tap(find.byKey(const ValueKey('pick-times-0')));
+        await settle(tester);
+        await tester.tap(find.byKey(ValueKey('quick-time-$minute')));
+        await settle(tester);
+        expect(find.byKey(const ValueKey('continue-interval')), findsNothing, reason: 'مفيش ساعات محسوبة لـ«N مرات»');
+        await tester.tap(find.byKey(const ValueKey('add-time')));
+        await settle(tester);
+        expect(find.byKey(const ValueKey('continue-interval')), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('times-done')));
+        await settle(tester);
+      }
+
+      await pickOne(9 * 60);
+      expect(find.widgetWithText(OutlinedButton, 'اختار ٣ ساعات'), findsOneWidget, reason: 'ساعة واحدة من ٣');
+      expect(confirmButton(tester).onPressed, isNull, reason: 'ما بيتحفظش بساعة واحدة');
+      await pickOne(14 * 60);
+      expect(confirmButton(tester).onPressed, isNull, reason: 'ولا باتنين');
+      await pickOne(21 * 60);
+      expect(find.widgetWithText(OutlinedButton, 'غيّر الساعات'), findsOneWidget);
+      expect(confirmButton(tester).onPressed, isNotNull);
+
+      await confirm(tester);
+      final saved = await h.meds.activeSchedules(h.services.patientId);
+      expect(saved.map((s) => s.timing).toList(),
+          [FixedTiming(MinuteOfDay.hm(9)), FixedTiming(MinuteOfDay.hm(14)), FixedTiming(MinuteOfDay.hm(21))]);
+    });
+
     screenTest('الساعة مكتوبة على الورقة → متعبّية و«من الروشتة»', (tester) async {
       final line = PrescriptionReading.fromJson({
         'medications': [

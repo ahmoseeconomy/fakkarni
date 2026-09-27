@@ -848,7 +848,11 @@ class _MedicineRow extends StatelessWidget {
             _RowButton(
               key: ValueKey('pick-times-$index'),
               icon: Icons.schedule,
-              label: timings.isEmpty ? 'اختار الساعات' : 'غيّر الساعات',
+              label: line.missingTimes && line.requiredTimes != null
+                  ? 'اختار ${hoursWord(line.requiredTimes!)}'
+                  : timings.isEmpty
+                      ? 'اختار الساعات'
+                      : 'غيّر الساعات',
               onPressed: onPickTimes,
             ),
           ],
@@ -1108,8 +1112,13 @@ class _DraftLine {
   /// الساعات اللي على الكارت مكتوبة على الورقة بالحرف.
   bool timesFromPaper = false;
 
-  /// ليه اسم ومن غير ساعات — مش هيتحفظ لحد ما يختارها.
-  bool get missingTimes => (name ?? '').trim().isNotEmpty && timings.isEmpty;
+  /// «٣ مرات في اليوم» من الورقة: لازم ٣ ساعات قبل الحفظ. «عدّل» بالفورم
+  /// بيشيل الشرط ده (الفورم نفسه بيقرر العدد).
+  int? requiredTimes;
+
+  /// ليه اسم ولسه ساعاته ناقصة — مش هيتحفظ لحد ما يختارها.
+  bool get missingTimes =>
+      (name ?? '').trim().isNotEmpty && (timings.isEmpty || timings.length < (requiredTimes ?? 0));
 
   /// «قبل الأكل» وأخواتها زي ما الورقة قالتها — كلمة تعليمات، مش توقيت.
   MealRelation? mealRelation;
@@ -1145,7 +1154,8 @@ class _DraftLine {
         facts: read.facts,
       )
         ..once = read.duration.value == 1
-        ..timesFromPaper = read.timesFromPaper;
+        ..timesFromPaper = read.timesFromPaper
+        ..requiredTimes = read.timesFromPaper ? null : read.facts.timesToPick;
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
   factory _DraftLine.fromDraft(MedicationDraft d) => _DraftLine(
@@ -1193,10 +1203,11 @@ class _DraftLine {
     once = d.once;
     edited = true;
     timesFromPaper = false;
+    requiredTimes = null;
   }
 
   /// من غير اسم أو من غير جرعة مفيش حاجة تتجدول — ده اللي بيقفل «تمام».
-  bool get blocks => (name ?? '').trim().isEmpty || timings.isEmpty;
+  bool get blocks => (name ?? '').trim().isEmpty || timings.isEmpty || timings.length < (requiredTimes ?? 0);
 
   /// الذكاء مش متأكد، والإنسان لسه ما راجعهاش.
   bool get needsReview => !edited && (read?.needsReview ?? false);
