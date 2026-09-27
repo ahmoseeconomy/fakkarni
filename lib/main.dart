@@ -41,6 +41,7 @@ import 'core/theme/theme_mode_store.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
 import 'data/db/connection.dart';
+import 'data/services/reminder_scheduler.dart' show logReminderRepairs;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -223,6 +224,7 @@ Future<void> main() async {
     // كل فتحة للتطبيق بتعيد بناء النافذة: الجهاز ممكن يكون اتقفل يومين، أو
     // المستخدم عدّى نص الليل. الأرقام مشتقة من الوقت فالإعادة مش بتكرّر حاجة.
     await services.scheduler.rescheduleAll();
+    logReminderRepairs(services.scheduler.lastRepair, 'الفتح');
   } catch (error, stack) {
     diag('التذكيرات مقدرتش تتجدول عند الفتح: $error\n$stack');
   }

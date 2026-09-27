@@ -1,3 +1,4 @@
+import '../../core/diagnostics.dart';
 import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/escalation/repeat_alerts.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -50,11 +51,46 @@ class ReminderScheduler {
   /// لحد آخر تذكير أساسي متجدول — null = الخطة ما اتقصّتش.
   Duration? lastCoverage;
 
-  /// بيعيد جدولة النافذة كلها من الأول.
+  /// اللي آخر إعادة جدولة صلّحته: إشعارات كان المفروض تبقى موجودة ومكانتش
+  /// (فجوة جوّه المدى اللي كان متغطّي)، وإشعارات يتيمة اتلغت.
+  ReconcileReport lastRepair = (missing: 0, orphans: 0);
+
+  /// الجولة الشغّالة دلوقتي — null = فاضي، والجولة الجاية تبدأ على طول.
+  Future<ReconcileReport>? _running;
+
+  /// بيعيد جدولة النافذة كلها من الأول — **واحدة في المرة**.
   ///
   /// الأرقام مشتقة من الوقت، فتشغيل الدالة دي مية مرة ورا بعض بيدي نفس
   /// النتيجة بالظبط — مفيش إشعار بيتكرر.
+  ///
+  /// **ورا بعض، مش مع بعض.** الدالة بتقرا الجداول، وبعدين (بعد شوية
+  /// `await`) بتقرا `pendingIds()` وبتلغي أي رقم مش في خطتها. جولتين مع بعض
+  /// — الرجوع للمقدمة بعد الكاميرا، إصلاح فحص السلامة، سحبة الدائرة، وحفظ
+  /// دوا — كانوا ممكن يدخلوا في بعض: الجولة اللي قرت الجداول **قبل** الدوا
+  /// الجديد بتشوف أرقامه متجدولة من الجولة التانية وبتلغيها كـ«قديمة»، والدوا
+  /// محفوظ ومن غير ولا إشعار. الطابور بيقفل الباب ده من أصله.
+  ///
+  /// اللي اتصلّح بيتسجّل في [lastRepair].
   Future<void> rescheduleAll({DateTime? now}) async {
+    // مفيش `await` بين آخر لفة هنا وتعيين `_running` — فجولتين مستنيين
+    // نفس الجولة ما بيبدأوش مع بعض: التانية بتلاقي الأولى شغّالة وبتستنى.
+    for (var running = _running; running != null; running = _running) {
+      try {
+        await running;
+      } catch (_) {
+        // فشل جولة تانية مش فشل الجولة دي
+      }
+    }
+    final run = _rescheduleOnce(now: now);
+    _running = run;
+    try {
+      lastRepair = await run;
+    } finally {
+      if (identical(_running, run)) _running = null;
+    }
+  }
+
+  Future<ReconcileReport> _rescheduleOnce({DateTime? now}) async {
     final from = now ?? DateTime.now();
 
     final schedules = await medications.activeSchedules(patientId);
@@ -160,9 +196,10 @@ class ReminderScheduler {
     // تاني، أي فرق صغير بين الحسبتين بيبقى إنذار كذب على شاشة المريض.
     lastPlannedDoseCount = planned.length;
 
+    final pending = await sink.pendingIds();
     final plan = reconcile(
       [...planned, ...allowedLadder, ...repeats],
-      await sink.pendingIds(),
+      pending,
       inBand: isRescheduledId,
     );
 
@@ -173,6 +210,7 @@ class ReminderScheduler {
       // نفس الرقم بيستبدل المتجدول مكانه بدل ما يزوّد إشعار تاني.
       await sink.schedule(notification);
     }
+    return reconcileReport(plan, pending);
   }
 
   /// بيطلب الأذونات في وقت واضح — بعد ما المستخدم يخلص أسئلة يومه، مش
@@ -254,4 +292,11 @@ class ReminderScheduler {
       ),
     );
   }
+}
+
+/// شبكة الأمان عند الفتح والرجوع: لو إعادة الجدولة لقت فجوة أو يتيم، سطر
+/// في سجل التشخيص (للأدمن والمطوّر) — **ولا كلمة للمريض**.
+void logReminderRepairs(ReconcileReport report, String when) {
+  if (report.missing == 0 && report.orphans == 0) return;
+  diag('Reconcile: $when — رجّعنا ${report.missing} تذكير ناقص، ولغينا ${report.orphans} يتيم');
 }

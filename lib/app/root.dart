@@ -16,6 +16,7 @@ import '../features/reminder/reminder_screen.dart';
 import '../features/voice/voice_intro_screen.dart';
 import 'app_scope.dart';
 import 'shell.dart';
+import '../data/services/reminder_scheduler.dart' show logReminderRepairs;
 
 /// بيقرر يبدأ منين — **من البيانات، مش من عمود دور** (٣.٣، D4):
 ///
@@ -87,6 +88,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
               db: services.db, services: services, actionId: action, payload: payload),
         )
             .then((_) => services.scheduler.rescheduleAll())
+            .then((_) => logReminderRepairs(services.scheduler.lastRepair, 'الرجوع'))
             .catchError(
               (Object error) =>
                   debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),

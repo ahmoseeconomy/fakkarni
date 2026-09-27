@@ -304,11 +304,11 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
 
-    final ids = await services.medications.addMedicationsWithDoses(
+    final ids = await services.medicationSaves.addAll(
       patientId: services.patientId,
       startDate: _today,
       onceAt: {for (final (i, l) in keep.indexed) if (l.once) i},
-      medications: [
+      list: [
         for (final l in keep)
           (
             name: l.name!,
@@ -325,7 +325,6 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           ),
       ],
     );
-    await services.scheduler.rescheduleAll();
 
     // «لسه ماتشترتش» — **بعد** الجدولة وبرّاها: علامة على الدوا وبس،
     // والتذكير اتجدول فوق زي ما هو بالظبط.

@@ -837,6 +837,32 @@ typedef Reconciliation = ({Set<int> toCancel, List<PlannedNotification> toSchedu
 ///
 /// عمداً مش بنستخدم cancelAll: أي نطاق مش بتاعنا — التأجيل، أو أي حاجة
 /// جاية — بيعدّي من هنا سليم.
+/// اللي إعادة الجدولة صلّحته — للتشخيص بس، عمره ما بيتعرض على المريض.
+typedef ReconcileReport = ({
+  /// إشعارات مكانتش متجدولة وهي **جوّه** المدى اللي كان متغطّي — يعني
+  /// بعدها فيه إشعار متجدول فعلاً. دي فجوة، مش تمديد نافذة عادي.
+  int missing,
+
+  /// إشعارات في نطاقاتنا مالهاش مكان في الخطة، واتلغت.
+  int orphans,
+});
+
+/// الفجوات: المخطّط اللي ما كانش معلّق، ومعاده قبل آخر مخطّط كان معلّق.
+/// أول فتحة (مفيش حاجة معلّقة) = مفيش فجوة؛ الأيام الجديدة في آخر النافذة
+/// = تمديد، مش فجوة.
+ReconcileReport reconcileReport(Reconciliation plan, Set<int> pendingIds) {
+  DateTime? coveredUntil;
+  for (final p in plan.toSchedule) {
+    if (pendingIds.contains(p.id) && (coveredUntil == null || p.at.isAfter(coveredUntil))) {
+      coveredUntil = p.at;
+    }
+  }
+  final missing = coveredUntil == null
+      ? 0
+      : plan.toSchedule.where((p) => !pendingIds.contains(p.id) && p.at.isBefore(coveredUntil!)).length;
+  return (missing: missing, orphans: plan.toCancel.length);
+}
+
 Reconciliation reconcile(
   List<PlannedNotification> planned,
   Set<int> pendingIds, {

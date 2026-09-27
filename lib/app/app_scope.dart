@@ -37,6 +37,8 @@ import '../data/repositories/preferences_repository.dart';
 import '../data/repositories/patient_repository.dart';
 import '../data/services/appointment_scheduler.dart';
 import '../data/services/checkup_service.dart';
+import '../data/files/med_photos.dart';
+import '../data/services/medication_save_service.dart';
 import '../data/services/reminder_scheduler.dart';
 
 /// كل خدمات التطبيق في مكان واحد.
@@ -150,6 +152,13 @@ class AppServices {
   PreferencesRepository get preferences => PreferencesRepository(db);
 
   /// دورة الفحص وتذكير الصيام (D3.7) — نفس جهاز الإشعارات بتاع الجدولة.
+  /// الطريق الوحيد اللي بيكتب دوا أو مواعيده — والجدولة بعده في نفس المكان.
+  MedicationSaveService get medicationSaves =>
+      MedicationSaveService(medications: medications, scheduler: scheduler);
+
+  /// صورة الدوا — الحفظ والشيل.
+  MedPhotos get medPhotos => MedPhotos(db, medPhotoStore);
+
   CheckupService get checkups => CheckupService(db, scheduler.sink);
 
   /// **إشعارات المواعيد — سكّة لوحدها، بتتنده بعد الجرعات مش معاها.**

@@ -25,13 +25,13 @@ import '../../domain/wording/rule_wording.dart';
 import '../../core/widgets/f_wheels.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor, QuickTimeChips;
-import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
 import '../../domain/scheduling/every_hours.dart';
 import 'day_pattern_picker.dart';
 import 'every_hours_picker.dart';
 import '../../domain/scheduling/day_pattern.dart';
 import 'medication_draft.dart';
+import '../../core/diagnostics.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
 ///
@@ -457,7 +457,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         return;
       }
 
-      final medicationId = await services.medications.addMedicationWithDoses(
+      // الدوا والجدولة في خطوة واحدة — **قبل** المخزون والصورة: دول إضافات،
+      // واستثناء في واحد منهم كان بيسيب الدوا محفوظ من غير ولا تذكير.
+      final medicationId = await services.medicationSaves.add(
         patientId: services.patientId,
         name: result.name,
         amountLabel: result.amountLabel,
@@ -473,16 +475,19 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         instructions: result.instructions,
         mealRelation: result.mealRelation,
       );
-      if (_stock case final stock?) {
-        await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
+      try {
+        if (_stock case final stock?) {
+          await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
+        }
+        if (_photo case final photo?) {
+          // صورة ما اتفكّتش = الدوا بيتحفظ من غيرها، من غير كلام تقني
+          await services.medPhotos.setFromBytes(medicationId, photo);
+          // للدائرة (٠٠٢٩): في الخلفية، من غير ما حد يستنى
+          services.syncMedPhotosSoon();
+        }
+      } catch (error) {
+        diag('ضيف دوا: المخزون أو الصورة ما اتحفظوش — $error');
       }
-      if (_photo case final photo?) {
-        // صورة ما اتفكّتش = الدوا بيتحفظ من غيرها، من غير كلام تقني
-        await MedPhotos(services.db, services.medPhotoStore).setFromBytes(medicationId, photo);
-        // للدائرة (٠٠٢٩): في الخلفية، من غير ما حد يستنى
-        services.syncMedPhotosSoon();
-      }
-      await services.scheduler.rescheduleAll();
       // «تمام، اتحفظ» — بعد الحفظ والجدولة، مش قبلهم
       unawaited(services.voice?.speakLine('gen_saved'));
       if (mounted) navigator.pop(result);

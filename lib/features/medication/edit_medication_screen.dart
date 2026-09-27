@@ -71,8 +71,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
   Future<void> _setAlertMode(AlertMode? mode) async {
     final services = AppScope.of(context);
-    await services.medications.setAlertMode(widget.medicationId, mode);
-    await services.scheduler.rescheduleAll();
+    await services.medicationSaves.setAlertMode(widget.medicationId, mode);
   }
 
   bool _durationSeeded = false;
@@ -82,7 +81,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
 
   Future<void> _setMeal(MealRelation? m) async {
     final services = AppScope.of(context);
-    await services.medications.updateMealRelation(widget.medicationId, m);
+    await services.medicationSaves.setMealRelation(widget.medicationId, m);
     await _loadSchedules();
   }
 
@@ -115,8 +114,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
           name: name,
           initialTiming: schedule.timing,
           onSave: (timing) async {
-            await services.medications.updateTiming(int.parse(schedule.id), timing);
-            await services.scheduler.rescheduleAll();
+            await services.medicationSaves.updateTiming(int.parse(schedule.id), timing);
             navigator.pop();
           },
         ),
@@ -147,13 +145,12 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
           name: name,
           initialTiming: FixedTiming(next),
           onSave: (timing) async {
-            await services.medications.addDoseSchedule(
+            await services.medicationSaves.addDose(
               widget.medicationId,
               timing: timing,
               startDate: DateTime.now(),
               durationDays: days.isEmpty ? null : days.first,
             );
-            await services.scheduler.rescheduleAll();
             navigator.pop();
           },
         ),
@@ -212,18 +209,20 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     try {
       final days = _schedules.map((s) => s.durationDays).whereType<int>();
       final old = [..._schedules];
-      for (final t in everyHoursTimes(picked.$2, picked.$1)) {
-        await services.medications.addDoseSchedule(
-          widget.medicationId,
-          timing: FixedTiming(t),
-          startDate: DateTime.now(),
-          durationDays: days.isEmpty ? null : days.first,
-        );
-      }
-      for (final s in old) {
-        await services.medications.stopDoseSchedule(int.parse(s.id));
-      }
-      await services.scheduler.rescheduleAll();
+      final now = DateTime.now();
+      await services.medicationSaves.replaceDoses(
+        widget.medicationId,
+        add: [
+          for (final t in everyHoursTimes(picked.$2, picked.$1))
+            (
+              timing: FixedTiming(t),
+              startDate: now,
+              durationDays: days.isEmpty ? null : days.first,
+              days: DayPattern.everyDay,
+            ),
+        ],
+        stop: [for (final s in old) int.parse(s.id)],
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -321,19 +320,14 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     setState(() => _busy = true);
     try {
       final old = [..._schedules];
-      for (final s in old) {
-        await services.medications.addDoseSchedule(
-          widget.medicationId,
-          timing: s.timing,
-          startDate: day,
-          durationDays: s.durationDays,
-          days: result,
-        );
-      }
-      for (final s in old) {
-        await services.medications.stopDoseSchedule(int.parse(s.id));
-      }
-      await services.scheduler.rescheduleAll();
+      await services.medicationSaves.replaceDoses(
+        widget.medicationId,
+        add: [
+          for (final s in old)
+            (timing: s.timing, startDate: day, durationDays: s.durationDays, days: result),
+        ],
+        stop: [for (final s in old) int.parse(s.id)],
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -383,8 +377,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
       ),
     );
     if (yes ?? false) {
-      await services.medications.stopDoseSchedule(int.parse(schedule.id));
-      await services.scheduler.rescheduleAll();
+      await services.medicationSaves.stopDose(int.parse(schedule.id));
       await _loadSchedules();
     }
   }
@@ -402,14 +395,13 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
 
-    await services.medications.updateAmount(widget.medicationId, _amount.text);
-    await services.medications.updateDetails(
+    // نص التذكير فيه الجرعة — الخدمة بتعيد بناؤه بالنص الجديد.
+    await services.medicationSaves.updateDetails(
       widget.medicationId,
+      amount: _amount.text,
       instructions: _instructions.text,
       durationDays: _openEnded ? null : _days,
     );
-    // نص التذكير فيه الجرعة — لازم يتعاد بناؤه بالنص الجديد.
-    await services.scheduler.rescheduleAll();
 
     unawaited(services.voice?.speakLine('gen_saved'));
     if (mounted) navigator.pop(true);
@@ -421,9 +413,8 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
 
-    await services.medications.stopMedication(widget.medicationId);
     // تذكيراته بتتلغى هنا — جوّه نطاق الجرعات بس.
-    await services.scheduler.rescheduleAll();
+    await services.medicationSaves.stop(widget.medicationId);
 
     if (mounted) navigator.pop(true);
   }

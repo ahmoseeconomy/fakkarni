@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
 import '../../domain/scheduling/day_pattern.dart';
 
@@ -76,8 +75,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             label: 'رجّعه تاني',
             onPressed: () async {
               navigator.pop();
-              await services.medications.resumeMedication(med.id);
-              await services.scheduler.rescheduleAll();
+              await services.medicationSaves.resume(med.id);
             },
           )
         else
@@ -85,9 +83,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             label: 'وقّفه دلوقتي',
             onPressed: () async {
               navigator.pop();
-              await services.medications.stopMedication(med.id);
               // التذكيرات الجاية بتتلغى هنا — جوّه نطاق الجرعات بس.
-              await services.scheduler.rescheduleAll();
+              await services.medicationSaves.stop(med.id);
             },
           ),
         FSecondaryButton(
@@ -128,9 +125,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           onPressed: () async {
             navigator.pop();
             // شيل الدوا بيشيل صورته كمان — مفيش ملف يتيم
-            await MedPhotos(services.db, services.medPhotoStore).removeMedication(services.medications, med.id);
+            await services.medicationSaves.remove(med.id, services.medPhotos);
             services.syncMedPhotosSoon();
-            await services.scheduler.rescheduleAll();
           },
         ),
         FSecondaryButton(label: 'لا، سيبه', onPressed: () => navigator.pop()),
