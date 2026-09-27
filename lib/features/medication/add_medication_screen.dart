@@ -25,7 +25,6 @@ import '../../domain/wording/rule_wording.dart';
 import '../../core/widgets/f_wheels.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart' show DoseEditor, QuickTimeChips;
-import '../../ai/prescription_reading.dart' show defaultTimesFor;
 import '../../data/files/med_photos.dart';
 import 'med_photo.dart';
 import '../../domain/scheduling/every_hours.dart';
@@ -296,7 +295,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   static const _maxCount = 12;
 
   /// ساعات «كام مرة» الافتراضية — عُرف تشغيلي مش ورقة، وكل صف بيتعدّل.
-  List<FixedTiming?> _fromConvention() => List<FixedTiming?>.of(defaultTimesFor(_timesPerDay));
+  // صفوف فاضية «اختار الساعة» — الفورم ما بيختارش ساعة عن حد (٢٧ سبتمبر ٢٠٢٦)
+  List<FixedTiming?> _fromConvention() => List<FixedTiming?>.filled(_timesPerDay, null);
 
   void _reseed(VoidCallback change) => setState(() {
         change();

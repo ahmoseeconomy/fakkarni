@@ -126,6 +126,13 @@ void main() {
     await settle(tester);
     expect(find.text('هتاخده يوم إيه؟'), findsOneWidget);
     expect(find.text('كام مرة في اليوم؟'), findsNothing);
+    // الصف فاضي — الساعة بيختارها هو (من محرّر الجرعة)
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -203,6 +210,13 @@ void main() {
     }
     // ٣١ أغسطس ٢٠٢٦ اتنين: التلات ١، السبت ٥، التلات ٨، …
     expect(find.text('الأيام الجاية: التلات ١، السبت ٥، التلات ٨، السبت ١٢، التلات ١٥'), findsOneWidget);
+    // الصف فاضي — الساعة بيختارها هو (من محرّر الجرعة)
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -215,6 +229,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('pattern-cycle')));
     await settle(tester);
     expect(find.byKey(const ValueKey('cycle-on')), findsOneWidget);
+    // الصف فاضي — الساعة بيختارها هو (من محرّر الجرعة)
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     expect((await h.meds.activeSchedules(h.services.patientId)).single.days, OnOffCycle(21, 7));

@@ -49,6 +49,11 @@ void main() {
       expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget, reason: 'صف $i من $count');
     }
     expect(find.byKey(ValueKey('dose-row-$count')), findsNothing);
+    // الصفوف فاضية من غير ساعات مننا — أول ساعة بيختارها هو وبتوزّع الباقي
+    if (find.text('اختار الساعة').evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+      await settle(tester);
+    }
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
   }
@@ -78,8 +83,8 @@ void main() {
     expect(saved, hasLength(4), reason: 'روشتة أربع مرات لازم تعدّي');
     expect(
       [for (final s in saved) s.timing.minuteOfDay],
-      unorderedEquals([MinuteOfDay.hm(8), MinuteOfDay.hm(13), MinuteOfDay.hm(18), MinuteOfDay.hm(23)]),
-      reason: 'ساعات «٤ مرات» الافتراضية',
+      unorderedEquals([MinuteOfDay.hm(9), MinuteOfDay.hm(13), MinuteOfDay.hm(17), MinuteOfDay.hm(21)]),
+      reason: 'أول ساعة اختارها (٩) والباقي اتوزّع قدّامه',
     );
   });
 
@@ -143,7 +148,7 @@ void main() {
     expect(saved.map((s) => s.timing), containsAll(fourTimes));
   });
 
-  screenTest('تغيير العدد بإيد بيعيد البناء من العُرف — ٤ → ٢', (tester) async {
+  screenTest('تغيير العدد بإيد بيعيد البناء — ٤ → ٢ صفوف فاضية', (tester) async {
     await pumpAdd(tester, timings: fourTimes);
 
     await tester.tap(find.byKey(const ValueKey('count-2')));
@@ -155,8 +160,8 @@ void main() {
     expect(saved, hasLength(2));
     expect(
       [for (final s in saved) s.timing.minuteOfDay],
-      unorderedEquals([MinuteOfDay.hm(9), MinuteOfDay.hm(21)]),
-      reason: 'ساعات «مرتين» الافتراضية',
+      unorderedEquals([MinuteOfDay.hm(9), MinuteOfDay.hm(17)]),
+      reason: 'أول ساعة اختارها (٩) والتانية اتوزّعت قدّامه',
     );
   });
 }

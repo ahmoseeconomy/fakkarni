@@ -216,6 +216,8 @@ void main() {
       await h.pump(tester, AddMedicationScreen(today: aug31));
       await tester.enterText(find.byType(TextField).first, 'Telfast 180 mg');
       await settle(tester);
+      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 

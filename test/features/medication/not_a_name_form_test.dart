@@ -22,6 +22,9 @@ void main() {
 
   screenTest('كتب «أيوه» بإيده → «ده مش اسم دوا» و«احفظ» مقفول؛ الاسم الحقيقي بيفتحه', (tester) async {
     await h.pump(tester, AddMedicationScreen());
+    // الساعة متختارة — فالمانع الوحيد الباقي هو الاسم
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
     await tester.enterText(find.byType(TextField).first, 'أيوه');
     await settle(tester);
     expect(find.byKey(const ValueKey('not-a-name')), findsOneWidget);
