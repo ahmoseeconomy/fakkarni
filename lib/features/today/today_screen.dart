@@ -919,10 +919,10 @@ class _AllDonePanel extends StatelessWidget {
         ),
         child: Text(
           allDoneLine,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: F.minBodySize,
             fontWeight: FontWeight.w600,
-            color: F.greenDeep,
+            color: F.greenStrong,
           ),
         ),
       );

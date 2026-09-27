@@ -36,7 +36,7 @@ void main() {
             ...med(
               name: field('Augmentin 1g', 0.95),
               amount: field('قرص', 0.9),
-              timing: {'anchor': 'breakfast', 'relation': 'after', 'confidence': 0.9},
+              timing: {'text': 'بعد الفطار', 'confidence': 0.9},
             ),
             'instructions': field('مع كوباية مية كاملة', 0.9),
           },
@@ -44,14 +44,14 @@ void main() {
             ...med(
               name: field('Concor 5mg', 0.95),
               amount: field('قرص', 0.9),
-              timing: {'anchor': 'breakfast', 'relation': 'after', 'confidence': 0.9},
+              timing: {'text': 'بعد الفطار', 'confidence': 0.9},
             ),
             'instructions': field(null, 1),
           },
           med(
             name: field('Panadol', 0.95),
             amount: field('قرص', 0.9),
-            timing: {'anchor': 'dinner', 'relation': 'at', 'confidence': 0.9},
+            timing: {'text': 'مع العشا', 'confidence': 0.9},
           ),
         ],
       }).lines;
@@ -80,7 +80,7 @@ void main() {
         med(
           name: field('Concor 5mg', 0.96),
           amount: field('قرص واحد', 0.91),
-          timing: {'anchor': 'breakfast', 'relation': 'after', 'confidence': 0.93},
+          timing: {'text': 'بعد الفطار', 'confidence': 0.93},
           duration: field(30, 0.88),
         ),
       ],
@@ -91,94 +91,71 @@ void main() {
       expect(line.needsReview, isFalse);
       expect(line.name.value, 'Concor 5mg');
       expect(line.amount.value, 'قرص واحد');
-      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9))]);
+      expect(line.timings.value, isEmpty, reason: 'الورقة ما كتبتش ساعة — مفيش ساعة مننا');
       expect(line.mealRelation, MealRelation.after);
       expect(line.duration.value, 30);
       expect(reading.doctor.value, 'هشام سلام');
     });
   });
 
-  group('التوقيت — القاعدة الأولى', () {
-    test('«قبل الغدا» → ٩ الصبح (عُرف «مرة») + كلمة «قبل الأكل» — الأكل ما بيحرّكش الساعة', () {
-      final line = PrescriptionReading.fromJson({
-        'medications': [
-          med(
-            name: field('Antodine', 0.9),
-            amount: field('قرص', 0.9),
-            timing: {'anchor': 'lunch', 'relation': 'before', 'confidence': 0.9},
-          ),
-        ],
-      }).lines.single;
-      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9))]);
-      expect(line.mealRelation, MealRelation.before);
-      expect(line.timings.needsReview, isFalse, reason: 'الورقة سمّت الأكل — الكلمة قراية، مش تخمين');
+  group('التوقيت — الروشتة عمرها ما بتختار ساعة (٢٧ سبتمبر ٢٠٢٦)', () {
+    ReadLine lineOf(Map<String, dynamic> timing) => PrescriptionReading.fromJson({
+          'medications': [med(name: field('X', 0.9), amount: field('قرص', 0.9), timing: timing)],
+        }).lines.single;
+
+    test('«كل ١٢ ساعة» → فاصل ١٢، والساعات فاضية', () {
+      final line = lineOf({'text': 'كل ١٢ ساعة', 'confidence': 0.9});
+      expect(line.facts.everyHours, 12);
+      expect(line.timings.value, isEmpty);
+      expect(line.timings.needsReview, isFalse, reason: 'مفيش ساعة مقروءة يتشك فيها');
+      expect(line.timesFromPaper, isFalse);
     });
 
-    test('ساعة مكتوبة بالحرف → زي ما هي', () {
-      final line = PrescriptionReading.fromJson({
-        'medications': [
-          med(
-            name: field('Eltroxin', 0.9),
-            amount: field('قرص', 0.9),
-            timing: {'clockTime': '06:30', 'confidence': 0.9},
-          ),
-        ],
-      }).lines.single;
-      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(6, 30))]);
-      expect(line.timings.needsReview, isFalse);
+    test('«٣ مرات يوميا بعد الأكل» → ٣ + بعد الأكل، والساعات فاضية', () {
+      final line = lineOf({'text': '٣ مرات يوميا بعد الأكل', 'confidence': 0.99});
+      expect(line.facts.timesPerDay, 3);
+      expect(line.mealRelation, MealRelation.after);
+      expect(line.timings.value, isEmpty);
     });
 
-    test('«١×٣» من غير وجبة → ٩ و٣ و٩، ومعلّمة «محتاج تحديد» مهما كانت الثقة', () {
-      final line = PrescriptionReading.fromJson({
-        'medications': [
-          med(
-            name: field('Augmentin', 0.9),
-            amount: field('قرص', 0.9),
-            timing: {'timesPerDay': 3, 'relation': 'after', 'confidence': 0.99},
-          ),
-        ],
-      }).lines.single;
-      expect(
-        line.timings.value,
-        [
-          FixedTiming(MinuteOfDay.hm(9)),
-          FixedTiming(MinuteOfDay.hm(15)),
-          FixedTiming(MinuteOfDay.hm(21)),
-        ],
-      );
-      expect(line.mealRelation, isNull, reason: 'مفيش أكل مسمّى — «بعد» لوحدها مش كلمة أكل');
-      expect(line.timings.needsReview, isTrue, reason: 'اقتراح توزيع، مش قراءة');
-      expect(line.timings.note, suggestedTimesNote);
+    test('«الساعة ٨ صباحا» → [٠٨:٠٠] من الروشتة', () {
+      final line = lineOf({'text': 'الساعة ٨ صباحا', 'confidence': 0.9});
+      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(8))]);
+      expect(line.timesFromPaper, isTrue);
     });
 
-    test('توقيت غامض أو «عند اللزوم» → «مش متأكد — اسأل الصيدلي»، مفيش تخمين', () {
-      final line = PrescriptionReading.fromJson({
-        'medications': [
-          med(
-            name: field('Cataflam', 0.9),
-            amount: field('قرص', 0.9),
-            timing: {'confidence': 0.2, 'note': 'مش متأكد — اسأل الصيدلي'},
-          ),
-        ],
-      }).lines.single;
-      expect(line.timings.value, isNull);
-      expect(line.timings.needsReview, isTrue);
+    test('«قبل النوم» → ملاحظة، والساعات فاضية', () {
+      final line = lineOf({'text': 'قبل النوم', 'confidence': 0.9});
+      expect(line.facts.words, ['قبل النوم']);
+      expect(line.timings.value, isEmpty);
+    });
+
+    test('مش واضح → «مش واضح»، والساعات فاضية', () {
+      final line = lineOf({'text': null, 'unclear': true, 'confidence': 0.2, 'note': 'مش متأكد — اسأل الصيدلي'});
+      expect(line.facts.unclear, isTrue);
+      expect(line.timings.value, isEmpty);
       expect(line.timings.note, unclearTimingNote);
-      expect(line.needsReview, isTrue);
     });
 
-    test('ساعة بشكل غلط → محتاج تحديد بدل ما تتقبل غلط', () {
-      final line = PrescriptionReading.fromJson({
-        'medications': [
-          med(
-            name: field('X', 0.9),
-            amount: field('قرص', 0.9),
-            timing: {'clockTime': '25:99', 'confidence': 0.9},
-          ),
-        ],
-      }).lines.single;
-      expect(line.timings.value, isNull);
-      expect(line.timings.needsReview, isTrue);
+    test('الحقول المنظّمة بتكمّل الكلام — ومش بتطلّع ساعة', () {
+      final line = lineOf({'text': '1×2', 'mealRelation': 'before', 'confidence': 0.9});
+      expect(line.facts.timesPerDay, 2);
+      expect(line.mealRelation, MealRelation.before);
+      expect(line.timings.value, isEmpty);
+    });
+
+    test('ساعة بشكل غلط → بتترمي، مش بتتقبل غلط', () {
+      final line = lineOf({'text': null, 'clockTimes': ['25:99'], 'confidence': 0.9});
+      expect(line.timings.value, isEmpty);
+      expect(line.facts.unclear, isTrue);
+    });
+
+    test('البرومبت بيمنع تحويل «كام مرة» لساعات، والـschema مالوش مرساة', () {
+      expect(GeminiPrescriptionReader.prompt, contains('NEVER convert a frequency into clock times'));
+      final timing = ((prescriptionSchema['properties'] as Map)['medications']['items']['properties'] as Map)['timing'] as Map;
+      final props = (timing['properties'] as Map).keys;
+      expect(props, containsAll(['text', 'clockTimes', 'everyHours', 'timesPerDay', 'mealRelation', 'moment', 'unclear']));
+      expect(props, isNot(contains('anchor')));
     });
   });
 
@@ -186,7 +163,7 @@ void main() {
     test('مش مكتوبة → مفتوحة بثقة كاملة، مش نقص', () {
       final line = PrescriptionReading.fromJson({
         'medications': [
-          med(name: field('Concor', 0.9), amount: field('قرص', 0.9), timing: {'anchor': 'breakfast', 'confidence': 0.9}),
+          med(name: field('Concor', 0.9), amount: field('قرص', 0.9), timing: {'text': 'بعد الفطار', 'confidence': 0.9}),
         ],
       }).lines.single;
       expect(line.duration.value, isNull);
@@ -199,7 +176,7 @@ void main() {
           med(
             name: field('Concor', 0.9),
             amount: field('قرص', 0.9),
-            timing: {'anchor': 'breakfast', 'confidence': 0.9},
+            timing: {'text': 'بعد الفطار', 'confidence': 0.9},
             duration: field(0, 0.9),
           ),
         ],
@@ -227,7 +204,8 @@ void main() {
       expect(reading.lines.length, 1);
       expect(reading.lines.single.name.needsReview, isTrue);
       expect(reading.lines.single.amount.needsReview, isTrue);
-      expect(reading.lines.single.timings.needsReview, isTrue);
+      expect(reading.lines.single.timings.value, isEmpty, reason: 'توقيت مش مفهوم = مفيش ساعات');
+      expect(reading.lines.single.facts.unclear, isTrue);
     });
 
     test('من غير medications خالص → قراءة فاضية', () {
@@ -235,7 +213,7 @@ void main() {
     });
   });
 
-  group('ساعات «كام مرة» الافتراضية — وكلمة الأكل', () {
+  group('ساعات «كام مرة» الافتراضية — للفورم و«كلّمني» بس، مش للروشتة', () {
     test('مرة ٩ص، مرتين ٩ص و٩م، ٣ مرات ٩ و٣ و٩، ٤ مرات ٨ و١ و٦ و١١', () {
       List<int> m(int n) => [for (final t in defaultTimesFor(n)) t.minuteOfDay.minutes];
       expect(m(1), [9 * 60]);
@@ -246,28 +224,15 @@ void main() {
       expect(m(6).last, 23 * 60);
     });
 
-    ReadLine withMeal(String anchor, String relation, {int? times}) => PrescriptionReading.fromJson({
-          'medications': [
-            med(
-              name: field('X', 0.9),
-              amount: field('قرص', 0.9),
-              timing: {'anchor': anchor, 'relation': relation, 'timesPerDay': ?times, 'confidence': 0.9},
-            ),
-          ],
-        }).lines.single;
-
-    test('قبل / مع / بعد الأكل كلمة — والصحيان والنوم مش أكل', () {
-      expect(withMeal('breakfast', 'before').mealRelation, MealRelation.before);
-      expect(withMeal('lunch', 'at').mealRelation, MealRelation.with_);
-      expect(withMeal('dinner', 'after').mealRelation, MealRelation.after);
-      expect(withMeal('sleep', 'before').mealRelation, isNull);
-      expect(withMeal('wake', 'after').mealRelation, isNull);
-    });
-
-    test('«بعد الأكل مرتين» → ٩ و٩ بالليل، والكلمة على الاتنين', () {
-      final line = withMeal('breakfast', 'after', times: 2);
-      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9)), FixedTiming(MinuteOfDay.hm(21))]);
-      expect(line.mealRelation, MealRelation.after);
+    test('قبل / مع / بعد الأكل / على الريق كلمة — و«قبل النوم» مش أكل', () {
+      MealRelation? meal(String text) => PrescriptionReading.fromJson({
+            'medications': [med(name: field('X', 0.9), amount: field('قرص', 0.9), timing: {'text': text, 'confidence': 0.9})],
+          }).lines.single.mealRelation;
+      expect(meal('قبل الفطار'), MealRelation.before);
+      expect(meal('مع الغدا'), MealRelation.with_);
+      expect(meal('بعد العشا'), MealRelation.after);
+      expect(meal('على الريق'), MealRelation.emptyStomach);
+      expect(meal('قبل النوم'), isNull);
     });
   });
 
@@ -277,7 +242,7 @@ void main() {
     test('جرعة مش معروفة → محتاج تحديد بس ما بتقفلش', () {
       final line = PrescriptionReading.fromJson({
         'medications': [
-          med(name: field('Telfast 180', 0.95), amount: field(null, 0), timing: {'anchor': 'dinner', 'confidence': 0.9}),
+          med(name: field('Telfast 180', 0.95), amount: field(null, 0), timing: {'text': 'بعد العشا', 'confidence': 0.9}),
         ],
       }).lines.single;
       expect(line.amount.needsReview, isTrue);
@@ -285,14 +250,15 @@ void main() {
       expect(line.blocksConfirm, isFalse);
     });
 
-    test('توقيت أو اسم مش واضح → بيقفل', () {
+    test('اسم مش واضح → بيقفل؛ توقيت مش واضح ما بيقفلش القراية — الإنسان بيختار الساعات', () {
       final noTiming = PrescriptionReading.fromJson({
         'medications': [med(name: ok, amount: ok, timing: {'confidence': 0.1})],
       }).lines.single;
-      expect(noTiming.blocksConfirm, isTrue);
+      expect(noTiming.blocksConfirm, isFalse);
+      expect(noTiming.timings.value, isEmpty);
 
       final weakName = PrescriptionReading.fromJson({
-        'medications': [med(name: field('C?nc?r', 0.3), amount: ok, timing: {'anchor': 'lunch', 'confidence': 0.9})],
+        'medications': [med(name: field('C?nc?r', 0.3), amount: ok, timing: {'text': 'قبل الغدا', 'confidence': 0.9})],
       }).lines.single;
       expect(weakName.blocksConfirm, isTrue);
     });

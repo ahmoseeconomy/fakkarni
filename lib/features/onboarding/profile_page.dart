@@ -85,6 +85,15 @@ class ProfilePageState extends State<ProfilePage> {
 
   void _touch() => widget.onInteract?.call();
 
+  /// «مش عايز أقول» = إجابة، مش مسح: السن null ويكمّل على طول. السن آخر
+  /// سؤال، فده الحفظ ورايح على «يومك» — من غير ما يعيد السؤال ولا جملته،
+  /// ومن غير ما يستنّى البكرة.
+  Future<void> skipAge() async {
+    if (_busy) return;
+    setState(() => _age = null);
+    await _next();
+  }
+
   List<Widget> _page() => switch (widget.step) {
         0 => [
             Text(
@@ -130,6 +139,7 @@ class ProfilePageState extends State<ProfilePage> {
                 _touch();
                 setState(() => _age = v);
               },
+              onSkip: skipAge,
             ),
             const SizedBox(height: F.gap),
             FCard(
@@ -188,8 +198,12 @@ class AgeWheel extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.clearLabel,
+    this.onSkip,
     super.key,
   });
+
+  /// «مش عايز أقول» بتكمّل على طول (البداية). null = بتمسح القيمة بس.
+  final VoidCallback? onSkip;
 
   /// null = لسه ما قالش.
   final int? value;
@@ -243,7 +257,8 @@ class AgeWheel extends StatelessWidget {
               SizedBox(
                 height: F.minTapTarget,
                 child: TextButton(
-                  onPressed: () => onChanged(null),
+                  key: const ValueKey('age-skip'),
+                  onPressed: onSkip ?? () => onChanged(null),
                   child: Text(
                     clearLabel,
                     style: TextStyle(

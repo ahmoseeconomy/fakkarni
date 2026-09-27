@@ -172,7 +172,7 @@ class _WaterWidgetState extends State<WaterWidget> {
                       style: TextStyle(
                         fontSize: F.minTextSize,
                         fontWeight: FontWeight.w700,
-                        color: due ? F.ink : F.greenDeep,
+                        color: due ? F.ink : F.greenStrong,
                         fontFamily: F.monoFamily,
                         fontFamilyFallback: F.monoFallback,
                       ),

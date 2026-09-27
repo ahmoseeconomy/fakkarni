@@ -102,14 +102,14 @@ class FPrimaryButton extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: gold ? F.gold : F.green,
-            foregroundColor: gold ? F.ink : F.onDark,
+            foregroundColor: gold ? F.onGold : F.onGreen,
             disabledBackgroundColor: F.railGround,
             disabledForegroundColor: F.mutedDark,
             textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
             // كل زرار مستدير بحد زيتي — شكل واحد في التطبيق كله
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(F.radiusCard),
-              side: BorderSide(color: F.greenDeep, width: 1.5),
+              side: BorderSide(color: F.buttonEdge, width: 1.5),
             ),
           ),
           child: Text(label),
@@ -141,7 +141,7 @@ class FSecondaryButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: F.ink,
             // نفس الحد الزيتي بتاع الأساسي — الشكل واحد، والوزن مختلف
-            side: BorderSide(color: F.greenDeep, width: 1.5),
+            side: BorderSide(color: F.buttonEdge, width: 1.5),
             textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
@@ -189,7 +189,7 @@ class AnchorChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.minBodySize,
                     fontWeight: FontWeight.w700,
-                    color: F.ink,
+                    color: selected ? F.onGold : F.ink,
                   ),
                 ),
               ),

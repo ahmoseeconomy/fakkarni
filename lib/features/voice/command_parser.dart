@@ -10,6 +10,7 @@
 // وشيل «ال». ومفيش جدولة هنا: مواعيد «ضيفلي» بترجع كلمات ([SpokenTiming])،
 // والشاشة هي اللي بتحوّلها لمراسي — ومفيش حاجة بتتحفظ غير من زرار «احفظ».
 
+import '../../domain/medication/medicine_name.dart';
 import '../../domain/voice/answer_parser.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/voice/arabic_dates.dart';
@@ -629,7 +630,8 @@ VoiceCommand _parseAdd(List<String> tokens, DateTime today) {
   // كلمات التاريخ («بكرة»، «من بكرة») مش من الاسم
   final dateWords = {for (final d in start) ...normalizeArabic(d.raw).split(' ')};
   nameWords.removeWhere((w) => dateWords.contains(w) || w == 'من' || w == 'يوم' || w == 'كل' || w == 'لمده');
-  final name = nameWords.isEmpty ? null : nameWords.join(' ');
+  // «ضيف دوا … لا» — كلمة إجابة لوحدها عمرها ما تبقى اسم دوا
+  final name = nameWords.isEmpty ? null : medicineNameOrNull(nameWords.join(' '));
   return VoiceCommand(
     CommandIntent.addMed,
     medWords: name,

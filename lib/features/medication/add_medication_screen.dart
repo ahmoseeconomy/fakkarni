@@ -1,3 +1,4 @@
+import '../../domain/medication/medicine_name.dart';
 import 'dart:async';
 import '../voice/help_button.dart';
 import 'dart:typed_data';
@@ -61,6 +62,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialAmountUnknown = false,
     this.initialStartDate,
     this.initialTimings = const [],
+    this.initialEmptyDoses,
     this.initialDurationDays,
     this.initialOnce = false,
     this.initialAlertMode,
@@ -94,6 +96,10 @@ class AddMedicationScreen extends StatefulWidget {
 
   /// جرعات الروشتة **كلها** — فاضية يعني إدخال بإيد من الأول.
   final List<FixedTiming> initialTimings;
+
+  /// سطر روشتة من غير ساعات مكتوبة: كام صف **فاضي** («اختار الساعة»)
+  /// من غير ساعات افتراضية — الروشتة ما بتختارش ساعة عن حد. null = العُرف.
+  final int? initialEmptyDoses;
   final int? initialDurationDays;
 
   /// الدوا ده «مرة واحدة» (`DoseRepeat.once`).
@@ -120,7 +126,8 @@ class AddMedicationScreen extends StatefulWidget {
 enum DosePattern { daily, everyHours, weekdays, everyNDays, cycle, once }
 
 class _AddMedicationScreenState extends State<AddMedicationScreen> {
-  late final _name = TextEditingController(text: widget.initialName ?? '');
+  // «لا» اللي اتسمعت مع «ضيف دوا» مش اسم — الحقل يبدأ فاضي
+  late final _name = TextEditingController(text: medicineNameOrNull(widget.initialName) ?? '');
   late final _amount = TextEditingController(text: widget.initialAmount ?? '');
   late final _instructions = TextEditingController(text: widget.initialInstructions ?? '');
   int _timesPerDay = 1;
@@ -225,6 +232,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _timesPerDay = widget.initialTimings.length;
       _customCount = _timesPerDay > _countChips.last;
       _doses = [...widget.initialTimings];
+    } else if (widget.initialEmptyDoses case final n? when n > 0) {
+      _timesPerDay = n;
+      _customCount = n > _countChips.last;
+      _doses = List<FixedTiming?>.filled(n, null);
     } else {
       _doses = _fromConvention();
     }
@@ -390,7 +401,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   bool get _ready =>
       !_busy &&
-      _name.text.trim().isNotEmpty &&
+      !isNotAMedicineName(_name.text) &&
       _doses.isNotEmpty &&
       _doses.every(_rowReady) &&
       // «أيام معينة» من غير ولا يوم = مفيش جرعة ترن
@@ -531,12 +542,20 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           hint: 'زي Concor 5mg',
                           mono: true,
                           // الكيبورد مفتوح على طول — اسم فاضي = أول حاجة بيكتبها
-                          autofocus: (widget.initialName ?? '').isEmpty,
+                          autofocus: _name.text.isEmpty,
                           onChanged: (_) {
                             setState(() {});
                             if (_duplicateChecked) _checkDuplicate();
                           },
                         ),
+                        if (_name.text.trim().isNotEmpty && isNotAMedicineName(_name.text)) ...[
+                          const SizedBox(height: F.s8),
+                          Text(
+                            'ده مش اسم دوا — اكتب اسمه زي ما هو على العلبة.',
+                            key: const ValueKey('not-a-name'),
+                            style: TextStyle(fontSize: F.minTextSize, color: F.ink),
+                          ),
+                        ],
                         const SizedBox(height: F.gap),
                         // --------------------------------------- لإيه؟
                         const _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: 'help_purpose'),
@@ -978,7 +997,7 @@ class _CompactChip extends StatelessWidget {
                   label,
                   maxLines: 1,
                   softWrap: false,
-                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: selected ? F.onGold : F.ink),
                 ),
               ),
             ),

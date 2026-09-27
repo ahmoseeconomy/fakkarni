@@ -95,6 +95,32 @@ abstract final class F {
   /// نفس ده، بس ثانوي — لسه فوق ٤.٥:١ على الأخضر الغامق.
   static const onDarkMuted = ivoryWarm;
 
+  /// **نص فوق أي تعبئة — بيتحسب من اللون نفسه، مش بيتخمّن.**
+  ///
+  /// في الوضع الليلي الأخضر بيفتح (`greenOnDark`)، والأبيض عليه كان ٢٫٢:١؛
+  /// و«أعدّل» كانت مليانة بـ`ink` (اللي بيبقى فاتح بالليل) والنص أبيض —
+  /// ١٫١:١. تعبئة فاتحة = حبر غامق، وغامقة = أبيض، في الوضعين.
+  static Color onFill(Color fill) => fill.computeLuminance() > 0.3 ? inkLight : white;
+
+  /// نص الزرار الأخضر — أبيض بالنهار (٥٫٩:١)، حبر غامق بالليل (٨:١).
+  static Color get onGreen => onFill(green);
+
+  /// نص فوق الذهبي — الذهبي ثابت، فالحبر الغامق ثابت (٧:١). `ink` بالليل
+  /// فاتح وكان بيطلع ١٫٨:١ على الشرايح المختارة.
+  static const onGold = inkLight;
+
+  /// تعبئة الزرار «التقيل» اللي جنب الأخضر (زي «أعدّل»): غامق بالنهار
+  /// وفاتح بالليل — ونصه [onInverse].
+  static Color get inverseFill => _mode(inkLight, inkDark);
+  static Color get onInverse => _mode(white, inkLight);
+
+  /// الأخضر الغامق كنص أو حدّ على أرضية الصفحة: بيقلب بالليل. `greenDeep`
+  /// نفسه ثابت، وعلى كارت غامق كان ١٫٤:١ («خلصت أدوية النهاردة» اختفت).
+  static Color get greenStrong => _mode(greenDeep, greenOnDark);
+
+  /// حد الأزرار — كان `greenDeep` الثابت (١٫٧:١ بالليل، الدين ٦).
+  static Color get buttonEdge => greenStrong;
+
   /// أرضية الاختيار المتحدّد (المخطط ٢): أخضر فاتح جداً على الأبيض.
   static Color get greenTint => _mode(const Color(0xFFEAF3F0), const Color(0xFF1E3A33));
 
@@ -108,7 +134,8 @@ abstract final class F {
   static Color get mutedDark => _mode(const Color(0xFF43544C), const Color(0xFFB7C4BF));
 
   static Color get mutedLight => _mode(const Color(0xFF8B9C93), const Color(0xFF6E7F76));
-  static Color get placeholder => _mode(const Color(0xFFA5AFA5), const Color(0xFF7E8C86));
+    /// تلميح الحقل — فوق ٤٫٥:١ على الأبيض والكارت، في الوضعين (كان ٢:١).
+  static Color get placeholder => _mode(const Color(0xFF5E6B63), const Color(0xFF95A39D));
 
   /// درجات السلّم ٣ و٤ — للتنبيه المتصاعد (D2)، مش لأي حاجة تانية.
   static const amber = Color(0xFFD3A21C);

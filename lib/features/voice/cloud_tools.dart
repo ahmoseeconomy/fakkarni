@@ -2,6 +2,7 @@
 // **بتحقّق صارم**: خانة غلط الشكل أو أداة ناقصة خانتها الأساسية = مش مفهوم.
 // دارت نقية.
 
+import '../../domain/medication/medicine_name.dart';
 import '../../ai/command_reader.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/voice/answer_parser.dart';
@@ -109,7 +110,8 @@ VoiceCommand? commandFromCloudTool(CloudTool t, {required DateTime now}) {
       );
     case 'add_medication':
       final name = _str(a['name']);
-      if (name == null) return null;
+      // «لا» / «أيوه» من السحابة مش اسم دوا — زي القارئ المحلي بالظبط
+      if (name == null || isNotAMedicineName(name)) return null;
       final timings = <SpokenTiming>[];
       if (a['times'] != null) {
         final times = _list<SpokenTime>(a['times'], (e) => _time(e));

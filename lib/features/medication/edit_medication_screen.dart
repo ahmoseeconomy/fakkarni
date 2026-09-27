@@ -771,8 +771,8 @@ class _StopConfirm extends StatelessWidget {
                     child: FilledButton(
                       onPressed: busy ? null : onStop,
                       style: FilledButton.styleFrom(
-                        backgroundColor: F.ink,
-                        foregroundColor: F.onDark,
+                        backgroundColor: F.inverseFill,
+                        foregroundColor: F.onInverse,
                         minimumSize: const Size.fromHeight(F.minTapTarget),
                       ),
                       child: const Text('أيوه، وقّفه'),

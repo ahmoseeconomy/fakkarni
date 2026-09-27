@@ -271,12 +271,12 @@ class _CheckupScreenState extends State<CheckupScreen> {
                                   onPressed: () => _advance(row, stage),
                                 ),
                               if (kind.nextAfter(stage) == null)
-                                const Text(
+                                Text(
                                   'ده آخر مرحلة.',
                                   style: TextStyle(
                                     fontSize: F.minBodySize,
                                     fontWeight: FontWeight.w600,
-                                    color: F.greenDeep,
+                                    color: F.greenStrong,
                                   ),
                                 ),
                               if (stage.asksForDate) ...[
@@ -382,7 +382,7 @@ class _StageRow extends StatelessWidget {
         border: later ? Border.all(color: F.line, width: 1.5) : null,
       ),
       child: done
-          ? const Icon(Icons.check, size: 24, color: F.onDark)
+          ? Icon(Icons.check, size: 24, color: F.onGreen)
           : Text(
               arabicNumber(stage.number),
               style: TextStyle(

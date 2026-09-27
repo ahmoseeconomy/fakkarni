@@ -20,6 +20,8 @@ const _allowed = {
   'lib/domain/voice/arabic_dates.dart',
   'lib/domain/voice/answer_parser.dart', // بيفهم «٨ العشا» من الكلام — سماع مش عرض
   'lib/ai/prescription_reader.dart',
+  // بيقرا كلام الروشتة («بعد الفطار»، «قبل النوم») ويقول اللي الورقة قالته — مش روتين
+  'lib/ai/prescription_timing.dart',
   'lib/ai/prescription_reading.dart',
   'lib/ai/command_reader.dart',
   'lib/data/care/supabase_caregiver_remote.dart', // صف قديم من موبايل لسه ما اترقّاش — بيتقال بكلمته

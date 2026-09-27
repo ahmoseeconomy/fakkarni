@@ -107,7 +107,7 @@ class _ModeChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.minTextSize,
                     fontWeight: FontWeight.w700,
-                    color: F.ink,
+                    color: selected ? F.onGold : F.ink,
                   ),
                 ),
               ),

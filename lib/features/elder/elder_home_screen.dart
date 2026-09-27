@@ -387,7 +387,7 @@ class _Quiet extends StatelessWidget {
         decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radius)),
         child: Text(
           text,
-          style: const TextStyle(fontSize: F.elderTextSize, fontWeight: FontWeight.w600, color: F.greenDeep, height: 1.5),
+          style: TextStyle(fontSize: F.elderTextSize, fontWeight: FontWeight.w600, color: F.greenStrong, height: 1.5),
         ),
       );
 }

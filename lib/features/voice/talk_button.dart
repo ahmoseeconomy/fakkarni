@@ -155,7 +155,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
             label: Text('كلّمني', style: TextStyle(fontSize: size, fontWeight: FontWeight.w800)),
             style: FilledButton.styleFrom(
               backgroundColor: F.green,
-              foregroundColor: F.onDark,
+              foregroundColor: F.onGreen,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             ),
           ),

@@ -140,7 +140,7 @@ class _CodeBoxesState extends State<CodeBoxes> {
                       style: TextStyle(
                         fontSize: F.bigTimeSize,
                         fontWeight: FontWeight.w700,
-                        color: widget.readOnly ? F.greenDeep : F.ink,
+                        color: widget.readOnly ? F.greenStrong : F.ink,
                         fontFamily: F.monoFamily,
                         fontFamilyFallback: F.monoFallback,
                         height: 1.1,

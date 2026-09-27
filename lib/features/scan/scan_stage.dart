@@ -326,7 +326,7 @@ class SecondaryOnDark extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: F.onDark,
-        disabledForegroundColor: F.mutedLight,
+        disabledForegroundColor: F.onDarkMuted,
         side: BorderSide(color: F.onDark.withValues(alpha: 0.4), width: 1.5),
         padding: const EdgeInsets.symmetric(horizontal: F.s8),
       ),

@@ -22,6 +22,8 @@ import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
 import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
+import 'pick_times_sheet.dart';
+import '../../ai/prescription_timing.dart';
 
 enum ReviewResult { confirmed, retake }
 
@@ -136,6 +138,9 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   List<_DraftLine> get _saveable => [for (final l in _keep) if (!l.blocks) l];
   bool get _hasUnsaveable => _keep.any((l) => l.blocks);
 
+  /// أدوية ليها اسم ولسه من غير ساعات — مش بتتحفظ ومفيش تذكير ليها.
+  int get _missingTimes => _keep.where((l) => l.missingTimes).length;
+
   /// جرعة مش معروفة بس — بتتحفظ «مش معروفة» ونسأل عنها بعدين.
   bool get _hasUnknownAmount => _keep.any((l) => l.amountUnknown);
 
@@ -166,6 +171,8 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialMealRelation: line.mealRelation,
           initialAmount: line.amountLabel,
           initialTimings: line.timings,
+          // ساعات مش مكتوبة = صفوف فاضية بعدد الورقة، مش ساعات مننا
+          initialEmptyDoses: line.timings.isEmpty ? (line.facts.dosesPerDay ?? 1) : null,
           initialDurationDays: line.durationDays,
           initialOnce: line.once,
           initialAlertMode: line.alertMode,
@@ -188,6 +195,34 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       ),
     );
     if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));
+  }
+
+  /// «اختار الساعات»: الإنسان بيختار، والمسوّدة بتاخدها — ولا حاجة بتتكتب.
+  Future<void> _pickTimes(int index) async {
+    final line = _lines[index];
+    final picked = await pickTimes(
+      context,
+      facts: line.facts,
+      initial: [for (final t in line.timings) t.minuteOfDay],
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      line.timings = [for (final m in picked) FixedTiming(m)];
+      line.timesFromPaper = false;
+    });
+  }
+
+  /// أول كارت لسه محتاج ساعاته — السطر اللي تحت بيودّي عليه.
+  final Map<int, GlobalKey> _cardKeys = {};
+
+  void _scrollToFirstMissing() {
+    for (final (i, l) in _lines.indexed) {
+      if (!l.deleted && l.missingTimes) {
+        final ctx = _cardKeys[i]?.currentContext;
+        if (ctx != null) Scrollable.ensureVisible(ctx, duration: F.sheetDuration, alignment: 0.1);
+        return;
+      }
+    }
   }
 
   /// تعديل حقل نصي في الترويسة — شيت صغير بحقل واحد.
@@ -463,7 +498,9 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         const SizedBox(height: F.s12),
                       ] else ...[
                         _MedicineRow(
+                          key: _cardKeys.putIfAbsent(i, GlobalKey.new),
                           index: i,
+                          onPickTimes: _busy ? null : () => _pickTimes(i),
                           line: line,
                           timeFor: (t) =>
                               arabicTime(engine.resolveFixed(minuteOfDay: t.minuteOfDay, onDay: _today)),
@@ -497,12 +534,38 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_hasUnsaveable)
+                  if (_missingTimes > 0)
+                    // الدوا اللي من غير ساعات مش بيتحفظ ومفيش تذكير ليه — بنقول، والدوسة بتودّي عليه
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: F.s8),
+                      child: InkWell(
+                        key: const ValueKey('missing-times'),
+                        onTap: _scrollToFirstMissing,
+                        borderRadius: BorderRadius.circular(F.radiusTile),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: F.minTapTarget),
+                          child: Center(
+                            child: Text(
+                              '${_missingTimesWord(_missingTimes)} محتاج${_missingTimes == 1 ? '' : 'ين'} تختار ساعات${_missingTimes == 1 ? 'ه' : 'هم'}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: F.minTextSize,
+                                fontWeight: FontWeight.w700,
+                                color: F.ink,
+                                height: 1.5,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_hasUnsaveable)
                     Padding(
                       padding: EdgeInsets.only(bottom: F.s8),
                       child: Text(
                         key: const ValueKey('unsaveable-note'),
-                        'في دوا من غير اسم أو من غير ميعاد — مش هيتحفظ لحد ما تكتبه من «أعدّل» أو تشيله. الباقي بيتحفظ.',
+                        'في دوا من غير اسم — مش هيتحفظ لحد ما تكتبه من «أعدّل» أو تشيله. الباقي بيتحفظ.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
                       ),
@@ -546,7 +609,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                       Expanded(
                         child: _EqualButton(
                           label: 'أعدّل',
-                          fill: F.ink,
+                          fill: F.inverseFill,
                           onPressed: _busy || _firstToEdit == null ? null : () => _edit(_firstToEdit!),
                         ),
                       ),
@@ -587,7 +650,7 @@ class _EqualButton extends StatelessWidget {
           onPressed: onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: fill,
-            foregroundColor: F.onDark,
+            foregroundColor: F.onFill(fill),
             disabledBackgroundColor: F.railGround,
             disabledForegroundColor: F.mutedDark,
             textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
@@ -608,7 +671,12 @@ class _MedicineRow extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onBought,
+    this.onPickTimes,
+    super.key,
   });
+
+  /// «اختار الساعات» — الشيت بتاع الساعات.
+  final VoidCallback? onPickTimes;
 
   /// «اشتريته؟» — null = السؤال مش معروض.
   final ValueChanged<bool>? onBought;
@@ -629,6 +697,11 @@ class _MedicineRow extends StatelessWidget {
     final timings = line.timings;
     final unsure = line.needsReview;
     final name = line.name;
+    // اللي الورقة قالته — كل كام ساعة، الأكل، النوم، المدة. كلام، مش ساعات.
+    final paperSays = [
+      ...line.facts.words.where((w) => line.mealRelation == null || w != line.mealRelation!.label || timings.isEmpty),
+      if (read?.duration.value case final d? when d > 1) 'لمدة ${daysWord(d)}',
+    ];
 
     // الاسم بثقة قليلة بيفضل مظلّل بكلمته — بيتحفظ زي ما الورقة قالته، والإنسان
     // هو اللي بيتأكد. مش بيقفل حاجة.
@@ -712,14 +785,9 @@ class _MedicineRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: F.s10),
-          // الوقت المحسوب + شريحة القاعدة — لكل توقيت. القاعدة هي اللي
-          // بتتحفظ؛ الساعة للعرض بس.
-          if (timings.isEmpty)
-            Text(
-              'التوقيت مش واضح',
-              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
-            )
-          else
+          // الساعات: المكتوبة على الورقة بالحرف، أو اللي الإنسان اختارها.
+          // **مفيش ساعة مننا** — ورقة ما كتبتش ساعة = مفيش ساعات لحد ما يختار.
+          if (timings.isNotEmpty) ...[
             Wrap(
               spacing: F.s12,
               runSpacing: F.s8,
@@ -744,6 +812,46 @@ class _MedicineRow extends StatelessWidget {
                   ),
               ],
             ),
+            if (line.timesFromPaper) ...[
+              const SizedBox(height: F.s4),
+              Text(
+                'من الروشتة',
+                key: ValueKey('from-paper-$index'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              ),
+            ],
+          ],
+          if (read != null && !line.timesFromPaper) ...[
+            if (timings.isNotEmpty) const SizedBox(height: F.s8),
+            if (paperSays.isNotEmpty)
+              Text(
+                'الروشتة بتقول: ${paperSays.join(' — ')}',
+                key: ValueKey('paper-says-$index'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+              ),
+            if (line.facts.unclear && timings.isEmpty) ...[
+              if (paperSays.isNotEmpty) const SizedBox(height: F.s4),
+              Text(
+                unclearTimingCardLine,
+                key: ValueKey('paper-unclear-$index'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+              ),
+            ],
+          ],
+          if (read == null && timings.isEmpty)
+            Text(
+              'لسه ما اخترتش الساعات',
+              style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.5),
+            ),
+          if (onPickTimes != null && (timings.isEmpty || !line.timesFromPaper)) ...[
+            const SizedBox(height: F.s8),
+            _RowButton(
+              key: ValueKey('pick-times-$index'),
+              icon: Icons.schedule,
+              label: timings.isEmpty ? 'اختار الساعات' : 'غيّر الساعات',
+              onPressed: onPickTimes,
+            ),
+          ],
           if (!unsure && !edited && read != null) ...[
             const SizedBox(height: F.s8),
             Text(
@@ -860,7 +968,11 @@ class _MedicineRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: F.cardGround,
           borderRadius: BorderRadius.circular(F.radiusCard),
-          border: Border.all(color: unsure ? F.gold : F.line, width: unsure ? 1.5 : 1),
+          // من غير ساعات = «دي لسه عايزاك» — ذهبي، نفس معنى الشك
+          border: Border.all(
+            color: unsure || line.missingTimes ? F.gold : F.line,
+            width: unsure || line.missingTimes ? 1.5 : 1,
+          ),
         ),
         child: IntrinsicHeight(
           child: Row(
@@ -958,6 +1070,13 @@ class _EmptyReading extends StatelessWidget {
       );
 }
 
+/// «دوا واحد لسه» / «دواءين لسه» / «٣ أدوية لسه» — سطر الساعات الناقصة.
+String _missingTimesWord(int count) => switch (count) {
+      1 => 'دوا واحد لسه',
+      2 => 'دواءين لسه',
+      _ => '${arabicNumber(count)} أدوية لسه',
+    };
+
 /// «دوا واحد» / «دواءين» / «٣ أدوية» — للزرار.
 String _countWord(int count) => switch (count) {
       0 => 'مفيش أدوية',
@@ -980,7 +1099,17 @@ class _DraftLine {
     this.instructions,
     this.mealRelation,
     this.edited = false,
+    this.facts = const TimingFacts(),
   });
+
+  /// اللي الروشتة قالته عن التوقيت — ملاحظات على الكارت، مش ساعات.
+  final TimingFacts facts;
+
+  /// الساعات اللي على الكارت مكتوبة على الورقة بالحرف.
+  bool timesFromPaper = false;
+
+  /// ليه اسم ومن غير ساعات — مش هيتحفظ لحد ما يختارها.
+  bool get missingTimes => (name ?? '').trim().isNotEmpty && timings.isEmpty;
 
   /// «قبل الأكل» وأخواتها زي ما الورقة قالتها — كلمة تعليمات، مش توقيت.
   MealRelation? mealRelation;
@@ -1013,7 +1142,10 @@ class _DraftLine {
         durationDays: read.duration.value == 1 ? null : read.duration.value,
         instructions: read.instructions.needsReview ? null : read.instructions.value,
         mealRelation: read.mealRelation,
-      )..once = read.duration.value == 1;
+        facts: read.facts,
+      )
+        ..once = read.duration.value == 1
+        ..timesFromPaper = read.timesFromPaper;
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
   factory _DraftLine.fromDraft(MedicationDraft d) => _DraftLine(
@@ -1060,6 +1192,7 @@ class _DraftLine {
     startDate = d.startDate;
     once = d.once;
     edited = true;
+    timesFromPaper = false;
   }
 
   /// من غير اسم أو من غير جرعة مفيش حاجة تتجدول — ده اللي بيقفل «تمام».

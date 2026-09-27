@@ -224,10 +224,10 @@ class _TimePicker extends StatelessWidget {
           children: [
             Text(
               arabicTime(DateTime(2026, 1, 1, value.hour, value.minute)),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: F.bigTimeSize,
                 fontWeight: FontWeight.w700,
-                color: F.greenDeep,
+                color: F.greenStrong,
               ),
             ),
             const SizedBox(height: F.s8),

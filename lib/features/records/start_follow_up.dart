@@ -155,7 +155,7 @@ class _SourceRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.minTextSize,
                     fontWeight: FontWeight.w700,
-                    color: F.greenDeep,
+                    color: F.greenStrong,
                     height: 1.4,
                   ),
                 ),

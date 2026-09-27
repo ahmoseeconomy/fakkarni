@@ -168,7 +168,7 @@ class _CaregiverOnboardingScreenState extends State<CaregiverOnboardingScreen> {
                       onPressed: _busy ? null : () => _advance(),
                       style: FilledButton.styleFrom(
                         backgroundColor: F.green,
-                        foregroundColor: F.onDark,
+                        foregroundColor: F.onGreen,
                         textStyle: const TextStyle(
                             fontSize: F.careBodySize, fontWeight: FontWeight.w700),
                       ),

@@ -143,7 +143,7 @@ class _AllWellCard extends StatelessWidget {
   Widget build(BuildContext context) => FCard(
         child: Row(
           children: [
-            Icon(Icons.check_circle_outline, size: 32, color: F.greenDeep),
+            Icon(Icons.check_circle_outline, size: 32, color: F.greenStrong),
             const SizedBox(width: F.s12),
             Expanded(
               child: Column(

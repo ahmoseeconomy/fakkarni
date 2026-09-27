@@ -203,9 +203,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                   onPressed: _busy ? null : () => _capture(ImageSource.camera),
                   style: FilledButton.styleFrom(
                     backgroundColor: F.green,
-                    foregroundColor: F.onDark,
+                    foregroundColor: F.onGreen,
                     disabledBackgroundColor: F.greenDark,
-                    disabledForegroundColor: F.mutedLight,
+                    disabledForegroundColor: F.onDarkMuted,
                     textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
                   ),
                   child: Text(_phase == _Phase.failed || _phase == _Phase.retake ? 'صوّر تاني' : 'صوّر التقرير'),

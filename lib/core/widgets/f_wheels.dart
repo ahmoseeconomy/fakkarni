@@ -347,7 +347,7 @@ class _PeriodToggle extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
-                  color: selected ? F.onDark : F.ink,
+                  color: selected ? F.onGreen : F.ink,
                 ),
               ),
             ),

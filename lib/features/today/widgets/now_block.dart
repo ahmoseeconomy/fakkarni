@@ -314,7 +314,7 @@ class _LineConfirm extends StatelessWidget {
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: F.ink,
-            side: const BorderSide(color: F.greenDeep, width: 1.5),
+            side: BorderSide(color: F.buttonEdge, width: 1.5),
             padding: const EdgeInsets.symmetric(horizontal: F.s12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             textStyle: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),

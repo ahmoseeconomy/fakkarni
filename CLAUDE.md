@@ -72,12 +72,15 @@ These are product decisions, already settled. Do not "improve" them without aski
    correct view, not a deletion: his next refresh shows the dose as taken.
    Never build a recall path; if you think you need one, re-read this.
 
-6. **No medical advice, ever.** Default clock times (مرة ٩ص، مرتين ٩ص و٩م،
-   ٣ مرات ٩ و٣ و٩، ٤ مرات ٨ و١ و٦ و١١ — one function, `defaultTimesFor` in
-   `ai/prescription_reading.dart`, used by «ضيف دوا», the reader and «كلّمني»)
-   are editable operational conventions, not clinical guidance. If a
-   prescription line is unclear the answer is "مش متأكد — اسأل الصيدلي",
-   never a confident guess. The app never suggests, changes or stops a drug.
+6. **No medical advice, ever — and a prescription never picks dose times.**
+   The default clock times (مرة ٩ص، مرتين ٩ص و٩م، ٣ مرات ٩ و٣ و٩، ٤ مرات ٨
+   و١ و٦ و١١ — `defaultTimesFor` in `ai/prescription_reading.dart`) are an
+   operational convention for **«ضيف دوا» and «كلّمني» only**, when a person
+   picks «كام مرة» by hand. **A prescription never becomes clock times it did
+   not literally write** (owner, 27 Sep 2026, after the device pass): see
+   «الروشتة ما بتختارش ساعات» below. If a prescription line is unclear the
+   answer is "مش متأكد — اسأل الصيدلي", never a confident guess. The app
+   never suggests, changes or stops a drug.
 
 ---
 
@@ -426,6 +429,47 @@ paragraphs are history; the code no longer has any of them.
   it is at most one notification per such dose. The fix (a v2 payload that
   carries its own day rule) touches the lock-screen path and waits for the
   owner.
+
+## الروشتة ما بتختارش ساعات، و«لا» مش اسم دوا، وكل نص بيتقري بالليل (٢٧ سبتمبر ٢٠٢٦، بعد تجربة الجهاز)
+
+**يلغي** سطر «Prescription import» اللي فوق (مرة → ٩، مرتين → ٩ و٢١ …).
+- **الروشتة بتقول، والإنسان بيختار.** `lib/ai/prescription_timing.dart`
+  (نقي): `parseTimingText` بيطلّع من كلام الورقة `TimingFacts` — كل كام
+  ساعة، كام مرة، كلمة الأكل، «قبل النوم» / «أول ما تصحى»، «عند اللزوم»،
+  والساعة **لو مكتوبة بالحرف** («الساعة ٨ صباحاً»؛ «الساعة ٨» من غير
+  ص/م مش واضحة) — وإلا `unclear`. Gemini بيرجّع `timing.text` بالحرف +
+  حقول منظّمة (`clockTimes`, `everyHours`, `timesPerDay`, `mealRelation`,
+  `moment`, `unclear`)؛ قراءتنا للكلام بتكسب والحقول بتكمّل. البرومبت
+  بيقول «NEVER convert a frequency into clock times». `ReadLine.timings` =
+  الساعات المكتوبة وبس (فاضية غير كده).
+- **على كارت المراجعة**: الساعات المكتوبة بـ«من الروشتة»، وإلا «الروشتة
+  بتقول: كل ١٢ ساعة — بعد الأكل — لمدة ٧ أيام» أو «التوقيت مش واضح في
+  الروشتة — اسأل الصيدلي واختار الساعات». «اختار الساعات» (`pick_times_sheet`)
+  = الشرايح السريعة + البكرة، وبعد **أول** ساعة بس دوسة «كمّل كل ١٢ ساعة —
+  ٨:٠٠ م» (الفاصل من الورقة، أو ٢٤÷N لـ«N مرات»). دوا من غير ساعات **ما
+  بيتحفظش ومالوش تذكير**: برّه عدّ «تمام — N أدوية»، والسطر «٢ لسه محتاجين
+  تختار ساعاتهم» بيودّي على أول كارت ناقص. «عدّل» على سطر من غير ساعات
+  بيفتح الفورم بصفوف **فاضية** (`initialEmptyDoses`)، مش ٩ الصبح.
+- **«لا» مش اسم دوا** (`domain/medication/medicine_name.dart`،
+  `isNotAMedicineName`): كلام إجابة لوحده («لا»، «أيوه»، «آه»، «مش عارف»،
+  «بعدين») عمره ما يبقى اسم — القارئ المحلي والسحابة بيرجّعوا null، الفورم
+  بيفضّي الحقل ويقفل «احفظ» بجملة، و`addMedicationWithDoses` بيرمي
+  `ArgumentError` كآخر حاجز. السبب على الجهاز: «ضيف دوا … لا» في جملة واحدة.
+- **«مش عايز أقول» = حفظ وخروج** على سؤال السن (آخر سؤال): السن null
+  و«يومك» على طول. `parseAgeAnswer` بيقرا التخطّي بالصوت (مفيش مايك في
+  البداية دلوقتي — جاهز لو رجع).
+- **كل نص بيتقري في الوضعين، والاختبار بيحسبه**: `test/support/contrast_audit.dart`
+  بيمشي على كل نص مرسوم، بيلاقي أرضيته الحقيقية (Material / DecoratedBox /
+  ColoredBox) وبيحسب الشفافية، ويوقّع تحت ٤٫٥:١ (أو ٣:١ لـ١٨ وفوق / عريض
+  ١٤). `text_contrast_test` بيشغّله على «يومك» والإضافة والمراجعة
+  والإعدادات والبداية في النهاري والليلي. اللي لقاه واتصلّح من الجذر في
+  `tokens.dart`: `F.onFill(fill)` (نص فوق أي تعبئة من نصوعها)،
+  `F.onGreen` (الأبيض على أخضر الليل كان ٢٫٢:١ على كل زرار أساسي)،
+  `F.onGold` (شرايح مختارة ١٫٨:١)، `F.inverseFill`/`F.onInverse` («أعدّل»
+  كان ١٫١:١)، `F.greenStrong` (مكان `greenDeep` كنص — «خلصت أدوية
+  النهاردة» ١٫٤:١)، `F.buttonEdge` (حد الأزرار — **الدين ٦ الأول اتدفع**)،
+  و`F.placeholder` بقى AA (كان ٢:١ حتى بالنهار). والزرار المقفول على شاشة
+  الكاميرا بقى `onDarkMuted` (كان ٣:١).
 
 **The day starts at 04:00, fixed, for everyone** (27 Sep 2026 — it used to
 start at the user's wake time). `dayStart` and `routineDayOf(now)` in

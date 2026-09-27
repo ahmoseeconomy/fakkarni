@@ -132,6 +132,81 @@ void main() {
     expect(find.widgetWithText(TextField, 'Concor 5mg'), findsNothing);
   });
 
+  group('الروشتة ما بتختارش ساعات (٢٧ سبتمبر ٢٠٢٦)', () {
+    ReadLine every12() => PrescriptionReading.fromJson({
+          'medications': [
+            {
+              'name': {'value': 'Augmentin 1g', 'confidence': 0.95},
+              'amount': {'value': 'قرص', 'confidence': 0.95},
+              'timing': {'text': 'كل ١٢ ساعة بعد الأكل', 'confidence': 0.95},
+              'durationDays': {'value': 7, 'confidence': 0.95},
+            },
+          ],
+        }).lines.single;
+
+    screenTest('«كل ١٢ ساعة» → ملاحظة ومفيش ساعات → ما بيتحفظش → ٨:٠٠ → «كمّل كل ١٢ ساعة» → ٨ و٨', (tester) async {
+      await pumpReview(tester, [every12(), clearLine]);
+      await open(tester);
+
+      expect(find.text('الروشتة بتقول: كل ١٢ ساعة — بعد الأكل — لمدة ٧ أيام'), findsOneWidget);
+      expect(find.textContaining('٨:٠٠'), findsNothing, reason: 'ولا ساعة مننا');
+      expect(find.text('تمام — دوا واحد'), findsOneWidget, reason: 'Augmentin برّه العدّ لحد ما يختار');
+      expect(find.text('دوا واحد لسه محتاج تختار ساعاته'), findsOneWidget);
+
+      // السطر بيودّي على الكارت
+      await tester.tap(find.byKey(const ValueKey('missing-times')));
+      await settle(tester);
+
+      await tester.tap(find.byKey(const ValueKey('pick-times-0')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('continue-interval')), findsNothing, reason: 'الاقتراح بعد أول ساعة بس');
+      // البكرة واقفة على ٨ — «ضيف الساعة ٨:٠٠ ص»
+      await tester.tap(find.byKey(const ValueKey('add-time')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('continue-interval')), findsOneWidget);
+      expect(find.textContaining('كمّل كل ١٢ ساعة'), findsOneWidget);
+      expect(h.sink.scheduled, isEmpty, reason: 'ولا حاجة من غير دوسة التأكيد');
+      await tester.tap(find.byKey(const ValueKey('continue-interval')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('times-done')));
+      await settle(tester);
+
+      expect(find.text('تمام — دواءين'), findsOneWidget);
+      expect(find.byKey(const ValueKey('missing-times')), findsNothing);
+      expect(await h.meds.activeSchedules(h.services.patientId), isEmpty, reason: 'لسه مسوّدة');
+
+      await confirm(tester);
+      final saved = await h.meds.activeSchedules(h.services.patientId);
+      final aug = saved.where((s) => s.medicationName == 'Augmentin 1g').map((s) => s.timing).toList();
+      expect(aug, [FixedTiming(MinuteOfDay.hm(8)), FixedTiming(MinuteOfDay.hm(20))]);
+      expect(saved.firstWhere((s) => s.medicationName == 'Augmentin 1g').mealRelation, MealRelation.after);
+    });
+
+    screenTest('الساعة مكتوبة على الورقة → متعبّية و«من الروشتة»', (tester) async {
+      final line = PrescriptionReading.fromJson({
+        'medications': [
+          {
+            'name': {'value': 'Eltroxin', 'confidence': 0.95},
+            'amount': {'value': 'قرص', 'confidence': 0.95},
+            'timing': {'text': 'الساعة ٨ صباحا على الريق', 'confidence': 0.95},
+          },
+        ],
+      }).lines.single;
+      await pumpReview(tester, [line]);
+      await open(tester);
+      expect(find.text('٨:٠٠ ص'), findsOneWidget);
+      expect(find.byKey(const ValueKey('from-paper-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('missing-times')), findsNothing);
+    });
+
+    screenTest('مش واضح خالص → «التوقيت مش واضح في الروشتة — اسأل الصيدلي واختار الساعات»', (tester) async {
+      await pumpReview(tester, [unclearLine]);
+      await open(tester);
+      expect(find.text(unclearTimingCardLine), findsOneWidget);
+      expect(find.byKey(const ValueKey('pick-times-0')), findsOneWidget);
+    });
+  });
+
   screenTest('ولا حاجة بتتحفظ قبل الدوسة', (tester) async {
     await pumpReview(tester, [clearLine]);
     await open(tester);
@@ -150,7 +225,7 @@ void main() {
         );
     expect(confirm().onPressed, isNotNull, reason: '«تمام» دايماً مفتوحة لما فيه حاجة تتحفظ');
     expect(find.text('تمام — دوا واحد'), findsOneWidget, reason: 'العدّ على اللي هيتحفظ فعلاً');
-    expect(find.byKey(const ValueKey('unsaveable-note')), findsOneWidget);
+    expect(find.text('دوا واحد لسه محتاج تختار ساعاته'), findsOneWidget);
     expectNoRedAndMinSize(tester);
   });
 
@@ -221,8 +296,18 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Cataflam'), findsOneWidget);
 
-    // فورم واحد: الصف بيقول الساعة، و«احفظ» بيرجّع المسوّدة
+    // الورقة ما كتبتش ساعة → الصف فاضي («اختار الساعة»)، مش ٩ الصبح مننا
     expect(find.byKey(const ValueKey('dose-row-0')), findsOneWidget);
+    expect(find.text('الساعة ٩:٠٠ ص'), findsNothing);
+    expect(tester.widget<FilledButton>(find.descendant(
+            of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton))).onPressed,
+        isNull, reason: 'من غير ساعة مفيش حفظ');
+    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
+    await settle(tester);
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
+    await tester.tap(find.text('احفظ الجرعة'));
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
 
@@ -618,7 +703,7 @@ void main() {
         find.descendant(of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)),
       );
       expect(confirm.onPressed, isNotNull);
-      expect(find.byKey(const ValueKey('unsaveable-note')), findsOneWidget);
+      expect(find.byKey(const ValueKey('missing-times')), findsOneWidget);
       await tester.tap(find.descendant(
           of: find.byKey(const ValueKey('confirm-review')), matching: find.byType(FilledButton)));
       await settle(tester);

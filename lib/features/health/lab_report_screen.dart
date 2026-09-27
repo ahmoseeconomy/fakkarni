@@ -410,7 +410,7 @@ class _Equal extends StatelessWidget {
       onPressed: onPressed,
       style: FilledButton.styleFrom(
         backgroundColor: fill,
-        foregroundColor: F.onDark,
+        foregroundColor: F.onFill(fill),
         disabledBackgroundColor: F.railGround,
         disabledForegroundColor: F.mutedDark,
         textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),

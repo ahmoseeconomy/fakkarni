@@ -1,4 +1,5 @@
 import '../domain/medication/meal_relation.dart';
+import 'prescription_timing.dart';
 import '../domain/scheduling/dose_schedule.dart';
 import '../domain/scheduling/minute_of_day.dart';
 
@@ -43,7 +44,8 @@ class ReadLine {
     required this.timings,
     required this.duration,
     this.instructions = const ReadField(value: null, confidence: 1),
-    this.mealRelation,
+    this._mealRelation,
+    this.facts = const TimingFacts(unclear: true),
   });
 
   final ReadField<String> name;
@@ -51,15 +53,21 @@ class ReadLine {
 
   /// «قبل الأكل» وأخواتها زي ما الورقة قالتها — **كلمة تعليمات**، مش
   /// توقيت: ما بتحرّكش الساعة (قرار المالك، ٢٧ سبتمبر ٢٠٢٦). null = مش مكتوبة.
-  final MealRelation? mealRelation;
+  MealRelation? get mealRelation => _mealRelation ?? facts.mealRelation;
+  final MealRelation? _mealRelation;
+
+  /// اللي الورقة قالته عن التوقيت: كل كام ساعة، كام مرة، قبل النوم، مش
+  /// واضح… **مفيش فيه ساعة غير المكتوبة بالحرف.** بيتعرض ملاحظات على الكارت.
+  final TimingFacts facts;
 
   /// تعليمات مكتوبة على السطر («مع كوباية مية كاملة») — مش توقيت ولا
   /// جرعة. مش مكتوبة = null بثقة كاملة، زي رأس الورقة.
   final ReadField<String> instructions;
 
-  /// جرعة أو أكتر في اليوم — ساعة الورقة لو كاتبة ساعة بالحرف، وإلا ساعات
-  /// افتراضية من عدد المرات (٩ / ٩ و٩ بالليل / ٩ و٣ و٩ / ٨ و١ و٦ و١١) —
-  /// كلها بتتعدّل على شاشة المراجعة.
+  /// **الساعات المكتوبة على الورقة بالحرف وبس** — فاضية لو الورقة ما
+  /// كتبتش ساعة. التطبيق عمره ما بيختار ساعة من روشتة (قرار المالك، ٢٧
+  /// سبتمبر ٢٠٢٦ بعد تجربة الجهاز): «كل ١٢ ساعة» معلومة، والساعات بيختارها
+  /// الإنسان على شاشة المراجعة.
   final ReadField<List<FixedTiming>> timings;
 
   /// null = مفتوحة. **ما بتتخمّنش أبداً** — لو الورقة مش كاتبة مدة، مفتوحة.
@@ -67,6 +75,9 @@ class ReadLine {
 
   bool get needsReview =>
       name.needsReview || amount.needsReview || timings.needsReview;
+
+  /// الورقة كاتبة الساعات بالحرف — تتعرض «من الروشتة».
+  bool get timesFromPaper => (timings.value ?? const []).isNotEmpty;
 
   /// اللي بيقفل «تمام»: الاسم والتوقيت. من غيرهم مفيش حاجة تتجدول.
   ///
@@ -132,27 +143,46 @@ class PrescriptionReading {
     );
   }
 
-  static ReadLine _line(Map<String, dynamic> m) => ReadLine(
-        name: _string(m['name']),
-        amount: _string(m['amount']),
-        timings: _timings(m['timing']),
-        duration: _duration(m['durationDays']),
-        instructions: _headerString(m['instructions']),
-        mealRelation: _mealRelation(m['timing']),
-      );
+  static ReadLine _line(Map<String, dynamic> m) {
+    final facts = timingFactsOf(m['timing']);
+    return ReadLine(
+      name: _string(m['name']),
+      amount: _string(m['amount']),
+      timings: _timings(m['timing'], facts),
+      duration: _duration(m['durationDays']),
+      instructions: _headerString(m['instructions']),
+      facts: facts,
+    );
+  }
 
-  /// كلمة الأكل من مرساة الورقة وعلاقتها: «قبل الفطار» → «قبل الأكل»، «مع
-  /// الغدا» → «مع الأكل»، «بعد العشا» → «بعد الأكل». الصحيان والنوم مش أكل.
-  static MealRelation? _mealRelation(dynamic field) {
-    if (field is! Map) return null;
-    final anchor = field['anchor'];
-    if (anchor is! String || !const {'breakfast', 'lunch', 'dinner'}.contains(anchor)) return null;
-    return switch (field['relation']) {
-      'before' => MealRelation.before,
-      'after' => MealRelation.after,
-      'at' => MealRelation.with_,
-      _ => null,
-    };
+  /// الحقايق من الورقة: الكلام المكتوب (`text`) بيتقرا بقارئنا، والحقول
+  /// المنظّمة من الموديل بتكمّل اللي الكلام ما قالوش. ولا واحد فيهم بيطلّع
+  /// ساعة غير المكتوبة.
+  static TimingFacts timingFactsOf(dynamic field) {
+    if (field is! Map) return const TimingFacts(unclear: true);
+    final text = field['text'];
+    final fromText = parseTimingText(text is String ? text : null);
+    final clocks = <MinuteOfDay>[
+      if (field['clockTimes'] is List)
+        for (final c in field['clockTimes'] as List)
+          if (c is String && _parseClock(c) != null) _parseClock(c)!,
+    ];
+    int? positive(dynamic v, int max) => v is num && v >= 1 && v <= max ? v.toInt() : null;
+    final structured = TimingFacts(
+      clockTimes: clocks,
+      everyHours: positive(field['everyHours'], 24),
+      timesPerDay: positive(field['timesPerDay'], 12),
+      mealRelation: MealRelation.fromStorage(switch (field['mealRelation']) {
+        'before' => 'before',
+        'after' => 'after',
+        'with' => 'with',
+        'empty_stomach' => 'empty_stomach',
+        _ => null,
+      }),
+      moments: {?TimingMoment.fromStorage(field['moment'] as String?)},
+      unclear: field['unclear'] == true,
+    );
+    return fromText.orElse(structured);
   }
 
   /// حقل من ترويسة الورقة: **مش مكتوب ≠ مش متأكد**.
@@ -207,48 +237,16 @@ class PrescriptionReading {
     );
   }
 
-  /// التوقيت — القلب. ساعة بالحرف، وإلا ساعات افتراضية من عدد المرات.
-  ///
-  /// **الورقة بتقول كام مرة، وإحنا بنقترح الساعات** (قرار المالك، ٢٧ سبتمبر
-  /// ٢٠٢٦): مرة → ٩ الصبح؛ مرتين → ٩ و٩ بالليل؛ ٣ → ٩ و٣ و٩؛ ٤ → ٨ و١ و٦
-  /// و١١. أكل من غير عدد («بعد الفطار») = مرة واحدة الساعة ٩. الساعة
-  /// المكتوبة بالحرف بتتاخد زي ما هي. كل ده بيتعدّل على شاشة المراجعة.
-  static ReadField<List<FixedTiming>> _timings(dynamic field) {
-    if (field is! Map) return const ReadField.missing(unclearTimingNote);
-    final confidence = _confidence(field);
-    final note = _note(field);
-
-    // ساعة مكتوبة بالحرف → زي ما هي.
-    final clock = field['clockTime'];
-    if (clock is String && clock.isNotEmpty) {
-      final minute = _parseClock(clock);
-      if (minute == null) return const ReadField.missing(unclearTimingNote);
-      return ReadField(
-        value: [FixedTiming(minute)],
-        confidence: confidence,
-        note: note,
-      );
+  /// التوقيت — **الساعات المكتوبة بالحرف وبس.** مفيش ساعة مكتوبة = قايمة
+  /// فاضية بثقة كاملة: الورقة ما قالتش ساعة، وده مش شك — ده مكان الإنسان.
+  /// (كانت بتطلّع ٩ و٩ من «مرتين» — اتشالت، ٢٧ سبتمبر ٢٠٢٦.)
+  static ReadField<List<FixedTiming>> _timings(dynamic field, TimingFacts facts) {
+    if (field is! Map) return const ReadField(value: [], confidence: 1, note: unclearTimingNote);
+    final times = [for (final m in facts.clockTimes) FixedTiming(m)];
+    if (times.isEmpty) {
+      return ReadField(value: const [], confidence: 1, note: facts.unclear ? unclearTimingNote : null);
     }
-
-    final anchor = field['anchor'];
-    final hasAnchor = anchor is String && anchor.isNotEmpty;
-    final timesPerDay = field['timesPerDay'] is num
-        ? (field['timesPerDay'] as num).toInt()
-        : null;
-    final count = timesPerDay ?? (hasAnchor ? 1 : null);
-    if (count == null || count < 1) return ReadField.missing(note ?? unclearTimingNote);
-
-    // الورقة سمّت الأكل («بعد الفطار»): الكلمة هي القراية، والساعة عُرفنا
-    // المكتوب — بثقتها زي ما اتقرت. «١×٣» من غير أكل: التوزيع كله عُرفنا،
-    // فبيتعلّم «محتاج تحديد» مهما كانت الثقة (نفس القاعدة ٤ من الأول).
-    if (hasAnchor) {
-      return ReadField(value: defaultTimesFor(count), confidence: confidence, note: note);
-    }
-    return ReadField(
-      value: defaultTimesFor(count),
-      confidence: confidence < confidenceThreshold ? confidence : confidenceThreshold - 0.01,
-      note: note ?? suggestedTimesNote,
-    );
+    return ReadField(value: times, confidence: _confidence(field), note: _note(field));
   }
 
   static MinuteOfDay? _parseClock(String hhmm) {
@@ -275,11 +273,12 @@ class PrescriptionReading {
 /// النص الثابت للتوقيت الغامض — القاعدة السادسة: ما بنخمّنش.
 const String unclearTimingNote = 'مش متأكد — اسأل الصيدلي';
 
-/// الساعات اقتراح مننا مش من الورقة — الإنسان يبص عليها قبل «تمام».
-const String suggestedTimesNote = 'الورقة ما كتبتش ساعة — الساعات دي اقتراح، عدّلها لو الدكتور قال غير كده';
+/// الورقة ما قالتش حاجة واضحة عن التوقيت — الكارت بيقولها بالكلام.
+const String unclearTimingCardLine = 'التوقيت مش واضح في الروشتة — اسأل الصيدلي واختار الساعات';
 
-/// الساعات الافتراضية من عدد المرات — عُرف تشغيلي واحد للروشتة وللصوت
-/// و«ضيف دوا».
+/// الساعات الافتراضية من عدد المرات — عُرف تشغيلي لـ«ضيف دوا» و«كلّمني»
+/// لما **الإنسان** يختار «كام مرة» بإيده. **مش للروشتة**: الروشتة عمرها ما
+/// بتطلّع ساعة ما اتكتبتش (٢٧ سبتمبر ٢٠٢٦).
 List<FixedTiming> defaultTimesFor(int timesPerDay) => [
       for (final m in defaultMinutesFor(timesPerDay)) FixedTiming(m),
     ];
@@ -322,23 +321,29 @@ const Map<String, dynamic> prescriptionSchema = {
           'timing': {
             'type': 'OBJECT',
             'properties': {
-              'anchor': {
-                'type': 'STRING',
+              'text': {'type': 'STRING', 'nullable': true},
+              'clockTimes': {
+                'type': 'ARRAY',
                 'nullable': true,
-                'enum': ['wake', 'breakfast', 'lunch', 'dinner', 'sleep'],
+                'items': {'type': 'STRING'},
               },
-              'relation': {
-                'type': 'STRING',
-                'nullable': true,
-                'enum': ['before', 'after', 'at'],
-              },
-              'offsetMinutes': {'type': 'INTEGER', 'nullable': true},
-              'clockTime': {'type': 'STRING', 'nullable': true},
+              'everyHours': {'type': 'INTEGER', 'nullable': true},
               'timesPerDay': {'type': 'INTEGER', 'nullable': true},
+              'mealRelation': {
+                'type': 'STRING',
+                'nullable': true,
+                'enum': ['before', 'after', 'with', 'empty_stomach'],
+              },
+              'moment': {
+                'type': 'STRING',
+                'nullable': true,
+                'enum': ['bedtime', 'wake'],
+              },
+              'unclear': {'type': 'BOOLEAN', 'nullable': true},
               'confidence': {'type': 'NUMBER'},
               'note': {'type': 'STRING', 'nullable': true},
             },
-            'required': ['confidence'],
+            'required': ['text', 'confidence'],
           },
           'durationDays': {
             'type': 'OBJECT',

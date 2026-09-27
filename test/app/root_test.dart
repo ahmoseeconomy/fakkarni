@@ -281,6 +281,33 @@ void main() {
       expect(find.byType(CaregiverShell), findsNothing);
     });
 
+    screenTest('الاسم ← السن ← «مش عايز أقول»: السن null ويروح على «يومك» على طول', (tester) async {
+      await tallView(tester);
+      await pumpRoot(tester);
+      await tester.tap(find.byKey(const ValueKey('entry-self')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
+      await settle(tester);
+      await tester.tap(find.text('كمّل من غير حساب'));
+      await settle(tester);
+
+      await tester.enterText(find.byKey(const ValueKey('profile-name')), 'الحاج أحمد');
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('profile-next')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('age-skip')));
+      await settle(tester);
+
+      expect(find.byType(ProfileOnboardingScreen), findsNothing, reason: 'ما بيعيدش السؤال');
+      expect(find.byType(TodayScreen), findsOneWidget);
+      final me = (await db.select(db.patients).get()).single;
+      expect(me.name, 'الحاج أحمد');
+      expect(me.age, isNull);
+      expect(me.profileDoneAt, isNotNull);
+    });
+
     screenTest('«رجوع» من «نتعرّف عليك» بترجّع لشاشة البداية — اختيار غلط ما يحبسش حد', (tester) async {
       await tallView(tester);
       await pumpRoot(tester);

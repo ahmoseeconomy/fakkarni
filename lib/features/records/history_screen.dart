@@ -148,7 +148,7 @@ class _TimelineEntry extends StatelessWidget {
             textDirection: nameDirection(r.notes!),
             // اللاتيني LTR بس لازق في يمين العمود زي باقي السطور
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.greenDeep, height: 1.4),
+            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.greenStrong, height: 1.4),
           ),
       ],
     );

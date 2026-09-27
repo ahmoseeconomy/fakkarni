@@ -727,15 +727,15 @@ class RecordSummary extends StatelessWidget {
             'متابعة ${kind.word} — ${arabicNumber(stage.number)} '
             'من ${arabicNumber(kind.stages.length)}: ${stage.label} — '
             '${followDateLine(CheckupService.stageDateOf(r, stage), now!)}',
-            style: const TextStyle(
-                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
+            style: TextStyle(
+                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenStrong, height: 1.4),
           )
         else if (CheckupService.stageOf(r) case final closed?)
           // متابعة خلصت: المرحلة الأخيرة، من غير ميعاد جاي.
           Text(
             'متابعة ${kind.word} — ${closed.label}',
-            style: const TextStyle(
-                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenDeep, height: 1.4),
+            style: TextStyle(
+                fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.greenStrong, height: 1.4),
           ),
       ],
     );

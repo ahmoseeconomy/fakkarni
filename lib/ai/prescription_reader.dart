@@ -320,11 +320,14 @@ If one of them is not written on the paper, return value null with confidence 1.
 
 For each medication line return: name (as written, keep Latin drug names in Latin), amount (e.g. "قرص واحد", "1 tablet", "5 ml"), timing, durationDays, instructions.
 
-Timing rules:
-- Prefer meal-relative timing: anchor ∈ {wake, breakfast, lunch, dinner, sleep}, relation ∈ {before, after, at}, offsetMinutes only if a number of minutes is written.
-- "1×3" / "3 times daily" style with no meal named: set timesPerDay and leave anchor null.
-- Set clockTime "HH:MM" (24h) ONLY if an explicit clock time is written on the paper.
-- If timing is unclear, illegible, or "when needed": leave anchor, clockTime and timesPerDay null, set a low confidence, and set note to "مش متأكد — اسأل الصيدلي".
+Timing rules — record ONLY what the paper says. NEVER convert a frequency into clock times: "every 12 hours" is not 9:00 and 21:00, and "twice daily" is not any particular hour. The patient chooses the hours; you do not.
+- text: copy the timing words exactly as written on the line (e.g. "كل ١٢ ساعة بعد الأكل", "1×3", "قبل النوم"). null if nothing about timing is written.
+- everyHours: only for an interval that is written ("كل ٨ ساعات" → 8, "q12h" → 12).
+- timesPerDay: only for a count that is written ("٣ مرات يوميا" → 3, "1×3" → 3, "مرتين" → 2, "مرة واحدة يوميا" → 1).
+- mealRelation: before / after / with / empty_stomach, only if written ("قبل الأكل", "بعد الفطار", "مع الأكل", "على الريق").
+- moment: "bedtime" for "قبل النوم", "wake" for "أول ما تصحى" — only if written.
+- clockTimes: "HH:MM" (24h) ONLY for clock times literally written on the paper ("الساعة ٨ صباحاً" → "08:00"). An hour without AM/PM that you cannot be sure of must NOT be returned. If no clock time is written, clockTimes must be null or empty.
+- unclear: true if the timing is illegible, missing, or "when needed" — then also set note to "مش متأكد — اسأل الصيدلي" and a low confidence.
 
 durationDays: ONLY if a duration is written ("لمدة ٧ أيام" → 7, "for 5 days" → 5). "اليوم فقط" / "مرة واحدة" / "single dose" means one day → 1. If not written, value must be null with confidence 1 — a missing duration is not an error.
 

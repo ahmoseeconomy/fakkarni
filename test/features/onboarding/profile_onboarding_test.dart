@@ -234,20 +234,17 @@ void main() {
     expect(row.age, 30);
   });
 
-  testWidgets('«مش عايز أقول» بترجّع null بعد ما اختار، والبكرة بترجع لـ٦٠', (tester) async {
+  testWidgets('«مش عايز أقول» حتى بعد ما لفّ البكرة: السن null وبيخلّص على طول — من غير «كمّل»', (tester) async {
     await pumpTall(tester);
     await toAge(tester, 'الحاج أحمد');
     await spin(tester, 5);
     expect(hint(tester), 'سنّك ٦٥ سنة');
 
     await tapAndSettle(tester, 'مش عايز أقول');
-    expect(hint(tester), AgeWheel.hint);
-    final wheel = tester.widget<CupertinoPicker>(find.byType(CupertinoPicker));
-    expect(wheel.scrollController!.selectedItem, AgeWheel.restAge - AgeWheel.minAge);
-
-    await tapAndSettle(tester, 'كمّل');
+    expect(finished, isTrue, reason: 'آخر سؤال — التخطّي هو الحفظ');
     final row = (await services.patients.getPatient(services.patientId))!;
     expect(row.age, isNull);
+    expect(row.profileDoneAt, isNotNull);
   });
 
   testWidgets('نقطتين تقدّم: الحالية ذهبية والتانية line، وبتتحرك مع الصفحة', (tester) async {

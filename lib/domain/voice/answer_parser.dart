@@ -141,6 +141,40 @@ int? parseAge(String text) {
   return n;
 }
 
+/// إجابة سؤال السن: رقم، أو **تخطّي**، أو مش مفهومة.
+sealed class AgeAnswer {
+  const AgeAnswer();
+}
+
+/// قال سنّه.
+class AgeGiven extends AgeAnswer {
+  const AgeGiven(this.age);
+  final int age;
+}
+
+/// «مش عايز أقول» / «لا» / «عدّي» / «بعدين» — السؤال اختياري، فده تخطّي.
+class AgeSkipped extends AgeAnswer {
+  const AgeSkipped();
+}
+
+/// مفيش رقم ولا تخطّي — نسأل تاني، ومفيش حاجة بتتكتب.
+class AgeUnclear extends AgeAnswer {
+  const AgeUnclear();
+}
+
+const _skipPhrases = {'مش عايز اقول', 'مش عايزه اقول', 'مش حابب', 'مش حابه', 'مش مهم', 'عدي', 'عدّي', 'بعدين', 'سيبها', 'كمل'};
+
+/// «مش عايز أقول» تخطّي مش سن — الرقم بيكسب لو اتقال («لا، ٧٢»).
+AgeAnswer parseAgeAnswer(String text) {
+  final age = parseAge(text);
+  if (age != null) return AgeGiven(age);
+  final norm = normalizeArabic(text).replaceAll('ّ', '');
+  if (norm.isEmpty) return const AgeUnclear();
+  if (_skipPhrases.any((p) => norm == p || norm.startsWith('$p ') || norm.contains(' $p'))) return const AgeSkipped();
+  if (classifyReply(norm) == ReplyClass.deny) return const AgeSkipped();
+  return const AgeUnclear();
+}
+
 typedef _Run = ({List<int> values, int end});
 
 /// بيلمّ أول سلسلة أرقام من [from] (بيتخطّى الحشو و«و» بين رقمين).

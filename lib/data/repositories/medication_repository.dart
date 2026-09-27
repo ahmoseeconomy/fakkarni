@@ -1,3 +1,4 @@
+import '../../domain/medication/medicine_name.dart';
 import 'package:drift/drift.dart';
 
 import '../../domain/medication/duplicate_check.dart';
@@ -138,6 +139,10 @@ class MedicationRepository {
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
+    }
+    // آخر حاجز: «لا» / «أيوه» / «مش عارف» عمرها ما تتكتب اسم دوا، من أي باب
+    if (isNotAMedicineName(name)) {
+      throw ArgumentError.value(name, 'name', 'مش اسم دوا');
     }
     return _db.transaction(() async {
       final medicationId = await _db.into(_db.medications).insert(
