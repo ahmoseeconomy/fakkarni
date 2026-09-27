@@ -6,7 +6,10 @@ import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
+import '../../data/places/places.dart' show PlaceKind;
+import '../../domain/voice/nlu/nlu.dart' show NearbyPlace;
 import '../medication/add_medication_screen.dart';
+import '../nearby/nearby_screen.dart';
 import '../records/health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 import '../medication/medication_draft.dart';
 import '../../domain/voice/voice_catalog.dart';
@@ -60,6 +63,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       clock: widget.now == null ? null : () => widget.now!,
       onOpenAdd: _openAdd,
       onOpenAppointment: _openAppointment,
+      onOpenNearby: _openNearby,
     );
   }
 
@@ -94,6 +98,18 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
     return true;
   }
 
+  /// «أقرب صيدلية» → «القريب مني» على النوع ده.
+  Future<void> _openNearby(NearbyPlace place) async {
+    if (!mounted) return;
+    final kind = switch (place) {
+      NearbyPlace.pharmacy => PlaceKind.pharmacy,
+      NearbyPlace.doctor => PlaceKind.doctor,
+      NearbyPlace.hospital => PlaceKind.hospital,
+      NearbyPlace.lab => PlaceKind.lab,
+    };
+    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => NearbyScreen(initialKind: kind)));
+  }
+
   /// الفورم العادي متعبّي — الحفظ بزراره هو، ومفيش حاجة اتكتبت قبله.
   Future<bool> _openAdd(AddMedPrefill p) async {
     if (!mounted) return false;
@@ -106,6 +122,10 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
           initialTimings: p.timings,
           initialOnce: p.once,
           initialMealRelation: p.mealRelation,
+          initialAmount: p.amount,
+          initialEveryHours: p.everyHours,
+          initialEmptyDoses: p.emptyDoses,
+          initialDurationDays: p.durationDays,
         ),
       ),
     );
@@ -206,7 +226,10 @@ class _CommandBodyState extends State<_CommandBody> {
     final big = TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5);
     final quiet = TextStyle(fontSize: F.minBodySize, color: F.mutedDark, height: 1.5);
     // «سامعك…» و«بفكّر…» بتقولهم الدايرة — مش سطر تاني بنفس الكلمة
-    final showShown = flow.shown.isNotEmpty && flow.phase != CommandPhase.listening && flow.phase != CommandPhase.thinking;
+    final showShown = flow.shown.isNotEmpty &&
+        flow.phase != CommandPhase.listening &&
+        flow.phase != CommandPhase.thinking &&
+        flow.phase != CommandPhase.reviewing;
     return ListenableBuilder(
       // الدورة، و«بيتكلم» (الدايرة بتقول «برد عليك — دوس عشان تقاطعني»)
       listenable: Listenable.merge([flow, flow.voice.caption]),
@@ -222,6 +245,15 @@ class _CommandBodyState extends State<_CommandBody> {
               key: const ValueKey('talk-shown'),
               style: flow.phase == CommandPhase.confirming ? big.copyWith(fontSize: F.screenTitleSize) : big,
             ),
+          ],
+          if (flow.phase == CommandPhase.reviewing) ...[
+            // اللي فهمناه بكلامنا — واللي اتسمع تحته بهدوء
+            const SizedBox(height: F.s12),
+            Text(flow.shown, key: const ValueKey('talk-understood'), style: big),
+            if (flow.heard.isNotEmpty) ...[
+              const SizedBox(height: F.s8),
+              Text('إنت قلت: ${flow.heard}', key: const ValueKey('talk-heard'), style: quiet),
+            ],
           ],
           if (flow.phase == CommandPhase.asking) ...[
             // سؤال المتابعة — مكتوب وبيتقال، وبعده المايك بيتفتح لوحده مرة
@@ -281,6 +313,26 @@ class _CommandBodyState extends State<_CommandBody> {
                     const SizedBox(height: F.s10),
                   ],
                   FSecondaryButton(key: const ValueKey('talk-no'), label: 'ولا واحد', onPressed: flow.confirmNo),
+                ],
+              ),
+            CommandPhase.reviewing => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (flow.canConfirmReview) ...[
+                    FPrimaryButton(key: const ValueKey('talk-right'), label: 'صح كده', onPressed: flow.confirmReview),
+                    const SizedBox(height: F.s10),
+                  ],
+                  FSecondaryButton(key: const ValueKey('talk-retry'), label: 'عيد كلامك', onPressed: flow.retry),
+                ],
+              ),
+            CommandPhase.clarifying => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, o) in flow.clarifyOptions.indexed) ...[
+                    FPrimaryButton(key: ValueKey('talk-clarify-$i'), label: o.label, onPressed: () => flow.clarify(o.intent)),
+                    const SizedBox(height: F.s10),
+                  ],
+                  FSecondaryButton(key: const ValueKey('talk-retry'), label: 'عيد كلامك', onPressed: flow.retry),
                 ],
               ),
             // الرد اتقال — «قول تاني» هي الدايرة نفسها

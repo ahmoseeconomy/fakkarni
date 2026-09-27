@@ -22,16 +22,17 @@ import '../../domain/health/follow_up.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/medication/stock.dart';
-import '../../ai/prescription_reading.dart' show defaultTimesFor;
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/voice/answer_parser.dart';
-import '../../domain/voice/arabic_dates.dart';
 import '../../domain/voice/mic_state.dart';
 import '../../domain/voice/voice_catalog.dart';
 import '../../domain/voice/voice_time.dart';
 import '../today/dose_actions.dart';
+import '../../ai/prescription_timing.dart' show daysWord, hoursWord, timesPerDayWord;
+import '../../domain/medication/medicine_name.dart';
+import '../../domain/voice/nlu/nlu.dart';
 import 'cloud_tools.dart';
 import 'command_parser.dart';
 import 'voice_flags.dart';
@@ -53,8 +54,16 @@ enum CommandPhase {
   /// كذا جرعة تنفع — «أنهي واحد؟» بأزرار كبيرة.
   choosing,
 
-  /// جملة بتتقال وتتقري (رد، أو «مافهمتش»، أو «للدكتور») — وخلاص.
+  /// جملة بتتقال وتتقري (رد، أو «للدكتور») — وخلاص.
   answering,
+
+  /// **اللي فهمناه بكلامنا** + «إنت قلت: …» + «صح كده» / «عيد كلامك» — مكتوب
+  /// بس، من غير صوت. «صح كده» بيفتح الفورم متعبّي، والحفظ بزراره هو. من غير
+  /// فعل ([CommandFlow.canConfirmReview] = false) = «مش متأكد إنت عايز إيه».
+  reviewing,
+
+  /// تعادل بين نيتين — «قصدك …؟» بزرار لكل واحدة.
+  clarifying,
   done,
 }
 
@@ -68,8 +77,28 @@ class DoseCandidate {
 
 /// «ضيفلي دوا» → الفورم العادي **متعبّي** — ولا حاجة بتتحفظ غير من «احفظ».
 class AddMedPrefill {
-  const AddMedPrefill({this.name, this.purpose, this.timings = const [], this.once = false, this.durationDays, this.startDate, this.mealRelation});
+  const AddMedPrefill({
+    this.name,
+    this.purpose,
+    this.timings = const [],
+    this.once = false,
+    this.durationDays,
+    this.startDate,
+    this.mealRelation,
+    this.amount,
+    this.everyHours,
+    this.emptyDoses,
+  });
   final String? name;
+
+  /// «٥٠٠» / «قرص واحد» — زي ما اتقالت، في خانة الجرعة (مش في الاسم).
+  final String? amount;
+
+  /// «كل ١٢ ساعة» — الفورم بيفتح على «كل كام ساعة» بالفاصل ده.
+  final int? everyHours;
+
+  /// «مرتين» من غير ساعات — صفوف فاضية بالعدد، **مش ساعات مننا**.
+  final int? emptyDoses;
   final MedicationPurpose? purpose;
   final List<FixedTiming> timings;
 
@@ -109,6 +138,7 @@ class CommandFlow extends ChangeNotifier {
     required this.routineDay,
     required this.onOpenAdd,
     this.onOpenAppointment,
+    this.onOpenNearby,
     this.reader,
     this.cloudAllowed,
     this.onCloudUsed,
@@ -153,6 +183,22 @@ class CommandFlow extends ChangeNotifier {
 
   /// بيفتح ورقة «ميعاد جديد» متعبّية وبيرجّع «اتحفظ؟».
   final Future<bool> Function(AppointmentPrefill prefill)? onOpenAppointment;
+
+  /// «أقرب صيدلية» → «القريب مني» على النوع ده، على طول.
+  final Future<void> Function(NearbyPlace place)? onOpenNearby;
+
+  /// اللي اتسمع زي ما هو — تحت اللي فهمناه، بهدوء («إنت قلت: …»).
+  String heard = '';
+
+  /// اللي فهمناه — للاختبار والتشخيص.
+  NluResult? understood;
+
+  /// «صح كده» بيعمل إيه — null = مفيش فعل (مش مفهوم).
+  Future<void> Function()? _reviewAction;
+  bool get canConfirmReview => _reviewAction != null;
+
+  /// «قصدك …؟» — اختيار لكل نية.
+  List<({String label, NluIntent intent})> clarifyOptions = const [];
 
   /// السحابة — null = مفيش (مفتاح ناقص).
   final VoiceCommandReader? reader;
@@ -274,6 +320,10 @@ class CommandFlow extends ChangeNotifier {
     prefill = null;
     appointmentPrefill = null;
     _pendingWrite = null;
+    _reviewAction = null;
+    understood = null;
+    clarifyOptions = const [];
+    heard = '';
     partial = '';
     // **الدوسة ← المايك على طول**: مفيش جملة قبله؛ النغمة من المتعرّف نفسه
     await voice.yieldToMic(settle: settle);
@@ -288,8 +338,22 @@ class CommandFlow extends ChangeNotifier {
     final started = _clock();
     final now = _clock();
     _set(CommandPhase.thinking, 'بفكّر…');
+    heard = text.trim();
     var cmd = parseCommand(text, now: now);
     var source = 'local';
+    // الأربع نيات اللي كانت بتقع (أقرب مكان، ضيف دوا، احجز ميعاد، احجز
+    // تحليل) بتتفهم بالـNLU الجديد؛ الباقي (أخدته، أجّل، قياس، طبي…) زي ما هو
+    if (!_legacyOnly.contains(cmd.intent)) {
+      final nlu = understandUtterance(text, now: now);
+      if (nlu.isAmbiguous) {
+        diag('Cmd: intent=ambiguous(${nlu.alternatives.map((i) => i.name).join('|')}) source=nlu');
+        return _clarify(nlu.alternatives);
+      }
+      if (nlu.intent != NluIntent.none) {
+        diag('Cmd: intent=${nlu.intent.name} source=nlu latency=${_clock().difference(started).inMilliseconds}ms');
+        return _handleNlu(nlu, gen);
+      }
+    }
     if (cmd.intent == CommandIntent.unknown && reader != null && voiceCommandsCloud) {
       if (cloudAllowed?.call() == false) {
         diag('Cmd: intent=unknown source=local — الحد اليومي خلص، مفيش سحابة');
@@ -388,10 +452,30 @@ class CommandFlow extends ChangeNotifier {
     await _say('gen_try_hands', phase: CommandPhase.answering);
   }
 
+  /// النيات اللي الـNLU الجديد ما بيلمسهاش.
+  static const _legacyOnly = {
+    CommandIntent.markTaken,
+    CommandIntent.nextDose,
+    CommandIntent.todayList,
+    CommandIntent.snooze,
+    CommandIntent.addVital,
+    CommandIntent.addDoctorQuestion,
+    CommandIntent.markBought,
+    CommandIntent.upcomingAppointments,
+    CommandIntent.stockStatus,
+    CommandIntent.medicalQuestion,
+  };
+
+  /// مش مفهوم — **عمره ما يبقى طريق مسدود**: الجملة مكتوبة، واللي اتسمع
+  /// تحتها، و«عيد كلامك».
   Future<void> _fail(int gen) async {
     failures++;
-    await _say(failures >= 2 ? 'gen_try_hands' : 'lis_not_understood', phase: CommandPhase.answering);
+    _reviewAction = null;
+    _set(CommandPhase.reviewing, unclearLine);
+    await voice.speakLine(failures >= 2 ? 'gen_try_hands' : 'lis_not_understood');
   }
+
+  static const unclearLine = 'مش متأكد إنت عايز إيه — عيد كلامك';
 
   Future<void> _handle(VoiceCommand cmd, int gen) async {
     if (cmd.intent != CommandIntent.unknown) failures = 0;
@@ -413,9 +497,9 @@ class CommandFlow extends ChangeNotifier {
       case CommandIntent.snooze:
         return _snooze(cmd, gen);
       case CommandIntent.addMed:
-        return _addMed(cmd, gen);
       case CommandIntent.addAppointment:
-        return _addAppointment(cmd, gen);
+        final nlu = nluFromLegacy(cmd);
+        return nlu.intent == NluIntent.none ? _fail(gen) : _handleNlu(nlu, gen);
       case CommandIntent.addVital:
         return _addVital(cmd, gen);
       case CommandIntent.addDoctorQuestion:
@@ -441,17 +525,6 @@ class CommandFlow extends ChangeNotifier {
     _busy = true;
     final text = await _hear(listener, gen);
     return text;
-  }
-
-  /// «الساعة ٩» + جواب «الصبح»/«بالليل» → ساعة كاملة. السؤال عرض اختيارين
-  /// بس، فـ«بالليل» = بعد الضهر (٥ بالليل = ٥ مساءً)، و«الصبح» = قبله.
-  SpokenTime? _resolveHour(int hour, String? answer) {
-    if (answer == null) return null;
-    final a = normalizeArabic(answer);
-    final h12 = hour % 12;
-    if (RegExp(r'ليل|مسا|عصر|مغرب|ضهر|ظهر|\bم\b').hasMatch(a)) return SpokenTime(h12 + 12, 0);
-    if (RegExp(r'صبح|صباح|فجر|\bص\b').hasMatch(a)) return SpokenTime(h12, 0);
-    return parseTime('$hour $answer');
   }
 
   // ---------------------------------------------------------------- الردود
@@ -663,7 +736,7 @@ class CommandFlow extends ChangeNotifier {
         await voice.listener?.stop();
       case CommandPhase.confirming:
         await _listenReply();
-      case CommandPhase.asking || CommandPhase.idle || CommandPhase.choosing || CommandPhase.answering:
+      case CommandPhase.asking || CommandPhase.idle || CommandPhase.choosing || CommandPhase.answering || CommandPhase.reviewing || CommandPhase.clarifying:
         await start();
     }
   }
@@ -772,94 +845,101 @@ class CommandFlow extends ChangeNotifier {
     await voice.stop();
   }
 
-  // ---------------------------------------------------------------- ضيفلي / احجزلي
+  // ---------------------------------------------------------------- اللي فهمناه
 
-  /// «ضيف دوا» → الفورم العادي **متعبّي** على طول (مفيش كارت تأكيد — الحفظ
-  /// بزرار الفورم). ساعة ناقصة الصبح/بالليل، أو مفيش ميعاد خالص = سؤال واحد.
-  Future<void> _addMed(VoiceCommand cmd, int gen) async {
-    var c = cmd;
-    final ambiguous = c.timings.indexWhere((t) => t.hourNeedsPeriod != null);
-    if (ambiguous >= 0) {
-      final h = c.timings[ambiguous].hourNeedsPeriod!;
-      final answer = await _followUp('الساعة ${arabicNumber(h)} الصبح ولا بالليل؟', gen);
-      if (answer == null) return;
-      final t = _resolveHour(h, answer);
-      final timings = [...c.timings];
-      timings[ambiguous] = t == null ? const SpokenTiming() : SpokenTiming(fixed: t);
-      c = c.copyWith(timings: [for (final x in timings) if (x.fixed != null || x.anchorWord != null) x]);
-    } else if (!c.timings.any((t) => t.fixed != null) && c.timesPerDay == null && c.everyHours == null) {
-      // «بعد الفطار» لوحدها كلمة أكل مش ساعة (الروتين اتشال) — الساعة بتتسأل
-      final answer = await _followUp('الساعة كام؟', gen);
-      if (answer != null) {
-        final more = parseCommand('ضيف دوا ${c.medWords ?? ''} $answer', now: _clock());
-        if (more.intent == CommandIntent.addMed && (more.timings.any((t) => t.fixed != null) || more.timesPerDay != null || more.everyHours != null)) {
-          c = VoiceCommand(
-            CommandIntent.addMed,
-            medWords: c.medWords,
-            timings: [
-              ...c.timings.where((t) => t.relation != null),
-              ...more.timings.where((t) => t.hourNeedsPeriod == null),
-            ],
-            timesPerDay: more.timesPerDay,
-            everyHours: more.everyHours,
-            once: c.once || more.once,
-            durationDays: c.durationDays ?? more.durationDays,
-            startDate: c.startDate ?? more.startDate,
-            weekdays: c.weekdays.isNotEmpty ? c.weekdays : more.weekdays,
-          );
-        }
-      } else if (_interrupted(gen) || phase == CommandPhase.idle) {
-        return;
-      }
-    }
+  /// النية اتفهمت: «أقرب …» بيفتح على طول؛ الباقي **بيتقال بكلامنا** ومستني
+  /// «صح كده» — مكتوب بس، من غير صوت. ولا حاجة بتتحفظ هنا.
+  Future<void> _handleNlu(NluResult nlu, int gen) async {
+    failures = 0;
+    understood = nlu;
     if (_interrupted(gen)) return;
-    final purpose = _purposeFromWords(c.medWords);
-    prefill = AddMedPrefill(
-      name: purpose == null ? c.medWords : null,
-      purpose: purpose,
-      timings: _timingsFor(c),
-      once: c.once,
-      durationDays: c.durationDays,
-      startDate: c.startDate,
-      mealRelation: _mealOf(c),
-    );
-    _set(CommandPhase.done, '');
-    unawaited(voice.stop());
-    final saved = await onOpenAdd(prefill!);
-    if (saved) await _say('cmd_done', phase: CommandPhase.done);
+    switch (nlu.intent) {
+      case NluIntent.findNearby:
+        _set(CommandPhase.done, '');
+        unawaited(voice.stop());
+        await onOpenNearby?.call(nlu.place ?? NearbyPlace.pharmacy);
+        return;
+      case NluIntent.addMedication:
+        final purpose = _purposeFromWords(nlu.name);
+        prefill = AddMedPrefill(
+          name: purpose == null ? nlu.name : null,
+          purpose: purpose,
+          timings: [for (final t in nlu.times) FixedTiming(MinuteOfDay(t.minutes))],
+          amount: nlu.doseText,
+          everyHours: nlu.everyHours,
+          emptyDoses: nlu.times.isEmpty && nlu.everyHours == null ? nlu.perDay : null,
+          durationDays: nlu.durationDays,
+          mealRelation: nlu.food,
+        );
+        final p = prefill!;
+        return _review(addMedicationWording(nlu), () async {
+          final saved = await onOpenAdd(p);
+          if (saved) await _say('cmd_done', phase: CommandPhase.done);
+        });
+      case NluIntent.bookAppointment || NluIntent.bookLab:
+        appointmentPrefill = AppointmentPrefill(
+          kind: nlu.intent == NluIntent.bookLab ? FollowKind.lab : FollowKind.visit,
+          name: appointmentTitle(nlu),
+          day: nlu.date,
+        );
+        final p = appointmentPrefill!;
+        return _review(bookingWording(nlu, now: _clock()), () async {
+          final open = onOpenAppointment;
+          if (open == null) return;
+          final saved = await open(p);
+          if (saved) await _say('cmd_done', phase: CommandPhase.done);
+        });
+      case NluIntent.none:
+        return _fail(gen);
+    }
   }
 
-  /// «احجزلي ميعاد» → ورقة «ميعاد جديد» متعبّية. اليوم ناقص = سؤال واحد؛
-  /// لسه ناقص = الورقة بتتفتح بالباقي.
-  Future<void> _addAppointment(VoiceCommand cmd, int gen) async {
-    var a = cmd.appointment!;
-    if (a.date == null) {
-      final answer = await _followUp('الميعاد إمتى؟', gen);
-      if (answer == null) return;
-      final dates = extractDates(answer, now: _clock(), future: true);
-      if (dates.isNotEmpty) a = a.copyWith(date: dates.first.date);
-    } else if (a.hourNeedsPeriod != null) {
-      final answer = await _followUp('الساعة ${arabicNumber(a.hourNeedsPeriod!)} الصبح ولا بالليل؟', gen);
-      if (answer == null) return;
-      final t = _resolveHour(a.hourNeedsPeriod!, answer);
-      a = a.copyWith(time: t, clearHour: true);
-    }
-    if (_interrupted(gen)) return;
-    final kind = a.kind == AppointmentKind.lab ? FollowKind.lab : FollowKind.visit;
-    final what = switch (a.kind) {
-      AppointmentKind.doctor => a.withWhom == null ? 'زيارة دكتور' : 'زيارة دكتور ${a.withWhom}',
-      AppointmentKind.lab => a.withWhom == null ? 'تحليل' : 'تحليل ${a.withWhom}',
-      AppointmentKind.scan => a.withWhom == null ? 'أشعة' : 'أشعة ${a.withWhom}',
-      AppointmentKind.other => a.withWhom ?? 'ميعاد',
-    };
-    final withTime = a.time == null ? what : '$what — ${arabicTime(DateTime(2026, 1, 1, a.time!.hour, a.time!.minute))}';
-    appointmentPrefill = AppointmentPrefill(kind: kind, name: withTime, day: a.date);
-    _set(CommandPhase.done, '');
+  Future<void> _review(String text, Future<void> Function() action) async {
+    _reviewAction = action;
+    await voice.stop(); // مكتوب بس — من غير «صح كده؟» بصوت
+    _set(CommandPhase.reviewing, text);
+  }
+
+  /// «صح كده» — بيفتح الفورم متعبّي. الحفظ بزرار الفورم هو.
+  Future<void> confirmReview() async {
+    final action = _reviewAction;
+    if (phase != CommandPhase.reviewing || action == null) return;
+    _reviewAction = null;
+    _set(CommandPhase.done);
     unawaited(voice.stop());
-    final open = onOpenAppointment;
-    if (open == null) return;
-    final saved = await open(appointmentPrefill!);
-    if (saved) await _say('cmd_done', phase: CommandPhase.done);
+    await action();
+  }
+
+  /// «عيد كلامك» — سماع من الأول.
+  Future<void> retry() async {
+    _reviewAction = null;
+    clarifyOptions = const [];
+    await start();
+  }
+
+  /// تعادل: «قصدك …؟» بزرار لكل نية — والدوسة بتكمّل بنفس الجملة.
+  void _clarify(List<NluIntent> options) {
+    clarifyOptions = [
+      for (final i in options)
+        (
+          intent: i,
+          label: switch (i) {
+            NluIntent.findNearby => 'أدوّر على مكان قريب',
+            NluIntent.addMedication => 'أضيف دوا',
+            NluIntent.bookAppointment => 'أحجز ميعاد دكتور',
+            NluIntent.bookLab => 'أحجز تحليل',
+            NluIntent.none => 'حاجة تانية',
+          },
+        ),
+    ];
+    _set(CommandPhase.clarifying, 'قصدك إيه؟');
+  }
+
+  /// دوسة على اختيار من «قصدك إيه؟».
+  Future<void> clarify(NluIntent intent) async {
+    if (phase != CommandPhase.clarifying) return;
+    clarifyOptions = const [];
+    await _handleNlu(understandUtteranceAs(intent, heard, now: _clock()), voice.interrupts);
   }
 
   static MedicationPurpose? _purposeFromWords(String? words) {
@@ -870,28 +950,6 @@ class CommandFlow extends ChangeNotifier {
       if (medKey(p.label).split(' ').any((w) => key.split(' ').contains(w))) return p;
     }
     return null;
-  }
-
-  /// «قبل/مع/بعد الأكل» من الكلام — كلمة تعليمات للفورم، مش ساعة.
-  static MealRelation? _mealOf(VoiceCommand cmd) {
-    for (final t in cmd.timings) {
-      if (t.relation != null) return t.relation;
-    }
-    return null;
-  }
-
-  /// الساعات المقولة بالحرف → الفورم؛ «كام مرة» من غير ساعات → الساعات
-  /// الافتراضية (نفس عُرف «ضيف دوا» والروشتة). الفورم بيعرضها والمريض
-  /// بيعدّلها — ومفيش حفظ هنا.
-  static List<FixedTiming> _timingsFor(VoiceCommand cmd) {
-    final out = <FixedTiming>[
-      for (final t in cmd.timings)
-        if (t.fixed != null) FixedTiming(MinuteOfDay(t.fixed!.minutes)),
-    ];
-    if (out.isEmpty && cmd.timesPerDay != null) {
-      out.addAll(defaultTimesFor(cmd.timesPerDay!));
-    }
-    return out;
   }
 
   @override
@@ -912,4 +970,89 @@ double? firstNumberOf(String text) {
 String vitalWording(VitalEntry e) {
   final v = Vital(kind: e.kind, value: e.value, value2: e.value2, pulse: e.pulse, measuredAt: DateTime(2026));
   return vitalValueText(v);
+}
+
+// ---------------------------------------------------------------- الكلام
+
+const _weekdayNames = ['الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+/// «النهارده» / «بكرة» / «يوم الأحد ٤ أكتوبر».
+String spokenDay(DateTime d, {required DateTime now}) {
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(d.year, d.month, d.day);
+  final diff = DateTime.utc(day.year, day.month, day.day).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
+  if (diff == 0) return 'النهارده';
+  if (diff == 1) return 'بكرة';
+  return 'يوم ${_weekdayNames[day.weekday - 1]} ${arabicNumber(day.day)} ${arabicMonths[day.month - 1]}';
+}
+
+String _clockWord(SpokenTime t) => arabicTime(DateTime(2026, 1, 1, t.hour, t.minute));
+
+/// «فهمت إنك عايز تضيف دوا: كونكور — كل ١٢ ساعة — الساعات: لسه هتختارها».
+String addMedicationWording(NluResult n) => [
+      'فهمت إنك عايز تضيف دوا: ${n.name ?? 'الاسم لسه هتكتبه'}',
+      if (n.doseText case final d?) 'الجرعة ${arabicDigits(d)}',
+      if (n.everyHours case final h?) 'كل ${hoursWord(h)}',
+      if (n.everyHours == null && n.perDay != null) timesPerDayWord(n.perDay!),
+      if (n.food case final f?) f.label,
+      if (n.durationDays case final d?) 'لمدة ${daysWord(d)}',
+      n.times.isEmpty ? 'الساعات: لسه هتختارها' : 'الساعات: ${n.times.map(_clockWord).join(' و')}',
+    ].join(' — ');
+
+/// «فهمت إنك عايز تحجز عند د. حسن — يوم الأحد ٤ أكتوبر — الساعة: لسه هتختارها».
+String bookingWording(NluResult n, {required DateTime now}) {
+  final who = n.intent == NluIntent.bookLab
+      ? 'فهمت إنك عايز تحجز ${n.testName == null ? 'تحليل' : 'تحليل ${n.testName}'}${n.labName == null ? '' : ' في معمل ${n.labName}'}'
+      : n.doctorName != null
+          ? 'فهمت إنك عايز تحجز عند ${n.doctorName}${n.specialty == null ? '' : ' (${n.specialty})'}'
+          : n.specialty != null
+              ? 'فهمت إنك عايز تحجز عند دكتور ${n.specialty}'
+              : 'فهمت إنك عايز تحجز ميعاد دكتور';
+  return [
+    who,
+    n.date == null ? 'اليوم: لسه هتختاره' : spokenDay(n.date!, now: now),
+    n.time == null ? 'الساعة: لسه هتختارها' : 'الساعة ${_clockWord(n.time!)}',
+  ].join(' — ');
+}
+
+/// اسم الميعاد في ورقة «ميعاد جديد» — الورقة مالهاش خانة ساعة، فالساعة
+/// المقولة بتتكتب جنب الاسم.
+String appointmentTitle(NluResult n) {
+  final what = n.intent == NluIntent.bookLab
+      ? [if (n.testName != null) 'تحليل ${n.testName}' else 'تحليل', if (n.labName != null) 'معمل ${n.labName}'].join(' — ')
+      : n.doctorName ?? (n.specialty == null ? 'زيارة دكتور' : 'دكتور ${n.specialty}');
+  return n.time == null ? what : '$what — الساعة ${_clockWord(n.time!)}';
+}
+
+/// السحابة (أو القارئ القديم) قالت «ضيف دوا» / «احجز» — نفس خانات الـNLU،
+/// عشان كل حاجة تعدّي من نفس التأكيد.
+NluResult nluFromLegacy(VoiceCommand c) {
+  switch (c.intent) {
+    case CommandIntent.addMed:
+      final fixed = [for (final t in c.timings) if (t.fixed != null) t.fixed!];
+      final ambiguous = [for (final t in c.timings) if (t.hourNeedsPeriod != null) t.hourNeedsPeriod!];
+      return NluResult(
+        NluIntent.addMedication,
+        name: medicineNameOrNull(c.medWords),
+        everyHours: c.everyHours,
+        perDay: c.timesPerDay,
+        times: fixed,
+        hourNeedsPeriod: ambiguous.firstOrNull,
+        food: [for (final t in c.timings) if (t.relation != null) t.relation!].firstOrNull,
+        durationDays: c.durationDays,
+      );
+    case CommandIntent.addAppointment:
+      final a = c.appointment!;
+      final lab = a.kind == AppointmentKind.lab;
+      return NluResult(
+        lab ? NluIntent.bookLab : NluIntent.bookAppointment,
+        doctorName: !lab && a.withWhom != null ? 'د. ${a.withWhom}' : null,
+        testName: lab ? a.withWhom : null,
+        date: a.date,
+        time: a.time,
+        hourNeedsPeriod: a.hourNeedsPeriod,
+      );
+    default:
+      return const NluResult(NluIntent.none);
+  }
 }

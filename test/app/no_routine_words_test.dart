@@ -24,6 +24,8 @@ const _allowed = {
   'lib/ai/prescription_timing.dart',
   'lib/ai/prescription_reading.dart',
   'lib/ai/command_reader.dart',
+  // «كلّمني» بيفهم «بعد الفطار» ككلمة أكل — سماع مش عرض
+  'lib/domain/voice/nlu/nlu.dart',
   'lib/data/care/supabase_caregiver_remote.dart', // صف قديم من موبايل لسه ما اترقّاش — بيتقال بكلمته
 };
 

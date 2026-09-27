@@ -63,6 +63,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialStartDate,
     this.initialTimings = const [],
     this.initialEmptyDoses,
+    this.initialEveryHours,
     this.initialDurationDays,
     this.initialOnce = false,
     this.initialAlertMode,
@@ -100,6 +101,10 @@ class AddMedicationScreen extends StatefulWidget {
   /// سطر روشتة من غير ساعات مكتوبة: كام صف **فاضي** («اختار الساعة»)
   /// من غير ساعات افتراضية — الروشتة ما بتختارش ساعة عن حد. null = العُرف.
   final int? initialEmptyDoses;
+
+  /// «كل ١٢ ساعة» من «كلّمني» — النمط «كل كام ساعة» بالفاصل ده. أول جرعة
+  /// بيختارها هو على البكرة زي أي مرة.
+  final int? initialEveryHours;
   final int? initialDurationDays;
 
   /// الدوا ده «مرة واحدة» (`DoseRepeat.once`).
@@ -238,6 +243,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _doses = List<FixedTiming?>.filled(n, null);
     } else {
       _doses = _fromConvention();
+    }
+    if (widget.initialEveryHours case final h? when widget.initialTimings.isEmpty && everyHoursChoices.contains(h)) {
+      _pattern = DosePattern.everyHours;
+      _everyHours = h;
     }
     if (widget.packageReading != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkDuplicate());

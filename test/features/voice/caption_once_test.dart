@@ -3,6 +3,8 @@
 // كانت «معلش، مافهمتش…» بتظهر مرتين — في الورقة وفي الكارت اللي تحتها.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/features/voice/command_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
@@ -117,15 +119,17 @@ void main() {
     expect(voice.captionHolds.value, 0);
   });
 
-  screenTest('«كلّمني»: «مافهمتش» مكتوبة مرة — في الورقة، مش في الكارت كمان', (tester) async {
+  screenTest('«كلّمني»: «مش متأكد…» مكتوبة مرة — في الورقة، والترجمة اللي تحت ساكتة', (tester) async {
     await setUpWith(['كلام مش مفهوم خالص']);
     await pumpWithCaption(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     player.holdPlayback = true;
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
     expect(voice.caption.value, voiceLine('lis_not_understood'));
-    expect(find.text(voiceLine('lis_not_understood')), findsOneWidget);
+    expect(find.text(CommandFlow.unclearLine), findsOneWidget);
+    expect(find.text(voiceLine('lis_not_understood')), findsNothing, reason: 'جملة واحدة مكتوبة — مش اتنين');
     expect(find.byKey(const ValueKey('voice-caption')), findsNothing);
+    expect(find.byKey(const ValueKey('talk-retry')), findsOneWidget, reason: 'مش طريق مسدود');
     await voice.stop();
     await tester.pump();
   });

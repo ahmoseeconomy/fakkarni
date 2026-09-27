@@ -2,11 +2,12 @@
 // مقفول — ساعتها الجمل مكتوبة في الورقة بدل ما تتقال.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/features/voice/command_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
-import 'package:fakkarni/domain/voice/voice_catalog.dart';
 import 'package:fakkarni/features/elder/elder_home_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
@@ -62,11 +63,32 @@ void main() {
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
-    expect(find.byKey(const ValueKey('talk-shown')), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-shown'))).data, voiceLine('lis_not_understood'));
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-understood'))).data, CommandFlow.unclearLine);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-heard'))).data, 'إنت قلت: الجو حر النهارده');
+    expect(find.byKey(const ValueKey('talk-retry')), findsOneWidget);
+    expect(find.byKey(const ValueKey('talk-right')), findsNothing, reason: 'مفيش حاجة «صح» — مش فاهمين');
     expect(player.played, isEmpty, reason: 'مقفول = مكتوب مش مسموع');
     // «قول تاني» هي الدايرة نفسها — بكلمتها
     expect(find.byKey(const ValueKey('mic-orb')), findsOneWidget);
     expect(tester.widget<Text>(find.byKey(const ValueKey('mic-orb-label'))).data, 'دوس واتكلم');
+  });
+
+  screenTest('«احجزلي ميعاد عند الدكتور حسن» → اللي فهمناه + «إنت قلت» → «صح كده» → ورقة الميعاد فيها د. حسن', (tester) async {
+    await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن']);
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
+    await tester.tap(find.byKey(const ValueKey('talk-button')));
+    await settle(tester);
+
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-understood'))).data,
+        'فهمت إنك عايز تحجز عند د. حسن — اليوم: لسه هتختاره — الساعة: لسه هتختارها');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-heard'))).data, 'إنت قلت: احجزلي ميعاد عند الدكتور حسن');
+    expect(find.byKey(const ValueKey('talk-retry')), findsOneWidget);
+    expect(player.played, isEmpty, reason: 'التأكيد مكتوب بس');
+
+    await tester.tap(find.byKey(const ValueKey('talk-right')));
+    await settle(tester);
+    expect(find.text('ميعاد جديد'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget);
+    expect(await h.db.select(h.db.records).get(), isEmpty, reason: 'ولا حاجة اتحفظت قبل زرار الورقة');
   });
 }

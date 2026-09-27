@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/core/widgets/primitives.dart' show AnchorChip;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -76,10 +78,11 @@ void main() {
   /// مصدر «أبل» زي ما iOS هيشوفه — من غير قناة: الشاشة ما تفرقش، والجملة بس.
   NearbyPlaces apple() => NearbyPlaces(source: _AppleLike(), cache: MemoryCache());
 
-  Future<void> pumpNearby(WidgetTester tester, {LocationSource? location, NearbyPlaces? places}) async {
+  Future<void> pumpNearby(WidgetTester tester, {LocationSource? location, NearbyPlaces? places, PlaceKind? initialKind}) async {
     await h.pump(
       tester,
       NearbyScreen(
+        initialKind: initialKind,
         location: location ?? FakeLocation(cairo),
         places: places ?? overpass(),
         tileProvider: BlankTiles(),
@@ -193,6 +196,16 @@ void main() {
       }
     }
     expectNoRedAndMinSize(tester);
+  });
+
+  screenTest('«كلّمني» — «أقرب معمل» بيفتح الشاشة على «معامل تحاليل» مختارة، ومن غيره «الكل»', (tester) async {
+    await pumpNearby(tester, initialKind: PlaceKind.lab);
+    bool selected(String f) => tester.widget<AnchorChip>(find.byKey(ValueKey('nearby-filter-$f'))).selected;
+    expect(selected('lab'), isTrue);
+    expect(selected('all'), isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpNearby(tester);
+    expect(tester.widget<AnchorChip>(find.byKey(const ValueKey('nearby-filter-all'))).selected, isTrue);
   });
 
   screenTest('الحالة الفاضية لكل نوع — جملة على نفس النمط، بتسمّي المصدر', (tester) async {

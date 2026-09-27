@@ -60,8 +60,12 @@ class NearbyScreen extends StatefulWidget {
     this.places,
     this.tileProvider,
     this.now,
+    this.initialKind,
     super.key,
   });
+
+  /// «كلّمني» («أقرب صيدلية») بيفتح الشاشة على النوع ده — null = «الكل».
+  final PlaceKind? initialKind;
 
   final LocationSource location;
   final NearbyPlaces? places;
@@ -80,7 +84,13 @@ class _NearbyScreenState extends State<NearbyScreen> {
   PlacesResult? _result;
   bool _loading = true;
   bool _offline = false;
-  _Filter _filter = _Filter.all;
+  late _Filter _filter = switch (widget.initialKind) {
+    PlaceKind.pharmacy => _Filter.pharmacy,
+    PlaceKind.doctor => _Filter.doctor,
+    PlaceKind.hospital => _Filter.hospital,
+    PlaceKind.lab => _Filter.lab,
+    null => _Filter.all,
+  };
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
 
