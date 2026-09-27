@@ -11,7 +11,7 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
@@ -30,19 +30,19 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     player = FakePlayer();
     voice = VoiceService(player: player, tts: FakeTts());
     await voice.load();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-          routines: routines, medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: SilentSink()),
+          medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: SilentSink()),
       patientId: patientId,
       voice: voice,
     );

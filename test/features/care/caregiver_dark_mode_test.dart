@@ -13,7 +13,7 @@ import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 
 import '../../app/root_test.dart' show SilentSink;
@@ -60,10 +60,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db);
     final events = DoseEventRepository(db);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     final remote = FakeCaregiverRemote()
       ..next = CaregiverSnapshot(
         patient: const CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد'),
@@ -112,11 +112,10 @@ void main() {
       AppScope(
         services: AppServices(
           db: db,
-          routines: routines,
+          patients: patients,
           medications: meds,
           events: events,
           scheduler: ReminderScheduler(
-            routines: routines,
             medications: meds,
             events: events,
             patientId: patientId,

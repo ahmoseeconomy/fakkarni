@@ -184,7 +184,6 @@ class SyncStats {
 /// الجداول اللي بتتزامن — مكتوبة هنا مرة واحدة عشان الإحصاء يمشي عليهم.
 const List<String> syncedTableNames = [
   'patients',
-  'day_routines',
   'medications',
   'dose_schedules',
   'fixed_timings',
@@ -395,9 +394,8 @@ class SyncService {
     // ومش محتاجة توصل. ونفس شرط المريض اللي في [_pushPatients].
     const patient = 'exists (select 1 from patients p where p.id = t.patient_id)';
     final scoped = <String, String>{
-      'patients': "exists (select 1 from day_routines r where r.patient_id = t.id) "
-          "or exists (select 1 from medications m where m.patient_id = t.id)",
-      'day_routines': patient,
+      'patients': 'profile_done_at is not null '
+          'or exists (select 1 from medications m where m.patient_id = t.id)',
       'medications': patient,
       'dose_schedules': 'exists (select 1 from medications m where m.id = t.medication_id)',
       'fixed_timings': 'exists (select 1 from dose_schedules s where s.id = t.dose_schedule_id)',
@@ -488,7 +486,6 @@ class SyncService {
     var failed = false;
     try {
       await _pushPatients();
-      await _pushDayRoutines();
       await _pushMedications();
       await _pushDoseSchedules();
       await _pushFixedTimings();
@@ -581,6 +578,8 @@ class SyncService {
   static const _optionalColumns = <String, Set<String>>{
     // ٠٠٢٦: تفاصيل الدوا اللي الممرض بيشوفها
     'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at'},
+    // ٠٠٣٤: «قبل الأكل» وأخواتها — كلمة تعليمات على الجرعة
+    'dose_schedules': {'meal_relation'},
   };
 
   /// «العمود مش موجود» من PostgREST (PGRST204) أو من بوستجرس (42703).
@@ -615,13 +614,13 @@ class SyncService {
 
   Future<void> _pushPatients() async {
     // مريض لسه ما اتعرّفناش عليه (صف «أنا» الفاضي اللي ensurePatient بيعمله
-    // عند الإقلاع — D4) مالوش مكان في السحابة: من غير روتين ومن غير أدوية
-    // مفيش حاجة تتتابع، وعلى موبايل ابن الصف ده مش مريض أصلاً. بيفضل متوسّخ
-    // ويطلع أول ما يبقى ليه روتين أو دوا.
+    // عند الإقلاع — D4) مالوش مكان في السحابة: من غير «نتعرّف عليك» ومن غير
+    // أدوية مفيش حاجة تتتابع، وعلى موبايل ابن الصف ده مش مريض أصلاً. بيفضل
+    // متوسّخ ويطلع أول ما يبقى ليه اسم أو دوا.
     final rows = await (_db.select(_db.patients)
           ..where((t) =>
               _dirty(_cols(t.syncedAtMs, t.updatedAtMs)) &
-              (existsQuery(_db.select(_db.dayRoutines)..where((r) => r.patientId.equalsExp(t.id))) |
+              (t.profileDoneAt.isNotNull() |
                   existsQuery(_db.select(_db.medications)..where((m) => m.patientId.equalsExp(t.id))))))
         .get();
     await _upsertAndMark(
@@ -640,41 +639,6 @@ class SyncService {
       ],
       (uuid, ms) => (_db.update(_db.patients)..where((t) => t.uuid.equals(uuid)))
           .write(PatientsCompanion(syncedAtMs: Value(ms))),
-    );
-  }
-
-  Future<void> _pushDayRoutines() async {
-    final query = _db.select(_db.dayRoutines).join([
-      innerJoin(_db.patients, _db.patients.id.equalsExp(_db.dayRoutines.patientId)),
-    ])
-      ..where(_db.dayRoutines.syncedAtMs.isNull() |
-          _db.dayRoutines.syncedAtMs.isSmallerThan(_db.dayRoutines.updatedAtMs));
-    final rows = await query.get();
-    await _upsertAndMark(
-      'day_routines',
-      [
-        for (final row in rows)
-          () {
-            final r = row.readTable(_db.dayRoutines);
-            final p = row.readTable(_db.patients);
-            return (
-              uuid: r.uuid,
-              updatedAtMs: r.updatedAtMs,
-              json: {
-                'uuid': r.uuid,
-                'patient_uuid': p.uuid,
-                'wake_minutes': r.wakeMinutes,
-                'breakfast_minutes': r.breakfastMinutes,
-                'lunch_minutes': r.lunchMinutes,
-                'dinner_minutes': r.dinnerMinutes,
-                'sleep_minutes': r.sleepMinutes,
-              }
-            );
-          }(),
-      ],
-      (uuid, ms) =>
-          (_db.update(_db.dayRoutines)..where((t) => t.uuid.equals(uuid)))
-              .write(DayRoutinesCompanion(syncedAtMs: Value(ms))),
     );
   }
 
@@ -753,9 +717,11 @@ class SyncService {
               json: {
                 'uuid': s.uuid,
                 'medication_uuid': m.uuid,
-                'timing_kind': s.timingKind.name,
-                'anchor': s.anchor?.name,
-                'offset_minutes': s.offsetMinutes,
+                // السحابة لسه بتعرف نوعين؛ المحلي بقى ساعة ثابتة بس (v30)
+                'timing_kind': 'fixed',
+                'anchor': null,
+                'offset_minutes': null,
+                'meal_relation': s.mealRelation,
                 'repeat': s.repeat.name,
                 'start_date': dateOnly(s.startDate),
                 'duration_days': s.durationDays,
@@ -791,9 +757,10 @@ class SyncService {
                 json: {
                   'uuid': s.uuid,
                   'medication_uuid': m.uuid,
-                  'timing_kind': s.timingKind.name,
-                  'anchor': s.anchor?.name,
-                  'offset_minutes': s.offsetMinutes,
+                  'timing_kind': 'fixed',
+                  'anchor': null,
+                  'offset_minutes': null,
+                  'meal_relation': s.mealRelation,
                   'repeat': s.repeat.name,
                   'start_date': dateOnly(s.startDate),
                   'duration_days': s.durationDays,

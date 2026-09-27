@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart' show isDoseId;
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/records/record_kinds.dart' show RecordPeriod;
@@ -30,7 +30,7 @@ void main() {
   Future<int> seed({String name = 'Concor 5mg'}) => h.meds.addMedicationWithDoses(
         patientId: h.services.patientId,
         name: name,
-        timings: const [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)],
+        timings: const [FixedTiming(MinuteOfDay.hm(7, 30)), FixedTiming(MinuteOfDay.hm(20))],
         startDate: today,
         amountLabel: 'قرص',
       );

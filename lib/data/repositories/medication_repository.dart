@@ -4,14 +4,13 @@ import '../../domain/medication/duplicate_check.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/day_pattern.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/routine_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../mappers.dart';
-import 'routine_repository.dart';
 
 /// دوا وجداوله مع بعض.
 class MedicationSummary {
@@ -24,7 +23,7 @@ class MedicationSummary {
 /// دوا واحد زي ما هيتكتب — اسمه وجرعاته ومدته.
 typedef MedicationWrite = ({
   String name,
-  List<DoseTiming> timings,
+  List<FixedTiming> timings,
   String? amountLabel,
   bool amountUnknown,
   int? durationDays,
@@ -34,6 +33,9 @@ typedef MedicationWrite = ({
 
   /// بداية الدوا ده لوحده — null = تاريخ الدفعة.
   DateTime? startDate,
+
+  /// «قبل الأكل» وأخواتها — كلمة تعليمات على كل جرعة، مش توقيت.
+  MealRelation? mealRelation,
 });
 
 class MedicationRepository {
@@ -73,7 +75,7 @@ class MedicationRepository {
           _db.medications,
           _db.medications.id.equalsExp(_db.doseSchedules.medicationId),
         ),
-        // الساعة الثابتة في جدولها لوحدها — بتيجي null لجرعات المراسي.
+        // الساعة في جدولها لوحدها (صف لكل جرعة).
         leftOuterJoin(
           _db.fixedTimings,
           _db.fixedTimings.doseScheduleId.equalsExp(_db.doseSchedules.id),
@@ -110,7 +112,7 @@ class MedicationRepository {
   Future<int> addMedicationWithDoses({
     required int patientId,
     required String name,
-    required List<DoseTiming> timings,
+    required List<FixedTiming> timings,
     required DateTime startDate,
     String? amountLabel,
     bool amountUnknown = false,
@@ -130,6 +132,9 @@ class MedicationRepository {
 
     /// أنهي أيام (الجولة ٢) — «كل يوم» افتراضياً.
     DayPattern days = DayPattern.everyDay,
+
+    /// «قبل الأكل» وأخواتها — على كل جرعة من جرعاته. تعليمات، مش توقيت.
+    MealRelation? mealRelation,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -155,6 +160,7 @@ class MedicationRepository {
           repeat: repeat,
           durationDays: durationDays,
           days: days,
+          mealRelation: mealRelation,
         );
       }
       return medicationId;
@@ -192,6 +198,7 @@ class MedicationRepository {
               alertMode: m.alertMode,
               purpose: m.purpose,
               instructions: m.instructions,
+              mealRelation: m.mealRelation,
               repeat: onceAt.contains(i) ? DoseRepeat.once : DoseRepeat.daily,
             ),
           );
@@ -203,12 +210,13 @@ class MedicationRepository {
   Future<int> addMedication({
     required int patientId,
     required String name,
-    required DoseTiming timing,
+    required FixedTiming timing,
     required DateTime startDate,
     String? amountLabel,
     bool amountUnknown = false,
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
+    MealRelation? mealRelation,
   }) =>
       addMedicationWithDoses(
         patientId: patientId,
@@ -219,6 +227,7 @@ class MedicationRepository {
         amountUnknown: amountUnknown,
         repeat: repeat,
         durationDays: durationDays,
+        mealRelation: mealRelation,
       );
 
   /// بيضيف جرعة تانية لدوا موجود.
@@ -227,89 +236,68 @@ class MedicationRepository {
   /// الجدول بيسمح بيها من الأول، ودي الطريقة اللي بتتكتب بيها.
   Future<int> addDoseSchedule(
     int medicationId, {
-    required DoseTiming timing,
+    required FixedTiming timing,
     required DateTime startDate,
     DoseRepeat repeat = DoseRepeat.daily,
     int? durationDays,
     DayPattern days = DayPattern.everyDay,
+    MealRelation? mealRelation,
   }) =>
       _db.transaction(
         () => _insertSchedule(
           medicationId,
           timing: timing,
           startDate: startDate,
+          mealRelation: mealRelation,
           repeat: repeat,
           durationDays: durationDays,
           days: days,
         ),
       );
 
-  /// يوم البداية زي ما `isActiveOn` هتقارنه: بيوم الروتين، مش بالتقويم
-  /// ([startDayFor]). من غير روتين محفوظ الافتراضي — نفس اللي المجدول بيستعمله.
-  Future<DateTime> _effectiveStart(int medicationId, DateTime chosen, DateTime now) async {
-    final med = await (_db.select(_db.medications)..where((t) => t.id.equals(medicationId))).getSingleOrNull();
-    final routine = med == null ? null : await RoutineRepository(_db).getRoutine(med.patientId);
-    return startDayFor(routine ?? DayRoutine.fallback, chosen, now);
-  }
+  /// يوم البداية زي ما `isActiveOn` هتقارنه: بيوم الروتين (٤ الفجر)، مش
+  /// بالتقويم ([startDayFor]).
+  DateTime _effectiveStart(DateTime chosen, DateTime now) => startDayFor(chosen, now);
 
-  /// الكتابة الوحيدة لصف جرعة: النوع بيتكتب مع الصف، والساعة الثابتة في
-  /// جدولها — في نفس المعاملة، فمفيش صف `fixed` من غير ساعة ولا العكس.
+  /// الكتابة الوحيدة لصف جرعة: الصف وساعته في جدولها — في نفس المعاملة،
+  /// فمفيش صف من غير ساعة ولا العكس.
   Future<int> _insertSchedule(
     int medicationId, {
-    required DoseTiming timing,
+    required FixedTiming timing,
     required DateTime startDate,
     required DoseRepeat repeat,
     required int? durationDays,
     DayPattern days = DayPattern.everyDay,
+    MealRelation? mealRelation,
   }) async {
     // القاعدة سارية من دلوقتي — جرعة معادها قبل كده ما كانتش موجودة.
     final activeFrom = _clock();
     // «النهارده» بعد نص الليل وقبل الصحيان = يوم الروتين اللي لسه ماشي،
     // عشان جرعة الليلة دي (١٢:٥٢ ص) ما تتشالش — شوف `startDayFor`.
-    final day = await _effectiveStart(medicationId, startDate, activeFrom);
+    final day = _effectiveStart(startDate, activeFrom);
     final cols = dayPatternColumns(days);
 
     final id = await _db.into(_db.doseSchedules).insert(
-          switch (timing) {
-            AnchorTiming(:final anchor, :final offsetMinutes) =>
-              DoseSchedulesCompanion.insert(
-                medicationId: medicationId,
-                timingKind: const Value(DoseTimingKind.anchor),
-                anchor: Value(anchor),
-                offsetMinutes: Value(offsetMinutes),
-                repeat: repeat,
-                startDate: day,
-                // null = مدة مفتوحة. ما بنخمّنش مدة أبداً.
-                durationDays: Value(durationDays),
-                activeFrom: Value(activeFrom),
-                weekdaysMask: Value(cols.weekdaysMask),
-                everyDays: Value(cols.everyDays),
-                cycleOn: Value(cols.cycleOn),
-                cycleOff: Value(cols.cycleOff),
-              ),
-            FixedTiming() => DoseSchedulesCompanion.insert(
-                medicationId: medicationId,
-                timingKind: const Value(DoseTimingKind.fixed),
-                repeat: repeat,
-                startDate: day,
-                durationDays: Value(durationDays),
-                activeFrom: Value(activeFrom),
-                weekdaysMask: Value(cols.weekdaysMask),
-                everyDays: Value(cols.everyDays),
-                cycleOn: Value(cols.cycleOn),
-                cycleOff: Value(cols.cycleOff),
-              ),
-          },
+          DoseSchedulesCompanion.insert(
+            medicationId: medicationId,
+            repeat: repeat,
+            startDate: day,
+            // null = مدة مفتوحة. ما بنخمّنش مدة أبداً.
+            durationDays: Value(durationDays),
+            activeFrom: Value(activeFrom),
+            mealRelation: Value(mealRelation?.storageName),
+            weekdaysMask: Value(cols.weekdaysMask),
+            everyDays: Value(cols.everyDays),
+            cycleOn: Value(cols.cycleOn),
+            cycleOff: Value(cols.cycleOff),
+          ),
         );
-
-    if (timing case FixedTiming(:final minuteOfDay)) {
-      await _db.into(_db.fixedTimings).insert(
-            FixedTimingsCompanion.insert(
-              doseScheduleId: Value(id),
-              minuteOfDay: minuteOfDay.minutes,
-            ),
-          );
-    }
+    await _db.into(_db.fixedTimings).insert(
+          FixedTimingsCompanion.insert(
+            doseScheduleId: Value(id),
+            minuteOfDay: timing.minuteOfDay.minutes,
+          ),
+        );
     return id;
   }
 
@@ -362,53 +350,43 @@ class MedicationRepository {
     return byMed.values.toList();
   }
 
-  /// تغيير توقيت جرعة موجودة — بإيد إنسان من محرّر الجرعة.
-  ///
-  /// نفس قاعدة الكتابة: النوع على الصف، والساعة الثابتة في جدولها، في
-  /// معاملة واحدة. مرساة → أنكر + إزاحة والساعة الثابتة بتتمسح؛ ساعة ثابتة →
-  /// المرساة والإزاحة null والساعة بتتكتب في fixed_timings. الصف نفسه بيفضل
-  /// (نفس id وuuid) فأحداث اليوم اللي عليه ما بتضيعش.
   /// نوع التنبيه بتاع دوا محفوظ — null = ارجع لإعداد الجهاز. اللي بينده
   /// لازم يعيد الجدولة بعدها: الإعادات بتتبني وقت الجدولة.
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(MedicationsCompanion(alertMode: Value(mode?.storageName)));
 
-  Future<void> updateTiming(int scheduleId, DoseTiming timing) =>
+  /// «قبل الأكل» وأخواتها على كل جرعات الدوا — تعليمات، ما بتحرّكش ساعة
+  /// ولا بتحتاج إعادة جدولة. null = شيلها.
+  Future<void> updateMealRelation(int medicationId, MealRelation? relation) =>
+      (_db.update(_db.doseSchedules)..where((t) => t.medicationId.equals(medicationId)))
+          .write(DoseSchedulesCompanion(mealRelation: Value(relation?.storageName)));
+
+  /// تغيير ساعة جرعة موجودة — بإيد إنسان من محرّر الجرعة.
+  ///
+  /// نفس قاعدة الكتابة: الساعة في جدولها، في معاملة واحدة. الصف نفسه بيفضل
+  /// (نفس id وuuid) فأحداث اليوم اللي عليه ما بتضيعش.
+  Future<void> updateTiming(int scheduleId, FixedTiming timing) =>
       _db.transaction(() async {
         final now = _clock();
         // نفس قاعدة الإضافة: تعديل بعد نص الليل على دوا بادئ «النهارده» —
         // البداية بتتحرك ليوم الروتين عشان جرعة الليلة دي تتحسب.
         final row = await (_db.select(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).getSingle();
-        final start = await _effectiveStart(row.medicationId, row.startDate, now);
+        final start = _effectiveStart(row.startDate, now);
         await (_db.update(_db.doseSchedules)..where((t) => t.id.equals(scheduleId))).write(
-          switch (timing) {
-            AnchorTiming(:final anchor, :final offsetMinutes) => DoseSchedulesCompanion(
-                timingKind: const Value(DoseTimingKind.anchor),
-                anchor: Value(anchor),
-                offsetMinutes: Value(offsetMinutes),
-                // التوقيت الجديد ساري من لحظة التعديل
-                activeFrom: Value(now),
-                startDate: Value(start),
-              ),
-            FixedTiming() => DoseSchedulesCompanion(
-                timingKind: const Value(DoseTimingKind.fixed),
-                anchor: const Value(null),
-                offsetMinutes: const Value(null),
-                activeFrom: Value(now),
-                startDate: Value(start),
-              ),
-          },
+          DoseSchedulesCompanion(
+            // التوقيت الجديد ساري من لحظة التعديل
+            activeFrom: Value(now),
+            startDate: Value(start),
+          ),
         );
         await (_db.delete(_db.fixedTimings)..where((t) => t.doseScheduleId.equals(scheduleId))).go();
-        if (timing case FixedTiming(:final minuteOfDay)) {
-          await _db.into(_db.fixedTimings).insert(
-                FixedTimingsCompanion.insert(
-                  doseScheduleId: Value(scheduleId),
-                  minuteOfDay: minuteOfDay.minutes,
-                ),
-              );
-        }
+        await _db.into(_db.fixedTimings).insert(
+              FixedTimingsCompanion.insert(
+                doseScheduleId: Value(scheduleId),
+                minuteOfDay: timing.minuteOfDay.minutes,
+              ),
+            );
       });
 
   /// الجرعة زي ما الصيدلي قالها. نص فاضي = لسه مش معروفة.

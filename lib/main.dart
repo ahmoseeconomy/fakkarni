@@ -22,7 +22,6 @@ import 'data/push/push_token_service.dart';
 import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
-import 'core/widgets/patient_voice.dart';
 import 'core/widgets/keyboard_dismiss.dart';
 import 'dart:async' show unawaited;
 
@@ -242,7 +241,7 @@ Future<void> main() async {
   //
   // اختبار بيقرا الملف ده ويوقع لو الترتيب اتقلب — كسرناه مرتين في يوم
   // واحد، مرة في الـisolate ومرة هنا.
-  final patient = await services.routines.getPatient(services.patientId);
+  final patient = await services.patients.getPatient(services.patientId);
   unawaited(HealthWatcher(
     collector: HealthCollector(services),
     // النبضة بس لما صف المريض في السحابة وبتاع الجلسة دي — نفس بوابة الدفع.
@@ -293,14 +292,11 @@ class FakkarniApp extends StatelessWidget {
         // بتتبني تحتها من أول فريم، وهي بتتلاشى بعد ١.٦ ث.
         builder: (context, child) => Directionality(
           textDirection: TextDirection.rtl,
-          // صوت المريض بجنسه فوق الـNavigator — كل شاشة بتتفتح بـpush بتشوفه
-          child: PatientVoiceScope(
-            // ودوسة برّه أي حقل بتقفل الكيبورد — في الجذر، فوق كل شاشة.
-            child: KeyboardDismiss(
-              // الترجمة المكتوبة لكل جملة بيقولها الرفيق — فوق كل شاشة
-              child: VoiceCaptionOverlay(
-                child: SplashOverlay(child: child ?? const SizedBox.shrink()),
-              ),
+          // دوسة برّه أي حقل بتقفل الكيبورد — في الجذر، فوق كل شاشة.
+          child: KeyboardDismiss(
+            // الترجمة المكتوبة لكل جملة بيقولها الرفيق — فوق كل شاشة
+            child: VoiceCaptionOverlay(
+              child: SplashOverlay(child: child ?? const SizedBox.shrink()),
             ),
           ),
         ),

@@ -39,7 +39,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await h.pump(tester, TodayScreen(routine: normalDay, now: now ?? sep15));
+    await h.pump(tester, TodayScreen(now: now ?? sep15));
     await settle(tester);
   }
 

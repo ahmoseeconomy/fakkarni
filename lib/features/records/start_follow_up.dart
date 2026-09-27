@@ -11,7 +11,6 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../health/scan_lab_screen.dart';
 import '../scan/scan_prescription_screen.dart';
 
@@ -173,13 +172,11 @@ Future<int?> scanForFollowUp(BuildContext context, FollowKind kind, {DateTime? t
   final services = AppScope.of(context);
   int? saved;
   void onSaved(int id) => saved = id;
-  final routine = await services.routines.getRoutine(services.patientId);
   if (!context.mounted) return null;
   await Navigator.of(context).push<void>(MaterialPageRoute<void>(
     builder: (_) => kind == FollowKind.lab
         ? ScanLabScreen(reader: services.labReader, today: today, onSaved: onSaved)
         : ScanPrescriptionScreen(
-            routine: routine ?? DayRoutine.fallback,
             reader: services.prescriptionReader,
             today: today,
             onSaved: onSaved,

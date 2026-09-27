@@ -22,7 +22,9 @@ import '../../domain/health/follow_up.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/medication/stock.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../ai/prescription_reading.dart' show defaultTimesFor;
+import '../../domain/medication/meal_relation.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/voice/answer_parser.dart';
 import '../../domain/voice/arabic_dates.dart';
@@ -66,10 +68,13 @@ class DoseCandidate {
 
 /// «ضيفلي دوا» → الفورم العادي **متعبّي** — ولا حاجة بتتحفظ غير من «احفظ».
 class AddMedPrefill {
-  const AddMedPrefill({this.name, this.purpose, this.timings = const [], this.once = false, this.durationDays, this.startDate});
+  const AddMedPrefill({this.name, this.purpose, this.timings = const [], this.once = false, this.durationDays, this.startDate, this.mealRelation});
   final String? name;
   final MedicationPurpose? purpose;
-  final List<DoseTiming> timings;
+  final List<FixedTiming> timings;
+
+  /// «بعد الفطار» → «بعد الأكل» — كلمة تعليمات على الفورم، مش ساعة.
+  final MealRelation? mealRelation;
   final bool once;
   final int? durationDays;
   final DateTime? startDate;
@@ -417,8 +422,6 @@ class CommandFlow extends ChangeNotifier {
         return _addQuestion(cmd, gen);
       case CommandIntent.markBought:
         return _markBought(cmd, gen);
-      case CommandIntent.setRoutine:
-        return _setRoutine(cmd, gen);
     }
   }
 
@@ -646,18 +649,6 @@ class CommandFlow extends ChangeNotifier {
     await _askYes('اشتريت ${med.name}');
   }
 
-  Future<void> _setRoutine(VoiceCommand cmd, int gen) async {
-    final r = cmd.routine!;
-    final anchor = _anchorOf(r.anchorWord);
-    if (anchor == null) return _fail(gen);
-    final at = DateTime(routineDay.year, routineDay.month, routineDay.day, r.time.hour, r.time.minute);
-    _pendingWrite = () async {
-      await services.routines.setAnchor(services.patientId, anchor, MinuteOfDay(r.time.minutes));
-      await services.scheduler.rescheduleAll(now: _clock());
-    };
-    await _askYes('أخلّي ${anchor.label} الساعة ${voiceTime(at)}');
-  }
-
   // ---------------------------------------------------------------- أيوه / لأ
 
   /// **دوسة الدايرة** — نفس `onPress` بتاع `MicOrb`: والموبايل بيتكلم ← يسكت
@@ -796,15 +787,19 @@ class CommandFlow extends ChangeNotifier {
       final timings = [...c.timings];
       timings[ambiguous] = t == null ? const SpokenTiming() : SpokenTiming(fixed: t);
       c = c.copyWith(timings: [for (final x in timings) if (x.fixed != null || x.anchorWord != null) x]);
-    } else if (c.timings.isEmpty && c.timesPerDay == null && c.everyHours == null) {
-      final answer = await _followUp('تاخده إمتى؟', gen);
+    } else if (!c.timings.any((t) => t.fixed != null) && c.timesPerDay == null && c.everyHours == null) {
+      // «بعد الفطار» لوحدها كلمة أكل مش ساعة (الروتين اتشال) — الساعة بتتسأل
+      final answer = await _followUp('الساعة كام؟', gen);
       if (answer != null) {
         final more = parseCommand('ضيف دوا ${c.medWords ?? ''} $answer', now: _clock());
-        if (more.intent == CommandIntent.addMed && (more.timings.isNotEmpty || more.timesPerDay != null || more.everyHours != null)) {
+        if (more.intent == CommandIntent.addMed && (more.timings.any((t) => t.fixed != null) || more.timesPerDay != null || more.everyHours != null)) {
           c = VoiceCommand(
             CommandIntent.addMed,
             medWords: c.medWords,
-            timings: more.timings.where((t) => t.hourNeedsPeriod == null).toList(),
+            timings: [
+              ...c.timings.where((t) => t.relation != null),
+              ...more.timings.where((t) => t.hourNeedsPeriod == null),
+            ],
             timesPerDay: more.timesPerDay,
             everyHours: more.everyHours,
             once: c.once || more.once,
@@ -826,6 +821,7 @@ class CommandFlow extends ChangeNotifier {
       once: c.once,
       durationDays: c.durationDays,
       startDate: c.startDate,
+      mealRelation: _mealOf(c),
     );
     _set(CommandPhase.done, '');
     unawaited(voice.stop());
@@ -876,44 +872,24 @@ class CommandFlow extends ChangeNotifier {
     return null;
   }
 
-  static DayAnchor? _anchorOf(String? word) => switch (word) {
-        'الصحيان' => DayAnchor.wake,
-        'الفطار' => DayAnchor.breakfast,
-        'الغدا' => DayAnchor.lunch,
-        'العشا' => DayAnchor.dinner,
-        'النوم' => DayAnchor.sleep,
-        _ => null,
-      };
-
-  static int _offset(DayAnchor anchor, MealRelation? r) => switch (r) {
-        MealRelation.before || null => -defaultOffsetBefore(anchor),
-        MealRelation.with_ => 0,
-        MealRelation.after => 30,
-      };
-
-  /// كلمات المواعيد → مراسي الفورم (نفس عُرف «ضيف دوا»: ١× الفطار، ٢× +العشا،
-  /// ٣× +الغدا). الفورم بيعرضها والمريض بيعدّلها — ومفيش حفظ هنا.
-  static List<DoseTiming> _timingsFor(VoiceCommand cmd) {
-    final out = <DoseTiming>[];
-    MealRelation? relationOnly;
+  /// «قبل/مع/بعد الأكل» من الكلام — كلمة تعليمات للفورم، مش ساعة.
+  static MealRelation? _mealOf(VoiceCommand cmd) {
     for (final t in cmd.timings) {
-      if (t.fixed != null) {
-        out.add(FixedTiming(MinuteOfDay(t.fixed!.minutes)));
-        continue;
-      }
-      final anchor = _anchorOf(t.anchorWord);
-      if (anchor == null) {
-        relationOnly ??= t.relation;
-        continue;
-      }
-      out.add(AnchorTiming(anchor, _offset(anchor, t.relation)));
+      if (t.relation != null) return t.relation;
     }
-    if (out.isEmpty && (cmd.timesPerDay != null || relationOnly != null)) {
-      const order = [DayAnchor.breakfast, DayAnchor.dinner, DayAnchor.lunch, DayAnchor.sleep, DayAnchor.wake];
-      final n = (cmd.timesPerDay ?? 1).clamp(1, order.length);
-      for (final a in order.take(n)) {
-        out.add(AnchorTiming(a, _offset(a, relationOnly)));
-      }
+    return null;
+  }
+
+  /// الساعات المقولة بالحرف → الفورم؛ «كام مرة» من غير ساعات → الساعات
+  /// الافتراضية (نفس عُرف «ضيف دوا» والروشتة). الفورم بيعرضها والمريض
+  /// بيعدّلها — ومفيش حفظ هنا.
+  static List<FixedTiming> _timingsFor(VoiceCommand cmd) {
+    final out = <FixedTiming>[
+      for (final t in cmd.timings)
+        if (t.fixed != null) FixedTiming(MinuteOfDay(t.fixed!.minutes)),
+    ];
+    if (out.isEmpty && cmd.timesPerDay != null) {
+      out.addAll(defaultTimesFor(cmd.timesPerDay!));
     }
     return out;
   }

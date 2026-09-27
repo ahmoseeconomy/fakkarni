@@ -159,19 +159,6 @@ void main() {
     });
   });
 
-  group('set_routine', () {
-    for (final s in ['بفطر الساعة ٨', 'الفطار الساعة ٨ الصبح', 'بنام الساعة ١١', 'بصحى الساعة ٦', 'بتغدى الساعة ٣', 'بتعشى الساعة ٩ بالليل']) {
-      intent(s, CommandIntent.setRoutine);
-    }
-    test('المرساة والساعة — جزء اليوم من المرساة نفسها لما ما يتقالش', () {
-      expect(p('بفطر الساعة ٨').routine, isA<SpokenRoutine>().having((r) => r.anchorWord, 'anchor', 'الفطار').having((r) => r.time, 'time', const SpokenTime(8, 0)));
-      expect(p('بنام الساعة ١١').routine!.time, const SpokenTime(23, 0));
-      expect(p('بتغدى الساعة ٣').routine!.time, const SpokenTime(15, 0));
-      expect(p('بتعشى الساعة ٩ بالليل').routine!.time, const SpokenTime(21, 0));
-      expect(p('بصحى الساعة ٦').routine!.time, const SpokenTime(6, 0));
-    });
-  });
-
   group('stock_status (قراية)', () {
     for (final s in ['الدوا فاضل كام', 'فاضلي كام حباية من الكونكور', 'المخزون إيه', 'إيه اللي قرب يخلص', 'الأدوية اللي خلصت']) {
       intent(s, CommandIntent.stockStatus);

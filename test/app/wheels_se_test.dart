@@ -12,19 +12,13 @@ import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
-import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
 import 'package:fakkarni/features/records/checkup_screen.dart' show FastingSheet;
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/features/routine/ask_anchor_time.dart';
-import 'package:fakkarni/features/routine/edit_routine_screen.dart';
-import 'package:fakkarni/features/routine/ramadan_screen.dart';
 
 import '../support/seeded_clock.dart';
 
@@ -61,13 +55,6 @@ class _SilentSink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 void main() {
   setUpAll(_loadFonts);
@@ -76,17 +63,15 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, _routine);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -134,23 +119,16 @@ void main() {
     expect(button.bottom, lessThanOrEqualTo(667), reason: '«$label» تحت حافة SE: $button');
   }
 
-  testWidgets('محرّر الجرعة: المراسي وبكرة الإزاحة، و«احفظ الجرعة» ظاهر', (tester) async {
-    await pumpSE(tester, DoseEditor(name: 'Concor', routine: _routine, onSave: (_) async {}));
-    expect(find.byKey(const ValueKey('gap-wheel')), findsOneWidget);
-    expectPrimaryVisible(tester, 'احفظ الجرعة');
-    expect(find.byType(FTimeWheel), findsNothing);
-  });
-
-  testWidgets('محرّر الجرعة على ساعة ثابتة: بكرة الساعة و«احفظ الجرعة» ظاهر', (tester) async {
-    await pumpSE(tester, DoseEditor(name: 'Concor', routine: _routine, onSave: (_) async {}));
-    await tester.tap(find.byKey(const ValueKey('mode-fixed')));
-    await settle(tester);
+  testWidgets('محرّر الجرعة: «الساعة كام؟» بشرايحها وبكرة الساعة، و«احفظ الجرعة» ظاهر', (tester) async {
+    await pumpSE(tester, DoseEditor(name: 'Concor', onSave: (_) async {}));
+    expect(find.text('الساعة كام؟'), findsOneWidget);
     expect(find.byType(FTimeWheel), findsOneWidget);
+    expect(find.byKey(const ValueKey('gap-wheel')), findsNothing, reason: 'مفيش إزاحة ولا مراسي');
     expectPrimaryVisible(tester, 'احفظ الجرعة');
   });
 
   testWidgets('«ضيف دوا» بـ«أكتر» مفتوحة: البكرة و«احفظ» ظاهر، وشرايح «مع الأكل» الأربعة بكلمتها', (tester) async {
-    await pumpSE(tester, AddMedicationScreen(routine: _routine));
+    await pumpSE(tester, AddMedicationScreen());
     expect(tester.takeException(), isNull, reason: 'فيض على SE');
 
     // القايمة كسولة والفورم أطول من SE — بنلفّ لكل حاجة قبل ما ندوس عليها.
@@ -170,8 +148,8 @@ void main() {
     await settle(tester);
     expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
     // ٢×٢: كل كلمة كاملة وفي سطر واحد — مفيش قصّ
-    await scrollTo(find.text('ساعة محددة'));
-    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'ساعة محددة']) {
+    await scrollTo(find.text('على معدة فاضية'));
+    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية']) {
       final text = tester.widget<Text>(find.text(w));
       expect(text.maxLines ?? 1, 1, reason: w);
       expect(tester.getSize(find.text(w)).width, lessThan(375 / 2), reason: '«$w» أوسع من نص الشاشة');
@@ -193,74 +171,24 @@ void main() {
           theme: F.light,
           home: MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
-            child: Directionality(textDirection: TextDirection.rtl, child: AddMedicationScreen(routine: _routine)),
+            child: Directionality(textDirection: TextDirection.rtl, child: AddMedicationScreen()),
           ),
         ),
       ),
     );
     await settle(tester);
     expect(tester.takeException(), isNull, reason: 'فيض على SE بخط ×١٫٣');
-    for (var i = 0; i < 14 && find.text('ساعة محددة').evaluate().isEmpty; i++) {
+    for (var i = 0; i < 14 && find.text('على معدة فاضية').evaluate().isEmpty; i++) {
       await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
       await settle(tester);
     }
-    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'ساعة محددة']) {
+    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية']) {
       expect(find.text(w), findsOneWidget, reason: w);
     }
     expect(tester.takeException(), isNull);
     expectPrimaryVisible(tester, 'احفظ');
   });
 
-  testWidgets('سؤال الروتين: بكرة الساعة و«تمام» ظاهر', (tester) async {
-    await pumpSE(tester, const RoutineOnboardingScreen(askProfile: false));
-    expect(find.byType(FTimeWheel), findsOneWidget);
-    expectPrimaryVisible(tester, 'تمام');
-  });
-
-  testWidgets('عدّل يومك وبكرة مفتوحة: «احفظ يومك» ظاهر', (tester) async {
-    await pumpSE(tester, EditRoutineScreen(routine: _routine));
-    expect(find.byType(FTimeWheel), findsWidgets, reason: 'ظاهرة على طول');
-    expect(find.text('ساعة تانية'), findsNothing);
-    expectPrimaryVisible(tester, 'احفظ يومك');
-  });
-
-  testWidgets('«عدّل يومك» وكل المراسي مش متحددة: خمس «مش متحدد» و«احفظ يومك» ظاهر', (tester) async {
-    await pumpSE(tester, EditRoutineScreen(routine: DayRoutine.none));
-    // القايمة كسولة على SE — اللي ظاهر بيقول «مش متحدد»، والزرار مثبّت تحت
-    expect(find.text('مش متحدد'), findsWidgets);
-    expectPrimaryVisible(tester, 'احفظ يومك');
-  });
-
-  testWidgets('شيت «بتفطر الساعة كام؟» جوّه SE: الاقتراحات والبكرة و«تمام» ظاهرين', (tester) async {
-    await pumpSE(
-      tester,
-      Scaffold(
-        body: Builder(
-          builder: (context) => Center(
-            child: TextButton(
-              onPressed: () => askAnchorTime(context, anchor: DayAnchor.breakfast, say: const Say(null)),
-              child: const Text('افتح'),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('افتح'));
-    await settle(tester);
-    expect(find.text('بتفطر الساعة كام؟'), findsOneWidget);
-    expect(find.byType(FTimeWheel), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    final button = tester.getRect(find.byKey(const ValueKey('anchor-confirm')));
-    expect(button.bottom, lessThanOrEqualTo(667), reason: '«تمام» تحت الحافة: $button');
-    expect(button.top, greaterThanOrEqualTo(0));
-  });
-
-  testWidgets('رمضان: بكرتين السحور والفطار ظاهرين و«فعّل وضع رمضان» ظاهر', (tester) async {
-    await pumpSE(tester, RamadanScreen(today: DateTime(2026, 9, 15)));
-    expect(find.byType(FTimeWheel), findsNWidgets(2));
-    expect(find.text('غيّر'), findsNothing);
-    expectPrimaryVisible(tester, 'فعّل وضع رمضان');
-  });
 
   testWidgets('شيت تذكير الصيام: بكرة الساعة وبكرة الساعات و«اضبط التذكير» جوّه SE', (tester) async {
     await pumpSE(tester, Scaffold(body: FastingSheet(now: DateTime(2026, 9, 15, 10))));

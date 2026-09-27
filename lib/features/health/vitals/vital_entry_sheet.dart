@@ -11,7 +11,7 @@ import '../../../core/widgets/f_wheels.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/repositories/vitals_repository.dart';
 import '../../../domain/health/vitals.dart';
-import '../../../domain/scheduling/day_routine.dart' show MinuteOfDay;
+import '../../../domain/scheduling/minute_of_day.dart';
 import '../glucose_screen.dart';
 
 /// **«سجّل قياس»** — ورقة واحدة لكل القياسات: الأنواع شرايح، والرقم من

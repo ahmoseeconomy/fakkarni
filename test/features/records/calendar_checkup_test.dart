@@ -10,7 +10,7 @@ import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import 'package:fakkarni/features/records/calendar_screen.dart';
@@ -31,11 +31,11 @@ void main() {
       final medId = await h.meds.addMedication(
         patientId: h.services.patientId,
         name: 'Concor 5mg',
-        timing: const AnchorTiming(DayAnchor.breakfast, 0),
+        timing: FixedTiming(MinuteOfDay.hm(7, 30)),
         startDate: DateTime(2026, 9, 1),
       );
       final schedules = await h.meds.schedulesFor(medId);
-      final engine = ScheduleEngine(normalDay);
+      final engine = const ScheduleEngine();
       final events = DoseEventRepository(h.db);
       for (final day in [DateTime(2026, 9, 14), DateTime(2026, 9, 15)]) {
         await events.materializeDay(

@@ -12,7 +12,6 @@ import '../../domain/adherence/adherence.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/voice/briefing.dart';
-import '../../domain/wording/rule_wording.dart';
 import '../adherence/adherence_sources.dart';
 
 /// مدخلات ملخص اليوم من بيانات «يومك» **المحلية** — الصفوف اللي المحرّك
@@ -35,11 +34,10 @@ BriefingInput briefingInputFor({
   if (live.isNotEmpty) {
     final first = live.first;
     firstAt = first.scheduledAt;
+    // «بعد الأكل» — كلمة التعليمات، لو فيه (الساعة بتتقال من الحدث نفسه)
     for (final s in schedules) {
       if (s.id != first.doseScheduleId.toString()) continue;
-      if (s.timing case AnchorTiming(:final anchor, :final offsetMinutes)) {
-        wording = spokenTimingWording(anchorWords[anchor.name]!, offsetMinutes);
-      }
+      wording = s.ruleLabel;
     }
   }
 

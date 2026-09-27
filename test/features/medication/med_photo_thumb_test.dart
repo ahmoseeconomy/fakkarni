@@ -11,7 +11,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/files/attachment_store.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/features/medication/circle_med_photo.dart';
 import 'package:fakkarni/features/medication/med_photo.dart';
@@ -31,16 +31,15 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     dir = await Directory.systemTemp.createTemp('thumb');
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,

@@ -4,19 +4,15 @@ import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
-import '../../domain/patient/sex.dart';
-import 'routine_question_page.dart' show ProgressDots;
 
-/// «نتعرّف عليك» (المخطط 21) — أول خطوة قبل «ظبّط يومك».
+/// «نتعرّف عليك» (المخطط 21) — أول خطوة وآخرها قبل «يومك».
 ///
-/// **تلات صفحات، سؤال في كل صفحة** (٢٦ سبتمبر ٢٠٢٦): الاسم ← راجل ولا ست
-/// ← السن. نفس البيانات اللي كانت بتتحفظ من الشاشة الواحدة، بتتحفظ مرة
-/// واحدة بعد السن. الصفحة الحالية جاية من برّه ([step]) عشان «رجوع» فوق
-/// يرجع صفحة، والمكتوب بيفضل في الـState هنا بين الصفحات.
+/// **صفحتين، سؤال في كل صفحة**: الاسم ← السن. بتتحفظ مرة واحدة بعد السن.
+/// الصفحة الحالية جاية من برّه ([step]) عشان «رجوع» فوق يرجع صفحة، والمكتوب
+/// بيفضل في الـState هنا بين الصفحات. (كان فيه صفحة «راجل ولا ست؟» بينهم —
+/// اتشالت، ٢٧ سبتمبر ٢٠٢٦.)
 ///
-/// الجنس هو اللي بيخلّي باقي الكلام يطلع صح («بتفطر» / «بتفطري»)، فالأسئلة
-/// اللي بعدها بتتكتب بيه. السن اختياري: لو ما اختارش، بيتحفظ null — مش
-/// بنكتب رقم ما قالهوش.
+/// السن اختياري: لو ما اختارش، بيتحفظ null — مش بنكتب رقم ما قالهوش.
 ///
 /// الجزء التاني في التصميم («الروشتة لو مش مكتوب فيها ميعاد؟») مش هنا:
 /// اختياره التالت «افترض من غير ما تسأل» بيكسر القاعدة ٤.
@@ -27,14 +23,18 @@ class ProfilePage extends StatefulWidget {
     this.step = 0,
     this.onStep,
     this.onInteract,
+    this.busy = false,
     super.key,
   });
 
   final String? initialName;
-  final Future<void> Function({required String name, required Sex sex, int? age}) onDone;
+  final Future<void> Function({required String name, int? age}) onDone;
 
-  /// ٠ الاسم، ١ الجنس، ٢ السن.
+  /// ٠ الاسم، ١ السن.
   final int step;
+
+  /// الحفظ شغّال — الزرار بيقول «ثواني…».
+  final bool busy;
 
   /// «كمّل» على صفحة قبل الأخيرة بتطلب الصفحة اللي بعدها.
   final ValueChanged<int>? onStep;
@@ -42,7 +42,7 @@ class ProfilePage extends StatefulWidget {
   /// أي لمسة (كتابة، اختيار، بكرة) — الصوت بيسكت.
   final VoidCallback? onInteract;
 
-  static const int steps = 3;
+  static const int steps = 2;
 
   @override
   State<ProfilePage> createState() => ProfilePageState();
@@ -54,8 +54,6 @@ class ProfilePageState extends State<ProfilePage> {
     // «أنا» اللي ensurePatient بيحطّه مش اسم — الحقل يبدأ فاضي
     text: widget.initialName == 'أنا' ? '' : (widget.initialName ?? ''),
   );
-  Sex? _sex;
-
   /// null لحد ما يحرّك البكرة بنفسه — السؤال اختياري، والبكرة واقفة على
   /// ٦٠ مش معناه إنه قال ٦٠.
   int? _age;
@@ -67,11 +65,7 @@ class ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  bool get _ready => switch (widget.step) {
-        0 => _name.text.trim().isNotEmpty,
-        1 => _sex != null,
-        _ => _name.text.trim().isNotEmpty && _sex != null,
-      };
+  bool get _ready => _name.text.trim().isNotEmpty;
 
   Future<void> _next() async {
     if (!_ready || _busy) return;
@@ -83,7 +77,7 @@ class ProfilePageState extends State<ProfilePage> {
     }
     setState(() => _busy = true);
     try {
-      await widget.onDone(name: _name.text.trim(), sex: _sex!, age: _age);
+      await widget.onDone(name: _name.text.trim(), age: _age);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,10 +85,10 @@ class ProfilePageState extends State<ProfilePage> {
 
   void _touch() => widget.onInteract?.call();
 
-  List<Widget> _page(Say say) => switch (widget.step) {
+  List<Widget> _page() => switch (widget.step) {
         0 => [
             Text(
-              'تلات حاجات بس عشان نكلّمك صح. لو بتظبط الموبايل لحد تاني، اكتب بياناته هو.',
+              'حاجتين بس. لو بتظبط الموبايل لحد تاني، اكتب بياناته هو.',
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.35),
             ),
             const SizedBox(height: F.gap),
@@ -127,41 +121,11 @@ class ProfilePageState extends State<ProfilePage> {
               ),
             ),
           ],
-        1 => [
-            const _Label('راجل ولا ست؟'),
-            Row(
-              children: [
-                Expanded(
-                  child: AnchorChip(
-                    key: const ValueKey('sex-m'),
-                    label: 'راجل',
-                    selected: _sex == Sex.m,
-                    onTap: () {
-                      _touch();
-                      setState(() => _sex = Sex.m);
-                    },
-                  ),
-                ),
-                const SizedBox(width: F.s10),
-                Expanded(
-                  child: AnchorChip(
-                    key: const ValueKey('sex-f'),
-                    label: 'ست',
-                    selected: _sex == Sex.f,
-                    onTap: () {
-                      _touch();
-                      setState(() => _sex = Sex.f);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
         _ => [
-            _Label(say.pick('سنّك كام؟ (لو حابب)', 'سنّك كام؟ (لو حابّة)')),
+            const _Label('سنّك كام؟ (لو حابب)'),
             AgeWheel(
               value: _age,
-              clearLabel: say.pick('مش عايز أقول', 'مش عايزة أقول'),
+              clearLabel: 'مش عايز أقول',
               onChanged: (v) {
                 _touch();
                 setState(() => _age = v);
@@ -171,8 +135,7 @@ class ProfilePageState extends State<ProfilePage> {
             FCard(
               tone: FCardTone.warm,
               child: Text(
-                'البيانات دي بتفضل على الموبايل ده. بنستخدمها عشان الكلام يطلع مظبوط — '
-                'زي «${say.breakfastQuestion}»',
+                'البيانات دي بتفضل على الموبايل ده — مش بتتبعت لحد.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.6),
               ),
             ),
@@ -181,8 +144,7 @@ class ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // الكلام بيتبع الجنس أول ما يتختار — حتى على الصفحة دي نفسها
-    final say = Say(_sex);
+    final busy = _busy || widget.busy;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -190,7 +152,7 @@ class ProfilePageState extends State<ProfilePage> {
           child: ListView(
             key: ValueKey('profile-step-${widget.step}'),
             padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
-            children: _page(say),
+            children: _page(),
           ),
         ),
         Padding(
@@ -200,8 +162,8 @@ class ProfilePageState extends State<ProfilePage> {
             children: [
               FPrimaryButton(
                 key: const ValueKey('profile-next'),
-                label: _busy ? 'ثواني…' : 'كمّل',
-                onPressed: _ready && !_busy ? _next : null,
+                label: busy ? 'ثواني…' : 'كمّل',
+                onPressed: _ready && !busy ? _next : null,
               ),
               const SizedBox(height: F.s8),
               ProgressDots(current: widget.step + 1, total: ProfilePage.steps),
@@ -233,7 +195,7 @@ class AgeWheel extends StatelessWidget {
   final int? value;
   final ValueChanged<int?> onChanged;
 
-  /// «مش عايز أقول» / «مش عايزة أقول» — بتيجي من [Say.pick].
+  /// «مش عايز أقول».
   final String clearLabel;
 
   static const int minAge = 18;
@@ -309,6 +271,36 @@ class _Label extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.3),
+        ),
+      );
+}
+
+/// نقط التقدّم — الحالية ذهبية (إنت هنا)، والباقي line.
+class ProgressDots extends StatelessWidget {
+  const ProgressDots({required this.current, required this.total, super.key});
+
+  /// ١-based.
+  final int current;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'سؤال ${arabicNumber(current)} من ${arabicNumber(total)}',
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 1; i <= total; i++)
+              Container(
+                key: ValueKey('dot-$i'),
+                width: i == current ? 28 : 10,
+                height: 10,
+                margin: const EdgeInsets.symmetric(horizontal: F.s4),
+                decoration: BoxDecoration(
+                  color: i == current ? F.gold : F.line,
+                  borderRadius: BorderRadius.circular(F.radiusChip),
+                ),
+              ),
+          ],
         ),
       );
 }

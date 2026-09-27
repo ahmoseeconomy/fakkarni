@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
 import 'package:fakkarni/data/repositories/stock_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/edit_medication_screen.dart';
 import 'package:fakkarni/features/medication/refill_actions.dart';
@@ -23,7 +23,7 @@ void main() {
         patientId: h.services.patientId,
         name: 'Concor 5mg',
         amountLabel: 'قرص واحد',
-        timings: const [AnchorTiming(DayAnchor.breakfast, -30), AnchorTiming(DayAnchor.dinner, 0)],
+        timings: const [FixedTiming(MinuteOfDay.hm(7)), FixedTiming(MinuteOfDay.hm(20))],
         startDate: aug31,
       );
 

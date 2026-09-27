@@ -57,8 +57,10 @@ void main() {
       expect(sent!.body, isNot(contains(med)));
     }
     expect(sent!.body, isNot(contains(patientName)));
-    // روتين المريض نفسه ما بيروحش — التعليمات الثابتة بتسمّي أداة `set_routine` وبس
+    // مفيش روتين ولا أداة روتين خالص
     expect(text, isNot(contains('routine')));
+    expect(GeminiCommandReader.systemInstruction, isNot(contains('set_routine')));
+    expect(CloudTool.tools, isNot(contains('set_routine')));
     expect(sent!.body, isNot(contains('"wake"')));
     expect(sent!.headers['x-goog-api-key'], 'test-key');
     expect(sent!.headers.containsKey('Authorization'), isFalse);
@@ -69,14 +71,14 @@ void main() {
     final r = await readerWith(MockClient((_) async => geminiReply({
           'tool': 'add_medication',
           'name': 'الكونكور',
-          'anchors': ['after_breakfast'],
+          'meal_relation': 'after_meal',
           'times': [],
           'pattern': '',
           'note': null,
         }))).read('ضيفلي الكونكور الصبح بعد الفطار');
     expect(r.failed, isFalse);
     expect(r.tool!.tool, 'add_medication');
-    expect(r.tool!.args['anchors'], ['after_breakfast']);
+    expect(r.tool!.args['meal_relation'], 'after_meal');
     expect(r.tool!.args.containsKey('times'), isFalse, reason: 'قايمة فاضية = مش موجودة');
     expect(r.tool!.args.containsKey('pattern'), isFalse, reason: 'فاضي = null');
   });

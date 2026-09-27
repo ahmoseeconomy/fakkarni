@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/domain/medication/meal_relation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/ai/command_reader.dart';
@@ -12,7 +14,7 @@ import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/data/repositories/not_bought_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
@@ -28,7 +30,8 @@ import 'package:fakkarni/features/voice/voice_flags.dart';
 
 import '../../data/voice/fake_listener.dart';
 import '../../data/voice/voice_service_test.dart' show FakePlayer, FakeTts;
-import '../scan/scan_test_support.dart' show Harness, aug31, normalDay;
+import '../scan/scan_test_support.dart' show Harness, aug31;
+import '../../support/legacy_anchor.dart';
 
 class FakeReader implements VoiceCommandReader {
   FakeReader({this.result = const CloudReadResult()});
@@ -73,7 +76,7 @@ void main() {
     return CommandFlow(
       voice: voice,
       services: AppServices(
-        db: s.db, routines: s.routines, medications: s.medications, events: s.events,
+        db: s.db, patients: s.patients, medications: s.medications, events: s.events,
         scheduler: s.scheduler, patientId: s.patientId, voice: voice,
       ),
       routineDay: aug31,
@@ -236,14 +239,16 @@ void main() {
   });
 
   group('ضيفلي دوا', () {
-    test('«ضيفلي دوا الضغط الصبح بعد الفطار» → الفورم متعبّي على طول (مفيش كارت تأكيد)، **وولا صف اتكتب**', () async {
-      final f = await flowWith(['ضيفلي دوا الضغط الصبح بعد الفطار']);
+    test('«ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار» → الفورم متعبّي على طول (مفيش كارت تأكيد)، **وولا صف اتكتب**', () async {
+      final f = await flowWith(['ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار']);
       await f.start();
       expect(tts.spoken, isEmpty);
       expect(f.phase, CommandPhase.done);
       expect(opened, hasLength(1));
       expect(opened.single.purpose, MedicationPurpose.pressure);
-      expect(opened.single.timings, [const AnchorTiming(DayAnchor.breakfast, 30)]);
+      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(8))]);
+      // «بعد الفطار» كلمة أكل — تعليمات، مش ساعة
+      expect(opened.single.mealRelation, MealRelation.after);
       expect(await h.meds.currentMedicines(h.services.patientId), isEmpty, reason: 'الفورم هو اللي بيحفظ');
       expect(said().last, 'cmd_done', reason: 'الفورم رجّع «اتحفظ»');
     });
@@ -253,7 +258,7 @@ void main() {
       final f = await flowWith(['ضيفلي دوا اسمه زنك مرتين في اليوم']);
       await f.start();
       expect(opened.single.name, 'اسمه زنك');
-      expect(opened.single.timings, [const AnchorTiming(DayAnchor.breakfast, -30), const AnchorTiming(DayAnchor.dinner, -30)]);
+      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(9)), FixedTiming(MinuteOfDay.hm(21))], reason: 'ساعات «مرتين» الافتراضية');
       expect(said().where((s) => s == 'cmd_done'), isEmpty);
     });
   });
@@ -315,11 +320,12 @@ void main() {
 
     test('السحابة رجّعت ضيفلي بكلمات → بتتفهم محلي وبتتطابق على الموبايل', () async {
       final reader = FakeReader(
-          result: const CloudReadResult(tool: CloudTool(tool: 'add_medication', args: {'name': 'السكر', 'anchors': ['after_lunch']})));
+          result: const CloudReadResult(tool: CloudTool(tool: 'add_medication', args: {'name': 'السكر', 'times': ['15:00'], 'meal_relation': 'after_meal'})));
       final f = await flowWith(['xyz'], reader: reader);
       await f.start();
       expect(opened.single.purpose, MedicationPurpose.sugar);
-      expect(opened.single.timings, [const AnchorTiming(DayAnchor.lunch, 30)]);
+      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(15))]);
+      expect(opened.single.mealRelation, MealRelation.after);
     });
   });
 
@@ -455,7 +461,7 @@ void main() {
       final s = h.services;
       final f = CommandFlow(
         voice: voice,
-        services: AppServices(db: s.db, routines: s.routines, medications: s.medications, events: s.events, scheduler: s.scheduler, patientId: s.patientId, voice: voice),
+        services: AppServices(db: s.db, patients: s.patients, medications: s.medications, events: s.events, scheduler: s.scheduler, patientId: s.patientId, voice: voice),
         routineDay: aug31,
         clock: () => now,
         onOpenAdd: (_) async => false,
@@ -532,11 +538,12 @@ void main() {
       expect(opened.single.timings, [const FixedTiming(MinuteOfDay(9 * 60))]);
     });
 
-    test('دوا من غير ميعاد → «تاخده إمتى؟» مرة → «بعد الفطار» → الفورم بيه', () async {
-      final f = await flowWith(['ضيفلي دوا الكونكور', 'بعد الفطار']);
+    test('«بعد الفطار» من غير ساعة → «الساعة كام؟» مرة → «٨ الصبح» → الفورم بالساعة وكلمة الأكل', () async {
+      final f = await flowWith(['ضيفلي دوا الكونكور بعد الفطار', 'الساعة ٨ الصبح']);
       await f.start();
-      expect(tts.spoken, ['تاخده إمتى؟']);
-      expect(opened.single.timings, [const AnchorTiming(DayAnchor.breakfast, 30)]);
+      expect(tts.spoken, ['الساعة كام؟']);
+      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(8))]);
+      expect(opened.single.mealRelation, MealRelation.after);
     });
 
     test('«ضغطي ١٢٠ على ٨٠» → كارت تأكيد + «صح كده؟» المسجّلة → **ولا صف قبل «أيوه»** → بعدها اتكتب', () async {
@@ -590,17 +597,6 @@ void main() {
       expect(await NotBoughtRepository(h.services.db).all(h.services.patientId), hasLength(1));
       await f.confirmYes();
       expect(await NotBoughtRepository(h.services.db).all(h.services.patientId), isEmpty);
-    });
-
-    test('«بفطر الساعة ٨» → تأكيد → الروتين اتغيّر وإعادة الجدولة', () async {
-      await seed('Concor', anchor: DayAnchor.breakfast);
-      await schedule();
-      final f = await flowWith(['بفطر الساعة ٨']);
-      await f.start();
-      expect(f.shown, contains('الفطار'));
-      expect((await h.services.routines.getRoutine(h.services.patientId))!.breakfast, normalDay.breakfast, reason: 'لسه ما قالش أيوه');
-      await f.confirmYes();
-      expect((await h.services.routines.getRoutine(h.services.patientId))!.breakfast, const MinuteOfDay(8 * 60));
     });
 
     test('«فكرني بعدين» → تأجيل الجرعة المستنية بنفس سكّة الزرار (ربع ساعة)', () async {

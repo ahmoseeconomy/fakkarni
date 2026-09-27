@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../support/seeded_clock.dart';
@@ -28,13 +28,12 @@ void main() {
   test('صف المخزون بيترفع بالكمية وحد التنبيه — ومن غير الجدول بيفضل مستني', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    final routines = RoutineRepository(db);
-    final patientId = await routines.ensurePatient(name: 'أحمد');
-    await routines.saveRoutine(patientId, DayRoutine.fallback);
+    final patients = PatientRepository(db);
+    final patientId = await patients.ensurePatient(name: 'أحمد');
     final medId = await MedicationRepository(db, clock: seededLongAgo).addMedication(
       patientId: patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: DateTime(2026, 9, 1),
     );
     await StockRepository(db).setQuantity(medId, 12, warnDays: 7);

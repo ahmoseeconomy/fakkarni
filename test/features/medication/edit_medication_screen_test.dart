@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/dose_editor.dart';
 import 'package:fakkarni/features/medication/dose_row.dart';
@@ -22,7 +22,7 @@ void main() {
   Future<int> seedTelfast({bool unknown = true}) => h.meds.addMedication(
         patientId: h.services.patientId,
         name: 'Telfast 180 mg',
-        timing: const AnchorTiming(DayAnchor.dinner, 0),
+        timing: FixedTiming(MinuteOfDay.hm(20)),
         startDate: aug31,
         amountLabel: unknown ? null : 'قرص واحد',
         amountUnknown: unknown,
@@ -36,7 +36,7 @@ void main() {
     await pumpEdit(tester, id);
 
     expect(find.text('Telfast 180 mg'), findsOneWidget);
-    expect(find.textContaining('العشا'), findsOneWidget);
+    expect(find.text('٨:٠٠ م'), findsOneWidget, reason: 'الجرعة بساعتها');
     final gold = tester.widget<Text>(find.textContaining('اسأل الصيدلي واكتبها هنا'));
     // ذهبي على الحافة، والنص غامق يتقري (الذهبي كنص ≈ ١.٩:١)
     expect(gold.style?.color, F.ink);
@@ -68,7 +68,7 @@ void main() {
     final id = await h.meds.addMedication(
       patientId: h.services.patientId,
       name: 'Augmentin',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: aug31,
       amountLabel: 'قرص',
       durationDays: 7,
@@ -86,22 +86,22 @@ void main() {
     final id = await seedTelfast(unknown: false);
     await pumpEdit(tester, id);
 
-    expect(find.textContaining('العشا'), findsOneWidget);
+    expect(find.text('٨:٠٠ م'), findsOneWidget);
     await tester.tap(find.text('عدّل'));
     await settle(tester);
     expect(find.byType(DoseEditor), findsOneWidget);
-    // متعبّي بالتوقيت الحالي: العشا، إزاحة ٠
-    expect(find.text('٠ دقيقة'), findsOneWidget);
+    // متعبّي بالساعة الحالية
+    expect(find.text('هيرن الساعة ٨:٠٠ م'), findsOneWidget);
 
-    await tester.tap(find.text('قبل الفطار'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+    await settle(tester);
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
 
     expect(find.byType(EditMedicationScreen), findsOneWidget);
     final loaded = (await h.meds.schedulesFor(id)).single;
-    expect(loaded.timing, const AnchorTiming(DayAnchor.breakfast, -30));
-    expect(find.textContaining('الفطار − ٣٠ د'), findsOneWidget);
+    expect(loaded.timing, FixedTiming(MinuteOfDay.hm(9)));
+    expect(find.text('٩:٠٠ ص'), findsOneWidget);
   });
 
   screenTest('كتابة الجرعة وحفظها بتقفل «مش معروفة» وبتعيد الجدولة', (tester) async {
@@ -209,7 +209,7 @@ void main() {
 
   group('من «يومك»', () {
     Future<void> pumpToday(WidgetTester tester) =>
-        h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+        h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
 
     screenTest('«اسأل الصيدلي عن جرعة …» بتفتح شاشة التعديل', (tester) async {
       await seedTelfast();
@@ -227,13 +227,14 @@ void main() {
   group('من تبويب «الأدوية»', () {
     Future<void> pumpMeds(WidgetTester tester) => h.pump(tester, MedicationsScreen(today: aug31));
 
-    screenTest('«جدول الأدوية»: مجمّع بالمرساة، الاسم والجرعة — القاعدة، و«عدّل» بيفتح التعديل', (tester) async {
+    screenTest('«جدول الأدوية»: مجمّع بالساعة، الاسم والجرعة — الساعة، و«عدّل» بيفتح التعديل', (tester) async {
       await seedTelfast(unknown: false);
       await pumpMeds(tester);
 
       expect(find.text('جدول الأدوية'), findsOneWidget);
-      expect(find.text('العشا — ٨:٠٠ م'), findsOneWidget, reason: 'عنوان المجموعة بالمرساة والوقت');
-      expect(find.text('قرص واحد — العشا'), findsOneWidget);
+      expect(find.text('٨:٠٠ م'), findsWidgets, reason: 'عنوان المجموعة بالساعة');
+      expect(find.textContaining('قرص واحد'), findsOneWidget);
+      expect(find.textContaining('العشا'), findsNothing);
 
       // «خيارات» → شيت التلات أفعال → «عدّل»
       await tester.tap(find.text('خيارات'));
@@ -251,12 +252,12 @@ void main() {
       expect(find.text('موقوفة'), findsOneWidget);
       expect(find.text('Telfast 180 mg'), findsOneWidget);
       expect(find.text('موقوف — التذكيرات واقفة'), findsOneWidget);
-      expect(find.textContaining('العشا — '), findsNothing, reason: 'مش في مجموعة مرساة');
+      expect(find.text('٨:٠٠ م'), findsNothing, reason: 'مش في مجموعة ساعة');
     });
 
     screenTest('«جدول النهاردة» مابقاش فيه قايمة «أدويتك»', (tester) async {
       await seedTelfast(unknown: false);
-      await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+      await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
       expect(find.text('أدويتك'), findsNothing);
     });
   });
@@ -267,10 +268,10 @@ void main() {
   /// في الذاكرة.
   group('كام جرعة لدوا موجود', () {
     const fourTimes = [
-      AnchorTiming(DayAnchor.wake, 0),
-      AnchorTiming(DayAnchor.breakfast, 0),
-      AnchorTiming(DayAnchor.lunch, 0),
-      AnchorTiming(DayAnchor.dinner, 0),
+      FixedTiming(MinuteOfDay.hm(7)),
+      FixedTiming(MinuteOfDay.hm(7, 30)),
+      FixedTiming(MinuteOfDay.hm(14, 30)),
+      FixedTiming(MinuteOfDay.hm(20)),
     ];
 
     Future<int> seedFour() => h.meds.addMedicationWithDoses(
@@ -296,23 +297,19 @@ void main() {
       await pumpEdit(tester, id);
       expect(find.byType(DoseRow), findsNWidgets(4));
 
-      // شيل الصحيان والغدا — الفاضل الفطار والعشا
+      // شيل ٧:٠٠ و٢:٣٠ — الفاضل ٧:٣٠ و٨:٠٠ م
       await removeRow(tester, 0);
       await removeRow(tester, 1);
 
       expect(find.byType(DoseRow), findsNWidgets(2));
       final left = await h.meds.schedulesFor(id);
       expect(left, hasLength(2));
-      expect(
-        [for (final s in left) if (s.timing case AnchorTiming(:final anchor)) anchor],
-        unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
-      );
 
       final doseTimes = {
         for (final e in h.sink.scheduled.entries)
           if (isDoseId(e.key)) '${e.value.at.hour}:${e.value.at.minute.toString().padLeft(2, '0')}',
       };
-      expect(doseTimes, {'7:30', '20:00'}, reason: 'ولا تذكير للصحيان ولا الغدا');
+      expect(doseTimes, {'7:30', '20:00'}, reason: 'ولا تذكير للصفوف اللي اتشالت');
     });
 
     screenTest('١ → ٢: «أضف جرعة» بتكتب صف جديد', (tester) async {

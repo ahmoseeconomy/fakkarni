@@ -7,7 +7,6 @@ import '../core/theme/tokens.dart';
 import '../core/widgets/shell_bottom_extra.dart';
 import '../core/widgets/keyboard_dismiss.dart';
 import '../data/repositories/preferences_repository.dart';
-import '../domain/scheduling/day_routine.dart';
 import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
@@ -43,9 +42,8 @@ import 'app_scope.dart';
 /// واحد) و«الإعدادات» — ومن غير «ضيف». التبويب التاني هو الإعدادات عشان
 /// ده الطريق الوحيد للخروج من النمط؛ «📞 اتصل» بتاع التصميم مش مبني.
 class AppShell extends StatefulWidget {
-  const AppShell({required this.routine, this.now, super.key});
+  const AppShell({this.now, super.key});
 
-  final DayRoutine routine;
 
   /// للاختبارات.
   final DateTime? now;
@@ -72,7 +70,7 @@ class _AppShellState extends State<AppShell> {
 
   /// الشيت نفسه معرّف مرة واحدة في `add_sheet.dart` — بيتفتح من هنا ومن
   /// كارت «ضيف دوا» في جدول الأدوية.
-  void _openAdd() => showAddSheet(context, routine: widget.routine);
+  void _openAdd() => showAddSheet(context);
 
   @override
   Widget build(BuildContext context) => StreamBuilder<DeviceSettings>(
@@ -92,7 +90,7 @@ class _AppShellState extends State<AppShell> {
         body: IndexedStack(
           index: _elderTab,
           children: [
-            ElderHomeScreen(routine: widget.routine, now: widget.now),
+            ElderHomeScreen(now: widget.now),
             const SettingsScreen(),
           ],
         ),
@@ -112,7 +110,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildNormal(BuildContext context) {
     final pages = [
-      TodayScreen(routine: widget.routine, now: widget.now),
+      TodayScreen(now: widget.now),
       const MedicationsScreen(),
       const HealthFileScreen(),
       const SettingsScreen(),

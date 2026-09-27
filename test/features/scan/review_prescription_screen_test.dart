@@ -2,12 +2,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/medication/meal_relation.dart';
+
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/scan/debug_panel.dart';
@@ -43,7 +45,7 @@ void main() {
                       issuedAt: issuedAt,
                       lines: lines,
                     ),
-                    routine: normalDay,
+                    
                     today: aug31,
                   ),
                 ),
@@ -94,12 +96,13 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('صف لكل دوا: الاسم mono ٢٤+، الوقت المحسوب بأرقام عربي، والشريحة بالقاعدة', (tester) async {
+  screenTest('صف لكل دوا: الاسم mono ٢٤+، الوقت المحسوب بأرقام عربي، والشريحة بكلمة الأكل', (tester) async {
     final line = ReadLine(
       name: ok('Antodine 40 mg'),
       amount: ok('قرص واحد'),
-      timings: ok([const AnchorTiming(DayAnchor.breakfast, -30)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(7))]),
       duration: const ReadField(value: null, confidence: 1),
+      mealRelation: MealRelation.before,
     );
     await pumpReview(tester, [line]);
     await open(tester);
@@ -108,9 +111,9 @@ void main() {
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
     expect(name.style?.fontFamily, F.monoFamily);
     expect(name.textDirection, TextDirection.ltr);
-    // الفطار ٧:٣٠ − ٣٠ = ٧:٠٠ ص — للعرض بس
     expect(find.text('٧:٠٠ ص'), findsOneWidget);
-    expect(find.text('الفطار − ٣٠ د'), findsOneWidget, reason: 'القاعدة، مش الساعة');
+    // كلمة الأكل شريحة تعليمات — ما بتحرّكش الساعة
+    expect(find.text('قبل الأكل'), findsOneWidget);
     // «عدّل» على الكارت + تلاتة على الترويسة (الدكتور، العيادة، التاريخ)
     expect(find.widgetWithText(OutlinedButton, 'عدّل'), findsNWidgets(4));
     expect(find.byIcon(Icons.edit_outlined), findsNWidgets(4), reason: 'أيقونة وكلمة — الكارت وترويسة الورقة');
@@ -182,9 +185,9 @@ void main() {
       name: ok('Augmentin'),
       amount: ok('قرص'),
       timings: ok([
-        const AnchorTiming(DayAnchor.breakfast, 0),
-        const AnchorTiming(DayAnchor.lunch, 0),
-        const AnchorTiming(DayAnchor.dinner, 0),
+        FixedTiming(MinuteOfDay.hm(7, 30)),
+        FixedTiming(MinuteOfDay.hm(14, 30)),
+        FixedTiming(MinuteOfDay.hm(20)),
       ]),
       duration: ok<int?>(7),
     );
@@ -196,7 +199,7 @@ void main() {
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved.length, 4);
     final concor = saved.singleWhere((s) => s.medicationName == 'Concor 5mg');
-    expect(concor.timing, const AnchorTiming(DayAnchor.breakfast, 0));
+    expect(concor.timing, FixedTiming(MinuteOfDay.hm(7, 30)));
     expect(concor.durationDays, isNull, reason: 'مفتوحة زي ما الورقة سابتها');
     expect(concor.amountLabel, 'قرص واحد');
     final augmentin = saved.where((s) => s.medicationName == 'Augmentin');
@@ -238,15 +241,15 @@ void main() {
   screenTest('سطر بأربع جرعات بيعدّي من «عدّل» بأربعتهم — العدّاد هو اللي بيحملهم دلوقتي',
       (tester) async {
     const fourTimes = [
-      AnchorTiming(DayAnchor.wake, 0),
-      AnchorTiming(DayAnchor.breakfast, 0),
-      AnchorTiming(DayAnchor.lunch, 0),
-      AnchorTiming(DayAnchor.dinner, 0),
+      FixedTiming(MinuteOfDay.hm(7)),
+      FixedTiming(MinuteOfDay.hm(7, 30)),
+      FixedTiming(MinuteOfDay.hm(14, 30)),
+      FixedTiming(MinuteOfDay.hm(20)),
     ];
     final four = ReadLine(
       name: ok('Augmentin'),
       amount: ok('قرص'),
-      timings: ok<List<DoseTiming>>(fourTimes),
+      timings: ok<List<FixedTiming>>(fourTimes),
       duration: ok<int?>(7),
     );
     await pumpReview(tester, [four]);
@@ -278,7 +281,7 @@ void main() {
     final second = ReadLine(
       name: ok('Antodine 40 mg'),
       amount: ok('قرص واحد'),
-      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
       duration: const ReadField(value: null, confidence: 1),
     );
     await pumpReview(tester, [clearLine, second]);
@@ -304,7 +307,7 @@ void main() {
     final second = ReadLine(
       name: ok('Antodine 40 mg'),
       amount: ok('قرص واحد'),
-      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
       duration: const ReadField(value: null, confidence: 1),
     );
     await pumpReview(tester, [clearLine, second]);
@@ -357,7 +360,7 @@ void main() {
                           doctor: const ReadField(value: null, confidence: 1),
                           lines: [clearLine],
                         ),
-                        routine: normalDay,
+                        
                         today: aug31,
                         records: RecordsRepository(dead),
                       ),
@@ -432,7 +435,7 @@ void main() {
       final second = ReadLine(
         name: ok('Antodine 40 mg'),
         amount: ok('قرص واحد'),
-        timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+        timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
         duration: const ReadField(value: null, confidence: 1),
       );
       await pumpReview(tester, [clearLine, second], doctor: ok('د. هشام مام'));
@@ -574,7 +577,7 @@ void main() {
     final unknownAmount = ReadLine(
       name: ok('Telfast 180 mg'),
       amount: const ReadField.missing('الورقة مش كاتبة الجرعة'),
-      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
       duration: const ReadField(value: null, confidence: 1),
     );
 
@@ -643,7 +646,7 @@ void main() {
                       lines: [clearLine],
                       modelWarning: 'pinned gemini-3.6-flash retired',
                     ),
-                    routine: normalDay,
+                    
                     today: aug31,
                   ),
                 ),
@@ -665,7 +668,7 @@ void main() {
     final lowName = ReadLine(
       name: low('Concor 5 mg', 'الخط مش واضح'),
       amount: const ReadField.missing('الجرعة مش مكتوبة'),
-      timings: ok([const AnchorTiming(DayAnchor.breakfast, -30)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(7))]),
       duration: const ReadField(value: null, confidence: 1),
     );
 

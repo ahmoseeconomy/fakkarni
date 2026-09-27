@@ -19,7 +19,7 @@ import '../repositories/not_bought_repository.dart';
 import '../repositories/stock_repository.dart';
 import '../services/appointment_scheduler.dart';
 import '../services/checkup_service.dart';
-import '../repositories/routine_repository.dart';
+import '../repositories/patient_repository.dart';
 import '../services/reminder_scheduler.dart';
 
 /// **سحبة تغييرات الأدوية اللي اقترحها ممرض** (المرحلة ب) لموبايل الأب.
@@ -33,7 +33,7 @@ class MedicationChangePuller {
   MedicationChangePuller({
     required this.remote,
     required this.db,
-    required this.routines,
+    required this.patients,
     required this.medications,
     required this.scheduler,
     required this.patientId,
@@ -53,7 +53,7 @@ class MedicationChangePuller {
 
   final MedicationChangeRemote remote;
   final AppDatabase db;
-  final RoutineRepository routines;
+  final PatientRepository patients;
   final MedicationRepository medications;
   final ReminderScheduler scheduler;
   final int patientId;
@@ -88,7 +88,7 @@ class MedicationChangePuller {
     if (_running) return 0;
     _running = true;
     try {
-      final patient = await routines.getPatient(patientId);
+      final patient = await patients.getPatient(patientId);
       if (patient == null) return 0;
       final pending = await remote.fetchPending(patient.uuid);
       if (pending.isEmpty) return 0;
@@ -132,7 +132,7 @@ class MedicationChangePuller {
       diag('MedChange: صورة وصلت والموبايل ده مالوش باكت صور');
       return ChangeOutcome.missing;
     }
-    final patient = await routines.getPatient(patientId);
+    final patient = await patients.getPatient(patientId);
     final uuid = change.medicationUuid;
     final path = change.payload.photoPath;
     if (patient == null || uuid == null) return ChangeOutcome.missing;

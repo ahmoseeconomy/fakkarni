@@ -25,7 +25,7 @@ import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/care/follower_profile.dart';
 import 'package:fakkarni/features/care/onboarding/caregiver_onboarding_screen.dart';
@@ -90,16 +90,15 @@ void main() {
   Future<void> build({Map<String, Object> seen = const {}}) async {
     SharedPreferences.setMockInitialValues(seen);
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,

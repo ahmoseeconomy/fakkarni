@@ -11,12 +11,12 @@ import 'package:fakkarni/data/care/proxy_confirmations.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/nurse_reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/nurse/nurse_reminders.dart';
 
@@ -148,18 +148,17 @@ void main() {
 
     test('تذكيرات الممرض ما بتلمسش تذكيرات المريض — ولا العكس', () async {
       // جرعات مريض على نفس الجهاز (مش حالة حقيقية — عشان نثبت الفصل)
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       final meds = MedicationRepository(db, clock: seededLongAgo);
-      final patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, DayRoutine.fallback);
+      final patientId = await patients.ensurePatient();
       await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: const AnchorTiming(DayAnchor.dinner, 0),
+        timing: FixedTiming(MinuteOfDay.hm(20)),
         startDate: DateTime(2026, 8, 1),
       );
       final patient = ReminderScheduler(
-          routines: routines, medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: device);
+          medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: device);
       await patient.rescheduleAll(now: now);
       final patientIds = {for (final e in device.pending.entries) if (e.value == 'patient') e.key};
       expect(patientIds, isNotEmpty);
@@ -241,19 +240,19 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       final meds = MedicationRepository(db);
       final events = DoseEventRepository(db);
-      final patientId = await routines.ensurePatient();
+      final patientId = await patients.ensurePatient();
       final proxy = _Proxy();
       final sub = SubscriptionService(remote: FakeRemote(), store: FakeStore(), clock: () => now);
       await sub.load();
       final services = AppServices(
         db: db,
-        routines: routines,
+        patients: patients,
         medications: meds,
         events: events,
-        scheduler: ReminderScheduler(routines: routines, medications: meds, events: events, patientId: patientId, sink: SilentSink()),
+        scheduler: ReminderScheduler(medications: meds, events: events, patientId: patientId, sink: SilentSink()),
         patientId: patientId,
         proxy: proxy,
         subscription: sub,

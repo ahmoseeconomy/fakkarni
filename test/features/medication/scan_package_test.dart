@@ -14,7 +14,7 @@ import 'package:fakkarni/ai/package_reading.dart';
 import 'package:fakkarni/ai/prescription_reading.dart' show ReadField;
 import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/scan_package_screen.dart';
@@ -60,7 +60,7 @@ void main() {
     await h.pump(
       tester,
       ScanPackageScreen(
-        routine: normalDay,
+        
         reader: reader,
         pickImage: _picker,
         today: aug31,
@@ -138,7 +138,7 @@ void main() {
         h.meds.addMedicationWithDoses(
           patientId: h.services.patientId,
           name: name,
-          timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+          timings: const [FixedTiming(MinuteOfDay.hm(7))],
           startDate: aug31,
           activeIngredient: ingredient,
         );
@@ -207,7 +207,7 @@ void main() {
     });
 
     screenTest('وبالإيد من غير صورة: مفيش مادة مخترعة', (tester) async {
-      await h.pump(tester, AddMedicationScreen(routine: normalDay, today: aug31));
+      await h.pump(tester, AddMedicationScreen(today: aug31));
       await tester.enterText(find.byType(TextField).first, 'Telfast 180 mg');
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('save-medication')));

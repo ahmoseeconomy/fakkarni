@@ -2,7 +2,7 @@
 // معادها ٦:٥١» ظهرت في نفس الدقيقة اللي التذكير رن فيها).
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
@@ -16,14 +16,14 @@ void main() {
     await h.meds.addMedication(
       patientId: h.services.patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: aug31,
     );
   });
   tearDown(() => h.tearDown());
 
   screenTest('في نفس دقيقة المعاد: «معادها دلوقتي» — مش «نسيتها؟»', (tester) async {
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 20)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 20)));
     expect(find.textContaining('معادها دلوقتي'), findsWidgets);
     expect(find.text('نسيتها؟'), findsNothing);
     expect(find.textContaining('كان معادها'), findsNothing);
@@ -31,13 +31,13 @@ void main() {
   });
 
   screenTest('بعد ٤٤ دقيقة: لسه «دلوقتي»', (tester) async {
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 20, 44)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 20, 44)));
     expect(find.text('نسيتها؟'), findsNothing);
     expect(find.textContaining('معادها دلوقتي'), findsWidgets);
   });
 
   screenTest('بعد مهلة الـ٤٥: «نسيتها؟ — لسه ما اتأكدتش — كان معادها ٨:٠٠ م»', (tester) async {
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 20, 50)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 20, 50)));
     expect(find.text('نسيتها؟'), findsWidgets);
     expect(find.textContaining('كان معادها'), findsWidgets);
     expect(find.textContaining('معادها دلوقتي'), findsNothing);

@@ -7,13 +7,13 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/sync/proxy_pull.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../features/scan/scan_test_support.dart' show RecordingSink;
@@ -36,13 +36,6 @@ class _FakeProxy implements ProxyConfirmRemote {
   }
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 /// الصبح ٧:٠٠ واحدة عدّت من غير تأكيد (٧:٣٠ − ٣٠ = ٧:٠٠ فاتت)، والتانية جاية
 final _now = DateTime(2026, 9, 15, 7, 2);
@@ -52,25 +45,24 @@ void main() {
   late RecordingSink sink;
   late ReminderScheduler scheduler;
   late DoseEventRepository events;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late _FakeProxy remote;
   late int patientId;
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     sink = RecordingSink();
-    routines = RoutineRepository(db);
+    patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, _routine);
+    patientId = await patients.ensurePatient();
     await meds.addMedicationWithDoses(
       patientId: patientId,
       name: 'Concor',
-      timings: const [AnchorTiming(DayAnchor.breakfast, -30), AnchorTiming(DayAnchor.dinner, 0)],
+      timings: const [FixedTiming(MinuteOfDay.hm(7)), FixedTiming(MinuteOfDay.hm(20))],
       startDate: DateTime(2026, 9, 1),
     );
     events = DoseEventRepository(db);
-    scheduler = ReminderScheduler(routines: routines, medications: meds, events: events, patientId: patientId, sink: sink);
+    scheduler = ReminderScheduler(medications: meds, events: events, patientId: patientId, sink: sink);
     remote = _FakeProxy();
     await scheduler.rescheduleAll(now: _now);
   });
@@ -79,7 +71,7 @@ void main() {
 
   ProxyConfirmationPuller puller() => ProxyConfirmationPuller(
         remote: remote,
-        routines: routines,
+        patients: patients,
         events: events,
         scheduler: scheduler,
         patientId: patientId,
@@ -140,7 +132,7 @@ void main() {
     remote.rows.add(ProxyConfirmation(doseEventUuid: 'not-here', actorName: 'سارة', confirmedAt: _now));
     expect(await puller().pull(), 0);
     final broken = _ThrowingProxy();
-    final p = ProxyConfirmationPuller(remote: broken, routines: routines, events: events, scheduler: scheduler, patientId: patientId);
+    final p = ProxyConfirmationPuller(remote: broken, patients: patients, events: events, scheduler: scheduler, patientId: patientId);
     expect(await p.pull(), 0);
   });
 }

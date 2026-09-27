@@ -4,18 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
 import 'package:fakkarni/domain/health/health_check.dart' show lowCoverageLimit;
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/every_hours.dart';
 
-import '../features/scan/scan_test_support.dart' show RecordingSink, normalDay;
+import '../features/scan/scan_test_support.dart' show RecordingSink;
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 /// **ميزانية الـ٦٤ على iOS لما المواعيد تكتر** — التذكير الأساسي لكل جرعة
 /// (الأقرب الأول) قبل أي إعادة، والسلّم محجوز زي ما هو. ولحد ٢٤ تذكير
@@ -57,12 +58,10 @@ void main() {
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       sink = RecordingSink();
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       meds = MedicationRepository(db, clock: seededLongAgo);
-      patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, normalDay);
+      patientId = await patients.ensurePatient();
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -82,7 +81,7 @@ void main() {
         [for (final n in sink.scheduled.values) if (n.kind == k) n]..sort((a, b) => a.at.compareTo(b.at));
 
     Future<List<PlannedNotification>> allMains() async => planWindow(
-          routine: normalDay,
+          
           schedules: await meds.activeSchedules(patientId),
           from: from,
           maxPending: 1 << 20,
@@ -98,7 +97,7 @@ void main() {
     /// والجرعة اللي رنّت من شوية جوّه مهلتها بتتحسب) — ليهم إعاداتهم، والباقي لأ.
     Future<void> expectNearestTwoKeepRepeats() async {
       final recent = planWindow(
-        routine: normalDay,
+        
         schedules: await meds.activeSchedules(patientId),
         from: from.subtract(graceWindow),
         maxPending: 1 << 20,
@@ -175,18 +174,16 @@ void main() {
     late RecordingSink sink;
     late ReminderScheduler scheduler;
     late MedicationRepository meds;
-    late RoutineRepository routines;
+    late PatientRepository patients;
     late int patientId;
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       sink = RecordingSink();
-      routines = RoutineRepository(db);
+      patients = PatientRepository(db);
       meds = MedicationRepository(db, clock: seededLongAgo);
-      patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, normalDay);
+      patientId = await patients.ensurePatient();
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -198,9 +195,9 @@ void main() {
     /// الخوارزمية القديمة بالحرف: أقرب ٢٤، والإعادات من ٢٠.
     Future<Map<int, String>> oldPlan() async {
       final schedules = await meds.activeSchedules(patientId);
-      final planned = planWindow(routine: normalDay, schedules: schedules, from: from);
+      final planned = planWindow(schedules: schedules, from: from);
       final recent = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: from.subtract(graceWindow),
         maxPending: maxPendingEscalations ~/ EscalationRung.values.length,
@@ -219,9 +216,9 @@ void main() {
           patientId: patientId,
           name: 'M$i',
           timings: const [
-            AnchorTiming(DayAnchor.breakfast, -30),
-            AnchorTiming(DayAnchor.lunch, -30),
-            AnchorTiming(DayAnchor.dinner, -30),
+            FixedTiming(MinuteOfDay.hm(7)),
+            FixedTiming(MinuteOfDay.hm(14)),
+            FixedTiming(MinuteOfDay.hm(19, 30)),
           ],
           startDate: DateTime(2026, 8, 31),
         );

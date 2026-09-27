@@ -6,7 +6,6 @@ import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../medication/add_medication_screen.dart';
 import '../records/health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 import '../medication/medication_draft.dart';
@@ -22,9 +21,8 @@ import 'mic_orb.dart';
 /// بيظهر لما فيه مايك في النسخة والإذن مش مرفوض — **حتى والصوت مقفول**:
 /// ساعتها الجمل بتتكتب في الورقة بدل ما تتقال. مفيش `AppScope` = مفيش زرار.
 class TalkButton extends StatefulWidget {
-  const TalkButton({required this.routine, required this.routineDay, this.elder = false, this.now, this.gapAbove = 0, this.gapBelow = 0, super.key});
+  const TalkButton({required this.routineDay, this.elder = false, this.now, this.gapAbove = 0, this.gapBelow = 0, super.key});
 
-  final DayRoutine routine;
   final DateTime routineDay;
   final bool elder;
   final DateTime? now;
@@ -102,12 +100,12 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
     final result = await Navigator.of(context).push<MedicationDraft?>(
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
-          routine: widget.routine,
           today: widget.routineDay,
           initialName: p.name,
           initialPurpose: p.purpose,
           initialTimings: p.timings,
           initialOnce: p.once,
+          initialMealRelation: p.mealRelation,
         ),
       ),
     );

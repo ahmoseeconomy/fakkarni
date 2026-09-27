@@ -20,19 +20,6 @@ void main() {
     });
   });
 
-  group('راجل / ست', () {
-    for (final s in ['راجل', 'أنا راجل', 'رجل', 'ذكر', 'ولد']) {
-      test('«$s» = راجل', () => expect(parseSex(s), SpokenSex.male));
-    }
-    for (final s in ['ست', 'أنا ست', 'سيدة', 'أنثى', 'بنت', 'مدام', 'حرمة']) {
-      test('«$s» = ست', () => expect(parseSex(s), SpokenSex.female));
-    }
-    test('غير كده مش مفهوم', () {
-      expect(parseSex('تمانية'), isNull);
-      expect(parseSex('أيوه'), isNull);
-      expect(parseSex(''), isNull);
-    });
-  });
 
   group('الأرقام والسن', () {
     final cases = <String, int>{
@@ -189,12 +176,4 @@ void main() {
     expect(normalizeArabic('لأ، مش كده!'), 'لا مش كده');
   });
 
-  test('صفحة الجنس: «راجل / ست / راجل أنا / ست أنا / ذكر / أنثى»', () {
-    for (final t in ['راجل', 'راجل أنا', 'أنا راجل', 'ذكر']) {
-      expect(parseSex(t), SpokenSex.male, reason: t);
-    }
-    for (final t in ['ست', 'ست أنا', 'أنا ست', 'أنثى']) {
-      expect(parseSex(t), SpokenSex.female, reason: t);
-    }
-  });
 }

@@ -1,7 +1,7 @@
-import 'day_pattern.dart';
 import '../escalation/alert_mode.dart';
-import '../wording/rule_wording.dart';
-import 'day_routine.dart';
+import '../medication/meal_relation.dart';
+import 'day_pattern.dart';
+import 'minute_of_day.dart';
 
 /// تكرار الجرعة.
 enum DoseRepeat {
@@ -13,59 +13,15 @@ enum DoseRepeat {
   once,
 }
 
-/// إمتى الجرعة بتتاخد.
+/// ساعة الجرعة — **ثابتة بالساعة**، ودي الطريقة الوحيدة.
 ///
-/// نوعين بس، والافتراضي هو [AnchorTiming]: الروشتة بتقول «قبل الفطار»
-/// والجرعة بتتحرك مع يوم المريض. [FixedTiming] هو المخرج الثانوي — لدوا
-/// الدكتور قال عليه «الساعة ٨ بالظبط» — وبيتعرض دايماً بعد المراسي، مش
-/// قبلها، وبيتقال عليه صراحة إنه مش هيتحرك مع الروتين.
-sealed class DoseTiming {
-  const DoseTiming();
-
-  /// وصف القاعدة بالعربي — «الفطار − ٣٠ د» أو «ساعة ثابتة».
-  String get ruleLabel;
-}
-
-/// مرساة + إزاحة — الطريقة الأصلية والافتراضية.
-///
-/// `{anchor: breakfast, offsetMinutes: -30}` مش `{time: "07:00"}`. الساعة
-/// بتتحسب وقت العرض من روتين المريض، فتغيير معاد الفطار بيحرّكها لوحدها.
-final class AnchorTiming extends DoseTiming {
-  const AnchorTiming(this.anchor, [this.offsetMinutes = 0]);
-
-  final DayAnchor anchor;
-
-  /// بالسالب = قبل المرساة، بالموجب = بعدها.
-  final int offsetMinutes;
-
-  @override
-  String get ruleLabel => anchorRuleWording(anchor.label, offsetMinutes);
-
-  @override
-  bool operator ==(Object other) =>
-      other is AnchorTiming &&
-      other.anchor == anchor &&
-      other.offsetMinutes == offsetMinutes;
-
-  @override
-  int get hashCode => Object.hash(anchor, offsetMinutes);
-
-  @override
-  String toString() => 'AnchorTiming($ruleLabel)';
-}
-
-/// ساعة ثابتة — **ما بتتحركش** مع روتين اليوم.
-///
-/// الاستثناء الموثّق للقاعدة، مش بديل ليها. الجرعة دي بتفضل في نفس الساعة
-/// لو المريض غيّر فطاره أو دخل رمضان، وده اللي المستخدم اختاره عن قصد.
-final class FixedTiming extends DoseTiming {
+/// كان فيه نوع تاني (مرساة + إزاحة على روتين اليوم) واتشال بقرار المالك في
+/// ٢٧ سبتمبر ٢٠٢٦: الناس في مصر ما عندهاش مواعيد أكل ونوم ثابتة. علاقة
+/// الجرعة بالأكل فضلت **كلمة تعليمات** ([MealRelation]) ما بتحرّكش الساعة.
+final class FixedTiming {
   const FixedTiming(this.minuteOfDay);
 
   final MinuteOfDay minuteOfDay;
-
-  /// الساعة نفسها بتتعرض جنبه من وقت الجرعة — الوصف هنا بيقول النوع بس.
-  @override
-  String get ruleLabel => fixedRuleWording;
 
   @override
   bool operator ==(Object other) =>
@@ -79,10 +35,6 @@ final class FixedTiming extends DoseTiming {
 }
 
 /// جرعة مجدولة.
-///
-/// مهم: الجرعة متخزّنة كـ[DoseTiming] — مرساة + إزاحة افتراضياً، أو ساعة
-/// ثابتة لو المستخدم طلبها صراحة. ولما المستخدم يعدّل معاد فطاره، أو يدخل
-/// رمضان، جرعات المراسي بتتحرك لوحدها والساعات الثابتة بتفضل مكانها.
 class DoseSchedule {
   const DoseSchedule({
     required this.id,
@@ -94,6 +46,7 @@ class DoseSchedule {
     this.amountLabel,
     this.alertMode,
     this.days = DayPattern.everyDay,
+    this.mealRelation,
   });
 
   final String id;
@@ -101,7 +54,10 @@ class DoseSchedule {
   /// أنهي أيام (الجولة ٢) — «كل يوم» افتراضياً. الأيام بس؛ الدقيقة من [timing].
   final DayPattern days;
   final String medicationName;
-  final DoseTiming timing;
+  final FixedTiming timing;
+
+  /// «قبل الأكل» وأخواتها — تعليمات تتعرض، مش توقيت. null = مفيش.
+  final MealRelation? mealRelation;
 
   /// نوع التنبيه بتاع الدوا — null = زي إعداد الجهاز.
   final AlertMode? alertMode;
@@ -144,13 +100,14 @@ class DoseSchedule {
   DoseSchedule copyWith({
     String? id,
     String? medicationName,
-    DoseTiming? timing,
+    FixedTiming? timing,
     DoseRepeat? repeat,
     DateTime? startDate,
     int? durationDays,
     bool clearDuration = false,
     String? amountLabel,
     DayPattern? days,
+    MealRelation? mealRelation,
   }) =>
       DoseSchedule(
         id: id ?? this.id,
@@ -161,12 +118,14 @@ class DoseSchedule {
         durationDays: clearDuration ? null : (durationDays ?? this.durationDays),
         amountLabel: amountLabel ?? this.amountLabel,
         days: days ?? this.days,
+        mealRelation: mealRelation ?? this.mealRelation,
+        alertMode: alertMode,
       );
 
-  /// وصف القاعدة بالعربي — «الفطار − ٣٠ د».
-  /// بنعرضه للمستخدم بدل الساعة، عشان يفهم إن الجرعة مربوطة بيومه.
-  String get ruleLabel => timing.ruleLabel;
+  /// كلمة التعليمات جنب الجرعة — «بعد الأكل». null = مفيش حاجة تتقال.
+  /// (الساعة نفسها بتتعرض من وقت الجرعة، مش من هنا.)
+  String? get ruleLabel => mealRelation?.label;
 
   @override
-  String toString() => 'DoseSchedule($medicationName، $ruleLabel)';
+  String toString() => 'DoseSchedule($medicationName، ${timing.minuteOfDay}${ruleLabel == null ? '' : '، $ruleLabel'})';
 }

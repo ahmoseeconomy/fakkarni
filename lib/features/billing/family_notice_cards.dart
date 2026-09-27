@@ -80,7 +80,7 @@ class PatientFamilyNotice extends StatelessWidget {
                   key: const ValueKey('family-notice-renew'),
                   label: 'جدّد',
                   onPressed: () async {
-                    final patient = await services.routines.getPatient(services.patientId);
+                    final patient = await services.patients.getPatient(services.patientId);
                     if (!context.mounted) return;
                     await openFamilyPlan(
                       context,

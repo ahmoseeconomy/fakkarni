@@ -4,7 +4,6 @@ import 'dart:convert';
 import '../../core/format/arabic_time.dart';
 import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/escalation/repeat_alerts.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 
@@ -474,9 +473,9 @@ bool isRescheduledId(int id) => isDoseId(id) || isEscalationId(id) || isRepeatId
 
 /// يوم الروتين اللي إحنا فيه دلوقتي.
 ///
-/// اليوم بيبدأ من الصحيان مش من نص الليل: واحد بيصحى ٧ ص ولسه صاحي الساعة
-/// ١ بالليل، لسه في يوم امبارح — وجرعة «قبل النوم» بتاعته لسه مستنياه.
-DateTime currentRoutineDay(DayRoutine routine, DateTime now) => routineDayOf(routine, now);
+/// اليوم بيبدأ ٤ الفجر مش من نص الليل: واحد لسه صاحي الساعة ١ بالليل لسه
+/// في يوم امبارح — وجرعة بالليل بتاعته لسه مستنياه.
+DateTime currentRoutineDay(DateTime now) => routineDayOf(now);
 
 /// مفتاح «الجرعة دي في اليوم ده» — نفس مفتاح جدول الأحداث.
 ///
@@ -537,7 +536,6 @@ class PlannedNotification {
 /// يعني من غير القص إحنا مش بنكسب تغطية أطول — إحنا بنخسر جرعات عشوائية
 /// من غير ما نعرف. والنافذة بتتمدّ تاني كل مرة التطبيق يتفتح.
 List<PlannedNotification> planWindow({
-  required DayRoutine routine,
   required List<DoseSchedule> schedules,
   required DateTime from,
   int days = reminderWindowDays,
@@ -552,7 +550,7 @@ List<PlannedNotification> planWindow({
   // يوم وآخر يوم ياخدوا نفس الرقم، والتذكير يمسح التاني في صمت.
   assert(days < _dayCycle, 'النافذة لازم تفضل أقصر من $_dayCycle يوم');
 
-  final engine = ScheduleEngine(routine);
+  const engine = ScheduleEngine();
   final planned = <PlannedNotification>[];
   final seen = <int>{};
 
@@ -773,16 +771,18 @@ DateTime? horizonFromPendingDoseIds(
 
 /// نص التذكير — اسم الدوا والجرعة، أو عددهم لو أكتر من واحد.
 String reminderBody(Reminder reminder) => reminderBodyFor([
-      for (final d in reminder.doses) (name: d.medicationName, amount: d.amountLabel),
+      for (final d in reminder.doses) (name: d.medicationName, amount: d.amountLabel, note: d.ruleLabel),
     ]);
 
 /// نفس النص بس من أسماء وجرعات جاهزة — شاشة التذكير عندها أحداث اليوم مش
 /// جداول، وبتحتاج تكتب نفس الجملة لتذكير التأجيل.
-String reminderBodyFor(List<({String name, String? amount})> doses) {
+///
+/// [note] = «قبل الأكل» وأخواتها — كلمة التعليمات في متن الإشعار
+/// (`Concor — قرص واحد — بعد الأكل`). تعليمات، مش توقيت.
+String reminderBodyFor(List<({String name, String? amount, String? note})> doses) {
   if (doses.length == 1) {
     final dose = doses.single;
-    final amount = dose.amount;
-    return amount == null ? dose.name : '${dose.name} — $amount';
+    return [dose.name, dose.amount, dose.note].nonNulls.join(' — ');
   }
 
   final names = doses.map((d) => d.name).join(' + ');

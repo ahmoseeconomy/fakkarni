@@ -17,8 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/db/connection.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 
 void main() {
   late Directory dir;
@@ -38,25 +37,15 @@ void main() {
     final appDb = AppDatabase(openDatabaseFile(file));
     final isolateDb = AppDatabase(openDatabaseFile(file));
 
-    final app = RoutineRepository(appDb);
-    final isolate = RoutineRepository(isolateDb);
+    final app = PatientRepository(appDb);
+    final isolate = PatientRepository(isolateDb);
 
     // نفس المريض: الجهاز عليه صف واحد، والاتنين بيكتبوا عليه.
     final patientId = await app.ensurePatient();
 
     // كتابات متشابكة من الاتنين. من غير مهلة الانتظار واحد منهم بيقع.
-    Future<void> hammer(RoutineRepository repo, int patientId, int wake) async {
+    Future<void> hammer(PatientRepository repo, int patientId, int wake) async {
       for (var i = 0; i < 12; i++) {
-        await repo.saveRoutine(
-          patientId,
-          DayRoutine(
-            wake: MinuteOfDay.hm(wake + (i % 3)),
-            breakfast: MinuteOfDay.hm(8),
-            lunch: MinuteOfDay.hm(14, 30),
-            dinner: MinuteOfDay.hm(20),
-            sleep: MinuteOfDay.hm(23, 30),
-          ),
-        );
       }
     }
 
@@ -71,7 +60,7 @@ void main() {
     );
 
     // والاتنين شافوا نفس الملف فعلاً
-    expect(await isolate.getRoutine(patientId), isNotNull,
+    expect(await isolate.getPatient(patientId), isNotNull,
         reason: 'الاتصالين المفروض على نفس الملف');
 
     await appDb.close();

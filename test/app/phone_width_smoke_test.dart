@@ -15,8 +15,7 @@ import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/repositories/visit_questions_repository.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/doctor/doctor_page_screen.dart';
 import 'package:fakkarni/features/elder/elder_home_screen.dart';
@@ -31,14 +30,12 @@ import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
 import 'package:fakkarni/features/nearby/nearby_screen.dart';
-import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
+import 'package:fakkarni/features/onboarding/profile_onboarding_screen.dart';
 import 'package:fakkarni/features/records/calendar_screen.dart';
 import 'package:fakkarni/features/records/checkup_screen.dart';
 import 'package:fakkarni/features/records/health_file_screen.dart';
 import 'package:fakkarni/features/records/history_screen.dart';
 import 'package:fakkarni/features/records/manual_entry_screen.dart';
-import 'package:fakkarni/features/routine/edit_routine_screen.dart';
-import 'package:fakkarni/features/routine/ramadan_screen.dart';
 import 'package:fakkarni/features/scan/scan_prescription_screen.dart';
 import 'package:fakkarni/features/settings/notifications_screen.dart';
 import 'package:fakkarni/features/settings/settings_screen.dart';
@@ -90,18 +87,18 @@ void main() {
 
   Future<void> seed() async {
     final id = h.services.patientId;
-    await h.services.routines.saveProfile(id, name: 'عبد الرحمن محمود الشربيني', sex: Sex.m, age: 72);
+    await h.services.patients.saveProfile(id, name: 'عبد الرحمن محمود الشربيني', age: 72);
     await h.meds.addMedication(
       patientId: id,
       name: 'Glucophage XR 1000mg extended release',
       amountLabel: 'قرص واحد بعد الأكل مباشرة',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: DateTime(2026, 9, 1),
     );
     await h.meds.addMedication(
       patientId: id,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: DateTime(2026, 9, 1),
     );
     final r = ReadingsRepository(h.db);
@@ -143,19 +140,17 @@ void main() {
   );
 
   final screens = <String, Widget Function()>{
-    'shell': () => AppShell(routine: normalDay, now: now),
-    'today': () => TodayScreen(routine: normalDay, now: now),
+    'shell': () => AppShell(now: now),
+    'today': () => TodayScreen(now: now),
     'medications': () => const MedicationsScreen(),
     'settings': () => const SettingsScreen(),
-    'onboarding': () => const RoutineOnboardingScreen(),
-    'add medication': () => AddMedicationScreen(routine: normalDay),
-    'scan prescription': () => ScanPrescriptionScreen(routine: normalDay, reader: null),
+    'onboarding': () => const ProfileOnboardingScreen(),
+    'add medication': () => AddMedicationScreen(),
+    'scan prescription': () => ScanPrescriptionScreen(reader: null),
     'scan lab': () => const ScanLabScreen(reader: null),
     'sign in': () => const SignInScreen(auth: null),
-    'edit routine': () => EditRoutineScreen(routine: normalDay),
-    'ramadan': () => RamadanScreen(today: now),
     'notifications': () => const NotificationsScreen(),
-    'elder home': () => ElderHomeScreen(routine: normalDay, now: now),
+    'elder home': () => ElderHomeScreen(now: now),
     'emergency info': () => const EmergencyInfoScreen(),
     'emergency card': () => EmergencyCardScreen(now: () => now),
     'checkup': () => CheckupScreen(recordId: 1, now: () => now),

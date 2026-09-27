@@ -20,7 +20,7 @@ import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/health/follow_display.dart';
 import 'package:fakkarni/features/care/caregiver_health_screen.dart';
@@ -206,10 +206,10 @@ void main() {
     screenTest('كل تبويب وكل قايمة', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       final meds = MedicationRepository(db);
       final events = DoseEventRepository(db);
-      final patientId = await routines.ensurePatient();
+      final patientId = await patients.ensurePatient();
 
       tester.view.physicalSize = const Size(1000, 3000);
       tester.view.devicePixelRatio = 1.0;
@@ -220,11 +220,10 @@ void main() {
         AppScope(
           services: AppServices(
             db: db,
-            routines: routines,
+            patients: patients,
             medications: meds,
             events: events,
             scheduler: ReminderScheduler(
-              routines: routines,
               medications: meds,
               events: events,
               patientId: patientId,

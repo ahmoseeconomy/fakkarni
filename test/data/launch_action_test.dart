@@ -9,12 +9,12 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/notification_actions.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../support/seeded_clock.dart';
 
@@ -24,14 +24,7 @@ import '../support/seeded_clock.dart';
 /// و`init()` كانت بتاخد منه الـpayload وترمي الـactionId، فالزرار بيبقى
 /// دوسة عادية: التطبيق بيفتح على الجرعة والصف عمره ما اتكتب.
 void main() {
-  final normalDay = DayRoutine(
-    wake: MinuteOfDay.hm(7),
-    breakfast: MinuteOfDay.hm(7, 30),
-    lunch: MinuteOfDay.hm(14, 30),
-    dinner: MinuteOfDay.hm(20),
-    sleep: MinuteOfDay.hm(23, 30),
-  );
-
+  
   NotificationResponse launch({String? actionId, int id = 1}) =>
       NotificationResponse(
         notificationResponseType: actionId == null
@@ -161,20 +154,18 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final sink = _Sink();
-    final routines = RoutineRepository(db);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patients = PatientRepository(db);
+    final patientId = await patients.ensurePatient();
     final meds = MedicationRepository(db, clock: seededLongAgo);
     await meds.addMedication(
       patientId: patientId,
       name: 'Concor',
-      timing: AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: DateTime(2026, 8, 31),
       amountLabel: 'قرص',
     );
     final events = DoseEventRepository(db);
     final scheduler = ReminderScheduler(
-      routines: routines,
       medications: meds,
       events: events,
       patientId: patientId,
@@ -196,7 +187,6 @@ void main() {
     final action = NotificationService.applyLaunchResponse(response);
     expect(action, isNotNull);
     await NotificationActionHandler(
-      routines: routines,
       medications: meds,
       events: events,
       scheduler: scheduler,

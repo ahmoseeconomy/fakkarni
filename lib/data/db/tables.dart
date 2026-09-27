@@ -1,8 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../domain/patient/sex.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import 'converters.dart';
@@ -55,9 +53,15 @@ class Patients extends Table with SyncIdentity {
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
-  /// نسخة ٨ — الجنس (m/f) عشان الكلام يخاطبه صح. **محلي**: مش بيتدفع
-  /// للسحابة (SyncService بيبعت uuid والاسم والخانة بس). null = ما اتسألش.
-  TextColumn get sex => textEnum<Sex>().nullable()();
+  /// نسخة ٨ — كان الجنس (m/f). **السؤال اتشال** (قرار المالك، ٢٧ سبتمبر
+  /// ٢٠٢٦) والعمود فاضل زي ما هو من غير ما حد يقراه: القيم القديمة بتفضل
+  /// في القاعدة، ومفيش إعادة بناء لجدول المرضى عشان عمود مش بيتقرا.
+  TextColumn get sex => text().nullable()();
+
+  /// نسخة ٣٠ — «نتعرّف عليك» اتحفظت (الاسم، والسن لو قال). ده اللي بيقول
+  /// «فيه مريض على الموبايل ده» — كان بيتستنتج من روتين محفوظ أو جنس اتسأل،
+  /// والاتنين اتشالوا. الترحيل بيعلّم كل مريض كان عنده واحد منهم.
+  DateTimeColumn get profileDoneAt => dateTime().nullable()();
 
   /// نسخة ٨ — السن بالسنين. محلي، وnull = ما اتسألش.
   IntColumn get age => integer().nullable()();
@@ -67,61 +71,6 @@ class Patients extends Table with SyncIdentity {
   List<Set<Column<Object>>> get uniqueKeys => [
         {notificationSlot},
       ];
-}
-
-@DataClassName('DayRoutineRow')
-class DayRoutines extends Table with SyncIdentity {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get patientId =>
-      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
-
-  /// دقايق من منتصف الليل (0 → 1439) — نفس تمثيل [MinuteOfDay].
-  IntColumn get wakeMinutes => integer()();
-  IntColumn get breakfastMinutes => integer()();
-  IntColumn get lunchMinutes => integer()();
-  IntColumn get dinnerMinutes => integer()();
-  IntColumn get sleepMinutes => integer()();
-
-  /// المراسي اللي المستخدم ما حدّدهاش (v21) — أسامي مفصولة بفاصلة، فاضية
-  /// = كله متحدد. **الصفوف اللي من قبل v21 بتقرا فاضية**: كل حد سجّل روتينه
-  /// قبل ما الروتين يبقى اختياري كان بيجاوب على الخمسة، فكله بتاعه.
-  TextColumn get unsetAnchors => text().withDefault(const Constant(''))();
-
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
-
-  /// روتين واحد للمريض الواحد.
-  @override
-  List<Set<Column<Object>>> get uniqueKeys => [
-        {patientId},
-      ];
-}
-
-/// الروتين الأصلي وقت ما اتفتح وضع رمضان — بيرجع بالحرف لما يتقفل.
-///
-/// وجود الصف هو «رمضان شغّال»؛ مفيش عمود boolean يقدر يختلف مع الصف.
-/// **مش بيتزامن** عن قصد (مفيش SyncIdentity): الابن بيشوف الروتين
-/// الساري، مش النسخة الاحتياطية بتاعة جهاز أبوه. والفطار والسحور محفوظين
-/// هنا عشان يتحطّوا مرة واحدة.
-@DataClassName('RoutineBackupRow')
-class RoutineBackups extends Table {
-  IntColumn get patientId =>
-      integer().references(Patients, #id, onDelete: KeyAction.cascade)();
-
-  /// الخمس مواعيد الأصلية زي ما كانت في day_routines بالظبط.
-  IntColumn get wakeMinutes => integer()();
-  IntColumn get breakfastMinutes => integer()();
-  IntColumn get lunchMinutes => integer()();
-  IntColumn get dinnerMinutes => integer()();
-  IntColumn get sleepMinutes => integer()();
-
-  IntColumn get iftarMinutes => integer()();
-  IntColumn get suhoorMinutes => integer()();
-
-  /// نفس علم day_routines (v21) — الرجوع من رمضان بيرجّع اللي مش متحدد كمان.
-  TextColumn get unsetAnchors => text().withDefault(const Constant(''))();
-
-  @override
-  Set<Column<Object>> get primaryKey => {patientId};
 }
 
 /// تفضيلات الجهاز ده (D3.3): نمط كبار السن ودرجتين السلّم اللي بيتقفلوا.
@@ -412,30 +361,17 @@ class Medications extends Table with SyncIdentity {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-/// نوع توقيت الجرعة — العمود اللي بيقول الصف ده مرساة ولا ساعة ثابتة.
-enum DoseTimingKind {
-  /// الافتراضي: مرساة + إزاحة.
-  anchor,
-
-  /// الاستثناء الموثّق: ساعة ثابتة، محفوظة في [FixedTimings].
-  fixed,
-}
-
 /// جدول الجرعات — **مفيش فيه عمود ساعة**.
 ///
-/// الصف بيقول نوعه في [timingKind]. لو مرساة، الساعة بتتحسب وقت العرض من
-/// روتين المريض. لو ساعة ثابتة، الدقيقة عايشة في جدول [FixedTimings]
-/// المنفصل — عمود الساعة بيخص النوع ده لوحده، مش كل جرعة. لو حد ضاف عمود
-/// وقت هنا، اختبار `مفيش ولا عمود ساعة في جدول الجرعات` بيقع فوراً.
+/// الساعة عايشة في جدول [FixedTimings] المنفصل (صف لكل جرعة). كان فيه نوع
+/// تاني (مرساة + إزاحة) واتشال في النسخة ٣٠: كل جرعة اتحوّلت للساعة اللي
+/// كانت بترن فيها فعلاً وقت الترحيل. لو حد ضاف عمود وقت هنا، اختبار
+/// `مفيش ولا عمود ساعة في جدول الجرعات` بيقع فوراً.
 @DataClassName('DoseScheduleRow')
 class DoseSchedules extends Table with SyncIdentity {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get medicationId =>
       integer().references(Medications, #id, onDelete: KeyAction.cascade)();
-
-  /// الافتراضي مرساة — وده اللي الصفوف القديمة بتاخده في الترحيل.
-  TextColumn get timingKind => textEnum<DoseTimingKind>()
-      .withDefault(Constant(DoseTimingKind.anchor.name))();
 
   /// null معناها الجرعة دي لسه شغّالة.
   ///
@@ -444,11 +380,10 @@ class DoseSchedules extends Table with SyncIdentity {
   /// الجاية اللي «لسه» بتتعلّم `superseded` فالسيرفر ما يصعّدش عليها.
   DateTimeColumn get stoppedAt => dateTime().nullable()();
 
-  /// المرساة — null بس لو [timingKind] ساعة ثابتة.
-  TextColumn get anchor => textEnum<DayAnchor>().nullable()();
-
-  /// بالسالب = قبل المرساة، بالموجب = بعدها. null لو ساعة ثابتة.
-  IntColumn get offsetMinutes => integer().nullable()();
+  /// «قبل الأكل» وأخواتها (v30) — اسم [MealRelation] المخزّن
+  /// (`before` / `with` / `after` / `empty_stomach`). **تعليمات تتعرض،
+  /// مش توقيت**: ما بتحرّكش الساعة. null = مفيش. بتتدفع للسحابة (٠٠٣٤).
+  TextColumn get mealRelation => text().nullable()();
 
   TextColumn get repeat => textEnum<DoseRepeat>()();
 
@@ -475,10 +410,9 @@ class DoseSchedules extends Table with SyncIdentity {
   IntColumn get cycleOff => integer().nullable()();
 }
 
-/// الساعة الثابتة لجرعة — صف واحد لكل جرعة نوعها `fixed`.
+/// ساعة الجرعة — صف واحد لكل جرعة.
 ///
-/// جدول منفصل عن قصد: الساعة بتخص النوع ده بس، فمفيش عمود وقت بيقعد فاضي
-/// على كل جرعة مرساة ويغري حد يكتب فيه.
+/// جدول منفصل من زمان (من نسخة ٣) والسحابة على نفس الشكل، فبيفضل كده.
 @DataClassName('FixedTimingRow')
 class FixedTimings extends Table with SyncIdentity {
   IntColumn get doseScheduleId =>
@@ -494,7 +428,8 @@ class FixedTimings extends Table with SyncIdentity {
 /// حدث جرعة في يوم روتين معيّن.
 ///
 /// مفتاح الحدث هو (الجرعة، يوم الروتين) — **مش الساعة**. يعني لو المريض
-/// غيّر معاد فطاره النهاردة، الحدث بيفضل هو هو وساعته بس هي اللي بتتحرك.
+/// عدّل ساعة الجرعة النهاردة، الحدث بيفضل هو هو وساعته بس هي اللي بتتحرك.
+/// يوم الروتين بيبدأ ٤ الفجر (`routine_day.dart`).
 /// [scheduledAt] تسجيل لواقعة حصلت، مش مصدر للجدولة.
 @DataClassName('DoseEventRow')
 class DoseEvents extends Table with SyncIdentity {

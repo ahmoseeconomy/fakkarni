@@ -3,13 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/appointment_scheduler.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
 
 /// **إشعارات المواعيد: هادي امبارحه، وواحد بيرن في يومه.**
 ///
@@ -44,13 +43,6 @@ class _Sink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final _now = DateTime(2026, 9, 15, 10);
 
@@ -63,9 +55,8 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     sink = _Sink();
-    final routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, _routine);
+    final patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
     checkups = CheckupService(db, sink);
   });
 
@@ -98,7 +89,7 @@ void main() {
       expect(before.title, 'بكرة ميعادك في المعمل');
       expect(before.body, 'صورة دم');
 
-      expect(dayOf.at, DateTime(2026, 9, 20, 7));
+      expect(dayOf.at, DateTime(2026, 9, 20, 8), reason: '٨ الصبح ثابتة — الروتين اتشال');
       expect(dayOf.kind, NotificationKind.appointmentAlert);
       expect(dayOf.title, 'النهارده ميعادك في المعمل');
     });

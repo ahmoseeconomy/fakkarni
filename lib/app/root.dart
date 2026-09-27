@@ -9,10 +9,9 @@ import '../domain/care/follower_role.dart';
 import '../core/theme/tokens.dart';
 import '../data/auth/auth_service.dart';
 import '../data/services/reminder_plan.dart';
-import '../domain/scheduling/day_routine.dart';
 import '../features/entry/entry_screen.dart';
 import '../features/link/sign_in_screen.dart';
-import '../features/onboarding/routine_onboarding_screen.dart';
+import '../features/onboarding/profile_onboarding_screen.dart';
 import '../features/reminder/reminder_screen.dart';
 import '../features/voice/voice_intro_screen.dart';
 import 'app_scope.dart';
@@ -20,14 +19,13 @@ import 'shell.dart';
 
 /// بيقرر يبدأ منين — **من البيانات، مش من عمود دور** (٣.٣، D4):
 ///
-/// * فيه مريض محلي (روتين محفوظ أو جنس اتسأل) → مسار المريض زي ما هو: لو
-///   مفيش روتين الأسئلة الأول، وإلا «يومك».
+/// * فيه مريض محلي («نتعرّف عليك» اتحفظت) → «يومك».
 /// * مفيش مريض وفيه جلسة محفوظة محلياً → تطبيق الابن. شاشة المتابعة بتسأل
 ///   السحابة بنفسها؛ لو قالت «مفيش مريض مربوط» بنرجع لشاشة البداية.
 /// * مفيش الاتنين → «مين ماسك التليفون؟». سؤال، مش تسجيل دخول.
 ///
-/// وبيسمع لدوسة الإشعار: أول ما فيه payload وروتين محمّل، بيفتح شاشة
-/// التذكير فوق «يومك». لو الدوسة جت والتطبيق لسه بيحمّل، بتستنى الروتين.
+/// وبيسمع لدوسة الإشعار: أول ما فيه payload و«يومك» اتبنت، بيفتح شاشة
+/// التذكير فوقها. لو الدوسة جت والتطبيق لسه بيحمّل، بتستنى.
 class AppRoot extends StatefulWidget {
   const AppRoot({super.key});
 
@@ -37,11 +35,10 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   /// نفس القاعدة: البث بيتعمل مرة واحدة، مش في كل build.
-  Stream<DayRoutine?>? _routine;
   Stream<bool>? _hasPatient;
   StreamSubscription<FakkarniUser?>? _authSub;
   ValueNotifier<String?>? _tapPayload;
-  bool _routineReady = false;
+  bool _shellReady = false;
 
   /// «التليفون ده ليا» اتضغط — في الذاكرة بس، مش متخزّن ومش دور.
   ///
@@ -106,10 +103,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_routine != null) return;
+    if (_hasPatient != null) return;
     final services = AppScope.of(context);
-    _routine = services.routines.watchRoutine(services.patientId);
-    _hasPatient = services.routines.watchHasPatient(services.patientId);
+    _hasPatient = services.patients.watchHasPatient(services.patientId);
     // الجلسة بتتقرا بس (محفوظة محلياً) — مفيش نداء دخول هنا أبداً
     _authSub = services.auth?.authState.listen((_) {
       if (mounted) setState(() {});
@@ -128,7 +124,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   void _openFromTap() {
     final raw = _tapPayload?.value;
     if (raw == null) return;
-    if (!_routineReady) return; // هنرجع نبص عليه أول ما الروتين يوصل
+    if (!_shellReady) return; // هنرجع نبص عليه أول ما «يومك» تتبني
 
     // بنصفّر في الحالتين: payload مش بتاعنا ما يستاهلش يتفتح عليه تاني.
     _tapPayload!.value = null;
@@ -209,12 +205,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             body: Center(child: CircularProgressIndicator(color: F.green)),
           );
         }
-        // **أسئلة البداية ودي State واحدة لحد ما الروتين يتحفظ.** حفظ الجنس
-        // بيقلب `hasPatient` لـtrue في النص؛ لو الفرع اتغيّر هنا، الأسئلة
-        // كانت بتتبني من جديد في مكان تاني — State تانية بتعيد جملة الصفحة
-        // من الأول والأولى لسه بتتقال (الجملة بتتقطع وتبدأ تاني لوحدها).
+        // **«نتعرّف عليك» State واحدة لحد ما تتحفظ.** الحفظ بيقلب
+        // `hasPatient` لـtrue؛ لو الفرع اتغيّر هنا قبل `onDone`، الشاشة كانت
+        // بتتبني من جديد في مكان تاني — State تانية بتعيد جملة الصفحة.
         if (_patientPath) {
-          return RoutineOnboardingScreen(
+          return ProfileOnboardingScreen(
             onBack: snapshot.data == true ? null : () => setState(() => _patientPath = false),
             onDone: () {
               if (mounted) setState(() => _patientPath = false);
@@ -243,26 +238,13 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   }
 
   Widget _patientApp(BuildContext context) {
-    return StreamBuilder<DayRoutine?>(
-      stream: _routine,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            body: Center(child: CircularProgressIndicator(color: F.green)),
-          );
-        }
-        if (snapshot.data == null) {
-          return const RoutineOnboardingScreen();
-        }
-        if (!_routineReady) {
-          _routineReady = true;
-          // الدوسة اللي جت قبل ما الروتين يوصل — نفتحها دلوقتي، بعد الفريم.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _openFromTap();
-          });
-        }
-        return AppShell(routine: snapshot.data!);
-      },
-    );
+    if (!_shellReady) {
+      _shellReady = true;
+      // الدوسة اللي جت قبل ما «يومك» تتبني — نفتحها دلوقتي، بعد الفريم.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openFromTap();
+      });
+    }
+    return const AppShell();
   }
 }

@@ -15,11 +15,11 @@ import 'package:fakkarni/data/files/med_photo_sync.dart';
 import 'package:fakkarni/data/files/med_photos.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
 import 'package:fakkarni/domain/care/medication_change.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../core/med_photo_prepare_test.dart' show photoWithExif;
@@ -82,7 +82,7 @@ void main() {
   late DirectoryAttachmentStore store;
   late FakeBucket bucket;
   late MedicationRepository meds;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late int patientId;
   late String patientUuid;
   late int medId;
@@ -98,17 +98,16 @@ void main() {
     dir = await Directory.systemTemp.createTemp('medsync');
     store = DirectoryAttachmentStore(root: dir, subfolder: DirectoryAttachmentStore.medPhotoFolder);
     bucket = FakeBucket();
-    routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, DayRoutine.fallback);
+    patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
     // صف المريض وصل السحابة — من غير كده السياسة هترفض الرفع
     await (db.update(db.patients)..where((t) => t.id.equals(patientId))).write(const PatientsCompanion(syncedAtMs: Value(1)));
-    patientUuid = (await routines.getPatient(patientId))!.uuid;
+    patientUuid = (await patients.getPatient(patientId))!.uuid;
     meds = MedicationRepository(db, clock: seededLongAgo);
     medId = await meds.addMedication(
       patientId: patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: DateTime(2026, 9, 1),
     );
     medUuid = (await db.select(db.medications).getSingle()).uuid;
@@ -209,10 +208,9 @@ void main() {
     MedicationChangePuller puller(_Changes remote) => MedicationChangePuller(
           remote: remote,
           db: db,
-          routines: routines,
+          patients: patients,
           medications: meds,
           scheduler: ReminderScheduler(
-            routines: routines,
             medications: meds,
             events: DoseEventRepository(db),
             patientId: patientId,

@@ -21,23 +21,18 @@ Two users, different needs:
 
 These are product decisions, already settled. Do not "improve" them without asking.
 
-1. **A dose is an anchor + an offset by default. A fixed clock time is the
-   documented exception, never the first thing offered.**
-   Timing is the sealed `DoseTiming`: `AnchorTiming(anchor, offsetMinutes)`
-   — `{anchor: breakfast, offsetMinutes: -30}` — is the default and the
-   primary control everywhere. `FixedTiming(minuteOfDay)` exists for the
-   prescription that genuinely says "8:00 sharp". **Since 24 Sep 2026 (owner
-   decision) the editor shows both modes side by side at the top** —
-   «مع الأكل / الروتين» first and selected, «ساعة محددة» beside it; the
-   small link that used to sit under «احفظ الجرعة» is gone. The anchor is
-   still the default and the first thing offered; what changed is that the
-   clock is a visible choice instead of a hidden one. The editor must still
-   say plainly «ساعة ثابتة — مش هتتحرك مع روتين يومك» in that mode.
-   The rule was not abandoned: anchors are still why Ramadan, travel and late
-   wake-ups work by editing one field. Fixed doses simply stay where the
-   patient put them when the routine changes. Never make fixed the default,
-   never persist a resolved time for an anchor dose, and keep the fixed minute
-   in `fixed_timings` — not as a column on every schedule.
+1. **A dose is a clock time. There is no daily routine and no anchor** (owner
+   decision, 27 Sep 2026 — Egyptian users do not keep fixed meal or sleep
+   times). Timing is `FixedTiming(minuteOfDay)`, the minute lives in
+   `fixed_timings`, one row per schedule, and there is no time column on
+   `dose_schedules`. «قبل الأكل / مع الأكل / بعد الأكل / على معدة فاضية» is
+   `MealRelation` — an **instruction label** stored on
+   `dose_schedules.meal_relation`, shown in the reminder, the notification
+   body and the medicine details, and it **never moves a time**. The routine
+   (wake / breakfast / lunch / dinner / sleep), Ramadan mode, anchors, offsets
+   and the gender question are gone from the engine, the forms, the voice and
+   settings — see «الروتين والجنس اتشالوا» below, which supersedes every older
+   paragraph in this file that describes them.
 
 2. **`lib/domain/` stays pure Dart.** No Flutter, no database, no IO, no
    plugins. Pure functions are why the engine is unit-tested in under a second.
@@ -77,10 +72,10 @@ These are product decisions, already settled. Do not "improve" them without aski
    correct view, not a deletion: his next refresh shows the dose as taken.
    Never build a recall path; if you think you need one, re-read this.
 
-6. **No medical advice, ever.** Default offsets (30 min before food, 15 min
-   before bed — one function, `defaultOffsetBefore(anchor)` in `domain/`,
-   used by both the editor and the Gemini reader) are editable operational
-   conventions, not clinical guidance. If a
+6. **No medical advice, ever.** Default clock times (مرة ٩ص، مرتين ٩ص و٩م،
+   ٣ مرات ٩ و٣ و٩، ٤ مرات ٨ و١ و٦ و١١ — one function, `defaultTimesFor` in
+   `ai/prescription_reading.dart`, used by «ضيف دوا», the reader and «كلّمني»)
+   are editable operational conventions, not clinical guidance. If a
    prescription line is unclear the answer is "مش متأكد — اسأل الصيدلي",
    never a confident guess. The app never suggests, changes or stops a drug.
 
@@ -136,9 +131,11 @@ These are product decisions, already settled. Do not "improve" them without aski
   means nothing, a principle does not. The mockups show a coral FAB in the
   bottom bar — build that FAB in green, not coral. Gold must be the only
   colour that pops.
-- **No time picker as the primary control.** The dose editor leads with anchor
-  chips (`[قبل الفطار] [بعد العشا] …`) plus an offset wheel. A fixed clock
-  time exists only as a small secondary link.
+- **The dose editor is a clock** (27 Sep 2026): «الساعة كام؟», four quick
+  chips — «الصبح ٩ / الضهر ٢ / العصر ٥ / بالليل ٩» (`quickTimes` in
+  `dose_editor.dart`, editable defaults that set the wheel) — and the
+  `FTimeWheel` under them. «كل كام ساعة» starts from a chosen first time
+  (default 8:00). No anchors, no offset wheel, no system time picker.
 - **No preset time chips anywhere, and the clock wheel steps by one
   minute** (product change, 24 Sep 2026). The «٦:٠٠ / ٦:٣٠ / ٧:٠٠» rows
   above the routine questions, in «عدّل يومك», in the ask-meal sheet, and
@@ -282,10 +279,11 @@ These are product decisions, already settled. Do not "improve" them without aski
 ```
 lib/
   domain/scheduling/          PURE DART — no Flutter imports
-    day_routine.dart          DayAnchor, MinuteOfDay, DayRoutine
-    dose_schedule.dart        DoseSchedule, DoseRepeat, DoseTiming
-                              (AnchorTiming | FixedTiming)
-    schedule_engine.dart      resolveTime / resolveFixed / remindersForDay
+    minute_of_day.dart        MinuteOfDay
+    routine_day.dart          dayStart (04:00), routineDayOf, startDayFor
+    dose_schedule.dart        DoseSchedule, DoseRepeat, FixedTiming
+    schedule_engine.dart      resolveFixed / remindersForDay (no routine)
+  domain/medication/meal_relation.dart  MealRelation — a label, never a time
   domain/escalation/          PURE DART — escalation_ladder.dart: rungs
                               +15/+30, graceWindow 45, serverGraceWindow 60,
                               syncSlack 15, ladderFor, isPastGrace
@@ -321,9 +319,8 @@ lib/
   app/                        AppScope (services), AppRoot (onboarding | today,
                               opens ReminderScreen on tap), bootstrap.dart
                               (buildServices + background action entry point)
-  features/onboarding/        5 routine questions (mockup 22): one per
-                              screen, the wheel always visible (no presets),
-                              «مش متأكد» → DayRoutine.fallback, 5 dots
+  features/onboarding/        «نتعرّف عليك»: name → age, two dots
+                              (ProfileOnboardingScreen)
   features/medication/        dose_editor (mockup 23 — the ONE timing editor:
                               8 anchor chips, offset wheel, gold preview, fixed
                               link last); add_medication (mockup 20 fields →
@@ -335,7 +332,6 @@ lib/
                               + nowLines وكلام العدّاد), widgets/now_block
                               (كتلة «الآن» الواحدة بعدّادها)
   features/elder/             ElderHomeScreen — one dose card, «تم ✅» 80
-  features/routine/           EditRoutineScreen — change any anchor after onboarding
   features/settings/          SettingsScreen + NotificationsScreen (rung switches)
   features/link/              SignInScreen — the one door to identity («اربط ابني»)
   features/entry/             EntryScreen «مين ماسك التليفون؟» (D4) — routes only
@@ -363,78 +359,85 @@ lib/
                               + ReviewPrescriptionScreen «الذكاء يقترح، وأنت تؤكّد»
   features/reminder/          ReminderScreen (mockup 10) — تم التناول ✅ / تأجيل ١٥ د ⏰ /
                               تخطّي, four-rung ladder from domain constants
-test/                         1475 passing
+test/                         see `flutter test`
 ```
 
-**The routine is optional, and the app never times a medication from a
-routine value the user did not set** (product decision, 24 Sep 2026).
-`DayRoutine` keeps its five non-null minutes — so the engine math, Ramadan
-and the wording are byte-for-byte what they were — and gains `unset`, the
-anchors the user never chose. An unset anchor still holds a number, but it
-is a **rest position for the wheel, not an answer**: `remindersForDay`
-skips every `AnchorTiming` on an unset anchor (`routine_unset_test`), so
-nothing can ring from it. An unset `wake` still bounds the routine day —
-that decides which day a 1 AM fixed dose is counted under, never *when*
-it rings, and the test pins that the instant is identical.
-- **Storage**: `day_routines.unset_anchors` and `routine_backups.unset_anchors`
-  (drift **v21**, `TEXT NOT NULL DEFAULT ''`, comma-joined anchor names).
-  The default is the migration: every row from before v21 reads as fully
-  set, because nobody reached the app without answering all five —
-  `migration_test` asserts it on the v2 file. **No cloud migration**: the
-  flag is not pushed. `_pushDayRoutines` sends the five minutes as before,
-  nothing in the cloud reads a routine (the son never resolves anchors),
-  and pushing a column that does not exist on the live project would fail
-  the whole `day_routines` batch silently. If the cloud ever needs to know
-  which minutes are placeholders, that is `0022` **run before** the build
-  that pushes it — not a quiet edit to the payload.
-- **Onboarding**: each question has «مش دلوقتي» («مش متأكد» is gone —
-  it stored the fallback *as if chosen*). Skipping removes the answer and
-  `routineFromAnswers` marks the anchor unset. Skipping all five saves
-  `DayRoutine.none`: a row exists, the app proceeds, nothing is invented.
-- **Add / edit a dose** (`DoseEditor`): when the chosen anchor is unset the
-  editor opens in **fixed-clock mode** with the wheel at its rest — no
-  number from a default routine. The anchor chips stay, each unset one
-  labelled with «؟»; tapping it opens `askAnchorTime` (`lib/features/
-  routine/ask_anchor_time.dart`: the same question and wheel as
-  onboarding, «تمام» locked until the wheel moves) **once**,
-  `RoutineRepository.setAnchor` writes it as set, and the chip is then an
-  ordinary anchor. Closing the sheet writes nothing. `AddMedicationScreen`
-  and `EditMedicationScreen` hold a live `_routine` so later editors in
-  the same walk see the meal as set; a form with unset anchors says so in
-  words instead of promising «مراسي يومك».
-- **Prescription review**: an AI line on an unset anchor shows «ميعاد
-  الفطار مش متحدد» in place of a time, a gold note, and «حدّد ميعاد
-  الفطار» — and it **blocks «تمام»** like an unclear timing until the
-  person answers. Never auto-filled (rule 4 and rule 6 in one place).
-- **Settings «عدّل يومك»**: an unset anchor reads «مش متحدد» over a wheel
-  resting at the fallback; only a wheel move sets it (null-until-moved).
-  Once set, every dose on that anchor follows it as always; fixed doses
-  stay where they are.
-- **Appointment notices** still read `routine.wake` / `routine.dinner`
-  for their clock; on an unset anchor that is the rest value (6:30 / 20:00),
-  the same operational choice as the checkup's 9:00 — and it is a notice
-  about a visit, not a medication time.
+## الروتين والجنس اتشالوا (27 Sep 2026, owner decision)
 
-**«النهارده» بعد نص الليل = يوم الروتين اللي لسه ماشي** (٢٦ سبتمبر ٢٠٢٦، من
-الجهاز: دوا اتضاف ١٢:٥٠ بالليل بساعة ثابتة ١٢:٥٢ وبداية «النهارده» اتعرض
-«بكرة ١٢:٥٢ ص» وما رنّش). `start_date` بيتقارن بيوم الروتين في `isActiveOn`،
-والفورم بيدّي تاريخ التقويم؛ قبل الصحيان الاتنين مختلفين وجرعة الليلة دي كانت
-بتتشال. `startDayFor` في `domain/scheduling/routine_day.dart` (نقية؛
-`currentRoutineDay` في `reminder_plan` بقت بتنده `routineDayOf` منها) بترجّع
-يوم الروتين لما المختار = تاريخ النهارده ويوم الروتين قبله، وأي تاريخ تاني
-زي ما هو. بتتطبّق في **مكان واحد**: `MedicationRepository._insertSchedule`
-(كل إضافة: الفورم، المراجعة، التعديل، الممرض) و`updateTiming`. الماضي مقفول
-زي ما هو من `active_from` والخطة «الأقرب من دلوقتي» — `start_after_midnight_test`
-بيثبت ١٢:٥٠/١٢:٥٢ و١١:٥٠/١٢:١٠ و١٠ الصبح والتعديل بالليل، والخطط الذهبية
-والمجدول خضر بالحرف. «بكرة» تاريخ تقويم والفورم بيكتبه («هيبدأ بكرة — التاريخ»).
+**Supersedes** every older paragraph below about `DayRoutine`, anchors,
+offsets, «ظبّط يومك», «عدّل يومك», Ramadan mode, «ميعاد الفطار؟», the «؟»
+marker on unset anchors, the sex-keyed `Say` layer and «راجل ولا ست؟». Those
+paragraphs are history; the code no longer has any of them.
 
-**The day starts at wake, not midnight.** `minutesFromDayStart` is
-`(anchor - wake + 1440) % 1440`, so a 1 AM bedtime lands 18 hours *after*
-waking rather than 6 hours before it. A fixed time follows the same rule:
-`resolveFixed` puts a 1 AM fixed dose at the *end* of the routine day (next
-calendar date), and otherwise never moves it. Both kinds resolve to the same
-minute-keyed map, so a fixed 2:00 PM and «قبل الغدا − ٣٠» at 2:00 PM merge
-into one `Reminder` like any other pair.
+- **Onboarding** is intro → «مين ماسك التليفون ده؟» → «نتعرّف عليك» (name,
+  then age — optional, «مش عايز أقول») → «يومك». `ProfileOnboardingScreen`
+  (`features/onboarding/profile_onboarding_screen.dart`), two pages, two dots.
+  «فيه مريض» = `patients.profile_done_at IS NOT NULL` (drift v30), set by
+  `PatientRepository.saveProfile` (the repository was `RoutineRepository`).
+- **Gender** is not asked and not read. `patients.sex` stays in the schema
+  unused (old values stay). Every line that used `Say.pick` is the neutral /
+  default form, from `domain/wording/patient_words.dart`.
+- **Engine**: `ScheduleEngine()` has no routine. `DoseSchedule.timing` is a
+  `FixedTiming`; `ruleLabel` is the meal label or null.
+- **Forms**: «ضيف دوا» asks «كام مرة» → default times (`defaultTimesFor`) →
+  «الساعة كام؟» (quick chips + wheel, the first dose; the rest spread over
+  07:00–23:00 until a row is edited by hand) → «مع الأكل؟ (لو حابب)» — four
+  chips, tap again to clear, a label only. The edit screen writes the label on
+  every schedule of the medicine (`updateMealRelation`, no reschedule needed).
+- **Prescription import**: a written clock is kept; otherwise «مرة» → 9:00,
+  «مرتين» → 9:00 / 21:00, «٣ مرات» → 9:00 / 15:00 / 21:00, «٤ مرات» → 8:00 /
+  13:00 / 18:00 / 23:00, a meal word alone → one dose at 9:00. Suggested times
+  carry `suggestedTimesNote` below the confidence threshold so a human looks,
+  and the meal word becomes `ReadLine.mealRelation`.
+- **«يومك»**: «جدول النهاردة» is a time-ordered list of today's doses (time,
+  name, meal label, state) — no wake/meal rows on the rail.
+- **Voice**: `onb_gender`, `onb_wake`, `onb_breakfast`, `onb_lunch`,
+  `onb_dinner`, `onb_sleep`, `onb_routine_skip`, `onb_routine_done`,
+  `help_routine`, `help_routine_skip` are gone from the scripts, the catalog
+  (55 lines) and `assets/voices/`. «كلّمني» has no `set_routine`; «بعد الفطار»
+  is a meal label and the flow asks «الساعة كام؟». The cloud tool schema sends
+  `meal_relation` (before_meal / with_meal / after_meal / empty_stomach), never
+  an anchor.
+- **Migration (drift v30, `_migrateToClockTimes`)**: every anchored schedule
+  becomes the fixed minute the **old engine** resolved it to with the
+  patient's saved routine (or the old fallback when there was none) —
+  `test/data/clock_migration_test.dart` replays the old formula and asserts
+  the next-7-days plan is identical by id and instant. The meal relation is
+  kept as the label (wake / sleep are not meals). A schedule on an **unset**
+  anchor never rang, so it is stopped (`stopped_at`) rather than made to ring
+  at a number the user never chose; the patient restarts it by hand. Events
+  that were keyed by the old wake rule and whose day differs under 04:00 are
+  re-keyed (`UPDATE OR IGNORE`), so an early-morning dose is not materialised
+  twice. `anchor`, `offset_minutes`, `timing_kind`, `day_routines` and
+  `routine_backups` are dropped locally.
+- **Cloud**: nothing is dropped. The phone pushes `timing_kind = 'fixed'`,
+  null anchor / offset and the new `meal_relation`; `day_routines` is no
+  longer pushed. `supabase/migrations/0034_meal_relation.sql` adds the column
+  — **file only, not run**; until it runs the push retries without it
+  (`_optionalColumns`) and the son's side reads an older tier. The son's
+  side words an old anchor row from a not-yet-updated phone as text only.
+- **Known edge, not fixed (the lock-screen action code was out of scope)**: a
+  notification scheduled **before** the update for a fixed dose between 04:00
+  and the patient's old wake time carries the old routine day in its payload.
+  If «أخدته» is tapped on that notification before the app is opened after
+  the update, the handler resolves the dose a day early: it writes the
+  previous day's row, and the real one stays `pending`, so its +15/+30 and the
+  son's alert can still fire. The first launch reschedules every payload, so
+  it is at most one notification per such dose. The fix (a v2 payload that
+  carries its own day rule) touches the lock-screen path and waits for the
+  owner.
+
+**The day starts at 04:00, fixed, for everyone** (27 Sep 2026 — it used to
+start at the user's wake time). `dayStart` and `routineDayOf(now)` in
+`domain/scheduling/routine_day.dart` are the one place: a 01:00 dose belongs to
+the previous day's list, streak and «اتنست»; `resolveFixed` puts any minute
+before 04:00 at the end of the routine day (next calendar date). Everything
+that used the wake boundary reads it from there: the engine, `currentRoutineDay`,
+`startDayFor` (a dose added at 00:50 «النهارده» still rings tonight —
+`start_after_midnight_test`), `DailyCloudBudget`, adherence and the sweep.
+Appointment notices ring at 08:00 (day-of) and 20:00 (quiet, day before) —
+`dayOfMinute` / `dayBeforeMinute` in `appointment_plan.dart` — and a stage date
+is written at the same 08:00 so the date shown is the one that rings.
 
 **The Gemini key is compiled into the app again — a deliberate step back
 taken on 18 Sep 2026.** C2 had moved it to an Edge Function secret and made
@@ -1857,7 +1860,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** و**`0031_not_bought`** و**`0032_schedule_patterns`** و**`0033_delete_account`** — اتكتبوا ٢٤–٢٥ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030 ثم 0031 ثم 0032 ثم 0033، وبعدها `verify_migrations.sql` لازم يرجّع ٣٣ صف كلهم `ok = true`. **0033 ملف بس** (مسح الحساب) — ومعاها دالة الحافة `delete-account` لازم تترفع؛ من غيرهم «امسح حسابي» بترجع «مقدرناش نكمّل المسح — حسابك لسه موجود» ومفيش حاجة بتتمسح. **0032 ملف بس** (أنماط الأيام) — من غيرها الجدول بنمط بيفضل على الموبايل ويطلع `patternSync` للأدمن. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 و0031 المالك بيطبّقهم كمان (٢٥ سبتمبر). من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
+| **not yet run** | **`0023_nurse_role`** و**`0024_medication_changes`** و**`0025_family_subscription`** و**`0026_nurse_account`** و**`0027_vitals`** و**`0028_medication_stock`** و**`0029_med_photos`** و**`0030_patient_papers_limits`** و**`0031_not_bought`** و**`0032_schedule_patterns`** و**`0033_delete_account`** — اتكتبوا ٢٤–٢٥ سبتمبر ٢٠٢٦ ولسه ما اتشغّلوش (طلب المالك: الملف بس). من غير 0023/0024: تأكيد الممرض بيقع، والدعوة بدور بترجع خطأ على `p_role`. من غير 0025: التطبيق بيقرا «مفيش صف» = مسموح، فمفيش تجربة بتنتهي ومفيش سقف ٥. من غير 0026: باب الممرض بيرجع خطأ على `p_expect_role`، وكود الممرض ما بيشيلش «يعدّل الأدوية»، والصور ما بتترفعش. الترتيب: 0023 ثم 0024 ثم 0025 (بتعيد تعريف `due_escalations` بعد 0023) ثم 0026 ثم 0027 ثم 0028 ثم 0029 ثم 0030 ثم 0031 ثم 0032 ثم 0033 ثم 0034، وبعدها `verify_migrations.sql` لازم يرجّع ٣٤ صف كلهم `ok = true`. **0034 ملف بس** (كلمة الأكل على الجدول — الروتين اتشال). **0033 ملف بس** (مسح الحساب) — ومعاها دالة الحافة `delete-account` لازم تترفع؛ من غيرهم «امسح حسابي» بترجع «مقدرناش نكمّل المسح — حسابك لسه موجود» ومفيش حاجة بتتمسح. **0032 ملف بس** (أنماط الأيام) — من غيرها الجدول بنمط بيفضل على الموبايل ويطلع `patternSync` للأدمن. المالك بيطبّق 0028 و0029 بنفسه (٢٥ سبتمبر)؛ 0030 و0031 المالك بيطبّقهم كمان (٢٥ سبتمبر). من غير 0028 المخزون بيفضل على موبايل المريض (صفه مستني، باقي الدفع ماشي)، والعيلة ما بتشوفش سطره، و«علبة جديدة» من الممرض بترجع خطأ على قيد النوع. **و`3f74e5c` غيّر ملف 0026** (الفحص الذاتي من غير `private.` تحت `set role`) — لو كان اتشغّل، يتشغّل تاني. من غير 0027 القياسات بتفضل على موبايل المريض (الدفع بيسيبها مستنية من غير ما يوقّف جدول تاني) وعيلته وممرضه ما بيشوفوهاش. **و`bf460e0` غيّر ملف 0023 بعد ما اتكتب** — لو كان اتشغّل، يتشغّل تاني. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.

@@ -1,7 +1,7 @@
 import '../../core/diagnostics.dart';
 import '../care/proxy_confirmations.dart';
 import '../repositories/dose_event_repository.dart';
-import '../repositories/routine_repository.dart';
+import '../repositories/patient_repository.dart';
 import '../services/reminder_scheduler.dart';
 
 /// **السحبة الوحيدة من السحابة لـdrift**: تأكيدات الجرعات اللي حد تاني
@@ -15,7 +15,7 @@ import '../services/reminder_scheduler.dart';
 class ProxyConfirmationPuller {
   ProxyConfirmationPuller({
     required this.remote,
-    required this.routines,
+    required this.patients,
     required this.events,
     required this.scheduler,
     required this.patientId,
@@ -24,7 +24,7 @@ class ProxyConfirmationPuller {
   });
 
   final ProxyConfirmRemote remote;
-  final RoutineRepository routines;
+  final PatientRepository patients;
   final DoseEventRepository events;
   final ReminderScheduler scheduler;
   final int patientId;
@@ -38,7 +38,7 @@ class ProxyConfirmationPuller {
     if (_running) return 0;
     _running = true;
     try {
-      final patient = await routines.getPatient(patientId);
+      final patient = await patients.getPatient(patientId);
       if (patient == null) return 0;
       final now = clock();
       final rows = await remote.fetchForPatient(patient.uuid, since: now.subtract(window));

@@ -133,7 +133,7 @@ class HealthCollector {
     try {
       final preferences = services.caregiverPreferences;
       if (preferences == null) return null;
-      final uuid = (await services.routines.getPatient(services.patientId))?.uuid;
+      final uuid = (await services.patients.getPatient(services.patientId))?.uuid;
       if (uuid == null) return null;
       final followers = await preferences.followers(uuid);
       final name = followers.firstOrNull?.name.trim();

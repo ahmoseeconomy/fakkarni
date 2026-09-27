@@ -11,12 +11,11 @@ import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/emergency_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/emergency/emergency_card_screen.dart';
 import 'package:fakkarni/features/emergency/emergency_edit_screen.dart';
@@ -24,13 +23,6 @@ import 'package:fakkarni/features/emergency/emergency_info_screen.dart';
 import 'package:fakkarni/features/emergency/emergency_widgets.dart';
 import '../../support/seeded_clock.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 class _Sink implements ReminderSink {
   @override
@@ -76,17 +68,15 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -104,7 +94,7 @@ void main() {
     final picker = FakePicker(result: result, denied: denied);
     services = AppServices(
       db: services.db,
-      routines: services.routines,
+      patients: services.patients,
       medications: services.medications,
       events: services.events,
       scheduler: services.scheduler,
@@ -148,7 +138,7 @@ void main() {
   }
 
   Future<void> fill() async {
-    await services.routines.saveProfile(services.patientId, name: 'أحمد محمود', sex: Sex.m, age: 72);
+    await services.patients.saveProfile(services.patientId, name: 'أحمد محمود', age: 72);
     await EmergencyRepository(db).save(
       services.patientId,
       const EmergencyInfo(
@@ -161,13 +151,13 @@ void main() {
     final stopped = await services.medications.addMedication(
       patientId: services.patientId,
       name: 'Xatral 10mg',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: DateTime(2026, 8, 31),
     );
     await services.medications.addMedication(
       patientId: services.patientId,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: DateTime(2026, 8, 31),
     );
     await services.medications.stopMedication(stopped);
@@ -298,7 +288,7 @@ void main() {
 
   group('الوصول بلمسة واحدة', () {
     Future<void> pumpShell(WidgetTester tester) =>
-        pump(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+        pump(tester, AppShell(now: DateTime(2026, 8, 31, 8)));
 
     // المخطط ٤: البيل ده أحمر مصمت — وده المكان الوحيد برّه شاشتي الطوارئ.
     // الأحمر بيفضل معناه لأن مفيش حاجة تانية بتاخده: الجرعة الفايتة ذهبي.

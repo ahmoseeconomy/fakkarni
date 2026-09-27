@@ -11,6 +11,7 @@
 // والشاشة هي اللي بتحوّلها لمراسي — ومفيش حاجة بتتحفظ غير من زرار «احفظ».
 
 import '../../domain/voice/answer_parser.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/voice/arabic_dates.dart';
 import '../../domain/voice/arabic_numbers.dart';
 
@@ -26,7 +27,6 @@ enum CommandIntent {
   addVital,
   addDoctorQuestion,
   markBought,
-  setRoutine,
   upcomingAppointments,
   stockStatus,
   medicalQuestion,
@@ -74,20 +74,8 @@ class SpokenVital {
   String toString() => 'SpokenVital($type, $values)';
 }
 
-/// «بفطر الساعة ٨» — مرساة بكلمتها وساعتها.
-class SpokenRoutine {
-  const SpokenRoutine(this.anchorWord, this.time);
-  final String anchorWord;
-  final SpokenTime time;
-
-  @override
-  String toString() => 'SpokenRoutine($anchorWord, $time)';
-}
-
-/// «قبل / مع / بعد» الأكل.
-enum MealRelation { before, with_, after }
-
-/// ميعاد اتقال في «ضيفلي»: مرساة بكلمتها («الفطار») وعلاقتها، أو ساعة ثابتة.
+/// ميعاد اتقال في «ضيفلي»: كلمة أكل («الفطار») وعلاقتها — **كلمة تعليمات،
+/// مش ساعة** (الروتين اتشال) — أو ساعة بالحرف.
 class SpokenTiming {
   const SpokenTiming({this.anchorWord, this.relation, this.fixed, this.hourNeedsPeriod});
 
@@ -120,7 +108,6 @@ class VoiceCommand {
     this.snoozeMinutes,
     this.vital,
     this.questionText,
-    this.routine,
     this.durationDays,
     this.startDate,
     this.weekdays = const [],
@@ -140,7 +127,6 @@ class VoiceCommand {
   final int? snoozeMinutes;
   final SpokenVital? vital;
   final String? questionText;
-  final SpokenRoutine? routine;
   final int? durationDays;
   final DateTime? startDate;
 
@@ -158,7 +144,6 @@ class VoiceCommand {
         snoozeMinutes: snoozeMinutes,
         vital: vital ?? this.vital,
         questionText: questionText,
-        routine: routine,
         durationDays: durationDays,
         startDate: startDate,
         weekdays: weekdays,
@@ -169,7 +154,7 @@ class VoiceCommand {
 
   @override
   String toString() =>
-      'VoiceCommand($intent, med=$medWords, timings=$timings, x$timesPerDay, every=$everyHours, once=$once, appt=$appointment, snooze=$snoozeMinutes, vital=$vital, q=$questionText, routine=$routine)';
+      'VoiceCommand($intent, med=$medWords, timings=$timings, x$timesPerDay, every=$everyHours, once=$once, appt=$appointment, snooze=$snoozeMinutes, vital=$vital, q=$questionText)';
 }
 
 // ---------------------------------------------------------------- كلمات
@@ -251,15 +236,6 @@ const _snoozeWords = {'بعدين', 'شويه', 'اجل', 'اجلها', 'اجل�
 // ---- الشرا
 const _boughtVerbs = {'اشتريت', 'اشترينا', 'شريت', 'جبت', 'جبته', 'جبتها', 'اشتريته', 'اشتريتها', 'اشتريتهم', 'جبتهم'};
 
-// ---- الروتين
-const _routineVerbs = <String, String>{
-  'بفطر': 'الفطار', 'بافطر': 'الفطار', 'فطاري': 'الفطار',
-  // بعد التطبيع ى → ي
-  'بتغدي': 'الغدا', 'باتغدي': 'الغدا', 'بتغدا': 'الغدا', 'غدايا': 'الغدا',
-  'بتعشي': 'العشا', 'باتعشي': 'العشا', 'بتعشا': 'العشا', 'عشايا': 'العشا',
-  'بنام': 'النوم', 'بانام': 'النوم', 'نومي': 'النوم',
-  'بصحي': 'الصحيان', 'باصحي': 'الصحيان', 'بصحا': 'الصحيان', 'بقوم': 'الصحيان',
-};
 
 // ---- المخزون
 const _stockWords = {'فاضل', 'فاضله', 'فاضلي', 'فاضللي', 'باقي', 'المخزون', 'مخزون', 'يخلص', 'خلص', 'خلصت', 'خلصان', 'العلبه', 'علبه'};
@@ -341,10 +317,6 @@ VoiceCommand parseCommand(String text, {DateTime? now}) {
   final hasTiming = tokens.any((t) => (_anchorWords[t] != null && _anchorWords[t] != 'ما') || _relationWords.containsKey(t) || _dayPartToAnchor.containsKey(t) || t == 'الساعه' || _timesWords.containsKey(t) || t == 'كل');
   if (adds && (mentionsMed || (hasTiming && !mentionsAppt))) return _parseAdd(tokens, today);
 
-  // ---- الروتين: «بفطر الساعة ٨»
-  final routine = _parseRoutine(tokens);
-  if (routine != null) return routine;
-
   // ---- المخزون: «فاضل كام؟» / «قرب يخلص»
   if (_hasAny(tokens, _stockWords) && (mentionsMed || _hasAny(tokens, _whatWords) || tokens.any((t) => t == 'حبايه' || t == 'حبايات' || t == 'اقراص' || t == 'قرص'))) {
     return const VoiceCommand(CommandIntent.stockStatus);
@@ -417,41 +389,6 @@ VoiceCommand? _parseVital(String text, List<String> tokens) {
   final values = type == VitalType.bp ? numbers.take(3).toList() : [numbers.first];
   if (type == VitalType.bp && values.length < 2) return VoiceCommand(CommandIntent.addVital, vital: SpokenVital(type, values));
   return VoiceCommand(CommandIntent.addVital, vital: SpokenVital(type, values));
-}
-
-/// «بفطر الساعة ٨» / «الفطار الساعة ٨ الصبح» / «بنام ١١ بالليل».
-VoiceCommand? _parseRoutine(List<String> tokens) {
-  String? anchor;
-  var at = -1;
-  for (var i = 0; i < tokens.length; i++) {
-    final v = _routineVerbs[tokens[i]];
-    if (v != null) {
-      anchor = v;
-      at = i;
-      break;
-    }
-  }
-  if (anchor == null) {
-    // «الفطار الساعة ٨» — المرساة بالاسم + «الساعة»
-    for (var i = 0; i < tokens.length; i++) {
-      final a = _anchorWords[tokens[i]];
-      if (a != null && a != 'ما' && i + 1 < tokens.length && (tokens[i + 1] == 'الساعه' || tokens[i + 1] == 'ساعه')) {
-        anchor = a;
-        at = i;
-        break;
-      }
-    }
-  }
-  if (anchor == null) return null;
-  final hint = switch (anchor) {
-    'الصحيان' || 'الفطار' => DayPartHint.morning,
-    'الغدا' => DayPartHint.noon,
-    'العشا' => DayPartHint.evening,
-    _ => DayPartHint.night,
-  };
-  final time = parseTime(tokens.sublist(at + 1).join(' '), hint: hint);
-  if (time == null) return null;
-  return VoiceCommand(CommandIntent.setRoutine, routine: SpokenRoutine(anchor, time));
 }
 
 /// «فكّرني بعدين» / «بعد شوية» / «أجّل الدوا» / «فكّرني بعد ١٠ دقايق».

@@ -5,70 +5,36 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
+import 'package:fakkarni/domain/medication/meal_relation.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 
 void main() {
   late AppDatabase db;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late MedicationRepository meds;
   late DoseEventRepository events;
   late int patientId;
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    routines = RoutineRepository(db);
+    patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     events = DoseEventRepository(db);
-    patientId = await routines.ensurePatient();
+    patientId = await patients.ensurePatient();
   });
 
   tearDown(() => db.close());
 
-  group('الروتين', () {
-    test('بيتحفظ وبيترجع زي ما هو', () async {
-      await routines.saveRoutine(patientId, normalDay);
-      final loaded = await routines.getRoutine(patientId);
-
-      expect(loaded!.wake, normalDay.wake);
-      expect(loaded.breakfast, normalDay.breakfast);
-      expect(loaded.lunch, normalDay.lunch);
-      expect(loaded.dinner, normalDay.dinner);
-      expect(loaded.sleep, normalDay.sleep);
-    });
-
-    test('الحفظ تاني بيستبدل ومبيعملش روتين تاني', () async {
-      await routines.saveRoutine(patientId, normalDay);
-      await routines.saveRoutine(
-        patientId,
-        normalDay.copyWith(breakfast: MinuteOfDay.hm(9)),
-      );
-
-      final rows = await db.select(db.dayRoutines).get();
-      expect(rows.length, 1);
-      expect((await routines.getRoutine(patientId))!.breakfast.minutes, 9 * 60);
-    });
-
-    test('مفيش روتين محفوظ → null، والتطبيق بيقع على الافتراضي', () async {
-      expect(await routines.getRoutine(patientId), isNull);
-    });
-  });
-
-  group('الجرعة متخزّنة كمرساة + إزاحة، والساعة الثابتة في جدولها', () {
+  group('الساعة في جدولها، ومفيش عمود ساعة على الجرعة', () {
     Future<Set<String>> columnsOf(String table) async {
       final columns =
           await db.customSelect('PRAGMA table_info($table)').get();
@@ -84,9 +50,8 @@ void main() {
         'updated_at_ms',
         'synced_at_ms',
         'medication_id',
-        'timing_kind',
-        'anchor',
-        'offset_minutes',
+        // «قبل الأكل» وأخواتها (v30) — كلمة تعليمات، مش ساعة.
+        'meal_relation',
         'repeat',
         'start_date',
         'duration_days',
@@ -106,7 +71,7 @@ void main() {
       expect(
         names.any((n) => n.contains('time') || n.contains('clock')),
         isFalse,
-        reason: 'الجرعة مرساة + إزاحة، والساعة الثابتة في fixed_timings',
+        reason: 'الساعة في fixed_timings، مش على الجرعة',
       );
     });
 
@@ -150,11 +115,10 @@ void main() {
 
       final loaded = (await meds.activeSchedules(patientId)).single;
       expect(loaded.timing, FixedTiming(MinuteOfDay.hm(8)));
-      expect(loaded.ruleLabel, 'ساعة ثابتة');
+      expect(loaded.ruleLabel, isNull);
 
       final row = (await db.select(db.doseSchedules).get()).single;
-      expect(row.anchor, isNull);
-      expect(row.offsetMinutes, isNull);
+      expect(row.mealRelation, isNull);
     });
 
     test('وقف الدوا بيشيل ساعته الثابتة معاه (cascade)', () async {
@@ -169,27 +133,29 @@ void main() {
       expect(await db.select(db.fixedTimings).get(), isEmpty);
     });
 
-    test('المرساة والإزاحة بترجع زي ما اتحطت', () async {
-      await meds.addMedication(
+    test('الساعة وكلمة الأكل بيرجعوا زي ما اتحطوا', () async {
+      await meds.addMedicationWithDoses(
         patientId: patientId,
         name: 'Antodine',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        timings: [FixedTiming(MinuteOfDay.hm(7))],
         startDate: aug31,
         amountLabel: 'قرص واحد',
+        mealRelation: MealRelation.before,
       );
 
       final loaded = (await meds.activeSchedules(patientId)).single;
-      expect(loaded.timing, const AnchorTiming(DayAnchor.breakfast, -30));
+      expect(loaded.timing, FixedTiming(MinuteOfDay.hm(7)));
       expect(loaded.medicationName, 'Antodine');
       expect(loaded.amountLabel, 'قرص واحد');
-      expect(loaded.ruleLabel, 'الفطار − ٣٠ د');
+      expect(loaded.ruleLabel, 'قبل الأكل');
+      expect((await db.select(db.doseSchedules).get()).single.mealRelation, 'before');
     });
 
-    test('updateTiming: مرساة → ساعة ثابتة → مرساة، نفس الصف ونفس uuid', () async {
+    test('updateTiming: ساعة → ساعة → ساعة، نفس الصف ونفس uuid وصف ساعة واحد', () async {
       final medId = await meds.addMedication(
         patientId: patientId,
         name: 'Antodine',
-        timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: aug31,
       );
       final before = (await db.select(db.doseSchedules).get()).single;
@@ -200,22 +166,22 @@ void main() {
       var row = (await db.select(db.doseSchedules).get()).single;
       expect(row.id, before.id);
       expect(row.uuid, before.uuid);
-      expect(row.anchor, isNull);
       expect((await db.select(db.fixedTimings).get()).single.minuteOfDay, 14 * 60);
 
-      await meds.updateTiming(before.id, const AnchorTiming(DayAnchor.dinner, 30));
+      await meds.updateTiming(before.id, FixedTiming(MinuteOfDay.hm(20, 30)));
       loaded = (await meds.schedulesFor(medId)).single;
-      expect(loaded.timing, const AnchorTiming(DayAnchor.dinner, 30));
+      expect(loaded.timing, FixedTiming(MinuteOfDay.hm(20, 30)));
       row = (await db.select(db.doseSchedules).get()).single;
       expect(row.uuid, before.uuid);
-      expect(await db.select(db.fixedTimings).get(), isEmpty, reason: 'الساعة الثابتة اتشالت');
+      expect((await db.select(db.fixedTimings).get()).single.minuteOfDay, 20 * 60 + 30,
+          reason: 'صف ساعة واحد للجرعة، مش صفّين');
     });
 
     test('watchAllSummaries بيرجّع الموقوف كمان — والنشط بس في watchActiveSummaries', () async {
       final a = await meds.addMedication(
-        patientId: patientId, name: 'A', timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);
+        patientId: patientId, name: 'A', timing: FixedTiming(MinuteOfDay.hm(7, 30)), startDate: aug31);
       await meds.addMedication(
-        patientId: patientId, name: 'B', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: aug31);
+        patientId: patientId, name: 'B', timing: FixedTiming(MinuteOfDay.hm(20)), startDate: aug31);
       await meds.stopMedication(a);
 
       final all = await meds.watchAllSummaries(patientId).first;
@@ -225,36 +191,11 @@ void main() {
       expect(active.map((m) => m.medication.name).toList(), ['B']);
     });
 
-    test('تعديل الروتين ما بيلمسش صف الجرعة', () async {
-      await routines.saveRoutine(patientId, normalDay);
-      await meds.addMedication(
-        patientId: patientId,
-        name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
-        startDate: aug31,
-      );
-      final before = await db.select(db.doseSchedules).getSingle();
-
-      await routines.saveRoutine(
-        patientId,
-        normalDay.copyWith(breakfast: MinuteOfDay.hm(9)),
-      );
-      final after = await db.select(db.doseSchedules).getSingle();
-
-      expect(after, before, reason: 'الوقت بيتحرك، الصف لأ');
-
-      // نفس الجرعة بالظبط بقت الساعة ٨:٣٠ بدل ٧:٠٠ من غير أي كتابة
-      final schedule = (await meds.activeSchedules(patientId)).single;
-      final engine =
-          ScheduleEngine((await routines.getRoutine(patientId))!);
-      expect(engine.resolve(schedule, aug31), DateTime(2026, 8, 31, 8, 30));
-    });
-
     test('تاريخ البداية بيرجع محلّي وبنص الليل بالظبط', () async {
       await meds.addMedication(
         patientId: patientId,
         name: 'Amebazole',
-        timing: AnchorTiming(DayAnchor.lunch),
+        timing: FixedTiming(MinuteOfDay.hm(14, 30)),
         repeat: DoseRepeat.once,
         startDate: DateTime(2026, 8, 31, 14, 37),
       );
@@ -272,7 +213,7 @@ void main() {
       await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast),
+        timing: FixedTiming(MinuteOfDay.hm(7, 30)),
         startDate: aug31,
       );
 
@@ -285,7 +226,7 @@ void main() {
       final id = await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast),
+        timing: FixedTiming(MinuteOfDay.hm(7, 30)),
         startDate: aug31,
       );
 
@@ -312,7 +253,7 @@ void main() {
     }
 
     Future<void> materialize() async {
-      final engine = ScheduleEngine(normalDay);
+      final engine = const ScheduleEngine();
       await events.materializeDay(
         aug31,
         engine.remindersForDay(await meds.activeSchedules(patientId), aug31),
@@ -359,15 +300,15 @@ void main() {
       expect(day.single.state, DoseState.taken);
     });
 
-    test('الروتين اتغيّر → ساعة الحدث المعلّق بتمشي وراه', () async {
+    test('ساعة الجرعة اتعدّلت → ساعة الحدث المعلّق بتمشي وراها', () async {
       await addDose('Antodine', DayAnchor.breakfast, offset: -30);
       await materialize();
 
-      final lateEngine =
-          ScheduleEngine(normalDay.copyWith(breakfast: MinuteOfDay.hm(9)));
+      final schedule = (await meds.activeSchedules(patientId)).single;
+      await meds.updateTiming(int.parse(schedule.id), FixedTiming(MinuteOfDay.hm(8, 30)));
       await events.materializeDay(
         aug31,
-        lateEngine.remindersForDay(
+        const ScheduleEngine().remindersForDay(
           await meds.activeSchedules(patientId),
           aug31,
         ),
@@ -417,7 +358,7 @@ void main() {
       await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast),
+        timing: FixedTiming(MinuteOfDay.hm(7, 30)),
         startDate: aug31,
       );
       await pumpEventQueue();

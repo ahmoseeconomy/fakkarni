@@ -12,7 +12,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
@@ -20,7 +20,6 @@ import 'package:fakkarni/features/emergency/emergency_edit_screen.dart';
 
 import '../../support/seeded_clock.dart';
 import '../scan/scan_test_support.dart' show screenTest, settle;
-import 'emergency_test.dart' show normalDay;
 
 class _Sink implements ReminderSink {
   @override
@@ -44,17 +43,15 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -81,7 +78,7 @@ void main() {
             textDirection: TextDirection.rtl,
             child: KeyboardDismiss(child: child ?? const SizedBox.shrink()),
           ),
-          home: AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 14)),
+          home: AppShell(now: DateTime(2026, 8, 31, 14)),
         ),
       ),
     );

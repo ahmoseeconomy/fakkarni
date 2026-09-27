@@ -7,7 +7,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/notification_actions.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
@@ -15,17 +15,9 @@ import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 final aug31at6 = DateTime(2026, 8, 31, 6);
@@ -95,15 +87,12 @@ void main() {
   /// «التطبيق مقفول»: كل صحوة بتبني خدماتها من الصفر فوق نفس القاعدة،
   /// من غير أي widget — زي الـisolate اللي النظام بيصحّيه.
   NotificationActionHandler wake({Duration? pushTimeout}) {
-    final routines = RoutineRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
     final events = DoseEventRepository(db);
     return NotificationActionHandler(
-      routines: routines,
       medications: meds,
       events: events,
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: events,
         patientId: patientId,
@@ -136,9 +125,8 @@ void main() {
     remote = FakeRemote();
     signedIn = true;
     trace.clear();
-    final routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
 
     // مريض تقيل: ٤ أدوية × ٣ جرعات = ١٢ في اليوم → السقف بيتملا في ٤ أيام
     final meds = MedicationRepository(db, clock: seededLongAgo);
@@ -179,14 +167,11 @@ void main() {
     NotificationActionHandler ordered({
       Future<SyncService?> Function()? cloud,
     }) {
-      final routines = RoutineRepository(db);
       final meds = MedicationRepository(db, clock: seededLongAgo);
       return NotificationActionHandler(
-        routines: routines,
         medications: meds,
         events: _TracingEvents(DoseEventRepository(db)),
         scheduler: ReminderScheduler(
-          routines: routines,
           medications: meds,
           events: DoseEventRepository(db),
           patientId: patientId,
@@ -277,7 +262,6 @@ void main() {
       final first = firstReminder();
       final handler = wake();
       final broken = NotificationActionHandler(
-        routines: handler.routines,
         medications: handler.medications,
         // القاعدة اتقفلت في وشنا
         events: _ThrowingEvents(handler.events),
@@ -296,11 +280,9 @@ void main() {
       final first = firstReminder();
       final handler = wake();
       final flaky = NotificationActionHandler(
-        routines: handler.routines,
         medications: handler.medications,
         events: handler.events,
         scheduler: _ThrowingScheduler(
-          routines: RoutineRepository(db),
           medications: MedicationRepository(db, clock: seededLongAgo),
           events: DoseEventRepository(db),
           patientId: patientId,
@@ -691,7 +673,6 @@ class _TracingEvents implements DoseEventRepository {
 /// مدّ النافذة بيقع — مجاملة، مش وعد.
 class _ThrowingScheduler extends ReminderScheduler {
   _ThrowingScheduler({
-    required super.routines,
     required super.medications,
     required super.events,
     required super.patientId,

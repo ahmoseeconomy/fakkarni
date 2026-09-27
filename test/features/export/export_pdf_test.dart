@@ -13,10 +13,9 @@ import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/domain/health/lab_range.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/export/export_pdf.dart';
@@ -80,15 +79,14 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, DayRoutine.fallback);
-    await routines.saveProfile(patientId, name: 'أحمد محمود', sex: Sex.m, age: 72);
+    final patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
+    await patients.saveProfile(patientId, name: 'أحمد محمود', age: 72);
     await MedicationRepository(db, clock: seededLongAgo).addMedication(
       patientId: patientId,
       name: 'Xatral 10mg',
       amountLabel: 'قرص واحد',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: DateTime(2026, 9, 1),
     );
     await LabResultsRepository(db).saveReport(

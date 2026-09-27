@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/domain/scheduling/day_pattern.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/every_hours.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
@@ -24,7 +24,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await h.pump(tester, AddMedicationScreen(routine: normalDay, today: aug31, initialName: 'Augmentin'));
+    await h.pump(tester, AddMedicationScreen(today: aug31, initialName: 'Augmentin'));
   }
 
   List<int> fixedMinutes(List<DoseSchedule> s) => [
@@ -82,7 +82,7 @@ void main() {
     final todayOnly = ReadLine(
       name: ok('Zithromax 500'),
       amount: ok('قرص'),
-      timings: ok([const AnchorTiming(DayAnchor.breakfast, 0)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(7, 30))]),
       duration: ok(1),
     );
     await h.pump(
@@ -93,7 +93,7 @@ void main() {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => ReviewPrescriptionScreen(
                 reading: PrescriptionReading(doctor: const ReadField(value: null, confidence: 1), lines: [todayOnly]),
-                routine: normalDay,
+                
                 today: aug31,
               ),
             )),
@@ -120,7 +120,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final id = await h.meds.addMedication(
-        patientId: h.services.patientId, name: 'Augmentin', timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);
+        patientId: h.services.patientId, name: 'Augmentin', timing: FixedTiming(MinuteOfDay.hm(7, 30)), startDate: aug31);
     await h.pump(tester, EditMedicationScreen(medicationId: id));
     await tester.tap(find.byKey(const ValueKey('make-every-hours')));
     await settle(tester);
@@ -132,7 +132,6 @@ void main() {
 
     final active = await h.meds.activeSchedules(h.services.patientId);
     expect(fixedMinutes(active), [8 * 60, 20 * 60]);
-    expect(active.every((s) => s.timing is FixedTiming), isTrue);
     final all = await h.db.select(h.db.doseSchedules).get();
     expect(all.where((s) => s.stoppedAt != null), hasLength(1), reason: 'القديمة اتوقفت، ما اتمسحتش');
   });

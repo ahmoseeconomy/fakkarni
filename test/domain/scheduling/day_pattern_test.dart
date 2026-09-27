@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/domain/scheduling/day_pattern.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 /// الدالة الواحدة اللي بتقول الجرعة شغّالة في اليوم ده ولا لأ.
@@ -79,7 +79,7 @@ void main() {
     final s = DoseSchedule(
       id: '1',
       medicationName: 'X',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: d(2026, 9, 1),
       durationDays: 10,
       days: EveryNDays(3),

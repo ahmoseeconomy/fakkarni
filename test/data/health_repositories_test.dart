@@ -10,7 +10,7 @@ import 'package:fakkarni/data/files/attachment_store.dart';
 import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 
 void main() {
   late AppDatabase db;
@@ -19,7 +19,7 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    patientId = await RoutineRepository(db).ensurePatient();
+    patientId = await PatientRepository(db).ensurePatient();
     tmp = await Directory.systemTemp.createTemp('fakkarni_attach');
   });
   tearDown(() async {

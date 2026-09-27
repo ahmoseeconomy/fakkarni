@@ -44,18 +44,27 @@ CaregiverAlert alertFromRow(Map<String, dynamic> row) {
 /// **نص** من نفس صياغة المريض — مفيش حساب ساعة لمرساة هنا أبداً. الساعة
 /// الثابتة بتتعرض لأنها مكتوبة كده في الصف، مش محسوبة. منفصلة عشان تتختبر
 /// من غير Supabase.
+/// صف من قبل v30 على موبايل الأب: المرساة بكلمتها والإزاحة — نص وبس.
+String? _legacyAnchorWording(Map s) {
+  const words = {'wake': 'الصحيان', 'breakfast': 'الفطار', 'lunch': 'الغدا', 'dinner': 'العشا', 'sleep': 'النوم'};
+  final word = words[s['anchor']];
+  if (word == null) return null;
+  final offset = (s['offset_minutes'] as int?) ?? 0;
+  if (offset == 0) return word;
+  return '$word ${offset < 0 ? '−' : '+'} ${arabicNumber(offset.abs())} د';
+}
+
 CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
   final schedules = (row['dose_schedules'] as List?) ?? const [];
   String? rule(Map s) {
-    if (s['timing_kind'] == 'fixed') {
-      final fixed = s['fixed_timings'];
-      final minute = (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
-      final m = minute?['minute_of_day'] as int?;
-      return m == null ? fixedRuleWording : '$fixedRuleWording — ${arabicTime(DateTime(2026, 1, 1, 0, m))}';
-    }
-    final word = anchorWords[s['anchor']];
-    if (word == null) return null;
-    return anchorRuleWording(word, (s['offset_minutes'] as int?) ?? 0);
+    // كل الجداول ساعة ثابتة من v30؛ صف قديم بمرساة (موبايل لسه ما اترقّاش)
+    // بيتقال بكلمته من غير حساب ساعة — الابن ما بيحلّش مراسي
+    final fixed = s['fixed_timings'];
+    final minute = (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
+    final m = minute?['minute_of_day'] as int?;
+    final meal = mealRelationLabel(s['meal_relation'] as String?);
+    if (m == null) return meal ?? _legacyAnchorWording(s);
+    return [spokenFixedWording(arabicTime(DateTime(2026, 1, 1, 0, m))), meal].nonNulls.join(' — ');
   }
 
   final stock = row['medication_stock'];
@@ -345,7 +354,12 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         const medColumnsPatterns = 'uuid, name, amount_label, stopped_at, updated_at, '
             'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
             'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
+        // ٠٠٣٤: «قبل الأكل» وأخواتها على الجدول
+        const medColumnsMeal = 'uuid, name, amount_label, stopped_at, updated_at, '
+            'dose_schedules(timing_kind, anchor, offset_minutes, meal_relation, repeat, stopped_at, '
+            'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
         const tiers = [
+          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsMeal',
           'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsPatterns',
           // ٠٠٣١ — «لسه ماتشترتش»
           'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumns',

@@ -6,11 +6,11 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/data/services/refill_alerts.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../support/seeded_clock.dart';
@@ -32,15 +32,14 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, DayRoutine.fallback);
+    final patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
     final meds = MedicationRepository(db, clock: seededLongAgo);
     medId = await meds.addMedicationWithDoses(
       patientId: patientId,
       name: 'Concor 5mg',
       amountLabel: 'قرص واحد',
-      timings: const [AnchorTiming(DayAnchor.breakfast, -30), AnchorTiming(DayAnchor.dinner, 0)],
+      timings: const [FixedTiming(MinuteOfDay.hm(7)), FixedTiming(MinuteOfDay.hm(20))],
       startDate: DateTime(2026, 9, 1),
     );
     scheduleId = (await db.select(db.doseSchedules).get()).first.id;

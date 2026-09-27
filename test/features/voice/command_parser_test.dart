@@ -1,6 +1,7 @@
 // فهم الطلبات المفتوحة بالمصري — كلام حقيقي بتنويعاته، وكلام مش أوامر لازم
 // يطلع unknown، وأي حاجة طبية لازم تطلع medicalQuestion.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fakkarni/domain/medication/meal_relation.dart';
 
 import 'package:fakkarni/domain/voice/answer_parser.dart';
 import 'package:fakkarni/features/voice/command_parser.dart';

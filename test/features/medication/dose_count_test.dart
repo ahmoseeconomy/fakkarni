@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/widgets/f_wheels.dart';
 
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/medication/dose_row.dart';
@@ -21,13 +21,13 @@ void main() {
   tearDown(h.tearDown);
 
   const fourTimes = [
-    AnchorTiming(DayAnchor.wake, 0),
-    AnchorTiming(DayAnchor.breakfast, 0),
-    AnchorTiming(DayAnchor.lunch, 0),
-    AnchorTiming(DayAnchor.dinner, 0),
+    FixedTiming(MinuteOfDay.hm(7)),
+    FixedTiming(MinuteOfDay.hm(7, 30)),
+    FixedTiming(MinuteOfDay.hm(14, 30)),
+    FixedTiming(MinuteOfDay.hm(20)),
   ];
 
-  Future<void> pumpAdd(WidgetTester tester, {List<DoseTiming> timings = const []}) async {
+  Future<void> pumpAdd(WidgetTester tester, {List<FixedTiming> timings = const []}) async {
     tester.view.physicalSize = const Size(1000, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -35,7 +35,7 @@ void main() {
     await h.pump(
       tester,
       AddMedicationScreen(
-        routine: normalDay,
+        
         today: aug31,
         initialName: 'Augmentin',
         initialTimings: timings,
@@ -77,8 +77,9 @@ void main() {
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved, hasLength(4), reason: 'روشتة أربع مرات لازم تعدّي');
     expect(
-      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
-      unorderedEquals([DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.sleep]),
+      [for (final s in saved) s.timing.minuteOfDay],
+      unorderedEquals([MinuteOfDay.hm(8), MinuteOfDay.hm(13), MinuteOfDay.hm(18), MinuteOfDay.hm(23)]),
+      reason: 'ساعات «٤ مرات» الافتراضية',
     );
   });
 
@@ -121,14 +122,14 @@ void main() {
       find.descendant(of: find.byKey(const ValueKey('count-4')), matching: find.byType(InkWell)),
     );
     expect(chip.onTap, isNotNull);
-    expect(find.textContaining('دي اللي الورقة قالتها'), findsOneWidget);
+    expect(find.textContaining('دي اللي فهمناها من الورقة'), findsOneWidget);
 
     await walk(tester, 4);
 
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved, hasLength(4));
     expect(saved.map((s) => s.timing), containsAll(fourTimes),
-        reason: 'مراسي الورقة زي ما هي — مش عُرفنا');
+        reason: 'ساعات الورقة زي ما هي — مش عُرفنا');
   });
 
   screenTest('دوسة تانية على الشريحة المختارة ما بترميش مراسي الورقة', (tester) async {
@@ -153,8 +154,9 @@ void main() {
     final saved = await h.meds.activeSchedules(h.services.patientId);
     expect(saved, hasLength(2));
     expect(
-      [for (final s in saved) if (s.timing case AnchorTiming(:final anchor)) anchor],
-      unorderedEquals([DayAnchor.breakfast, DayAnchor.dinner]),
+      [for (final s in saved) s.timing.minuteOfDay],
+      unorderedEquals([MinuteOfDay.hm(9), MinuteOfDay.hm(21)]),
+      reason: 'ساعات «مرتين» الافتراضية',
     );
   });
 }

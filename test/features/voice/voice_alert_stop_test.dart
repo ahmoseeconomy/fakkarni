@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,13 +31,13 @@ void main() {
     await voice.load();
     final s = h.services;
     final services = AppServices(
-      db: s.db, routines: s.routines, medications: s.medications, events: s.events,
+      db: s.db, patients: s.patients, medications: s.medications, events: s.events,
       scheduler: s.scheduler, patientId: s.patientId, voice: voice,
     );
     final id = await h.meds.addMedication(
       patientId: s.patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: aug31,
     );
     await s.scheduler.rescheduleAll(now: aug31.add(const Duration(hours: 6)));

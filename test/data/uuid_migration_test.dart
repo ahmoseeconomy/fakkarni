@@ -8,7 +8,6 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
 import 'package:fakkarni/domain/health/follow_up.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
 
 import '../drift/generated/schema.dart';
 
@@ -43,7 +42,7 @@ void main() {
 
     // الترحيل + تحقق drift إن الناتج مطابق لآخر نسخة
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     // القيم الأصلية زي ما هي
     final patient = await (db.select(db.patients)..where((t) => t.id.equals(1))).getSingle();
@@ -58,7 +57,9 @@ void main() {
 
     final schedule = (await db.select(db.doseSchedules).get()).single;
     expect(schedule.id, 10);
-    expect(schedule.offsetMinutes, -30);
+    // v30: الفطار − ٣٠ على روتين v4 (الفطار ٧:٣٠) = ٧:٠٠ ثابتة
+    expect((await db.select(db.fixedTimings).get()).single.minuteOfDay, 7 * 60);
+    expect(schedule.mealRelation, 'before');
 
     final event = (await db.select(db.doseEvents).get()).single;
     expect(event.doseScheduleId, 10);
@@ -66,7 +67,6 @@ void main() {
     // كل صف خد uuid مش فاضي، وكلهم مختلفين
     final uuids = <String>[
       patient.uuid,
-      (await db.select(db.dayRoutines).get()).single.uuid,
       meds[0].uuid,
       meds[1].uuid,
       schedule.uuid,
@@ -97,7 +97,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 0)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final patient = (await db.select(db.patients).get()).single;
     final med = (await db.select(db.medications).get()).single;
@@ -126,14 +126,10 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
-    final routine = (await db.select(db.dayRoutines).get()).single;
-    expect(routine.uuid, 'r-1');
-    expect(routine.breakfastMinutes, 450);
-    expect(routine.updatedAtMs, 2000, reason: 'الترحيل ما بيوسّخش صف نضيف');
-    expect(await db.select(db.routineBackups).get(), isEmpty,
-        reason: 'رمضان مقفول لكل مريض قديم');
+    // v30: الروتين اتشال — الصف اتحوّل لعلامة «فيه مريض» على المريض نفسه
+    expect((await db.select(db.patients).get()).single.profileDoneAt, isNotNull);
     await db.close();
   });
 
@@ -149,7 +145,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
@@ -158,7 +154,6 @@ void main() {
     expect(patient.age, isNull);
     expect(patient.updatedAtMs, 1000, reason: 'الترحيل ما بيوسّخش صف نضيف');
     expect(patient.syncedAtMs, 1000);
-    expect((await db.select(db.dayRoutines).get()).single.breakfastMinutes, 450);
     await db.close();
   });
 
@@ -174,13 +169,12 @@ void main() {
         "VALUES (1, 'r-1', 1, 420, 450, 870, 1200, 1410, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
     expect(patient.age, 68);
     expect(patient.updatedAtMs, 1000, reason: 'الترحيل ما بيوسّخش صف نضيف');
-    expect((await db.select(db.dayRoutines).get()).single.breakfastMinutes, 450);
     expect(await db.select(db.devicePreferences).get(), isEmpty,
         reason: 'مفيش صف = الافتراضي — مش بنكتب اختيار ما حدش اختاره');
     await db.close();
@@ -195,7 +189,7 @@ void main() {
     raw.execute("INSERT INTO device_preferences (id, elder_mode, rung_first_on, rung_second_on) VALUES (1, 1, 0, 1)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final patient = (await db.select(db.patients).get()).single;
     expect(patient.uuid, 'p-1');
@@ -219,7 +213,7 @@ void main() {
         "VALUES ('e-1', 2000, 1, 'O+', '[]')");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     expect((await db.select(db.patients).get()).single.updatedAtMs, 1000);
     final emergency = (await db.select(db.emergencyProfile).get()).single;
@@ -239,7 +233,7 @@ void main() {
         "VALUES ('r-1', 3000, 7, 1, 'lab', 'HbA1c', 1788235200)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final record = (await db.select(db.records).get()).single;
     expect(record.title, 'HbA1c');
@@ -259,7 +253,7 @@ void main() {
         "VALUES ('r-1', 3000, 7, 1, 'lab', 'HbA1c', 1788235200, 'attachments/x.jpg')");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final record = (await db.select(db.records).get()).single;
     expect(record.title, 'HbA1c');
@@ -280,7 +274,7 @@ void main() {
         "VALUES ('r-1', 3000, 7, 1, 'lab', 'CBC', 1788235200, 3, 1788300000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final record = (await db.select(db.records).get()).single;
     expect(record.checkupStage, 3);
@@ -304,11 +298,10 @@ void main() {
         "VALUES (10, 's-10', 1, 'anchor', 'breakfast', -30, 'daily', '2026-08-31', NULL, 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final row = (await db.select(db.doseSchedules).get()).single;
-    expect(row.anchor, DayAnchor.breakfast);
-    expect(row.offsetMinutes, -30);
+    expect(row.mealRelation, 'before');
     expect(row.activeFrom, isNull, reason: 'صف قديم ما بنخترعش له وقت سريان');
     expect(row.updatedAtMs, 2000, reason: 'الترحيل ما بيوسّخش صف نضيف');
     expect(row.syncedAtMs, 2000);
@@ -320,7 +313,7 @@ void main() {
       if (version == 15) continue;
       final schema = await verifier.schemaAt(version);
       final db = AppDatabase(schema.newConnection());
-      await verifier.migrateAndValidate(db, 29);
+      await verifier.migrateAndValidate(db, 30);
       await db.close();
     }
   });
@@ -340,7 +333,7 @@ void main() {
         "VALUES (1, 'ds-1', 1, 'anchor', 'breakfast', -30, 'daily', '2026-08-31', NULL, 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final med = (await db.select(db.medications).get()).single;
     expect(med.name, 'Concor 5mg');
@@ -349,7 +342,7 @@ void main() {
     expect(med.updatedAtMs, 1000, reason: 'الترحيل ما بيوسّخش صف نضيف');
 
     final schedule = (await db.select(db.doseSchedules).get()).single;
-    expect(schedule.anchor, DayAnchor.breakfast);
+    expect(schedule.mealRelation, 'before');
     expect(schedule.stoppedAt, isNull, reason: 'جرعة قديمة شغّالة');
     expect(schedule.syncedAtMs, 2000);
     await db.close();
@@ -366,7 +359,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 'lab', 'صورة دم كاملة', 1789000000, 2, 3000, 3000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final record = (await db.select(db.records).get()).single;
     expect(record.title, 'صورة دم كاملة');
@@ -398,7 +391,7 @@ void main() {
         "VALUES (2, 'l-2', 1, 'WBC', 12.4, '10^3/uL', 4000, NULL)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final rows = await (db.select(db.labResults)..orderBy([(t) => OrderingTerm.asc(t.id)])).get();
     expect(rows.length, 2);
@@ -430,7 +423,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 'lab', 'صورة دم كاملة', 1789000000, 2, 1789000000, 1789500000, 3000, 3000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final record = (await db.select(db.records).get()).single;
     expect(record.title, 'صورة دم كاملة');
@@ -458,7 +451,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 'قرص واحد', 1789000000, 3000, 3000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final med = (await db.select(db.medications).get()).single;
     expect(med.name, 'Concor 5mg');
@@ -481,7 +474,7 @@ void main() {
         "VALUES (1, 'r-1', 1, 118, 1789000000, 'fasting', 2000, 2000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     expect(await db.select(db.vitals).get(), isEmpty, reason: 'مفيش قياس اتخترع');
     final reading = (await db.select(db.readings).get()).single;
@@ -501,7 +494,7 @@ void main() {
     raw.execute("INSERT INTO device_preferences (id, elder_mode) VALUES (1, 1)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     expect(await db.select(db.medicationStock).get(), isEmpty,
         reason: 'المخزون اختياري — عمره ما بيتحسب من الجرعات الفاضلة');
@@ -521,7 +514,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 'قرص واحد', 0, 3000, 3000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final med = (await db.select(db.medications).get()).single;
     expect(med.photoPath, isNull);
@@ -540,7 +533,7 @@ void main() {
         "VALUES (1, 'm-1', 1, 'Concor 5mg', 'قرص واحد', 0, 'med-photos/x.jpg', 3000, 3000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final med = (await db.select(db.medications).get()).single;
     expect(med.notBoughtAt, isNull);
@@ -562,7 +555,7 @@ void main() {
         "VALUES (1, 's-1', 1, 'anchor', 'breakfast', -30, 'daily', '2026-08-31', 4000, 4000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 29);
+    await verifier.migrateAndValidate(db, 30);
 
     final s = (await db.select(db.doseSchedules).get()).single;
     expect((s.weekdaysMask, s.everyDays, s.cycleOn, s.cycleOff), (null, null, null, null));

@@ -9,7 +9,7 @@ import '../../data/db/app_database.dart';
 import '../../data/services/checkup_service.dart';
 import '../../domain/health/checkup.dart';
 import '../../domain/health/follow_up.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 import '../../core/widgets/f_wheels.dart';
 
 /// «متابعة التحليل» (المخطط ١١): سبع مراحل، والمستخدم بيقدّمها بإيده.

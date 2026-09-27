@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
@@ -33,11 +33,10 @@ void main() {
   test('وقت التأجيل اللي بيتعرض هو اللي بيتجدول', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    final routines = RoutineRepository(db);
-    final patientId = await routines.ensurePatient();
+    final patients = PatientRepository(db);
+    final patientId = await patients.ensurePatient();
     final sink = _Sink();
     final scheduler = ReminderScheduler(
-      routines: routines,
       medications: MedicationRepository(db),
       events: DoseEventRepository(db),
       patientId: patientId,

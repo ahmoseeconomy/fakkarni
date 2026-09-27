@@ -14,17 +14,15 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/elder/elder_home_screen.dart';
 import 'package:fakkarni/features/settings/notifications_screen.dart';
-import 'package:fakkarni/domain/scheduling/ramadan.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/medication/add_sheet.dart';
 import 'package:fakkarni/features/medication/medications_screen.dart';
@@ -34,14 +32,8 @@ import 'package:fakkarni/features/today/today_screen.dart';
 import '../features/scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../features/today/today_screen_test.dart' show expectNoRed;
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 class _Sink implements ReminderSink {
   final Map<int, PlannedNotification> scheduled = {};
@@ -81,17 +73,15 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -123,7 +113,7 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: AppShell(routine: normalDay, now: now ?? DateTime(2026, 8, 31, 6)),
+            child: AppShell(now: now ?? DateTime(2026, 8, 31, 6)),
           ),
         ),
       ),
@@ -161,12 +151,9 @@ void main() {
     expect(find.text('الملف الطبي'), findsWidgets, reason: 'التبويب التالت بقى السجل');
 
     await openSettings(tester);
-    expect(find.text('وضع رمضان'), findsOneWidget);
-    expect(find.text('مواعيد يومك'), findsOneWidget);
-    // مفيش ساعة جنب الصف: «٧:٣٠ ص» لوحدها ما بتقولش حاجة
-    final routineRow = find.ancestor(of: find.text('مواعيد يومك'), matching: find.byType(InkWell)).first;
-    final rowTexts = tester.widgetList<Text>(find.descendant(of: routineRow, matching: find.byType(Text)));
-    expect(rowTexts.map((t) => t.data ?? '').where((t) => RegExp('[٠-٩0-9]:[٠-٩0-9]').hasMatch(t)), isEmpty);
+    // الروتين ووضع رمضان اتشالوا (٢٧ سبتمبر ٢٠٢٦)
+    expect(find.text('وضع رمضان'), findsNothing);
+    expect(find.text('مواعيد يومك'), findsNothing);
     expect(find.byType(SettingsScreen), findsOneWidget);
     // التبويبات بتفضل حيّة في IndexedStack — بس برّه الشاشة
     expect(find.byType(MedicationsScreen, skipOffstage: false), findsOneWidget);
@@ -193,21 +180,6 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('كارت رمضان في الإعدادات: حده ذهبي وهو شغّال والسطر بيقرا الحالة', (tester) async {
-    await services.routines.enterRamadan(services.patientId, RamadanTimes.cairoDefaults);
-    await pumpShell(tester);
-    await openSettings(tester);
-    await settle(tester);
-
-    expect(find.text('شغّال'), findsOneWidget);
-    final card = tester.widget<Material>(
-      find.ancestor(of: find.text('وضع رمضان'), matching: find.byType(Material)).first,
-    );
-    final shape = card.shape as RoundedRectangleBorder;
-    expect(shape.side.color, F.gold);
-    expect(tester.widget<Text>(find.text('شغّال')).style?.color, F.ink, reason: 'الحافة ذهبي، الكلمة تتقري');
-  });
-
   group('الإعدادات (المخطط 33)', () {
     screenTest('من غير جلسة: كارت الحساب «مش مربوط»، الصفوف، اللغة معطّلة، ومفيش خروج', (tester) async {
       await pumpShell(tester);
@@ -216,7 +188,7 @@ void main() {
 
       expect(find.text('مش مربوط'), findsWidgets);
       expect(find.text('حساب تجريبي'), findsNothing);
-      for (final row in ['مواعيد يومك', 'وضع رمضان', 'التنبيهات', 'نمط كبار السن', 'دائرة الرعاية', 'اللغة']) {
+      for (final row in ['التنبيهات', 'نمط كبار السن', 'دائرة الرعاية', 'اللغة']) {
         expect(find.text(row), findsOneWidget, reason: row);
       }
       // «الملف الصحي» تبويب في الدوك — بابين لأوضة واحدة اتشال منهم واحد.
@@ -246,7 +218,7 @@ void main() {
       final push = _FakePush(auth);
       services = AppServices(
         db: services.db,
-        routines: services.routines,
+        patients: services.patients,
         medications: services.medications,
         events: services.events,
         scheduler: services.scheduler,
@@ -338,7 +310,7 @@ void main() {
     });
 
     screenTest('كارت فعل واحد بس وباقي اليوم للقراية، نص ٢٤+، «تم ✅» ٨٠، ومفيش «اتصل» ولا سطر صوت ولا أحمر', (tester) async {
-      await services.routines.saveProfile(services.patientId, name: 'فاطمة', sex: Sex.f);
+      await services.patients.saveProfile(services.patientId, name: 'فاطمة');
       await services.preferences.setElderMode(true);
       await addDose('Concor', DayAnchor.breakfast, offset: -30); // ٧:٠٠
       await addDose('Telfast', DayAnchor.dinner); // ٨:٠٠ م
@@ -425,7 +397,7 @@ void main() {
       await services.medications.addMedication(
         patientId: services.patientId,
         name: 'Concor',
-        timing: const AnchorTiming(DayAnchor.dinner, 0),
+        timing: FixedTiming(MinuteOfDay.hm(20)),
         startDate: DateTime(today.year, today.month, today.day),
       );
       await openNotifications(tester);

@@ -5,7 +5,7 @@ import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/data/repositories/not_bought_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
 import 'package:fakkarni/domain/medication/stock.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/not_bought.dart';
 import 'package:fakkarni/features/medication/refill_actions.dart';
@@ -23,7 +23,7 @@ void main() {
   final secondLine = ReadLine(
     name: ok('Glucophage 500'),
     amount: ok('قرص'),
-    timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+    timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
     duration: const ReadField(value: null, confidence: 1),
   );
 
@@ -40,7 +40,7 @@ void main() {
                     doctor: const ReadField(value: null, confidence: 1),
                     lines: [clearLine, secondLine],
                   ),
-                  routine: normalDay,
+                  
                   today: aug31,
                 ),
               )),
@@ -107,9 +107,9 @@ void main() {
     addTearDown(() => openWhatsApp = original);
     await PreferencesRepository(h.db).setPharmacy(name: 'صيدلية الشفا', whatsapp: '01012345678');
     final a = await h.meds.addMedication(
-        patientId: h.services.patientId, name: 'Concor', timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);
+        patientId: h.services.patientId, name: 'Concor', timing: FixedTiming(MinuteOfDay.hm(7, 30)), startDate: aug31);
     final b = await h.meds.addMedication(
-        patientId: h.services.patientId, name: 'Glucophage', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: aug31);
+        patientId: h.services.patientId, name: 'Glucophage', timing: FixedTiming(MinuteOfDay.hm(20)), startDate: aug31);
     await NotBoughtRepository(h.db).markNotBought(a);
     await NotBoughtRepository(h.db).markNotBought(b);
 

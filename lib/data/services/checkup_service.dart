@@ -8,7 +8,7 @@ import '../db/app_database.dart';
 import '../db/tables.dart';
 import '../files/attachment_store.dart';
 import '../repositories/records_repository.dart';
-import '../repositories/routine_repository.dart';
+import 'appointment_plan.dart' show dayOfMinute;
 import 'reminder_plan.dart';
 import 'reminder_sink.dart';
 
@@ -33,14 +33,6 @@ class CheckupService {
 
   final AppDatabase _db;
   final ReminderSink _sink;
-
-  /// ساعة تذكير ميعاد المرحلة في اليوم اللي الإنسان اختاره.
-  ///
-  /// الإنسان بيدّينا **يوم**، والإشعار محتاج ساعة. بناخدها من صحيان
-  /// المريض نفسه — «اليوم بيبدأ من الصحيان» هي قاعدة التطبيق كلها — مش
-  /// من رقم مخترع. من غير روتين متحفوظ بنرجع لـ٩ الصبح، وده اختيار
-  /// تشغيلي زي الإزاحات الافتراضية، مش كلام طبي.
-  static const int _fallbackMinuteOfDay = 9 * 60;
 
   RecordsRepository get _records => RecordsRepository(_db);
 
@@ -80,11 +72,10 @@ class CheckupService {
         _ => const RecordsCompanion(),
       };
 
-  /// ساعة الصحيان بتاعت المريض، وإلا ٩ الصبح.
-  Future<int> _reminderMinute(int patientId) async {
-    final routine = await RoutineRepository(_db).getRoutine(patientId);
-    return routine?.wake.minutes ?? _fallbackMinuteOfDay;
-  }
+  /// ساعة ميعاد المرحلة = ساعة إشعار اليوم نفسه (`dayOfMinute`، ٨ الصبح) —
+  /// كانت ساعة الصحيان بتاعت المريض لما الروتين كان موجود، والاتنين كانوا
+  /// بيقروا من نفس المكان. رقم واحد، عشان الميعاد المكتوب هو اللي بيرن.
+  Future<int> _reminderMinute(int patientId) async => dayOfMinute.minutes;
 
   Stream<RecordRow?> watch(int id) => (_db.select(_db.records)..where((t) => t.id.equals(id))).watchSingleOrNull();
 

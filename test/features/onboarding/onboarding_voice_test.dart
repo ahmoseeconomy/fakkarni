@@ -10,16 +10,16 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
-import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
+import 'package:fakkarni/features/onboarding/profile_onboarding_screen.dart';
 
 import '../../data/voice/fake_listener.dart';
 import '../../data/voice/voice_service_test.dart' show FakePlayer, FakeTts;
 import '../../support/seeded_clock.dart';
-import 'routine_onboarding_test.dart' show SilentSink;
+import 'profile_onboarding_test.dart' show SilentSink;
 
 void main() {
   late AppDatabase db;
@@ -35,19 +35,18 @@ void main() {
     });
     listener = answers == null ? null : FakeListener(answers: answers);
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final medications = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     player = FakePlayer();
     voice = VoiceService(player: player, tts: FakeTts(), listener: listener);
     await voice.load();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: medications,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: medications,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -82,38 +81,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('كل صفحة بجملتها مرة، و«مش دلوقتي» بعد الصحيان بس، و«تمام كده» بعد آخر سؤال', (tester) async {
+  testWidgets('كل صفحة بجملتها مرة — الاسم والسن وبس', (tester) async {
     await setUpWith(voiceOn: true);
-    await pump(tester, const RoutineOnboardingScreen());
+    await pump(tester, const ProfileOnboardingScreen());
     expect(said(), ['onb_name']);
 
     await tester.enterText(find.byType(TextField), 'الحاج أحمد');
     await tester.pumpAndSettle();
     await tap(tester, 'كمّل');
-    await tap(tester, 'راجل');
     await tap(tester, 'كمّل');
-    await tap(tester, 'كمّل');
-    for (var i = 0; i < 5; i++) {
-      await tap(tester, 'تمام');
-    }
-    expect(said(), [
-      'onb_name',
-      'onb_gender',
-      'onb_age',
-      'onb_wake',
-      'onb_routine_skip',
-      'onb_breakfast',
-      'onb_lunch',
-      'onb_dinner',
-      'onb_sleep',
-      'onb_routine_done',
-    ]);
+    // الاسم والسن بس — مفيش جنس ولا روتين بعدهم
+    expect(said(), ['onb_name', 'onb_age']);
   });
 
   testWidgets('بيسكت أول ما يكتب — و«ساعدني» بيعيد جملة الصفحة، والرجوع ما بيعيدهاش لوحده', (tester) async {
     await setUpWith(voiceOn: true);
     player.holdPlayback = true;
-    await pump(tester, const RoutineOnboardingScreen());
+    await pump(tester, const ProfileOnboardingScreen());
     expect(voice.speaking, isTrue, reason: 'onb_name لسه بيتقال');
 
     await tester.enterText(find.byType(TextField), 'ا');
@@ -127,25 +111,16 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'الحاج أحمد');
     await tap(tester, 'كمّل');
-    expect(said().last, 'onb_gender');
-    expect(find.byKey(const ValueKey('help-onb_gender')), findsOneWidget);
+    expect(said().last, 'onb_age');
+    expect(find.byKey(const ValueKey('help-onb_age')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('onboarding-back')));
     await tester.pumpAndSettle();
-    expect(said().last, 'onb_gender', reason: 'مرة واحدة لكل صفحة');
-  });
-
-  testWidgets('«مش دلوقتي» بتطمّن الأول وبعدين سؤال الصفحة اللي بعدها', (tester) async {
-    await setUpWith(voiceOn: true);
-    await pump(tester, const RoutineOnboardingScreen(askProfile: false));
-    expect(said(), isEmpty, reason: 'من غير صفحة البداية الكاملة (اختبار الأسئلة) مفيش إعلان');
-    await tap(tester, 'تمام'); // الصحيان
-    await tap(tester, 'مش دلوقتي'); // الفطار
-    expect(said(), ['onb_breakfast', 'help_routine_skip', 'onb_lunch']);
+    expect(said().last, 'onb_age', reason: 'مرة واحدة لكل صفحة');
   });
 
   testWidgets('الصوت مقفول: ولا جملة بتتقال لوحدها، ومفيش «ساعدني»', (tester) async {
     await setUpWith(voiceOn: false);
-    await pump(tester, const RoutineOnboardingScreen());
+    await pump(tester, const ProfileOnboardingScreen());
     await tester.enterText(find.byType(TextField), 'الحاج أحمد');
     await tap(tester, 'كمّل');
     expect(player.played, isEmpty);
@@ -170,30 +145,22 @@ void main() {
     expect(player.played, isEmpty);
   });
 
-  testWidgets('مفيش «اتكلم» في البداية خالص — الاسم والجنس والسن والمواعيد بالإيد والكتابة بس', (tester) async {
+  testWidgets('مفيش «اتكلم» في البداية خالص — الاسم والسن بالإيد والكتابة بس', (tester) async {
     await setUpWith(voiceOn: true, answers: const []);
-    await pump(tester, const RoutineOnboardingScreen());
+    await pump(tester, const ProfileOnboardingScreen());
     expect(find.text('اتكلم'), findsNothing, reason: 'صفحة الاسم');
     expect(find.text('ساعدني'), findsOneWidget, reason: 'جملة الصفحة فاضلة');
     await tester.enterText(find.byType(TextField), 'أحمد');
     await tester.pumpAndSettle();
     await tap(tester, 'كمّل');
-    expect(find.text('اتكلم'), findsNothing, reason: 'صفحة الجنس');
-    await tap(tester, 'راجل');
-    await tap(tester, 'كمّل');
     expect(find.text('اتكلم'), findsNothing, reason: 'صفحة السن');
-    await tap(tester, 'كمّل');
-    for (var i = 0; i < 5; i++) {
-      expect(find.text('اتكلم'), findsNothing, reason: 'سؤال المواعيد ${i + 1}');
-      await tap(tester, 'تمام');
-    }
     expect(listener!.listens, 0);
     expect(said(), isNot(contains('lis_intro')));
   });
 
   testWidgets('من غير مايك في النسخة = مفيش زرار «اتكلم» في البداية', (tester) async {
     await setUpWith(voiceOn: true);
-    await pump(tester, const RoutineOnboardingScreen());
+    await pump(tester, const ProfileOnboardingScreen());
     expect(find.text('اتكلم'), findsNothing);
     expect(find.text('ساعدني'), findsOneWidget);
   });

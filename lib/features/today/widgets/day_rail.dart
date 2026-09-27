@@ -5,21 +5,13 @@ import '../../../core/format/arabic_time.dart';
 import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../domain/care/follower_role.dart';
-import '../../../core/widgets/patient_voice.dart';
-import '../../../domain/patient/sex.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
-import '../../../domain/scheduling/day_routine.dart';
+import '../../../domain/wording/patient_words.dart';
 
-/// علامة مرساة على الشريط — «الفطار · ٧:٣٠ ص».
-class AnchorMark {
-  const AnchorMark(this.anchor, this.at);
-  final DayAnchor anchor;
-  final DateTime at;
-}
-
-/// سكة اليوم (المخطط 24): خط رأسي على **اليمين**، المراسي عُقد خضرا
-/// بالاسم والوقت، والجرعات كروت متعلّقة بالسكة بينهم بترتيب الوقت.
+/// سكة اليوم (المخطط 24): خط رأسي على **اليمين**، والجرعات كروت متعلّقة
+/// بالسكة بترتيب الوقت — الساعة والاسم وكلمة الأكل والحالة. (كان فيه عُقد
+/// للصحيان والأكل والنوم بينهم؛ الروتين اتشال، ٢٧ سبتمبر ٢٠٢٦.)
 ///
 /// قاعدة اللون: الذهبي معناه «دي لسه عايزاك» — الجرعة المنتظرة والفايتة
 /// الاتنين بحافة ذهبية، والفايتة بتقول «لسه ما اتأكدتش» من غير لوم. مفيش
@@ -30,15 +22,12 @@ class AnchorMark {
 /// موصوف بالكلام (الاسم والوقت والقاعدة)، فمش محتاج كلمة «افتح».
 class DayRail extends StatelessWidget {
   const DayRail({
-    required this.anchors,
     required this.groups,
     required this.now,
     required this.ruleLabelFor,
     required this.onOpen,
     super.key,
   });
-
-  final List<AnchorMark> anchors;
 
   /// الجرعات متجمّعة بالوقت — كل مجموعة دقيقة واحدة.
   final List<List<DoseEventView>> groups;
@@ -48,29 +37,20 @@ class DayRail extends StatelessWidget {
 
   /// عرض عمود السكة، ومقاس العقدة.
   static const double _railWidth = 28;
-  static const double _node = 14;
   static const double _doneNode = 20;
   static const double _doseNode = 10;
 
   @override
   Widget build(BuildContext context) {
-    final entries = <({DateTime at, bool isAnchor, _RailNode node, Widget child})>[
-      for (final anchor in anchors)
-        (at: anchor.at, isAnchor: true, node: _RailNode.anchor, child: _anchorLabel(anchor)),
+    final entries = <({DateTime at, _RailNode node, Widget child})>[
       for (final group in groups)
         (
           at: group.first.scheduledAt,
-          isAnchor: false,
           // كل جرعة ليها علامتها على السكة: ✓ للي اتاخدت، ونقطة ذهبية للي لسه
           node: group.every((d) => d.isDone) ? _RailNode.done : _RailNode.dose,
-          child: _dose(group, PatientVoice.of(context)),
+          child: _dose(group),
         ),
-    ]..sort((a, b) {
-        final byTime = a.at.compareTo(b.at);
-        // مرساة وجرعة في نفس الدقيقة: المرساة الأول
-        if (byTime != 0) return byTime;
-        return a.isAnchor == b.isAnchor ? 0 : (a.isAnchor ? -1 : 1);
-      });
+    ]..sort((a, b) => a.at.compareTo(b.at));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -110,14 +90,6 @@ class DayRail extends StatelessWidget {
                     child: Container(width: 2, color: F.line),
                   ),
                   switch (node) {
-                    _RailNode.anchor => Positioned(
-                        top: F.s20 - _node / 2,
-                        child: Container(
-                          width: _node,
-                          height: _node,
-                          decoration: BoxDecoration(color: F.green, shape: BoxShape.circle),
-                        ),
-                      ),
                     // اتاخدت: الصح على السكة نفسها (المخطط ٢٤) — مش جوّه السطر
                     _RailNode.done => Positioned(
                         top: F.s20 - _doneNode / 2,
@@ -148,32 +120,14 @@ class DayRail extends StatelessWidget {
         ),
       );
 
-  Widget _anchorLabel(AnchorMark mark) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: F.s8),
-        child: SizedBox(
-          height: F.s20 + F.s4,
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              '${mark.anchor.label} — ${arabicTime(mark.at)}',
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: FontWeight.w700,
-                color: F.ink,
-              ),
-            ),
-          ),
-        ),
-      );
-
-  Widget _dose(List<DoseEventView> group, Say say) => Padding(
+  Widget _dose(List<DoseEventView> group) => Padding(
         padding: const EdgeInsets.only(bottom: F.s10),
-        child: group.every((d) => d.isDone) ? _quietLine(group, say) : _card(group),
+        child: group.every((d) => d.isDone) ? _quietLine(group) : _card(group),
       );
 
   /// جرعة اتاخدت: سطر هادي بعلامة صح. **ما بتتشالش من السكة أبداً** —
   /// المريض لازم يشوف إنه خدها، مش يلاقي السطر اختفى ويشك إنه نسي.
-  Widget _quietLine(List<DoseEventView> group, Say say) => Padding(
+  Widget _quietLine(List<DoseEventView> group) => Padding(
         padding: const EdgeInsets.symmetric(vertical: F.s8),
         child: Row(
           children: [
@@ -198,7 +152,7 @@ class DayRail extends StatelessWidget {
                   // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
                   : group.first.actedBy != null
                       ? '${proxyConfirmedLine(group.first.actedBy)} ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}'
-                      : say.takenAt(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
+                      : takenAtLine(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
               key: ValueKey('taken-line-${group.first.doseScheduleId}'),
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
@@ -278,5 +232,5 @@ class DayRail extends StatelessWidget {
   }
 }
 
-/// علامة الصف على السكة: عقدة مرساة خضرا، ✓ لجرعة اتاخدت، نقطة ذهبية لجرعة لسه.
-enum _RailNode { anchor, done, dose }
+/// علامة الصف على السكة: ✓ لجرعة اتاخدت، نقطة ذهبية لجرعة لسه.
+enum _RailNode { done, dose }

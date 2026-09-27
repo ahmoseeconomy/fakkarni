@@ -1,11 +1,10 @@
 import '../../../domain/escalation/dose_moment.dart';
+import '../../../domain/wording/patient_words.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format/arabic_time.dart';
 import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../core/widgets/patient_voice.dart';
-import '../../../domain/patient/sex.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart' show DoseEventView;
@@ -56,7 +55,6 @@ class _NowBlockState extends State<NowBlock> {
 
   @override
   Widget build(BuildContext context) {
-    final say = PatientVoice.of(context);
     final all = [...widget.lines.due, ...widget.lines.postponed];
     final hidden = _expanded ? 0 : (all.length - maxNowLines).clamp(0, all.length);
     final shown = hidden == 0 ? all : all.take(maxNowLines).toList();
@@ -84,10 +82,9 @@ class _NowBlockState extends State<NowBlock> {
             _DoseLine(
               line: line,
               now: widget.now,
-              say: say,
               // **الكلمة مرة واحدة لكل حالة.** دواءين في نفس الدقيقة
               // حالتهم واحدة، و«الجاية» مكتوبة مرتين فوق بعض ضوضا.
-              showKicker: i == 0 || _kicker(due[i - 1], say, widget.now) != _kicker(line, say, widget.now),
+              showKicker: i == 0 || _kicker(due[i - 1], widget.now) != _kicker(line, widget.now),
               onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
             ),
           ],
@@ -110,7 +107,6 @@ class _NowBlockState extends State<NowBlock> {
               _DoseLine(
                 line: line,
                 now: widget.now,
-                say: say,
                 // المأجّلة عنوان مجموعتها بيسمّيها — مفيش كلمة فوق كل سطر.
                 showKicker: false,
                 onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
@@ -164,18 +160,18 @@ class _NowBlockState extends State<NowBlock> {
 /// **بتاخد [now] المحقونة**، مش `DateTime.now()`: الشاشة كلها بتتبني على
 /// وقت واحد، واختبار بيحقن وقته — ساعة تانية هنا معناها سطر بيقول حاجة
 /// والكلمة فوقه بتقول غيرها.
-String? _kicker(NowLine line, Say say, DateTime now) {
+String? _kicker(NowLine line, DateTime now) {
   if (line.postponed) return null;
   final dose = line.dose;
-  return _kickerFor(_momentOf(dose, now), say);
+  return _kickerFor(_momentOf(dose, now));
 }
 
 DoseMoment _momentOf(DoseEventView dose, DateTime now) =>
     doseMomentOf(scheduledAt: dose.scheduledAt, now: now, markedMissed: dose.state == DoseState.missed);
 
 /// «نسيتها؟» بعد المهلة بس — في معادها «دلوقتي».
-String _kickerFor(DoseMoment m, Say say) => switch (m) {
-      DoseMoment.missed => say.forgotIt,
+String _kickerFor(DoseMoment m) => switch (m) {
+      DoseMoment.missed => forgotItLine,
       DoseMoment.dueNow => 'دلوقتي',
       DoseMoment.upcoming => 'الجاية',
     };
@@ -195,14 +191,12 @@ class _DoseLine extends StatelessWidget {
   const _DoseLine({
     required this.line,
     required this.now,
-    required this.say,
     required this.showKicker,
     required this.onConfirm,
   });
 
   final NowLine line;
   final DateTime now;
-  final Say say;
 
   /// الكلمة بتتكتب مرة لكل حالة، مش فوق كل سطر.
   final bool showKicker;
@@ -227,7 +221,7 @@ class _DoseLine extends StatelessWidget {
     };
     // كلمة الحالة («نسيتها؟» بعد المهلة / «دلوقتي» / «الجاية»)، ومتشالة عن
     // المأجّلة: عنوان المجموعة فوقها بيقول «أجّلتها» خلاص.
-    final kicker = !showKicker || line.postponed ? null : _kickerFor(moment, say);
+    final kicker = !showKicker || line.postponed ? null : _kickerFor(moment);
     final amount = dose.amountLabel;
 
     return Row(

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/domain/care/medication_change.dart';
 import 'package:fakkarni/domain/escalation/alert_mode.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 /// تغيير الدوا المعلّق (المرحلة ب) — دارت نقية.
@@ -11,7 +11,7 @@ void main() {
   test('الحمولة بتروح وترجع بالحرف: مراسي وساعة، والباقي', () {
     const payload = MedicationChangePayload(
       name: 'Concor 5mg',
-      timings: [AnchorTiming(DayAnchor.breakfast, -30), FixedTiming(MinuteOfDay(21 * 60))],
+      timings: [FixedTiming(MinuteOfDay.hm(7)), FixedTiming(MinuteOfDay(21 * 60))],
       amountLabel: 'قرص',
       durationDays: 7,
       purpose: MedicationPurpose.pressure,

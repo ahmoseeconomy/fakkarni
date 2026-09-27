@@ -3,24 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 
 /// **البكرة بقت بالدقيقة الواحدة — ولا حاجة في الجدولة كانت بتفترض
-/// خطوة خمسة.** روتين على ٦:٠٧ و٧:١٣، وجرعات على دقايق فردية: الدمج
+/// خطوة خمسة.** جرعات على دقايق فردية (٦:٤٣، ٧:١٣، ٩:٠٧ م): الدمج
 /// بالدقيقة، والأرقام، والسلّم، والإعادات، والأفق — كلهم بالدقيقة.
 void main() {
-  final odd = DayRoutine(
-    wake: MinuteOfDay.hm(6, 7),
-    breakfast: MinuteOfDay.hm(7, 13),
-    lunch: MinuteOfDay.hm(14, 29),
-    dinner: MinuteOfDay.hm(20, 1),
-    sleep: MinuteOfDay.hm(23, 58),
-  );
-  final day = DateTime(2026, 8, 31);
+    final day = DateTime(2026, 8, 31);
 
-  DoseSchedule dose(String id, DoseTiming timing) => DoseSchedule(
+  DoseSchedule dose(String id, FixedTiming timing) => DoseSchedule(
         id: id,
         medicationName: id,
         timing: timing,
@@ -36,12 +29,12 @@ void main() {
     expect(MinuteOfDay.hm(7, 13).toString(), '07:13');
   });
 
-  test('المحرّك بيحسب من مرساة فردية: قبل الفطار ٧:١٣ بـ٣٠ = ٦:٤٣', () {
-    final engine = ScheduleEngine(odd);
+  test('المحرّك بيحسب من ساعة فردية: ٦:٤٣ و٩:٠٧ م و١١:٤٣ م بالدقيقة', () {
+    final engine = const ScheduleEngine();
     final rems = engine.remindersForDay([
-      dose('a', const AnchorTiming(DayAnchor.breakfast, -30)),
+      dose('a', FixedTiming(MinuteOfDay.hm(6, 43))),
       dose('b', FixedTiming(MinuteOfDay.hm(21, 7))),
-      dose('c', const AnchorTiming(DayAnchor.sleep, -15)),
+      dose('c', FixedTiming(MinuteOfDay.hm(23, 43))),
     ], day);
     expect(rems.map((r) => r.at), [
       DateTime(2026, 8, 31, 6, 43),
@@ -51,15 +44,15 @@ void main() {
   });
 
   test('الدمج بالدقيقة بالظبط: ٧:١٣ و٧:١٣ تذكير واحد، و٧:١٣ و٧:١٤ اتنين', () {
-    final engine = ScheduleEngine(odd);
+    final engine = const ScheduleEngine();
     final same = engine.remindersForDay([
-      dose('a', const AnchorTiming(DayAnchor.breakfast, 0)),
+      dose('a', FixedTiming(MinuteOfDay.hm(7, 13))),
       dose('b', FixedTiming(MinuteOfDay.hm(7, 13))),
     ], day);
     expect(same, hasLength(1));
     expect(same.single.doses.map((d) => d.id), ['a', 'b']);
     final apart = engine.remindersForDay([
-      dose('a', const AnchorTiming(DayAnchor.breakfast, 0)),
+      dose('a', FixedTiming(MinuteOfDay.hm(7, 13))),
       dose('b', FixedTiming(MinuteOfDay.hm(7, 14))),
     ], day);
     expect(apart, hasLength(2));
@@ -90,10 +83,10 @@ void main() {
 
   test('الخطة كاملة بروتين فردي: أرقام مميّزة، والأفق بيرجّع نفس الدقيقة', () {
     final planned = planWindow(
-      routine: odd,
+      
       schedules: [
-        dose('a', const AnchorTiming(DayAnchor.breakfast, -30)),
-        dose('b', const AnchorTiming(DayAnchor.dinner, 30)),
+        dose('a', FixedTiming(MinuteOfDay.hm(6, 43))),
+        dose('b', FixedTiming(MinuteOfDay.hm(20, 37))),
         dose('c', FixedTiming(MinuteOfDay.hm(21, 7))),
       ],
       from: DateTime(2026, 8, 31, 6),

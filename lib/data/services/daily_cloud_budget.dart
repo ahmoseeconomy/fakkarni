@@ -1,20 +1,16 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/diagnostics.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/routine_day.dart';
 import '../voice/cloud_command_budget.dart';
 
 /// الحد اليومي لسؤال السحابة عن طلب مسموع: [limit] مرة لكل موبايل في يوم
-/// **الروتين** (بيبدأ من الصحيان، مش من نص الليل — واحد بيقول «كلّمني»
+/// **الروتين** (بيبدأ ٤ الفجر، مش من نص الليل — واحد بيقول «كلّمني»
 /// الساعة ١ بالليل لسه في يوم امبارح). عدّاد محلي في `shared_preferences`؛
 /// لما يخلص: «كفاية كده النهارده»، والطلبات المحلية شغّالة عادي.
 ///
 /// عايش في `data/services/` مش `data/voice/`: بيقرا يوم الروتين (نقي) وحارس
 /// «ملفات الصوت ما بتستوردش الجدولة» بيمشي على مجلد الصوت بالحرف.
-///
-/// الروتين بيتقرا مرة عند التحميل — تعديل ساعة الصحيان بعدها بيحرّك حدّ
-/// اليوم بساعة أو اتنين لحد الفتحة الجاية، ومفيش أخطر من كده.
 class DailyCloudBudget implements CloudCommandBudget {
   DailyCloudBudget({
     this.limit = 20,
@@ -30,14 +26,12 @@ class DailyCloudBudget implements CloudCommandBudget {
   final DateTime Function() _clock;
   final Future<SharedPreferences> Function() _prefs;
 
-  DayRoutine routine = DayRoutine.fallback;
   String _day = '';
   int _count = 0;
   bool _loaded = false;
 
   /// بيقرا العدّاد المحفوظ — بيتنده مرة من `buildServices`.
-  Future<void> load({DayRoutine? routine}) async {
-    if (routine != null) this.routine = routine;
+  Future<void> load() async {
     try {
       final p = await _prefs();
       _day = p.getString(dayKey) ?? '';
@@ -49,7 +43,7 @@ class DailyCloudBudget implements CloudCommandBudget {
   }
 
   String _today() {
-    final d = routineDayOf(routine, _clock());
+    final d = routineDayOf(_clock());
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 

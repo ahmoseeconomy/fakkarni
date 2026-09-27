@@ -40,7 +40,7 @@ import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
-import '../data/repositories/routine_repository.dart';
+import '../data/repositories/patient_repository.dart';
 import '../data/services/notification_actions.dart';
 import '../data/repositories/preferences_repository.dart';
 import '../data/services/reminder_scheduler.dart';
@@ -69,19 +69,17 @@ Future<AppServices> buildServices(
   CircleDepartureRemote? departures,
   VoiceService? voice,
 }) async {
-  final routines = RoutineRepository(db);
+  final patients = PatientRepository(db);
   const medPhotoStore = DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder);
-  final patientId = await routines.ensurePatient();
-  // «كلّمني» بالسحابة: ٢٠ مرة في يوم الروتين (المرحلة ٣ — ٤/٤). بيقرا الروتين
-  // مرة هنا عشان يعرف اليوم بيبدأ إمتى؛ من غير روتين = الافتراضي.
+  final patientId = await patients.ensurePatient();
+  // «كلّمني» بالسحابة: ٢٠ مرة في يوم الروتين (المرحلة ٣ — ٤/٤).
   final cloudBudget = DailyCloudBudget();
-  await cloudBudget.load(routine: await routines.getRoutine(patientId));
-  final patientIndex = await routines.patientIndex(patientId);
+  await cloudBudget.load();
+  final patientIndex = await patients.patientIndex(patientId);
   final medications = MedicationRepository(db);
   final events = DoseEventRepository(db);
 
   final scheduler = ReminderScheduler(
-    routines: routines,
     medications: medications,
     events: events,
     patientId: patientId,
@@ -92,7 +90,7 @@ Future<AppServices> buildServices(
       ? null
       : ProxyConfirmationPuller(
           remote: proxy,
-          routines: routines,
+          patients: patients,
           events: events,
           scheduler: scheduler,
           patientId: patientId,
@@ -102,7 +100,7 @@ Future<AppServices> buildServices(
       : MedicationChangePuller(
           remote: medChanges,
           db: db,
-          routines: routines,
+          patients: patients,
           medications: medications,
           scheduler: scheduler,
           patientId: patientId,
@@ -119,12 +117,12 @@ Future<AppServices> buildServices(
 
   // الأب: الاشتراك على صفّه هو. الابن بيحطّه من الصورة في الشِل.
   if (subscription != null && subscription.patientUuid == null) {
-    subscription.patientUuid = (await routines.getPatient(patientId))?.uuid;
+    subscription.patientUuid = (await patients.getPatient(patientId))?.uuid;
   }
 
   return AppServices(
     db: db,
-    routines: routines,
+    patients: patients,
     medications: medications,
     events: events,
     scheduler: scheduler,
@@ -144,7 +142,7 @@ Future<AppServices> buildServices(
     voice: voice,
     departurePull: departures == null
         ? null
-        : CircleDeparturePuller(remote: departures, routines: routines, patientId: patientId),
+        : CircleDeparturePuller(remote: departures, patients: patients, patientId: patientId),
     patientId: patientId,
     tapPayload: NotificationService.lastPayload,
     caregiverPreferences: caregiverPreferences,
@@ -228,7 +226,6 @@ NotificationActionHandler actionHandlerFor(
 }) {
   final ready = services.sync;
   return NotificationActionHandler(
-    routines: services.routines,
     medications: services.medications,
     events: services.events,
     scheduler: services.scheduler,

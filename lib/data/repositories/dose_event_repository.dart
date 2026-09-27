@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/escalation/escalation_ladder.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../db/app_database.dart';
 import '../db/converters.dart';
@@ -20,12 +21,16 @@ class DoseEventView {
     this.actedBy,
     this.routineDay,
     this.photoPath,
+    this.mealLabel,
   });
 
   final int doseScheduleId;
 
   /// صورة الدوا (نسبي، v27) — null = مفيش، والشاشة بترجع للأيقونة.
   final String? photoPath;
+
+  /// «قبل الأكل» وأخواتها (v30) — كلمة التعليمات جنب الجرعة. null = مفيش.
+  final String? mealLabel;
 
   /// يوم الروتين بتاع الصف (جرعة ١ بالليل تبع امبارح). null في صفوف
   /// اتبنت يدوي في اختبارات قديمة.
@@ -163,6 +168,7 @@ class DoseEventRepository {
           () {
             final event = row.readTable(_db.doseEvents);
             final med = row.readTable(_db.medications);
+            final schedule = row.readTable(_db.doseSchedules);
             return DoseEventView(
               doseScheduleId: event.doseScheduleId,
               medicationName: med.name,
@@ -173,6 +179,7 @@ class DoseEventRepository {
               actedBy: event.actedBy,
               routineDay: event.routineDay,
               photoPath: med.photoPath,
+              mealLabel: MealRelation.labelOf(schedule.mealRelation),
             );
           }(),
       ];

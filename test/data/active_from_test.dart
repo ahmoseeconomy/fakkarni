@@ -9,14 +9,14 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
-import 'reminder_plan_test.dart' show FakeReminderSink, normalDay;
+import 'reminder_plan_test.dart' show FakeReminderSink;
 
 final aug30 = DateTime(2026, 8, 30);
 final aug31 = DateTime(2026, 8, 31);
@@ -24,7 +24,7 @@ final sep1 = DateTime(2026, 9, 1);
 
 void main() {
   late AppDatabase db;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late MedicationRepository meds;
   late ReminderScheduler scheduler;
   late FakeReminderSink sink;
@@ -32,15 +32,13 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    routines = RoutineRepository(db);
+    patients = PatientRepository(db);
     clock = DateTime(2000);
     meds = MedicationRepository(db, clock: () => clock);
     sink = FakeReminderSink();
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     // صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
-    await routines.saveRoutine(patientId, normalDay);
     scheduler = ReminderScheduler(
-      routines: routines,
       medications: meds,
       events: DoseEventRepository(db),
       patientId: patientId,
@@ -54,11 +52,16 @@ void main() {
       (db.select(db.doseEvents)..where((t) => t.doseScheduleId.equals(scheduleId) & t.routineDay.equalsValue(day)))
           .getSingleOrNull();
 
-  Future<int> scheduleIdOf(int medicationId, DayAnchor anchor) async =>
-      (await (db.select(db.doseSchedules)
-                ..where((t) => t.medicationId.equals(medicationId) & t.anchor.equalsValue(anchor)))
-              .getSingle())
-          .id;
+  /// الجدول بساعته (كل جرعة ساعة ثابتة من v30).
+  Future<int> scheduleIdOf(int medicationId, MinuteOfDay at) async {
+    final minute = at.minutes;
+    final rows = await (db.select(db.doseSchedules).join([
+      innerJoin(db.fixedTimings, db.fixedTimings.doseScheduleId.equalsExp(db.doseSchedules.id)),
+    ])
+          ..where(db.doseSchedules.medicationId.equals(medicationId) & db.fixedTimings.minuteOfDay.equals(minute)))
+        .get();
+    return rows.single.readTable(db.doseSchedules).id;
+  }
 
   test('دوا جديد ١١:١٧: جرعة ٧:٠٠ النهارده من غير صف، و٢:٠٠ النهارده وبكرة ٧:٠٠ بصفوف', () async {
     final at1117 = DateTime(2026, 8, 31, 11, 17);
@@ -66,12 +69,12 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: aug31,
     );
-    await meds.addDoseSchedule(medId, timing: const AnchorTiming(DayAnchor.lunch, -30), startDate: aug31);
-    final morning = await scheduleIdOf(medId, DayAnchor.breakfast);
-    final afternoon = await scheduleIdOf(medId, DayAnchor.lunch);
+    await meds.addDoseSchedule(medId, timing: FixedTiming(MinuteOfDay.hm(14)), startDate: aug31);
+    final morning = await scheduleIdOf(medId, MinuteOfDay.hm(7));
+    final afternoon = await scheduleIdOf(medId, MinuteOfDay.hm(14));
 
     await scheduler.rescheduleAll(now: at1117);
 
@@ -93,14 +96,14 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: DateTime(2026, 8, 20),
     );
     final at1117 = DateTime(2026, 8, 31, 11, 17);
     clock = at1117;
-    await meds.addDoseSchedule(medId, timing: const AnchorTiming(DayAnchor.breakfast, -30), startDate: aug31);
-    final morning = await scheduleIdOf(medId, DayAnchor.breakfast);
-    final evening = await scheduleIdOf(medId, DayAnchor.dinner);
+    await meds.addDoseSchedule(medId, timing: FixedTiming(MinuteOfDay.hm(7)), startDate: aug31);
+    final morning = await scheduleIdOf(medId, MinuteOfDay.hm(7));
+    final evening = await scheduleIdOf(medId, MinuteOfDay.hm(20));
 
     await scheduler.rescheduleAll(now: at1117);
 
@@ -132,10 +135,10 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: aug30,
     );
-    final morning = await scheduleIdOf(medId, DayAnchor.breakfast);
+    final morning = await scheduleIdOf(medId, MinuteOfDay.hm(7));
 
     await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 11, 17));
 
@@ -148,10 +151,10 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: aug30,
     );
-    final morning = await scheduleIdOf(medId, DayAnchor.breakfast);
+    final morning = await scheduleIdOf(medId, MinuteOfDay.hm(7));
     await (db.update(db.doseSchedules)..where((t) => t.id.equals(morning)))
         .write(const DoseSchedulesCompanion(activeFrom: Value(null)));
 
@@ -165,17 +168,17 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.lunch, -30),
+      timing: FixedTiming(MinuteOfDay.hm(14)),
       startDate: aug30,
     );
-    final id = await scheduleIdOf(medId, DayAnchor.lunch);
+    final id = await scheduleIdOf(medId, MinuteOfDay.hm(14));
     // امبارح بالليل: صف النهارده اتعمل كـ«بكرة» (وممكن يكون اتبعت للسحابة)
     await scheduler.rescheduleAll(now: DateTime(2026, 8, 30, 21));
     expect((await eventOf(id, aug31))!.state, DoseState.pending);
 
     final at1117 = DateTime(2026, 8, 31, 11, 17);
     clock = at1117;
-    await meds.updateTiming(id, const AnchorTiming(DayAnchor.breakfast, -30));
+    await meds.updateTiming(id, FixedTiming(MinuteOfDay.hm(7)));
     await scheduler.rescheduleAll(now: at1117);
 
     final today = (await eventOf(id, aug31))!;
@@ -191,7 +194,7 @@ void main() {
 
     // ورجع تاني لميعاد لسه قدام → الصف يرجع «لسه» بميعاده الجديد
     clock = DateTime(2026, 8, 31, 15, 5);
-    await meds.updateTiming(id, const AnchorTiming(DayAnchor.dinner, 0));
+    await meds.updateTiming(id, FixedTiming(MinuteOfDay.hm(20)));
     await scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 15, 5));
     final back = (await eventOf(id, aug31))!;
     expect(back.state, DoseState.pending);
@@ -202,12 +205,12 @@ void main() {
     final medId = await meds.addMedication(
       patientId: 1,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.lunch, -30),
+      timing: FixedTiming(MinuteOfDay.hm(14)),
       startDate: aug30,
     );
-    final id = await scheduleIdOf(medId, DayAnchor.lunch);
+    final id = await scheduleIdOf(medId, MinuteOfDay.hm(14));
     clock = DateTime(2026, 8, 31, 11, 17);
-    await meds.updateTiming(id, const AnchorTiming(DayAnchor.breakfast, -30));
+    await meds.updateTiming(id, FixedTiming(MinuteOfDay.hm(7)));
 
     final row = await (db.select(db.doseSchedules)..where((t) => t.id.equals(id))).getSingle();
     expect(row.activeFrom, DateTime(2026, 8, 31, 11, 17));

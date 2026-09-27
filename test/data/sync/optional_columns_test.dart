@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../support/seeded_clock.dart';
-import 'sync_service_test.dart' show FakeSyncRemote, normalDay, aug31;
+import 'sync_service_test.dart' show FakeSyncRemote, aug31;
 
 /// سحابة لسه ما شغّلتش ٠٠٢٦: أي صف فيه عمود جديد بيترفض بـPGRST204 زي
 /// PostgREST بالظبط.
@@ -45,13 +45,12 @@ void main() {
       localWrites: const Stream.empty(),
       blockStore: MemorySyncBlockStore(),
     );
-    final routines = RoutineRepository(db);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patients = PatientRepository(db);
+    final patientId = await patients.ensurePatient();
     await MedicationRepository(db, clock: seededLongAgo).addMedicationWithDoses(
       patientId: patientId,
       name: 'Concor 5mg',
-      timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+      timings: const [FixedTiming(MinuteOfDay.hm(7))],
       startDate: aug31,
       purpose: MedicationPurpose.pressure,
       instructions: 'بعد الأكل',

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/every_hours.dart';
 import '../../domain/wording/rule_wording.dart' show everyHoursLabel, everyHoursPreview;
 
@@ -56,9 +56,6 @@ class EveryHoursPicker extends StatelessWidget {
             key: const ValueKey('every-hours-preview'),
             style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
           ),
-          const SizedBox(height: F.s6),
-          Text('ساعات ثابتة — مش هتتحرك مع روتين يومك.',
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5)),
         ],
       );
 }

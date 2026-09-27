@@ -153,18 +153,6 @@ class FSecondaryButton extends StatelessWidget {
       );
 }
 
-/// المراسي التمانية لمحرّر الجرعة — بالترتيب بتاع التصميم.
-List<String> anchorChipLabels = [
-  'قبل الفطار',
-  'بعد الفطار',
-  'قبل الغدا',
-  'بعد الغدا',
-  'قبل العشا',
-  'بعد العشا',
-  'قبل النوم',
-  'أول ما أصحى',
-];
-
 /// شريحة مرساة: النشطة ذهبية — نفس معنى الذهبي في التطبيق كله.
 class AnchorChip extends StatelessWidget {
   const AnchorChip({

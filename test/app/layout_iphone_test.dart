@@ -15,14 +15,13 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/features/today/widgets/home_top_bar.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
-import '../features/scan/scan_test_support.dart' show normalDay, RecordingSink;
+import '../features/scan/scan_test_support.dart' show RecordingSink;
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 Future<void> _loadFonts() async {
   Future<void> load(String family, List<String> files) async {
@@ -51,17 +50,16 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-          routines: routines, medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: RecordingSink()),
+          medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: RecordingSink()),
       patientId: patientId,
     );
   });
@@ -109,19 +107,19 @@ void main() {
 
   for (final scale in [1.0, 1.3]) {
     screenTestish('الدوك على ٣٧٥ (خط ×$scale): «الملف الطبي» و«الإعدادات» ما بيركبوش على بعض', (tester) async {
-      await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)), scale: scale);
+      await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 6)), scale: scale);
       expectLabelsApart(tester, AppShell.tabs);
     });
   }
 
   screenTestish('نمط كبار السن على ٣٧٥: كلمتين الدوك بعيد عن بعض', (tester) async {
     await services.preferences.setElderMode(true);
-    await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)), scale: 1.3);
+    await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 6)), scale: 1.3);
     expectLabelsApart(tester, AppShell.elderTabs);
   });
 
   screenTestish('الشريط العلوي على «يومك» بس، جزء من الصفحة: بيطلع مع اللفّ، ومش على باقي التبويبات', (tester) async {
-    await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)));
+    await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 6)));
     expect(find.byType(AppBar), findsNothing, reason: 'مفيش شريط مثبّت على الهيكل');
     final bar = find.byType(HomeTopBar);
     expect(find.descendant(of: find.byType(ListView).first, matching: bar), findsOneWidget, reason: 'جزء من القايمة');
@@ -145,7 +143,7 @@ void main() {
       for (final (n, a) in [('Concor', DayAnchor.breakfast), ('Telfast', DayAnchor.lunch), ('Aspocid', DayAnchor.dinner)]) {
         await meds.addMedicationWithDoses(patientId: services.patientId, name: n, timings: [AnchorTiming(a, -30)], startDate: DateTime(2026, 8, 1));
       }
-      await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 7, 35)), scale: scale);
+      await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 7, 35)), scale: scale);
       final pillFinder = find.byKey(const ValueKey('nearby-pill'));
       expect(find.ancestor(of: pillFinder, matching: find.byType(ListView)), findsNothing, reason: 'عايم، مش سطر');
       expect(find.ancestor(of: pillFinder, matching: find.byType(AnimatedOpacity)), findsNothing, reason: 'ظاهر دايماً — مفيش إخفا');
@@ -172,7 +170,7 @@ void main() {
 
   for (final scale in [1.0, 1.3]) {
     screenTestish('الإعدادات على SE (×$scale): «امسح حسابي» بيطلع كله فوق «ضيف»', (tester) async {
-      await pumpSe(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 6)), scale: scale);
+      await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 6)), scale: scale);
       await tester.tap(find.text('الإعدادات').last);
       await settle(tester);
       final list = find.byType(ListView).last;

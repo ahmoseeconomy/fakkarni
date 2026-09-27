@@ -10,31 +10,22 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/auth/auth_service.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/data/care/care_circle_service.dart';
 import 'package:fakkarni/data/care/caregiver_remote.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
 import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/features/onboarding/routine_onboarding_screen.dart';
+import 'package:fakkarni/features/onboarding/profile_onboarding_screen.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 import '../support/seeded_clock.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 class SilentSink implements ReminderSink {
   @override
@@ -58,24 +49,23 @@ void screenTest(String name, Future<void> Function(WidgetTester) body) {
 
 void main() {
   late AppDatabase db;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late MedicationRepository meds;
   late ValueNotifier<String?> tap;
   late AppServices services;
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    routines = RoutineRepository(db);
+    patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     tap = ValueNotifier<String?>(null);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -125,7 +115,7 @@ void main() {
     final fakeAuth = _CountingAuth();
     services = AppServices(
       db: services.db,
-      routines: services.routines,
+      patients: services.patients,
       medications: services.medications,
       events: services.events,
       scheduler: services.scheduler,
@@ -133,7 +123,7 @@ void main() {
       tapPayload: tap,
       auth: fakeAuth,
     );
-    await routines.saveRoutine(services.patientId, normalDay);
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     await pumpRoot(tester);
 
     expect(find.byType(TodayScreen), findsOneWidget);
@@ -151,7 +141,7 @@ void main() {
   });
 
   screenTest('حارس: «اربط ابني» → «مش دلوقتي» بترجّع لـ«يومك» كاملة', (tester) async {
-    await routines.saveRoutine(services.patientId, normalDay);
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -180,12 +170,16 @@ void main() {
     expect(find.text('ضيف'), findsOneWidget);
   });
 
-  screenTest('جنس اتسأل ومن غير روتين → الأسئلة الأول (مش شاشة البداية تاني)', (tester) async {
-    await routines.saveProfile(services.patientId, name: 'أحمد', sex: Sex.m);
+  screenTest('صف «أنا» من غير «نتعرّف عليك» → شاشة البداية؛ وبعد الاسم → «يومك» على طول — مفيش أسئلة روتين', (tester) async {
     await pumpRoot(tester);
-    expect(find.byType(RoutineOnboardingScreen), findsOneWidget);
+    expect(find.byType(EntryScreen), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    await patients.saveProfile(services.patientId, name: 'أحمد');
+    await pumpRoot(tester);
+    expect(find.byType(ProfileOnboardingScreen), findsNothing);
     expect(find.byType(EntryScreen), findsNothing);
-    expect(find.byType(TodayScreen), findsNothing);
+    expect(find.byType(TodayScreen), findsOneWidget);
   });
 
   group('D4 — «مين ماسك التليفون؟»', () {
@@ -201,11 +195,10 @@ void main() {
       sink = _CountingSink();
       services = AppServices(
         db: db,
-        routines: routines,
+        patients: patients,
         medications: meds,
         events: services.events,
         scheduler: ReminderScheduler(
-          routines: routines,
           medications: meds,
           events: services.events,
           patientId: services.patientId,
@@ -235,7 +228,7 @@ void main() {
 
       expect(find.byType(EntryScreen), findsOneWidget);
       expect(find.byType(SignInScreen), findsNothing);
-      expect(find.byType(RoutineOnboardingScreen), findsNothing);
+      expect(find.byType(ProfileOnboardingScreen), findsNothing);
       expect(auth.signInCalls, 0);
       expect(auth.currentUser, isNull);
     });
@@ -261,7 +254,7 @@ void main() {
       await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
 
-      expect(find.byType(RoutineOnboardingScreen), findsOneWidget);
+      expect(find.byType(ProfileOnboardingScreen), findsOneWidget);
       expect(find.text('نتعرّف عليك'), findsOneWidget);
       expect(find.text('اسمك إيه؟'), findsOneWidget);
       expect(auth.currentUser, isNull, reason: 'وصل الأسئلة من غير جلسة');
@@ -283,7 +276,7 @@ void main() {
       await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
 
-      expect(find.byType(RoutineOnboardingScreen), findsOneWidget,
+      expect(find.byType(ProfileOnboardingScreen), findsOneWidget,
           reason: 'جلسة من غير مريض مش معناها إنه ابن — هو في نص الإعداد');
       expect(find.byType(CaregiverShell), findsNothing);
     });
@@ -332,12 +325,11 @@ void main() {
       expect(find.byType(CaregiverShell), findsOneWidget);
       expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
       expect(find.byType(EntryScreen), findsNothing);
-      expect(find.byType(RoutineOnboardingScreen), findsNothing);
+      expect(find.byType(ProfileOnboardingScreen), findsNothing);
       expect(find.byType(TodayScreen), findsNothing);
 
-      expect(await db.select(db.dayRoutines).get(), isEmpty, reason: 'ولا روتين');
       final patients = await db.select(db.patients).get();
-      expect(patients.every((p) => p.sex == null && p.age == null), isTrue,
+      expect(patients.every((p) => p.profileDoneAt == null && p.age == null), isTrue,
           reason: 'صف «أنا» الفاضي بتاع الإقلاع بس — ولا مريض اتعرّفنا عليه');
       expect(await db.select(db.medications).get(), isEmpty);
     });
@@ -380,7 +372,7 @@ void main() {
     screenTest('الجهاز فيه مريض → مسار المريض حتى لو فيه جلسة (الأب اللي ربط ابنه)', (tester) async {
       useCloud();
       auth.user = const FakkarniUser(id: 'father', isAnonymous: true);
-      await routines.saveRoutine(services.patientId, normalDay);
+      await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
       await pumpRoot(tester);
 
       expect(find.byType(TodayScreen), findsOneWidget);
@@ -388,15 +380,15 @@ void main() {
     });
   });
 
-  screenTest('بروتين → «يومك»', (tester) async {
-    await routines.saveRoutine(services.patientId, normalDay);
+  screenTest('«نتعرّف عليك» اتحفظت → «يومك»', (tester) async {
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     await pumpRoot(tester);
     expect(find.byType(TodayScreen), findsOneWidget);
   });
 
   screenTest('دوسة على الإشعار والتطبيق مفتوح → شاشة التذكير فوق «يومك»',
       (tester) async {
-    await routines.saveRoutine(services.patientId, normalDay);
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     await pumpRoot(tester);
 
     tap.value = payloadFor(['1']);
@@ -407,9 +399,9 @@ void main() {
     expect(tap.value, isNull);
   });
 
-  screenTest('التطبيق اتفتح من الإشعار قبل ما الروتين يوصل → بتستنى وبتفتح',
+  screenTest('التطبيق اتفتح من الإشعار قبل ما «يومك» تتبني → بتستنى وبتفتح',
       (tester) async {
-    await routines.saveRoutine(services.patientId, normalDay);
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     // الـpayload موجود من قبل أول build — زي getNotificationAppLaunchDetails
     tap.value = payloadFor(['1']);
     await pumpRoot(tester);
@@ -419,7 +411,7 @@ void main() {
   });
 
   screenTest('payload مش بتاعنا → بيتصفّر ومفيش شاشة بتتفتح', (tester) async {
-    await routines.saveRoutine(services.patientId, normalDay);
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     await pumpRoot(tester);
 
     tap.value = 'حاجة قديمة';

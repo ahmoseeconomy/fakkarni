@@ -9,14 +9,13 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../../domain/wording/patient_words.dart';
 import '../today/widgets/home_top_bar.dart';
-import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/dose_state.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../data/services/reminder_plan.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../adherence/patient_adherence_card.dart';
@@ -35,9 +34,8 @@ import '../today/dose_actions.dart';
 /// مش مبني عن قصد: «📞 اتصل بمحمد» (مش بنجمّع أرقام تليفونات — المكالمات
 /// اتلغت بقرار)، وسطر «قول تمام وأنا هسجّلها» (مفيش إدخال صوتي).
 class ElderHomeScreen extends StatefulWidget {
-  const ElderHomeScreen({required this.routine, this.now, super.key});
+  const ElderHomeScreen({this.now, super.key});
 
-  final DayRoutine routine;
 
   /// للاختبارات.
   final DateTime? now;
@@ -54,7 +52,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
   final Set<DateTime> _snoozed = {};
 
   DateTime get _now => widget.now ?? DateTime.now();
-  DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
+  DateTime get _routineDay => currentRoutineDay(_now);
 
   @override
   void didChangeDependencies() {
@@ -62,13 +60,13 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     if (_events != null) return;
     final services = AppScope.of(context);
     _events = services.events.watchDay(_routineDay);
-    _patient = services.routines.watchPatient(services.patientId);
+    _patient = services.patients.watchPatient(services.patientId);
     _schedulesSub = services.medications.watchActiveSchedules(services.patientId).listen((schedules) async {
       if (!mounted) return;
       setState(() => _schedules = schedules);
       await services.events.materializeDay(
         _routineDay,
-        ScheduleEngine(widget.routine).remindersForDay(schedules, _routineDay),
+        const ScheduleEngine().remindersForDay(schedules, _routineDay),
       );
     });
   }
@@ -93,7 +91,6 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final say = PatientVoice.of(context);
     return Scaffold(
       body: StreamBuilder<List<DoseEventView>>(
         stream: _events,
@@ -119,7 +116,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                 builder: (context, snap) => _Greeting(patient: snap.data, now: _now),
               ),
               // «كلّمني» — أكبر هنا (٨٠ وخط ٢٤)؛ مسافته معاه، فالشاشة من غيره زي ما كانت
-              TalkButton(routine: widget.routine, routineDay: _routineDay, elder: true, now: widget.now, gapAbove: F.s12),
+              TalkButton(routineDay: _routineDay, elder: true, now: widget.now, gapAbove: F.s12),
               const SizedBox(height: F.gap),
               if (group != null)
                 _DoseCard(
@@ -131,7 +128,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   onLater: () => _later(group),
                 )
               else
-                _Quiet(text: events.isEmpty ? 'مفيش أدوية النهارده' : say.allDone),
+                _Quiet(text: events.isEmpty ? 'مفيش أدوية النهارده' : allDoneLine),
               const SizedBox(height: F.gap),
               // «إنت ماشي إزاي» — تحت كارت الجرعة، بالمقاس الكبير، قراية بس.
               PatientAdherenceCard(routineDay: _routineDay, now: _now, elder: true),
@@ -297,7 +294,6 @@ class _DoseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final say = PatientVoice.of(context);
     final at = doses.first.scheduledAt;
     final moment = doseMomentOf(
         scheduledAt: at, now: now, markedMissed: doses.any((d) => d.state == DoseState.missed));
@@ -313,7 +309,7 @@ class _DoseCard extends StatelessWidget {
           // نمط كبار السن: الزرار أكبر (٦٤ وخط ٢٤)
           const Align(alignment: AlignmentDirectional.centerEnd, child: HelpButton('help_next_dose', elder: true)),
           if (overdue)
-            Text(say.forgotIt, style: body.copyWith(fontWeight: FontWeight.w700, color: F.ink)),
+            Text(forgotItLine, style: body.copyWith(fontWeight: FontWeight.w700, color: F.ink)),
           for (final dose in doses) ...[
             // نمط كبار السن: الصورة أكبر (١١٢) — فوق الاسم، مش جنبه
             if (dose.photoPath != null)

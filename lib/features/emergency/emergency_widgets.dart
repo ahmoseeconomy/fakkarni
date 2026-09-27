@@ -86,7 +86,7 @@ mixin EmergencyData<T extends StatefulWidget> on State<T> {
         }),
       )
       ..add(
-        services.routines.watchPatient(services.patientId).listen((v) {
+        services.patients.watchPatient(services.patientId).listen((v) {
           if (mounted) {
             setState(() {
               _patient = v;

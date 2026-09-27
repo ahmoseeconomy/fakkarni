@@ -9,7 +9,6 @@ import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/repositories/medication_repository.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../../core/widgets/f_sheet.dart';
@@ -36,7 +35,6 @@ class MedicationsScreen extends StatefulWidget {
 
 class _MedicationsScreenState extends State<MedicationsScreen> {
   Stream<List<MedicationSummary>>? _all;
-  Stream<DayRoutine?>? _routine;
 
   @override
   void didChangeDependencies() {
@@ -44,7 +42,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     if (_all != null) return;
     final services = AppScope.of(context);
     _all = services.medications.watchAllSummaries(services.patientId);
-    _routine = services.routines.watchRoutine(services.patientId);
   }
 
   void _edit(int medicationId) => Navigator.of(context).push(
@@ -143,17 +140,15 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DayRoutine?>(
-      stream: _routine,
-      builder: (context, routineSnap) {
-        final routine = routineSnap.data ?? DayRoutine.fallback;
+    return Builder(
+      builder: (context) {
         return StreamBuilder<List<MedicationSummary>>(
           stream: _all,
           builder: (context, snap) {
             final all = snap.data ?? const <MedicationSummary>[];
             final active = [for (final m in all) if (m.medication.stoppedAt == null) m];
             final stopped = [for (final m in all) if (m.medication.stoppedAt != null) m];
-            final groups = _groupByAnchor(active, routine, widget.today ?? DateTime.now());
+            final groups = _groupByTime(active, widget.today ?? DateTime.now());
 
             return ListView(
               // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
@@ -171,12 +166,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 const SizedBox(height: F.s4),
                 Text(
                   // الكارت تحت هو الدعوة — الجملة ما بتشاورش على الدوك
-                  active.isEmpty ? 'لسه مفيش أدوية.' : '${_count(active.length)} — مرتّبة على مواعيد يومك',
+                  active.isEmpty ? 'لسه مفيش أدوية.' : '${_count(active.length)} — مرتّبة بالساعة',
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                 ),
                 const SizedBox(height: F.s10),
                 // «قريب منك» مكانه حبّاية «القريب مني» على الرئيسية، مش هنا.
-                _AddCard(onTap: () => showAddSheet(context, routine: routine)),
+                _AddCard(onTap: () => showAddSheet(context)),
                 for (final group in groups) ...[
                   const SizedBox(height: F.gap),
                   _GroupHead(label: group.label, time: group.time),
@@ -215,22 +210,15 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
         _ => '${arabicNumber(n)} دوا',
       };
 
-  /// كل جرعة تحت مرساتها (الدوا اللي بياخده ٣ مرات بيظهر ٣ مرات — ده جدول).
-  /// الساعات الثابتة في مجموعة «ساعة ثابتة» في الآخر. الترتيب بالوقت.
-  static List<_Group> _groupByAnchor(List<MedicationSummary> items, DayRoutine routine, DateTime today) {
-    final engine = ScheduleEngine(routine);
-    final byKey = <String, _Group>{};
+  /// كل جرعة تحت ساعتها (الدوا اللي بياخده ٣ مرات بيظهر ٣ مرات — ده جدول).
+  /// الترتيب بالوقت.
+  static List<_Group> _groupByTime(List<MedicationSummary> items, DateTime today) {
+    const engine = ScheduleEngine();
+    final byKey = <int, _Group>{};
     for (final m in items) {
       for (final s in m.schedules) {
-        final (key, label, at) = switch (s.timing) {
-          AnchorTiming(:final anchor) => (
-              anchor.name,
-              anchor.label,
-              engine.resolveTime(anchor: anchor, offsetMinutes: 0, onDay: today),
-            ),
-          FixedTiming() => ('fixed', 'ساعة ثابتة', null),
-        };
-        byKey.putIfAbsent(key, () => _Group(label, at)).entries.add((summary: m, schedule: s));
+        final at = engine.resolve(s, today);
+        byKey.putIfAbsent(s.timing.minuteOfDay.minutes, () => _Group(arabicTime(at), at)).entries.add((summary: m, schedule: s));
       }
     }
     final groups = byKey.values.toList()
@@ -263,7 +251,7 @@ class _GroupHead extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-            time == null ? label : '$label — ${arabicTime(time!)}',
+            label,
             style: TextStyle(
               fontSize: F.sectionHeadSize,
               fontWeight: FontWeight.w700,
@@ -347,10 +335,12 @@ class _MedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final med = summary.medication;
-    String ruleOf(DoseSchedule s) => switch (dayPatternLabel(s.days)) {
-          final p? => '$p — ${s.ruleLabel}',
-          null => s.ruleLabel,
-        };
+    // الساعة، وكلمة الأكل لو فيه، والأيام لو مش «كل يوم»
+    String ruleOf(DoseSchedule s) => [
+          arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute)),
+          s.ruleLabel,
+          dayPatternLabel(s.days),
+        ].nonNulls.join(' — ');
     final rule = schedule == null ? summary.schedules.map(ruleOf).join(' + ') : ruleOf(schedule!);
     return Container(
       padding: const EdgeInsets.all(F.s14),

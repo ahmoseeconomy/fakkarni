@@ -20,7 +20,6 @@ import 'package:fakkarni/domain/health/follow_up.dart';
 import 'package:fakkarni/features/records/calendar_screen.dart';
 import 'package:fakkarni/features/records/health_file_screen.dart';
 import 'package:fakkarni/features/records/records_of_kind_screen.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 
 import '../scan/scan_test_support.dart';
@@ -108,7 +107,7 @@ void main() {
         today: now,
       );
       await wide(tester);
-      await h.pump(tester, TodayScreen(routine: DayRoutine.fallback, now: now));
+      await h.pump(tester, TodayScreen(now: now));
       await settle(tester);
 
       expect(find.textContaining(noFollowDateText), findsWidgets);

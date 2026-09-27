@@ -48,7 +48,7 @@ Future<void> snoozeGroup(
   await services.scheduler.snooze(
     originalAt: group.first.scheduledAt,
     body: reminderBodyFor([
-      for (final d in group) (name: d.medicationName, amount: d.amountLabel),
+      for (final d in group) (name: d.medicationName, amount: d.amountLabel, note: d.mealLabel),
     ]),
     payload: encodePayloadFor(
       routineDay,

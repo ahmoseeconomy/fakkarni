@@ -1,10 +1,8 @@
 import 'dart:io' show Platform;
 
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/health/follow_up.dart';
 import '../db/app_database.dart';
 import '../repositories/records_repository.dart';
-import '../repositories/routine_repository.dart';
 import 'appointment_plan.dart';
 import 'checkup_service.dart';
 import 'reminder_plan.dart';
@@ -51,7 +49,6 @@ class AppointmentScheduler {
   /// الأقصى **اللحظي**، مش النهائي.
   Future<void> refresh({DateTime? now}) async {
     final from = now ?? DateTime.now();
-    final routine = await RoutineRepository(db).getRoutine(patientId) ?? DayRoutine.fallback;
     final rows = await RecordsRepository(db).all(patientId);
 
     final appointments = <AppointmentInput>[];
@@ -79,7 +76,7 @@ class AppointmentScheduler {
       }
     }
 
-    final all = appointmentNotices(appointments: appointments, routine: routine, now: from);
+    final all = appointmentNotices(appointments: appointments, now: from);
     final wanted = rolling ? rollingWindow(all) : all;
     final wantedIds = {for (final n in wanted) n.id: n};
 

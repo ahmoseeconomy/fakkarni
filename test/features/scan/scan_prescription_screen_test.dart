@@ -8,7 +8,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/ai/prescription_reading.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 import 'package:fakkarni/features/scan/review_prescription_screen.dart';
@@ -50,7 +50,7 @@ void main() {
       h.pump(
         tester,
         ScanPrescriptionScreen(
-          routine: normalDay,
+          
           reader: reader,
           today: aug31,
           pickImage: pick ?? (_) async => bytes,
@@ -90,7 +90,7 @@ void main() {
     final second = ReadLine(
       name: ok('Amaryl 2mg'),
       amount: ok('قرص'),
-      timings: ok([const AnchorTiming(DayAnchor.dinner, 0)]),
+      timings: ok([FixedTiming(MinuteOfDay.hm(20))]),
       duration: const ReadField(value: null, confidence: 1),
     );
     pending.complete(PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine, second]));

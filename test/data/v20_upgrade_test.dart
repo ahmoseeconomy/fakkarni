@@ -5,7 +5,6 @@
 // هو إن **ولا حاجة ضاعت** وإن **التذكيرات بعد الترقية هي هي** اللي كانت
 // هتطلع لو نفس البيانات اتكتبت على قاعدة جديدة من الأول.
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,10 +12,10 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/scheduling/day_pattern.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../drift/generated/schema.dart';
@@ -134,7 +133,6 @@ List<String> _statements() {
 
 const _tables = [
   'patients',
-  'day_routines',
   'device_preferences',
   'emergency_profile',
   'medications',
@@ -151,11 +149,12 @@ const _tables = [
 /// مقارنة حرفية مش عيّنات.
 const _v20Columns = {
   'patients': 'uuid, id, name, notification_slot, created_at, sex, age, synced_at_ms',
-  'day_routines': 'uuid, id, patient_id, wake_minutes, breakfast_minutes, lunch_minutes, dinner_minutes, sleep_minutes',
   'device_preferences': 'id, elder_mode, rung_first_on, rung_second_on',
   'emergency_profile': 'uuid, id, patient_id, blood_type, allergies, chronic_conditions, contacts_json',
   'medications': 'uuid, id, patient_id, name, amount_label, amount_unknown, notes, active_ingredient, stopped_at, removed_at, created_at',
-  'dose_schedules': 'uuid, id, medication_id, timing_kind, stopped_at, anchor, offset_minutes, repeat, start_date, duration_days, active_from',
+  // v30: `timing_kind` و`anchor` و`offset_minutes` اتشالوا — كل جرعة بقت ساعة
+  // في fixed_timings (متختبرة تحت بساعاتها)
+  'dose_schedules': 'uuid, id, medication_id, stopped_at, repeat, start_date, duration_days, active_from',
   'fixed_timings': 'uuid, dose_schedule_id, minute_of_day',
   'dose_events': 'uuid, id, dose_schedule_id, routine_day, scheduled_at, state, acted_at',
   'records': 'uuid, id, patient_id, kind, title, happened_at, doctor, place, deleted_at',
@@ -178,7 +177,6 @@ Map<int, String> _plan(RecordingSink sink) => {
 Future<(RecordingSink, List<Map<String, Object?>>)> _reschedule(AppDatabase db) async {
   final sink = RecordingSink();
   await ReminderScheduler(
-    routines: RoutineRepository(db),
     medications: MedicationRepository(db, clock: seededLongAgo),
     events: DoseEventRepository(db),
     patientId: 1,
@@ -204,7 +202,7 @@ void main() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   });
 
-  test('v20 ← الحالي: ولا صف ضاع، الجداول سليمة، والتذكيرات زي قاعدة جديدة بالظبط', () async {
+  test('v20 ← الحالي: ولا صف ضاع، الجداول سليمة، والتذكيرات فيها المعنى', () async {
     // ── القاعدة القديمة
     final schema = await verifier.schemaAt(20);
     final raw = schema.rawDatabase;
@@ -230,12 +228,18 @@ void main() {
 
     // ── ١. ولا حاجة ضاعت: كل عمود من v20 بقيمته، في كل جدول
     for (final t in _tables) {
-      expect(await _rows(upgraded, t), before[t], reason: 'جدول $t اتغيّر بعد الترقية');
+      final after = await _rows(upgraded, t);
+      if (t == 'fixed_timings') {
+        // v30 بيزوّد ساعة لكل جرعة كانت مرساة — الساعات القديمة بتفضل زي ما هي
+        for (final row in before[t]!) {
+          expect(after, contains(equals(row)), reason: 'ساعة ثابتة قديمة اتغيّرت');
+        }
+        continue;
+      }
+      expect(after, before[t], reason: 'جدول $t اتغيّر بعد الترقية');
     }
 
     // الأعمدة الجديدة بافتراضياتها — ولا حاجة اتخترعت
-    final routineRow = (await upgraded.customSelect('SELECT unset_anchors FROM day_routines').getSingle()).data;
-    expect(routineRow['unset_anchors'], '', reason: 'روتين قديم = كله متحدد');
     final meds = await upgraded
         .customSelect('SELECT alert_mode, purpose, instructions, photo_path FROM medications')
         .get();
@@ -255,18 +259,17 @@ void main() {
     );
 
     // ── ٢. الجداول سليمة كما يقراها التطبيق
-    final routine = await RoutineRepository(upgraded).getRoutine(1);
-    expect(routine!.wake.minutes, 390);
-    expect(routine.dinner.minutes, 1230);
-    expect(routine.unset, isEmpty);
+    // v30: الروتين اتشال — المريض اتعلّم إنه مريض، وجدوله بقى ساعات ثابتة
+    final patientRow = await PatientRepository(upgraded).getPatient(1);
+    expect(patientRow!.profileDoneAt, isNotNull);
 
     final active = await MedicationRepository(upgraded, clock: seededLongAgo).activeSchedules(1);
     final byId = {for (final s in active) s.id: s};
     // الموقوف والمتشال والجرعة الموقوفة برّه؛ الباقي كله جوّه
     expect(byId.keys.toSet(), {'1', '2', '3', '4', '5', '6', '7', '8'});
     expect(active.every((s) => s.days == const EveryDay()), isTrue);
-    expect(byId['1']!.timing, const AnchorTiming(DayAnchor.breakfast, -30));
-    expect(byId['3']!.timing, const AnchorTiming(DayAnchor.dinner, 15));
+    expect(byId['1']!.timing, FixedTiming(MinuteOfDay.hm(7)));
+    expect(byId['3']!.timing, FixedTiming(MinuteOfDay.hm(20, 45)), reason: 'العشا ٨:٣٠ + ١٥ بروتينه هو');
     expect(byId['4']!.timing, const FixedTiming(MinuteOfDay(1260)));
     expect(byId['6']!.timing, const FixedTiming(MinuteOfDay(367)));
     expect(byId['5']!.durationDays, 7);
@@ -274,20 +277,12 @@ void main() {
     expect(byId['8']!.repeat, DoseRepeat.once);
     expect(byId['4']!.amountLabel, isNull);
 
-    // ── ٣. الخطة بعد الترقية = الخطة من نفس البيانات على قاعدة جديدة
-    final fresh = AppDatabase(NativeDatabase.memory());
-    addTearDown(fresh.close);
-    for (final sql in _seed()) {
-      await fresh.customStatement(sql);
-    }
-
+    // ── ٣. الخطة بعد الترقية: فيها المعنى، واللي اتاخد ما رجعش
+    // (المساواة بالرقم واللحظة مع المحرّك القديم في `clock_migration_test`)
     final (upSink, upEvents) = await _reschedule(upgraded);
-    final (freshSink, freshEvents) = await _reschedule(fresh);
 
     final upPlan = _plan(upSink);
     expect(upPlan, isNotEmpty);
-    expect(upPlan, _plan(freshSink));
-    expect(upEvents, freshEvents);
 
     // وخطة فيها المعنى، مش خطتين فاضيين متساويين
     final bodies = upPlan.values.join('\n');

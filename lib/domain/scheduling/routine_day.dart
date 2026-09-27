@@ -1,14 +1,19 @@
 // يوم الروتين — دارت نقية.
 //
-// اليوم بيبدأ من الصحيان مش من نص الليل (شوف `schedule_engine.dart`):
-// واحد بيصحى ٧:٣٠ ولسه صاحي الساعة ١٢:٥٠ بالليل لسه في يوم امبارح.
+// **اليوم بيبدأ الساعة ٤ الفجر، ثابتة** (قرار المالك، ٢٧ سبتمبر ٢٠٢٦ — كان
+// بيبدأ من ساعة الصحيان اللي المستخدم بيقولها، والروتين اتشال). جرعة الساعة
+// ١ بالليل تبع قايمة امبارح وسلسلته و«اتنست» بتاعته؛ الساعة ٥ الفجر تبع
+// النهارده.
 
-import 'day_routine.dart';
+import 'minute_of_day.dart';
 
-/// يوم الروتين اللي [now] واقع فيه: قبل الصحيان = امبارح بالتقويم.
-DateTime routineDayOf(DayRoutine routine, DateTime now) {
-  final wakeToday = DateTime(now.year, now.month, now.day, 0, routine.wake.minutes);
-  return now.isBefore(wakeToday)
+/// الحد بين يومين — ٤:٠٠ الفجر. المكان الوحيد للرقم ده.
+const MinuteOfDay dayStart = MinuteOfDay(4 * 60);
+
+/// يوم الروتين اللي [now] واقع فيه: قبل ٤ الفجر = امبارح بالتقويم.
+DateTime routineDayOf(DateTime now) {
+  final startToday = DateTime(now.year, now.month, now.day, 0, dayStart.minutes);
+  return now.isBefore(startToday)
       ? DateTime(now.year, now.month, now.day - 1)
       : DateTime(now.year, now.month, now.day);
 }
@@ -18,16 +23,16 @@ DateTime routineDayOf(DayRoutine routine, DateTime now) {
 /// ١٢:٥٠ بالليل بساعة ثابتة ١٢:٥٢ اتعرض «بكرة» وما رنّش).
 ///
 /// `start_date` بيتقارن بيوم **الروتين** في `DoseSchedule.isActiveOn`، و«النهارده»
-/// في الفورم هي تاريخ **التقويم**. بعد نص الليل وقبل الصحيان الاتنين مختلفين:
+/// في الفورم هي تاريخ **التقويم**. بعد نص الليل وقبل ٤ الفجر الاتنين مختلفين:
 /// يوم الروتين لسه امبارح، فجرعة الليلة دي كانت بتتشال. فلو المختار هو تاريخ
 /// النهارده بالتقويم ويوم الروتين لسه قبله، البداية بتبقى يوم الروتين —
 /// والماضي مقفول من ناحيتين تانيتين: `active_from` (لحظة الحفظ) و«الأقرب من
 /// دلوقتي» في الخطة. أي تاريخ تاني بيتساب زي ما هو: «بكرة» تاريخ تقويم،
 /// وبعد نص الليل يعني الليلة اللي بعد الجاية بالساعة — الفورم بيقول التاريخ.
-DateTime startDayFor(DayRoutine routine, DateTime chosen, DateTime now) {
+DateTime startDayFor(DateTime chosen, DateTime now) {
   final chosenDay = DateTime(chosen.year, chosen.month, chosen.day);
   final today = DateTime(now.year, now.month, now.day);
   if (chosenDay != today) return chosenDay;
-  final routineDay = routineDayOf(routine, now);
+  final routineDay = routineDayOf(now);
   return routineDay.isBefore(today) ? routineDay : chosenDay;
 }

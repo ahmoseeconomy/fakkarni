@@ -21,7 +21,8 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/medication/meal_relation.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../../domain/escalation/alert_mode.dart';
@@ -50,7 +51,6 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
   int _days = 7;
   Stream<MedicationRow?>? _medication;
   List<DoseSchedule> _schedules = const [];
-  DayRoutine _routine = DayRoutine.fallback;
   bool _seeded = false;
   bool _confirmingStop = false;
   bool _busy = false;
@@ -62,9 +62,6 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     final services = AppScope.of(context);
     _medication = services.medications.watchMedication(widget.medicationId);
     _loadSchedules();
-    services.routines.getRoutine(services.patientId).then((r) {
-      if (mounted && r != null) setState(() => _routine = r);
-    });
     services.preferences.get().then((p) {
       if (mounted) setState(() => _deviceMode = p.alertMode);
     });
@@ -78,14 +75,16 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     await services.scheduler.rescheduleAll();
   }
 
-  /// ميعاد وجبة اتحدد من جوّه المحرّر — بيتكتب متحدد والشاشة بتشوفه.
-  Future<void> _setAnchor(DayAnchor anchor, MinuteOfDay time) async {
-    final services = AppScope.of(context);
-    await services.routines.setAnchor(services.patientId, anchor, time);
-    if (mounted) setState(() => _routine = _routine.withAnchor(anchor, time));
-  }
-
   bool _durationSeeded = false;
+
+  /// «قبل الأكل» وأخواتها — من أول جدول (كلها بنفس الكلمة).
+  MealRelation? get _meal => _schedules.firstOrNull?.mealRelation;
+
+  Future<void> _setMeal(MealRelation? m) async {
+    final services = AppScope.of(context);
+    await services.medications.updateMealRelation(widget.medicationId, m);
+    await _loadSchedules();
+  }
 
   Future<void> _loadSchedules() async {
     final s = await AppScope.of(context).medications.schedulesFor(widget.medicationId);
@@ -114,8 +113,6 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
       MaterialPageRoute(
         builder: (_) => DoseEditor(
           name: name,
-          routine: _routine,
-          onSetAnchor: _setAnchor,
           initialTiming: schedule.timing,
           onSave: (timing) async {
             await services.medications.updateTiming(int.parse(schedule.id), timing);
@@ -138,21 +135,17 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     if (_busy) return;
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
-    const order = [DayAnchor.breakfast, DayAnchor.lunch, DayAnchor.dinner, DayAnchor.wake, DayAnchor.sleep];
-    final used = {
-      for (final s in _schedules)
-        if (s.timing case AnchorTiming(:final anchor)) anchor,
-    };
-    final next = order.firstWhere((a) => !used.contains(a), orElse: () => DayAnchor.dinner);
+    // أول ساعة افتراضية مش مأخودة: ٩ص ← ٩م ← ٣م ← ٢ ← ٥ ← ٨ الصبح
+    final used = {for (final s in _schedules) s.timing.minuteOfDay};
+    const order = [9 * 60, 21 * 60, 15 * 60, 14 * 60, 17 * 60, 8 * 60];
+    final next = MinuteOfDay(order.firstWhere((m) => !used.contains(MinuteOfDay(m)), orElse: () => 12 * 60));
     final days = _schedules.map((s) => s.durationDays).whereType<int>();
 
     await navigator.push<void>(
       MaterialPageRoute(
         builder: (_) => DoseEditor(
           name: name,
-          routine: _routine,
-          onSetAnchor: _setAnchor,
-          initialTiming: AnchorTiming(next, -defaultOffsetBefore(next)),
+          initialTiming: FixedTiming(next),
           onSave: (timing) async {
             await services.medications.addDoseSchedule(
               widget.medicationId,
@@ -365,7 +358,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: F.dialogGround,
         title: Text(
-          'تشيل جرعة «${schedule.timing.ruleLabel}»؟',
+          'تشيل جرعة الساعة ${arabicTime(DateTime(2026, 1, 1, schedule.timing.minuteOfDay.hour, schedule.timing.minuteOfDay.minute))}؟',
           style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
         ),
         content: const Text(
@@ -496,7 +489,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         DoseRow(
                           key: ValueKey('dose-row-$i'),
                           timing: schedule.timing,
-                          time: arabicTime(ScheduleEngine(_routine).resolve(schedule, DateTime.now())),
+                          time: arabicTime(const ScheduleEngine().resolve(schedule, DateTime.now())),
                           onEdit: () => _editTiming(schedule, med.name),
                           // الأرضية: آخر جرعة مالهاش «شيل» خالص — دوا من
                           // غير جرعة مش دوا، وزرار رمادي كان هيخلّيه يدوس
@@ -648,6 +641,27 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                             borderSide: BorderSide(color: F.line),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: F.gap),
+                      // «قبل الأكل» وأخواتها — كلمة تعليمات على كل جرعاته، ما
+                      // بتحرّكش ساعة ولا بتحتاج إعادة جدولة. دوسة تانية بتشيلها.
+                      Text(
+                        'مع الأكل؟ (لو حابب)',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: F.s8,
+                        runSpacing: F.s8,
+                        children: [
+                          for (final m in MealRelation.values)
+                            AnchorChip(
+                              key: ValueKey('meal-${m.name}'),
+                              label: m.label,
+                              selected: _meal == m,
+                              onTap: _busy ? () {} : () => _setMeal(_meal == m ? null : m),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: F.gap),
                       Text(

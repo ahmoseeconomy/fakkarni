@@ -16,12 +16,10 @@ import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/medication_purpose.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../medication/add_medication_screen.dart';
-import '../routine/ask_anchor_time.dart';
-import '../../core/widgets/patient_voice.dart';
 import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
 
@@ -42,7 +40,6 @@ enum ReviewResult { confirmed, retake }
 class ReviewPrescriptionScreen extends StatefulWidget {
   const ReviewPrescriptionScreen({
     required this.reading,
-    required this.routine,
     this.image,
     this.today,
     this.records,
@@ -51,7 +48,6 @@ class ReviewPrescriptionScreen extends StatefulWidget {
   });
 
   final PrescriptionReading reading;
-  final DayRoutine routine;
 
   /// الورقة زي ما الكاميرا (أو معرض الصور) دتها — **مش** النسخة المصغّرة
   /// اللي راحت للموديل. الصغيرة للقراية، ودي للعين البشرية.
@@ -126,25 +122,6 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
   DateTime get _today => widget.today ?? DateTime.now();
 
-  /// الروتين الحي — بيتحدّث لما «حدّد ميعاد الفطار» يتحفظ.
-  late DayRoutine _routine = widget.routine;
-
-  /// **اقتراح الذكاء على مرساة ما اتحددتش ما بيتملاش لوحده.** «قبل الفطار»
-  /// والفطار مش متحدد = سؤال للإنسان هنا، مش رقم من الافتراضي. بيقفل
-  /// «تمام» لحد ما يجاوب، والإجابة بتتحفظ في روتينه متحددة.
-  Set<DayAnchor> _unsetAnchorsOf(_DraftLine line) => {
-        for (final t in line.timings)
-          if (t case AnchorTiming(:final anchor) when !_routine.isSet(anchor)) anchor,
-      };
-
-  Future<void> _askAnchor(DayAnchor anchor) async {
-    final services = AppScope.of(context);
-    final picked = await askAnchorTime(context, anchor: anchor, say: PatientVoice.of(context));
-    if (picked == null || !mounted) return;
-    await services.routines.setAnchor(services.patientId, anchor, picked);
-    if (mounted) setState(() => _routine = _routine.withAnchor(anchor, picked));
-  }
-
   /// السطور اللي هتتحفظ فعلاً — اللي اتشال مش فيها.
   List<_DraftLine> get _keep => [for (final l in _lines) if (!l.deleted) l];
 
@@ -184,9 +161,9 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
           draft: true,
-          routine: _routine,
           today: widget.today,
           initialName: line.name,
+          initialMealRelation: line.mealRelation,
           initialAmount: line.amountLabel,
           initialTimings: line.timings,
           initialDurationDays: line.durationDays,
@@ -207,7 +184,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   Future<void> _addUnread() async {
     final draft = await Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(draft: true, routine: _routine, today: widget.today),
+        builder: (_) => AddMedicationScreen(draft: true, today: widget.today),
       ),
     );
     if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));
@@ -309,25 +286,11 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
             purpose: l.purpose,
             instructions: l.instructions,
             startDate: l.startDate,
+            mealRelation: l.mealRelation,
           ),
       ],
     );
     await services.scheduler.rescheduleAll();
-
-    // **مرساة ما اتحددتش — سؤال واحد بعد الحفظ، وممكن يتعدّى.** الدوا
-    // اتحفظ على مرساته زي ما الورقة قالت، والمحرّك بيسكت عن المرساة اللي
-    // ما اتحددتش (`routine_unset_test`) لحد ما تتحدد — هنا أو من «عدّل
-    // يومك». الإجابة بتتحفظ في روتينه وبتعيد الجدولة؛ القفل بيكتب ولا حاجة.
-    final unset = {for (final l in keep) ..._unsetAnchorsOf(l)};
-    var anySet = false;
-    for (final anchor in unset) {
-      if (!mounted) break;
-      final picked = await askAnchorTime(context, anchor: anchor, say: PatientVoice.of(context));
-      if (picked == null) continue;
-      await services.routines.setAnchor(services.patientId, anchor, picked);
-      anySet = true;
-    }
-    if (anySet) await services.scheduler.rescheduleAll();
 
     // «لسه ماتشترتش» — **بعد** الجدولة وبرّاها: علامة على الدوا وبس،
     // والتذكير اتجدول فوق زي ما هو بالظبط.
@@ -382,7 +345,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final reading = widget.reading;
-    final engine = ScheduleEngine(_routine);
+    const engine = ScheduleEngine();
 
     return Scaffold(
       appBar: AppBar(),
@@ -502,17 +465,8 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                         _MedicineRow(
                           index: i,
                           line: line,
-                          timeFor: (t) => switch (t) {
-                            // مرساة مش متحددة: مفيش ساعة تتقال — السؤال تحت
-                            AnchorTiming(:final anchor) when !_routine.isSet(anchor) =>
-                              'ميعاد ${anchor.label} مش متحدد',
-                            AnchorTiming(:final anchor, :final offsetMinutes) => arabicTime(
-                                engine.resolveTime(anchor: anchor, offsetMinutes: offsetMinutes, onDay: _today)),
-                            FixedTiming(:final minuteOfDay) =>
-                              arabicTime(engine.resolveFixed(minuteOfDay: minuteOfDay, onDay: _today)),
-                          },
-                          unsetAnchors: _unsetAnchorsOf(line),
-                          onAskAnchor: _busy ? null : _askAnchor,
+                          timeFor: (t) =>
+                              arabicTime(engine.resolveFixed(minuteOfDay: t.minuteOfDay, onDay: _today)),
                           onEdit: _busy ? null : () => _edit(i),
                           onDelete: _busy ? null : () => _delete(i),
                           onBought: _busy ? null : (v) => setState(() => line.bought = v),
@@ -653,24 +607,18 @@ class _MedicineRow extends StatelessWidget {
     required this.timeFor,
     required this.onEdit,
     required this.onDelete,
-    this.unsetAnchors = const {},
-    this.onAskAnchor,
     this.onBought,
   });
 
   /// «اشتريته؟» — null = السؤال مش معروض.
   final ValueChanged<bool>? onBought;
 
-  /// المراسي اللي السطر ده محتاجها والمستخدم ما حدّدهاش — سؤال لكل واحدة.
-  final Set<DayAnchor> unsetAnchors;
-  final Future<void> Function(DayAnchor anchor)? onAskAnchor;
-
   /// ترتيبه في المسوّدة — بيدخل في مفاتيح أزراره عشان يتفرّق عن ترويسة الورقة.
   final int index;
 
   /// سطر المسوّدة — اللي هيتحفظ، مش اللي الورقة قالته بالظبط.
   final _DraftLine line;
-  final String Function(DoseTiming) timeFor;
+  final String Function(FixedTiming) timeFor;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -788,8 +736,10 @@ class _MedicineRow extends StatelessWidget {
                           color: F.ink,
                         ),
                       ),
-                      const SizedBox(width: F.s6),
-                      StatusChip(label: t.ruleLabel),
+                      if (line.mealRelation case final m?) ...[
+                        const SizedBox(width: F.s6),
+                        StatusChip(label: m.label),
+                      ],
                     ],
                   ),
               ],
@@ -800,24 +750,6 @@ class _MedicineRow extends StatelessWidget {
               'ثقة ${arabicNumber((line.confidence * 100).round())}٪',
               style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
             ),
-          ],
-          if (unsetAnchors.isNotEmpty) ...[
-            const SizedBox(height: F.s12),
-            // الورقة قالت «قبل الفطار» والفطار مش متحدد: مفيش رقم بيتخمّن
-            // مكانه — سؤال للإنسان، والإجابة بتتحفظ في روتينه مرة واحدة.
-            GoldNote(
-              key: ValueKey('unset-anchor-note-$index'),
-              'الورقة بتقول ${unsetAnchors.map((a) => a.label).join(' و')} — وإنت لسه '
-              'ما حدّدتش ميعاده. هنسألك بعد «تمام»، ولحد ما تحدده الجرعة دي بس هتفضل ساكتة.',
-            ),
-            for (final anchor in unsetAnchors) ...[
-              const SizedBox(height: F.s8),
-              FSecondaryButton(
-                key: ValueKey('ask-anchor-$index-${anchor.name}'),
-                label: 'حدّد ميعاد ${anchor.label}',
-                onPressed: onAskAnchor == null ? null : () => onAskAnchor!(anchor),
-              ),
-            ],
           ],
           if (onBought case final setBought?) ...[
             const SizedBox(height: F.s12),
@@ -1046,8 +978,12 @@ class _DraftLine {
     this.alertMode,
     this.purpose,
     this.instructions,
+    this.mealRelation,
     this.edited = false,
   });
+
+  /// «قبل الأكل» وأخواتها زي ما الورقة قالتها — كلمة تعليمات، مش توقيت.
+  MealRelation? mealRelation;
 
   /// نوع التنبيه — الورقة ما بتقولوش، فمن القراية دايماً null (الافتراضي)؛
   /// «عدّل» ممكن يحدده. ونفس الكلام لـ«لإيه؟» و«تعليمات».
@@ -1076,6 +1012,7 @@ class _DraftLine {
         // — نفس السلوك بالظبط، بكلمته
         durationDays: read.duration.value == 1 ? null : read.duration.value,
         instructions: read.instructions.needsReview ? null : read.instructions.value,
+        mealRelation: read.mealRelation,
       )..once = read.duration.value == 1;
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
@@ -1089,6 +1026,7 @@ class _DraftLine {
         alertMode: d.alertMode,
         purpose: d.purpose,
         instructions: d.instructions,
+        mealRelation: d.mealRelation,
         edited: true,
       )
         ..startDate = d.startDate
@@ -1100,7 +1038,7 @@ class _DraftLine {
   String? name;
   String? amountLabel;
   bool amountUnknown;
-  List<DoseTiming> timings;
+  List<FixedTiming> timings;
   int? durationDays;
 
   /// إنسان عدّاها بإيده — فالشك بتاع الذكاء خلص.
@@ -1118,6 +1056,7 @@ class _DraftLine {
     alertMode = d.alertMode;
     purpose = d.purpose;
     instructions = d.instructions;
+    mealRelation = d.mealRelation;
     startDate = d.startDate;
     once = d.once;
     edited = true;

@@ -27,7 +27,7 @@ void main() {
     await voice.load();
     final s = h.services;
     h.services = AppServices(
-      db: s.db, routines: s.routines, medications: s.medications, events: s.events,
+      db: s.db, patients: s.patients, medications: s.medications, events: s.events,
       scheduler: s.scheduler, patientId: s.patientId, voice: voice,
     );
   }
@@ -36,7 +36,7 @@ void main() {
 
   screenTest('على «يومك»: تحت التحية، فوق كل حاجة', (tester) async {
     await setUpWith(voiceOn: true);
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     final button = find.byKey(const ValueKey('talk-button'));
     expect(button, findsOneWidget);
     expect(find.text('كلّمني'), findsOneWidget);
@@ -47,19 +47,19 @@ void main() {
 
   screenTest('نمط كبار السن: أكبر (٨٠)', (tester) async {
     await setUpWith(voiceOn: true);
-    await h.pump(tester, ElderHomeScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+    await h.pump(tester, ElderHomeScreen(now: DateTime(2026, 8, 31, 8)));
     expect(tester.getSize(find.byKey(const ValueKey('talk-button'))).height, 80);
   });
 
   screenTest('من غير مايك في النسخة = مفيش زرار', (tester) async {
     await setUpWith(voiceOn: true, mic: false);
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     expect(find.byKey(const ValueKey('talk-button')), findsNothing);
   });
 
   screenTest('الصوت مقفول: الزرار موجود، والورقة بتكتب الجملة بدل ما تقولها', (tester) async {
     await setUpWith(voiceOn: false, answers: ['الجو حر النهارده']);
-    await h.pump(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
     expect(find.byKey(const ValueKey('talk-shown')), findsOneWidget);

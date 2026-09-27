@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/ai/prescription_reader.dart';
 import 'package:fakkarni/ai/prescription_reading.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/medication/meal_relation.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 Map<String, dynamic> field(Object? value, double confidence, {String? note}) => {
@@ -90,14 +91,15 @@ void main() {
       expect(line.needsReview, isFalse);
       expect(line.name.value, 'Concor 5mg');
       expect(line.amount.value, 'قرص واحد');
-      expect(line.timings.value, [const AnchorTiming(DayAnchor.breakfast, 0)]);
+      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9))]);
+      expect(line.mealRelation, MealRelation.after);
       expect(line.duration.value, 30);
       expect(reading.doctor.value, 'هشام سلام');
     });
   });
 
   group('التوقيت — القاعدة الأولى', () {
-    test('قبل الأكل من غير دقايق → الإزاحة الافتراضية ٣٠', () {
+    test('«قبل الغدا» → ٩ الصبح (عُرف «مرة») + كلمة «قبل الأكل» — الأكل ما بيحرّكش الساعة', () {
       final line = PrescriptionReading.fromJson({
         'medications': [
           med(
@@ -107,10 +109,12 @@ void main() {
           ),
         ],
       }).lines.single;
-      expect(line.timings.value, [const AnchorTiming(DayAnchor.lunch, -30)]);
+      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9))]);
+      expect(line.mealRelation, MealRelation.before);
+      expect(line.timings.needsReview, isFalse, reason: 'الورقة سمّت الأكل — الكلمة قراية، مش تخمين');
     });
 
-    test('ساعة مكتوبة بالحرف → ثابتة، مش مرساة', () {
+    test('ساعة مكتوبة بالحرف → زي ما هي', () {
       final line = PrescriptionReading.fromJson({
         'medications': [
           med(
@@ -124,7 +128,7 @@ void main() {
       expect(line.timings.needsReview, isFalse);
     });
 
-    test('«١×٣» من غير وجبة → تلات مراسي، ومعلّمة «محتاج تحديد» مهما كانت الثقة', () {
+    test('«١×٣» من غير وجبة → ٩ و٣ و٩، ومعلّمة «محتاج تحديد» مهما كانت الثقة', () {
       final line = PrescriptionReading.fromJson({
         'medications': [
           med(
@@ -137,13 +141,14 @@ void main() {
       expect(
         line.timings.value,
         [
-          const AnchorTiming(DayAnchor.breakfast, 0),
-          const AnchorTiming(DayAnchor.lunch, 0),
-          const AnchorTiming(DayAnchor.dinner, 0),
+          FixedTiming(MinuteOfDay.hm(9)),
+          FixedTiming(MinuteOfDay.hm(15)),
+          FixedTiming(MinuteOfDay.hm(21)),
         ],
       );
+      expect(line.mealRelation, isNull, reason: 'مفيش أكل مسمّى — «بعد» لوحدها مش كلمة أكل');
       expect(line.timings.needsReview, isTrue, reason: 'اقتراح توزيع، مش قراءة');
-      expect(line.timings.note, timesPerDayNote);
+      expect(line.timings.note, suggestedTimesNote);
     });
 
     test('توقيت غامض أو «عند اللزوم» → «مش متأكد — اسأل الصيدلي»، مفيش تخمين', () {
@@ -230,28 +235,39 @@ void main() {
     });
   });
 
-  group('الإزاحة الافتراضية «قبل» — ٣٠ للأكل و١٥ للنوم', () {
-    ReadLine before(String anchor) => PrescriptionReading.fromJson({
+  group('ساعات «كام مرة» الافتراضية — وكلمة الأكل', () {
+    test('مرة ٩ص، مرتين ٩ص و٩م، ٣ مرات ٩ و٣ و٩، ٤ مرات ٨ و١ و٦ و١١', () {
+      List<int> m(int n) => [for (final t in defaultTimesFor(n)) t.minuteOfDay.minutes];
+      expect(m(1), [9 * 60]);
+      expect(m(2), [9 * 60, 21 * 60]);
+      expect(m(3), [9 * 60, 15 * 60, 21 * 60]);
+      expect(m(4), [8 * 60, 13 * 60, 18 * 60, 23 * 60]);
+      expect(m(6).first, 8 * 60);
+      expect(m(6).last, 23 * 60);
+    });
+
+    ReadLine withMeal(String anchor, String relation, {int? times}) => PrescriptionReading.fromJson({
           'medications': [
             med(
               name: field('X', 0.9),
               amount: field('قرص', 0.9),
-              timing: {'anchor': anchor, 'relation': 'before', 'confidence': 0.9},
+              timing: {'anchor': anchor, 'relation': relation, 'timesPerDay': ?times, 'confidence': 0.9},
             ),
           ],
         }).lines.single;
 
-    test('قبل النوم → −١٥', () {
-      expect(before('sleep').timings.value, [const AnchorTiming(DayAnchor.sleep, -15)]);
+    test('قبل / مع / بعد الأكل كلمة — والصحيان والنوم مش أكل', () {
+      expect(withMeal('breakfast', 'before').mealRelation, MealRelation.before);
+      expect(withMeal('lunch', 'at').mealRelation, MealRelation.with_);
+      expect(withMeal('dinner', 'after').mealRelation, MealRelation.after);
+      expect(withMeal('sleep', 'before').mealRelation, isNull);
+      expect(withMeal('wake', 'after').mealRelation, isNull);
     });
 
-    test('قبل الغدا → −٣٠', () {
-      expect(before('lunch').timings.value, [const AnchorTiming(DayAnchor.lunch, -30)]);
-    });
-
-    test('المحرر والقارئ بيستخدموا نفس الدالة', () {
-      expect(defaultOffsetBefore(DayAnchor.sleep), 15);
-      expect(defaultOffsetBefore(DayAnchor.breakfast), 30);
+    test('«بعد الأكل مرتين» → ٩ و٩ بالليل، والكلمة على الاتنين', () {
+      final line = withMeal('breakfast', 'after', times: 2);
+      expect(line.timings.value, [FixedTiming(MinuteOfDay.hm(9)), FixedTiming(MinuteOfDay.hm(21))]);
+      expect(line.mealRelation, MealRelation.after);
     });
   });
 

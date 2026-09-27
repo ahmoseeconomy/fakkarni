@@ -4,7 +4,6 @@ import '../../app/app_scope.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/billing/family_plan.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../billing/feature_gate.dart';
 import '../health/vitals/vital_entry_sheet.dart';
 import '../health/scan_lab_screen.dart';
@@ -20,7 +19,7 @@ import 'scan_package_screen.dart';
 ///
 /// `test/features/medication/add_sheet_test.dart` بيقرا `lib/` وبيقع لو
 /// الشيت اتعرّف في مكان تاني.
-Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
+Future<void> showAddSheet(BuildContext context) {
   final services = AppScope.of(context);
   final navigator = Navigator.of(context);
   void open(Widget screen) {
@@ -47,15 +46,15 @@ Future<void> showAddSheet(BuildContext context, {required DayRoutine routine}) {
       FPrimaryButton(
         label: addSheetLabels[0],
         onPressed: () =>
-            openScan(ScanPackageScreen(routine: routine, reader: services.packageReader)),
+            openScan(ScanPackageScreen(reader: services.packageReader)),
       ),
       FSecondaryButton(
         label: addSheetLabels[1],
-        onPressed: () => openScan(ScanPrescriptionScreen(routine: routine, reader: services.prescriptionReader)),
+        onPressed: () => openScan(ScanPrescriptionScreen(reader: services.prescriptionReader)),
       ),
       FSecondaryButton(
         label: addSheetLabels[2],
-        onPressed: () => open(AddMedicationScreen(routine: routine)),
+        onPressed: () => open(const AddMedicationScreen()),
       ),
       // القياسات (٢٥ سبتمبر ٢٠٢٦): ضغط/نبض/وزن/أكسجين/حرارة — والسكر شريحة
       // جوّه الورقة بتفتح شاشته زي ما هي. التقارير لوحدها تحت.

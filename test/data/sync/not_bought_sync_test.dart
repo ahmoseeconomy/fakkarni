@@ -8,13 +8,13 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/not_bought_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/care/medication_change.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../features/scan/scan_test_support.dart' show RecordingSink;
@@ -25,7 +25,7 @@ import 'sync_service_test.dart' show FakeSyncRemote;
 /// من الممرض بتشيلها على موبايل المريض من غير ما تلمس المخزون.
 void main() {
   late AppDatabase db;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late MedicationRepository meds;
   late int patientId;
   late int bought;
@@ -34,14 +34,13 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase(NativeDatabase.memory());
-    routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient(name: 'أحمد');
-    await routines.saveRoutine(patientId, DayRoutine.fallback);
+    patients = PatientRepository(db);
+    patientId = await patients.ensurePatient(name: 'أحمد');
     meds = MedicationRepository(db, clock: seededLongAgo);
     bought = await meds.addMedication(
-        patientId: patientId, name: 'Glucophage', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: DateTime(2026, 9, 1));
+        patientId: patientId, name: 'Glucophage', timing: FixedTiming(MinuteOfDay.hm(20)), startDate: DateTime(2026, 9, 1));
     notBought = await meds.addMedication(
-        patientId: patientId, name: 'Concor', timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: DateTime(2026, 9, 1));
+        patientId: patientId, name: 'Concor', timing: FixedTiming(MinuteOfDay.hm(7, 30)), startDate: DateTime(2026, 9, 1));
     await NotBoughtRepository(db, clock: () => DateTime(2026, 9, 25, 10)).markNotBought(notBought);
   });
   tearDown(() => db.close());
@@ -79,10 +78,9 @@ void main() {
     final applied = await MedicationChangePuller(
       remote: remote,
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,

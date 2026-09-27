@@ -6,17 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/appointment_scheduler.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 /// **القيد الأول في مواصفة المواعيد: ما نلمسش تذكير الدوا.**
 ///
@@ -52,13 +51,6 @@ class _Sink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final _now = DateTime(2026, 9, 15, 10);
 
@@ -72,10 +64,9 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     sink = _Sink();
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, _routine);
+    patientId = await patients.ensurePatient();
     // **تركيبة واقعية**: ٨ أدوية × ٣ جرعات، والسلّم شغّال.
     for (var i = 0; i < 8; i++) {
       await meds.addMedicationWithDoses(
@@ -91,7 +82,6 @@ void main() {
       );
     }
     scheduler = ReminderScheduler(
-      routines: routines,
       medications: meds,
       events: DoseEventRepository(db),
       patientId: patientId,

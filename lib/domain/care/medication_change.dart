@@ -7,7 +7,7 @@
 
 import '../escalation/alert_mode.dart';
 import '../medication/medication_purpose.dart';
-import '../scheduling/day_routine.dart';
+import '../scheduling/minute_of_day.dart';
 import '../scheduling/dose_schedule.dart';
 
 enum MedicationChangeKind {
@@ -87,7 +87,7 @@ class MedicationChangePayload {
   final DateTime? day;
 
   final String? name;
-  final List<DoseTiming> timings;
+  final List<FixedTiming> timings;
   final String? amountLabel;
   final int? durationDays;
   final MedicationPurpose? purpose;
@@ -99,10 +99,7 @@ class MedicationChangePayload {
         'name': name,
         'timings': [
           for (final t in timings)
-            switch (t) {
-              AnchorTiming(:final anchor, :final offsetMinutes) => {'kind': 'anchor', 'anchor': anchor.name, 'offset': offsetMinutes},
-              FixedTiming(:final minuteOfDay) => {'kind': 'fixed', 'minute': minuteOfDay.minutes},
-            },
+            {'kind': 'fixed', 'minute': t.minuteOfDay.minutes},
         ],
         'amount': amountLabel,
         'duration_days': durationDays,
@@ -126,15 +123,12 @@ class MedicationChangePayload {
   static String _two(int n) => n.toString().padLeft(2, '0');
 
   static MedicationChangePayload fromJson(Map<String, dynamic> json) {
-    final timings = <DoseTiming>[];
+    final timings = <FixedTiming>[];
     if (json['timings'] case final List<dynamic> list) {
       for (final t in list) {
         if (t is! Map) continue;
-        if (t['kind'] == 'anchor') {
-          final anchor = DayAnchor.values.asNameMap()[t['anchor'] as String?];
-          final offset = t['offset'];
-          if (anchor != null && offset is num) timings.add(AnchorTiming(anchor, offset.toInt()));
-        } else if (t['kind'] == 'fixed') {
+        // 'anchor' (تغييرات قديمة من قبل v30) بتتعدّى: مفيش روتين يحلّها
+        if (t['kind'] == 'fixed') {
           final minute = t['minute'];
           if (minute is num && minute >= 0 && minute < 1440) timings.add(FixedTiming(MinuteOfDay(minute.toInt())));
         }

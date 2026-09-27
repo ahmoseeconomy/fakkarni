@@ -38,7 +38,7 @@ void main() {
     await voice.load();
     final s = h.services;
     h.services = AppServices(
-      db: s.db, routines: s.routines, medications: s.medications, events: s.events,
+      db: s.db, patients: s.patients, medications: s.medications, events: s.events,
       scheduler: s.scheduler, patientId: s.patientId, voice: voice,
     );
   }
@@ -119,7 +119,7 @@ void main() {
 
   screenTest('«كلّمني»: «مافهمتش» مكتوبة مرة — في الورقة، مش في الكارت كمان', (tester) async {
     await setUpWith(['كلام مش مفهوم خالص']);
-    await pumpWithCaption(tester, TodayScreen(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+    await pumpWithCaption(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     player.holdPlayback = true;
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);

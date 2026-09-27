@@ -132,9 +132,9 @@ void main() {
     final alert = ValueNotifier<String?>(null);
     voice.attachAlertSignal(alert);
     player.holdPlayback = true;
-    final speaking = voice.speakLine('help_routine');
+    final speaking = voice.speakLine('help_tip');
     await Future<void>.delayed(Duration.zero);
-    expect(voice.caption.value, voiceLine('help_routine'));
+    expect(voice.caption.value, voiceLine('help_tip'));
 
     alert.value = '{"v":1}'; // دوسة على إشعار جرعة
     await Future<void>.delayed(Duration.zero);

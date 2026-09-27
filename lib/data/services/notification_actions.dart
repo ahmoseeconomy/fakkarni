@@ -1,11 +1,9 @@
 import '../../core/notifications/notification_service.dart'
     show NotificationActions;
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../dose_state.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
-import '../repositories/routine_repository.dart';
 import '../sync/sync_service.dart';
 import 'reminder_plan.dart';
 import 'reminder_scheduler.dart';
@@ -18,7 +16,6 @@ import '../../core/diagnostics.dart';
 /// الخانة، ويمدّ النافذة — وده اللي بيخلي التغطية تتجدد من شاشة القفل.
 class NotificationActionHandler {
   const NotificationActionHandler({
-    required this.routines,
     required this.medications,
     required this.events,
     required this.scheduler,
@@ -27,7 +24,6 @@ class NotificationActionHandler {
     this.cloud,
   });
 
-  final RoutineRepository routines;
   final MedicationRepository medications;
   final DoseEventRepository events;
   final ReminderScheduler scheduler;
@@ -57,15 +53,14 @@ class NotificationActionHandler {
     final decoded = decodePayload(payload);
     if (decoded == null) return;
 
-    final routine = await routines.getRoutine(patientId) ?? DayRoutine.fallback;
-    final engine = ScheduleEngine(routine);
+    const engine = ScheduleEngine();
     final day = decoded.routineDay;
     final reminders = engine.remindersForDay(
       await medications.activeSchedules(patientId),
       day,
     );
 
-    // الجرعات اللي الإشعار ده كان عشانها — الساعة بنحسبها من الروتين
+    // الجرعات اللي الإشعار ده كان عشانها — الساعة بنحسبها من الجدول
     // الحالي، مش من الإشعار: الـpayload فيه اليوم والجداول بس.
     final doses = [
       for (final reminder in reminders)
@@ -116,7 +111,7 @@ class NotificationActionHandler {
         await scheduler.snooze(
           originalAt: at,
           body: reminderBodyFor([
-            for (final d in doses) (name: d.medicationName, amount: d.amountLabel),
+            for (final d in doses) (name: d.medicationName, amount: d.amountLabel, note: d.ruleLabel),
           ]),
           payload: payload!,
           now: now,

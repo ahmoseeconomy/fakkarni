@@ -70,8 +70,8 @@ void main() {
                 FCard(child: const Text('كارت')),
                 FPrimaryButton(label: 'احفظ', onPressed: () {}),
                 FSecondaryButton(label: 'رجوع', onPressed: () {}),
-                AnchorChip(label: 'قبل الفطار', selected: true, onTap: () {}),
-                AnchorChip(label: 'بعد الفطار', selected: false, onTap: () {}),
+                AnchorChip(label: 'الصبح ٩', selected: true, onTap: () {}),
+                AnchorChip(label: 'بالليل ٩', selected: false, onTap: () {}),
                 StatusChip(label: 'اتاخد', tone: StatusTone.ok),
                 FSwitch(label: 'وضع رمضان', value: true, onChanged: (_) {}),
               ],
@@ -88,17 +88,16 @@ void main() {
     }
     expect(tester.getSize(find.byType(FilledButton)).height, F.primaryButtonHeight);
     expect(tester.getSize(find.byType(OutlinedButton)).height, F.minTapTarget);
-    expect(tester.getSize(find.widgetWithText(AnchorChip, 'قبل الفطار')).height, F.minTapTarget);
+    expect(tester.getSize(find.widgetWithText(AnchorChip, 'الصبح ٩')).height, F.minTapTarget);
 
     final selected = tester.widget<Material>(
-      find.descendant(of: find.widgetWithText(AnchorChip, 'قبل الفطار'), matching: find.byType(Material)).first,
+      find.descendant(of: find.widgetWithText(AnchorChip, 'الصبح ٩'), matching: find.byType(Material)).first,
     );
     final unselected = tester.widget<Material>(
-      find.descendant(of: find.widgetWithText(AnchorChip, 'بعد الفطار'), matching: find.byType(Material)).first,
+      find.descendant(of: find.widgetWithText(AnchorChip, 'بالليل ٩'), matching: find.byType(Material)).first,
     );
     expect(selected.color, F.gold);
     expect(unselected.color, isNot(F.gold));
-    expect(anchorChipLabels.length, 8);
   });
 
   testWidgets('علامة ف بترسم — كاملة، مختزلة تحت ١٦، ومن غير نبضة مع تقليل الحركة', (tester) async {

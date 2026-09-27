@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/care/circle_departures.dart';
 import 'package:fakkarni/data/db/app_database.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/sync/departure_pull.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
 import 'package:fakkarni/domain/care/circle_departure.dart';
@@ -58,10 +58,10 @@ void main() {
     tearDown(() => db.close());
 
     test('السطر الجديد بينزل على «يومك» مرة واحدة — السحبة التانية ما بتكرّروش', () async {
-      final routines = RoutineRepository(db);
-      final pid = await routines.ensurePatient();
+      final patients = PatientRepository(db);
+      final pid = await patients.ensurePatient();
       final remote = FakeDepartures()..rows = [dep('1', name: 'محمد', relation: FollowerRelation.son)];
-      final puller = CircleDeparturePuller(remote: remote, routines: routines, patientId: pid);
+      final puller = CircleDeparturePuller(remote: remote, patients: patients, patientId: pid);
 
       expect(await puller.pull(), 1);
       expect(MedicationChangePuller.notices.value, ['محمد خرج من الدايرة']);
@@ -74,9 +74,9 @@ void main() {
     });
 
     test('السحابة وقعت: ولا سطر ولا رمي', () async {
-      final routines = RoutineRepository(db);
-      final pid = await routines.ensurePatient();
-      final puller = CircleDeparturePuller(remote: _Throwing(), routines: routines, patientId: pid);
+      final patients = PatientRepository(db);
+      final pid = await patients.ensurePatient();
+      final puller = CircleDeparturePuller(remote: _Throwing(), patients: patients, patientId: pid);
       expect(await puller.pull(), 0);
     });
   });

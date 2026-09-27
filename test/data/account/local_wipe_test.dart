@@ -9,13 +9,13 @@ import 'package:path/path.dart' as p;
 import 'package:fakkarni/data/account/local_wipe.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
-import '../../features/scan/scan_test_support.dart' show RecordingSink, normalDay;
+import '../../features/scan/scan_test_support.dart' show RecordingSink;
 import '../../support/seeded_clock.dart';
 import '../auth/auth_service_test.dart' show FakeAuthService;
 
@@ -32,17 +32,16 @@ void main() {
   });
 
   test('كل الجداول فاضية، وصف مريض جديد بنفس الرقم وuuid تاني، والجذر بيقرا «مفيش مريض»', () async {
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final pid = await routines.ensurePatient();
-    await routines.saveRoutine(pid, normalDay);
+    final pid = await patients.ensurePatient();
     await meds.addMedication(
       patientId: pid,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: DateTime(2026, 9, 1),
     );
-    final oldUuid = (await routines.getPatient(pid))!.uuid;
+    final oldUuid = (await patients.getPatient(pid))!.uuid;
 
     // إشعارات من كذا نطاق — جرعة وممرض وتصعيد
     final sink = RecordingSink();
@@ -83,10 +82,10 @@ void main() {
           .read<int>('n');
       expect(n, table.actualTableName == 'patients' ? 1 : 0, reason: '${table.actualTableName} فضل فيه صفوف');
     }
-    final patient = (await routines.getPatient(pid))!;
+    final patient = (await patients.getPatient(pid))!;
     expect(patient.sex, isNull);
     expect(patient.uuid, isNot(oldUuid), reason: 'الهوية اللي اتمسحت على السيرفر ما ترجعش');
-    expect(await routines.watchHasPatient(pid).first, isFalse, reason: 'الجذر يرجع لشاشة البداية');
+    expect(await patients.watchHasPatient(pid).first, isFalse, reason: 'الجذر يرجع لشاشة البداية');
 
     expect(sink.scheduled, isEmpty, reason: 'كل الإشعارات المعلّقة — بالرقم');
     expect(await Directory(p.join(docs.path, 'attachments')).exists(), isFalse);
@@ -105,7 +104,7 @@ void main() {
   });
 
   test('خطوة بتقع ما بتوقّفش الباقي — الخروج بيحصل برضه', () async {
-    final pid = await RoutineRepository(db).ensurePatient();
+    final pid = await PatientRepository(db).ensurePatient();
     final auth = FakeAuthService();
     await auth.signInToLink();
     await LocalWipe(

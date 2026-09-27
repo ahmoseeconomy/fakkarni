@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/diagnostics.dart';
-import '../../domain/patient/sex.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 
 /// باب خلفي للاختبار على جهاز — **وموجود في debug/profile بس**.
 ///
@@ -43,12 +42,7 @@ abstract final class TestHook {
     final minute = MinuteOfDay(fire.hour * 60 + fire.minute);
     diag('TestHook: بنزرع جرعة الساعة ${minute.hour}:${minute.minute}');
 
-    await services.routines.saveProfile(
-      services.patientId,
-      name: 'اختبار',
-      sex: Sex.m,
-    );
-    await services.routines.saveRoutine(services.patientId, DayRoutine.fallback);
+    await services.patients.saveProfile(services.patientId, name: 'اختبار');
     await services.medications.addMedication(
       patientId: services.patientId,
       name: 'TestDose',

@@ -27,7 +27,7 @@ class FakeDeletion implements AccountDeletionRemote {
 AppServices _with(AppServices s, AccountDeletionRemote? remote, {FakeAuthService? auth}) => AppServices(
       auth: auth,
       db: s.db,
-      routines: s.routines,
+      patients: s.patients,
       medications: s.medications,
       events: s.events,
       scheduler: s.scheduler,

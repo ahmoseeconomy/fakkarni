@@ -148,7 +148,7 @@ class _SignInScreenState extends State<SignInScreen> {
     if (care == null) return;
     final navigator = Navigator.of(context);
 
-    final patient = await services.routines.getPatient(services.patientId);
+    final patient = await services.patients.getPatient(services.patientId);
     if (patient == null || !mounted) return;
 
     await navigator.push(

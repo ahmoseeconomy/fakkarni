@@ -5,11 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fakkarni/data/db/app_database.dart';
-import 'package:fakkarni/data/mappers.dart';
 import 'package:fakkarni/data/dose_state.dart';
+import 'package:fakkarni/domain/medication/meal_relation.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../support/seeded_clock.dart';
 
@@ -84,25 +83,25 @@ void main() {
         ),
       );
 
-  test('نسخة ٢ بجرعات مراسي → كل جرعة عاشت بمرساتها وإزاحتها', () async {
+  test('نسخة ٢ بجرعات مراسي → كل جرعة عاشت بالساعة اللي كانت بترن فيها', () async {
     final db = openLegacy();
     addTearDown(db.close);
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.read<int>('user_version'), 29);
+    expect(version.read<int>('user_version'), 30);
 
     final loaded = await MedicationRepository(db, clock: seededLongAgo).activeSchedules(1);
     expect(loaded.length, 2);
 
     final concor = loaded.singleWhere((s) => s.medicationName == 'Concor 5mg');
     expect(concor.id, '10');
-    expect(concor.timing, const AnchorTiming(DayAnchor.breakfast, -30));
+    expect(concor.timing, FixedTiming(MinuteOfDay.hm(7)));
     expect(concor.amountLabel, 'قرص واحد');
     expect(concor.durationDays, isNull, reason: 'المدة المفتوحة فضلت مفتوحة');
 
     final linex = loaded.singleWhere((s) => s.medicationName == 'LINEX');
     expect(linex.id, '11');
-    expect(linex.timing, const AnchorTiming(DayAnchor.dinner, 30));
+    expect(linex.timing, FixedTiming(MinuteOfDay.hm(20, 30)));
     expect(linex.durationDays, 7);
     expect(linex.startDate, DateTime(2026, 8, 31));
 
@@ -120,9 +119,16 @@ void main() {
     expect(patientRow.sex, isNull);
     expect(patientRow.age, isNull);
 
-    // v7: جدول رمضان موجود وفاضي — رمضان مقفول لكل قاعدة قديمة
-    expect(await db.select(db.routineBackups).get(), isEmpty);
-    expect(await RoutineRepository(db).ramadanTimes(1), isNull);
+    // v30: الروتين ورمضان اتشالوا — الجدولين مش موجودين
+    for (final table in ['day_routines', 'routine_backups']) {
+      expect(
+        await db.customSelect("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '$table'").get(),
+        isEmpty,
+        reason: '$table اتشال في نسخة ٣٠',
+      );
+    }
+    // والمريض القديم اتعلّم إنه مريض (كان عنده روتين)
+    expect(patientRow.profileDoneAt, isNotNull);
 
     // v9: التفضيلات موجودة وفاضية — النمط العادي والسلّم كامل
     expect(await db.select(db.devicePreferences).get(), isEmpty);
@@ -188,22 +194,8 @@ void main() {
       expect(m.activeIngredient, isNull, reason: 'مادة مخترعة لدوا قديم');
     }
 
-    // v21: الروتين بقى اختياري — والروتين القديم **كله متحدد**: اللي
-    // وصل هنا جاوب على الخمس أسئلة، فولا مرساة بتتعلّم إنها مش بتاعته.
-    final routineColumns = await db
-        .customSelect("SELECT name FROM pragma_table_info('day_routines')")
-        .map((r) => r.read<String>('name'))
-        .get();
-    expect(routineColumns, contains('unset_anchors'));
-    final backupColumns = await db
-        .customSelect("SELECT name FROM pragma_table_info('routine_backups')")
-        .map((r) => r.read<String>('name'))
-        .get();
-    expect(backupColumns, contains('unset_anchors'));
-    for (final r in await db.select(db.dayRoutines).get()) {
-      expect(r.unsetAnchors, '', reason: 'روتين قديم اتعلّم إنه ناقص');
-      expect(routineFromRow(r).isComplete, isTrue);
-    }
+    // v21 (علم «مش متحدد» على الروتين) اتشال مع الجدول نفسه في v30 — شوف
+    // تأكيد الجدولين تحت «الروتين ورمضان اتشالوا» فوق.
 
     // v22: نوع التنبيه — الدوا القديم null (زي الجهاز)، والجهاز على «يتكرر»
     // اللي كان السلوك الوحيد: مفيش دوا اتغيّر تنبيهه من غير ما حد يختار.
@@ -278,10 +270,17 @@ void main() {
       loaded.singleWhere((s) => s.medicationName == 'Eltroxin').timing,
       FixedTiming(MinuteOfDay.hm(6, 30)),
     );
+    // v30: المرساتين القديمتين اتحوّلوا لساعتهم على روتين v2 (الصحيان ٧:٠٠،
+    // الفطار ٧:٣٠، العشا ٨:٠٠): الفطار − ٣٠ = ٧:٠٠، والعشا + ٣٠ = ٨:٣٠ م
     expect(
-      loaded.where((s) => s.timing is AnchorTiming).length,
-      2,
-      reason: 'القديم لسه مراسي',
+      loaded.singleWhere((s) => s.medicationName == 'Concor 5mg').timing,
+      FixedTiming(MinuteOfDay.hm(7)),
     );
+    expect(
+      loaded.singleWhere((s) => s.medicationName == 'LINEX').timing,
+      FixedTiming(MinuteOfDay.hm(20, 30)),
+    );
+    expect(loaded.singleWhere((s) => s.medicationName == 'Concor 5mg').mealRelation, MealRelation.before);
+    expect(loaded.singleWhere((s) => s.medicationName == 'LINEX').mealRelation, MealRelation.after);
   });
 }

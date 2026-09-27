@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 
@@ -33,30 +33,22 @@ class _Sink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final _now = DateTime(2026, 9, 15, 10);
 final _today = DateTime(2026, 9, 15);
 final _later = DateTime(2026, 9, 18);
 
 const _timings = [
-  AnchorTiming(DayAnchor.breakfast, -30),
-  AnchorTiming(DayAnchor.dinner, 30),
+  FixedTiming(MinuteOfDay.hm(7)),
+  FixedTiming(MinuteOfDay.hm(20, 30)),
 ];
 
 Future<(AppDatabase, _Sink, ReminderScheduler, DoseEventRepository, int)> _build(DateTime start) async {
   final db = AppDatabase(NativeDatabase.memory());
   final sink = _Sink();
-  final routines = RoutineRepository(db);
+  final patients = PatientRepository(db);
   final meds = MedicationRepository(db, clock: seededLongAgo);
-  final patientId = await routines.ensurePatient();
-  await routines.saveRoutine(patientId, _routine);
+  final patientId = await patients.ensurePatient();
   await meds.addMedicationWithDoses(
     patientId: patientId,
     name: 'Concor',
@@ -66,7 +58,6 @@ Future<(AppDatabase, _Sink, ReminderScheduler, DoseEventRepository, int)> _build
   );
   final events = DoseEventRepository(db);
   final scheduler = ReminderScheduler(
-    routines: routines,
     medications: meds,
     events: events,
     patientId: patientId,
@@ -122,7 +113,7 @@ void main() {
     addTearDown(db.close);
     final meds = MedicationRepository(db, clock: seededLongAgo);
     final schedules = await meds.activeSchedules(patientId);
-    final engine = ScheduleEngine(_routine);
+    final engine = const ScheduleEngine();
 
     expect(engine.remindersForDay(schedules, _today), isEmpty);
     expect(engine.remindersForDay(schedules, _later), hasLength(2));
@@ -134,9 +125,9 @@ void main() {
   test('دوا من الدفعة (الروشتة) بياخد بدايته لوحده لو اتحدّدت', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     await meds.addMedicationsWithDoses(
       patientId: patientId,
       startDate: _today,
@@ -151,6 +142,7 @@ void main() {
           purpose: null,
           instructions: null,
           startDate: null,
+          mealRelation: null,
         ),
         (
           name: 'B',
@@ -162,6 +154,7 @@ void main() {
           purpose: null,
           instructions: null,
           startDate: _later,
+          mealRelation: null,
         ),
       ],
     );

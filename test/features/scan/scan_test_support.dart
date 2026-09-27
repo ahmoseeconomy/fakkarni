@@ -12,21 +12,14 @@ import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../../support/seeded_clock.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 
@@ -65,7 +58,7 @@ ReadField<T> low<T>(T? value, [String? note]) =>
 final clearLine = ReadLine(
   name: ok('Concor 5mg'),
   amount: ok('قرص واحد'),
-  timings: ok([const AnchorTiming(DayAnchor.breakfast, 0)]),
+  timings: ok([FixedTiming(MinuteOfDay.hm(7, 30))]),
   duration: const ReadField(value: null, confidence: 1),
 );
 
@@ -85,18 +78,16 @@ class Harness {
 
   Future<void> setUp() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     sink = RecordingSink();
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,

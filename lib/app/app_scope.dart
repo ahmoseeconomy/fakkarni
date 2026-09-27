@@ -34,7 +34,7 @@ import '../data/files/attachment_store.dart';
 import '../data/repositories/dose_event_repository.dart';
 import '../data/repositories/medication_repository.dart';
 import '../data/repositories/preferences_repository.dart';
-import '../data/repositories/routine_repository.dart';
+import '../data/repositories/patient_repository.dart';
 import '../data/services/appointment_scheduler.dart';
 import '../data/services/checkup_service.dart';
 import '../data/services/reminder_scheduler.dart';
@@ -46,7 +46,7 @@ import '../data/services/reminder_scheduler.dart';
 class AppServices {
   const AppServices({
     required this.db,
-    required this.routines,
+    required this.patients,
     required this.medications,
     required this.events,
     required this.scheduler,
@@ -82,7 +82,7 @@ class AppServices {
   });
 
   final AppDatabase db;
-  final RoutineRepository routines;
+  final PatientRepository patients;
   final MedicationRepository medications;
   final DoseEventRepository events;
   final ReminderScheduler scheduler;

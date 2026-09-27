@@ -1,7 +1,7 @@
 import '../../domain/health/checkup.dart';
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 import 'reminder_plan.dart';
 
 /// **خطة إشعارات المواعيد — دوال نقية، من غير قاعدة ولا جهاز.**
@@ -15,17 +15,13 @@ import 'reminder_plan.dart';
 /// حقيقي): صبح واحد فيه زيارة وميعاد معمل كان بيرن مرتين، وكل رنّة
 /// بتقول نصّ الخبر. بقى «النهارده عندك: زيارة الدكتور، وميعاد المعمل».
 
-/// **المرساة المسائية لإشعار امبارح الميعاد: العشا.**
-///
-/// مش رقم مخترع: «اليوم بيبدأ من الصحيان» هي قاعدة التطبيق، والعشا هو
-/// المرساة المسائية اللي الراجل نفسه قالها في «ظبّط يومك». ساعتها هو
-/// قاعد في البيت وخلاص يومه — وده بالظبط وقت «بكرة عندك ميعاد».
-/// من غير روتين متحفوظ بنرجع للافتراضي، زي باقي التطبيق.
-MinuteOfDay dayBeforeMinute(DayRoutine routine) => routine.dinner;
+/// **إشعار «بكرة عندك ميعاد» الساعة ٨ بالليل** — هادي، من غير صوت. كان على
+/// ساعة العشا اللي المريض بيقولها في «ظبّط يومك»؛ الروتين اتشال (٢٧ سبتمبر
+/// ٢٠٢٦) والرقم بقى ثابت لكل الناس — نفس ساعة إشعار الابن.
+const MinuteOfDay dayBeforeMinute = MinuteOfDay(20 * 60);
 
-/// **وإشعار اليوم نفسه على الصحيان** — نفس اللي `setStageDate` كانت
-/// بتعمله من الأول، ومفيش سبب يتغيّر: أول ما يصحى يعرف إن النهارده ميعاد.
-MinuteOfDay dayOfMinute(DayRoutine routine) => routine.wake;
+/// **وإشعار اليوم نفسه الساعة ٨ الصبح** — بيرن. كان على ساعة الصحيان.
+const MinuteOfDay dayOfMinute = MinuteOfDay(8 * 60);
 
 /// **الكلمة اللي بتقول الميعاد ده إيه** — مصدر واحد للكارت وللإشعار.
 ///
@@ -150,7 +146,6 @@ String groupedAppointmentBody(List<AppointmentInput> day) =>
 /// ولو عدّيناه كان هياخد مكان في النافذة من غير ما يرن.
 List<AppointmentNoticePlan> appointmentNotices({
   required List<AppointmentInput> appointments,
-  required DayRoutine routine,
   required DateTime now,
 }) {
   // اليوم هو المفتاح. الترتيب جوّه اليوم بالوقت ثم بالصف، عشان الجملة
@@ -170,8 +165,8 @@ List<AppointmentNoticePlan> appointmentNotices({
   for (final MapEntry(key: day, value: list) in byDay.entries) {
     // **الوقت بيتبني بالمنشئ مش بـadd(Duration)** — مصر بتغيّر الساعة،
     // والمنشئ بيشتغل بساعة الحيطة.
-    final before = DateTime(day.year, day.month, day.day - 1, 0, dayBeforeMinute(routine).minutes);
-    final of = DateTime(day.year, day.month, day.day, 0, dayOfMinute(routine).minutes);
+    final before = DateTime(day.year, day.month, day.day - 1, 0, dayBeforeMinute.minutes);
+    final of = DateTime(day.year, day.month, day.day, 0, dayOfMinute.minutes);
     final one = list.length == 1;
     for (final (notice, at) in [
       (AppointmentNotice.dayBefore, before),

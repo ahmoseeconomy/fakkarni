@@ -93,7 +93,7 @@ void main() {
     final s = h.services;
     return h.services = AppServices(
       db: s.db,
-      routines: s.routines,
+      patients: s.patients,
       medications: s.medications,
       events: s.events,
       scheduler: s.scheduler,

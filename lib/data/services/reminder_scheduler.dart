@@ -1,21 +1,18 @@
 import '../../domain/escalation/escalation_ladder.dart';
 import '../../domain/escalation/repeat_alerts.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../repositories/dose_event_repository.dart';
 import '../repositories/medication_repository.dart';
 import '../repositories/preferences_repository.dart';
-import '../repositories/routine_repository.dart';
 import 'reminder_plan.dart';
 import 'reminder_sink.dart';
 
 /// بيربط المحرك بالإشعارات.
 ///
-/// بيتندَه بعد أي حاجة بتغيّر المواعيد: فتح التطبيق، حفظ الروتين، إضافة دوا،
+/// بيتندَه بعد أي حاجة بتغيّر المواعيد: فتح التطبيق، إضافة دوا،
 /// إيقاف دوا. مش بيتندَه في خلفية ولا بتوقيت — كل تغيير بيعيد الحساب كامل.
 class ReminderScheduler {
   ReminderScheduler({
-    required this.routines,
     required this.medications,
     required this.events,
     required this.patientId,
@@ -24,7 +21,6 @@ class ReminderScheduler {
     this.preferences,
   });
 
-  final RoutineRepository routines;
   final MedicationRepository medications;
 
   /// عشان نعرف إيه اللي اتأكد خلاص وما نعيدش جدولته.
@@ -61,8 +57,6 @@ class ReminderScheduler {
   Future<void> rescheduleAll({DateTime? now}) async {
     final from = now ?? DateTime.now();
 
-    // مفيش روتين لسه؟ نستخدم الافتراضي بدل ما نسيب المريض من غير تذكير.
-    final routine = await routines.getRoutine(patientId) ?? DayRoutine.fallback;
     final schedules = await medications.activeSchedules(patientId);
 
     // بننزّل امبارح والنهارده وبكرة — تلات أيام، كل واحد لسبب مختلف:
@@ -78,8 +72,8 @@ class ReminderScheduler {
     //
     // القيد اللي بيسيبه ده مكتوب صراحةً في «دين تقني»: التغطية يومين،
     // وبعدها السحابة بتقدم — والابن بيشوف ده في تذييل شاشته بالذهبي.
-    final engine = ScheduleEngine(routine);
-    final today = currentRoutineDay(routine, from);
+    const engine = ScheduleEngine();
+    final today = currentRoutineDay(from);
     final activeFrom = await events.activeFromOf({for (final s in schedules) int.parse(s.id)});
     // جرعات معادها قبل ما قاعدتها تبقى سارية — مالهاش صف، وما ينفعش يترن
     // لها سلّم: دوا اتضاف ١١:١٧ وجرعته ١١:٠٠ كانت هتاخد درجة +٣٠ على حاجة
@@ -109,7 +103,6 @@ class ReminderScheduler {
     // **كل** التذكيرات الأساسية في النافذة، وبعدين القسمة: لحد ٢٤ الخطة زي
     // الأول بالحرف؛ فوقه الأساسي بياخد من خانات الإعادات (الأقرب الأول).
     final everything = planWindow(
-      routine: routine,
       schedules: schedules,
       from: from,
       patientIndex: patientIndex,
@@ -121,7 +114,6 @@ class ReminderScheduler {
     // درجاتها قدام، وفتح التطبيق ما ينفعش يسكّتها. الإعادات بتتبني من
     // نفس الخطة المزاحة — إعادة ٨:١٠ لجرعة ٨:٠٠ لسه قدام الساعة ٨:٠٧.
     final recent = planWindow(
-      routine: routine,
       schedules: schedules,
       from: DateTime(from.year, from.month, from.day, from.hour,
           from.minute - graceWindow.inMinutes),

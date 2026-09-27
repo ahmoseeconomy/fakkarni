@@ -9,25 +9,19 @@ import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 /// نفس روتين اختبارات المحرك: صحيان ٧، فطار ٧:٣٠، غدا ٢:٣٠، عشا ٨، نوم ١١:٣٠ م
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 final aug31at6 = DateTime(2026, 8, 31, 6);
@@ -214,31 +208,29 @@ void main() {
   });
 
   group('يوم الروتين', () {
-    test('بعد الصحيان = نفس اليوم', () {
+    test('بعد ٤ الفجر = نفس اليوم', () {
       expect(
-        currentRoutineDay(normalDay, DateTime(2026, 8, 31, 9)),
+        currentRoutineDay(DateTime(2026, 8, 31, 9)),
         aug31,
       );
     });
 
-    test('قبل الصحيان لسه في يوم امبارح', () {
-      // بيصحى ٧، والساعة ٦:٣٠ — فهو لسه في يوم ٣٠ أغسطس
-      expect(
-        currentRoutineDay(normalDay, DateTime(2026, 8, 31, 6, 30)),
-        DateTime(2026, 8, 30),
-      );
+    test('قبل ٤ الفجر لسه في يوم امبارح — وبعدها النهارده لكل الناس', () {
+      // اليوم بيبدأ ٤ الفجر ثابتة (مفيش صحيان): ٣:٥٩ لسه ٣٠ أغسطس، ٦:٣٠ النهارده
+      expect(currentRoutineDay(DateTime(2026, 8, 31, 3, 59)), DateTime(2026, 8, 30));
+      expect(currentRoutineDay(DateTime(2026, 8, 31, 6, 30)), aug31);
     });
 
     test('بعد نص الليل لواحد بينام متأخر لسه في يوم امبارح', () {
       expect(
-        currentRoutineDay(normalDay, DateTime(2026, 9, 1, 0, 45)),
+        currentRoutineDay(DateTime(2026, 9, 1, 0, 45)),
         aug31,
       );
     });
 
-    test('بالظبط عند الصحيان بيبدأ اليوم الجديد', () {
+    test('بالظبط ٤ الفجر بيبدأ اليوم الجديد', () {
       expect(
-        currentRoutineDay(normalDay, DateTime(2026, 8, 31, 7)),
+        currentRoutineDay(DateTime(2026, 8, 31, 4)),
         aug31,
       );
     });
@@ -247,7 +239,7 @@ void main() {
   group('نافذة الجدولة', () {
     test('جرعة يومية = ٧ تذكيرات في ٧ أيام', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
       );
@@ -259,7 +251,7 @@ void main() {
 
     test('التذكيرات مرتّبة بالوقت', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [
           dose('Telfast', DayAnchor.sleep, offset: -15),
           dose('Antodine', DayAnchor.breakfast, offset: -30),
@@ -281,7 +273,7 @@ void main() {
 
     test('اللي فات ما بيتجدولش', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: DateTime(2026, 8, 31, 9),
         days: 1,
@@ -292,7 +284,7 @@ void main() {
 
     test('جرعتين في نفس الدقيقة = تذكير واحد برقم واحد', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [
           dose('Antodine', DayAnchor.breakfast, offset: -30),
           dose('Vitamin D', DayAnchor.breakfast, offset: -30),
@@ -306,16 +298,14 @@ void main() {
       expect(planned.single.body, contains('٢ أدوية دلوقتي'));
     });
 
-    test('جرعة «قبل النوم» بعد منتصف الليل بتتجدول لليوم الصح', () {
-      final nightOwl = normalDay.copyWith(sleep: MinuteOfDay.hm(1));
+    test('جرعة الساعة ١٢:٤٥ بالليل بتتجدول لليوم الصح (تبع امبارح)', () {
       final planned = planWindow(
-        routine: nightOwl,
         schedules: [
-          dose(
-            'Telfast',
-            DayAnchor.sleep,
-            offset: -15,
-            start: DateTime(2026, 8, 30),
+          DoseSchedule(
+            id: 'Telfast',
+            medicationName: 'Telfast',
+            timing: FixedTiming(MinuteOfDay.hm(0, 45)),
+            startDate: DateTime(2026, 8, 30),
           ),
         ],
         from: DateTime(2026, 8, 31, 0, 10),
@@ -328,7 +318,7 @@ void main() {
 
     test('«اليوم فقط» بتتجدول مرة واحدة بس', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [
           dose('Amebazole', DayAnchor.lunch, repeat: DoseRepeat.once),
         ],
@@ -340,7 +330,7 @@ void main() {
 
     test('مدة مفتوحة بتملا النافذة كلها وما بتقفش', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
         days: 30,
@@ -353,7 +343,7 @@ void main() {
 
     test('نص التذكير بيقول اسم الدوا والجرعة', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [
           dose('Concor', DayAnchor.breakfast, offset: -30, amount: 'قرص واحد'),
         ],
@@ -367,7 +357,7 @@ void main() {
 
     test('الحمولة فيها اليوم وأرقام الجرعات', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
         days: 1,
@@ -401,7 +391,7 @@ void main() {
 
     test('١٨ جرعة في اليوم بتدي ١٨ تذكير مختلف', () {
       final oneDay = planWindow(
-        routine: normalDay,
+        
         schedules: sixMedicationsThriceDaily(),
         from: aug31at6,
         days: 1,
@@ -412,7 +402,7 @@ void main() {
 
     test('٦ أدوية × ٣ جرعات عمرها ما بتعدي السقف', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: sixMedicationsThriceDaily(),
         from: aug31at6,
       );
@@ -427,12 +417,12 @@ void main() {
       final schedules = sixMedicationsThriceDaily();
 
       final capped = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6,
       );
       final everything = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6,
         maxPending: 1000,
@@ -452,7 +442,7 @@ void main() {
 
     test('التذكيرات مرتّبة، وأقربها هو أول واحد', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: sixMedicationsThriceDaily(),
         from: aug31at6,
       );
@@ -465,12 +455,12 @@ void main() {
 
     test('النافذة بتقصر لما الأدوية تكتر', () {
       final busy = planWindow(
-        routine: normalDay,
+        
         schedules: sixMedicationsThriceDaily(),
         from: aug31at6,
       );
       final light = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
       );
@@ -488,12 +478,12 @@ void main() {
       final schedules = sixMedicationsThriceDaily();
 
       final onOpen = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6,
       );
       final twoDaysLater = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6.add(const Duration(days: 2)),
       );
@@ -510,12 +500,12 @@ void main() {
       final schedules = sixMedicationsThriceDaily();
 
       final first = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6,
       );
       final second = planWindow(
-        routine: normalDay,
+        
         schedules: schedules,
         from: aug31at6,
         patientIndex: 1,
@@ -539,14 +529,14 @@ void main() {
 
     test('جرعة اتاخدت الساعة ٦:٥٠ ما بترنّش ٧:٠٠', () {
       final withoutDone = planWindow(
-        routine: normalDay,
+        
         schedules: [concor],
         from: DateTime(2026, 8, 31, 6, 50),
       );
       expect(withoutDone.first.at, DateTime(2026, 8, 31, 7));
 
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [concor],
         from: DateTime(2026, 8, 31, 6, 50),
         done: {doneKey('Concor', aug31)},
@@ -559,7 +549,7 @@ void main() {
     test('في تذكير مجمّع، اللي اتأكد بيتشال والباقي بيفضل', () {
       final vitamin = dose('Vitamin', DayAnchor.breakfast, offset: -30);
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [concor, vitamin],
         from: DateTime(2026, 8, 31, 6, 50),
         done: {doneKey('Concor', aug31)},
@@ -574,7 +564,7 @@ void main() {
 
     test('يوم تاني بنفس الجدول مش «اتأكد» — المفتاح باليوم', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [concor],
         from: DateTime(2026, 8, 31, 6, 50),
         done: {doneKey('Concor', DateTime(2026, 9, 1))},
@@ -587,7 +577,7 @@ void main() {
   group('المطابقة مع الجهاز', () {
     test('اللي مش مطلوب بيتلغي، والباقي بيتجدول', () {
       final planned = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: aug31at6,
         days: 1,
@@ -658,7 +648,7 @@ void main() {
 
   group('تخطيط السلّم', () {
     List<PlannedNotification> reminders({int days = 7}) => planWindow(
-          routine: normalDay,
+          
           schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
           from: aug31at6,
           days: days,
@@ -694,7 +684,7 @@ void main() {
     test('الدرجة اللي معادها فات ما بتتجدولش، واللي جاية بتتجدول', () {
       // الجرعة رنّت ٧:٠٠، وإحنا ٧:٢٠: درجة ٧:١٥ راحت، درجة ٧:٣٠ لسه
       final base = planWindow(
-        routine: normalDay,
+        
         schedules: [dose('Concor', DayAnchor.breakfast, offset: -30)],
         from: DateTime(2026, 8, 31, 6, 35),
         days: 1,
@@ -717,7 +707,7 @@ void main() {
 
   group('إعادة الجدولة على جهاز', () {
     late AppDatabase db;
-    late RoutineRepository routines;
+    late PatientRepository patients;
     late MedicationRepository meds;
     late FakeReminderSink sink;
     late ReminderScheduler scheduler;
@@ -725,13 +715,11 @@ void main() {
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
-      routines = RoutineRepository(db);
+      patients = PatientRepository(db);
       meds = MedicationRepository(db, clock: seededLongAgo);
       sink = FakeReminderSink();
-      patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, normalDay);
+      patientId = await patients.ensurePatient();
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -744,7 +732,7 @@ void main() {
     Future<void> addConcor() => meds.addMedication(
           patientId: patientId,
           name: 'Concor',
-          timing: AnchorTiming(DayAnchor.breakfast, -30),
+          timing: FixedTiming(MinuteOfDay.hm(7)),
           startDate: aug31,
         );
 
@@ -761,27 +749,8 @@ void main() {
       expect(sink.cancelled, isEmpty);
     });
 
-    test('الروتين اتغيّر → القديم اتلغى والجديد اتجدول', () async {
-      await addConcor();
-      await scheduler.rescheduleAll(now: aug31at6);
-      final oldIds = sink.doses.keys.toSet();
-
-      await routines.saveRoutine(
-        patientId,
-        normalDay.copyWith(breakfast: MinuteOfDay.hm(9)),
-      );
-      await scheduler.rescheduleAll(now: aug31at6);
-
-      final newIds = sink.doses.keys.toSet();
-      expect(newIds.intersection(oldIds), isEmpty, reason: 'كل المواعيد اتحركت');
-      expect(sink.cancelled.where(isDoseId).toSet(), oldIds);
-      expect(newIds.length, 7);
-      expect(sink.doses[newIds.first]!.at.hour, 8);
-    });
-
-    test('الروتين اتغيّر → المرساة اتحركت والساعة الثابتة فضلت بنفس أرقامها',
-        () async {
-      await addConcor(); // قبل الفطار بنص ساعة
+    test('ساعة الجرعة اتعدّلت → القديم اتلغى والجديد اتجدول، والدوا التاني بنفس أرقامه', () async {
+      await addConcor(); // ٧:٠٠
       await meds.addMedication(
         patientId: patientId,
         name: 'Eltroxin',
@@ -789,31 +758,21 @@ void main() {
         startDate: aug31,
       );
       await scheduler.rescheduleAll(now: aug31at6);
+      final eltroxin = sink.doses.keys.where((id) => sink.doses[id]!.body.contains('Eltroxin')).toSet();
+      final concorBefore = sink.doses.keys.toSet().difference(eltroxin);
+      expect(concorBefore.length, 7);
 
-      final fixedBefore = sink.doses.keys.where(
-        (id) => sink.doses[id]!.body.contains('Eltroxin'),
-      ).toSet();
-      final anchoredBefore = sink.doses.keys.toSet().difference(fixedBefore);
-      expect(fixedBefore.length, 7);
-      expect(anchoredBefore.length, 7);
-
-      await routines.saveRoutine(
-        patientId,
-        normalDay.copyWith(breakfast: MinuteOfDay.hm(9)),
-      );
+      final concor = (await meds.activeSchedules(patientId)).firstWhere((s) => s.medicationName == 'Concor');
+      await meds.updateTiming(int.parse(concor.id), FixedTiming(MinuteOfDay.hm(8)));
       await scheduler.rescheduleAll(now: aug31at6);
 
-      final fixedAfter = sink.doses.keys.where(
-        (id) => sink.doses[id]!.body.contains('Eltroxin'),
-      ).toSet();
-      expect(fixedAfter, fixedBefore, reason: 'الثابتة ما اتحركتش');
-      expect(sink.cancelled.where(isDoseId).toSet(), anchoredBefore,
-          reason: 'المرساة بس اتلغت');
-      expect(
-        sink.doses.keys.toSet().difference(fixedAfter).intersection(anchoredBefore),
-        isEmpty,
-        reason: 'كل مواعيد المرساة اتحركت',
-      );
+      final concorAfter = sink.doses.keys.toSet().difference(eltroxin);
+      expect(concorAfter.intersection(concorBefore), isEmpty, reason: 'الساعة اتحركت');
+      expect(sink.cancelled.where(isDoseId).toSet(), concorBefore, reason: 'القديم بس اتلغى');
+      expect(concorAfter.length, 7);
+      expect(concorAfter.every((id) => sink.doses[id]!.at.hour == 8), isTrue);
+      expect(sink.doses.keys.where((id) => sink.doses[id]!.body.contains('Eltroxin')).toSet(), eltroxin,
+          reason: 'الدوا التاني ما اتلمسش');
     });
 
     test('دوا جديد بيزوّد تذكيراته من غير ما يلمس اللي قبله', () async {
@@ -823,7 +782,7 @@ void main() {
       await meds.addMedication(
         patientId: patientId,
         name: 'LINEX',
-        timing: AnchorTiming(DayAnchor.dinner, 30),
+        timing: FixedTiming(MinuteOfDay.hm(20, 30)),
         startDate: aug31,
       );
       await scheduler.rescheduleAll(now: aug31at6);
@@ -839,7 +798,7 @@ void main() {
       final id = await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: aug31,
       );
       await scheduler.rescheduleAll(now: aug31at6);
@@ -918,7 +877,7 @@ void main() {
 
       // كل اللي اتجدول قبل أي حاجة اتسابت
       final everything = planWindow(
-        routine: normalDay,
+        
         schedules: await meds.activeSchedules(patientId),
         from: aug31at6,
         maxPending: 1000,
@@ -962,7 +921,7 @@ void main() {
 
       // خد جرعة ٧:٠٠ الساعة ٦:٥٠ — لسه «قدام» بالساعة
       final schedules = await meds.activeSchedules(patientId);
-      final reminders = ScheduleEngine(normalDay).remindersForDay(schedules, aug31);
+      final reminders = const ScheduleEngine().remindersForDay(schedules, aug31);
       await events.materializeDay(aug31, reminders);
       for (final d in reminders.first.doses) {
         await events.markTaken(int.parse(d.id), aug31);
@@ -985,19 +944,18 @@ void main() {
     test('من غير روتين محفوظ بيستخدم الافتراضي بدل ما يسيبه من غير تذكير',
         () async {
       final fresh = AppDatabase(NativeDatabase.memory());
-      final freshRoutines = RoutineRepository(fresh);
+      final freshRoutines = PatientRepository(fresh);
       final freshMeds = MedicationRepository(fresh, clock: seededLongAgo);
       final freshPatient = await freshRoutines.ensurePatient();
       await freshMeds.addMedication(
         patientId: freshPatient,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: aug31,
       );
       final freshSink = FakeReminderSink();
 
       await ReminderScheduler(
-        routines: freshRoutines,
         // `fresh` مش `db` — الجدولة بتنزّل أحداث دلوقتي، وصف حدث لجرعة
         // عايشة في قاعدة تانية بيكسر المفتاح الأجنبي.
         events: DoseEventRepository(fresh),
@@ -1062,7 +1020,7 @@ void main() {
         await addConcor();
         final events = DoseEventRepository(db);
         final schedules = await meds.activeSchedules(patientId);
-        await events.materializeDay(aug31, ScheduleEngine(normalDay).remindersForDay(schedules, aug31));
+        await events.materializeDay(aug31, const ScheduleEngine().remindersForDay(schedules, aug31));
         await events.markTaken(int.parse(schedules.single.id), aug31);
 
         await scheduler.rescheduleAll(now: aug31at6);
@@ -1139,7 +1097,7 @@ void main() {
         await meds.addMedication(
           patientId: patientId,
           name: 'Zocor',
-          timing: AnchorTiming(DayAnchor.sleep, -15), // ١١:١٥ م
+          timing: FixedTiming(MinuteOfDay.hm(23, 15)), // ١١:١٥ م
           startDate: aug31,
         );
 
@@ -1191,9 +1149,9 @@ void main() {
     });
 
     test('نص التذكير من أسماء جاهزة زي نص المحرك', () {
-      expect(reminderBodyFor([(name: 'Concor', amount: 'قرص')]), 'Concor — قرص');
+      expect(reminderBodyFor([(name: 'Concor', amount: 'قرص', note: null)]), 'Concor — قرص');
       expect(
-        reminderBodyFor([(name: 'A', amount: null), (name: 'B', amount: null)]),
+        reminderBodyFor([(name: 'A', amount: null, note: null), (name: 'B', amount: null, note: null)]),
         '٢ أدوية دلوقتي: A + B',
       );
     });
@@ -1209,14 +1167,12 @@ void main() {
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       meds = MedicationRepository(db, clock: seededLongAgo);
       prefs = PreferencesRepository(db);
       sink = FakeReminderSink();
-      final patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, normalDay);
+      final patientId = await patients.ensurePatient();
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -1226,7 +1182,7 @@ void main() {
       await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: aug31,
       );
     });

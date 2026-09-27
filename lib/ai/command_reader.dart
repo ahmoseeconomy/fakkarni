@@ -27,7 +27,6 @@ class CloudTool {
     'add_vital',
     'add_doctor_question',
     'mark_bought',
-    'set_routine',
     'next_dose',
     'today_list',
     'upcoming_appointments',
@@ -38,9 +37,9 @@ class CloudTool {
 
   /// كل الخانات المسموحة — مفتاح تاني = الرد كله مرفوض.
   static const argKeys = {
-    'name', 'dose', 'times', 'anchors', 'pattern', 'every_hours', 'weekdays', 'duration_days', 'start_date',
+    'name', 'dose', 'times', 'meal_relation', 'pattern', 'every_hours', 'weekdays', 'duration_days', 'start_date',
     'kind', 'with_whom', 'date', 'time', 'place', 'note',
-    'med_name', 'minutes', 'vital_type', 'values', 'text', 'meal',
+    'med_name', 'minutes', 'vital_type', 'values', 'text',
   };
 
   static bool _scalarOk(Object? v) => v == null || v is String || v is num;
@@ -154,13 +153,13 @@ class GeminiCommandReader implements VoiceCommandReader {
     'type': 'OBJECT',
     'properties': {
       'tool': {'type': 'STRING', 'enum': [
-        'add_medication', 'add_appointment', 'mark_taken', 'snooze', 'add_vital', 'add_doctor_question', 'mark_bought', 'set_routine',
+        'add_medication', 'add_appointment', 'mark_taken', 'snooze', 'add_vital', 'add_doctor_question', 'mark_bought',
         'next_dose', 'today_list', 'upcoming_appointments', 'stock_status', 'medical_question', 'unknown',
       ]},
       'name': _nullable,
       'dose': _nullable,
       'times': _stringList,
-      'anchors': _stringList,
+      'meal_relation': _nullable,
       'pattern': _nullable,
       'every_hours': _nullableInt,
       'weekdays': {'type': 'ARRAY', 'items': {'type': 'INTEGER'}, 'nullable': true},
@@ -177,7 +176,6 @@ class GeminiCommandReader implements VoiceCommandReader {
       'vital_type': _nullable,
       'values': {'type': 'ARRAY', 'items': {'type': 'NUMBER'}, 'nullable': true},
       'text': _nullable,
-      'meal': _nullable,
     },
     'required': ['tool'],
   };
@@ -188,14 +186,13 @@ You extract ONE tool call from a short spoken request by an elderly Egyptian pat
 Return ONLY the JSON object. Nothing else. Use null (or omit) for anything not said. NEVER invent a medicine name, a time, a dose, a date or a frequency that was not said.
 
 tool must be exactly one of:
-- "add_medication": add a medicine. name (as said), dose (as said, e.g. "قرص", "نص قرص"), times as clock strings "HH:MM" 24h (e.g. "الساعة ٩ بالليل" → ["21:00"]), anchors as strings from: wake, before_breakfast, with_breakfast, after_breakfast, before_lunch, with_lunch, after_lunch, before_dinner, with_dinner, after_dinner, before_sleep. pattern: "daily" | "every_n_hours" (then every_hours) | "weekdays" (then weekdays: 1=Monday … 7=Sunday) | "once". duration_days, start_date "YYYY-MM-DD" (resolve بكرة / الأسبوع الجاي from today's date).
+- "add_medication": add a medicine. name (as said), dose (as said, e.g. "قرص", "نص قرص"), times as clock strings "HH:MM" 24h (e.g. "الساعة ٩ بالليل" → ["21:00"]), meal_relation as one of: before_meal, with_meal, after_meal, empty_stomach — ONLY when the patient relates the dose to eating (e.g. "بعد الفطار" → after_meal); it is an instruction label, never a time, so do not turn a meal word into a clock time. pattern: "daily" | "every_n_hours" (then every_hours) | "weekdays" (then weekdays: 1=Monday … 7=Sunday) | "once". duration_days, start_date "YYYY-MM-DD" (resolve بكرة / الأسبوع الجاي from today's date).
 - "add_appointment": book a visit. kind: "doctor" | "lab" | "scan" | "other". with_whom (doctor's name if said), date "YYYY-MM-DD" resolved from today's date and weekday (يوم الحد = the next Sunday), time "HH:MM" only if a day part makes it unambiguous, place, note.
 - "mark_taken": the patient says they took a medicine now. med_name as said (or null).
 - "snooze": remind later. minutes if said.
 - "add_vital": a measurement with numbers. vital_type: "bp" | "sugar" | "pulse" | "weight" | "temp" | "o2". values: the numbers as said (bp: [systolic, diastolic, pulse?]).
 - "add_doctor_question": something to ask the doctor. text as said.
 - "mark_bought": the patient bought a medicine. med_name.
-- "set_routine": when a meal / waking / sleeping happens. meal: "wake" | "breakfast" | "lunch" | "dinner" | "sleep", time "HH:MM".
 - "next_dose", "today_list", "upcoming_appointments", "stock_status": read-only questions.
 - "medical_question": ANY question or statement about dosage, changing or stopping a medicine, side effects, symptoms, interactions, whether something is safe, what a medicine is for, whether a reading is high or low, or a diagnosis. When in doubt between medical_question and anything else, choose medical_question.
 - "unknown": anything else.

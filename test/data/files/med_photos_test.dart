@@ -9,8 +9,8 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/files/attachment_store.dart';
 import 'package:fakkarni/data/files/med_photos.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../../core/med_photo_prepare_test.dart' show photoWithExif;
@@ -32,13 +32,13 @@ void main() {
       DirectoryAttachmentStore(root: dir, subfolder: DirectoryAttachmentStore.medPhotoFolder),
       prepare: (raw) async => prepareMedPhoto(raw),
     );
-    final routines = RoutineRepository(db);
-    final patient = await routines.ensurePatient();
+    final patients = PatientRepository(db);
+    final patient = await patients.ensurePatient();
     meds = MedicationRepository(db, clock: seededLongAgo);
     medId = await meds.addMedication(
       patientId: patient,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: DateTime(2026, 9, 1),
     );
   });

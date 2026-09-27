@@ -359,7 +359,7 @@ HealthFinding? checkBatteryOptimisation(HealthSnapshot s) {
     severity: Severity.note,
     title: 'توفير البطارية ماسك التطبيق',
     why: 'ممكن يأخّر التذكير أو يمنعه لما الموبايل يقعد من غير استعمال — '
-        'زي وقت النوم بالظبط.',
+        'زي بالليل وإنت نايم.',
     fix: HealthFix.openBatterySettings,
   );
 }

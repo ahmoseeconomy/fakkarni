@@ -7,7 +7,7 @@ import '../medication/med_photo.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/patient_voice.dart';
+import '../../domain/wording/patient_words.dart';
 import '../../data/repositories/preferences_repository.dart';
 import '../../domain/voice/answer_parser.dart';
 import '../voice/listen_button.dart';
@@ -156,7 +156,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
         await services.scheduler.snooze(
           originalAt: doses.first.scheduledAt,
           body: reminderBodyFor([
-            for (final d in doses) (name: d.medicationName, amount: d.amountLabel),
+            for (final d in doses) (name: d.medicationName, amount: d.amountLabel, note: d.mealLabel),
           ]),
           payload: encodePayloadFor(widget.routineDay, widget.scheduleIds),
           now: _now,
@@ -205,7 +205,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   ),
                   const SizedBox(height: F.s8),
                   Text(
-                    pending.isEmpty ? PatientVoice.of(context).tookItAlready : _headline(stage),
+                    pending.isEmpty ? tookItAlreadyLine : _headline(stage),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: F.subtitleSize,
@@ -347,7 +347,7 @@ class _DoseRow extends StatelessWidget {
         const SizedBox(height: F.s4),
         Text(
           dose.isDone && dose.actedAt != null
-              ? PatientVoice.of(context).takenAt(arabicTime(dose.actedAt!))
+              ? takenAtLine(arabicTime(dose.actedAt!))
               : details,
           style: TextStyle(
             fontSize: F.minTextSize,
@@ -526,12 +526,12 @@ class _DoneActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '${PatientVoice.of(context).thanks} مفيش حاجة مطلوبة منك دلوقتي.',
+          '$thanksLine مفيش حاجة مطلوبة منك دلوقتي.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
         ),
         const SizedBox(height: F.gap),
-        FPrimaryButton(label: PatientVoice.of(context).backToDay, onPressed: onBack),
+        FPrimaryButton(label: backToDayLine, onPressed: onBack),
       ],
     );
   }
@@ -568,7 +568,7 @@ class _GonePanel extends StatelessWidget {
                 backgroundColor: F.pageGround,
                 foregroundColor: F.ink,
               ),
-              child: Text(PatientVoice.of(context).backToDay),
+              child: Text(backToDayLine),
             ),
           ),
         ],

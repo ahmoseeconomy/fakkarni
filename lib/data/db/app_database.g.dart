@@ -93,15 +93,27 @@ class $PatientsTable extends Patients
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _sexMeta = const VerificationMeta('sex');
   @override
-  late final GeneratedColumnWithTypeConverter<Sex?, String> sex =
-      GeneratedColumn<String>(
-        'sex',
+  late final GeneratedColumn<String> sex = GeneratedColumn<String>(
+    'sex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _profileDoneAtMeta = const VerificationMeta(
+    'profileDoneAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> profileDoneAt =
+      GeneratedColumn<DateTime>(
+        'profile_done_at',
         aliasedName,
         true,
-        type: DriftSqlType.string,
+        type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
-      ).withConverter<Sex?>($PatientsTable.$convertersexn);
+      );
   static const VerificationMeta _ageMeta = const VerificationMeta('age');
   @override
   late final GeneratedColumn<int> age = GeneratedColumn<int>(
@@ -121,6 +133,7 @@ class $PatientsTable extends Patients
     notificationSlot,
     createdAt,
     sex,
+    profileDoneAt,
     age,
   ];
   @override
@@ -185,6 +198,21 @@ class $PatientsTable extends Patients
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('sex')) {
+      context.handle(
+        _sexMeta,
+        sex.isAcceptableOrUnknown(data['sex']!, _sexMeta),
+      );
+    }
+    if (data.containsKey('profile_done_at')) {
+      context.handle(
+        _profileDoneAtMeta,
+        profileDoneAt.isAcceptableOrUnknown(
+          data['profile_done_at']!,
+          _profileDoneAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('age')) {
       context.handle(
         _ageMeta,
@@ -232,11 +260,13 @@ class $PatientsTable extends Patients
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
-      sex: $PatientsTable.$convertersexn.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}sex'],
-        ),
+      sex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sex'],
+      ),
+      profileDoneAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}profile_done_at'],
       ),
       age: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -249,11 +279,6 @@ class $PatientsTable extends Patients
   $PatientsTable createAlias(String alias) {
     return $PatientsTable(attachedDatabase, alias);
   }
-
-  static JsonTypeConverter2<Sex, String, String> $convertersex =
-      const EnumNameConverter<Sex>(Sex.values);
-  static JsonTypeConverter2<Sex?, String?, String?> $convertersexn =
-      JsonTypeConverter2.asNullable($convertersex);
 }
 
 class PatientRow extends DataClass implements Insertable<PatientRow> {
@@ -276,9 +301,15 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
   final int notificationSlot;
   final DateTime createdAt;
 
-  /// نسخة ٨ — الجنس (m/f) عشان الكلام يخاطبه صح. **محلي**: مش بيتدفع
-  /// للسحابة (SyncService بيبعت uuid والاسم والخانة بس). null = ما اتسألش.
-  final Sex? sex;
+  /// نسخة ٨ — كان الجنس (m/f). **السؤال اتشال** (قرار المالك، ٢٧ سبتمبر
+  /// ٢٠٢٦) والعمود فاضل زي ما هو من غير ما حد يقراه: القيم القديمة بتفضل
+  /// في القاعدة، ومفيش إعادة بناء لجدول المرضى عشان عمود مش بيتقرا.
+  final String? sex;
+
+  /// نسخة ٣٠ — «نتعرّف عليك» اتحفظت (الاسم، والسن لو قال). ده اللي بيقول
+  /// «فيه مريض على الموبايل ده» — كان بيتستنتج من روتين محفوظ أو جنس اتسأل،
+  /// والاتنين اتشالوا. الترحيل بيعلّم كل مريض كان عنده واحد منهم.
+  final DateTime? profileDoneAt;
 
   /// نسخة ٨ — السن بالسنين. محلي، وnull = ما اتسألش.
   final int? age;
@@ -291,6 +322,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     required this.notificationSlot,
     required this.createdAt,
     this.sex,
+    this.profileDoneAt,
     this.age,
   });
   @override
@@ -306,7 +338,10 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     map['notification_slot'] = Variable<int>(notificationSlot);
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || sex != null) {
-      map['sex'] = Variable<String>($PatientsTable.$convertersexn.toSql(sex));
+      map['sex'] = Variable<String>(sex);
+    }
+    if (!nullToAbsent || profileDoneAt != null) {
+      map['profile_done_at'] = Variable<DateTime>(profileDoneAt);
     }
     if (!nullToAbsent || age != null) {
       map['age'] = Variable<int>(age);
@@ -326,6 +361,9 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       notificationSlot: Value(notificationSlot),
       createdAt: Value(createdAt),
       sex: sex == null && nullToAbsent ? const Value.absent() : Value(sex),
+      profileDoneAt: profileDoneAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(profileDoneAt),
       age: age == null && nullToAbsent ? const Value.absent() : Value(age),
     );
   }
@@ -343,9 +381,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       name: serializer.fromJson<String>(json['name']),
       notificationSlot: serializer.fromJson<int>(json['notificationSlot']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      sex: $PatientsTable.$convertersexn.fromJson(
-        serializer.fromJson<String?>(json['sex']),
-      ),
+      sex: serializer.fromJson<String?>(json['sex']),
+      profileDoneAt: serializer.fromJson<DateTime?>(json['profileDoneAt']),
       age: serializer.fromJson<int?>(json['age']),
     );
   }
@@ -360,9 +397,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
       'name': serializer.toJson<String>(name),
       'notificationSlot': serializer.toJson<int>(notificationSlot),
       'createdAt': serializer.toJson<DateTime>(createdAt),
-      'sex': serializer.toJson<String?>(
-        $PatientsTable.$convertersexn.toJson(sex),
-      ),
+      'sex': serializer.toJson<String?>(sex),
+      'profileDoneAt': serializer.toJson<DateTime?>(profileDoneAt),
       'age': serializer.toJson<int?>(age),
     };
   }
@@ -375,7 +411,8 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     String? name,
     int? notificationSlot,
     DateTime? createdAt,
-    Value<Sex?> sex = const Value.absent(),
+    Value<String?> sex = const Value.absent(),
+    Value<DateTime?> profileDoneAt = const Value.absent(),
     Value<int?> age = const Value.absent(),
   }) => PatientRow(
     uuid: uuid ?? this.uuid,
@@ -386,6 +423,9 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     notificationSlot: notificationSlot ?? this.notificationSlot,
     createdAt: createdAt ?? this.createdAt,
     sex: sex.present ? sex.value : this.sex,
+    profileDoneAt: profileDoneAt.present
+        ? profileDoneAt.value
+        : this.profileDoneAt,
     age: age.present ? age.value : this.age,
   );
   PatientRow copyWithCompanion(PatientsCompanion data) {
@@ -404,6 +444,9 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           : this.notificationSlot,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       sex: data.sex.present ? data.sex.value : this.sex,
+      profileDoneAt: data.profileDoneAt.present
+          ? data.profileDoneAt.value
+          : this.profileDoneAt,
       age: data.age.present ? data.age.value : this.age,
     );
   }
@@ -419,6 +462,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           ..write('notificationSlot: $notificationSlot, ')
           ..write('createdAt: $createdAt, ')
           ..write('sex: $sex, ')
+          ..write('profileDoneAt: $profileDoneAt, ')
           ..write('age: $age')
           ..write(')'))
         .toString();
@@ -434,6 +478,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
     notificationSlot,
     createdAt,
     sex,
+    profileDoneAt,
     age,
   );
   @override
@@ -448,6 +493,7 @@ class PatientRow extends DataClass implements Insertable<PatientRow> {
           other.notificationSlot == this.notificationSlot &&
           other.createdAt == this.createdAt &&
           other.sex == this.sex &&
+          other.profileDoneAt == this.profileDoneAt &&
           other.age == this.age);
 }
 
@@ -459,7 +505,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
   final Value<String> name;
   final Value<int> notificationSlot;
   final Value<DateTime> createdAt;
-  final Value<Sex?> sex;
+  final Value<String?> sex;
+  final Value<DateTime?> profileDoneAt;
   final Value<int?> age;
   const PatientsCompanion({
     this.uuid = const Value.absent(),
@@ -470,6 +517,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.sex = const Value.absent(),
+    this.profileDoneAt = const Value.absent(),
     this.age = const Value.absent(),
   });
   PatientsCompanion.insert({
@@ -481,6 +529,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     this.notificationSlot = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.sex = const Value.absent(),
+    this.profileDoneAt = const Value.absent(),
     this.age = const Value.absent(),
   }) : name = Value(name);
   static Insertable<PatientRow> custom({
@@ -492,6 +541,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     Expression<int>? notificationSlot,
     Expression<DateTime>? createdAt,
     Expression<String>? sex,
+    Expression<DateTime>? profileDoneAt,
     Expression<int>? age,
   }) {
     return RawValuesInsertable({
@@ -503,6 +553,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
       if (notificationSlot != null) 'notification_slot': notificationSlot,
       if (createdAt != null) 'created_at': createdAt,
       if (sex != null) 'sex': sex,
+      if (profileDoneAt != null) 'profile_done_at': profileDoneAt,
       if (age != null) 'age': age,
     });
   }
@@ -515,7 +566,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
     Value<String>? name,
     Value<int>? notificationSlot,
     Value<DateTime>? createdAt,
-    Value<Sex?>? sex,
+    Value<String?>? sex,
+    Value<DateTime?>? profileDoneAt,
     Value<int?>? age,
   }) {
     return PatientsCompanion(
@@ -527,6 +579,7 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
       notificationSlot: notificationSlot ?? this.notificationSlot,
       createdAt: createdAt ?? this.createdAt,
       sex: sex ?? this.sex,
+      profileDoneAt: profileDoneAt ?? this.profileDoneAt,
       age: age ?? this.age,
     );
   }
@@ -556,9 +609,10 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
     if (sex.present) {
-      map['sex'] = Variable<String>(
-        $PatientsTable.$convertersexn.toSql(sex.value),
-      );
+      map['sex'] = Variable<String>(sex.value);
+    }
+    if (profileDoneAt.present) {
+      map['profile_done_at'] = Variable<DateTime>(profileDoneAt.value);
     }
     if (age.present) {
       map['age'] = Variable<int>(age.value);
@@ -577,751 +631,8 @@ class PatientsCompanion extends UpdateCompanion<PatientRow> {
           ..write('notificationSlot: $notificationSlot, ')
           ..write('createdAt: $createdAt, ')
           ..write('sex: $sex, ')
+          ..write('profileDoneAt: $profileDoneAt, ')
           ..write('age: $age')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $DayRoutinesTable extends DayRoutines
-    with TableInfo<$DayRoutinesTable, DayRoutineRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $DayRoutinesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
-  @override
-  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
-    'uuid',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
-    clientDefault: newSyncUuid,
-  );
-  static const VerificationMeta _updatedAtMsMeta = const VerificationMeta(
-    'updatedAtMs',
-  );
-  @override
-  late final GeneratedColumn<int> updatedAtMs = GeneratedColumn<int>(
-    'updated_at_ms',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    clientDefault: nowMs,
-  );
-  static const VerificationMeta _syncedAtMsMeta = const VerificationMeta(
-    'syncedAtMs',
-  );
-  @override
-  late final GeneratedColumn<int> syncedAtMs = GeneratedColumn<int>(
-    'synced_at_ms',
-    aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _patientIdMeta = const VerificationMeta(
-    'patientId',
-  );
-  @override
-  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
-    'patient_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES patients (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _wakeMinutesMeta = const VerificationMeta(
-    'wakeMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> wakeMinutes = GeneratedColumn<int>(
-    'wake_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _breakfastMinutesMeta = const VerificationMeta(
-    'breakfastMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> breakfastMinutes = GeneratedColumn<int>(
-    'breakfast_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _lunchMinutesMeta = const VerificationMeta(
-    'lunchMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> lunchMinutes = GeneratedColumn<int>(
-    'lunch_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _dinnerMinutesMeta = const VerificationMeta(
-    'dinnerMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> dinnerMinutes = GeneratedColumn<int>(
-    'dinner_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _sleepMinutesMeta = const VerificationMeta(
-    'sleepMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> sleepMinutes = GeneratedColumn<int>(
-    'sleep_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _unsetAnchorsMeta = const VerificationMeta(
-    'unsetAnchors',
-  );
-  @override
-  late final GeneratedColumn<String> unsetAnchors = GeneratedColumn<String>(
-    'unset_anchors',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-    'updated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    uuid,
-    updatedAtMs,
-    syncedAtMs,
-    id,
-    patientId,
-    wakeMinutes,
-    breakfastMinutes,
-    lunchMinutes,
-    dinnerMinutes,
-    sleepMinutes,
-    unsetAnchors,
-    updatedAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'day_routines';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<DayRoutineRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('uuid')) {
-      context.handle(
-        _uuidMeta,
-        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
-      );
-    }
-    if (data.containsKey('updated_at_ms')) {
-      context.handle(
-        _updatedAtMsMeta,
-        updatedAtMs.isAcceptableOrUnknown(
-          data['updated_at_ms']!,
-          _updatedAtMsMeta,
-        ),
-      );
-    }
-    if (data.containsKey('synced_at_ms')) {
-      context.handle(
-        _syncedAtMsMeta,
-        syncedAtMs.isAcceptableOrUnknown(
-          data['synced_at_ms']!,
-          _syncedAtMsMeta,
-        ),
-      );
-    }
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('patient_id')) {
-      context.handle(
-        _patientIdMeta,
-        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_patientIdMeta);
-    }
-    if (data.containsKey('wake_minutes')) {
-      context.handle(
-        _wakeMinutesMeta,
-        wakeMinutes.isAcceptableOrUnknown(
-          data['wake_minutes']!,
-          _wakeMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_wakeMinutesMeta);
-    }
-    if (data.containsKey('breakfast_minutes')) {
-      context.handle(
-        _breakfastMinutesMeta,
-        breakfastMinutes.isAcceptableOrUnknown(
-          data['breakfast_minutes']!,
-          _breakfastMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_breakfastMinutesMeta);
-    }
-    if (data.containsKey('lunch_minutes')) {
-      context.handle(
-        _lunchMinutesMeta,
-        lunchMinutes.isAcceptableOrUnknown(
-          data['lunch_minutes']!,
-          _lunchMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_lunchMinutesMeta);
-    }
-    if (data.containsKey('dinner_minutes')) {
-      context.handle(
-        _dinnerMinutesMeta,
-        dinnerMinutes.isAcceptableOrUnknown(
-          data['dinner_minutes']!,
-          _dinnerMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_dinnerMinutesMeta);
-    }
-    if (data.containsKey('sleep_minutes')) {
-      context.handle(
-        _sleepMinutesMeta,
-        sleepMinutes.isAcceptableOrUnknown(
-          data['sleep_minutes']!,
-          _sleepMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_sleepMinutesMeta);
-    }
-    if (data.containsKey('unset_anchors')) {
-      context.handle(
-        _unsetAnchorsMeta,
-        unsetAnchors.isAcceptableOrUnknown(
-          data['unset_anchors']!,
-          _unsetAnchorsMeta,
-        ),
-      );
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(
-        _updatedAtMeta,
-        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-    {patientId},
-  ];
-  @override
-  DayRoutineRow map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return DayRoutineRow(
-      uuid: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}uuid'],
-      )!,
-      updatedAtMs: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}updated_at_ms'],
-      )!,
-      syncedAtMs: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}synced_at_ms'],
-      ),
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      patientId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}patient_id'],
-      )!,
-      wakeMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}wake_minutes'],
-      )!,
-      breakfastMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}breakfast_minutes'],
-      )!,
-      lunchMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}lunch_minutes'],
-      )!,
-      dinnerMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}dinner_minutes'],
-      )!,
-      sleepMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}sleep_minutes'],
-      )!,
-      unsetAnchors: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}unset_anchors'],
-      )!,
-      updatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}updated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $DayRoutinesTable createAlias(String alias) {
-    return $DayRoutinesTable(attachedDatabase, alias);
-  }
-}
-
-class DayRoutineRow extends DataClass implements Insertable<DayRoutineRow> {
-  final String uuid;
-
-  /// بتتصان من قاعدة البيانات نفسها (تريجرات في beforeOpen) — مش من نقاط
-  /// النداء: اللي لازم حد يفتكره هيتنسي، والصف ده كان هيبطل يتزامن في صمت.
-  final int updatedAtMs;
-
-  /// آخر updated_at_ms اتدفع للسحابة — null يعني عمره ما اتدفع.
-  final int? syncedAtMs;
-  final int id;
-  final int patientId;
-
-  /// دقايق من منتصف الليل (0 → 1439) — نفس تمثيل [MinuteOfDay].
-  final int wakeMinutes;
-  final int breakfastMinutes;
-  final int lunchMinutes;
-  final int dinnerMinutes;
-  final int sleepMinutes;
-
-  /// المراسي اللي المستخدم ما حدّدهاش (v21) — أسامي مفصولة بفاصلة، فاضية
-  /// = كله متحدد. **الصفوف اللي من قبل v21 بتقرا فاضية**: كل حد سجّل روتينه
-  /// قبل ما الروتين يبقى اختياري كان بيجاوب على الخمسة، فكله بتاعه.
-  final String unsetAnchors;
-  final DateTime updatedAt;
-  const DayRoutineRow({
-    required this.uuid,
-    required this.updatedAtMs,
-    this.syncedAtMs,
-    required this.id,
-    required this.patientId,
-    required this.wakeMinutes,
-    required this.breakfastMinutes,
-    required this.lunchMinutes,
-    required this.dinnerMinutes,
-    required this.sleepMinutes,
-    required this.unsetAnchors,
-    required this.updatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['uuid'] = Variable<String>(uuid);
-    map['updated_at_ms'] = Variable<int>(updatedAtMs);
-    if (!nullToAbsent || syncedAtMs != null) {
-      map['synced_at_ms'] = Variable<int>(syncedAtMs);
-    }
-    map['id'] = Variable<int>(id);
-    map['patient_id'] = Variable<int>(patientId);
-    map['wake_minutes'] = Variable<int>(wakeMinutes);
-    map['breakfast_minutes'] = Variable<int>(breakfastMinutes);
-    map['lunch_minutes'] = Variable<int>(lunchMinutes);
-    map['dinner_minutes'] = Variable<int>(dinnerMinutes);
-    map['sleep_minutes'] = Variable<int>(sleepMinutes);
-    map['unset_anchors'] = Variable<String>(unsetAnchors);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    return map;
-  }
-
-  DayRoutinesCompanion toCompanion(bool nullToAbsent) {
-    return DayRoutinesCompanion(
-      uuid: Value(uuid),
-      updatedAtMs: Value(updatedAtMs),
-      syncedAtMs: syncedAtMs == null && nullToAbsent
-          ? const Value.absent()
-          : Value(syncedAtMs),
-      id: Value(id),
-      patientId: Value(patientId),
-      wakeMinutes: Value(wakeMinutes),
-      breakfastMinutes: Value(breakfastMinutes),
-      lunchMinutes: Value(lunchMinutes),
-      dinnerMinutes: Value(dinnerMinutes),
-      sleepMinutes: Value(sleepMinutes),
-      unsetAnchors: Value(unsetAnchors),
-      updatedAt: Value(updatedAt),
-    );
-  }
-
-  factory DayRoutineRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return DayRoutineRow(
-      uuid: serializer.fromJson<String>(json['uuid']),
-      updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
-      syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
-      id: serializer.fromJson<int>(json['id']),
-      patientId: serializer.fromJson<int>(json['patientId']),
-      wakeMinutes: serializer.fromJson<int>(json['wakeMinutes']),
-      breakfastMinutes: serializer.fromJson<int>(json['breakfastMinutes']),
-      lunchMinutes: serializer.fromJson<int>(json['lunchMinutes']),
-      dinnerMinutes: serializer.fromJson<int>(json['dinnerMinutes']),
-      sleepMinutes: serializer.fromJson<int>(json['sleepMinutes']),
-      unsetAnchors: serializer.fromJson<String>(json['unsetAnchors']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'uuid': serializer.toJson<String>(uuid),
-      'updatedAtMs': serializer.toJson<int>(updatedAtMs),
-      'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
-      'id': serializer.toJson<int>(id),
-      'patientId': serializer.toJson<int>(patientId),
-      'wakeMinutes': serializer.toJson<int>(wakeMinutes),
-      'breakfastMinutes': serializer.toJson<int>(breakfastMinutes),
-      'lunchMinutes': serializer.toJson<int>(lunchMinutes),
-      'dinnerMinutes': serializer.toJson<int>(dinnerMinutes),
-      'sleepMinutes': serializer.toJson<int>(sleepMinutes),
-      'unsetAnchors': serializer.toJson<String>(unsetAnchors),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-    };
-  }
-
-  DayRoutineRow copyWith({
-    String? uuid,
-    int? updatedAtMs,
-    Value<int?> syncedAtMs = const Value.absent(),
-    int? id,
-    int? patientId,
-    int? wakeMinutes,
-    int? breakfastMinutes,
-    int? lunchMinutes,
-    int? dinnerMinutes,
-    int? sleepMinutes,
-    String? unsetAnchors,
-    DateTime? updatedAt,
-  }) => DayRoutineRow(
-    uuid: uuid ?? this.uuid,
-    updatedAtMs: updatedAtMs ?? this.updatedAtMs,
-    syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
-    id: id ?? this.id,
-    patientId: patientId ?? this.patientId,
-    wakeMinutes: wakeMinutes ?? this.wakeMinutes,
-    breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
-    lunchMinutes: lunchMinutes ?? this.lunchMinutes,
-    dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
-    sleepMinutes: sleepMinutes ?? this.sleepMinutes,
-    unsetAnchors: unsetAnchors ?? this.unsetAnchors,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-  DayRoutineRow copyWithCompanion(DayRoutinesCompanion data) {
-    return DayRoutineRow(
-      uuid: data.uuid.present ? data.uuid.value : this.uuid,
-      updatedAtMs: data.updatedAtMs.present
-          ? data.updatedAtMs.value
-          : this.updatedAtMs,
-      syncedAtMs: data.syncedAtMs.present
-          ? data.syncedAtMs.value
-          : this.syncedAtMs,
-      id: data.id.present ? data.id.value : this.id,
-      patientId: data.patientId.present ? data.patientId.value : this.patientId,
-      wakeMinutes: data.wakeMinutes.present
-          ? data.wakeMinutes.value
-          : this.wakeMinutes,
-      breakfastMinutes: data.breakfastMinutes.present
-          ? data.breakfastMinutes.value
-          : this.breakfastMinutes,
-      lunchMinutes: data.lunchMinutes.present
-          ? data.lunchMinutes.value
-          : this.lunchMinutes,
-      dinnerMinutes: data.dinnerMinutes.present
-          ? data.dinnerMinutes.value
-          : this.dinnerMinutes,
-      sleepMinutes: data.sleepMinutes.present
-          ? data.sleepMinutes.value
-          : this.sleepMinutes,
-      unsetAnchors: data.unsetAnchors.present
-          ? data.unsetAnchors.value
-          : this.unsetAnchors,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DayRoutineRow(')
-          ..write('uuid: $uuid, ')
-          ..write('updatedAtMs: $updatedAtMs, ')
-          ..write('syncedAtMs: $syncedAtMs, ')
-          ..write('id: $id, ')
-          ..write('patientId: $patientId, ')
-          ..write('wakeMinutes: $wakeMinutes, ')
-          ..write('breakfastMinutes: $breakfastMinutes, ')
-          ..write('lunchMinutes: $lunchMinutes, ')
-          ..write('dinnerMinutes: $dinnerMinutes, ')
-          ..write('sleepMinutes: $sleepMinutes, ')
-          ..write('unsetAnchors: $unsetAnchors, ')
-          ..write('updatedAt: $updatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    uuid,
-    updatedAtMs,
-    syncedAtMs,
-    id,
-    patientId,
-    wakeMinutes,
-    breakfastMinutes,
-    lunchMinutes,
-    dinnerMinutes,
-    sleepMinutes,
-    unsetAnchors,
-    updatedAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is DayRoutineRow &&
-          other.uuid == this.uuid &&
-          other.updatedAtMs == this.updatedAtMs &&
-          other.syncedAtMs == this.syncedAtMs &&
-          other.id == this.id &&
-          other.patientId == this.patientId &&
-          other.wakeMinutes == this.wakeMinutes &&
-          other.breakfastMinutes == this.breakfastMinutes &&
-          other.lunchMinutes == this.lunchMinutes &&
-          other.dinnerMinutes == this.dinnerMinutes &&
-          other.sleepMinutes == this.sleepMinutes &&
-          other.unsetAnchors == this.unsetAnchors &&
-          other.updatedAt == this.updatedAt);
-}
-
-class DayRoutinesCompanion extends UpdateCompanion<DayRoutineRow> {
-  final Value<String> uuid;
-  final Value<int> updatedAtMs;
-  final Value<int?> syncedAtMs;
-  final Value<int> id;
-  final Value<int> patientId;
-  final Value<int> wakeMinutes;
-  final Value<int> breakfastMinutes;
-  final Value<int> lunchMinutes;
-  final Value<int> dinnerMinutes;
-  final Value<int> sleepMinutes;
-  final Value<String> unsetAnchors;
-  final Value<DateTime> updatedAt;
-  const DayRoutinesCompanion({
-    this.uuid = const Value.absent(),
-    this.updatedAtMs = const Value.absent(),
-    this.syncedAtMs = const Value.absent(),
-    this.id = const Value.absent(),
-    this.patientId = const Value.absent(),
-    this.wakeMinutes = const Value.absent(),
-    this.breakfastMinutes = const Value.absent(),
-    this.lunchMinutes = const Value.absent(),
-    this.dinnerMinutes = const Value.absent(),
-    this.sleepMinutes = const Value.absent(),
-    this.unsetAnchors = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-  });
-  DayRoutinesCompanion.insert({
-    this.uuid = const Value.absent(),
-    this.updatedAtMs = const Value.absent(),
-    this.syncedAtMs = const Value.absent(),
-    this.id = const Value.absent(),
-    required int patientId,
-    required int wakeMinutes,
-    required int breakfastMinutes,
-    required int lunchMinutes,
-    required int dinnerMinutes,
-    required int sleepMinutes,
-    this.unsetAnchors = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-  }) : patientId = Value(patientId),
-       wakeMinutes = Value(wakeMinutes),
-       breakfastMinutes = Value(breakfastMinutes),
-       lunchMinutes = Value(lunchMinutes),
-       dinnerMinutes = Value(dinnerMinutes),
-       sleepMinutes = Value(sleepMinutes);
-  static Insertable<DayRoutineRow> custom({
-    Expression<String>? uuid,
-    Expression<int>? updatedAtMs,
-    Expression<int>? syncedAtMs,
-    Expression<int>? id,
-    Expression<int>? patientId,
-    Expression<int>? wakeMinutes,
-    Expression<int>? breakfastMinutes,
-    Expression<int>? lunchMinutes,
-    Expression<int>? dinnerMinutes,
-    Expression<int>? sleepMinutes,
-    Expression<String>? unsetAnchors,
-    Expression<DateTime>? updatedAt,
-  }) {
-    return RawValuesInsertable({
-      if (uuid != null) 'uuid': uuid,
-      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
-      if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
-      if (id != null) 'id': id,
-      if (patientId != null) 'patient_id': patientId,
-      if (wakeMinutes != null) 'wake_minutes': wakeMinutes,
-      if (breakfastMinutes != null) 'breakfast_minutes': breakfastMinutes,
-      if (lunchMinutes != null) 'lunch_minutes': lunchMinutes,
-      if (dinnerMinutes != null) 'dinner_minutes': dinnerMinutes,
-      if (sleepMinutes != null) 'sleep_minutes': sleepMinutes,
-      if (unsetAnchors != null) 'unset_anchors': unsetAnchors,
-      if (updatedAt != null) 'updated_at': updatedAt,
-    });
-  }
-
-  DayRoutinesCompanion copyWith({
-    Value<String>? uuid,
-    Value<int>? updatedAtMs,
-    Value<int?>? syncedAtMs,
-    Value<int>? id,
-    Value<int>? patientId,
-    Value<int>? wakeMinutes,
-    Value<int>? breakfastMinutes,
-    Value<int>? lunchMinutes,
-    Value<int>? dinnerMinutes,
-    Value<int>? sleepMinutes,
-    Value<String>? unsetAnchors,
-    Value<DateTime>? updatedAt,
-  }) {
-    return DayRoutinesCompanion(
-      uuid: uuid ?? this.uuid,
-      updatedAtMs: updatedAtMs ?? this.updatedAtMs,
-      syncedAtMs: syncedAtMs ?? this.syncedAtMs,
-      id: id ?? this.id,
-      patientId: patientId ?? this.patientId,
-      wakeMinutes: wakeMinutes ?? this.wakeMinutes,
-      breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
-      lunchMinutes: lunchMinutes ?? this.lunchMinutes,
-      dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
-      sleepMinutes: sleepMinutes ?? this.sleepMinutes,
-      unsetAnchors: unsetAnchors ?? this.unsetAnchors,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (uuid.present) {
-      map['uuid'] = Variable<String>(uuid.value);
-    }
-    if (updatedAtMs.present) {
-      map['updated_at_ms'] = Variable<int>(updatedAtMs.value);
-    }
-    if (syncedAtMs.present) {
-      map['synced_at_ms'] = Variable<int>(syncedAtMs.value);
-    }
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (patientId.present) {
-      map['patient_id'] = Variable<int>(patientId.value);
-    }
-    if (wakeMinutes.present) {
-      map['wake_minutes'] = Variable<int>(wakeMinutes.value);
-    }
-    if (breakfastMinutes.present) {
-      map['breakfast_minutes'] = Variable<int>(breakfastMinutes.value);
-    }
-    if (lunchMinutes.present) {
-      map['lunch_minutes'] = Variable<int>(lunchMinutes.value);
-    }
-    if (dinnerMinutes.present) {
-      map['dinner_minutes'] = Variable<int>(dinnerMinutes.value);
-    }
-    if (sleepMinutes.present) {
-      map['sleep_minutes'] = Variable<int>(sleepMinutes.value);
-    }
-    if (unsetAnchors.present) {
-      map['unset_anchors'] = Variable<String>(unsetAnchors.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DayRoutinesCompanion(')
-          ..write('uuid: $uuid, ')
-          ..write('updatedAtMs: $updatedAtMs, ')
-          ..write('syncedAtMs: $syncedAtMs, ')
-          ..write('id: $id, ')
-          ..write('patientId: $patientId, ')
-          ..write('wakeMinutes: $wakeMinutes, ')
-          ..write('breakfastMinutes: $breakfastMinutes, ')
-          ..write('lunchMinutes: $lunchMinutes, ')
-          ..write('dinnerMinutes: $dinnerMinutes, ')
-          ..write('sleepMinutes: $sleepMinutes, ')
-          ..write('unsetAnchors: $unsetAnchors, ')
-          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -2467,16 +1778,6 @@ class $DoseSchedulesTable extends DoseSchedules
       'REFERENCES medications (id) ON DELETE CASCADE',
     ),
   );
-  @override
-  late final GeneratedColumnWithTypeConverter<DoseTimingKind, String>
-  timingKind = GeneratedColumn<String>(
-    'timing_kind',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: Constant(DoseTimingKind.anchor.name),
-  ).withConverter<DoseTimingKind>($DoseSchedulesTable.$convertertimingKind);
   static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
     'stoppedAt',
   );
@@ -2488,24 +1789,15 @@ class $DoseSchedulesTable extends DoseSchedules
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
-  @override
-  late final GeneratedColumnWithTypeConverter<DayAnchor?, String> anchor =
-      GeneratedColumn<String>(
-        'anchor',
-        aliasedName,
-        true,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      ).withConverter<DayAnchor?>($DoseSchedulesTable.$converteranchorn);
-  static const VerificationMeta _offsetMinutesMeta = const VerificationMeta(
-    'offsetMinutes',
+  static const VerificationMeta _mealRelationMeta = const VerificationMeta(
+    'mealRelation',
   );
   @override
-  late final GeneratedColumn<int> offsetMinutes = GeneratedColumn<int>(
-    'offset_minutes',
+  late final GeneratedColumn<String> mealRelation = GeneratedColumn<String>(
+    'meal_relation',
     aliasedName,
     true,
-    type: DriftSqlType.int,
+    type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
   @override
@@ -2599,10 +1891,8 @@ class $DoseSchedulesTable extends DoseSchedules
     syncedAtMs,
     id,
     medicationId,
-    timingKind,
     stoppedAt,
-    anchor,
-    offsetMinutes,
+    mealRelation,
     repeat,
     startDate,
     durationDays,
@@ -2668,12 +1958,12 @@ class $DoseSchedulesTable extends DoseSchedules
         stoppedAt.isAcceptableOrUnknown(data['stopped_at']!, _stoppedAtMeta),
       );
     }
-    if (data.containsKey('offset_minutes')) {
+    if (data.containsKey('meal_relation')) {
       context.handle(
-        _offsetMinutesMeta,
-        offsetMinutes.isAcceptableOrUnknown(
-          data['offset_minutes']!,
-          _offsetMinutesMeta,
+        _mealRelationMeta,
+        mealRelation.isAcceptableOrUnknown(
+          data['meal_relation']!,
+          _mealRelationMeta,
         ),
       );
     }
@@ -2748,25 +2038,13 @@ class $DoseSchedulesTable extends DoseSchedules
         DriftSqlType.int,
         data['${effectivePrefix}medication_id'],
       )!,
-      timingKind: $DoseSchedulesTable.$convertertimingKind.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}timing_kind'],
-        )!,
-      ),
       stoppedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
       ),
-      anchor: $DoseSchedulesTable.$converteranchorn.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}anchor'],
-        ),
-      ),
-      offsetMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}offset_minutes'],
+      mealRelation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meal_relation'],
       ),
       repeat: $DoseSchedulesTable.$converterrepeat.fromSql(
         attachedDatabase.typeMapping.read(
@@ -2812,14 +2090,6 @@ class $DoseSchedulesTable extends DoseSchedules
     return $DoseSchedulesTable(attachedDatabase, alias);
   }
 
-  static JsonTypeConverter2<DoseTimingKind, String, String>
-  $convertertimingKind = const EnumNameConverter<DoseTimingKind>(
-    DoseTimingKind.values,
-  );
-  static JsonTypeConverter2<DayAnchor, String, String> $converteranchor =
-      const EnumNameConverter<DayAnchor>(DayAnchor.values);
-  static JsonTypeConverter2<DayAnchor?, String?, String?> $converteranchorn =
-      JsonTypeConverter2.asNullable($converteranchor);
   static JsonTypeConverter2<DoseRepeat, String, String> $converterrepeat =
       const EnumNameConverter<DoseRepeat>(DoseRepeat.values);
   static TypeConverter<DateTime, String> $converterstartDate =
@@ -2838,9 +2108,6 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   final int id;
   final int medicationId;
 
-  /// الافتراضي مرساة — وده اللي الصفوف القديمة بتاخده في الترحيل.
-  final DoseTimingKind timingKind;
-
   /// null معناها الجرعة دي لسه شغّالة.
   ///
   /// إيقاف ناعم لجرعة واحدة من دوا شغّال — **مش مسح**، لنفس سبب
@@ -2848,11 +2115,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
   /// الجاية اللي «لسه» بتتعلّم `superseded` فالسيرفر ما يصعّدش عليها.
   final DateTime? stoppedAt;
 
-  /// المرساة — null بس لو [timingKind] ساعة ثابتة.
-  final DayAnchor? anchor;
-
-  /// بالسالب = قبل المرساة، بالموجب = بعدها. null لو ساعة ثابتة.
-  final int? offsetMinutes;
+  /// «قبل الأكل» وأخواتها (v30) — اسم [MealRelation] المخزّن
+  /// (`before` / `with` / `after` / `empty_stomach`). **تعليمات تتعرض،
+  /// مش توقيت**: ما بتحرّكش الساعة. null = مفيش. بتتدفع للسحابة (٠٠٣٤).
+  final String? mealRelation;
   final DoseRepeat repeat;
   final DateTime startDate;
 
@@ -2881,10 +2147,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     this.syncedAtMs,
     required this.id,
     required this.medicationId,
-    required this.timingKind,
     this.stoppedAt,
-    this.anchor,
-    this.offsetMinutes,
+    this.mealRelation,
     required this.repeat,
     required this.startDate,
     this.durationDays,
@@ -2904,21 +2168,11 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     }
     map['id'] = Variable<int>(id);
     map['medication_id'] = Variable<int>(medicationId);
-    {
-      map['timing_kind'] = Variable<String>(
-        $DoseSchedulesTable.$convertertimingKind.toSql(timingKind),
-      );
-    }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
     }
-    if (!nullToAbsent || anchor != null) {
-      map['anchor'] = Variable<String>(
-        $DoseSchedulesTable.$converteranchorn.toSql(anchor),
-      );
-    }
-    if (!nullToAbsent || offsetMinutes != null) {
-      map['offset_minutes'] = Variable<int>(offsetMinutes);
+    if (!nullToAbsent || mealRelation != null) {
+      map['meal_relation'] = Variable<String>(mealRelation);
     }
     {
       map['repeat'] = Variable<String>(
@@ -2960,16 +2214,12 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           : Value(syncedAtMs),
       id: Value(id),
       medicationId: Value(medicationId),
-      timingKind: Value(timingKind),
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
-      anchor: anchor == null && nullToAbsent
+      mealRelation: mealRelation == null && nullToAbsent
           ? const Value.absent()
-          : Value(anchor),
-      offsetMinutes: offsetMinutes == null && nullToAbsent
-          ? const Value.absent()
-          : Value(offsetMinutes),
+          : Value(mealRelation),
       repeat: Value(repeat),
       startDate: Value(startDate),
       durationDays: durationDays == null && nullToAbsent
@@ -3004,14 +2254,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       syncedAtMs: serializer.fromJson<int?>(json['syncedAtMs']),
       id: serializer.fromJson<int>(json['id']),
       medicationId: serializer.fromJson<int>(json['medicationId']),
-      timingKind: $DoseSchedulesTable.$convertertimingKind.fromJson(
-        serializer.fromJson<String>(json['timingKind']),
-      ),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
-      anchor: $DoseSchedulesTable.$converteranchorn.fromJson(
-        serializer.fromJson<String?>(json['anchor']),
-      ),
-      offsetMinutes: serializer.fromJson<int?>(json['offsetMinutes']),
+      mealRelation: serializer.fromJson<String?>(json['mealRelation']),
       repeat: $DoseSchedulesTable.$converterrepeat.fromJson(
         serializer.fromJson<String>(json['repeat']),
       ),
@@ -3033,14 +2277,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       'syncedAtMs': serializer.toJson<int?>(syncedAtMs),
       'id': serializer.toJson<int>(id),
       'medicationId': serializer.toJson<int>(medicationId),
-      'timingKind': serializer.toJson<String>(
-        $DoseSchedulesTable.$convertertimingKind.toJson(timingKind),
-      ),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
-      'anchor': serializer.toJson<String?>(
-        $DoseSchedulesTable.$converteranchorn.toJson(anchor),
-      ),
-      'offsetMinutes': serializer.toJson<int?>(offsetMinutes),
+      'mealRelation': serializer.toJson<String?>(mealRelation),
       'repeat': serializer.toJson<String>(
         $DoseSchedulesTable.$converterrepeat.toJson(repeat),
       ),
@@ -3060,10 +2298,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     Value<int?> syncedAtMs = const Value.absent(),
     int? id,
     int? medicationId,
-    DoseTimingKind? timingKind,
     Value<DateTime?> stoppedAt = const Value.absent(),
-    Value<DayAnchor?> anchor = const Value.absent(),
-    Value<int?> offsetMinutes = const Value.absent(),
+    Value<String?> mealRelation = const Value.absent(),
     DoseRepeat? repeat,
     DateTime? startDate,
     Value<int?> durationDays = const Value.absent(),
@@ -3078,12 +2314,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     syncedAtMs: syncedAtMs.present ? syncedAtMs.value : this.syncedAtMs,
     id: id ?? this.id,
     medicationId: medicationId ?? this.medicationId,
-    timingKind: timingKind ?? this.timingKind,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
-    anchor: anchor.present ? anchor.value : this.anchor,
-    offsetMinutes: offsetMinutes.present
-        ? offsetMinutes.value
-        : this.offsetMinutes,
+    mealRelation: mealRelation.present ? mealRelation.value : this.mealRelation,
     repeat: repeat ?? this.repeat,
     startDate: startDate ?? this.startDate,
     durationDays: durationDays.present ? durationDays.value : this.durationDays,
@@ -3106,14 +2338,10 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
       medicationId: data.medicationId.present
           ? data.medicationId.value
           : this.medicationId,
-      timingKind: data.timingKind.present
-          ? data.timingKind.value
-          : this.timingKind,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
-      anchor: data.anchor.present ? data.anchor.value : this.anchor,
-      offsetMinutes: data.offsetMinutes.present
-          ? data.offsetMinutes.value
-          : this.offsetMinutes,
+      mealRelation: data.mealRelation.present
+          ? data.mealRelation.value
+          : this.mealRelation,
       repeat: data.repeat.present ? data.repeat.value : this.repeat,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       durationDays: data.durationDays.present
@@ -3139,10 +2367,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           ..write('syncedAtMs: $syncedAtMs, ')
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
-          ..write('timingKind: $timingKind, ')
           ..write('stoppedAt: $stoppedAt, ')
-          ..write('anchor: $anchor, ')
-          ..write('offsetMinutes: $offsetMinutes, ')
+          ..write('mealRelation: $mealRelation, ')
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
           ..write('durationDays: $durationDays, ')
@@ -3162,10 +2388,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
     syncedAtMs,
     id,
     medicationId,
-    timingKind,
     stoppedAt,
-    anchor,
-    offsetMinutes,
+    mealRelation,
     repeat,
     startDate,
     durationDays,
@@ -3184,10 +2408,8 @@ class DoseScheduleRow extends DataClass implements Insertable<DoseScheduleRow> {
           other.syncedAtMs == this.syncedAtMs &&
           other.id == this.id &&
           other.medicationId == this.medicationId &&
-          other.timingKind == this.timingKind &&
           other.stoppedAt == this.stoppedAt &&
-          other.anchor == this.anchor &&
-          other.offsetMinutes == this.offsetMinutes &&
+          other.mealRelation == this.mealRelation &&
           other.repeat == this.repeat &&
           other.startDate == this.startDate &&
           other.durationDays == this.durationDays &&
@@ -3204,10 +2426,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
   final Value<int?> syncedAtMs;
   final Value<int> id;
   final Value<int> medicationId;
-  final Value<DoseTimingKind> timingKind;
   final Value<DateTime?> stoppedAt;
-  final Value<DayAnchor?> anchor;
-  final Value<int?> offsetMinutes;
+  final Value<String?> mealRelation;
   final Value<DoseRepeat> repeat;
   final Value<DateTime> startDate;
   final Value<int?> durationDays;
@@ -3222,10 +2442,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.syncedAtMs = const Value.absent(),
     this.id = const Value.absent(),
     this.medicationId = const Value.absent(),
-    this.timingKind = const Value.absent(),
     this.stoppedAt = const Value.absent(),
-    this.anchor = const Value.absent(),
-    this.offsetMinutes = const Value.absent(),
+    this.mealRelation = const Value.absent(),
     this.repeat = const Value.absent(),
     this.startDate = const Value.absent(),
     this.durationDays = const Value.absent(),
@@ -3241,10 +2459,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     this.syncedAtMs = const Value.absent(),
     this.id = const Value.absent(),
     required int medicationId,
-    this.timingKind = const Value.absent(),
     this.stoppedAt = const Value.absent(),
-    this.anchor = const Value.absent(),
-    this.offsetMinutes = const Value.absent(),
+    this.mealRelation = const Value.absent(),
     required DoseRepeat repeat,
     required DateTime startDate,
     this.durationDays = const Value.absent(),
@@ -3262,10 +2478,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Expression<int>? syncedAtMs,
     Expression<int>? id,
     Expression<int>? medicationId,
-    Expression<String>? timingKind,
     Expression<DateTime>? stoppedAt,
-    Expression<String>? anchor,
-    Expression<int>? offsetMinutes,
+    Expression<String>? mealRelation,
     Expression<String>? repeat,
     Expression<String>? startDate,
     Expression<int>? durationDays,
@@ -3281,10 +2495,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       if (syncedAtMs != null) 'synced_at_ms': syncedAtMs,
       if (id != null) 'id': id,
       if (medicationId != null) 'medication_id': medicationId,
-      if (timingKind != null) 'timing_kind': timingKind,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
-      if (anchor != null) 'anchor': anchor,
-      if (offsetMinutes != null) 'offset_minutes': offsetMinutes,
+      if (mealRelation != null) 'meal_relation': mealRelation,
       if (repeat != null) 'repeat': repeat,
       if (startDate != null) 'start_date': startDate,
       if (durationDays != null) 'duration_days': durationDays,
@@ -3302,10 +2514,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     Value<int?>? syncedAtMs,
     Value<int>? id,
     Value<int>? medicationId,
-    Value<DoseTimingKind>? timingKind,
     Value<DateTime?>? stoppedAt,
-    Value<DayAnchor?>? anchor,
-    Value<int?>? offsetMinutes,
+    Value<String?>? mealRelation,
     Value<DoseRepeat>? repeat,
     Value<DateTime>? startDate,
     Value<int?>? durationDays,
@@ -3321,10 +2531,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
       syncedAtMs: syncedAtMs ?? this.syncedAtMs,
       id: id ?? this.id,
       medicationId: medicationId ?? this.medicationId,
-      timingKind: timingKind ?? this.timingKind,
       stoppedAt: stoppedAt ?? this.stoppedAt,
-      anchor: anchor ?? this.anchor,
-      offsetMinutes: offsetMinutes ?? this.offsetMinutes,
+      mealRelation: mealRelation ?? this.mealRelation,
       repeat: repeat ?? this.repeat,
       startDate: startDate ?? this.startDate,
       durationDays: durationDays ?? this.durationDays,
@@ -3354,21 +2562,11 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
     if (medicationId.present) {
       map['medication_id'] = Variable<int>(medicationId.value);
     }
-    if (timingKind.present) {
-      map['timing_kind'] = Variable<String>(
-        $DoseSchedulesTable.$convertertimingKind.toSql(timingKind.value),
-      );
-    }
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
-    if (anchor.present) {
-      map['anchor'] = Variable<String>(
-        $DoseSchedulesTable.$converteranchorn.toSql(anchor.value),
-      );
-    }
-    if (offsetMinutes.present) {
-      map['offset_minutes'] = Variable<int>(offsetMinutes.value);
+    if (mealRelation.present) {
+      map['meal_relation'] = Variable<String>(mealRelation.value);
     }
     if (repeat.present) {
       map['repeat'] = Variable<String>(
@@ -3409,10 +2607,8 @@ class DoseSchedulesCompanion extends UpdateCompanion<DoseScheduleRow> {
           ..write('syncedAtMs: $syncedAtMs, ')
           ..write('id: $id, ')
           ..write('medicationId: $medicationId, ')
-          ..write('timingKind: $timingKind, ')
           ..write('stoppedAt: $stoppedAt, ')
-          ..write('anchor: $anchor, ')
-          ..write('offsetMinutes: $offsetMinutes, ')
+          ..write('mealRelation: $mealRelation, ')
           ..write('repeat: $repeat, ')
           ..write('startDate: $startDate, ')
           ..write('durationDays: $durationDays, ')
@@ -4441,603 +3637,6 @@ class DoseEventsCompanion extends UpdateCompanion<DoseEventRow> {
           ..write('state: $state, ')
           ..write('actedAt: $actedAt, ')
           ..write('actedBy: $actedBy')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $RoutineBackupsTable extends RoutineBackups
-    with TableInfo<$RoutineBackupsTable, RoutineBackupRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $RoutineBackupsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _patientIdMeta = const VerificationMeta(
-    'patientId',
-  );
-  @override
-  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
-    'patient_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES patients (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _wakeMinutesMeta = const VerificationMeta(
-    'wakeMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> wakeMinutes = GeneratedColumn<int>(
-    'wake_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _breakfastMinutesMeta = const VerificationMeta(
-    'breakfastMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> breakfastMinutes = GeneratedColumn<int>(
-    'breakfast_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _lunchMinutesMeta = const VerificationMeta(
-    'lunchMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> lunchMinutes = GeneratedColumn<int>(
-    'lunch_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _dinnerMinutesMeta = const VerificationMeta(
-    'dinnerMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> dinnerMinutes = GeneratedColumn<int>(
-    'dinner_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _sleepMinutesMeta = const VerificationMeta(
-    'sleepMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> sleepMinutes = GeneratedColumn<int>(
-    'sleep_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _iftarMinutesMeta = const VerificationMeta(
-    'iftarMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> iftarMinutes = GeneratedColumn<int>(
-    'iftar_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _suhoorMinutesMeta = const VerificationMeta(
-    'suhoorMinutes',
-  );
-  @override
-  late final GeneratedColumn<int> suhoorMinutes = GeneratedColumn<int>(
-    'suhoor_minutes',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _unsetAnchorsMeta = const VerificationMeta(
-    'unsetAnchors',
-  );
-  @override
-  late final GeneratedColumn<String> unsetAnchors = GeneratedColumn<String>(
-    'unset_anchors',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    patientId,
-    wakeMinutes,
-    breakfastMinutes,
-    lunchMinutes,
-    dinnerMinutes,
-    sleepMinutes,
-    iftarMinutes,
-    suhoorMinutes,
-    unsetAnchors,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'routine_backups';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<RoutineBackupRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('patient_id')) {
-      context.handle(
-        _patientIdMeta,
-        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
-      );
-    }
-    if (data.containsKey('wake_minutes')) {
-      context.handle(
-        _wakeMinutesMeta,
-        wakeMinutes.isAcceptableOrUnknown(
-          data['wake_minutes']!,
-          _wakeMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_wakeMinutesMeta);
-    }
-    if (data.containsKey('breakfast_minutes')) {
-      context.handle(
-        _breakfastMinutesMeta,
-        breakfastMinutes.isAcceptableOrUnknown(
-          data['breakfast_minutes']!,
-          _breakfastMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_breakfastMinutesMeta);
-    }
-    if (data.containsKey('lunch_minutes')) {
-      context.handle(
-        _lunchMinutesMeta,
-        lunchMinutes.isAcceptableOrUnknown(
-          data['lunch_minutes']!,
-          _lunchMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_lunchMinutesMeta);
-    }
-    if (data.containsKey('dinner_minutes')) {
-      context.handle(
-        _dinnerMinutesMeta,
-        dinnerMinutes.isAcceptableOrUnknown(
-          data['dinner_minutes']!,
-          _dinnerMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_dinnerMinutesMeta);
-    }
-    if (data.containsKey('sleep_minutes')) {
-      context.handle(
-        _sleepMinutesMeta,
-        sleepMinutes.isAcceptableOrUnknown(
-          data['sleep_minutes']!,
-          _sleepMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_sleepMinutesMeta);
-    }
-    if (data.containsKey('iftar_minutes')) {
-      context.handle(
-        _iftarMinutesMeta,
-        iftarMinutes.isAcceptableOrUnknown(
-          data['iftar_minutes']!,
-          _iftarMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_iftarMinutesMeta);
-    }
-    if (data.containsKey('suhoor_minutes')) {
-      context.handle(
-        _suhoorMinutesMeta,
-        suhoorMinutes.isAcceptableOrUnknown(
-          data['suhoor_minutes']!,
-          _suhoorMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_suhoorMinutesMeta);
-    }
-    if (data.containsKey('unset_anchors')) {
-      context.handle(
-        _unsetAnchorsMeta,
-        unsetAnchors.isAcceptableOrUnknown(
-          data['unset_anchors']!,
-          _unsetAnchorsMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {patientId};
-  @override
-  RoutineBackupRow map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return RoutineBackupRow(
-      patientId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}patient_id'],
-      )!,
-      wakeMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}wake_minutes'],
-      )!,
-      breakfastMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}breakfast_minutes'],
-      )!,
-      lunchMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}lunch_minutes'],
-      )!,
-      dinnerMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}dinner_minutes'],
-      )!,
-      sleepMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}sleep_minutes'],
-      )!,
-      iftarMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}iftar_minutes'],
-      )!,
-      suhoorMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}suhoor_minutes'],
-      )!,
-      unsetAnchors: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}unset_anchors'],
-      )!,
-    );
-  }
-
-  @override
-  $RoutineBackupsTable createAlias(String alias) {
-    return $RoutineBackupsTable(attachedDatabase, alias);
-  }
-}
-
-class RoutineBackupRow extends DataClass
-    implements Insertable<RoutineBackupRow> {
-  final int patientId;
-
-  /// الخمس مواعيد الأصلية زي ما كانت في day_routines بالظبط.
-  final int wakeMinutes;
-  final int breakfastMinutes;
-  final int lunchMinutes;
-  final int dinnerMinutes;
-  final int sleepMinutes;
-  final int iftarMinutes;
-  final int suhoorMinutes;
-
-  /// نفس علم day_routines (v21) — الرجوع من رمضان بيرجّع اللي مش متحدد كمان.
-  final String unsetAnchors;
-  const RoutineBackupRow({
-    required this.patientId,
-    required this.wakeMinutes,
-    required this.breakfastMinutes,
-    required this.lunchMinutes,
-    required this.dinnerMinutes,
-    required this.sleepMinutes,
-    required this.iftarMinutes,
-    required this.suhoorMinutes,
-    required this.unsetAnchors,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['patient_id'] = Variable<int>(patientId);
-    map['wake_minutes'] = Variable<int>(wakeMinutes);
-    map['breakfast_minutes'] = Variable<int>(breakfastMinutes);
-    map['lunch_minutes'] = Variable<int>(lunchMinutes);
-    map['dinner_minutes'] = Variable<int>(dinnerMinutes);
-    map['sleep_minutes'] = Variable<int>(sleepMinutes);
-    map['iftar_minutes'] = Variable<int>(iftarMinutes);
-    map['suhoor_minutes'] = Variable<int>(suhoorMinutes);
-    map['unset_anchors'] = Variable<String>(unsetAnchors);
-    return map;
-  }
-
-  RoutineBackupsCompanion toCompanion(bool nullToAbsent) {
-    return RoutineBackupsCompanion(
-      patientId: Value(patientId),
-      wakeMinutes: Value(wakeMinutes),
-      breakfastMinutes: Value(breakfastMinutes),
-      lunchMinutes: Value(lunchMinutes),
-      dinnerMinutes: Value(dinnerMinutes),
-      sleepMinutes: Value(sleepMinutes),
-      iftarMinutes: Value(iftarMinutes),
-      suhoorMinutes: Value(suhoorMinutes),
-      unsetAnchors: Value(unsetAnchors),
-    );
-  }
-
-  factory RoutineBackupRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return RoutineBackupRow(
-      patientId: serializer.fromJson<int>(json['patientId']),
-      wakeMinutes: serializer.fromJson<int>(json['wakeMinutes']),
-      breakfastMinutes: serializer.fromJson<int>(json['breakfastMinutes']),
-      lunchMinutes: serializer.fromJson<int>(json['lunchMinutes']),
-      dinnerMinutes: serializer.fromJson<int>(json['dinnerMinutes']),
-      sleepMinutes: serializer.fromJson<int>(json['sleepMinutes']),
-      iftarMinutes: serializer.fromJson<int>(json['iftarMinutes']),
-      suhoorMinutes: serializer.fromJson<int>(json['suhoorMinutes']),
-      unsetAnchors: serializer.fromJson<String>(json['unsetAnchors']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'patientId': serializer.toJson<int>(patientId),
-      'wakeMinutes': serializer.toJson<int>(wakeMinutes),
-      'breakfastMinutes': serializer.toJson<int>(breakfastMinutes),
-      'lunchMinutes': serializer.toJson<int>(lunchMinutes),
-      'dinnerMinutes': serializer.toJson<int>(dinnerMinutes),
-      'sleepMinutes': serializer.toJson<int>(sleepMinutes),
-      'iftarMinutes': serializer.toJson<int>(iftarMinutes),
-      'suhoorMinutes': serializer.toJson<int>(suhoorMinutes),
-      'unsetAnchors': serializer.toJson<String>(unsetAnchors),
-    };
-  }
-
-  RoutineBackupRow copyWith({
-    int? patientId,
-    int? wakeMinutes,
-    int? breakfastMinutes,
-    int? lunchMinutes,
-    int? dinnerMinutes,
-    int? sleepMinutes,
-    int? iftarMinutes,
-    int? suhoorMinutes,
-    String? unsetAnchors,
-  }) => RoutineBackupRow(
-    patientId: patientId ?? this.patientId,
-    wakeMinutes: wakeMinutes ?? this.wakeMinutes,
-    breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
-    lunchMinutes: lunchMinutes ?? this.lunchMinutes,
-    dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
-    sleepMinutes: sleepMinutes ?? this.sleepMinutes,
-    iftarMinutes: iftarMinutes ?? this.iftarMinutes,
-    suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
-    unsetAnchors: unsetAnchors ?? this.unsetAnchors,
-  );
-  RoutineBackupRow copyWithCompanion(RoutineBackupsCompanion data) {
-    return RoutineBackupRow(
-      patientId: data.patientId.present ? data.patientId.value : this.patientId,
-      wakeMinutes: data.wakeMinutes.present
-          ? data.wakeMinutes.value
-          : this.wakeMinutes,
-      breakfastMinutes: data.breakfastMinutes.present
-          ? data.breakfastMinutes.value
-          : this.breakfastMinutes,
-      lunchMinutes: data.lunchMinutes.present
-          ? data.lunchMinutes.value
-          : this.lunchMinutes,
-      dinnerMinutes: data.dinnerMinutes.present
-          ? data.dinnerMinutes.value
-          : this.dinnerMinutes,
-      sleepMinutes: data.sleepMinutes.present
-          ? data.sleepMinutes.value
-          : this.sleepMinutes,
-      iftarMinutes: data.iftarMinutes.present
-          ? data.iftarMinutes.value
-          : this.iftarMinutes,
-      suhoorMinutes: data.suhoorMinutes.present
-          ? data.suhoorMinutes.value
-          : this.suhoorMinutes,
-      unsetAnchors: data.unsetAnchors.present
-          ? data.unsetAnchors.value
-          : this.unsetAnchors,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('RoutineBackupRow(')
-          ..write('patientId: $patientId, ')
-          ..write('wakeMinutes: $wakeMinutes, ')
-          ..write('breakfastMinutes: $breakfastMinutes, ')
-          ..write('lunchMinutes: $lunchMinutes, ')
-          ..write('dinnerMinutes: $dinnerMinutes, ')
-          ..write('sleepMinutes: $sleepMinutes, ')
-          ..write('iftarMinutes: $iftarMinutes, ')
-          ..write('suhoorMinutes: $suhoorMinutes, ')
-          ..write('unsetAnchors: $unsetAnchors')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    patientId,
-    wakeMinutes,
-    breakfastMinutes,
-    lunchMinutes,
-    dinnerMinutes,
-    sleepMinutes,
-    iftarMinutes,
-    suhoorMinutes,
-    unsetAnchors,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is RoutineBackupRow &&
-          other.patientId == this.patientId &&
-          other.wakeMinutes == this.wakeMinutes &&
-          other.breakfastMinutes == this.breakfastMinutes &&
-          other.lunchMinutes == this.lunchMinutes &&
-          other.dinnerMinutes == this.dinnerMinutes &&
-          other.sleepMinutes == this.sleepMinutes &&
-          other.iftarMinutes == this.iftarMinutes &&
-          other.suhoorMinutes == this.suhoorMinutes &&
-          other.unsetAnchors == this.unsetAnchors);
-}
-
-class RoutineBackupsCompanion extends UpdateCompanion<RoutineBackupRow> {
-  final Value<int> patientId;
-  final Value<int> wakeMinutes;
-  final Value<int> breakfastMinutes;
-  final Value<int> lunchMinutes;
-  final Value<int> dinnerMinutes;
-  final Value<int> sleepMinutes;
-  final Value<int> iftarMinutes;
-  final Value<int> suhoorMinutes;
-  final Value<String> unsetAnchors;
-  const RoutineBackupsCompanion({
-    this.patientId = const Value.absent(),
-    this.wakeMinutes = const Value.absent(),
-    this.breakfastMinutes = const Value.absent(),
-    this.lunchMinutes = const Value.absent(),
-    this.dinnerMinutes = const Value.absent(),
-    this.sleepMinutes = const Value.absent(),
-    this.iftarMinutes = const Value.absent(),
-    this.suhoorMinutes = const Value.absent(),
-    this.unsetAnchors = const Value.absent(),
-  });
-  RoutineBackupsCompanion.insert({
-    this.patientId = const Value.absent(),
-    required int wakeMinutes,
-    required int breakfastMinutes,
-    required int lunchMinutes,
-    required int dinnerMinutes,
-    required int sleepMinutes,
-    required int iftarMinutes,
-    required int suhoorMinutes,
-    this.unsetAnchors = const Value.absent(),
-  }) : wakeMinutes = Value(wakeMinutes),
-       breakfastMinutes = Value(breakfastMinutes),
-       lunchMinutes = Value(lunchMinutes),
-       dinnerMinutes = Value(dinnerMinutes),
-       sleepMinutes = Value(sleepMinutes),
-       iftarMinutes = Value(iftarMinutes),
-       suhoorMinutes = Value(suhoorMinutes);
-  static Insertable<RoutineBackupRow> custom({
-    Expression<int>? patientId,
-    Expression<int>? wakeMinutes,
-    Expression<int>? breakfastMinutes,
-    Expression<int>? lunchMinutes,
-    Expression<int>? dinnerMinutes,
-    Expression<int>? sleepMinutes,
-    Expression<int>? iftarMinutes,
-    Expression<int>? suhoorMinutes,
-    Expression<String>? unsetAnchors,
-  }) {
-    return RawValuesInsertable({
-      if (patientId != null) 'patient_id': patientId,
-      if (wakeMinutes != null) 'wake_minutes': wakeMinutes,
-      if (breakfastMinutes != null) 'breakfast_minutes': breakfastMinutes,
-      if (lunchMinutes != null) 'lunch_minutes': lunchMinutes,
-      if (dinnerMinutes != null) 'dinner_minutes': dinnerMinutes,
-      if (sleepMinutes != null) 'sleep_minutes': sleepMinutes,
-      if (iftarMinutes != null) 'iftar_minutes': iftarMinutes,
-      if (suhoorMinutes != null) 'suhoor_minutes': suhoorMinutes,
-      if (unsetAnchors != null) 'unset_anchors': unsetAnchors,
-    });
-  }
-
-  RoutineBackupsCompanion copyWith({
-    Value<int>? patientId,
-    Value<int>? wakeMinutes,
-    Value<int>? breakfastMinutes,
-    Value<int>? lunchMinutes,
-    Value<int>? dinnerMinutes,
-    Value<int>? sleepMinutes,
-    Value<int>? iftarMinutes,
-    Value<int>? suhoorMinutes,
-    Value<String>? unsetAnchors,
-  }) {
-    return RoutineBackupsCompanion(
-      patientId: patientId ?? this.patientId,
-      wakeMinutes: wakeMinutes ?? this.wakeMinutes,
-      breakfastMinutes: breakfastMinutes ?? this.breakfastMinutes,
-      lunchMinutes: lunchMinutes ?? this.lunchMinutes,
-      dinnerMinutes: dinnerMinutes ?? this.dinnerMinutes,
-      sleepMinutes: sleepMinutes ?? this.sleepMinutes,
-      iftarMinutes: iftarMinutes ?? this.iftarMinutes,
-      suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
-      unsetAnchors: unsetAnchors ?? this.unsetAnchors,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (patientId.present) {
-      map['patient_id'] = Variable<int>(patientId.value);
-    }
-    if (wakeMinutes.present) {
-      map['wake_minutes'] = Variable<int>(wakeMinutes.value);
-    }
-    if (breakfastMinutes.present) {
-      map['breakfast_minutes'] = Variable<int>(breakfastMinutes.value);
-    }
-    if (lunchMinutes.present) {
-      map['lunch_minutes'] = Variable<int>(lunchMinutes.value);
-    }
-    if (dinnerMinutes.present) {
-      map['dinner_minutes'] = Variable<int>(dinnerMinutes.value);
-    }
-    if (sleepMinutes.present) {
-      map['sleep_minutes'] = Variable<int>(sleepMinutes.value);
-    }
-    if (iftarMinutes.present) {
-      map['iftar_minutes'] = Variable<int>(iftarMinutes.value);
-    }
-    if (suhoorMinutes.present) {
-      map['suhoor_minutes'] = Variable<int>(suhoorMinutes.value);
-    }
-    if (unsetAnchors.present) {
-      map['unset_anchors'] = Variable<String>(unsetAnchors.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('RoutineBackupsCompanion(')
-          ..write('patientId: $patientId, ')
-          ..write('wakeMinutes: $wakeMinutes, ')
-          ..write('breakfastMinutes: $breakfastMinutes, ')
-          ..write('lunchMinutes: $lunchMinutes, ')
-          ..write('dinnerMinutes: $dinnerMinutes, ')
-          ..write('sleepMinutes: $sleepMinutes, ')
-          ..write('iftarMinutes: $iftarMinutes, ')
-          ..write('suhoorMinutes: $suhoorMinutes, ')
-          ..write('unsetAnchors: $unsetAnchors')
           ..write(')'))
         .toString();
   }
@@ -10217,12 +8816,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PatientsTable patients = $PatientsTable(this);
-  late final $DayRoutinesTable dayRoutines = $DayRoutinesTable(this);
   late final $MedicationsTable medications = $MedicationsTable(this);
   late final $DoseSchedulesTable doseSchedules = $DoseSchedulesTable(this);
   late final $FixedTimingsTable fixedTimings = $FixedTimingsTable(this);
   late final $DoseEventsTable doseEvents = $DoseEventsTable(this);
-  late final $RoutineBackupsTable routineBackups = $RoutineBackupsTable(this);
   late final $DevicePreferencesTable devicePreferences =
       $DevicePreferencesTable(this);
   late final $EmergencyProfileTable emergencyProfile = $EmergencyProfileTable(
@@ -10242,12 +8839,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     patients,
-    dayRoutines,
     medications,
     doseSchedules,
     fixedTimings,
     doseEvents,
-    routineBackups,
     devicePreferences,
     emergencyProfile,
     records,
@@ -10259,13 +8854,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'patients',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('day_routines', kind: UpdateKind.delete)],
-    ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
         'patients',
@@ -10293,13 +8881,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('dose_events', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'patients',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('routine_backups', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -10361,7 +8942,8 @@ typedef $$PatientsTableCreateCompanionBuilder = PatientsCompanion Function({
   required String name,
   Value<int> notificationSlot,
   Value<DateTime> createdAt,
-  Value<Sex?> sex,
+  Value<String?> sex,
+  Value<DateTime?> profileDoneAt,
   Value<int?> age,
 });
 typedef $$PatientsTableUpdateCompanionBuilder = PatientsCompanion Function({
@@ -10372,31 +8954,14 @@ typedef $$PatientsTableUpdateCompanionBuilder = PatientsCompanion Function({
   Value<String> name,
   Value<int> notificationSlot,
   Value<DateTime> createdAt,
-  Value<Sex?> sex,
+  Value<String?> sex,
+  Value<DateTime?> profileDoneAt,
   Value<int?> age,
 });
 
 final class $$PatientsTableReferences
     extends BaseReferences<_$AppDatabase, $PatientsTable, PatientRow> {
   $$PatientsTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static MultiTypedResultKey<$DayRoutinesTable, List<DayRoutineRow>>
-  _dayRoutinesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.dayRoutines,
-    aliasName: 'patients__id__day_routines__patient_id',
-  );
-
-  $$DayRoutinesTableProcessedTableManager get dayRoutinesRefs {
-    final manager = $$DayRoutinesTableTableManager(
-      $_db,
-      $_db.dayRoutines,
-    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_dayRoutinesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
 
   static MultiTypedResultKey<$MedicationsTable, List<MedicationRow>>
   _medicationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
@@ -10411,24 +8976,6 @@ final class $$PatientsTableReferences
     ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_medicationsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$RoutineBackupsTable, List<RoutineBackupRow>>
-  _routineBackupsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.routineBackups,
-    aliasName: 'patients__id__routine_backups__patient_id',
-  );
-
-  $$RoutineBackupsTableProcessedTableManager get routineBackupsRefs {
-    final manager = $$RoutineBackupsTableTableManager(
-      $_db,
-      $_db.routineBackups,
-    ).filter((f) => f.patientId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_routineBackupsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -10573,41 +9120,20 @@ class $$PatientsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<Sex?, Sex, String> get sex =>
-      $composableBuilder(
-        column: $table.sex,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnFilters<String> get sex => $composableBuilder(
+    column: $table.sex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get profileDoneAt => $composableBuilder(
+    column: $table.profileDoneAt,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<int> get age => $composableBuilder(
     column: $table.age,
     builder: (column) => ColumnFilters(column),
   );
-
-  Expression<bool> dayRoutinesRefs(
-    Expression<bool> Function($$DayRoutinesTableFilterComposer f) f,
-  ) {
-    final $$DayRoutinesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.dayRoutines,
-      getReferencedColumn: (t) => t.patientId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DayRoutinesTableFilterComposer(
-            $db: $db,
-            $table: $db.dayRoutines,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 
   Expression<bool> medicationsRefs(
     Expression<bool> Function($$MedicationsTableFilterComposer f) f,
@@ -10625,31 +9151,6 @@ class $$PatientsTableFilterComposer
           }) => $$MedicationsTableFilterComposer(
             $db: $db,
             $table: $db.medications,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> routineBackupsRefs(
-    Expression<bool> Function($$RoutineBackupsTableFilterComposer f) f,
-  ) {
-    final $$RoutineBackupsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.routineBackups,
-      getReferencedColumn: (t) => t.patientId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RoutineBackupsTableFilterComposer(
-            $db: $db,
-            $table: $db.routineBackups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -10834,6 +9335,11 @@ class $$PatientsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get profileDoneAt => $composableBuilder(
+    column: $table.profileDoneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get age => $composableBuilder(
     column: $table.age,
     builder: (column) => ColumnOrderings(column),
@@ -10876,36 +9382,16 @@ class $$PatientsTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<Sex?, String> get sex =>
+  GeneratedColumn<String> get sex =>
       $composableBuilder(column: $table.sex, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get profileDoneAt => $composableBuilder(
+    column: $table.profileDoneAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get age =>
       $composableBuilder(column: $table.age, builder: (column) => column);
-
-  Expression<T> dayRoutinesRefs<T extends Object>(
-    Expression<T> Function($$DayRoutinesTableAnnotationComposer a) f,
-  ) {
-    final $$DayRoutinesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.dayRoutines,
-      getReferencedColumn: (t) => t.patientId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DayRoutinesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.dayRoutines,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 
   Expression<T> medicationsRefs<T extends Object>(
     Expression<T> Function($$MedicationsTableAnnotationComposer a) f,
@@ -10923,31 +9409,6 @@ class $$PatientsTableAnnotationComposer
           }) => $$MedicationsTableAnnotationComposer(
             $db: $db,
             $table: $db.medications,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<T> routineBackupsRefs<T extends Object>(
-    Expression<T> Function($$RoutineBackupsTableAnnotationComposer a) f,
-  ) {
-    final $$RoutineBackupsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.routineBackups,
-      getReferencedColumn: (t) => t.patientId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RoutineBackupsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.routineBackups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -11097,9 +9558,7 @@ class $$PatientsTableTableManager
           (PatientRow, $$PatientsTableReferences),
           PatientRow,
           PrefetchHooks Function({
-            bool dayRoutinesRefs,
             bool medicationsRefs,
-            bool routineBackupsRefs,
             bool emergencyProfileRefs,
             bool recordsRefs,
             bool readingsRefs,
@@ -11127,7 +9586,8 @@ class $$PatientsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-                Value<Sex?> sex = const Value.absent(),
+                Value<String?> sex = const Value.absent(),
+                Value<DateTime?> profileDoneAt = const Value.absent(),
                 Value<int?> age = const Value.absent(),
               }) => PatientsCompanion(
                 uuid: uuid,
@@ -11138,6 +9598,7 @@ class $$PatientsTableTableManager
                 notificationSlot: notificationSlot,
                 createdAt: createdAt,
                 sex: sex,
+                profileDoneAt: profileDoneAt,
                 age: age,
               ),
           createCompanionCallback:
@@ -11149,7 +9610,8 @@ class $$PatientsTableTableManager
                 required String name,
                 Value<int> notificationSlot = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-                Value<Sex?> sex = const Value.absent(),
+                Value<String?> sex = const Value.absent(),
+                Value<DateTime?> profileDoneAt = const Value.absent(),
                 Value<int?> age = const Value.absent(),
               }) => PatientsCompanion.insert(
                 uuid: uuid,
@@ -11160,6 +9622,7 @@ class $$PatientsTableTableManager
                 notificationSlot: notificationSlot,
                 createdAt: createdAt,
                 sex: sex,
+                profileDoneAt: profileDoneAt,
                 age: age,
               ),
           withReferenceMapper: (p0) => p0
@@ -11172,9 +9635,7 @@ class $$PatientsTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
-                dayRoutinesRefs = false,
                 medicationsRefs = false,
-                routineBackupsRefs = false,
                 emergencyProfileRefs = false,
                 recordsRefs = false,
                 readingsRefs = false,
@@ -11184,9 +9645,7 @@ class $$PatientsTableTableManager
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
-                    if (dayRoutinesRefs) db.dayRoutines,
                     if (medicationsRefs) db.medications,
-                    if (routineBackupsRefs) db.routineBackups,
                     if (emergencyProfileRefs) db.emergencyProfile,
                     if (recordsRefs) db.records,
                     if (readingsRefs) db.readings,
@@ -11196,27 +9655,6 @@ class $$PatientsTableTableManager
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
                     return [
-                      if (dayRoutinesRefs)
-                        await $_getPrefetchedData<
-                          PatientRow,
-                          $PatientsTable,
-                          DayRoutineRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$PatientsTableReferences
-                              ._dayRoutinesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$PatientsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).dayRoutinesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.patientId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                       if (medicationsRefs)
                         await $_getPrefetchedData<
                           PatientRow,
@@ -11232,27 +9670,6 @@ class $$PatientsTableTableManager
                                 table,
                                 p0,
                               ).medicationsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.patientId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (routineBackupsRefs)
-                        await $_getPrefetchedData<
-                          PatientRow,
-                          $PatientsTable,
-                          RoutineBackupRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$PatientsTableReferences
-                              ._routineBackupsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$PatientsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).routineBackupsRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.patientId == item.id,
@@ -11385,473 +9802,13 @@ typedef $$PatientsTableProcessedTableManager =
       (PatientRow, $$PatientsTableReferences),
       PatientRow,
       PrefetchHooks Function({
-        bool dayRoutinesRefs,
         bool medicationsRefs,
-        bool routineBackupsRefs,
         bool emergencyProfileRefs,
         bool recordsRefs,
         bool readingsRefs,
         bool visitQuestionsRefs,
         bool vitalsRefs,
       })
-    >;
-typedef $$DayRoutinesTableCreateCompanionBuilder =
-    DayRoutinesCompanion Function({
-      Value<String> uuid,
-      Value<int> updatedAtMs,
-      Value<int?> syncedAtMs,
-      Value<int> id,
-      required int patientId,
-      required int wakeMinutes,
-      required int breakfastMinutes,
-      required int lunchMinutes,
-      required int dinnerMinutes,
-      required int sleepMinutes,
-      Value<String> unsetAnchors,
-      Value<DateTime> updatedAt,
-    });
-typedef $$DayRoutinesTableUpdateCompanionBuilder =
-    DayRoutinesCompanion Function({
-      Value<String> uuid,
-      Value<int> updatedAtMs,
-      Value<int?> syncedAtMs,
-      Value<int> id,
-      Value<int> patientId,
-      Value<int> wakeMinutes,
-      Value<int> breakfastMinutes,
-      Value<int> lunchMinutes,
-      Value<int> dinnerMinutes,
-      Value<int> sleepMinutes,
-      Value<String> unsetAnchors,
-      Value<DateTime> updatedAt,
-    });
-
-final class $$DayRoutinesTableReferences
-    extends BaseReferences<_$AppDatabase, $DayRoutinesTable, DayRoutineRow> {
-  $$DayRoutinesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
-      db.patients.createAlias('day_routines__patient_id__patients__id');
-
-  $$PatientsTableProcessedTableManager get patientId {
-    final $_column = $_itemColumn<int>('patient_id')!;
-
-    final manager = $$PatientsTableTableManager(
-      $_db,
-      $_db.patients,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$DayRoutinesTableFilterComposer
-    extends Composer<_$AppDatabase, $DayRoutinesTable> {
-  $$DayRoutinesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get uuid => $composableBuilder(
-    column: $table.uuid,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get updatedAtMs => $composableBuilder(
-    column: $table.updatedAtMs,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get syncedAtMs => $composableBuilder(
-    column: $table.syncedAtMs,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$PatientsTableFilterComposer get patientId {
-    final $$PatientsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableFilterComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$DayRoutinesTableOrderingComposer
-    extends Composer<_$AppDatabase, $DayRoutinesTable> {
-  $$DayRoutinesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get uuid => $composableBuilder(
-    column: $table.uuid,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get updatedAtMs => $composableBuilder(
-    column: $table.updatedAtMs,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get syncedAtMs => $composableBuilder(
-    column: $table.syncedAtMs,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$PatientsTableOrderingComposer get patientId {
-    final $$PatientsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableOrderingComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$DayRoutinesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $DayRoutinesTable> {
-  $$DayRoutinesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get uuid =>
-      $composableBuilder(column: $table.uuid, builder: (column) => column);
-
-  GeneratedColumn<int> get updatedAtMs => $composableBuilder(
-    column: $table.updatedAtMs,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get syncedAtMs => $composableBuilder(
-    column: $table.syncedAtMs,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  $$PatientsTableAnnotationComposer get patientId {
-    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$DayRoutinesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $DayRoutinesTable,
-          DayRoutineRow,
-          $$DayRoutinesTableFilterComposer,
-          $$DayRoutinesTableOrderingComposer,
-          $$DayRoutinesTableAnnotationComposer,
-          $$DayRoutinesTableCreateCompanionBuilder,
-          $$DayRoutinesTableUpdateCompanionBuilder,
-          (DayRoutineRow, $$DayRoutinesTableReferences),
-          DayRoutineRow,
-          PrefetchHooks Function({bool patientId})
-        > {
-  $$DayRoutinesTableTableManager(_$AppDatabase db, $DayRoutinesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$DayRoutinesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$DayRoutinesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$DayRoutinesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> uuid = const Value.absent(),
-                Value<int> updatedAtMs = const Value.absent(),
-                Value<int?> syncedAtMs = const Value.absent(),
-                Value<int> id = const Value.absent(),
-                Value<int> patientId = const Value.absent(),
-                Value<int> wakeMinutes = const Value.absent(),
-                Value<int> breakfastMinutes = const Value.absent(),
-                Value<int> lunchMinutes = const Value.absent(),
-                Value<int> dinnerMinutes = const Value.absent(),
-                Value<int> sleepMinutes = const Value.absent(),
-                Value<String> unsetAnchors = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-              }) => DayRoutinesCompanion(
-                uuid: uuid,
-                updatedAtMs: updatedAtMs,
-                syncedAtMs: syncedAtMs,
-                id: id,
-                patientId: patientId,
-                wakeMinutes: wakeMinutes,
-                breakfastMinutes: breakfastMinutes,
-                lunchMinutes: lunchMinutes,
-                dinnerMinutes: dinnerMinutes,
-                sleepMinutes: sleepMinutes,
-                unsetAnchors: unsetAnchors,
-                updatedAt: updatedAt,
-              ),
-          createCompanionCallback:
-              ({
-                Value<String> uuid = const Value.absent(),
-                Value<int> updatedAtMs = const Value.absent(),
-                Value<int?> syncedAtMs = const Value.absent(),
-                Value<int> id = const Value.absent(),
-                required int patientId,
-                required int wakeMinutes,
-                required int breakfastMinutes,
-                required int lunchMinutes,
-                required int dinnerMinutes,
-                required int sleepMinutes,
-                Value<String> unsetAnchors = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-              }) => DayRoutinesCompanion.insert(
-                uuid: uuid,
-                updatedAtMs: updatedAtMs,
-                syncedAtMs: syncedAtMs,
-                id: id,
-                patientId: patientId,
-                wakeMinutes: wakeMinutes,
-                breakfastMinutes: breakfastMinutes,
-                lunchMinutes: lunchMinutes,
-                dinnerMinutes: dinnerMinutes,
-                sleepMinutes: sleepMinutes,
-                unsetAnchors: unsetAnchors,
-                updatedAt: updatedAt,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$DayRoutinesTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({patientId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (patientId) {
-                      state = state.withJoin(
-                        currentTable: table,
-                        currentColumn: table.patientId,
-                        referencedTable: $$DayRoutinesTableReferences
-                            ._patientIdTable(db),
-                        referencedColumn: $$DayRoutinesTableReferences
-                            ._patientIdTable(db)
-                            .id,
-                      ) as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$DayRoutinesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $DayRoutinesTable,
-      DayRoutineRow,
-      $$DayRoutinesTableFilterComposer,
-      $$DayRoutinesTableOrderingComposer,
-      $$DayRoutinesTableAnnotationComposer,
-      $$DayRoutinesTableCreateCompanionBuilder,
-      $$DayRoutinesTableUpdateCompanionBuilder,
-      (DayRoutineRow, $$DayRoutinesTableReferences),
-      DayRoutineRow,
-      PrefetchHooks Function({bool patientId})
     >;
 typedef $$MedicationsTableCreateCompanionBuilder =
     MedicationsCompanion Function({
@@ -12627,10 +10584,8 @@ typedef $$DoseSchedulesTableCreateCompanionBuilder =
       Value<int?> syncedAtMs,
       Value<int> id,
       required int medicationId,
-      Value<DoseTimingKind> timingKind,
       Value<DateTime?> stoppedAt,
-      Value<DayAnchor?> anchor,
-      Value<int?> offsetMinutes,
+      Value<String?> mealRelation,
       required DoseRepeat repeat,
       required DateTime startDate,
       Value<int?> durationDays,
@@ -12647,10 +10602,8 @@ typedef $$DoseSchedulesTableUpdateCompanionBuilder =
       Value<int?> syncedAtMs,
       Value<int> id,
       Value<int> medicationId,
-      Value<DoseTimingKind> timingKind,
       Value<DateTime?> stoppedAt,
-      Value<DayAnchor?> anchor,
-      Value<int?> offsetMinutes,
+      Value<String?> mealRelation,
       Value<DoseRepeat> repeat,
       Value<DateTime> startDate,
       Value<int?> durationDays,
@@ -12754,25 +10707,13 @@ class $$DoseSchedulesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<DoseTimingKind, DoseTimingKind, String>
-  get timingKind => $composableBuilder(
-    column: $table.timingKind,
-    builder: (column) => ColumnWithTypeConverterFilters(column),
-  );
-
   ColumnFilters<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<DayAnchor?, DayAnchor, String> get anchor =>
-      $composableBuilder(
-        column: $table.anchor,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
-
-  ColumnFilters<int> get offsetMinutes => $composableBuilder(
-    column: $table.offsetMinutes,
+  ColumnFilters<String> get mealRelation => $composableBuilder(
+    column: $table.mealRelation,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12921,23 +10862,13 @@ class $$DoseSchedulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get timingKind => $composableBuilder(
-    column: $table.timingKind,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get anchor => $composableBuilder(
-    column: $table.anchor,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get offsetMinutes => $composableBuilder(
-    column: $table.offsetMinutes,
+  ColumnOrderings<String> get mealRelation => $composableBuilder(
+    column: $table.mealRelation,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -13030,20 +10961,11 @@ class $$DoseSchedulesTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<DoseTimingKind, String> get timingKind =>
-      $composableBuilder(
-        column: $table.timingKind,
-        builder: (column) => column,
-      );
-
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<DayAnchor?, String> get anchor =>
-      $composableBuilder(column: $table.anchor, builder: (column) => column);
-
-  GeneratedColumn<int> get offsetMinutes => $composableBuilder(
-    column: $table.offsetMinutes,
+  GeneratedColumn<String> get mealRelation => $composableBuilder(
+    column: $table.mealRelation,
     builder: (column) => column,
   );
 
@@ -13188,10 +11110,8 @@ class $$DoseSchedulesTableTableManager
                 Value<int?> syncedAtMs = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 Value<int> medicationId = const Value.absent(),
-                Value<DoseTimingKind> timingKind = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
-                Value<DayAnchor?> anchor = const Value.absent(),
-                Value<int?> offsetMinutes = const Value.absent(),
+                Value<String?> mealRelation = const Value.absent(),
                 Value<DoseRepeat> repeat = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
                 Value<int?> durationDays = const Value.absent(),
@@ -13206,10 +11126,8 @@ class $$DoseSchedulesTableTableManager
                 syncedAtMs: syncedAtMs,
                 id: id,
                 medicationId: medicationId,
-                timingKind: timingKind,
                 stoppedAt: stoppedAt,
-                anchor: anchor,
-                offsetMinutes: offsetMinutes,
+                mealRelation: mealRelation,
                 repeat: repeat,
                 startDate: startDate,
                 durationDays: durationDays,
@@ -13226,10 +11144,8 @@ class $$DoseSchedulesTableTableManager
                 Value<int?> syncedAtMs = const Value.absent(),
                 Value<int> id = const Value.absent(),
                 required int medicationId,
-                Value<DoseTimingKind> timingKind = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
-                Value<DayAnchor?> anchor = const Value.absent(),
-                Value<int?> offsetMinutes = const Value.absent(),
+                Value<String?> mealRelation = const Value.absent(),
                 required DoseRepeat repeat,
                 required DateTime startDate,
                 Value<int?> durationDays = const Value.absent(),
@@ -13244,10 +11160,8 @@ class $$DoseSchedulesTableTableManager
                 syncedAtMs: syncedAtMs,
                 id: id,
                 medicationId: medicationId,
-                timingKind: timingKind,
                 stoppedAt: stoppedAt,
-                anchor: anchor,
-                offsetMinutes: offsetMinutes,
+                mealRelation: mealRelation,
                 repeat: repeat,
                 startDate: startDate,
                 durationDays: durationDays,
@@ -14106,414 +12020,6 @@ typedef $$DoseEventsTableProcessedTableManager =
       (DoseEventRow, $$DoseEventsTableReferences),
       DoseEventRow,
       PrefetchHooks Function({bool doseScheduleId})
-    >;
-typedef $$RoutineBackupsTableCreateCompanionBuilder =
-    RoutineBackupsCompanion Function({
-      Value<int> patientId,
-      required int wakeMinutes,
-      required int breakfastMinutes,
-      required int lunchMinutes,
-      required int dinnerMinutes,
-      required int sleepMinutes,
-      required int iftarMinutes,
-      required int suhoorMinutes,
-      Value<String> unsetAnchors,
-    });
-typedef $$RoutineBackupsTableUpdateCompanionBuilder =
-    RoutineBackupsCompanion Function({
-      Value<int> patientId,
-      Value<int> wakeMinutes,
-      Value<int> breakfastMinutes,
-      Value<int> lunchMinutes,
-      Value<int> dinnerMinutes,
-      Value<int> sleepMinutes,
-      Value<int> iftarMinutes,
-      Value<int> suhoorMinutes,
-      Value<String> unsetAnchors,
-    });
-
-final class $$RoutineBackupsTableReferences
-    extends
-        BaseReferences<_$AppDatabase, $RoutineBackupsTable, RoutineBackupRow> {
-  $$RoutineBackupsTableReferences(
-    super.$_db,
-    super.$_table,
-    super.$_typedResult,
-  );
-
-  static $PatientsTable _patientIdTable(_$AppDatabase db) =>
-      db.patients.createAlias('routine_backups__patient_id__patients__id');
-
-  $$PatientsTableProcessedTableManager get patientId {
-    final $_column = $_itemColumn<int>('patient_id')!;
-
-    final manager = $$PatientsTableTableManager(
-      $_db,
-      $_db.patients,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_patientIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$RoutineBackupsTableFilterComposer
-    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
-  $$RoutineBackupsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get iftarMinutes => $composableBuilder(
-    column: $table.iftarMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get suhoorMinutes => $composableBuilder(
-    column: $table.suhoorMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$PatientsTableFilterComposer get patientId {
-    final $$PatientsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableFilterComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$RoutineBackupsTableOrderingComposer
-    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
-  $$RoutineBackupsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get iftarMinutes => $composableBuilder(
-    column: $table.iftarMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get suhoorMinutes => $composableBuilder(
-    column: $table.suhoorMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$PatientsTableOrderingComposer get patientId {
-    final $$PatientsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableOrderingComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$RoutineBackupsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $RoutineBackupsTable> {
-  $$RoutineBackupsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get wakeMinutes => $composableBuilder(
-    column: $table.wakeMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get breakfastMinutes => $composableBuilder(
-    column: $table.breakfastMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get lunchMinutes => $composableBuilder(
-    column: $table.lunchMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get dinnerMinutes => $composableBuilder(
-    column: $table.dinnerMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get sleepMinutes => $composableBuilder(
-    column: $table.sleepMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get iftarMinutes => $composableBuilder(
-    column: $table.iftarMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get suhoorMinutes => $composableBuilder(
-    column: $table.suhoorMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get unsetAnchors => $composableBuilder(
-    column: $table.unsetAnchors,
-    builder: (column) => column,
-  );
-
-  $$PatientsTableAnnotationComposer get patientId {
-    final $$PatientsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.patientId,
-      referencedTable: $db.patients,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$PatientsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.patients,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$RoutineBackupsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $RoutineBackupsTable,
-          RoutineBackupRow,
-          $$RoutineBackupsTableFilterComposer,
-          $$RoutineBackupsTableOrderingComposer,
-          $$RoutineBackupsTableAnnotationComposer,
-          $$RoutineBackupsTableCreateCompanionBuilder,
-          $$RoutineBackupsTableUpdateCompanionBuilder,
-          (RoutineBackupRow, $$RoutineBackupsTableReferences),
-          RoutineBackupRow,
-          PrefetchHooks Function({bool patientId})
-        > {
-  $$RoutineBackupsTableTableManager(
-    _$AppDatabase db,
-    $RoutineBackupsTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$RoutineBackupsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$RoutineBackupsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$RoutineBackupsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> patientId = const Value.absent(),
-                Value<int> wakeMinutes = const Value.absent(),
-                Value<int> breakfastMinutes = const Value.absent(),
-                Value<int> lunchMinutes = const Value.absent(),
-                Value<int> dinnerMinutes = const Value.absent(),
-                Value<int> sleepMinutes = const Value.absent(),
-                Value<int> iftarMinutes = const Value.absent(),
-                Value<int> suhoorMinutes = const Value.absent(),
-                Value<String> unsetAnchors = const Value.absent(),
-              }) => RoutineBackupsCompanion(
-                patientId: patientId,
-                wakeMinutes: wakeMinutes,
-                breakfastMinutes: breakfastMinutes,
-                lunchMinutes: lunchMinutes,
-                dinnerMinutes: dinnerMinutes,
-                sleepMinutes: sleepMinutes,
-                iftarMinutes: iftarMinutes,
-                suhoorMinutes: suhoorMinutes,
-                unsetAnchors: unsetAnchors,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> patientId = const Value.absent(),
-                required int wakeMinutes,
-                required int breakfastMinutes,
-                required int lunchMinutes,
-                required int dinnerMinutes,
-                required int sleepMinutes,
-                required int iftarMinutes,
-                required int suhoorMinutes,
-                Value<String> unsetAnchors = const Value.absent(),
-              }) => RoutineBackupsCompanion.insert(
-                patientId: patientId,
-                wakeMinutes: wakeMinutes,
-                breakfastMinutes: breakfastMinutes,
-                lunchMinutes: lunchMinutes,
-                dinnerMinutes: dinnerMinutes,
-                sleepMinutes: sleepMinutes,
-                iftarMinutes: iftarMinutes,
-                suhoorMinutes: suhoorMinutes,
-                unsetAnchors: unsetAnchors,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$RoutineBackupsTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({patientId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (patientId) {
-                      state = state.withJoin(
-                        currentTable: table,
-                        currentColumn: table.patientId,
-                        referencedTable: $$RoutineBackupsTableReferences
-                            ._patientIdTable(db),
-                        referencedColumn: $$RoutineBackupsTableReferences
-                            ._patientIdTable(db)
-                            .id,
-                      ) as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$RoutineBackupsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $RoutineBackupsTable,
-      RoutineBackupRow,
-      $$RoutineBackupsTableFilterComposer,
-      $$RoutineBackupsTableOrderingComposer,
-      $$RoutineBackupsTableAnnotationComposer,
-      $$RoutineBackupsTableCreateCompanionBuilder,
-      $$RoutineBackupsTableUpdateCompanionBuilder,
-      (RoutineBackupRow, $$RoutineBackupsTableReferences),
-      RoutineBackupRow,
-      PrefetchHooks Function({bool patientId})
     >;
 typedef $$DevicePreferencesTableCreateCompanionBuilder =
     DevicePreferencesCompanion Function({
@@ -17957,8 +15463,6 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$PatientsTableTableManager get patients =>
       $$PatientsTableTableManager(_db, _db.patients);
-  $$DayRoutinesTableTableManager get dayRoutines =>
-      $$DayRoutinesTableTableManager(_db, _db.dayRoutines);
   $$MedicationsTableTableManager get medications =>
       $$MedicationsTableTableManager(_db, _db.medications);
   $$DoseSchedulesTableTableManager get doseSchedules =>
@@ -17967,8 +15471,6 @@ class $AppDatabaseManager {
       $$FixedTimingsTableTableManager(_db, _db.fixedTimings);
   $$DoseEventsTableTableManager get doseEvents =>
       $$DoseEventsTableTableManager(_db, _db.doseEvents);
-  $$RoutineBackupsTableTableManager get routineBackups =>
-      $$RoutineBackupsTableTableManager(_db, _db.routineBackups);
   $$DevicePreferencesTableTableManager get devicePreferences =>
       $$DevicePreferencesTableTableManager(_db, _db.devicePreferences);
   $$EmergencyProfileTableTableManager get emergencyProfile =>

@@ -6,17 +6,18 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 
 import '../support/seeded_clock.dart';
+import '../support/legacy_anchor.dart';
 
 /// **إعادة التنبيه: نفس التذكير تاني كل ٥ دقايق لحد ٣ مرات — والسلّم
 /// ما اتلمسش.**
@@ -59,13 +60,6 @@ class _Sink implements ReminderSink {
   Future<void> ensurePermissions() async {}
 }
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final _aug31 = DateTime(2026, 8, 31);
 final _six = DateTime(2026, 8, 31, 6);
@@ -191,7 +185,7 @@ void main() {
   group('٤ — التخطيط نقي', () {
     final schedules = [_dose('Concor', DayAnchor.breakfast, offset: -30)];
     List<PlannedNotification> reminders({DateTime? from}) =>
-        planWindow(routine: _routine, schedules: schedules, from: from ?? _six);
+        planWindow(schedules: schedules, from: from ?? _six);
 
     test('كل درجات السلّم شغّالة → إعادتين (+٥، +١٠): الـ+١٥ بتاعة الدرجة', () {
       final planned = planRepeats(reminders(), from: _six);
@@ -223,7 +217,7 @@ void main() {
       final many = [
         for (var i = 0; i < 12; i++) _dose('M$i', DayAnchor.breakfast, offset: -30 + i * 20),
       ];
-      final rems = planWindow(routine: _routine, schedules: many, from: _six);
+      final rems = planWindow(schedules: many, from: _six);
       final planned = planRepeats(rems, from: _six);
       final covered = {for (final p in planned) p.payload};
       // +١٥ بتاعة الدرجة، فكل تذكير بياخد إعادتين: ٢٠ ÷ ٢ = ١٠ تذكيرات
@@ -233,7 +227,7 @@ void main() {
 
       // ٧:٠٠ رنّت من نص ساعة — إعاداتها كلها فاتت، وما بتاخدش خانة
       final later = DateTime(2026, 8, 31, 7, 30);
-      final shifted = planWindow(routine: _routine, schedules: many,
+      final shifted = planWindow(schedules: many,
           from: DateTime(2026, 8, 31, 6, 45));
       final planned2 = planRepeats(shifted, from: later);
       final covered2 = {for (final p in planned2) p.payload};
@@ -263,7 +257,7 @@ void main() {
       final many = [
         for (var i = 0; i < 4; i++) _dose('M$i', DayAnchor.breakfast, offset: -30 + i * 60),
       ];
-      final rems = planWindow(routine: _routine, schedules: many, from: _six);
+      final rems = planWindow(schedules: many, from: _six);
       final planned = planRepeats(rems, from: _six, modeOf: (_) => AlertMode.continuous, enabledRungs: const {});
       expect(planned.length, maxPendingRepeats);
       final byReminder = <String, int>{};
@@ -281,13 +275,13 @@ void main() {
       expect(AlertMode.strongest(const []), AlertMode.once);
       final quiet = _dose('q', DayAnchor.breakfast, offset: -30);
       final loud = DoseSchedule(
-        id: 'l', medicationName: 'l', timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        id: 'l', medicationName: 'l', timing: FixedTiming(MinuteOfDay.hm(7)),
         repeat: DoseRepeat.daily, startDate: _aug31, alertMode: AlertMode.continuous,
       );
-      final rems = planWindow(routine: _routine, schedules: [quiet, loud], from: _six);
+      final rems = planWindow(schedules: [quiet, loud], from: _six);
       expect(rems.first.doses, hasLength(2), reason: 'نفس الدقيقة → تذكير واحد');
       expect(alertModeOf(rems.first, fallback: AlertMode.once), AlertMode.continuous);
-      expect(alertModeOf(planWindow(routine: _routine, schedules: [quiet], from: _six).first,
+      expect(alertModeOf(planWindow(schedules: [quiet], from: _six).first,
           fallback: AlertMode.once), AlertMode.once);
     });
 
@@ -317,14 +311,12 @@ void main() {
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       meds = MedicationRepository(db, clock: seededLongAgo);
       prefs = PreferencesRepository(db);
       sink = _Sink();
-      patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, _routine);
+      patientId = await patients.ensurePatient();
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -334,7 +326,7 @@ void main() {
       medId = await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: _aug31,
       );
     });
@@ -459,7 +451,7 @@ void main() {
       final repeat = sink.repeats[repeatIdFor(_seven, 0)]!;
       final decoded = decodePayload(repeat.payload)!;
       expect(decoded.routineDay, _aug31);
-      final engine = ScheduleEngine(_routine);
+      final engine = const ScheduleEngine();
       final schedules = await meds.activeSchedules(patientId);
       expect(decoded.scheduleIds, [schedules.single.id]);
       expect(engine.resolve(schedules.single, _aug31), _seven);

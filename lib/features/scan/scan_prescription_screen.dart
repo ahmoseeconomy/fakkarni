@@ -9,7 +9,6 @@ import '../../ai/gemini_config.dart';
 import '../../ai/prescription_reader.dart';
 import '../../ai/prescription_reading.dart';
 import '../../core/theme/tokens.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../medication/add_medication_screen.dart';
 import '../medication/medication_draft.dart';
 import 'debug_panel.dart';
@@ -52,7 +51,6 @@ Future<Uint8List?> pickWithSystemCamera(ImageSource source) async {
 /// القاعدة ٤ زي ما هي: ولا سطر بيتحفظ هنا. المراجعة ودوسة الإنسان بعدها.
 class ScanPrescriptionScreen extends StatefulWidget {
   const ScanPrescriptionScreen({
-    required this.routine,
     required this.reader,
     this.pickImage = pickWithSystemCamera,
     this.today,
@@ -60,7 +58,6 @@ class ScanPrescriptionScreen extends StatefulWidget {
     super.key,
   });
 
-  final DayRoutine routine;
 
   /// سجل الروشتة اللي اتكتب بعد التأكيد — «تابع زيارة» بتبدأ منه.
   final void Function(int recordId)? onSaved;
@@ -141,7 +138,6 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
         MaterialPageRoute(
           builder: (_) => ReviewPrescriptionScreen(
             reading: reading,
-            routine: widget.routine,
             // اللي الكاميرا دته (٢٥٦٠ من المنتقي) — مش المصغّرة بتاعة الموديل
             image: image,
             today: widget.today,
@@ -191,7 +187,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
     // بترجّع جرعات اللي اتحفظ — null يعني رجع من غير حفظ.
     final saved = await navigator.push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
+        builder: (_) => AddMedicationScreen(today: widget.today),
       ),
     );
     if (saved != null && mounted) navigator.pop();

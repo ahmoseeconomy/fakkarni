@@ -2,21 +2,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/medication/meal_relation.dart';
+
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
@@ -24,13 +24,6 @@ import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../../support/seeded_clock.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 
@@ -70,19 +63,17 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     events = DoseEventRepository(db);
     sink = RecordingSink();
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: events,
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -108,13 +99,14 @@ void main() {
       await meds.addMedication(
         patientId: services.patientId,
         name: name,
-        timing: AnchorTiming(DayAnchor.lunch, -30),
+        timing: FixedTiming(MinuteOfDay.hm(14)),
         startDate: aug31,
         amountLabel: 'قرص واحد',
+        mealRelation: MealRelation.after,
       );
     }
     final schedules = await meds.activeSchedules(services.patientId);
-    final reminders = ScheduleEngine(normalDay).remindersForDay(schedules, aug31);
+    final reminders = const ScheduleEngine().remindersForDay(schedules, aug31);
     await events.materializeDay(aug31, reminders);
     return [for (final s in schedules) s.id];
   }
@@ -158,7 +150,8 @@ void main() {
     expect(find.text('تنبيه — المرحلة ٢'), findsOneWidget);
     expect(find.text('Antodine'), findsOneWidget);
     expect(find.textContaining('قرص واحد'), findsOneWidget);
-    expect(find.textContaining('الغدا'), findsOneWidget);
+    // كلمة الأكل تعليمات جنب الساعة — ما بتحرّكهاش
+    expect(find.textContaining('بعد الأكل'), findsOneWidget);
     expect(find.textContaining('٢:٠٠ م'), findsOneWidget);
   });
 
@@ -234,7 +227,7 @@ void main() {
     expect(isSnoozeId(snooze.id), isTrue);
     expect(snooze.id, snoozeIdFor(lunchDose));
     expect(snooze.at, DateTime(2026, 8, 31, 14, 30));
-    expect(snooze.body, 'Antodine — قرص واحد');
+    expect(snooze.body, 'Antodine — قرص واحد — بعد الأكل');
     expect(decodePayload(snooze.payload)!.scheduleIds, ids);
     // الجرعة لسه معلّقة — التأجيل مش تخطّي
     expect(await statesOf(ids), [DoseState.pending]);
@@ -291,32 +284,6 @@ void main() {
     expect(find.text('تم التناول ✅'), findsNothing);
     expect(find.text('سلّم التصعيد'), findsNothing);
     expect(find.text('ارجع ليومك'), findsOneWidget);
-  });
-
-  screenTest('صوت المريضة: «خدتيه خلاص» و«ارجعي ليومك» لما الجنس ست', (tester) async {
-    final ids = await seed(['Antodine']);
-    await events.markTaken(int.parse(ids.single), aug31);
-    await tester.pumpWidget(
-      AppScope(
-        services: services,
-        child: MaterialApp(
-          theme: F.light,
-          home: Directionality(
-            textDirection: TextDirection.rtl,
-            child: PatientVoice(
-              say: const Say(Sex.f),
-              child: ReminderScreen(routineDay: aug31, scheduleIds: ids, now: DateTime(2026, 8, 31, 14, 15)),
-            ),
-          ),
-        ),
-      ),
-    );
-    await settle(tester);
-
-    expect(find.text('خدتيه خلاص'), findsOneWidget);
-    expect(find.text('ارجعي ليومك'), findsOneWidget);
-    expect(find.textContaining('أخدتيه'), findsOneWidget);
-    expect(find.text('خدته خلاص'), findsNothing);
   });
 
   screenTest('إشعار لجرعة اتشالت من اليوم → رسالة هادية بدل شاشة فاضية',

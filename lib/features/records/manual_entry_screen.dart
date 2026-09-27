@@ -109,7 +109,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     super.didChangeDependencies();
     if (_patientName != null) return;
     final services = AppScope.of(context);
-    services.routines.getPatient(services.patientId).then((p) {
+    services.patients.getPatient(services.patientId).then((p) {
       if (mounted) setState(() => _patientName = p?.name ?? '');
     });
   }

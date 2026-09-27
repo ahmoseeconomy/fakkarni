@@ -13,11 +13,10 @@ import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/root.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
-import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
 import 'package:fakkarni/domain/voice/voice_catalog.dart';
@@ -68,8 +67,6 @@ class TimedPlayer implements VoicePlayer {
 const placement = <String, Set<String>>{
     'intro_yes': {'features/voice/voice_intro_screen.dart'},
     'intro_no': {'features/voice/voice_intro_screen.dart'},
-    'help_routine': {'features/routine/edit_routine_screen.dart'},
-    'help_routine_skip': {'features/onboarding/routine_onboarding_screen.dart'},
     'help_today': {'features/elder/elder_home_screen.dart', 'features/today/today_screen.dart'},
     'help_next_dose': {'features/elder/elder_home_screen.dart', 'features/today/today_screen.dart'},
     'help_confirm_done': {'features/reminder/reminder_screen.dart', 'features/today/dose_actions.dart'},
@@ -120,16 +117,8 @@ const placement = <String, Set<String>>{
     'cmd_done': {'features/voice/command_flow.dart'},
     'cmd_limit': {'features/voice/command_flow.dart'},
     'onb_entry': {'features/entry/entry_screen.dart'},
-    'onb_name': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_gender': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_age': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_wake': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_breakfast': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_lunch': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_dinner': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_sleep': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_routine_skip': {'features/onboarding/routine_onboarding_screen.dart'},
-    'onb_routine_done': {'features/onboarding/routine_onboarding_screen.dart'},
+    'onb_name': {'features/onboarding/profile_onboarding_screen.dart'},
+    'onb_age': {'features/onboarding/profile_onboarding_screen.dart'},
 };
 
 void main() {
@@ -205,19 +194,19 @@ void main() {
     SharedPreferences.setMockInitialValues({VoiceService.enabledKey: true, VoiceService.introDoneKey: true});
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db, clock: seededLongAgo);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     final player = TimedPlayer();
     final voice = VoiceService(player: player, tts: FakeTts());
     await voice.load();
     final services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-          routines: routines, medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: SilentSink()),
+          medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: SilentSink()),
       patientId: patientId,
       voice: voice,
     );
@@ -269,33 +258,18 @@ void main() {
     await wait(1);
     await tester.tap(find.text('كمّل'));
     await wait();
-    expect(fresh(), ['onb_gender']);
+    expect(fresh(), ['onb_age'], reason: 'السن بعد الاسم على طول — مفيش صفحة جنس');
 
-    await tester.tap(find.text('راجل'));
+    // بكرة، إعادة بناء الشجرة كلها، وسكوت طويل — ولا حاجة بتتعاد
+    await tester.drag(find.byKey(const ValueKey('age-wheel')), const Offset(0, -120));
     await wait(1);
-    await tester.tap(find.text('كمّل'));
-    await wait();
-    expect(fresh(), ['onb_age']);
+    await tester.pumpWidget(app());
+    await wait(30);
+    expect(fresh(), isEmpty, reason: 'onb_age اتعادت لوحدها');
 
     await tester.tap(find.text('كمّل'));
-    await wait(8);
-    expect(fresh(), ['onb_wake', 'onb_routine_skip'], reason: 'حفظ الجنس ما بيبنيش الأسئلة تاني');
-
-    for (final line in ['onb_breakfast', 'onb_lunch', 'onb_dinner', 'onb_sleep']) {
-      await tester.tap(find.text('تمام'));
-      await wait();
-      expect(fresh(), [line]);
-      // بكرة، إعادة بناء الشجرة كلها، وسكوت طويل — ولا حاجة بتتعاد
-      await tester.drag(find.byKey(FTimeWheel.minutesKey).last, const Offset(0, -120));
-      await wait(1);
-      await tester.pumpWidget(app());
-      await wait(30);
-      expect(fresh(), isEmpty, reason: '$line اتعادت لوحدها');
-    }
-
-    await tester.tap(find.text('تمام'));
     await wait(6);
-    expect(fresh(), ['onb_routine_done']);
+    expect(fresh(), isEmpty, reason: 'مفيش أسئلة روتين ولا جملة «تمام كده» بعد السن');
     expect(find.byType(AppShell), findsOneWidget);
     expect(player.cut, isEmpty, reason: 'ولا جملة اتقطعت عشان جملة تانية تبدأ مكانها');
 

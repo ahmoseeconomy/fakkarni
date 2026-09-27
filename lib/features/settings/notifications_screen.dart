@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/repositories/preferences_repository.dart';
 import '../../domain/escalation/alert_mode.dart';
@@ -53,7 +52,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final say = PatientVoice.of(context);
     String minutes(Duration d) => '+${arabicNumber(d.inMinutes)} د';
 
     return Scaffold(
@@ -121,7 +119,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     FSwitch(
                       key: const ValueKey('rung-first'),
                       label: minutes(EscalationRung.first.delay),
-                      subtitle: 'تذكير تاني ${say.pick('لو ما أكّدتش', 'لو ما أكّدتيش')}',
+                      subtitle: 'تذكير تاني لو ما أكّدتش',
                       value: settings.rungFirstOn,
                       onChanged: (on) => _set(EscalationRung.first, on),
                     ),
@@ -143,7 +141,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               const SizedBox(height: F.s10),
               Text(
-                '${say.pick('لو قفلت', 'لو قفلتي')} +١٥ و+٣٠، التذكير في الموعد وإشعار عيلتك أو ممرضك بيفضلوا زي ما هم.',
+                'لو قفلت +١٥ و+٣٠، التذكير في الموعد وإشعار عيلتك أو ممرضك بيفضلوا زي ما هم.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
               ),
             ],

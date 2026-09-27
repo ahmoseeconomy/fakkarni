@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/export/export_document.dart';
 import 'package:fakkarni/features/records/record_kinds.dart' show RecordPeriod;
@@ -21,10 +21,10 @@ void main() {
   tearDown(h.tearDown);
 
   const fourTimes = [
-    AnchorTiming(DayAnchor.wake, 0),
-    AnchorTiming(DayAnchor.breakfast, 0),
-    AnchorTiming(DayAnchor.lunch, 0),
-    AnchorTiming(DayAnchor.dinner, 0),
+    FixedTiming(MinuteOfDay.hm(7)),
+    FixedTiming(MinuteOfDay.hm(7, 30)),
+    FixedTiming(MinuteOfDay.hm(14, 30)),
+    FixedTiming(MinuteOfDay.hm(20)),
   ];
 
   Future<void> seed() => h.meds.addMedicationWithDoses(
@@ -56,7 +56,7 @@ void main() {
     );
   });
 
-  screenTest('جدول الأدوية بيعرض الدوا تحت كل مرساة من الأربعة — أربع كروت', (tester) async {
+  screenTest('جدول الأدوية بيعرض الدوا تحت كل ساعة من الأربعة — أربع كروت', (tester) async {
     tester.view.physicalSize = const Size(1000, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -66,7 +66,7 @@ void main() {
     await h.pump(tester, MedicationsScreen(today: aug31));
 
     expect(find.text('Augmentin'), findsNWidgets(4), reason: 'كارت لكل جرعة — ده جدول');
-    expect(find.text('دوا واحد — مرتّبة على مواعيد يومك'), findsOneWidget);
+    expect(find.text('دوا واحد — مرتّبة بالساعة'), findsOneWidget);
   });
 
   test('ملف التصدير بيقول «٤× في اليوم» — مش ١×', () async {

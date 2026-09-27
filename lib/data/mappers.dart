@@ -1,34 +1,14 @@
 import '../domain/escalation/alert_mode.dart';
-import '../domain/scheduling/day_routine.dart';
+import '../domain/medication/meal_relation.dart';
+import '../domain/scheduling/minute_of_day.dart';
 import '../domain/scheduling/day_pattern.dart';
 import '../domain/scheduling/dose_schedule.dart';
 import 'db/app_database.dart';
-import 'db/tables.dart';
 
 /// تحويل صفوف drift لكائنات الدومين.
 ///
 /// الاتجاه ده في اتجاه واحد بس مقصود: `lib/domain/` عمره ما بيعرف إن فيه
 /// قاعدة بيانات أصلاً، وده اللي بيخلي المحرك يتختبر في أقل من ثانية.
-
-DayRoutine routineFromRow(DayRoutineRow row) => DayRoutine(
-      wake: MinuteOfDay(row.wakeMinutes),
-      breakfast: MinuteOfDay(row.breakfastMinutes),
-      lunch: MinuteOfDay(row.lunchMinutes),
-      dinner: MinuteOfDay(row.dinnerMinutes),
-      sleep: MinuteOfDay(row.sleepMinutes),
-      unset: unsetAnchorsFromText(row.unsetAnchors),
-    );
-
-/// العلم على الصف: أسامي المراسي مفصولة بفاصلة. اسم غريب بيتعدّى — صف
-/// من نسخة أحدث ما ينفعش يوقّع القراية.
-Set<DayAnchor> unsetAnchorsFromText(String text) => {
-      for (final name in text.split(','))
-        for (final a in DayAnchor.values)
-          if (a.name == name.trim()) a,
-    };
-
-String unsetAnchorsToText(Set<DayAnchor> unset) =>
-    [for (final a in DayAnchor.values) if (unset.contains(a)) a.name].join(',');
 
 DoseSchedule doseScheduleFromRow(
   DoseScheduleRow row,
@@ -45,6 +25,7 @@ DoseSchedule doseScheduleFromRow(
       amountLabel: med.amountLabel,
       alertMode: AlertMode.fromStorage(med.alertMode),
       days: dayPatternFromRow(row),
+      mealRelation: MealRelation.fromStorage(row.mealRelation),
     );
 
 /// النمط من أعمدة v29 — كلهم null = «كل يوم». قيمة برّه الحدود (صف اتكتب
@@ -66,21 +47,12 @@ DayPattern dayPatternFromRow(DoseScheduleRow row) {
       OnOffCycle(:final on, :final off) => (weekdaysMask: null, everyDays: null, cycleOn: on, cycleOff: off),
     };
 
-/// بيرجّع نوع التوقيت من الصف وصف الساعة الثابتة (لو موجود).
+/// ساعة الجرعة من صف `fixed_timings` بتاعها.
 ///
-/// صف نوعه `fixed` من غير ساعة، أو نوعه `anchor` من غير مرساة، معناه إن
-/// حاجة اتكسرت في الكتابة — بنرمي بدل ما نخمّن معاد دوا.
-DoseTiming timingFromRow(DoseScheduleRow row, FixedTimingRow? fixed) =>
-    switch (row.timingKind) {
-      DoseTimingKind.anchor => AnchorTiming(
-          row.anchor ??
-              (throw StateError('جرعة ${row.id} مرساة من غير مرساة')),
-          row.offsetMinutes ?? 0,
-        ),
-      DoseTimingKind.fixed => FixedTiming(
-          MinuteOfDay(
-            fixed?.minuteOfDay ??
-                (throw StateError('جرعة ${row.id} ساعة ثابتة من غير ساعة')),
-          ),
-        ),
-    };
+/// صف جرعة من غير ساعة معناه إن حاجة اتكسرت في الكتابة (أو ترحيل ما
+/// كملش) — بنرمي بدل ما نخمّن معاد دوا.
+FixedTiming timingFromRow(DoseScheduleRow row, FixedTimingRow? fixed) => FixedTiming(
+      MinuteOfDay(
+        fixed?.minuteOfDay ?? (throw StateError('جرعة ${row.id} من غير ساعة')),
+      ),
+    );

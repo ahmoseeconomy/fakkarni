@@ -5,7 +5,7 @@ import '../../domain/scheduling/dose_schedule.dart';
 
 /// جرعة واحدة في قايمة: القاعدة والوقت المحسوب، «عدّل»، و«شيل» لو مسموح.
 ///
-/// بتاخد [DoseTiming] مش صف محفوظ، عشان الشاشتين يستعملوها: تعديل دوا موجود
+/// بتاخد [FixedTiming] مش صف محفوظ، عشان الشاشتين يستعملوها: تعديل دوا موجود
 /// (جرعاته في القاعدة) و«ضيف دوا» (جرعات لسه في الذاكرة).
 ///
 /// **null في أي من الزرارين معناه الزرار مش موجود خالص** — مش متعطّل. ودي
@@ -23,7 +23,7 @@ class DoseRow extends StatelessWidget {
     super.key,
   });
 
-  final DoseTiming timing;
+  final FixedTiming timing;
 
   /// الساعة المحسوبة على مواعيد اليوم — عرض بس، عمرها ما بتتخزّن.
   final String time;
@@ -49,7 +49,7 @@ class DoseRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${timing.ruleLabel} — $time',
+                  time,
                   style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
                 ),
               ),

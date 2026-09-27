@@ -9,10 +9,10 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
+import '../../domain/wording/patient_words.dart';
 import '../../core/widgets/keyboard_dismiss.dart';
 import '../../core/widgets/shell_bottom_extra.dart';
 import '../../data/services/appointment_card.dart';
-import '../../core/widgets/patient_voice.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/dose_state.dart';
@@ -23,7 +23,6 @@ import '../../domain/care/follower_profile.dart';
 import '../../domain/health/follow_display.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/health/follow_up.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
 import '../health/glucose_screen.dart';
@@ -51,9 +50,8 @@ import 'widgets/refill_lines.dart';
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
 class TodayScreen extends StatefulWidget {
-  const TodayScreen({required this.routine, this.now, super.key});
+  const TodayScreen({this.now, super.key});
 
-  final DayRoutine routine;
 
   /// للاختبارات — الشاشة بتستخدم دلوقتي الحقيقي في التطبيق.
   final DateTime? now;
@@ -114,7 +112,7 @@ class _TodayScreenState extends State<TodayScreen> {
   List<RecordRow> _openFollowUps = const [];
 
   DateTime get _now => widget.now ?? DateTime.now();
-  DateTime get _routineDay => currentRoutineDay(widget.routine, _now);
+  DateTime get _routineDay => currentRoutineDay(_now);
 
   @override
   void didChangeDependencies() {
@@ -126,7 +124,7 @@ class _TodayScreenState extends State<TodayScreen> {
     _tomorrow = services.events.watchDay(
       DateTime(_routineDay.year, _routineDay.month, _routineDay.day + 1),
     );
-    _patient = services.routines.watchPatient(services.patientId);
+    _patient = services.patients.watchPatient(services.patientId);
     unawaited(_loadFollowers(services));
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
     _followUps = services.checkups.watchOpen(services.patientId);
@@ -170,7 +168,7 @@ class _TodayScreenState extends State<TodayScreen> {
     });
 
     final services = AppScope.of(context);
-    final engine = ScheduleEngine(widget.routine);
+    const engine = ScheduleEngine();
     await services.events.materializeDay(
       _routineDay,
       engine.remindersForDay(schedules, _routineDay),
@@ -179,15 +177,6 @@ class _TodayScreenState extends State<TodayScreen> {
     // idempotent لو الشاشة اتفتحت قبله.
     final tomorrow = DateTime(_routineDay.year, _routineDay.month, _routineDay.day + 1);
     await services.events.materializeDay(tomorrow, engine.remindersForDay(schedules, tomorrow));
-  }
-
-  @override
-  void didUpdateWidget(TodayScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // الروتين اتغيّر → ساعات اليوم بتتحرك، فبنعيد التوليد.
-    if (oldWidget.routine != widget.routine) {
-      unawaited(_onSchedules(_schedules));
-    }
   }
 
   @override
@@ -209,7 +198,7 @@ class _TodayScreenState extends State<TodayScreen> {
   Future<void> _loadFollowers(AppServices services) async {
     final preferences = services.caregiverPreferences;
     if (preferences == null) return;
-    final patient = await services.routines.getPatient(services.patientId);
+    final patient = await services.patients.getPatient(services.patientId);
     final uuid = patient?.uuid;
     if (uuid == null) return;
     try {
@@ -277,21 +266,6 @@ class _TodayScreenState extends State<TodayScreen> {
       if (schedule.id == doseScheduleId.toString()) return schedule.ruleLabel;
     }
     return null;
-  }
-
-  List<AnchorMark> get _anchors {
-    final engine = ScheduleEngine(widget.routine);
-    return [
-      for (final anchor in DayAnchor.values)
-        AnchorMark(
-          anchor,
-          engine.resolveTime(
-            anchor: anchor,
-            offsetMinutes: 0,
-            onDay: _routineDay,
-          ),
-        ),
-    ];
   }
 
   /// صف الدايرة بيفتح باب الربط الموجود — نفس الشاشة، نفس النداء الوحيد.
@@ -395,7 +369,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   // «كلّمني» (المرحلة ٣): تحت التحية، فوق كل حاجة — طلب مفتوح
                   // بالصوت. جوّه الترويسة مش ولد لوحده في القايمة: ولد بصفر
                   // ارتفاع كان بيحرّك اختبار لفّ SE.
-                  talk: TalkButton(routine: widget.routine, routineDay: _routineDay, now: widget.now, gapAbove: F.s12),
+                  talk: TalkButton(routineDay: _routineDay, now: widget.now, gapAbove: F.s12),
                 ),
               ),
               // ملخص اليوم بالصوت — أول فتحة في يوم الروتين، من البيانات
@@ -496,7 +470,7 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
               const SizedBox(height: F.s4),
               Text(
-                'مواعيد يومك، وأدويتك مربوطة بيها.',
+                'أدوية النهارده بالساعة — وحالة كل واحدة.',
                 style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               ),
               const SizedBox(height: F.s12),
@@ -504,7 +478,6 @@ class _TodayScreenState extends State<TodayScreen> {
                 _EmptyPanel(hasMedications: _schedules.isNotEmpty)
               else
                 DayRail(
-                  anchors: _anchors,
                   groups: groups,
                   now: _now,
                   ruleLabelFor: _ruleLabelFor,
@@ -945,7 +918,7 @@ class _AllDonePanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(F.radius),
         ),
         child: Text(
-          PatientVoice.of(context).allDone,
+          allDoneLine,
           style: const TextStyle(
             fontSize: F.minBodySize,
             fontWeight: FontWeight.w600,

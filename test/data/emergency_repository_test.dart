@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/emergency_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 
 void main() {
   late AppDatabase db;
@@ -13,7 +13,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     repo = EmergencyRepository(db);
-    patientId = await RoutineRepository(db).ensurePatient();
+    patientId = await PatientRepository(db).ensurePatient();
   });
   tearDown(() => db.close());
 

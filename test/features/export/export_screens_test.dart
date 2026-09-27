@@ -10,7 +10,7 @@ import 'package:fakkarni/data/repositories/emergency_repository.dart';
 import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/doctor/doctor_page_screen.dart';
 import 'package:fakkarni/features/export/export_actions.dart';
@@ -75,7 +75,7 @@ void main() {
       patientId: h.services.patientId,
       name: 'Concor 5mg',
       amountLabel: 'قرص واحد',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: DateTime(2026, 9, 1),
     );
     final readings = ReadingsRepository(h.db);

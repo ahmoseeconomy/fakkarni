@@ -11,7 +11,7 @@ Future<bool> ensureFamilyFeature(BuildContext context, AppFeature feature) async
   final services = AppScope.maybeOf(context);
   final service = services?.subscription;
   if (services == null || service == null || service.allowed(feature)) return true;
-  final patient = await services.routines.getPatient(services.patientId);
+  final patient = await services.patients.getPatient(services.patientId);
   if (!context.mounted) return false;
   var names = const <String>[];
   try {

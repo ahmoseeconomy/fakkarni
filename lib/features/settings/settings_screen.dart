@@ -8,10 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/fa_mark.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/auth/auth_service.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../link/sign_in_screen.dart';
-import '../routine/edit_routine_screen.dart';
-import '../routine/ramadan_screen.dart';
 import '../selfcheck/health_check_screen.dart';
 import '../../data/files/paper_share.dart';
 import '../billing/family_plan_screen.dart';
@@ -57,8 +54,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _patientName;
-  DayRoutine? _routine;
-  bool _ramadanOn = false;
   bool _busy = false;
   bool _loaded = false;
 
@@ -90,14 +85,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _reload() async {
     final services = AppScope.of(context);
-    final patient = await services.routines.getPatient(services.patientId);
-    final routine = await services.routines.getRoutine(services.patientId);
-    final ramadan = await services.routines.ramadanTimes(services.patientId);
+    final patient = await services.patients.getPatient(services.patientId);
     if (!mounted) return;
     setState(() {
       _patientName = patient?.name;
-      _routine = routine;
-      _ramadanOn = ramadan != null;
     });
   }
 
@@ -121,8 +112,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final services = AppScope.of(context);
-    final routine = _routine;
-
     return StreamBuilder<FakkarniUser?>(
       stream: services.auth?.authState,
       initialData: services.auth?.currentUser,
@@ -144,21 +133,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: F.s12),
             _AccountCard(name: _patientName ?? 'أنا', user: user),
             const SizedBox(height: F.gap),
-            _Row(
-              icon: Icons.wb_sunny_outlined,
-              label: 'مواعيد يومك',
-              hint: 'الصحيان والأكل والنوم — كل الجرعات بتترتّب عليهم',
-              // مفيش ساعة جنبه: «٧:٣٠ ص» لوحدها كانت ساعة الفطار من غير ما تقول
-              onTap: routine == null ? null : () => _open(EditRoutineScreen(routine: routine)),
-            ),
-            _Row(
-              icon: Icons.nightlight_outlined,
-              label: 'وضع رمضان',
-              hint: _ramadanOn ? 'جدولك على السحور والمغرب' : 'الفطار يبقى المغرب والعشا السحور',
-              value: _ramadanOn ? 'شغّال' : 'مقفول',
-              attention: _ramadanOn,
-              onTap: () => _open(const RamadanScreen()),
-            ),
             _Row(
               icon: Icons.notifications_outlined,
               label: 'التنبيهات',
@@ -214,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: 'اشتراك العيلة',
                 hint: 'اشتراك واحد ليك ولعيلتك أو ممرضك — التذكير مجاني للأبد',
                 onTap: () async {
-                  final patient = await services.routines.getPatient(services.patientId);
+                  final patient = await services.patients.getPatient(services.patientId);
                   if (!context.mounted) return;
                   _open(FamilyPlanScreen(service: sub, patientName: patient?.name ?? 'أنا'));
                 },
@@ -229,7 +203,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: 'عيلتك أو ممرضك',
                 hint: 'الدور والصلاحيات لكل واحد، وشيل اللي مش عايزه',
                 onTap: () async {
-                  final patient = await services.routines.getPatient(services.patientId);
+                  final patient = await services.patients.getPatient(services.patientId);
                   if (patient == null || !context.mounted) return;
                   _open(FollowersScreen(admin: services.careAdmin!, patientUuid: patient.uuid));
                 },
@@ -487,7 +461,6 @@ class _Row extends StatelessWidget {
     required this.hint,
     required this.onTap,
     this.value,
-    this.attention = false,
     this.help,
     super.key,
   });
@@ -499,7 +472,6 @@ class _Row extends StatelessWidget {
   final String label;
   final String hint;
   final String? value;
-  final bool attention;
   final VoidCallback? onTap;
 
   @override
@@ -511,7 +483,7 @@ class _Row extends StatelessWidget {
         color: disabled ? F.railGround : F.cardGround,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(F.radiusCard),
-          side: BorderSide(color: attention ? F.gold : F.line, width: attention ? 2 : 1),
+          side: BorderSide(color: F.line, width: 1),
         ),
         child: InkWell(
           onTap: onTap,
@@ -525,7 +497,7 @@ class _Row extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: attention ? F.gold : F.railGround,
+                    color: F.railGround,
                     borderRadius: BorderRadius.circular(F.radiusTile),
                   ),
                   child: Icon(icon, size: 24, color: disabled ? F.mutedLight : F.ink),
@@ -562,7 +534,7 @@ class _Row extends StatelessWidget {
                       fontSize: F.minTextSize,
                       fontWeight: FontWeight.w700,
                       // الحافة الذهبي هي المعنى؛ الكلمة غامقة تتقري (ذهبي على أبيض ≈ ٢:١)
-                      color: attention ? F.ink : (disabled ? F.mutedDark : F.green),
+                      color: disabled ? F.mutedDark : F.green,
                     ),
                   ),
                 ],

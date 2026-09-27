@@ -3,6 +3,7 @@
 // دارت نقية.
 
 import '../../ai/command_reader.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/voice/answer_parser.dart';
 import 'command_parser.dart';
 
@@ -47,21 +48,13 @@ List<T>? _list<T>(Object? v, T? Function(Object) each) {
   return out;
 }
 
-const _anchorOf = <String, (String, MealRelation?)>{
-  'wake': ('الصحيان', null),
-  'before_breakfast': ('الفطار', MealRelation.before),
-  'with_breakfast': ('الفطار', MealRelation.with_),
-  'after_breakfast': ('الفطار', MealRelation.after),
-  'before_lunch': ('الغدا', MealRelation.before),
-  'with_lunch': ('الغدا', MealRelation.with_),
-  'after_lunch': ('الغدا', MealRelation.after),
-  'before_dinner': ('العشا', MealRelation.before),
-  'with_dinner': ('العشا', MealRelation.with_),
-  'after_dinner': ('العشا', MealRelation.after),
-  'before_sleep': ('النوم', MealRelation.before),
+/// كلمة الأكل من السحابة → كلمة تعليمات (مش ساعة): الساعة بتتسأل بعدها.
+const _mealOf = <String, MealRelation>{
+  'before_meal': MealRelation.before,
+  'with_meal': MealRelation.with_,
+  'after_meal': MealRelation.after,
+  'empty_stomach': MealRelation.emptyStomach,
 };
-
-const _mealOf = <String, String>{'wake': 'الصحيان', 'breakfast': 'الفطار', 'lunch': 'الغدا', 'dinner': 'العشا', 'sleep': 'النوم'};
 
 /// null = الرد مش صالح — بيتعامل معاه كمش مفهوم، مش كأمر ناقص.
 VoiceCommand? commandFromCloudTool(CloudTool t, {required DateTime now}) {
@@ -99,11 +92,6 @@ VoiceCommand? commandFromCloudTool(CloudTool t, {required DateTime now}) {
       final values = _list<double>(a['values'], (e) => e is num && e > 0 ? e.toDouble() : null);
       if (type == null || values == null) return null;
       return VoiceCommand(CommandIntent.addVital, vital: SpokenVital(type, values));
-    case 'set_routine':
-      final meal = _mealOf[_str(a['meal']) ?? ''];
-      final time = _time(a['time']);
-      if (meal == null || time == null) return null;
-      return VoiceCommand(CommandIntent.setRoutine, routine: SpokenRoutine(meal, time));
     case 'add_appointment':
       final kind = AppointmentKind.values.asNameMap()[_str(a['kind']) ?? ''];
       if (kind == null) return null;
@@ -128,13 +116,10 @@ VoiceCommand? commandFromCloudTool(CloudTool t, {required DateTime now}) {
         if (times == null) return null;
         timings.addAll(times.map((t) => SpokenTiming(fixed: t)));
       }
-      if (a['anchors'] != null) {
-        final anchors = _list<SpokenTiming>(a['anchors'], (e) {
-          final x = _anchorOf[e is String ? e : ''];
-          return x == null ? null : SpokenTiming(anchorWord: x.$1, relation: x.$2);
-        });
-        if (anchors == null) return null;
-        timings.addAll(anchors);
+      if (a['meal_relation'] != null) {
+        final m = _mealOf[_str(a['meal_relation']) ?? ''];
+        if (m == null) return null;
+        timings.add(SpokenTiming(anchorWord: 'الأكل', relation: m));
       }
       final pattern = _str(a['pattern']);
       if (pattern != null && !const {'daily', 'every_n_hours', 'weekdays', 'once'}.contains(pattern)) return null;

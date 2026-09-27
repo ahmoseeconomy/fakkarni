@@ -10,23 +10,16 @@ import 'package:fakkarni/data/db/tables.dart' show RecordKind, GlucoseContext;
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
 import '../../support/seeded_clock.dart';
 
-final normalDay = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final aug31 = DateTime(2026, 8, 31);
 
@@ -92,7 +85,7 @@ class FakeSyncRemote implements SyncRemote {
 
 void main() {
   late AppDatabase db;
-  late RoutineRepository routines;
+  late PatientRepository patients;
   late MedicationRepository meds;
   late FakeSyncRemote remote;
   late bool signedIn;
@@ -101,7 +94,7 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    routines = RoutineRepository(db);
+    patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     remote = FakeSyncRemote();
     signedIn = true;
@@ -112,8 +105,9 @@ void main() {
       localWrites: const Stream.empty(),
       blockStore: MemorySyncBlockStore(),
     );
-    patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, normalDay);
+    patientId = await patients.ensurePatient();
+    // «نتعرّف عليك» اتحفظت — ده اللي بيخلّي الصف مريض (كان روتين محفوظ)
+    await patients.saveProfile(patientId, name: 'الحاج أحمد');
   });
 
   tearDown(() async {
@@ -124,7 +118,7 @@ void main() {
   Future<int> addConcor() => meds.addMedication(
         patientId: patientId,
         name: 'Concor 5mg',
-        timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: aug31,
         amountLabel: 'قرص واحد',
       );
@@ -151,7 +145,7 @@ void main() {
     expect(remote.calls, 0, reason: 'اربط ابني هو اللي بيفتح المزامنة');
   });
 
-  test('D4: مريض لسه ما اتعرّفناش عليه (من غير روتين ولا أدوية) ما بيطلعش السحابة', () async {
+  test('D4: مريض لسه ما اتعرّفناش عليه (من غير «نتعرّف عليك» ولا أدوية) ما بيطلعش السحابة', () async {
     // صف «أنا» الفاضي بتاع ensurePatient — زي اللي على موبايل ابن
     final empty = await db.into(db.patients).insert(
           PatientsCompanion.insert(name: 'أنا', notificationSlot: const Value(1)),
@@ -166,16 +160,16 @@ void main() {
     await sync.push();
 
     final pushed = remote.tables['patients']?.values.map((r) => r['name']).toSet() ?? {};
-    expect(pushed, {'اسم $patientId'}, reason: 'اللي ليه روتين بس');
+    expect(pushed, {'اسم $patientId'}, reason: 'اللي اتعرّفنا عليه بس');
     final emptyRow = await (db.select(db.patients)..where((t) => t.id.equals(empty))).getSingle();
     expect(emptyRow.syncedAtMs == null || emptyRow.syncedAtMs! < emptyRow.updatedAtMs, isTrue,
-        reason: 'بيفضل متوسّخ ويطلع أول ما يبقى ليه روتين أو دوا');
+        reason: 'بيفضل متوسّخ ويطلع أول ما يبقى ليه اسم أو دوا');
 
     // أول دوا → بيطلع
     await meds.addMedication(
       patientId: empty,
       name: 'Concor 5mg',
-      timing: const AnchorTiming(DayAnchor.breakfast, -30),
+      timing: FixedTiming(MinuteOfDay.hm(7)),
       startDate: aug31,
     );
     await sync.push();
@@ -358,7 +352,7 @@ void main() {
     // صف المريض رفعته شاشة الربط نفسها (care.upsertPatient) — المزامنة
     // بتبعته بس لو اتعدّل بعدها، وconfirmLinked علّمته نضيف.
     expect(remote.rowCount('patients'), 0);
-    expect(remote.rowCount('day_routines'), 1);
+    expect(remote.rowCount('fixed_timings'), 1, reason: 'كل جرعة ليها ساعتها في جدولها');
     expect(remote.rowCount('medications'), 1);
     expect(remote.rowCount('dose_schedules'), 1);
     // الأرقام المحلية ما سابتش الجهاز، والعلاقات بالـuuid
@@ -540,6 +534,7 @@ void main() {
     });
 
     test('مربوط وفيه متوسّخ → pushed', () async {
+      await addConcor();
       await sync.confirmLinked();
       expect(await sync.pushOnce(), PushOutcome.pushed);
       expect(remote.tables, isNotEmpty);
@@ -559,7 +554,7 @@ void main() {
       // صف المريض رفعته شاشة الربط، فconfirmLinked علّمته نضيف — الباقي
       // بيتدفع أب-قبل-ابن زي push بالظبط
       expect(remote.tables.keys.toList(),
-          ['day_routines', 'medications', 'dose_schedules']);
+          ['medications', 'dose_schedules', 'fixed_timings']);
       for (final row in await localState()) {
         expect(row.synced, row.updated, reason: 'العلامة = اللي اتدفع');
       }
@@ -617,7 +612,6 @@ void main() {
 
     setUp(() {
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -629,9 +623,9 @@ void main() {
     Future<void> addThreeADay() async {
       final id = await addConcor(); // قبل الفطار بنص ساعة = ٧:٠٠
       await meds.addDoseSchedule(id,
-          timing: const AnchorTiming(DayAnchor.lunch, -30), startDate: aug31);
+          timing: FixedTiming(MinuteOfDay.hm(14)), startDate: aug31);
       await meds.addDoseSchedule(id,
-          timing: const AnchorTiming(DayAnchor.dinner, 30), startDate: aug31);
+          timing: FixedTiming(MinuteOfDay.hm(20, 30)), startDate: aug31);
     }
 
     List<Map<String, dynamic>> cloudEvents() =>
@@ -715,7 +709,7 @@ void main() {
       final id = await meds.addMedicationWithDoses(
         patientId: patientId,
         name: 'Concor 5mg',
-        timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+        timings: const [FixedTiming(MinuteOfDay.hm(7))],
         startDate: DateTime(2026, 8, 31),
       );
       await sync.confirmLinked();
@@ -739,7 +733,7 @@ void main() {
       final id = await meds.addMedicationWithDoses(
         patientId: patientId,
         name: 'Augmentin',
-        timings: const [AnchorTiming(DayAnchor.breakfast, 0), AnchorTiming(DayAnchor.dinner, 0)],
+        timings: const [FixedTiming(MinuteOfDay.hm(7, 30)), FixedTiming(MinuteOfDay.hm(20))],
         startDate: DateTime(2026, 8, 31),
       );
       await sync.confirmLinked();
@@ -759,7 +753,7 @@ void main() {
       final id = await meds.addMedicationWithDoses(
         patientId: patientId,
         name: 'Concor 5mg',
-        timings: const [AnchorTiming(DayAnchor.breakfast, -30)],
+        timings: const [FixedTiming(MinuteOfDay.hm(7))],
         startDate: DateTime(2026, 8, 31),
       );
       await meds.removeMedication(id, now: DateTime(2026, 9, 1));
@@ -910,7 +904,7 @@ void main() {
       final schedule = (await db.select(db.doseSchedules).get()).single;
       final events = DoseEventRepository(db);
       await events.materializeDay(
-          aug31, ScheduleEngine(normalDay).remindersForDay(await meds.activeSchedules(patientId), aug31));
+          aug31, const ScheduleEngine().remindersForDay(await meds.activeSchedules(patientId), aug31));
       await events.markTaken(schedule.id, aug31);
       final before = await sync.stats();
       expect(before.dirtyCount, greaterThan(0));

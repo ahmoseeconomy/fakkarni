@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/diagnostics.dart';
 import '../../domain/care/circle_departure.dart';
 import '../care/circle_departures.dart';
-import '../repositories/routine_repository.dart';
+import '../repositories/patient_repository.dart';
 import 'medication_change_pull.dart';
 
 /// على موبايل المريض: سطور «خرج من الدايرة» الجديدة بتنزل على «يومك» —
@@ -11,10 +11,10 @@ import 'medication_change_pull.dart';
 ///
 /// مجاملة زي باقي السحبات: بتسجّل وما بترميش.
 class CircleDeparturePuller {
-  CircleDeparturePuller({required this.remote, required this.routines, required this.patientId});
+  CircleDeparturePuller({required this.remote, required this.patients, required this.patientId});
 
   final CircleDepartureRemote remote;
-  final RoutineRepository routines;
+  final PatientRepository patients;
   final int patientId;
 
   static const seenKey = 'circle.departuresSeen';
@@ -22,7 +22,7 @@ class CircleDeparturePuller {
   /// بيرجّع عدد السطور الجديدة.
   Future<int> pull() async {
     try {
-      final patient = await routines.getPatient(patientId);
+      final patient = await patients.getPatient(patientId);
       if (patient == null) return 0;
       final rows = await remote.forPatient(patient.uuid);
       final prefs = await SharedPreferences.getInstance();

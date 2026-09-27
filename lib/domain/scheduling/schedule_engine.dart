@@ -1,5 +1,6 @@
-import 'day_routine.dart';
 import 'dose_schedule.dart';
+import 'minute_of_day.dart';
+import 'routine_day.dart';
 
 /// تذكير واحد — ممكن يشيل أكتر من دوا لو وقتهم واحد.
 ///
@@ -22,58 +23,36 @@ class Reminder {
 ///
 /// دوال نقية بالكامل — من غير قاعدة بيانات ولا واجهة ولا إشعارات.
 /// وده مقصود: بيخلي كل المنطق ده يتختبر بـ`flutter test` في أقل من ثانية.
+///
+/// **مفيش روتين** (٢٧ سبتمبر ٢٠٢٦): كل جرعة ساعة ثابتة، واليوم بيبدأ
+/// [dayStart] (٤ الفجر) لكل الناس.
 class ScheduleEngine {
-  const ScheduleEngine(this.routine);
-
-  final DayRoutine routine;
-
-  /// بيحوّل مرساة + إزاحة لوقت حقيقي في يوم معيّن.
-  ///
-  /// بنستخدم مُنشئ [DateTime] بدقايق مجمّعة عن قصد: هو بيتعامل مع
-  /// تخطّي اليوم (لو الوقت عدّى منتصف الليل) ومع التوقيت الصيفي في مصر
-  /// بحساب الساعة كما يراها المستخدم — عكس `add(Duration)` اللي بيضيف
-  /// وقتاً مطلقاً وبيغلط عند تغيير التوقيت.
-  DateTime resolveTime({
-    required DayAnchor anchor,
-    required int offsetMinutes,
-    required DateTime onDay,
-  }) {
-    final total = routine.wake.minutes +
-        routine.minutesFromDayStart(anchor) +
-        offsetMinutes;
-    return DateTime(onDay.year, onDay.month, onDay.day, 0, total);
-  }
+  const ScheduleEngine();
 
   /// ساعة ثابتة في يوم روتين معيّن.
   ///
-  /// نفس قاعدة المراسي: اليوم بيبدأ من الصحيان. ساعة أبكر من الصحيان
-  /// (زي ١ ص لواحد بيصحى ٧) بتاعة آخر اليوم، فبتقع في اليوم التقويمي اللي
-  /// بعده — مش قبل الصحيان بست ساعات. غير كده الساعة ما بتتحركش خالص لما
-  /// الروتين يتغيّر.
+  /// اليوم بيبدأ ٤ الفجر: ساعة أبكر من كده (زي ١ بالليل) بتاعة آخر اليوم،
+  /// فبتقع في اليوم التقويمي اللي بعده — مش قبل بداية اليوم بتلات ساعات.
+  ///
+  /// بنستخدم مُنشئ [DateTime] بدقايق مجمّعة عن قصد: هو بيتعامل مع تخطّي
+  /// اليوم ومع التوقيت الصيفي في مصر بحساب الساعة كما يراها المستخدم —
+  /// عكس `add(Duration)` اللي بيضيف وقتاً مطلقاً وبيغلط عند تغيير التوقيت.
   DateTime resolveFixed({
     required MinuteOfDay minuteOfDay,
     required DateTime onDay,
   }) {
     final minutes = minuteOfDay.minutes;
-    final total = minutes < routine.wake.minutes ? minutes + 1440 : minutes;
+    final total = minutes < dayStart.minutes ? minutes + 1440 : minutes;
     return DateTime(onDay.year, onDay.month, onDay.day, 0, total);
   }
 
   DateTime resolve(DoseSchedule schedule, DateTime onDay) =>
-      switch (schedule.timing) {
-        AnchorTiming(:final anchor, :final offsetMinutes) => resolveTime(
-            anchor: anchor,
-            offsetMinutes: offsetMinutes,
-            onDay: onDay,
-          ),
-        FixedTiming(:final minuteOfDay) =>
-          resolveFixed(minuteOfDay: minuteOfDay, onDay: onDay),
-      };
+      resolveFixed(minuteOfDay: schedule.timing.minuteOfDay, onDay: onDay);
 
   /// كل تذكيرات يوم روتين واحد، مرتّبة ومجمّعة.
   ///
-  /// ملاحظة: «اليوم» هنا هو يوم الروتين اللي بيبدأ من الصحيان — فجرعة
-  /// «قبل النوم» لواحد بينام ١ ص هترجع بتاريخ اليوم اللي بعده، وده صح.
+  /// ملاحظة: «اليوم» هنا هو يوم الروتين اللي بيبدأ ٤ الفجر — فجرعة الساعة
+  /// ١ بالليل هترجع بتاريخ اليوم اللي بعده، وده صح.
   List<Reminder> remindersForDay(
     List<DoseSchedule> schedules,
     DateTime day,
@@ -82,11 +61,6 @@ class ScheduleEngine {
 
     for (final s in schedules) {
       if (!s.isActiveOn(day)) continue;
-      // **جرعة على مرساة ما اتحددتش ما بتترنّش أبداً.** الرقم اللي في
-      // الروتين لمرساة مش متحددة مكان راحة مش إجابة، والتطبيق عمره ما
-      // يوقّت دوا من رقم المستخدم ما قالهوش. المحرّر ما بيسيبش جرعة زي دي
-      // تتكتب أصلاً؛ ده الحزام التاني.
-      if (s.timing case AnchorTiming(:final anchor) when !routine.isSet(anchor)) continue;
       byTime.putIfAbsent(resolve(s, day), () => <DoseSchedule>[]).add(s);
     }
 
@@ -105,8 +79,8 @@ class ScheduleEngine {
     DateTime from, {
     int lookaheadDays = 14,
   }) {
-    // بنبدأ من امبارح: جرعة «قبل النوم» بتاعة امبارح ممكن تكون لسه جاية
-    // النهاردة بعد منتصف الليل.
+    // بنبدأ من امبارح: جرعة بعد نص الليل بتاعة امبارح ممكن تكون لسه جاية
+    // النهاردة بالساعة.
     var day = DateTime(from.year, from.month, from.day)
         .subtract(const Duration(days: 1));
 

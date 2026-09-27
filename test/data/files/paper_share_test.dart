@@ -10,7 +10,7 @@ import 'package:fakkarni/data/db/tables.dart' show RecordKind;
 import 'package:fakkarni/data/files/attachment_store.dart';
 import 'package:fakkarni/data/files/paper_share.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 
 class _Uploads implements PaperUploads {
   final stored = <String>{};
@@ -48,9 +48,9 @@ void main() {
     uploads = _Uploads();
     share = PaperShareService(db: db, uploads: uploads, attachments: store);
     records = RecordsRepository(db);
-    final routines = RoutineRepository(db);
-    patientId = await routines.ensurePatient();
-    patientUuid = (await routines.getPatient(patientId))!.uuid;
+    final patients = PatientRepository(db);
+    patientId = await patients.ensurePatient();
+    patientUuid = (await patients.getPatient(patientId))!.uuid;
   });
 
   tearDown(() async {

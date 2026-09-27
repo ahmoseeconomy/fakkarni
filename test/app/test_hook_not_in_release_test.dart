@@ -18,7 +18,7 @@ void main() {
     final gate = body.indexOf('if (kReleaseMode) return false;');
     expect(gate, isNot(-1), reason: 'مفيش بوابة أصلاً');
     // قبل أي كتابة في القاعدة
-    for (final write in ['saveProfile', 'saveRoutine', 'addMedication']) {
+    for (final write in ['saveProfile', 'addMedication']) {
       expect(gate, lessThan(body.indexOf(write)),
           reason: 'الكتابة دي قبل البوابة');
     }

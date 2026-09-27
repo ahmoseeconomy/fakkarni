@@ -320,7 +320,7 @@ void main() {
 
   group('الوصول', () {
     screenTest('تبويب «الملف» في الدوك، و«ضيف» → «سجّل زيارة أو تحليل أو أشعة»', (tester) async {
-      await h.pump(tester, AppShell(routine: normalDay, now: DateTime(2026, 8, 31, 8)));
+      await h.pump(tester, AppShell(now: DateTime(2026, 8, 31, 8)));
       await settle(tester);
 
       await tester.tap(find.byType(FloatingActionButton));

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/core/widgets/f_sheet.dart';
 import 'package:fakkarni/features/medication/add_sheet.dart';
@@ -15,7 +15,7 @@ void main() {
   setUp(h.setUp);
   tearDown(h.tearDown);
 
-  Future<int> add(String name, DoseTiming timing, {String? amount, bool unknown = false}) =>
+  Future<int> add(String name, FixedTiming timing, {String? amount, bool unknown = false}) =>
       h.meds.addMedication(
         patientId: h.services.patientId,
         name: name,
@@ -37,14 +37,14 @@ void main() {
     await h.meds.addMedication(
       patientId: h.services.patientId,
       name: 'Augmentin',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: DateTime(2026, 9, 3),
       amountLabel: 'قرص',
     );
     await h.meds.addMedication(
       patientId: h.services.patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.breakfast, 0),
+      timing: FixedTiming(MinuteOfDay.hm(7, 30)),
       startDate: aug31,
       amountLabel: 'قرص',
     );
@@ -53,19 +53,22 @@ void main() {
     expect(find.textContaining('هيبدأ'), findsOneWidget, reason: 'Concor بدأ خلاص');
   });
 
-  screenTest('مجموعات بالمرساة بترتيب الوقت، والدوا اللي بياخده مرتين بيظهر في الاتنين', (tester) async {
-    final id = await add('Augmentin', const AnchorTiming(DayAnchor.dinner, 0), amount: 'قرص');
-    await h.meds.addDoseSchedule(id, timing: const AnchorTiming(DayAnchor.breakfast, 0), startDate: aug31);
-    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص واحد');
+  screenTest('مجموعات بالساعة بترتيب الوقت، والدوا اللي بياخده مرتين بيظهر في الاتنين', (tester) async {
+    final id = await add('Augmentin', FixedTiming(MinuteOfDay.hm(20)), amount: 'قرص');
+    await h.meds.addDoseSchedule(id, timing: FixedTiming(MinuteOfDay.hm(7, 30)), startDate: aug31);
+    await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص واحد');
     await pump(tester);
 
-    // الفطار ٧:٣٠ قبل العشا ٨:٠٠ م
-    final breakfast = tester.getCenter(find.text('الفطار — ٧:٣٠ ص'));
-    final dinner = tester.getCenter(find.text('العشا — ٨:٠٠ م'));
-    expect(breakfast.dy, lessThan(dinner.dy));
+    // ٧:٠٠ ص قبل ٧:٣٠ ص قبل ٨:٠٠ م — المجموعة عنوانها ساعتها (مفيش مراسي)
+    final seven = tester.getCenter(find.text('٧:٠٠ ص').first);
+    final morning = tester.getCenter(find.text('٧:٣٠ ص').first);
+    final evening = tester.getCenter(find.text('٨:٠٠ م').first);
+    expect(seven.dy, lessThan(morning.dy));
+    expect(morning.dy, lessThan(evening.dy));
+    expect(find.textContaining('الفطار'), findsNothing);
     expect(find.text('Augmentin'), findsNWidgets(2), reason: 'جرعتين = كارتين');
     expect(find.text('Concor 5mg'), findsOneWidget);
-    expect(find.text('دواءين — مرتّبة على مواعيد يومك'), findsOneWidget, reason: 'العدّ بالدوا مش بالجرعة');
+    expect(find.text('دواءين — مرتّبة بالساعة'), findsOneWidget, reason: 'العدّ بالدوا مش بالجرعة');
     // الاسم mono ٢٤+
     final name = tester.widget<Text>(find.text('Concor 5mg'));
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
@@ -82,7 +85,7 @@ void main() {
     }
 
     screenTest('«خيارات» بيفتح التلاتة: عدّل، وقّفه، شيله', (tester) async {
-      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
       await pump(tester);
       await openActions(tester);
 
@@ -93,7 +96,7 @@ void main() {
     });
 
     screenTest('«وقّفه دلوقتي» بينقله لـ«موقوفة»، و«رجّعه تاني» بترجّعه', (tester) async {
-      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
       await pump(tester);
 
       await openActions(tester);
@@ -112,7 +115,7 @@ void main() {
 
     screenTest('**التأكيد شرط**: «شيله خالص» بتسأل بالاسم، و«لا، سيبه» ما بتشيلش',
         (tester) async {
-      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+      await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
       await pump(tester);
 
       await openActions(tester);
@@ -132,8 +135,8 @@ void main() {
     });
 
     screenTest('«أيوه، شيله» بتشيله من القايمة — ومن غير مسح', (tester) async {
-      await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
-      await add('Telfast 180 mg', const AnchorTiming(DayAnchor.dinner, 0), amount: 'قرص');
+      await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
+      await add('Telfast 180 mg', FixedTiming(MinuteOfDay.hm(20)), amount: 'قرص');
       await pump(tester);
 
       await openActions(tester);
@@ -151,7 +154,7 @@ void main() {
   });
 
   screenTest('جرعة مش معروفة → «الجرعة مش معروفة» بهدوء، مش ذهبي ولا أحمر', (tester) async {
-    await add('Telfast 180 mg', const AnchorTiming(DayAnchor.dinner, 0), unknown: true);
+    await add('Telfast 180 mg', FixedTiming(MinuteOfDay.hm(20)), unknown: true);
     await pump(tester);
 
     final line = tester.widget<Text>(find.textContaining('الجرعة مش معروفة'));
@@ -159,14 +162,13 @@ void main() {
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('الساعة الثابتة في مجموعة «ساعة ثابتة» في الآخر', (tester) async {
+  screenTest('دوا ٦ الصبح أول القايمة — مفيش مجموعة «ساعة ثابتة» منفصلة', (tester) async {
     await add('Eltroxin', FixedTiming(MinuteOfDay.hm(6)), amount: 'قرص');
-    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+    await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
     await pump(tester);
 
-    expect(find.text('ساعة ثابتة'), findsOneWidget);
-    expect(tester.getCenter(find.text('ساعة ثابتة')).dy,
-        greaterThan(tester.getCenter(find.text('الفطار — ٧:٣٠ ص')).dy));
+    expect(find.text('ساعة ثابتة'), findsNothing);
+    expect(tester.getCenter(find.text('Eltroxin')).dy, lessThan(tester.getCenter(find.text('Concor 5mg')).dy));
   });
 
   screenTest('فاضي → «لسه مفيش أدوية.» وكارت «ضيف دوا» هو الدعوة — مش جملة بتشاور على الدوك', (tester) async {
@@ -178,14 +180,14 @@ void main() {
   });
 
   screenTest('زرار «قريب منك» اتشال من الشاشة دي — مكانه حبّاية الرئيسية', (tester) async {
-    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+    await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
     await pump(tester);
     expect(find.textContaining('قريب منك'), findsNothing);
     expect(find.textContaining('صيدليات'), findsNothing);
   });
 
   screenTest('كارت «ضيف دوا» فوق المجموعات: زايد وكلمتين، ≥٥٦، وبيفتح نفس شيت الدوك بنفس المداخل', (tester) async {
-    await add('Concor 5mg', const AnchorTiming(DayAnchor.breakfast, -30), amount: 'قرص');
+    await add('Concor 5mg', FixedTiming(MinuteOfDay.hm(7)), amount: 'قرص');
     await pump(tester);
 
     final card = find.byKey(const ValueKey('add-medication-card'));

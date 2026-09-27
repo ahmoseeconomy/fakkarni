@@ -6,17 +6,18 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
+import 'package:fakkarni/data/services/appointment_plan.dart';
 import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/data/services/appointment_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
-import 'reminder_plan_test.dart' show FakeReminderSink, normalDay;
+import 'reminder_plan_test.dart' show FakeReminderSink;
 import '../support/seeded_clock.dart';
 
 void main() {
@@ -108,14 +109,12 @@ void main() {
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
-      final routines = RoutineRepository(db);
+      final patients = PatientRepository(db);
       final meds = MedicationRepository(db, clock: seededLongAgo);
-      patientId = await routines.ensurePatient();
-      await routines.saveRoutine(patientId, normalDay);
+      patientId = await patients.ensurePatient();
       sink = FakeReminderSink();
       checkups = CheckupService(db, sink);
       scheduler = ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -124,7 +123,7 @@ void main() {
       await meds.addMedication(
         patientId: patientId,
         name: 'Concor',
-        timing: const AnchorTiming(DayAnchor.breakfast, -30),
+        timing: FixedTiming(MinuteOfDay.hm(7)),
         startDate: DateTime(2026, 9, 15),
       );
     });
@@ -193,15 +192,15 @@ void main() {
 
           final dayOf = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayOf)]!;
           expect(DateTime(dayOf.at.year, dayOf.at.month, dayOf.at.day), day);
-          // الصبح — من صحيان المريض، مش رقم مخترع
-          expect(dayOf.at.hour * 60 + dayOf.at.minute, normalDay.wake.minutes);
+          // الصبح — ٨ الصبح ثابتة (الروتين اتشال)
+          expect(dayOf.at.hour * 60 + dayOf.at.minute, dayOfMinute.minutes);
           expect(dayOf.kind, NotificationKind.appointmentAlert);
 
           final before = sink.scheduled[appointmentIdFor(day, AppointmentNotice.dayBefore)]!;
           expect(DateTime(before.at.year, before.at.month, before.at.day),
               DateTime(day.year, day.month, day.day - 1));
-          // بالليل — على العشا، المرساة المسائية اللي هو نفسه قالها
-          expect(before.at.hour * 60 + before.at.minute, normalDay.dinner.minutes);
+          // بالليل — ٨ بالليل ثابتة
+          expect(before.at.hour * 60 + before.at.minute, dayBeforeMinute.minutes);
           expect(before.kind, NotificationKind.appointmentQuiet);
 
           expect(CheckupService.stageDateOf(await row(id), stage), dayOf.at);

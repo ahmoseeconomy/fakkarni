@@ -10,7 +10,7 @@ import 'package:fakkarni/data/care/supabase_caregiver_remote.dart' show medicati
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 
 import '../../app/root_test.dart' show SilentSink;
@@ -82,10 +82,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     final meds = MedicationRepository(db);
     final events = DoseEventRepository(db);
-    final patientId = await routines.ensurePatient();
+    final patientId = await patients.ensurePatient();
     final remote = FakeCaregiverRemote()
       ..next = CaregiverSnapshot(
         patient: const CaregiverPatient(uuid: 'p1', name: 'الحاج أحمد'),
@@ -152,11 +152,10 @@ void main() {
       AppScope(
         services: AppServices(
           db: db,
-          routines: routines,
+          patients: patients,
           medications: meds,
           events: events,
           scheduler: ReminderScheduler(
-            routines: routines,
             medications: meds,
             events: events,
             patientId: patientId,
@@ -240,10 +239,16 @@ void main() {
             'offset_minutes': null,
             'fixed_timings': {'minute_of_day': 8 * 60},
           },
+          {
+            'timing_kind': 'fixed',
+            'meal_relation': 'after',
+            'fixed_timings': {'minute_of_day': 21 * 60},
+          },
         ],
       });
 
-      expect(med.rules, ['الفطار − ٣٠ د', 'العشا', 'ساعة ثابتة — ٨:٠٠ ص']);
+      // صف قديم بمرساة من موبايل لسه ما اترقّاش = كلمته بس؛ الجديد ساعة + كلمة الأكل
+      expect(med.rules, ['الفطار − ٣٠ د', 'العشا', 'الساعة ٨:٠٠ ص', 'الساعة ٩:٠٠ م — بعد الأكل']);
       expect(med.amountLabel, 'قرص واحد');
     });
 

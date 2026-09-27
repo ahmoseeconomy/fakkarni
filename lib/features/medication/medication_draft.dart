@@ -1,4 +1,5 @@
 import '../../domain/escalation/alert_mode.dart';
+import '../../domain/medication/meal_relation.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 
@@ -20,12 +21,13 @@ class MedicationDraft {
     this.instructions,
     this.startDate,
     this.once = false,
+    this.mealRelation,
   });
 
   final String name;
 
   /// جرعة واحدة على الأقل — الشاشة بتفرض الأرضية دي.
-  final List<DoseTiming> timings;
+  final List<FixedTiming> timings;
 
   /// null + [amountUnknown] = الورقة ما قالتش الجرعة. **مش بنخترع قيمة.**
   final String? amountLabel;
@@ -48,4 +50,7 @@ class MedicationDraft {
 
   /// «مرة واحدة» (`DoseRepeat.once`) — المدة ساعتها null.
   final bool once;
+
+  /// «قبل الأكل» وأخواتها — كلمة تعليمات على كل جرعة، مش توقيت. null = مفيش.
+  final MealRelation? mealRelation;
 }

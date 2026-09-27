@@ -9,7 +9,6 @@ import '../../ai/gemini_config.dart';
 import '../../ai/package_reader.dart';
 import '../../ai/prescription_reader.dart' show PrescriptionReadException;
 import '../../core/theme/tokens.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../scan/debug_panel.dart';
 import '../scan/scan_prescription_screen.dart' show PickImage, pickWithSystemCamera;
 import '../scan/scan_stage.dart';
@@ -25,14 +24,12 @@ import 'add_medication_screen.dart';
 /// بتفضل فاضية والراجل بيملاها زي الإدخال اليدوي بالظبط.
 class ScanPackageScreen extends StatefulWidget {
   const ScanPackageScreen({
-    required this.routine,
     required this.reader,
     this.pickImage = pickWithSystemCamera,
     this.today,
     super.key,
   });
 
-  final DayRoutine routine;
   final MedicinePackageReader? reader;
   final PickImage pickImage;
   final DateTime? today;
@@ -83,7 +80,6 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
       final saved = await Navigator.of(context).push<Object?>(
         MaterialPageRoute(
           builder: (_) => AddMedicationScreen(
-            routine: widget.routine,
             today: widget.today,
             initialName: reading.nameField,
             packageReading: reading,
@@ -113,7 +109,7 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
 
   void _byHand() => Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => AddMedicationScreen(routine: widget.routine, today: widget.today),
+          builder: (_) => AddMedicationScreen(today: widget.today),
         ),
       );
 

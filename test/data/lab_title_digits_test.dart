@@ -7,7 +7,7 @@ import 'package:fakkarni/app/bootstrap.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/lab_results_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/domain/health/lab_range.dart';
 
 /// **رقم لاتيني جوّه جملة عربية متخزّنة.**
@@ -22,7 +22,7 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    patientId = await RoutineRepository(db).ensurePatient();
+    patientId = await PatientRepository(db).ensurePatient();
   });
   tearDown(() => db.close());
 

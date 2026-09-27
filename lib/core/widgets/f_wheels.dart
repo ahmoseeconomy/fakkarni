@@ -18,7 +18,7 @@ import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../format/arabic_time.dart';
 import '../theme/tokens.dart';
-import '../../domain/scheduling/day_routine.dart';
+import '../../domain/scheduling/minute_of_day.dart';
 
 
 /// ارتفاع الصف الواحد — الخط ٢٦ ومعاه هوا.

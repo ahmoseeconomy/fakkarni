@@ -24,11 +24,9 @@ class SpokenTime {
   String toString() => '$hour:${minute.toString().padLeft(2, '0')}';
 }
 
-/// جزء اليوم اللي السؤال نفسه بيقوله («بتفطر الساعة كام؟» = الصبح) — بيكمّل
+/// جزء اليوم اللي السؤال نفسه بيقوله («الساعة كام الصبح؟» = الصبح) — بيكمّل
 /// ساعة اتقالت من غير «الصبح» ولا «بالليل». من غيره الساعة الناقصة = null.
 enum DayPartHint { morning, noon, afternoon, evening, night }
-
-enum SpokenSex { male, female }
 
 /// رد على تذكير الجرعة.
 enum DoseAnswer { taken, later }
@@ -257,19 +255,6 @@ bool? parseYesNo(String text) => switch (classifyReply(text)) {
       ReplyClass.deny => false,
       ReplyClass.unclear => null,
     };
-
-// ---------------------------------------------------------------- راجل / ست
-
-const _male = {'راجل', 'رجل', 'ذكر', 'راجيل', 'رجال', 'ولد'};
-const _female = {'ست', 'سيده', 'انثي', 'مرا', 'مراه', 'امراه', 'بنت', 'ستات', 'حرمه', 'مدام'};
-
-SpokenSex? parseSex(String text) {
-  for (final t in _tokens(text)) {
-    if (_male.contains(t)) return SpokenSex.male;
-    if (_female.contains(t)) return SpokenSex.female;
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------- الساعة
 

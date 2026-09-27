@@ -13,31 +13,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
-import 'package:fakkarni/core/widgets/patient_voice.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
-import 'package:fakkarni/domain/patient/sex.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
-import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
 import 'package:fakkarni/features/today/dose_actions.dart';
 import 'package:fakkarni/features/today/widgets/now_block.dart';
 
 import '../../support/seeded_clock.dart';
+import '../../support/legacy_anchor.dart';
 
-final _routine = DayRoutine(
-  wake: MinuteOfDay.hm(7),
-  breakfast: MinuteOfDay.hm(7, 30),
-  lunch: MinuteOfDay.hm(14, 30),
-  dinner: MinuteOfDay.hm(20),
-  sleep: MinuteOfDay.hm(23, 30),
-);
 
 final _aug31 = DateTime(2026, 8, 31);
 
@@ -65,18 +55,16 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
     sink = _Sink();
-    final patientId = await routines.ensurePatient();
-    await routines.saveRoutine(patientId, _routine);
+    final patientId = await patients.ensurePatient();
     services = AppServices(
       db: db,
-      routines: routines,
+      patients: patients,
       medications: meds,
       events: DoseEventRepository(db),
       scheduler: ReminderScheduler(
-        routines: routines,
         medications: meds,
         events: DoseEventRepository(db),
         patientId: patientId,
@@ -116,10 +104,7 @@ void main() {
           theme: F.light,
           home: Directionality(
             textDirection: TextDirection.rtl,
-            child: PatientVoice(
-              say: Say(Sex.m),
-              child: TodayScreen(routine: _routine, now: _now),
-            ),
+            child: TodayScreen(now: _now),
           ),
         ),
       ),
@@ -200,7 +185,7 @@ void main() {
       await pump(tester);
 
       expect(find.text('الآن'), findsOneWidget);
-      expect(find.textContaining('أدوية'), findsNothing);
+      expect(find.textContaining('الآن —'), findsNothing, reason: 'مفيش عدّاد جنب «الآن»');
     });
   });
 
@@ -399,7 +384,7 @@ void main() {
                     .copyWith(textScaler: TextScaler.linear(scale)),
                 child: Directionality(textDirection: TextDirection.rtl, child: child!),
               ),
-              home: AppShell(routine: _routine, now: _now),
+              home: AppShell(now: _now),
             ),
           ),
         );

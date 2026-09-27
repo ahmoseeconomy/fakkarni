@@ -6,17 +6,17 @@ import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
-import 'package:fakkarni/data/repositories/routine_repository.dart';
+import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/sync/sync_service.dart';
 import 'package:fakkarni/domain/adherence/adherence.dart';
 import 'package:fakkarni/domain/scheduling/day_pattern.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
-import '../features/scan/scan_test_support.dart' show RecordingSink, normalDay;
+import '../features/scan/scan_test_support.dart' show RecordingSink;
 import '../support/seeded_clock.dart';
 import 'sync/sync_service_test.dart' show FakeSyncRemote;
 
@@ -33,12 +33,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase(NativeDatabase.memory());
     sink = RecordingSink();
-    final routines = RoutineRepository(db);
+    final patients = PatientRepository(db);
     meds = MedicationRepository(db, clock: seededLongAgo);
-    patientId = await routines.ensurePatient(name: 'أحمد');
-    await routines.saveRoutine(patientId, normalDay);
+    patientId = await patients.ensurePatient(name: 'أحمد');
     scheduler = ReminderScheduler(
-      routines: routines,
       medications: meds,
       events: DoseEventRepository(db),
       patientId: patientId,
@@ -50,7 +48,7 @@ void main() {
   Future<int> add(DayPattern days, {DateTime? start}) => meds.addMedicationWithDoses(
         patientId: patientId,
         name: 'Concor',
-        timings: const [AnchorTiming(DayAnchor.breakfast, -30)], // ٧:٠٠ ص
+        timings: const [FixedTiming(MinuteOfDay.hm(7))], // ٧:٠٠ ص
         startDate: start ?? DateTime(2026, 9, 1),
         days: days,
       );
@@ -69,9 +67,9 @@ void main() {
     expect(daysOf(byKind(NotificationKind.repeat)).difference(expected), isEmpty);
     expect(byKind(NotificationKind.dose).every((n) => n.at.hour == 7 && n.at.minute == 0), isTrue,
         reason: 'الدقيقة من المرساة زي ما هي');
-    // ٦ الصبح قبل الصحيان = يوم روتين ١٨ (جمعة): امبارح ١٧ (خميس) وبكرة ١٩
-    // (سبت) شغّالين، والجمعة لأ
-    expect(await eventDays(), {DateTime(2026, 9, 17), DateTime(2026, 9, 19)});
+    // ٦ الصبح بعد ٤ الفجر = يوم روتين ١٩ (سبت): امبارح ١٨ (جمعة) وبكرة ٢٠
+    // (حد) مقفولين، فالسبت بس
+    expect(await eventDays(), {DateTime(2026, 9, 19)});
   });
 
   test('يوم ويوم: من يوم البداية', () async {
@@ -79,7 +77,7 @@ void main() {
     await scheduler.rescheduleAll(now: DateTime(2026, 9, 19, 6));
     expect(daysOf(byKind(NotificationKind.dose)),
         {DateTime(2026, 9, 19), DateTime(2026, 9, 21), DateTime(2026, 9, 23), DateTime(2026, 9, 25)});
-    expect(await eventDays(), {DateTime(2026, 9, 17), DateTime(2026, 9, 19)}, reason: '١٨ مقفول');
+    expect(await eventDays(), {DateTime(2026, 9, 19)}, reason: '١٨ و٢٠ مقفولين — اليوم بيبدأ ٤ الفجر');
   });
 
   test('٢١/٧: النافذة اللي بتعدّي على أسبوع الراحة، واللي بتخرج منه', () async {
@@ -128,7 +126,7 @@ void main() {
   });
 
   test('السحابة قبل ٠٠٣٢: الجدول بنمط بيفضل على الموبايل، وأولاده مستنيينه، والأدمن بيتبلّغ', () async {
-    await meds.addMedication(patientId: patientId, name: 'Daily', timing: const AnchorTiming(DayAnchor.dinner, 0), startDate: DateTime(2026, 9, 1));
+    await meds.addMedication(patientId: patientId, name: 'Daily', timing: FixedTiming(MinuteOfDay.hm(20)), startDate: DateTime(2026, 9, 1));
     await add(EveryNDays(2));
     await scheduler.rescheduleAll(now: DateTime(2026, 9, 19, 6));
     final cloud = _OldCloud();

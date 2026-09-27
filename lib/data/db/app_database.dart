@@ -2,8 +2,6 @@ import 'package:drift/drift.dart';
 
 // الأنواع دي مستعملة في الملف المولّد (`part`)، واللي بيشوف استيرادات
 // المكتبة الأم بس — عشان كده لازم تتستورد هنا حتى لو الملف ده مش بينده عليها.
-import '../../domain/patient/sex.dart';
-import '../../domain/scheduling/day_routine.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../dose_state.dart';
 import 'converters.dart';
@@ -18,12 +16,10 @@ part 'app_database.g.dart';
 @DriftDatabase(
   tables: [
     Patients,
-    DayRoutines,
     Medications,
     DoseSchedules,
     FixedTimings,
     DoseEvents,
-    RoutineBackups,
     DevicePreferences,
     EmergencyProfile,
     Records,
@@ -38,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -115,15 +111,16 @@ class AppDatabase extends _$AppDatabase {
               // ٣) نعيد بناء الجدول على تعريف drift (يشيل الـDEFAULT
               //    المؤقت ويضيف UNIQUE) — اختبار الـSchemaVerifier بيتحقق
               //    إن الناتج مطابق حرفياً لمخطط نسخة ٥.
-              for (final table in <TableInfo<Table, dynamic>>[
-                patients,
-                dayRoutines,
-                medications,
-                doseSchedules,
-                fixedTimings,
-                doseEvents,
+              // `day_routines` بالاسم: الجدول اتشال من الكود في نسخة ٣٠ بس
+              // لسه موجود في أي ملف أقدم، والخطوة دي لازم تطلّع شكل نسخة ٥.
+              for (final name in [
+                'patients',
+                'day_routines',
+                'medications',
+                'dose_schedules',
+                'fixed_timings',
+                'dose_events',
               ]) {
-                final name = table.actualTableName;
                 // حماية لمسار قديم عدّى على خطوة أنشأت الجدول بشكله الحالي
                 final existing = await customSelect(
                   "SELECT 1 FROM pragma_table_info('$name') WHERE name = 'uuid'",
@@ -152,15 +149,14 @@ class AppDatabase extends _$AppDatabase {
               // ساعة المزامنة: updated_at_ms مبدئياً «دلوقتي» — والصفوف كلها
               // متوسّخة (synced_at_ms فاضية) عشان أول دفعة ترفع التاريخ كله.
               final backfill = DateTime.now().millisecondsSinceEpoch;
-              for (final table in <TableInfo<Table, dynamic>>[
-                patients,
-                dayRoutines,
-                medications,
-                doseSchedules,
-                fixedTimings,
-                doseEvents,
+              for (final name in [
+                'patients',
+                'day_routines',
+                'medications',
+                'dose_schedules',
+                'fixed_timings',
+                'dose_events',
               ]) {
-                final name = table.actualTableName;
                 // خطوة v5 بتعيد بناء الجداول على تعريف النهاردة، فالأعمدة
                 // ممكن تكون وصلت خلاص — نفس درس «الخطوات المجمّدة»
                 final existing = await customSelect(
@@ -526,6 +522,9 @@ class AppDatabase extends _$AppDatabase {
                 }
               }
             }
+            if (from < 30) {
+              await _migrateToClockTimes();
+            }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل
               // أعمدة كل النسخ بقت موجودة فعلاً (لحد نسخة ٨). بيشيل الـDEFAULTs
@@ -533,7 +532,6 @@ class AppDatabase extends _$AppDatabase {
               // نسخة حرفياً. أي عمود جديد في نسخة جاية لازم يتضاف **قبل** البلوك ده.
               for (final table in <TableInfo<Table, dynamic>>[
                 patients,
-                dayRoutines,
                 medications,
                 doseSchedules,
                 fixedTimings,
@@ -558,7 +556,6 @@ class AppDatabase extends _$AppDatabase {
           // كانت هتوسّخ اللي لسه منضّفاه، للأبد.
           for (final table in [
             'patients',
-            'day_routines',
             'medications',
             'dose_schedules',
             'fixed_timings',
@@ -583,4 +580,141 @@ END''');
           }
         },
       );
+
+  /// **نسخة ٣٠ — الروتين اتشال، وكل جرعة بقت ساعة ثابتة** (قرار المالك،
+  /// ٢٧ سبتمبر ٢٠٢٦).
+  ///
+  /// الوعد: **ولا تذكير بيتحرك دقيقة.** كل جرعة كانت على مرساة بتتحوّل للساعة
+  /// اللي كان المحرّك بيحلّها عليها بروتين المريض المحفوظ (أو الافتراضي لو
+  /// مفيش صف — نفس اللي المجدول كان بيستعمله)، والحساب هو حساب المحرّك
+  /// القديم بالحرف: `الصحيان + ((المرساة − الصحيان + ١٤٤٠) % ١٤٤٠) + الإزاحة`.
+  /// علاقة الأكل بتتحفظ كلمة في `meal_relation`.
+  ///
+  /// * جرعة على مرساة **ما اتحددتش** ما كانتش بترن أصلاً — بتتحوّل لساعة مكان
+  ///   الراحة و**بتتوقف** (`stopped_at`)، عشان ما ترنّش على رقم المستخدم ما
+  ///   قالهوش. بتظهر تحت «موقوفة» وبيرجّعها بإيده بعد ما يظبط ساعتها.
+  /// * أحداث الجرعات بتتعاد مفاتيحها على قاعدة اليوم الجديدة (٤ الفجر بدل
+  ///   الصحيان) من ساعتها الحقيقية — وإلا جرعة ٦ الصبح لواحد بيصحى ٦:٣٠ كانت
+  ///   هتتنزّل مرتين: صف قديم على يوم امبارح وصف جديد على النهارده.
+  /// * `patients.profile_done_at` بيتعلّم لكل مريض كان ليه روتين أو جنس —
+  ///   ده اللي «فيه مريض على الموبايل ده» بقت بتتقري منه.
+  ///
+  /// SQL خام على الأعمدة القديمة (مش تعريفات النهاردة — الأعمدة دي مش
+  /// موجودة فيها)، و`fixed_timings` بتعريف drift لأن شكلها ما اتغيّرش.
+  Future<void> _migrateToClockTimes() async {
+    Future<bool> hasColumn(String table, String column) async => (await customSelect(
+          "SELECT 1 FROM pragma_table_info('$table') WHERE name = '$column'",
+        ).get())
+        .isNotEmpty;
+    Future<bool> hasTable(String table) async => (await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '$table'",
+        ).get())
+        .isNotEmpty;
+
+    if (!await hasColumn('patients', 'profile_done_at')) {
+      await customStatement('ALTER TABLE patients ADD COLUMN profile_done_at INTEGER NULL');
+    }
+    if (!await hasColumn('dose_schedules', 'meal_relation')) {
+      await customStatement('ALTER TABLE dose_schedules ADD COLUMN meal_relation TEXT NULL');
+    }
+
+    final routinesExist = await hasTable('day_routines');
+    // الروتين الافتراضي اللي كان المجدول بيرجع له من غير صف — بالحرف
+    final routines = <int, ({List<int> at, Set<String> unset})>{};
+    const fallback = [6 * 60 + 30, 7 * 60 + 30, 14 * 60, 20 * 60, 23 * 60 + 30];
+    const anchors = ['wake', 'breakfast', 'lunch', 'dinner', 'sleep'];
+    if (routinesExist) {
+      final hasUnset = await hasColumn('day_routines', 'unset_anchors');
+      for (final r in await customSelect(
+        'SELECT patient_id, wake_minutes, breakfast_minutes, lunch_minutes, dinner_minutes, '
+        "sleep_minutes${hasUnset ? ', unset_anchors' : ", '' AS unset_anchors"} FROM day_routines",
+      ).get()) {
+        routines[r.read<int>('patient_id')] = (
+          at: [
+            r.read<int>('wake_minutes'),
+            r.read<int>('breakfast_minutes'),
+            r.read<int>('lunch_minutes'),
+            r.read<int>('dinner_minutes'),
+            r.read<int>('sleep_minutes'),
+          ],
+          unset: {for (final n in r.read<String>('unset_anchors').split(',')) n.trim()},
+        );
+      }
+      await customStatement(
+        "UPDATE patients SET profile_done_at = strftime('%s','now') WHERE profile_done_at IS NULL "
+        'AND (sex IS NOT NULL OR EXISTS (SELECT 1 FROM day_routines r WHERE r.patient_id = patients.id))',
+      );
+    } else {
+      await customStatement(
+        "UPDATE patients SET profile_done_at = strftime('%s','now') WHERE profile_done_at IS NULL AND sex IS NOT NULL",
+      );
+    }
+
+    if (await hasColumn('dose_schedules', 'anchor')) {
+      final hasKind = await hasColumn('dose_schedules', 'timing_kind');
+      final rows = await customSelect(
+        'SELECT s.id AS id, s.anchor AS anchor, COALESCE(s.offset_minutes, 0) AS offset, '
+        's.stopped_at AS stopped_at, m.patient_id AS patient_id '
+        'FROM dose_schedules s JOIN medications m ON m.id = s.medication_id '
+        "WHERE s.anchor IS NOT NULL${hasKind ? " AND s.timing_kind = 'anchor'" : ''}",
+      ).get();
+      for (final row in rows) {
+        final anchor = row.read<String>('anchor');
+        final index = anchors.indexOf(anchor);
+        if (index < 0) continue;
+        final routine = routines[row.read<int>('patient_id')];
+        final at = routine?.at ?? fallback;
+        final wake = at[0];
+        final raw = wake + ((at[index] - wake + 1440) % 1440) + row.read<int>('offset');
+        final minute = ((raw % 1440) + 1440) % 1440;
+        final unset = routine?.unset.contains(anchor) ?? false;
+        final relation = switch ((anchor, row.read<int>('offset'))) {
+          ('wake' || 'sleep', _) => null,
+          (_, < 0) => 'before',
+          (_, 0) => 'with',
+          _ => 'after',
+        };
+        final id = row.read<int>('id');
+        await (delete(fixedTimings)..where((t) => t.doseScheduleId.equals(id))).go();
+        await into(fixedTimings).insert(
+          FixedTimingsCompanion.insert(doseScheduleId: Value(id), minuteOfDay: minute),
+        );
+        await customStatement(
+          'UPDATE dose_schedules SET meal_relation = ?, anchor = NULL, offset_minutes = NULL'
+          "${hasKind ? ", timing_kind = 'fixed'" : ''}"
+          "${unset && row.read<int?>('stopped_at') == null ? ", stopped_at = strftime('%s','now')" : ''}"
+          ' WHERE id = ?',
+          [relation, id],
+        );
+      }
+      for (final column in ['anchor', 'offset_minutes', 'timing_kind']) {
+        if (await hasColumn('dose_schedules', column)) {
+          await customStatement('ALTER TABLE dose_schedules DROP COLUMN $column');
+        }
+      }
+    }
+
+    // مفاتيح الأحداث على قاعدة ٤ الفجر من ساعتها الحقيقية — **بس للصفوف اللي
+    // كانت متكتبة صح بقاعدة الصحيان القديمة وبيختلف يومها** (جرعة بين ٤ الفجر
+    // وساعة صحيانه). غير كده جرعة ٦ الصبح لواحد بيصحى ٦:٣٠ كانت هتتنزّل مرتين:
+    // صف قديم على يوم امبارح وصف جديد على النهارده. `OR IGNORE`: لو الصف الجديد
+    // موجود خلاص، القديم بيفضل مكانه — مفيش صف بيتمسح ولا بيتكتب فوق حد.
+    final patientIds = [
+      for (final r in await customSelect('SELECT id FROM patients').get()) r.read<int>('id'),
+    ];
+    for (final patientId in patientIds) {
+      final wake = (routines[patientId]?.at ?? fallback)[0];
+      await customStatement(
+        "UPDATE OR IGNORE dose_events SET routine_day = date(scheduled_at - 14400, 'unixepoch', 'localtime') "
+        'WHERE dose_schedule_id IN (SELECT s.id FROM dose_schedules s JOIN medications m ON m.id = s.medication_id '
+        'WHERE m.patient_id = ?) '
+        "AND routine_day = date(scheduled_at - ?, 'unixepoch', 'localtime') "
+        "AND routine_day <> date(scheduled_at - 14400, 'unixepoch', 'localtime')",
+        [patientId, wake * 60],
+      );
+    }
+
+    await customStatement('DROP TABLE IF EXISTS routine_backups');
+    await customStatement('DROP TABLE IF EXISTS day_routines');
+  }
 }

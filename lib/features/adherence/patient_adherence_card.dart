@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/patient_voice.dart';
 import '../../data/repositories/dose_event_repository.dart';
 import '../../domain/adherence/adherence.dart';
+import '../../domain/wording/patient_words.dart';
 import '../today/dose_actions.dart' show confirmGroup;
 import 'adherence_card.dart';
 import 'adherence_screen.dart';
@@ -74,8 +74,7 @@ class _PatientAdherenceCardState extends State<PatientAdherenceCard> {
     final doses = dosesFromViews(_views);
     if (!adherenceWorthShowing(firstDoseDay(doses), widget.routineDay)) return const SizedBox.shrink();
     final a = computeAdherence(doses, today: widget.routineDay, now: widget.now);
-    final say = PatientVoice.of(context);
-    final title = say.pick('إنت ماشي إزاي', 'إنتي ماشية إزاي');
+    const title = progressTitle;
     return Padding(
       padding: const EdgeInsets.only(bottom: F.gap),
       child: AdherenceCard(

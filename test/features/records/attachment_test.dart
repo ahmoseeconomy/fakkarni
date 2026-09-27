@@ -50,7 +50,7 @@ void main() {
     final s = h.services;
     return h.services = AppServices(
       db: s.db,
-      routines: s.routines,
+      patients: s.patients,
       medications: s.medications,
       events: s.events,
       scheduler: s.scheduler,
@@ -93,7 +93,7 @@ void main() {
         tester,
         ReviewPrescriptionScreen(
           reading: PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine]),
-          routine: normalDay,
+          
           image: picked,
           today: sep14,
           records: records,
@@ -120,7 +120,7 @@ void main() {
         tester,
         ReviewPrescriptionScreen(
           reading: PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine]),
-          routine: normalDay,
+          
           today: sep14,
           records: records,
         ),

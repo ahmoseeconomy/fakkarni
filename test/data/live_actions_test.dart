@@ -14,7 +14,7 @@ import 'package:fakkarni/data/services/pending_actions.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/escalation/repeat_alerts.dart';
-import 'package:fakkarni/domain/scheduling/day_routine.dart';
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 
 import '../features/scan/scan_test_support.dart';
@@ -46,7 +46,7 @@ void main() {
     medId = await h.meds.addMedication(
       patientId: h.services.patientId,
       name: 'Concor',
-      timing: const AnchorTiming(DayAnchor.dinner, 0),
+      timing: FixedTiming(MinuteOfDay.hm(20)),
       startDate: aug31,
     );
     // آخر جدولة قبل الجرعة بشوية — الأصلي والإعادات والدرجات متجدولين
