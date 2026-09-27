@@ -72,9 +72,11 @@ void main() {
     expect(r.permission, isTrue);
   });
 
-  test('التوقيتات: ١٠ ثواني كلها، ٦ لأول كلمة، ٣ سكوت بعد الكلام', () {
+  test('التوقيتات: الرد القصير ١٠ ثواني و١٫٥ سكوت؛ «كلّمني» ٣٠ ثانية و٢٫٥ سكوت؛ ٦ لأول كلمة', () {
     expect(ListenTimings.maxLength, const Duration(seconds: 10));
     expect(ListenTimings.firstWordWithin, const Duration(seconds: 6));
-    expect(ListenTimings.silence, const Duration(seconds: 3));
+    expect(ListenTimings.silence, const Duration(milliseconds: 1500));
+    expect(ListenTimings.commandMaxLength, const Duration(seconds: 30));
+    expect(ListenTimings.commandSilence, const Duration(milliseconds: 2500));
   });
 }

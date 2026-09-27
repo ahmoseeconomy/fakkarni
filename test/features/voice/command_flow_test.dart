@@ -14,7 +14,13 @@ import 'package:fakkarni/domain/escalation/escalation_ladder.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
 import 'package:fakkarni/domain/scheduling/day_routine.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
+import 'package:fakkarni/data/repositories/not_bought_repository.dart';
+import 'package:fakkarni/data/repositories/readings_repository.dart';
+import 'package:fakkarni/data/repositories/records_repository.dart';
+import 'package:fakkarni/data/repositories/visit_questions_repository.dart';
+import 'package:fakkarni/data/repositories/vitals_repository.dart';
 import 'package:fakkarni/data/voice/speech_listener.dart';
+import 'package:fakkarni/domain/health/follow_up.dart';
 import 'package:fakkarni/domain/voice/mic_state.dart';
 import 'package:fakkarni/domain/voice/voice_catalog.dart';
 import 'package:fakkarni/features/voice/command_flow.dart';
@@ -22,15 +28,17 @@ import 'package:fakkarni/features/voice/voice_flags.dart';
 
 import '../../data/voice/fake_listener.dart';
 import '../../data/voice/voice_service_test.dart' show FakePlayer, FakeTts;
-import '../scan/scan_test_support.dart' show Harness, aug31;
+import '../scan/scan_test_support.dart' show Harness, aug31, normalDay;
 
 class FakeReader implements VoiceCommandReader {
   FakeReader({this.result = const CloudReadResult()});
   CloudReadResult result;
   final transcripts = <String>[];
+  DateTime? lastNow;
   @override
-  Future<CloudReadResult> read(String transcript) async {
+  Future<CloudReadResult> read(String transcript, {DateTime? now}) async {
     transcripts.add(transcript);
+    lastNow = now;
     return result;
   }
 }
@@ -57,7 +65,7 @@ void main() {
   });
   tearDown(() => h.tearDown());
 
-  Future<CommandFlow> flowWith(List<String?> answers, {FakeReader? reader, bool Function()? cloudAllowed, void Function()? onCloudUsed}) async {
+  Future<CommandFlow> flowWith(List<String?> answers, {FakeReader? reader, bool Function()? cloudAllowed, void Function()? onCloudUsed, Future<bool> Function(AppointmentPrefill)? onOpenAppointment}) async {
     listener = FakeListener(answers: answers);
     voice = VoiceService(player: player, tts: tts, listener: listener);
     await voice.load();
@@ -77,6 +85,7 @@ void main() {
         opened.add(p);
         return saveResult;
       },
+      onOpenAppointment: onOpenAppointment,
     );
   }
 
@@ -227,13 +236,10 @@ void main() {
   });
 
   group('ضيفلي دوا', () {
-    test('«ضيفلي دوا الضغط الصبح بعد الفطار» → «فهمت» → «أيوه» → الفورم متعبّي، **وولا صف اتكتب**', () async {
+    test('«ضيفلي دوا الضغط الصبح بعد الفطار» → الفورم متعبّي على طول (مفيش كارت تأكيد)، **وولا صف اتكتب**', () async {
       final f = await flowWith(['ضيفلي دوا الضغط الصبح بعد الفطار']);
       await f.start();
-      expect(f.shown, contains('تضيف دوا ضغط'));
-      expect(f.shown, contains('بعد الفطار'));
       expect(tts.spoken, isEmpty);
-      await f.confirmYes();
       expect(f.phase, CommandPhase.done);
       expect(opened, hasLength(1));
       expect(opened.single.purpose, MedicationPurpose.pressure);
@@ -246,7 +252,6 @@ void main() {
       saveResult = false;
       final f = await flowWith(['ضيفلي دوا اسمه زنك مرتين في اليوم']);
       await f.start();
-      await f.confirmYes();
       expect(opened.single.name, 'اسمه زنك');
       expect(opened.single.timings, [const AnchorTiming(DayAnchor.breakfast, -30), const AnchorTiming(DayAnchor.dinner, -30)]);
       expect(said().where((s) => s == 'cmd_done'), isEmpty);
@@ -265,12 +270,13 @@ void main() {
     test('مش مفهوم محلي → «ثانية واحدة» → السحابة بتاخد الكلام المكتوب بس → وبعدها زي المحلي', () async {
       await seed('Concor');
       await schedule();
-      final reader = FakeReader(result: const CloudReadResult(command: CloudCommand(intent: 'mark_taken', medNameAsSpoken: null)));
+      final reader = FakeReader(result: const CloudReadResult(tool: CloudTool(tool: 'mark_taken')));
       var used = 0;
-      final f = await flowWith(['خلصت الحباية بتاعتي'], reader: reader, onCloudUsed: () => used++);
+      final f = await flowWith(['عملت اللي المفروض'], reader: reader, onCloudUsed: () => used++);
       await f.start();
       await f.confirmYes();
-      expect(reader.transcripts, ['خلصت الحباية بتاعتي'], reason: 'المحلي ما فهمش — والكلام المكتوب بس هو اللي راح');
+      expect(reader.transcripts, ['عملت اللي المفروض'], reason: 'المحلي ما فهمش — والكلام المكتوب بس هو اللي راح');
+      expect(reader.lastNow, now, reason: 'وتاريخ النهارده معاه');
       expect(await stateOf('Concor'), DoseState.taken);
       expect(said(), containsAllInOrder(['cmd_thinking', 'lis_confirm', 'help_confirm_done']));
       expect(used, 1);
@@ -284,7 +290,7 @@ void main() {
     });
 
     test('السحابة ما فهمتش → «مافهمتش»', () async {
-      final reader = FakeReader(result: const CloudReadResult(command: null));
+      final reader = FakeReader(result: const CloudReadResult(tool: null));
       final f = await flowWith(['كلام غريب خالص'], reader: reader);
       await f.start();
       expect(said().last, 'lis_not_understood');
@@ -309,11 +315,9 @@ void main() {
 
     test('السحابة رجّعت ضيفلي بكلمات → بتتفهم محلي وبتتطابق على الموبايل', () async {
       final reader = FakeReader(
-          result: const CloudReadResult(
-              command: CloudCommand(intent: 'add_med', medNameAsSpoken: 'السكر', timingWords: 'بعد الغدا', patternWords: null)));
+          result: const CloudReadResult(tool: CloudTool(tool: 'add_medication', args: {'name': 'السكر', 'anchors': ['after_lunch']})));
       final f = await flowWith(['xyz'], reader: reader);
       await f.start();
-      await f.confirmYes();
       expect(opened.single.purpose, MedicationPurpose.sugar);
       expect(opened.single.timings, [const AnchorTiming(DayAnchor.lunch, 30)]);
     });
@@ -468,6 +472,190 @@ void main() {
       expect(f.mic, MicState.off);
       await f.tapMic();
       expect(listener.listens, 5);
+    });
+  });
+
+  group('«كلّمني» v2 — الأدوات', () {
+    Future<List<String>> questions() async =>
+        [for (final q in await VisitQuestionsRepository(h.services.db).watch(h.services.patientId).first) q.body];
+
+    test('«احجزلي ميعاد دكتور يوم الحد الساعة ٥» → سؤال واحد «الصبح ولا بالليل؟» → ورقة الميعاد متعبّية، ومفيش حفظ غير من زرارها', () async {
+      AppointmentPrefill? prefill;
+      final f = await flowWith(['احجزلي ميعاد دكتور يوم الحد الساعة ٥', 'بالليل'], onOpenAppointment: (p) async {
+        prefill = p;
+        return false;
+      });
+      await f.start();
+      expect(tts.spoken, contains('الساعة ٥ الصبح ولا بالليل؟'), reason: 'سؤال المتابعة بصوت الموبايل');
+      expect(listener.listens, 2, reason: 'سماع واحد للجواب — مش أكتر');
+      expect(prefill, isNotNull);
+      expect(prefill!.kind, FollowKind.visit);
+      expect(prefill!.day, DateTime(2026, 9, 6), reason: 'الحد الجاي بعد ٣١ أغسطس ٢٠٢٦ (الاتنين)');
+      expect(prefill!.name, contains('٥:٠٠ م'));
+      expect(await RecordsRepository(h.services.db).all(h.services.patientId), isEmpty, reason: 'الورقة هي اللي بتحفظ');
+    });
+
+    test('ميعاد من غير يوم → «الميعاد إمتى؟» مرة → «بكرة» → الورقة باليوم؛ ومن غير جواب مفهوم → الورقة باللي معانا', () async {
+      AppointmentPrefill? prefill;
+      final f = await flowWith(['احجزلي ميعاد معمل', 'بكرة'], onOpenAppointment: (p) async {
+        prefill = p;
+        return true;
+      });
+      await f.start();
+      expect(tts.spoken.first, 'الميعاد إمتى؟');
+      expect(prefill!.kind, FollowKind.lab);
+      expect(prefill!.day, DateTime(2026, 9, 1));
+      expect(said().last, 'cmd_done');
+
+      prefill = null;
+      final g = await flowWith(['احجزلي ميعاد معمل', 'مش عارف'], onOpenAppointment: (p) async {
+        prefill = p;
+        return false;
+      });
+      await g.start();
+      expect(prefill, isNotNull, reason: 'لسه ناقص بعد السؤال = الورقة بتتفتح باللي معانا');
+      expect(prefill!.day, isNull);
+      expect(listener.listens, 2, reason: 'سؤال واحد بس');
+    });
+
+    test('«ضيف دوا الضغط الساعة ٩ بالليل كل يوم» → الفورم متعبّي بـ٩ بالليل؛ و«الساعة ٩» لوحدها → سؤال الصبح/بالليل', () async {
+      final f = await flowWith(['ضيف دوا الضغط الساعة ٩ بالليل كل يوم']);
+      await f.start();
+      expect(opened.single.purpose, MedicationPurpose.pressure);
+      expect(opened.single.timings, [const FixedTiming(MinuteOfDay(21 * 60))]);
+      expect(tts.spoken, isEmpty, reason: 'مفيش سؤال — كل حاجة اتقالت');
+
+      opened.clear();
+      final g = await flowWith(['ضيف دوا الضغط الساعة ٩', 'الصبح']);
+      await g.start();
+      expect(tts.spoken, ['الساعة ٩ الصبح ولا بالليل؟']);
+      expect(opened.single.timings, [const FixedTiming(MinuteOfDay(9 * 60))]);
+    });
+
+    test('دوا من غير ميعاد → «تاخده إمتى؟» مرة → «بعد الفطار» → الفورم بيه', () async {
+      final f = await flowWith(['ضيفلي دوا الكونكور', 'بعد الفطار']);
+      await f.start();
+      expect(tts.spoken, ['تاخده إمتى؟']);
+      expect(opened.single.timings, [const AnchorTiming(DayAnchor.breakfast, 30)]);
+    });
+
+    test('«ضغطي ١٢٠ على ٨٠» → كارت تأكيد + «صح كده؟» المسجّلة → **ولا صف قبل «أيوه»** → بعدها اتكتب', () async {
+      final f = await flowWith(['ضغطي ١٢٠ على ٨٠']);
+      await f.start();
+      expect(f.phase, CommandPhase.confirming);
+      expect(f.shown, contains('الضغط'));
+      expect(said().last, 'lis_confirm');
+      expect(tts.spoken, isEmpty, reason: 'مفيش «فهمت:» بصوت الموبايل');
+      expect(await VitalsRepository(h.services.db).all(h.services.patientId), isEmpty, reason: 'لسه ما قالش أيوه');
+      await f.confirmYes();
+      final saved = await VitalsRepository(h.services.db).all(h.services.patientId);
+      expect(saved.single.value, 120);
+      expect(saved.single.value2, 80);
+      expect(said().last, 'cmd_done');
+    });
+
+    test('«لأ» على القياس → ولا صف', () async {
+      final f = await flowWith(['وزني ٨٠ كيلو']);
+      await f.start();
+      await f.confirmNo();
+      expect(await VitalsRepository(h.services.db).all(h.services.patientId), isEmpty);
+      expect(said().last, 'cmd_cancelled');
+    });
+
+    test('«السكر ١٥٠» → «صايم ولا بعد الأكل؟» → «صايم» → تأكيد → قياس سكر', () async {
+      final f = await flowWith(['السكر ١٥٠', 'صايم']);
+      await f.start();
+      expect(tts.spoken, ['صايم ولا بعد الأكل؟']);
+      expect(f.phase, CommandPhase.confirming);
+      await f.confirmYes();
+      final readings = await ReadingsRepository(h.services.db).watchRecent(h.services.patientId).first;
+      expect(readings.single.valueMgDl, 150);
+    });
+
+    test('«فكرني أسأل الدكتور عن الصداع» → تأكيد → سؤال في «أسئلة العيلة»', () async {
+      final f = await flowWith(['فكرني أسأل الدكتور عن الصداع']);
+      await f.start();
+      expect(f.shown, contains('الصداع'));
+      expect(await questions(), isEmpty);
+      await f.confirmYes();
+      expect(await questions(), ['الصداع']);
+    });
+
+    test('«اشتريت الكونكور» → تأكيد → العلامة بتتشال', () async {
+      final id = await seed('Concor');
+      await NotBoughtRepository(h.services.db).markNotBought(id);
+      final f = await flowWith(['اشتريت الكونكور']);
+      await f.start();
+      expect(f.shown, contains('Concor'));
+      expect(await NotBoughtRepository(h.services.db).all(h.services.patientId), hasLength(1));
+      await f.confirmYes();
+      expect(await NotBoughtRepository(h.services.db).all(h.services.patientId), isEmpty);
+    });
+
+    test('«بفطر الساعة ٨» → تأكيد → الروتين اتغيّر وإعادة الجدولة', () async {
+      await seed('Concor', anchor: DayAnchor.breakfast);
+      await schedule();
+      final f = await flowWith(['بفطر الساعة ٨']);
+      await f.start();
+      expect(f.shown, contains('الفطار'));
+      expect((await h.services.routines.getRoutine(h.services.patientId))!.breakfast, normalDay.breakfast, reason: 'لسه ما قالش أيوه');
+      await f.confirmYes();
+      expect((await h.services.routines.getRoutine(h.services.patientId))!.breakfast, const MinuteOfDay(8 * 60));
+    });
+
+    test('«فكرني بعدين» → تأجيل الجرعة المستنية بنفس سكّة الزرار (ربع ساعة)', () async {
+      await seed('Concor');
+      await schedule();
+      final f = await flowWith(['فكرني بعدين']);
+      await f.start();
+      expect(f.shown, contains('ربع ساعة'));
+      expect(h.sink.scheduled.keys.where(isSnoozeId), isEmpty);
+      await f.confirmYes();
+      expect(h.sink.scheduled.keys.where(isSnoozeId), hasLength(1));
+      for (var i = 0; i < 50; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(said(), contains('help_later'), reason: 'نفس جملة زرار «لاحقًا»');
+    });
+
+    test('«مواعيدي الجاية إيه» و«الدوا فاضل كام» → رد بصوت الموبايل، ومفيش تأكيد', () async {
+      final f = await flowWith(['مواعيدي الجاية إيه']);
+      await f.start();
+      expect(f.phase, CommandPhase.answering);
+      expect(tts.spoken.single, contains('مفيش مواعيد'));
+      final g = await flowWith(['الدوا فاضل كام']);
+      await g.start();
+      expect(g.phase, CommandPhase.answering);
+      expect(tts.spoken.last, contains('مخزون'));
+    });
+
+    test('«خلصت» وهو بيسمع: اللي اتسمع هو الطلب — من غير ما نستنى السكوت', () async {
+      final f = await flowWith(const []);
+      listener.hold = true;
+      final run = f.start();
+      await listener.untilListening();
+      listener.partial('إيه أدويتي النهارده');
+      await f.tapMic();
+      await run;
+      expect(f.phase, CommandPhase.answering);
+      expect(tts.spoken.single, contains('أدوية'));
+    });
+
+    test('«كلّمني» بيسمع بنافذة الطلب (٣٠ ثانية / ٢٫٥ سكوت)، والرد القصير بنافذة الرد', () async {
+      final f = await flowWith(['ضغطي ١٢٠ على ٨٠', 'ايوه']);
+      await f.start();
+      expect(listener.lastSilence, const Duration(milliseconds: 2500));
+      expect(listener.lastMaxLength, const Duration(seconds: 30));
+      await f.tapMic();
+      expect(listener.lastSilence, const Duration(milliseconds: 1500));
+      expect(listener.lastMaxLength, const Duration(seconds: 10));
+    });
+
+    test('رد السحابة بأداة غلط الشكل = مش مفهوم، مش عطل', () async {
+      final reader = FakeReader(result: const CloudReadResult(tool: CloudTool(tool: 'add_appointment', args: {'kind': 'dentist'})));
+      final f = await flowWith(['xyz'], reader: reader);
+      await f.start();
+      expect(said().last, 'lis_not_understood');
     });
   });
 }

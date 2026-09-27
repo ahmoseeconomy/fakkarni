@@ -4,58 +4,82 @@ import '../core/diagnostics.dart';
 import 'gemini_config.dart';
 import 'prescription_reader.dart';
 
-/// اللي السحابة بترجّعه عن طلب مسموع — **الكلام المكتوب بس بيروح، وبس.**
-///
-/// مفيش اسم مريض، ولا سن، ولا قايمة أدوية، ولا روتين، ولا أي حاجة تانية في
-/// الطلب — `command_reader_test` بيمسك جسم الطلب نفسه ويثبت ده. المطابقة على
-/// أدوية المريض بتحصل **بعدها على الموبايل** (`matchMedication`).
-class CloudCommand {
-  const CloudCommand({required this.intent, this.medNameAsSpoken, this.timingWords, this.patternWords});
+/// **استخراج منظّم بأدوات** («كلّمني» v2): السحابة بتختار أداة واحدة من
+/// [CloudTool.tools] وبتملى خاناتها — **من الكلام المكتوب وتاريخ النهارده
+/// وبس**. مفيش اسم مريض، ولا سن، ولا قايمة أدوية، ولا روتين في الطلب —
+/// `command_reader_test` بيمسك جسم الطلب نفسه ويثبت ده. المطابقة على أدوية
+/// المريض والتنفيذ بيحصلوا **بعدها على الموبايل** (`cloud_tools.dart`).
+class CloudTool {
+  const CloudTool({required this.tool, this.args = const {}});
 
-  /// واحد من [intents] — أي حاجة تانية = الرد كله مرفوض.
-  final String intent;
-  final String? medNameAsSpoken;
-  final String? timingWords;
-  final String? patternWords;
+  /// واحدة من [tools] — أي حاجة تانية = الرد كله مرفوض.
+  final String tool;
 
-  static const intents = {'mark_taken', 'next_dose', 'today_list', 'add_med', 'medical_question', 'unknown'};
-  static const keys = {'intent', 'med_name_as_spoken', 'timing_words', 'pattern_words'};
+  /// الخانات زي ما جت (نص / رقم / قايمة / null) — التحقق الصارم لكل أداة في
+  /// `commandFromCloudTool`.
+  final Map<String, Object?> args;
 
-  /// صارم: المفاتيح الأربعة بالظبط، ولا مفتاح زيادة، والقيم نص أو null،
-  /// والنية من القايمة. أي حاجة تانية = null (= مش مفهوم).
-  static CloudCommand? fromJson(Object? raw) {
+  static const tools = {
+    'add_medication',
+    'add_appointment',
+    'mark_taken',
+    'snooze',
+    'add_vital',
+    'add_doctor_question',
+    'mark_bought',
+    'set_routine',
+    'next_dose',
+    'today_list',
+    'upcoming_appointments',
+    'stock_status',
+    'medical_question',
+    'unknown',
+  };
+
+  /// كل الخانات المسموحة — مفتاح تاني = الرد كله مرفوض.
+  static const argKeys = {
+    'name', 'dose', 'times', 'anchors', 'pattern', 'every_hours', 'weekdays', 'duration_days', 'start_date',
+    'kind', 'with_whom', 'date', 'time', 'place', 'note',
+    'med_name', 'minutes', 'vital_type', 'values', 'text', 'meal',
+  };
+
+  static bool _scalarOk(Object? v) => v == null || v is String || v is num;
+
+  /// صارم: `tool` من القايمة، كل المفاتيح التانية من [argKeys]، والقيم نص أو
+  /// رقم أو قايمة نصوص/أرقام أو null. أي حاجة تانية = null (= مش مفهوم).
+  static CloudTool? fromJson(Object? raw) {
     if (raw is! Map) return null;
-    if (raw.keys.toSet().difference(keys).isNotEmpty) return null;
-    if (!keys.every(raw.containsKey)) return null;
-    final intent = raw['intent'];
-    if (intent is! String || !intents.contains(intent)) return null;
-    String? str(String k) {
-      final v = raw[k];
-      if (v == null) return null;
-      if (v is! String) throw const FormatException('not a string');
-      final t = v.trim();
-      return t.isEmpty ? null : t;
+    final tool = raw['tool'];
+    if (tool is! String || !tools.contains(tool)) return null;
+    final args = <String, Object?>{};
+    for (final entry in raw.entries) {
+      final k = entry.key;
+      if (k == 'tool') continue;
+      if (k is! String || !argKeys.contains(k)) return null;
+      final v = entry.value;
+      if (v is List) {
+        if (!v.every(_scalarOk) || v.any((e) => e == null)) return null;
+        if (v.isNotEmpty) args[k] = List<Object>.from(v);
+        continue;
+      }
+      if (!_scalarOk(v)) return null;
+      if (v is String) {
+        final t = v.trim();
+        if (t.isNotEmpty) args[k] = t;
+        continue;
+      }
+      if (v != null) args[k] = v;
     }
-
-    try {
-      return CloudCommand(
-        intent: intent,
-        medNameAsSpoken: str('med_name_as_spoken'),
-        timingWords: str('timing_words'),
-        patternWords: str('pattern_words'),
-      );
-    } on FormatException {
-      return null;
-    }
+    return CloudTool(tool: tool, args: args);
   }
 }
 
-/// نتيجة سؤال السحابة: فهمت ([command])، أو ما فهمتش (الاتنين null)، أو
+/// نتيجة سؤال السحابة: فهمت ([tool])، أو ما فهمتش (الاتنين null)، أو
 /// **مقدرناش** ([error]: مهلة، شبكة، رد بايظ) — الفرق بين «معلش مافهمتش»
 /// و«كمّل بإيدك». الكود التقني في [error] للسجل بس، عمره ما يوصل الشاشة.
 class CloudReadResult {
-  const CloudReadResult({this.command, this.error, this.latency = Duration.zero});
-  final CloudCommand? command;
+  const CloudReadResult({this.tool, this.error, this.latency = Duration.zero});
+  final CloudTool? tool;
   final String? error;
   final Duration latency;
   bool get failed => error != null;
@@ -63,7 +87,8 @@ class CloudReadResult {
 
 /// بيفهم طلب من الكلام المكتوب — واجهة عشان الشاشات تتختبر من غير شبكة.
 abstract interface class VoiceCommandReader {
-  Future<CloudReadResult> read(String transcript);
+  /// [now] بيروح للسحابة كتاريخ النهارده ويومه — عشان «يوم الحد» تبقى تاريخ.
+  Future<CloudReadResult> read(String transcript, {DateTime? now});
 }
 
 /// **الخطوة (ج)**: بس لو القارئ المحلي ما فهمش، وفيه نت، والحد اليومي لسه.
@@ -72,7 +97,7 @@ abstract interface class VoiceCommandReader {
 /// نفس المفتاح ونفس الموديل — ببرومبت نص بس (مفيش صورة) وschema صارم.
 /// **المفتاح الحالي (مجاني، في التطبيق) مش للاستخدام مع بيانات مرضى
 /// حقيقيين** — مفتاح مدفوع قبل النشر (الدين 2b). عشان كده الطلب ما فيهوش
-/// غير الكلام المكتوب.
+/// غير الكلام المكتوب وتاريخ النهارده.
 class GeminiCommandReader implements VoiceCommandReader {
   GeminiCommandReader(GeminiConfig config, {GeminiPrescriptionReader? transport, this.timeout = const Duration(seconds: 8)})
       : _transport = transport ?? GeminiPrescriptionReader(config);
@@ -85,21 +110,21 @@ class GeminiCommandReader implements VoiceCommandReader {
   /// عمرها ما بترمي: كل عطل بيرجع [CloudReadResult.error] بكوده — والكلام
   /// المكتوب نفسه **ما بيتكتبش** في أي سجل.
   @override
-  Future<CloudReadResult> read(String transcript) async {
+  Future<CloudReadResult> read(String transcript, {DateTime? now}) async {
     final started = DateTime.now();
     Duration elapsed() => DateTime.now().difference(started);
     try {
       final json = await _transport
           .generateText(
-            prompt: promptFor(transcript),
+            prompt: promptFor(transcript, now ?? DateTime.now()),
             schema: schema,
             systemInstruction: systemInstruction,
             failure: 'cloud',
           )
           .timeout(timeout);
-      final command = CloudCommand.fromJson(json);
-      if (command == null) diag('Cmd: cloud رد برّه الشكل المتفق — اتعامل معاه كمش مفهوم (${elapsed().inMilliseconds}ms)');
-      return CloudReadResult(command: command, latency: elapsed());
+      final tool = CloudTool.fromJson(json);
+      if (tool == null) diag('Cmd: cloud رد برّه الشكل المتفق — اتعامل معاه كمش مفهوم (${elapsed().inMilliseconds}ms)');
+      return CloudReadResult(tool: tool, latency: elapsed());
     } on TimeoutException {
       return CloudReadResult(error: 'timeout', latency: elapsed());
     } on PrescriptionReadException catch (e) {
@@ -111,41 +136,70 @@ class GeminiCommandReader implements VoiceCommandReader {
     }
   }
 
-  /// الطلب كله: الكلام المكتوب وسطر تعريف — **ولا حاجة تانية عن المريض.**
-  static String promptFor(String transcript) =>
-      'The patient said (Egyptian Arabic, from speech recognition, may have errors):\n"""$transcript"""';
+  static const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  /// «2026-09-26 (Saturday)».
+  static String dateLine(DateTime now) =>
+      '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} (${_weekdayNames[now.weekday - 1]})';
+
+  /// الطلب كله: الكلام المكتوب وتاريخ النهارده — **ولا حاجة تانية عن المريض.**
+  static String promptFor(String transcript, DateTime now) =>
+      'Today is ${dateLine(now)}.\nThe patient said (Egyptian Arabic, from speech recognition, may have errors):\n"""$transcript"""';
+
+  static const _nullable = {'type': 'STRING', 'nullable': true};
+  static const _nullableInt = {'type': 'INTEGER', 'nullable': true};
+  static const _stringList = {'type': 'ARRAY', 'items': {'type': 'STRING'}, 'nullable': true};
 
   static const schema = <String, dynamic>{
     'type': 'OBJECT',
     'properties': {
-      'intent': {
-        'type': 'STRING',
-        'enum': ['mark_taken', 'next_dose', 'today_list', 'add_med', 'medical_question', 'unknown'],
-      },
-      'med_name_as_spoken': {'type': 'STRING', 'nullable': true},
-      'timing_words': {'type': 'STRING', 'nullable': true},
-      'pattern_words': {'type': 'STRING', 'nullable': true},
+      'tool': {'type': 'STRING', 'enum': [
+        'add_medication', 'add_appointment', 'mark_taken', 'snooze', 'add_vital', 'add_doctor_question', 'mark_bought', 'set_routine',
+        'next_dose', 'today_list', 'upcoming_appointments', 'stock_status', 'medical_question', 'unknown',
+      ]},
+      'name': _nullable,
+      'dose': _nullable,
+      'times': _stringList,
+      'anchors': _stringList,
+      'pattern': _nullable,
+      'every_hours': _nullableInt,
+      'weekdays': {'type': 'ARRAY', 'items': {'type': 'INTEGER'}, 'nullable': true},
+      'duration_days': _nullableInt,
+      'start_date': _nullable,
+      'kind': _nullable,
+      'with_whom': _nullable,
+      'date': _nullable,
+      'time': _nullable,
+      'place': _nullable,
+      'note': _nullable,
+      'med_name': _nullable,
+      'minutes': _nullableInt,
+      'vital_type': _nullable,
+      'values': {'type': 'ARRAY', 'items': {'type': 'NUMBER'}, 'nullable': true},
+      'text': _nullable,
+      'meal': _nullable,
     },
-    'required': ['intent', 'med_name_as_spoken', 'timing_words', 'pattern_words'],
+    'required': ['tool'],
   };
 
   /// القاعدة ٦ مكتوبة للموديل: أي سؤال طبي = medical_question، ولا كلمة نصيحة.
   static const systemInstruction = '''
-You classify ONE short spoken request from an elderly Egyptian patient using a medication-reminder app. You are not a doctor and you never give medical advice.
-Return ONLY the JSON object. Nothing else.
+You extract ONE tool call from a short spoken request by an elderly Egyptian patient using a medication-reminder app. You are not a doctor and you never give medical advice.
+Return ONLY the JSON object. Nothing else. Use null (or omit) for anything not said. NEVER invent a medicine name, a time, a dose, a date or a frequency that was not said.
 
-intent must be exactly one of:
-- "mark_taken": the patient says they took a medicine now ("أخدت دوا الضغط", "خدت الدوا").
-- "next_dose": asks what or when the next medicine is ("إيه دوايا الجاي", "الدوا الجاي إمتى").
-- "today_list": asks for today's medicines ("إيه أدويتي النهارده").
-- "add_med": asks to add a medicine ("ضيفلي دوا الضغط الصبح بعد الفطار").
-- "medical_question": ANY question or statement about dosage, changing or stopping a medicine, side effects, symptoms, interactions, whether something is safe, what a medicine is for, or a diagnosis. When in doubt between medical_question and anything else, choose medical_question.
+tool must be exactly one of:
+- "add_medication": add a medicine. name (as said), dose (as said, e.g. "قرص", "نص قرص"), times as clock strings "HH:MM" 24h (e.g. "الساعة ٩ بالليل" → ["21:00"]), anchors as strings from: wake, before_breakfast, with_breakfast, after_breakfast, before_lunch, with_lunch, after_lunch, before_dinner, with_dinner, after_dinner, before_sleep. pattern: "daily" | "every_n_hours" (then every_hours) | "weekdays" (then weekdays: 1=Monday … 7=Sunday) | "once". duration_days, start_date "YYYY-MM-DD" (resolve بكرة / الأسبوع الجاي from today's date).
+- "add_appointment": book a visit. kind: "doctor" | "lab" | "scan" | "other". with_whom (doctor's name if said), date "YYYY-MM-DD" resolved from today's date and weekday (يوم الحد = the next Sunday), time "HH:MM" only if a day part makes it unambiguous, place, note.
+- "mark_taken": the patient says they took a medicine now. med_name as said (or null).
+- "snooze": remind later. minutes if said.
+- "add_vital": a measurement with numbers. vital_type: "bp" | "sugar" | "pulse" | "weight" | "temp" | "o2". values: the numbers as said (bp: [systolic, diastolic, pulse?]).
+- "add_doctor_question": something to ask the doctor. text as said.
+- "mark_bought": the patient bought a medicine. med_name.
+- "set_routine": when a meal / waking / sleeping happens. meal: "wake" | "breakfast" | "lunch" | "dinner" | "sleep", time "HH:MM".
+- "next_dose", "today_list", "upcoming_appointments", "stock_status": read-only questions.
+- "medical_question": ANY question or statement about dosage, changing or stopping a medicine, side effects, symptoms, interactions, whether something is safe, what a medicine is for, whether a reading is high or low, or a diagnosis. When in doubt between medical_question and anything else, choose medical_question.
 - "unknown": anything else.
 
-med_name_as_spoken: the medicine name or purpose word exactly as the patient said it (e.g. "الضغط", "الكونكور"), or null.
-timing_words: the timing words exactly as said (e.g. "الصبح بعد الفطار", "قبل النوم", "الساعة تمانية"), or null.
-pattern_words: how often, exactly as said (e.g. "مرتين في اليوم", "كل تمن ساعات", "مرة واحدة"), or null.
-
-Never invent a medicine name, a time, a dose or a frequency that was not said. Never add advice, comments or extra fields.
+Never add advice, comments or extra fields.
 ''';
 }

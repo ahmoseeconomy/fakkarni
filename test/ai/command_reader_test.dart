@@ -1,5 +1,6 @@
-// السحابة بتاخد الكلام المكتوب وبس، وبترجّع JSON صارم — وأي حاجة برّه الشكل
-// أو أي عطل بيرجع بأمان: مش مفهوم أو «كمّل بإيدك»، ولا رمية واحدة.
+// السحابة بتاخد الكلام المكتوب وتاريخ النهارده وبس، وبترجّع **أداة** بخاناتها
+// بشكل صارم — وأي حاجة برّه الشكل أو أي عطل بيرجع بأمان: مش مفهوم أو «كمّل
+// بإيدك»، ولا رمية واحدة.
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -28,92 +29,82 @@ http.Response geminiReply(Object json) => http.Response(
 
 void main() {
   const config = GeminiConfig(apiKey: 'test-key');
+  final now = DateTime(2026, 9, 26, 10);
 
   GeminiCommandReader readerWith(http.Client client, {Duration timeout = const Duration(seconds: 8)}) =>
       GeminiCommandReader(config, transport: GeminiPrescriptionReader(config, client: client), timeout: timeout);
 
-  test('**الجسم فيه الكلام المكتوب وبس** — ولا صورة، ولا اسم دوا من القاعدة، ولا اسم مريض', () async {
-    // أدوية «القاعدة» — لو واحدة منهم ظهرت في الطلب، الخصوصية اتكسرت
+  test('**الجسم فيه الكلام المكتوب وتاريخ النهارده وبس** — ولا صورة، ولا اسم دوا من القاعدة، ولا اسم مريض', () async {
     const dbMeds = ['Concor 5mg', 'Glucophage 1000', 'Augmentin'];
     const patientName = 'الحاج أحمد';
     http.Request? sent;
     final client = MockClient((req) async {
       sent = req;
-      return geminiReply({'intent': 'mark_taken', 'med_name_as_spoken': 'الضغط', 'timing_words': null, 'pattern_words': null});
+      return geminiReply({'tool': 'mark_taken', 'med_name': 'الضغط'});
     });
-    final result = await readerWith(client).read('أخدت دوا الضغط');
-    expect(result.command?.intent, 'mark_taken');
-    expect(result.command?.medNameAsSpoken, 'الضغط');
+    final result = await readerWith(client).read('أخدت دوا الضغط', now: now);
+    expect(result.tool?.tool, 'mark_taken');
+    expect(result.tool?.args['med_name'], 'الضغط');
 
     final body = jsonDecode(sent!.body) as Map<String, dynamic>;
     final parts = ((body['contents'] as List).single as Map)['parts'] as List;
     expect(parts, hasLength(1), reason: 'جزء واحد — نص');
     final text = (parts.single as Map)['text'] as String;
-    expect(text, contains('أخدت دوا الضغط'));
-    expect(text, GeminiCommandReader.promptFor('أخدت دوا الضغط'), reason: 'الكلام المكتوب وسطر التعريف — وبس');
+    expect(text, GeminiCommandReader.promptFor('أخدت دوا الضغط', now), reason: 'الكلام المكتوب وتاريخ النهارده — وبس');
+    expect(text, contains('2026-09-26 (Saturday)'));
     expect(sent!.body, isNot(contains('inline_data')));
     for (final med in dbMeds) {
       expect(sent!.body, isNot(contains(med)));
     }
     expect(sent!.body, isNot(contains(patientName)));
-    expect(sent!.body, isNot(contains('routine')));
+    // روتين المريض نفسه ما بيروحش — التعليمات الثابتة بتسمّي أداة `set_routine` وبس
+    expect(text, isNot(contains('routine')));
+    expect(sent!.body, isNot(contains('"wake"')));
     expect(sent!.headers['x-goog-api-key'], 'test-key');
     expect(sent!.headers.containsKey('Authorization'), isFalse);
     expect(sent!.url.toString(), isNot(contains('test-key')));
   });
 
-  test('JSON صحيح → أمر، والفاضي null', () async {
+  test('JSON صحيح → أداة بخاناتها، والفاضي بيتشال', () async {
     final r = await readerWith(MockClient((_) async => geminiReply({
-          'intent': 'add_med',
-          'med_name_as_spoken': 'الكونكور',
-          'timing_words': 'الصبح بعد الفطار',
-          'pattern_words': '',
+          'tool': 'add_medication',
+          'name': 'الكونكور',
+          'anchors': ['after_breakfast'],
+          'times': [],
+          'pattern': '',
+          'note': null,
         }))).read('ضيفلي الكونكور الصبح بعد الفطار');
     expect(r.failed, isFalse);
-    expect(r.command!.intent, 'add_med');
-    expect(r.command!.timingWords, 'الصبح بعد الفطار');
-    expect(r.command!.patternWords, isNull, reason: 'فاضي = null');
+    expect(r.tool!.tool, 'add_medication');
+    expect(r.tool!.args['anchors'], ['after_breakfast']);
+    expect(r.tool!.args.containsKey('times'), isFalse, reason: 'قايمة فاضية = مش موجودة');
+    expect(r.tool!.args.containsKey('pattern'), isFalse, reason: 'فاضي = null');
   });
 
-  test('حقل زيادة → مش مفهوم (الرد كله مرفوض)', () async {
-    final r = await readerWith(MockClient((_) async => geminiReply({
-          'intent': 'mark_taken',
-          'med_name_as_spoken': null,
-          'timing_words': null,
-          'pattern_words': null,
-          'advice': 'خد قرصين',
-        }))).read('x');
-    expect(r.command, isNull);
+  test('خانة مش من القايمة → مش مفهوم (الرد كله مرفوض)', () async {
+    final r = await readerWith(MockClient((_) async => geminiReply({'tool': 'mark_taken', 'advice': 'خد قرصين'}))).read('x');
+    expect(r.tool, isNull);
     expect(r.failed, isFalse);
   });
 
-  test('نية مش من القايمة → مش مفهوم', () async {
-    final r = await readerWith(MockClient((_) async => geminiReply({
-          'intent': 'stop_med',
-          'med_name_as_spoken': null,
-          'timing_words': null,
-          'pattern_words': null,
-        }))).read('x');
-    expect(r.command, isNull);
+  test('أداة مش من القايمة → مش مفهوم', () async {
+    final r = await readerWith(MockClient((_) async => geminiReply({'tool': 'stop_med'}))).read('x');
+    expect(r.tool, isNull);
     expect(r.failed, isFalse);
   });
 
-  test('حقل ناقص أو قيمة مش نص → مش مفهوم', () async {
-    final missing = await readerWith(MockClient((_) async => geminiReply({'intent': 'next_dose'}))).read('x');
-    expect(missing.command, isNull);
-    final wrongType = await readerWith(MockClient((_) async => geminiReply({
-          'intent': 'next_dose',
-          'med_name_as_spoken': 5,
-          'timing_words': null,
-          'pattern_words': null,
-        }))).read('x');
-    expect(wrongType.command, isNull);
-    expect(wrongType.failed, isFalse);
+  test('قيمة مش نص/رقم/قايمة → مش مفهوم', () async {
+    final wrongType = await readerWith(MockClient((_) async => geminiReply({'tool': 'next_dose', 'med_name': {'a': 1}}))).read('x');
+    expect(wrongType.tool, isNull);
+    final nested = await readerWith(MockClient((_) async => geminiReply({'tool': 'add_vital', 'values': [[1]]}))).read('x');
+    expect(nested.tool, isNull);
+    final noTool = await readerWith(MockClient((_) async => geminiReply({'name': 'x'}))).read('x');
+    expect(noTool.tool, isNull);
   });
 
   test('رد مش JSON → عطل (مش «مافهمتش») — ومفيش رمية', () async {
     final r = await readerWith(MockClient((_) async => geminiReply('خد قرصين بعد الأكل'))).read('x');
-    expect(r.command, isNull);
+    expect(r.tool, isNull);
     expect(r.failed, isTrue);
     expect(r.error, 'invalid_json');
   });
@@ -134,7 +125,7 @@ void main() {
     final r = await readerWith(
       MockClient((_) async {
         await Future<void>.delayed(const Duration(milliseconds: 200));
-        return geminiReply({'intent': 'unknown', 'med_name_as_spoken': null, 'timing_words': null, 'pattern_words': null});
+        return geminiReply({'tool': 'unknown'});
       }),
       timeout: const Duration(milliseconds: 50),
     ).read('x');
@@ -142,10 +133,16 @@ void main() {
     expect(r.error, 'timeout');
   });
 
-  test('تعليمات الموديل بتمنع النصيحة الطبية وبتوجّه الشك لـmedical_question', () {
+  test('كل أداة في الـschema وفي التعليمات، والتعليمات بتمنع النصيحة الطبية', () {
+    final enumTools = ((GeminiCommandReader.schema['properties'] as Map)['tool'] as Map)['enum'] as List;
+    expect(enumTools.toSet(), CloudTool.tools);
+    for (final t in CloudTool.tools) {
+      expect(GeminiCommandReader.systemInstruction, contains('"$t"'));
+    }
     expect(GeminiCommandReader.systemInstruction, contains('never give medical advice'));
     expect(GeminiCommandReader.systemInstruction, contains('choose medical_question'));
-    expect(GeminiCommandReader.systemInstruction, contains('Never invent'));
-    expect(CloudCommand.intents, hasLength(6));
+    expect(GeminiCommandReader.systemInstruction, contains('NEVER invent'));
+    final props = (GeminiCommandReader.schema['properties'] as Map).keys.toSet()..remove('tool');
+    expect(props, CloudTool.argKeys, reason: 'الخانات اللي الموديل يقدر يرجّعها هي اللي بنقبلها — بالظبط');
   });
 }

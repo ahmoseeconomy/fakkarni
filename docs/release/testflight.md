@@ -34,6 +34,7 @@ flutter build ipa --release \
   --dart-define=SUPABASE_URL=… \
   --dart-define=SUPABASE_ANON_KEY=… \
   --dart-define=GEMINI_API_KEY=… \
+  --dart-define=VOICE_COMMANDS_CLOUD=true \
   --dart-define=PRIVACY_URL=… \
   --dart-define=TERMS_URL=…
 ```

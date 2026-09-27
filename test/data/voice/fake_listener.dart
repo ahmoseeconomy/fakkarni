@@ -25,6 +25,8 @@ class FakeListener implements SpeechListener {
   /// `String` كلام، `null` سكوت، [ListenFailed] السماع ما بدأش.
   final List<Object?> answers;
   int listens = 0;
+  Duration? lastSilence;
+  Duration? lastMaxLength;
   int stops = 0;
   int prepares = 0;
   bool prepared = false;
@@ -67,6 +69,8 @@ class FakeListener implements SpeechListener {
   }) async {
     if (!prepared) throw StateError('listen قبل prepare');
     listens++;
+    lastSilence = silence;
+    lastMaxLength = maxLength;
     _partial = onPartial;
     onListen?.call();
     if (hold) {

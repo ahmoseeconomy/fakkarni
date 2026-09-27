@@ -439,8 +439,11 @@ class SyncService {
   /// `device_health`: سياستها `owns_patient(patient_uuid)`، ومريض لسه ما
   /// اترفعش (مش مربوط) أو مملوك لمستخدم مجهول قديم = `42501` على كل فتحة
   /// (آيفون، ٢٦ سبتمبر ٢٠٢٦).
-  Future<bool> cloudOwnsPatient() async =>
-      _hasSession() && await _linked() && await blockedReason() == null;
+  Future<bool> cloudOwnsPatient() async {
+    // أول دفعة الأول (لحد ٢٠ ثانية) — هي اللي بتعرف إن السيرفر رفض الحساب
+    await firstPushSettled.timeout(const Duration(seconds: 20), onTimeout: () {});
+    return _hasSession() && await _linked() && await blockedReason() == null;
+  }
 
   Future<bool> _linked() async {
     final row = await (_db.select(_db.patients)
@@ -454,7 +457,21 @@ class SyncService {
   ///
   /// العلامة هي updated_at_ms **اللي اتدفعت** مش now(): صف اتعدّل أثناء
   /// الدفع بتبقى ساعته أحدث من العلامة فبيفضل متوسّخاً للمحاولة الجاية.
+  /// أول دفعة في الجلسة دي خلصت (بأي نتيجة). النبضة بتستناها: عند الفتح
+  /// الاتنين بيبدأوا مع بعض، والنبضة كانت بتكتب في `device_health` قبل ما
+  /// الدفعة تكتشف إن الحساب مرفوض — `42501` على كل فتحة (آيفون، ٢٦ سبتمبر).
+  Future<void> get firstPushSettled => _firstPush.future;
+  final _firstPush = Completer<void>();
+
   Future<PushOutcome> push() async {
+    try {
+      return await _pushGuarded();
+    } finally {
+      if (!_firstPush.isCompleted) _firstPush.complete();
+    }
+  }
+
+  Future<PushOutcome> _pushGuarded() async {
     if (_pushing) {
       _pushAgain = true;
       return PushOutcome.busy;

@@ -71,12 +71,17 @@ final class ListenFailed extends ListenResult {
 
 /// التوقيتات — مكان واحد، والاختبار بيقفل عليها.
 abstract final class ListenTimings {
-  /// السماع كله.
+  /// السماع كله — الإجابات القصيرة (شاشة التذكير).
   static const maxLength = Duration(seconds: 10);
 
-  /// بعد ما بدأ يتكلم: سكوت قد كده بيقفل.
-  static const silence = Duration(seconds: 3);
+  /// بعد ما بدأ يتكلم: سكوت قد كده بيقفل — الإجابات القصيرة (١٫٥ ثانية).
+  static const silence = Duration(milliseconds: 1500);
 
   /// لسه ما قالش ولا كلمة: السماع ما يقفلش قبل كده.
   static const firstWordWithin = Duration(seconds: 6);
+
+  /// «كلّمني» — طلب مفتوح: لحد ٣٠ ثانية، وسكوت ٢٫٥ ثانية بعد آخر كلمة بيقفل
+  /// (المالك، ٢٦ سبتمبر ٢٠٢٦ — «لازم أتكلم بسرعة»).
+  static const commandMaxLength = Duration(seconds: 30);
+  static const commandSilence = Duration(milliseconds: 2500);
 }

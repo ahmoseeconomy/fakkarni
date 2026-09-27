@@ -8,6 +8,7 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/scheduling/day_routine.dart';
 import '../medication/add_medication_screen.dart';
+import '../records/health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 import '../medication/medication_draft.dart';
 import '../../domain/voice/voice_catalog.dart';
 import 'command_flow.dart';
@@ -60,7 +61,39 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       onCloudUsed: services.cloudCommandBudget?.used,
       clock: widget.now == null ? null : () => widget.now!,
       onOpenAdd: _openAdd,
+      onOpenAppointment: _openAppointment,
     );
+  }
+
+  /// ورقة «ميعاد جديد» **متعبّية** — والحفظ من زرارها، وبنفس الدالة اللي زرار
+  /// «السجل» بيعدّي منها (`bookAppointment`): إشعار امبارحه وإشعار يومه.
+  Future<bool> _openAppointment(AppointmentPrefill p) async {
+    if (!mounted) return false;
+    final today = widget.now ?? DateTime.now();
+    final result = await FSheet.show<NewAppointmentResult>(
+      context,
+      title: 'ميعاد جديد',
+      children: [
+        NewAppointmentBody(
+          today: DateTime(today.year, today.month, today.day),
+          allowFromPaper: false,
+          initialKind: p.kind,
+          initialName: p.name,
+          initialDay: p.day,
+        ),
+      ],
+    );
+    if (result == null || !mounted) return false;
+    final services = AppScope.of(context);
+    await services.checkups.bookAppointment(
+      patientId: services.patientId,
+      kind: result.kind,
+      title: result.title,
+      day: result.day,
+      today: today,
+    );
+    await services.refreshAppointments(now: today);
+    return true;
   }
 
   /// الفورم العادي متعبّي — الحفظ بزراره هو، ومفيش حاجة اتكتبت قبله.
@@ -192,6 +225,11 @@ class _CommandBodyState extends State<_CommandBody> {
               style: flow.phase == CommandPhase.confirming ? big.copyWith(fontSize: F.screenTitleSize) : big,
             ),
           ],
+          if (flow.phase == CommandPhase.asking) ...[
+            // سؤال المتابعة — مكتوب وبيتقال، وبعده المايك بيتفتح لوحده مرة
+            const SizedBox(height: F.s12),
+            Text(flow.shown, key: const ValueKey('talk-question'), textAlign: TextAlign.center, style: big),
+          ],
           if (flow.phase == CommandPhase.listening) ...[
             // الكلام وهو بيتقال
             if (flow.partial.isNotEmpty) ...[
@@ -213,6 +251,22 @@ class _CommandBodyState extends State<_CommandBody> {
           ],
           const SizedBox(height: F.gap),
           switch (flow.phase) {
+            // «خلصت» كبيرة: بتقفل المايك واللي اتسمع هو الطلب — نفس دوسة الدايرة
+            CommandPhase.listening => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FPrimaryButton(key: const ValueKey('talk-done'), label: 'خلصت', onPressed: flow.tapMic),
+                  const SizedBox(height: F.s10),
+                  FSecondaryButton(
+                    key: const ValueKey('talk-close'),
+                    label: 'اقفل',
+                    onPressed: () {
+                      unawaited(flow.cancel());
+                      Navigator.of(context).maybePop();
+                    },
+                  ),
+                ],
+              ),
             CommandPhase.confirming => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

@@ -11,6 +11,7 @@ import 'package:fakkarni/data/voice/stt_driver.dart';
 
 /// محرّك مزيّف: السماع مفتوح لحد ما الاختبار يقفله، والكلام بيوصل بـ[say].
 class _Driver implements SttDriver {
+  Duration? lastSilence;
   int starts = 0;
   int stops = 0;
   Completer<ListenResult>? open;
@@ -35,6 +36,7 @@ class _Driver implements SttDriver {
     void Function(String partial)? onPartial,
   }) {
     starts++;
+    lastSilence = silence;
     _partial = onPartial;
     return (open = Completer<ListenResult>()).future;
   }
@@ -64,9 +66,16 @@ void main() {
     mic = MicListener(driver, endOfSpeech: eos);
   });
 
-  test('نهاية الكلام الافتراضية ١٫٢ ثانية — مش سكوت المتعرّف', () {
-    expect(MicListener.defaultEndOfSpeech, const Duration(milliseconds: 1200));
-    expect(MicListener(driver).endOfSpeech, const Duration(milliseconds: 1200));
+  test('نهاية الكلام = مهلة السماع نفسه (١٫٥ ثانية للرد القصير، ٢٫٥ لـ«كلّمني») — والمتعرّف بياخد أطول كشبكة أمان', () async {
+    final m = MicListener(driver);
+    expect(m.endOfSpeech, isNull, reason: 'لكل سماع مهلته');
+    expect(ListenTimings.silence, const Duration(milliseconds: 1500));
+    expect(ListenTimings.commandSilence, const Duration(milliseconds: 2500));
+    expect(ListenTimings.commandMaxLength, const Duration(seconds: 30));
+    final r = m.listen(silence: const Duration(milliseconds: 40));
+    driver.say('كلمة');
+    expect(await r.timeout(const Duration(seconds: 2)), isA<ListenHeard>(), reason: 'قفلت بعد ٤٠ ملّي — مهلة السماع ده');
+    expect(driver.lastSilence, const Duration(milliseconds: 40) + MicListener.driverSlack);
   });
 
   test('دوستين ورا بعض = سماع واحد، ونفس النتيجة', () async {

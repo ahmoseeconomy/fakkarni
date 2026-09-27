@@ -15,12 +15,17 @@ import 'stt_driver.dart';
 ///
 /// و[stop] **بتكسب على طول**: السماع بيرجع [ListenSilence] في نفس اللحظة.
 class MicListener implements SpeechListener {
-  MicListener(this.driver, {this.endOfSpeech = defaultEndOfSpeech});
+  MicListener(this.driver, {this.endOfSpeech});
 
-  static const defaultEndOfSpeech = Duration(milliseconds: 1200);
+  /// المتعرّف نفسه بياخد مهلة سكوت أطول من بتاعتنا بالقدر ده — شبكة أمان
+  /// ورانا، مش هو اللي بيقرر.
+  static const driverSlack = Duration(seconds: 2);
 
   final SttDriver driver;
-  final Duration endOfSpeech;
+
+  /// null = مهلة السماع نفسه ([SpeechListener.listen] `silence`): ١٫٥ ثانية
+  /// على شاشة التذكير، ٢٫٥ في «كلّمني».
+  final Duration? endOfSpeech;
 
   Completer<ListenResult>? _open;
   Timer? _eos;
@@ -53,9 +58,10 @@ class MicListener implements SpeechListener {
     }
     final result = _open = Completer<ListenResult>();
     _words = '';
+    final eos = endOfSpeech ?? silence;
     unawaited(driver
         .listen(
-          silence: silence,
+          silence: silence + driverSlack,
           maxLength: maxLength,
           firstWordWithin: firstWordWithin,
           onPartial: (t) {
@@ -63,9 +69,9 @@ class MicListener implements SpeechListener {
             _words = t;
             onPartial?.call(t);
             _eos?.cancel();
-            _eos = Timer(endOfSpeech, () {
+            _eos = Timer(eos, () {
               if (!identical(_open, result)) return;
-              diag('Listen: نهاية الكلام — ${endOfSpeech.inMilliseconds}ms من غير كلمة جديدة');
+              diag('Listen: نهاية الكلام — ${eos.inMilliseconds}ms من غير كلمة جديدة');
               _complete(result, ListenHeard(_words));
               unawaited(driver.stop());
             });

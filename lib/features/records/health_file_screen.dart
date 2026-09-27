@@ -497,9 +497,14 @@ class NewAppointmentResult {
 
 /// جسم شيت «ميعاد جديد»: «دكتور ولا معمل؟» ← الاسم (اختياري) ← اليوم ← «احفظ الميعاد».
 class NewAppointmentBody extends StatefulWidget {
-  const NewAppointmentBody({required this.today, this.allowFromPaper = true, super.key});
+  const NewAppointmentBody({required this.today, this.allowFromPaper = true, this.initialKind, this.initialName, this.initialDay, super.key});
 
   final DateTime today;
+
+  /// «كلّمني»: الورقة بتتفتح **متعبّية** باللي اتفهم — والحفظ بزرارها هي.
+  final FollowKind? initialKind;
+  final String? initialName;
+  final DateTime? initialDay;
 
   /// «عندي روشتة — ابدأ منها» — للمريض بس؛ الممرض ما عندوش ورق المريض.
   final bool allowFromPaper;
@@ -509,9 +514,9 @@ class NewAppointmentBody extends StatefulWidget {
 }
 
 class _NewAppointmentBodyState extends State<NewAppointmentBody> {
-  FollowKind _kind = FollowKind.visit;
-  final _name = TextEditingController();
-  late DateTime _day = DateTime(widget.today.year, widget.today.month, widget.today.day + 1);
+  late FollowKind _kind = widget.initialKind ?? FollowKind.visit;
+  late final _name = TextEditingController(text: widget.initialName ?? '');
+  late DateTime _day = widget.initialDay ?? DateTime(widget.today.year, widget.today.month, widget.today.day + 1);
 
   @override
   void dispose() {
