@@ -154,7 +154,9 @@ void main() {
         tester.widget<Text>(find.descendant(of: note, matching: find.byType(Text))).data,
         contains('الدوا ده عندك في القايمة باسم «Concor 10 mg»'),
       );
-      // **بنقول، مش بنمنع** — الزرار شغّال زي ما هو، والقرار قراره
+      // **بنقول، مش بنمنع** — الزرار شغّال لما يختار الساعة، والقرار قراره
+      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+      await settle(tester);
       expect(
         tester.widget<FPrimaryButton>(find.byType(FPrimaryButton)).onPressed,
         isNotNull,
@@ -194,7 +196,11 @@ void main() {
       await openScan(tester, _FakeReader(_reading()));
       await shoot(tester);
 
-      // «احفظ» على طول — الصف الواحد على عُرف الفورم
+      // العلبة ما بتقولش ميعاد — الصف فاضي و«احفظ» مقفول لحد ما يختار
+      expect(find.text('الساعة ٩:٠٠ ص'), findsNothing, reason: 'ولا ساعة مننا');
+      expect(tester.widget<FPrimaryButton>(find.byType(FPrimaryButton)).onPressed, isNull);
+      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 

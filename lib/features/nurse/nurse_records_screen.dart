@@ -36,7 +36,7 @@ class NurseRecordsScreen extends StatelessWidget {
     final result = await FSheet.show<NewAppointmentResult>(
       context,
       title: 'ميعاد جديد',
-      children: [NewAppointmentBody(today: today, allowFromPaper: false)],
+      children: [NewAppointmentBody(today: today, allowFromPaper: false, askTime: false)],
     );
     if (result == null) return;
     await controller.submit(

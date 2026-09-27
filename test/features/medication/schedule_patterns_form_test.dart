@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/widgets/f_wheels.dart';
+
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/domain/scheduling/day_pattern.dart';
 import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
@@ -45,10 +47,16 @@ void main() {
     await pumpAdd(tester);
     await tester.tap(find.byKey(const ValueKey('pattern-everyHours')));
     await settle(tester);
-    // الافتراضي كل ٨ من ٨ الصبح
-    expect(find.text('هتاخده الساعة: ٨:٠٠ ص، ٤:٠٠ م، ١٢:٠٠ ص'), findsOneWidget);
+    // أول جرعة **لسه ما اتختارتش** — البكرة واقفة على ٨ بس ده مش اختيار
+    expect(tester.widget<Text>(find.byKey(const ValueKey('every-hours-preview'))).data, 'اختار الساعة');
     expect(find.text('كام مرة في اليوم؟'), findsNothing, reason: 'العدد بقى من الفاصل');
+    FilledButton save() => tester.widget<FilledButton>(find.descendant(
+        of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+    expect(save().onPressed, isNull, reason: 'مكان البكرة مش ساعة');
     await tester.tap(find.byKey(const ValueKey('every-4')));
+    await settle(tester);
+    expect(save().onPressed, isNull, reason: 'الفاصل اتغيّر، وأول جرعة لسه');
+    await tester.tap(find.byKey(const ValueKey('every-first-confirm')));
     await settle(tester);
     expect(find.text('هتاخده الساعة: ٨:٠٠ ص، ١٢:٠٠ م، ٤:٠٠ م، ٨:٠٠ م، ١٢:٠٠ ص، ٤:٠٠ ص'), findsOneWidget);
     for (var i = 0; i < 6; i++) {
@@ -62,6 +70,54 @@ void main() {
     expect(fixedMinutes(saved), [0, 4 * 60, 8 * 60, 12 * 60, 16 * 60, 20 * 60]);
     expect(saved.every((s) => s.repeat == DoseRepeat.daily), isTrue, reason: 'مش نوع جديد — ساعات ثابتة يومية');
     expectNoRedAndMinSize(tester);
+  });
+
+  group('البكرة مش ساعة متختارة (٢٧ سبتمبر ٢٠٢٦)', () {
+    Future<void> pumpWith(WidgetTester tester, AddMedicationScreen screen) async {
+      tester.view.physicalSize = const Size(1000, 4000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await h.pump(tester, screen);
+    }
+
+    FilledButton save(WidgetTester tester) => tester.widget<FilledButton>(find.descendant(
+        of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)));
+
+    screenTest('«كل ١٢ ساعة» من «كلّمني» → «اختار الساعة» و«احفظ» مقفول → ٨:٠٠ → بيتحفظ ٨ و٨', (tester) async {
+      await pumpWith(tester, AddMedicationScreen(today: aug31, initialName: 'كونكور', initialEveryHours: 12));
+      expect(tester.widget<Text>(find.byKey(const ValueKey('every-hours-preview'))).data, 'اختار الساعة');
+      expect(save(tester).onPressed, isNull);
+      await tester.tap(find.byKey(const ValueKey('every-first-confirm')));
+      await settle(tester);
+      expect(find.text('هتاخده الساعة: ٨:٠٠ ص، ٨:٠٠ م'), findsOneWidget);
+      expect(save(tester).onPressed, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
+      await settle(tester);
+      expect(fixedMinutes(await h.meds.activeSchedules(h.services.patientId)), [8 * 60, 20 * 60]);
+    });
+
+    screenTest('تحريك البكرة نفسه اختيار', (tester) async {
+      await pumpWith(tester, AddMedicationScreen(today: aug31, initialName: 'كونكور', initialEveryHours: 12));
+      await tester.drag(
+        find.descendant(of: find.byKey(const ValueKey('every-first')), matching: find.byKey(FTimeWheel.hoursKey)),
+        const Offset(0, -FTimeWheel.itemExtent),
+      );
+      await settle(tester);
+      expect(save(tester).onPressed, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('save-medication')));
+      await settle(tester);
+      expect(fixedMinutes(await h.meds.activeSchedules(h.services.patientId)), [9 * 60, 21 * 60]);
+    });
+
+    screenTest('«كلّمني» من غير ساعة → صف فاضي و«احفظ» مقفول لحد ما يختار', (tester) async {
+      await pumpWith(tester, AddMedicationScreen(today: aug31, initialName: 'كونكور', initialEmptyDoses: 1));
+      expect(find.text('الساعة ٩:٠٠ ص'), findsNothing, reason: 'ولا ساعة مننا');
+      expect(save(tester).onPressed, isNull);
+      await tester.tap(find.byKey(ValueKey('quick-time-${14 * 60}')));
+      await settle(tester);
+      expect(save(tester).onPressed, isNotNull);
+    });
   });
 
   screenTest('«مرة واحدة» بتتحفظ once من غير مدة', (tester) async {

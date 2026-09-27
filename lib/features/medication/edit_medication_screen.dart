@@ -193,7 +193,7 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                 first: first,
                 onChanged: (h, t) => setSheet(() {
                   hours = h;
-                  first = t;
+                  first = t ?? first;
                 }),
               ),
               const SizedBox(height: F.gap),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
@@ -19,8 +20,14 @@ class EveryHoursPicker extends StatelessWidget {
   });
 
   final int hours;
-  final MinuteOfDay first;
-  final void Function(int hours, MinuteOfDay first) onChanged;
+
+  /// null = لسه ما اختارش أول جرعة: البكرة واقفة على [rest] **من غير ما
+  /// تبقى ساعة متختارة**، وزرار بيأكّد مكانها لو هي اللي عايزها.
+  final MinuteOfDay? first;
+
+  static final MinuteOfDay rest = MinuteOfDay.hm(8);
+  /// [first] null = غيّر الفاصل بس، وأول جرعة لسه ما اتختارتش.
+  final void Function(int hours, MinuteOfDay? first) onChanged;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -45,17 +52,30 @@ class EveryHoursPicker extends StatelessWidget {
           Text('أول جرعة الساعة كام؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
           FTimeWheel(
             key: const ValueKey('every-first'),
-            value: first,
+            value: first ?? rest,
             onChanged: (t) => onChanged(hours, t),
           ),
           const SizedBox(height: F.s10),
-          Text(
-            everyHoursPreview([
-              for (final t in everyHoursTimes(first, hours)) DateTime(2026, 1, 1, 0, t.minutes),
-            ]),
-            key: const ValueKey('every-hours-preview'),
-            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
-          ),
+          if (first == null) ...[
+            Text(
+              'اختار الساعة',
+              key: const ValueKey('every-hours-preview'),
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
+            ),
+            const SizedBox(height: F.s8),
+            FSecondaryButton(
+              key: const ValueKey('every-first-confirm'),
+              label: 'أول جرعة الساعة ${arabicTime(DateTime(2026, 1, 1, 0, rest.minutes))}',
+              onPressed: () => onChanged(hours, rest),
+            ),
+          ] else
+            Text(
+              everyHoursPreview([
+                for (final t in everyHoursTimes(first!, hours)) DateTime(2026, 1, 1, 0, t.minutes),
+              ]),
+              key: const ValueKey('every-hours-preview'),
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.5),
+            ),
         ],
       );
 }

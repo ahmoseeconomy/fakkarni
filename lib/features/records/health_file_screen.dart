@@ -1,3 +1,6 @@
+import '../../domain/scheduling/minute_of_day.dart';
+import '../medication/dose_editor.dart' show QuickTimeChips;
+import '../../core/widgets/f_wheels.dart';
 import '../voice/help_button.dart';
 import 'package:flutter/material.dart';
 
@@ -186,6 +189,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
       title: result.title,
       day: result.day,
       today: today,
+      time: result.time,
     );
     await services.refreshAppointments(now: today);
   }
@@ -487,9 +491,12 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
 
 /// نتيجة «ميعاد جديد»: نوعه واسمه ويومه — أو «عندي ورقة» فبنفتح الطرق التلاتة القديمة.
 class NewAppointmentResult {
-  const NewAppointmentResult({required this.kind, required this.title, required this.day, this.fromPaper = false});
+  const NewAppointmentResult({required this.kind, required this.title, required this.day, this.time, this.fromPaper = false});
 
   final FollowKind kind;
+
+  /// الساعة لو اختارها — اختيارية. null = من غير ساعة.
+  final MinuteOfDay? time;
   final String title;
   final DateTime day;
   final bool fromPaper;
@@ -497,7 +504,22 @@ class NewAppointmentResult {
 
 /// جسم شيت «ميعاد جديد»: «دكتور ولا معمل؟» ← الاسم (اختياري) ← اليوم ← «احفظ الميعاد».
 class NewAppointmentBody extends StatefulWidget {
-  const NewAppointmentBody({required this.today, this.allowFromPaper = true, this.initialKind, this.initialName, this.initialDay, super.key});
+  const NewAppointmentBody({
+    required this.today,
+    this.allowFromPaper = true,
+    this.initialKind,
+    this.initialName,
+    this.initialDay,
+    this.initialTime,
+    this.askTime = true,
+    super.key,
+  });
+
+  /// «الساعة ٥ العصر» من «كلّمني» — في خانة الساعة، مش في الاسم.
+  final MinuteOfDay? initialTime;
+
+  /// الممرض: طلبه المعلّق مالوش خانة ساعة، فالسؤال ما بيظهرش عنده.
+  final bool askTime;
 
   final DateTime today;
 
@@ -517,6 +539,10 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
   late FollowKind _kind = widget.initialKind ?? FollowKind.visit;
   late final _name = TextEditingController(text: widget.initialName ?? '');
   late DateTime _day = widget.initialDay ?? DateTime(widget.today.year, widget.today.month, widget.today.day + 1);
+
+  /// اختيارية — null لحد ما يدوس شريحة أو يحرّك البكرة.
+  late MinuteOfDay? _time = widget.initialTime;
+  static final MinuteOfDay _rest = MinuteOfDay.hm(9);
 
   @override
   void dispose() {
@@ -575,11 +601,47 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
           Text('إمتى؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark)),
           const SizedBox(height: F.s8),
           DayPicker(today: widget.today, value: _day, onChanged: (d) => setState(() => _day = d)),
+          if (widget.askTime) ...[
+            const SizedBox(height: F.s12),
+            // نفس ساعة «ضيف دوا»: الشرايح السريعة والبكرة — واختيارية
+            Row(
+              children: [
+                Expanded(
+                  child: Text('الساعة كام؟ (لو حابب)',
+                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark)),
+                ),
+                if (_time != null)
+                  SizedBox(
+                    height: F.minTapTarget,
+                    child: TextButton(
+                      key: const ValueKey('new-appt-time-clear'),
+                      onPressed: () => setState(() => _time = null),
+                      child: Text('من غير ساعة',
+                          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: F.s8),
+            QuickTimeChips(selected: _time, onPick: (m) => setState(() => _time = m)),
+            const SizedBox(height: F.s8),
+            FTimeWheel(
+              key: const ValueKey('new-appt-time'),
+              value: _time ?? _rest,
+              onChanged: (m) => setState(() => _time = m),
+            ),
+            Text(
+              _time == null ? 'من غير ساعة' : 'الساعة ${arabicTime(DateTime(2026, 1, 1, 0, _time!.minutes))}',
+              key: const ValueKey('new-appt-time-line'),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+            ),
+          ],
           const SizedBox(height: F.gap),
           FPrimaryButton(
             key: const ValueKey('new-appt-save'),
             label: 'احفظ الميعاد',
-            onPressed: () => Navigator.of(context).pop(NewAppointmentResult(kind: _kind, title: _title, day: _day)),
+            onPressed: () => Navigator.of(context).pop(NewAppointmentResult(kind: _kind, title: _title, day: _day, time: _time)),
           ),
           // الطرق التلاتة القديمة (من ورقة في الملف / بالصورة / بالإيد) لسه
           // موجودة — من هنا، مش كزرارين على الشاشة الأولى.

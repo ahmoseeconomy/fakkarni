@@ -82,6 +82,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
           initialKind: p.kind,
           initialName: p.name,
           initialDay: p.day,
+          initialTime: p.time,
         ),
       ],
     );
@@ -93,6 +94,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       title: result.title,
       day: result.day,
       today: today,
+      time: result.time,
     );
     await services.refreshAppointments(now: today);
     return true;

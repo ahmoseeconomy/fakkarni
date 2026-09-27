@@ -1,3 +1,4 @@
+import '../../domain/scheduling/minute_of_day.dart';
 import 'package:drift/drift.dart';
 
 import '../../core/format/arabic_time.dart';
@@ -143,13 +144,14 @@ class CheckupService {
     required DateTime day,
     required DateTime today,
     String? doctor,
+    MinuteOfDay? time,
   }) async {
     final id = await start(patientId: patientId, kind: kind, title: title, doctor: doctor, today: today);
     if (kind == FollowKind.lab) {
       await advance(id, now: today);
-      await setStageDate(id, CheckupStage.labBooking, day: day, now: today);
+      await setStageDate(id, CheckupStage.labBooking, day: day, now: today, time: time);
     } else {
-      await setStageDate(id, VisitStage.booked, day: day, now: today);
+      await setStageDate(id, VisitStage.booked, day: day, now: today, time: time);
     }
     return id;
   }
@@ -219,10 +221,14 @@ class CheckupService {
     FollowStage stage, {
     required DateTime day,
     required DateTime now,
+    MinuteOfDay? time,
   }) async {
     final row = await _row(id);
     final slot = kindOf(row).slotOf(stage);
-    final minute = await _reminderMinute(row.patientId);
+    // الساعة اللي الإنسان قالها («الساعة ٥ العصر») بتتخزّن في نفس العمود —
+    // من غيرها ٨ الصبح زي ما كان. **الإشعارات ما بتقراش الساعة دي**: بترن
+    // ٨ الصبح في يومه و٨ بالليل امبارحه من اليوم بس (`appointment_plan`).
+    final minute = time?.minutes ?? await _reminderMinute(row.patientId);
     final at = DateTime(day.year, day.month, day.day, 0, minute);
     if (!at.isAfter(now)) return StageDateResult.inPast;
     // **الحجز عمره ما يترفض عشان الخانات** (مواصفة المواعيد). الخانتين

@@ -111,10 +111,13 @@ class AddMedPrefill {
 
 /// «احجزلي ميعاد» → ورقة «ميعاد جديد» **متعبّية** — والحفظ بزرارها هي.
 class AppointmentPrefill {
-  const AppointmentPrefill({required this.kind, this.name, this.day});
+  const AppointmentPrefill({required this.kind, this.name, this.day, this.time});
   final FollowKind kind;
   final String? name;
   final DateTime? day;
+
+  /// الساعة اللي اتقالت — في خانة الساعة، **مش في الاسم**.
+  final MinuteOfDay? time;
 }
 
 /// «كلّمني» — طلب مفتوح: اسمع ← افهم على الموبايل ← (السحابة لو ما فهمناش)
@@ -867,7 +870,7 @@ class CommandFlow extends ChangeNotifier {
           timings: [for (final t in nlu.times) FixedTiming(MinuteOfDay(t.minutes))],
           amount: nlu.doseText,
           everyHours: nlu.everyHours,
-          emptyDoses: nlu.times.isEmpty && nlu.everyHours == null ? nlu.perDay : null,
+          emptyDoses: nlu.times.isEmpty && nlu.everyHours == null ? (nlu.perDay ?? 1) : null,
           durationDays: nlu.durationDays,
           mealRelation: nlu.food,
         );
@@ -881,6 +884,7 @@ class CommandFlow extends ChangeNotifier {
           kind: nlu.intent == NluIntent.bookLab ? FollowKind.lab : FollowKind.visit,
           name: appointmentTitle(nlu),
           day: nlu.date,
+          time: nlu.time == null ? null : MinuteOfDay(nlu.time!.minutes),
         );
         final p = appointmentPrefill!;
         return _review(bookingWording(nlu, now: _clock()), () async {
@@ -1015,14 +1019,10 @@ String bookingWording(NluResult n, {required DateTime now}) {
   ].join(' — ');
 }
 
-/// اسم الميعاد في ورقة «ميعاد جديد» — الورقة مالهاش خانة ساعة، فالساعة
-/// المقولة بتتكتب جنب الاسم.
-String appointmentTitle(NluResult n) {
-  final what = n.intent == NluIntent.bookLab
-      ? [if (n.testName != null) 'تحليل ${n.testName}' else 'تحليل', if (n.labName != null) 'معمل ${n.labName}'].join(' — ')
-      : n.doctorName ?? (n.specialty == null ? 'زيارة دكتور' : 'دكتور ${n.specialty}');
-  return n.time == null ? what : '$what — الساعة ${_clockWord(n.time!)}';
-}
+/// اسم الميعاد في ورقة «ميعاد جديد» — الاسم بس؛ الساعة ليها خانتها.
+String appointmentTitle(NluResult n) => n.intent == NluIntent.bookLab
+    ? [if (n.testName != null) 'تحليل ${n.testName}' else 'تحليل', if (n.labName != null) 'معمل ${n.labName}'].join(' — ')
+    : n.doctorName ?? (n.specialty == null ? 'زيارة دكتور' : 'دكتور ${n.specialty}');
 
 /// السحابة (أو القارئ القديم) قالت «ضيف دوا» / «احجز» — نفس خانات الـNLU،
 /// عشان كل حاجة تعدّي من نفس التأكيد.

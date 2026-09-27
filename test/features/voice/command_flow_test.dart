@@ -313,7 +313,8 @@ void main() {
       await f.start();
       expect(f.shown, 'فهمت إنك عايز تحجز عند د. حسن — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
       await f.confirmReview();
-      expect(p!.name, 'د. حسن — الساعة ٥:٠٠ م');
+      expect(p!.name, 'د. حسن', reason: 'الساعة في خانتها، مش في الاسم');
+      expect(p!.time, MinuteOfDay.hm(17));
       expect(p!.day, DateTime(2026, 9, 6));
     });
 
@@ -335,6 +336,14 @@ void main() {
       await f.clarify(NluIntent.addMedication);
       expect(f.phase, CommandPhase.reviewing);
       expect(f.shown, startsWith('فهمت إنك عايز تضيف دوا: كونكور'));
+    });
+
+    test('«ضيف دوا كونكور» من غير ساعة → صف واحد فاضي، مش ٩ الصبح', () async {
+      final f = await flowWith(['ضيف دوا كونكور']);
+      await f.start();
+      await f.confirmReview();
+      expect(opened.single.timings, isEmpty);
+      expect(opened.single.emptyDoses, 1);
     });
 
     test('«لا» لوحدها عمرها ما تبقى اسم دوا', () async {

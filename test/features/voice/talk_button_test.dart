@@ -91,4 +91,24 @@ void main() {
     expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget);
     expect(await h.db.select(h.db.records).get(), isEmpty, reason: 'ولا حاجة اتحفظت قبل زرار الورقة');
   });
+
+  screenTest('«… عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → الاسم «د. حسن» والساعة في خانتها ٥:٠٠ م → الحفظ بيكتب الأحد الجاي ١٧:٠٠', (tester) async {
+    await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر']);
+    tester.view.physicalSize = const Size(1000, 3200);
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
+    await tester.tap(find.byKey(const ValueKey('talk-button')));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('talk-right')));
+    await settle(tester);
+
+    expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget, reason: 'الساعة مش في الاسم');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('new-appt-time-line'))).data, 'الساعة ٥:٠٠ م');
+    await tester.ensureVisible(find.byKey(const ValueKey('new-appt-save')));
+    await tester.tap(find.byKey(const ValueKey('new-appt-save')));
+    await settle(tester);
+
+    final row = (await h.db.select(h.db.records).get()).single;
+    expect(row.title, 'د. حسن');
+    expect(row.doctorVisitAt, DateTime(2026, 9, 6, 17), reason: 'الحد الجاي بعد الاتنين ٣١ أغسطس، الساعة ٥ العصر');
+  });
 }

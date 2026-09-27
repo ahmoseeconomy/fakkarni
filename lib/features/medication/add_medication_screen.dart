@@ -145,7 +145,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
 
   /// «كل كام ساعة»: الفاصل وأول جرعة (العجلة بتقف على ٨ الصبح).
   int _everyHours = 8;
-  MinuteOfDay _firstDose = MinuteOfDay.hm(8, 0);
+  /// أول جرعة في «كل كام ساعة» — **null لحد ما يختارها** (يحرّك البكرة أو
+  /// يأكّد مكانها). مكان البكرة لوحده مش ساعة اتختارت، و«احفظ» مقفول.
+  MinuteOfDay? _firstDose;
 
   /// الجولة ٢ — أنماط الأيام (من يوم البداية).
   Set<int> _weekdays = {};
@@ -241,12 +243,16 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _timesPerDay = n;
       _customCount = n > _countChips.last;
       _doses = List<FixedTiming?>.filled(n, null);
+    } else if (widget.packageReading != null) {
+      // العلبة ما بتقولش ميعاد — صف فاضي «اختار الساعة»، مش ٩ مننا
+      _doses = [null];
     } else {
       _doses = _fromConvention();
     }
     if (widget.initialEveryHours case final h? when widget.initialTimings.isEmpty && everyHoursChoices.contains(h)) {
       _pattern = DosePattern.everyHours;
       _everyHours = h;
+      _expandEveryHours(); // أول جرعة لسه ما اتختارتش — الصفوف فاضية
     }
     if (widget.packageReading != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkDuplicate());
@@ -343,7 +349,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// «كل كام ساعة» → ٢٤÷ن جرعة بساعة ثابتة — **في الصفوف قدّامه**، وكل
   /// صف لسه بيتعدّل لوحده.
   void _expandEveryHours() {
-    final times = everyHoursTimes(_firstDose, _everyHours);
+    final first = _firstDose;
+    if (first == null) {
+      _timesPerDay = 24 ~/ _everyHours;
+      _doses = List<FixedTiming?>.filled(_timesPerDay, null);
+      return;
+    }
+    final times = everyHoursTimes(first, _everyHours);
     _timesPerDay = times.length;
     _doses = [for (final t in times) FixedTiming(t)];
   }
