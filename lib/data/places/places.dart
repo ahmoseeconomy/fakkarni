@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import '../../domain/places/specialty.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:geolocator/geolocator.dart';
@@ -22,6 +23,7 @@ class Place {
     this.name,
     this.phone,
     this.openingHours,
+    this.speciality,
   });
 
   final String id;
@@ -33,6 +35,15 @@ class Place {
   /// التاج بالحرف — null لو مش متسجّل.
   final String? openingHours;
 
+  /// وسم OSM `healthcare:speciality` بالحرف («ophthalmology;optometry») — null
+  /// لو مش متسجّل، ودايماً null من خرايط أبل (ما بتدّيش تخصص).
+  final String? speciality;
+
+  /// التخصصات: من الوسم لو موجود، ومن كلمات الاسم («عيادة … للعيون»).
+  Set<Specialty> get specialties => kind == PlaceKind.doctor || kind == PlaceKind.hospital
+      ? specialtiesOf(osmSpeciality: speciality, name: name)
+      : const {};
+
   /// للكاش — الشكل بتاعنا، مش شكل المصدر، عشان المصدرين يتخزّنوا بنفس الطريقة.
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -42,6 +53,7 @@ class Place {
         if (name != null) 'name': name,
         if (phone != null) 'phone': phone,
         if (openingHours != null) 'openingHours': openingHours,
+        if (speciality != null) 'speciality': speciality,
       };
 
   static Place fromJson(Map<String, dynamic> json) => Place(
@@ -52,6 +64,7 @@ class Place {
         name: json['name'] as String?,
         phone: json['phone'] as String?,
         openingHours: json['openingHours'] as String?,
+        speciality: json['speciality'] as String?,
       );
 
   /// وسوم OSM → نوع. `amenity=clinic` دكتور: في مصر OSM بيستخدمها أكتر
@@ -91,6 +104,7 @@ class Place {
         name: tag('name:ar') ?? tag('name'),
         phone: tag('phone') ?? tag('contact:phone'),
         openingHours: tag('opening_hours'),
+        speciality: tag('healthcare:speciality'),
       ));
     }
     return places;
@@ -181,7 +195,7 @@ class NearbyPlaces {
     final lat = round3(latitude), lon = round3(longitude);
     // مجموعة الأنواع في المفتاح: لما نوع يتضاف، صفوف قديمة ناقصاه ما تتقراش.
     final kinds = PlaceKind.values.map((k) => k.name).join(',');
-    final key = 'places:v3:${source.id}:$kinds:$lat:$lon:$radiusMeters';
+    final key = 'places:v4:${source.id}:$kinds:$lat:$lon:$radiusMeters';
 
     ({DateTime at, List<Place> places})? cached;
     final raw = await cache.read(key);

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,18 +7,32 @@ import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../app/app_scope.dart';
 import '../../data/places/places.dart';
 import '../../domain/places/distance.dart';
 import '../../domain/places/opening_hours.dart';
+import '../../domain/places/place_links.dart';
+import '../../domain/places/specialty.dart';
 import '../emergency/emergency_widgets.dart' show dialNumber;
+import '../medication/refill_actions.dart' show openWhatsApp;
+import '../records/book_appointment.dart';
 
-/// «الطريق» — خرايط الموبايل نفسه. متغيّر عشان الاختبارات.
+/// «الطريق» — جوجل ماب بالاتجاهات (من غير مفتاح)، ولو ما اتفتحتش خرايط أبل.
+/// متغيّر عشان الاختبارات.
 Future<void> Function(Place place) openDirections = (place) async {
-  final uri = Platform.isIOS
-      ? Uri.parse('https://maps.apple.com/?daddr=${place.lat},${place.lon}')
-      : Uri.parse('geo:${place.lat},${place.lon}?q=${place.lat},${place.lon}');
-  await launchUrl(uri, mode: LaunchMode.externalApplication);
+  var opened = false;
+  try {
+    opened = await launchUrl(googleDirectionsUri(place.lat, place.lon), mode: LaunchMode.externalApplication);
+  } catch (_) {
+    opened = false;
+  }
+  if (!opened) await launchUrl(appleDirectionsUri(place.lat, place.lon), mode: LaunchMode.externalApplication);
 };
+
+/// «احجز» على كارت دكتور — ورقة «ميعاد جديد» متعبّية باسمه. متغيّر عشان
+/// الاختبارات؛ من غير `AppScope` الزرار مش موجود.
+Future<bool> Function(BuildContext context, Place place, DateTime today) bookFromPlace =
+    (context, place, today) => openBookAppointment(context, today: today, name: place.name, doctor: place.name);
 
 String distanceText(double meters) => meters < 1000
     ? '${arabicNumber((meters / 10).round() * 10)} متر'
@@ -61,11 +73,15 @@ class NearbyScreen extends StatefulWidget {
     this.tileProvider,
     this.now,
     this.initialKind,
+    this.initialSpecialty,
     super.key,
   });
 
   /// «كلّمني» («أقرب صيدلية») بيفتح الشاشة على النوع ده — null = «الكل».
   final PlaceKind? initialKind;
+
+  /// «أقرب دكتور عيون» — الشاشة بتفتح على الدكاترة والتخصص ده.
+  final Specialty? initialSpecialty;
 
   final LocationSource location;
   final NearbyPlaces? places;
@@ -84,13 +100,18 @@ class _NearbyScreenState extends State<NearbyScreen> {
   PlacesResult? _result;
   bool _loading = true;
   bool _offline = false;
-  late _Filter _filter = switch (widget.initialKind) {
-    PlaceKind.pharmacy => _Filter.pharmacy,
-    PlaceKind.doctor => _Filter.doctor,
-    PlaceKind.hospital => _Filter.hospital,
-    PlaceKind.lab => _Filter.lab,
-    null => _Filter.all,
-  };
+  late _Filter _filter = widget.initialSpecialty != null
+      ? _Filter.doctor
+      : switch (widget.initialKind) {
+          PlaceKind.pharmacy => _Filter.pharmacy,
+          PlaceKind.doctor => _Filter.doctor,
+          PlaceKind.hospital => _Filter.hospital,
+          PlaceKind.lab => _Filter.lab,
+          null => _Filter.all,
+        };
+
+  /// تخصص الدكاترة — بيظهر ويشتغل على شريحة «دكاترة» بس.
+  late Specialty? _specialty = widget.initialSpecialty;
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
 
@@ -210,7 +231,11 @@ class _NearbyScreenState extends State<NearbyScreen> {
       _Filter.hospital => PlaceKind.hospital,
       _Filter.lab => PlaceKind.lab,
     };
-    final shown = [for (final p in all) if (wanted == null || p.kind == wanted) p];
+    final specialty = _filter == _Filter.doctor ? _specialty : null;
+    final shown = [
+      for (final p in all)
+        if ((wanted == null || p.kind == wanted) && (specialty == null || p.specialties.contains(specialty))) p,
+    ];
 
     return [
       Wrap(
@@ -232,6 +257,30 @@ class _NearbyScreenState extends State<NearbyScreen> {
             ),
         ],
       ),
+      if (_filter == _Filter.doctor) ...[
+        const SizedBox(height: F.s10),
+        Text('التخصص', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+        const SizedBox(height: F.s6),
+        Wrap(
+          spacing: F.s8,
+          runSpacing: F.s8,
+          children: [
+            AnchorChip(
+              key: const ValueKey('nearby-specialty-all'),
+              label: 'كل التخصصات',
+              selected: _specialty == null,
+              onTap: () => setState(() => _specialty = null),
+            ),
+            for (final sp in Specialty.values)
+              AnchorChip(
+                key: ValueKey('nearby-specialty-${sp.name}'),
+                label: sp.label,
+                selected: _specialty == sp,
+                onTap: () => setState(() => _specialty = sp),
+              ),
+          ],
+        ),
+      ],
       const SizedBox(height: F.s12),
       ClipRRect(
         borderRadius: BorderRadius.circular(F.radiusCard),
@@ -286,7 +335,8 @@ class _NearbyScreenState extends State<NearbyScreen> {
                   child: Text(
                     '© مساهمو OpenStreetMap',
                     textDirection: TextDirection.rtl,
-                    style: TextStyle(fontSize: F.minTextSize, color: F.ink),
+                    // الأرضية بيضا ثابتة فوق الخريطة — النص من نصوعها مش من الوضع
+                    style: TextStyle(fontSize: F.minTextSize, color: F.onFill(const Color(0xE6FFFFFF))),
                   ),
                 ),
               ),
@@ -303,7 +353,10 @@ class _NearbyScreenState extends State<NearbyScreen> {
       FSecondaryButton(label: 'دوّر من مكاني تاني', onPressed: _search),
       const SizedBox(height: F.s12),
       if (shown.isEmpty)
-        _Notice(key: const ValueKey('nearby-empty'), text: _emptyText(wanted))
+        _Notice(
+          key: const ValueKey('nearby-empty'),
+          text: specialty == null ? _emptyText(wanted) : _emptySpecialtyText(specialty, _places.sourceName),
+        )
       else
         for (final p in shown)
           Padding(
@@ -313,6 +366,11 @@ class _NearbyScreenState extends State<NearbyScreen> {
     ];
   }
 }
+
+/// تخصص مالوش نتايج — والجملة بتقول **إزاي بنعرف التخصص**، عشان «مفيش» ما
+/// تتقريش «مفيش دكاترة عيون في المنطقة».
+String _emptySpecialtyText(Specialty s, String source) =>
+    'مفيش ${s.doctorWord} ظاهر على $source في ٢ كم حواليك. التخصص بيبان بس لو متسجّل على الخريطة أو مكتوب في اسم العيادة — جرّب «كل التخصصات».';
 
 /// الحالة الفاضية — جملة لكل نوع على نفس النمط، وكلها بتسمّي المصدر من
 /// الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
@@ -338,33 +396,45 @@ class _PlaceCard extends StatelessWidget {
     final name = p.name ?? '$kindWord من غير اسم على الخريطة';
     final hours = p.openingHours;
     final state = hours == null ? null : openStateAt(hours, now);
+    final specialties = p.specialties;
+    final category = specialties.isEmpty ? kindWord : '$kindWord ${specialties.map((s) => s.label).join(' و')}';
+    final whatsApp = p.phone == null ? null : egyptMobileWhatsApp(p.phone!);
+    // «احجز» بيسجّل الميعاد وتذكيره عندنا — مش بيكلّم العيادة
+    final canBook = p.kind == PlaceKind.doctor && AppScope.maybeOf(context) != null;
 
     return FCard(
       key: ValueKey('place-${p.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // الاسم الأول وكبير
           Row(
             children: [
-              Icon(_iconFor(p.kind), color: F.green, size: 26),
+              Icon(_iconFor(p.kind), color: F.green, size: 28),
               const SizedBox(width: F.s8),
               Expanded(
                 child: Text(
                   name,
+                  key: ValueKey('place-name-${p.id}'),
                   textDirection: nameDirection(name),
                   // الاسم اللاتيني LTR بس لازق يمين زي العربي — مش جنب المسافة
                   textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: F.minBodySize,
-                    fontWeight: FontWeight.w700,
+                    fontSize: F.subtitleSize,
+                    fontWeight: FontWeight.w800,
                     color: p.name == null ? F.mutedDark : F.ink,
                   ),
                 ),
               ),
-              Text(distanceText(meters), style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
             ],
           ),
-          Text(kindWord, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+          const SizedBox(height: F.s4),
+          Text(category, key: ValueKey('place-category-${p.id}'), style: TextStyle(fontSize: F.minBodySize, color: F.ink)),
+          Text(
+            'على بعد ${distanceText(meters)}',
+            key: ValueKey('place-distance-${p.id}'),
+            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+          ),
           if (state != null)
             Text(
               state == OpenState.open ? 'فاتحة دلوقتي' : 'قافلة دلوقتي',
@@ -381,12 +451,30 @@ class _PlaceCard extends StatelessWidget {
           Row(
             children: [
               if (p.phone != null) ...[
-                Expanded(child: FSecondaryButton(key: ValueKey('call-${p.id}'), label: 'اتصل', onPressed: () => dialNumber(p.phone!))),
-                const SizedBox(width: F.s10),
+                Expanded(child: FSecondaryButton(key: ValueKey('call-${p.id}'), label: 'اتصال', onPressed: () => dialNumber(p.phone!))),
+                const SizedBox(width: F.s8),
+              ],
+              if (whatsApp != null) ...[
+                Expanded(
+                  child: FSecondaryButton(
+                    key: ValueKey('whatsapp-${p.id}'),
+                    label: 'واتساب',
+                    onPressed: () => openWhatsApp(whatsAppUri(whatsApp)),
+                  ),
+                ),
+                const SizedBox(width: F.s8),
               ],
               Expanded(child: FSecondaryButton(key: ValueKey('route-${p.id}'), label: 'الطريق', onPressed: () => openDirections(p))),
             ],
           ),
+          if (canBook) ...[
+            const SizedBox(height: F.s8),
+            FSecondaryButton(
+              key: ValueKey('book-${p.id}'),
+              label: 'احجز ميعاد عنده',
+              onPressed: () => bookFromPlace(context, p, now),
+            ),
+          ],
         ],
       ),
     );

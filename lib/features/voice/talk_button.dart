@@ -10,7 +10,8 @@ import '../../data/places/places.dart' show PlaceKind;
 import '../../domain/voice/nlu/nlu.dart' show NearbyPlace;
 import '../medication/add_medication_screen.dart';
 import '../nearby/nearby_screen.dart';
-import '../records/health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
+import '../records/book_appointment.dart';
+import '../../domain/places/specialty.dart';
 import '../medication/medication_draft.dart';
 import '../../domain/voice/voice_catalog.dart';
 import 'command_flow.dart';
@@ -67,41 +68,23 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
     );
   }
 
-  /// ورقة «ميعاد جديد» **متعبّية** — والحفظ من زرارها، وبنفس الدالة اللي زرار
+  /// ورقة «ميعاد جديد» **متعبّية** — والحفظ من زرارها، بنفس الدالة اللي زرار
   /// «السجل» بيعدّي منها (`bookAppointment`): إشعار امبارحه وإشعار يومه.
   Future<bool> _openAppointment(AppointmentPrefill p) async {
     if (!mounted) return false;
-    final today = widget.now ?? DateTime.now();
-    final result = await FSheet.show<NewAppointmentResult>(
+    return openBookAppointment(
       context,
-      title: 'ميعاد جديد',
-      children: [
-        NewAppointmentBody(
-          today: DateTime(today.year, today.month, today.day),
-          allowFromPaper: false,
-          initialKind: p.kind,
-          initialName: p.name,
-          initialDay: p.day,
-          initialTime: p.time,
-        ),
-      ],
+      today: widget.now ?? DateTime.now(),
+      kind: p.kind,
+      name: p.name,
+      day: p.day,
+      time: p.time,
+      doctor: p.doctor,
     );
-    if (result == null || !mounted) return false;
-    final services = AppScope.of(context);
-    await services.checkups.bookAppointment(
-      patientId: services.patientId,
-      kind: result.kind,
-      title: result.title,
-      day: result.day,
-      today: today,
-      time: result.time,
-    );
-    await services.refreshAppointments(now: today);
-    return true;
   }
 
   /// «أقرب صيدلية» → «القريب مني» على النوع ده.
-  Future<void> _openNearby(NearbyPlace place) async {
+  Future<void> _openNearby(NearbyPlace place, Specialty? specialty) async {
     if (!mounted) return;
     final kind = switch (place) {
       NearbyPlace.pharmacy => PlaceKind.pharmacy,
@@ -109,7 +92,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       NearbyPlace.hospital => PlaceKind.hospital,
       NearbyPlace.lab => PlaceKind.lab,
     };
-    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => NearbyScreen(initialKind: kind)));
+    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => NearbyScreen(initialKind: kind, initialSpecialty: specialty)));
   }
 
   /// الفورم العادي متعبّي — الحفظ بزراره هو، ومفيش حاجة اتكتبت قبله.
@@ -231,7 +214,8 @@ class _CommandBodyState extends State<_CommandBody> {
     final showShown = flow.shown.isNotEmpty &&
         flow.phase != CommandPhase.listening &&
         flow.phase != CommandPhase.thinking &&
-        flow.phase != CommandPhase.reviewing;
+        flow.phase != CommandPhase.reviewing &&
+        flow.phase != CommandPhase.pickingDoctor;
     return ListenableBuilder(
       // الدورة، و«بيتكلم» (الدايرة بتقول «برد عليك — دوس عشان تقاطعني»)
       listenable: Listenable.merge([flow, flow.voice.caption]),
@@ -256,6 +240,26 @@ class _CommandBodyState extends State<_CommandBody> {
               const SizedBox(height: F.s8),
               Text('إنت قلت: ${flow.heard}', key: const ValueKey('talk-heard'), style: quiet),
             ],
+          ],
+          if (flow.phase == CommandPhase.pickingDoctor) ...[
+            const SizedBox(height: F.s12),
+            Text(flow.shown, key: const ValueKey('talk-doctor-line'), style: big),
+            if (flow.heard.isNotEmpty) ...[
+              const SizedBox(height: F.s8),
+              Text('إنت قلت: ${flow.heard}', style: quiet),
+            ],
+          ],
+          if (flow.phase == CommandPhase.answering && flow.medChoices.isNotEmpty) ...[
+            // «مش لاقي دوا اسمه كده عندك» — أدويته، والدوسة بتجاوب عنه
+            const SizedBox(height: F.s10),
+            Wrap(
+              spacing: F.s8,
+              runSpacing: F.s8,
+              children: [
+                for (final (i, name) in flow.medChoices.indexed)
+                  AnchorChip(key: ValueKey('talk-med-$i'), label: name, selected: false, onTap: () => flow.pickMedicine(name)),
+              ],
+            ),
           ],
           if (flow.phase == CommandPhase.asking) ...[
             // سؤال المتابعة — مكتوب وبيتقال، وبعده المايك بيتفتح لوحده مرة
@@ -334,6 +338,22 @@ class _CommandBodyState extends State<_CommandBody> {
                     FPrimaryButton(key: ValueKey('talk-clarify-$i'), label: o.label, onPressed: () => flow.clarify(o.intent)),
                     const SizedBox(height: F.s10),
                   ],
+                  FSecondaryButton(key: const ValueKey('talk-retry'), label: 'عيد كلامك', onPressed: flow.retry),
+                ],
+              ),
+            CommandPhase.pickingDoctor => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, d) in flow.doctorOptions.indexed) ...[
+                    FSecondaryButton(key: ValueKey('talk-doctor-$i'), label: d, onPressed: () => flow.pickDoctor(d)),
+                    const SizedBox(height: F.s10),
+                  ],
+                  if (flow.doctorMissing != null && flow.savedDoctors.isNotEmpty) ...[
+                    FSecondaryButton(key: const ValueKey('talk-my-doctors'), label: 'اختار من دكاترتك', onPressed: flow.showSavedDoctors),
+                    const SizedBox(height: F.s10),
+                  ],
+                  FSecondaryButton(key: const ValueKey('talk-nearby-doctors'), label: 'دوّر في القريب مني', onPressed: flow.searchNearbyDoctor),
+                  const SizedBox(height: F.s10),
                   FSecondaryButton(key: const ValueKey('talk-retry'), label: 'عيد كلامك', onPressed: flow.retry),
                 ],
               ),

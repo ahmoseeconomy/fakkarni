@@ -2,6 +2,8 @@
 // مقفول — ساعتها الجمل مكتوبة في الورقة بدل ما تتقال.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fakkarni/data/repositories/records_repository.dart';
+import 'package:fakkarni/data/db/tables.dart' show RecordKind;
 
 import 'package:fakkarni/features/voice/command_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,15 @@ import '../scan/scan_test_support.dart';
 void main() {
   late Harness h;
   late FakePlayer player;
+
+  /// زيارة قديمة عند الدكتور ده — عشان يبقى من دكاترته فعلاً.
+  Future<void> seedDoctor(String name) => RecordsRepository(h.db).add(
+        patientId: h.services.patientId,
+        kind: RecordKind.visit,
+        title: 'زيارة',
+        happenedAt: DateTime(2026, 7, 1),
+        doctor: name,
+      );
 
   Future<void> setUpWith({required bool voiceOn, List<String?> answers = const [], bool mic = true}) async {
     SharedPreferences.setMockInitialValues({VoiceService.enabledKey: voiceOn, VoiceService.cmdHintDoneKey: true});
@@ -75,6 +86,7 @@ void main() {
 
   screenTest('«احجزلي ميعاد عند الدكتور حسن» → اللي فهمناه + «إنت قلت» → «صح كده» → ورقة الميعاد فيها د. حسن', (tester) async {
     await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن']);
+    await seedDoctor('د. حسن');
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
@@ -89,11 +101,12 @@ void main() {
     await settle(tester);
     expect(find.text('ميعاد جديد'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget);
-    expect(await h.db.select(h.db.records).get(), isEmpty, reason: 'ولا حاجة اتحفظت قبل زرار الورقة');
+    expect(await h.db.select(h.db.records).get(), hasLength(1), reason: 'ولا حاجة اتحفظت قبل زرار الورقة — غير زيارته القديمة');
   });
 
   screenTest('«… عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → الاسم «د. حسن» والساعة في خانتها ٥:٠٠ م → الحفظ بيكتب الأحد الجاي ١٧:٠٠', (tester) async {
     await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر']);
+    await seedDoctor('د. حسن');
     tester.view.physicalSize = const Size(1000, 3200);
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
@@ -107,8 +120,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('new-appt-save')));
     await settle(tester);
 
-    final row = (await h.db.select(h.db.records).get()).single;
+    final row = (await h.db.select(h.db.records).get()).singleWhere((r) => r.doctorVisitAt != null);
     expect(row.title, 'د. حسن');
+    expect(row.doctor, 'د. حسن', reason: 'الدكتور الحقيقي اتسجّل على الميعاد');
     expect(row.doctorVisitAt, DateTime(2026, 9, 6, 17), reason: 'الحد الجاي بعد الاتنين ٣١ أغسطس، الساعة ٥ العصر');
+  });
+
+  screenTest('«احجزلي عند الدكتور حسن» ومش من دكاترته → «مش لاقي …» ودوّر في القريب مني — ومفيش «صح كده»', (tester) async {
+    await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن']);
+    await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
+    await tester.tap(find.byKey(const ValueKey('talk-button')));
+    await settle(tester);
+
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-doctor-line'))).data,
+        'مش لاقي د. حسن عندك — اختار من دكاترتك أو دوّر في القريب مني');
+    expect(find.byKey(const ValueKey('talk-right')), findsNothing);
+    expect(find.byKey(const ValueKey('talk-nearby-doctors')), findsOneWidget);
+    expect(find.byKey(const ValueKey('talk-my-doctors')), findsNothing, reason: 'مفيش دكاترة في ملفه لسه');
+    expect(await h.db.select(h.db.records).get(), isEmpty, reason: 'ولا دكتور اتعمل من الاسم');
   });
 }

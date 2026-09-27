@@ -19,8 +19,10 @@ class ConfirmedLabLine {
 
 /// قيمة قديمة لنفس التحليل — للمقارنة بتاريخه هو.
 class PastLabValue {
-  const PastLabValue({required this.value, required this.unit, required this.at});
+  const PastLabValue({required this.value, required this.unit, required this.at, this.testName});
 
+  /// اسم التحليل زي ما هو مطبوع — في [LabResultsRepository.allNewestFirst] بس.
+  final String? testName;
   final double value;
   final String? unit;
   final DateTime at;
@@ -104,6 +106,25 @@ class LabResultsRepository {
             unit: row.readTable(_db.labResults).unit,
             at: row.readTable(_db.records).happenedAt,
           ),
+    ];
+  }
+
+  /// كل نتايج التحاليل (من غير الممسوح)، الأحدث الأول — «كلّمني» بيدوّر
+  /// فيها على «آخر تحليل …». قراية بس.
+  Future<List<PastLabValue>> allNewestFirst(int patientId) async {
+    final query = _db.select(_db.labResults).join([
+      innerJoin(_db.records, _db.records.id.equalsExp(_db.labResults.recordId)),
+    ])
+      ..where(_db.records.patientId.equals(patientId) & _db.records.deletedAt.isNull())
+      ..orderBy([OrderingTerm.desc(_db.records.happenedAt), OrderingTerm.desc(_db.labResults.id)]);
+    return [
+      for (final row in await query.get())
+        PastLabValue(
+          value: row.readTable(_db.labResults).value,
+          unit: row.readTable(_db.labResults).unit,
+          at: row.readTable(_db.records).happenedAt,
+          testName: row.readTable(_db.labResults).testName,
+        ),
     ];
   }
 

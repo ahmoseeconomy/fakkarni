@@ -31,8 +31,17 @@ enum CommandIntent {
   upcomingAppointments,
   stockStatus,
   medicalQuestion,
+
+  /// «أخدت الكونكور؟» / «أخدت دوا الصبح ولا لأ؟» — سؤال عن النهارده، مش تسجيل.
+  doseStatus,
+
+  /// «آخر تحليل سكر كام؟» / «آخر قياس ضغط» — من اللي متسجّل عنده وبس.
+  latestReading,
   unknown,
 }
+
+/// جزء اليوم في سؤال («دوا الصبح») — من الساعة، مش من روتين.
+enum DayPart { morning, afternoon, evening }
 
 /// نوع الميعاد.
 enum AppointmentKind { doctor, lab, scan, other }
@@ -112,9 +121,21 @@ class VoiceCommand {
     this.durationDays,
     this.startDate,
     this.weekdays = const [],
+    this.dayPart,
+    this.readingType,
+    this.labWords,
   });
 
   final CommandIntent intent;
+
+  /// «دوا الصبح» — للسؤال عن النهارده.
+  final DayPart? dayPart;
+
+  /// «آخر … سكر/ضغط/…» — null مع [labWords] = اسم تحليل.
+  final VitalType? readingType;
+
+  /// «آخر تحليل صورة دم» — اسم التحليل زي ما اتقال.
+  final String? labWords;
 
   /// اسم الدوا زي ما اتقال («الكونكور»، «الضغط») — null = «الدوا» بس.
   final String? medWords;
@@ -155,7 +176,7 @@ class VoiceCommand {
 
   @override
   String toString() =>
-      'VoiceCommand($intent, med=$medWords, timings=$timings, x$timesPerDay, every=$everyHours, once=$once, appt=$appointment, snooze=$snoozeMinutes, vital=$vital, q=$questionText)';
+      'VoiceCommand($intent, med=$medWords, part=$dayPart, reading=$readingType, lab=$labWords, timings=$timings, x$timesPerDay, every=$everyHours, once=$once, appt=$appointment, snooze=$snoozeMinutes, vital=$vital, q=$questionText)';
 }
 
 // ---------------------------------------------------------------- كلمات
@@ -289,6 +310,15 @@ VoiceCommand parseCommand(String text, {DateTime? now}) {
   final question = _parseDoctorQuestion(tokens);
   if (question != null) return question;
 
+  // ---- «آخر تحليل سكر كام؟» — سؤال عن اللي متسجّل، قبل القياس والطبي
+  final latest = _parseLatestReading(tokens);
+  if (latest != null) return latest;
+
+  // ---- «أخدت الكونكور؟» — سؤال، مش تسجيل: علامة سؤال أو «ولا لأ» أو «هل»
+  if (!negatedTake && _hasAny(tokens, _tookVerbs) && _asksQuestion(text, tokens)) {
+    return VoiceCommand(CommandIntent.doseStatus, medWords: _withoutQuestionWords(_medWordsAfter(tokens, _tookVerbs)), dayPart: _dayPartIn(tokens));
+  }
+
   // ---- قياس بأرقام — قبل الطبي: «ضغطي ١٢٠ على ٨٠» تسجيل، و«ضغطي عالي» سؤال
   if (!(adds && mentionsMed) && !_hasAny(tokens, _tookVerbs)) {
     final vital = _parseVital(text, tokens);
@@ -332,13 +362,14 @@ VoiceCommand parseCommand(String text, {DateTime? now}) {
   final snooze = _parseSnooze(text, tokens);
   if (snooze != null) return snooze;
 
-  // ---- إيه دوايا الجاي؟ / الدوا الجاي إمتى؟
+  // ---- إيه دوايا الجاي؟ / الدوا الجاي إمتى؟ / دوا الضغط الجاي إمتى؟
   if (mentionsMed && (_hasAny(tokens, _nextWords) || _hasAny(tokens, _whenWords)) && !_hasAny(tokens, _tookVerbs)) {
-    return const VoiceCommand(CommandIntent.nextDose);
+    return VoiceCommand(CommandIntent.nextDose, medWords: _medWordsAsked(tokens));
   }
 
-  // ---- إيه أدويتي النهارده؟
-  if (mentionsMed && (_hasAny(tokens, _todayWords) || (_hasAny(tokens, _whatWords) && _plural(tokens)))) {
+  // ---- إيه أدويتي النهارده؟ / باخد إيه النهارده؟
+  final takesToday = _hasAny(tokens, _takingNow) && (_hasAny(tokens, _todayWords) || _hasAny(tokens, _whatWords));
+  if ((mentionsMed && (_hasAny(tokens, _todayWords) || (_hasAny(tokens, _whatWords) && _plural(tokens)))) || takesToday) {
     return const VoiceCommand(CommandIntent.todayList);
   }
 
@@ -454,6 +485,82 @@ VoiceCommand _parseAppointment(String text, List<String> tokens, DateTime today)
 }
 
 bool _mentionsMed(List<String> tokens) => _hasAny(tokens, _medNouns);
+
+/// «الكونكور الجاي إمتى؟» من غير كلمة «دوا» — القارئ ما يعرفش إن «الكونكور»
+/// دوا؛ «كلّمني» بيطابق الكلام ده على أدوية المريض وبس بعدين. null = مش سؤال
+/// «إمتى».
+VoiceCommand? medicineQuestionCandidate(String text) {
+  final tokens = _tokens(text);
+  if (!(_hasAny(tokens, _nextWords) || tokens.any((t) => t == 'امتى' || t == 'امتي' || t == 'امتا'))) return null;
+  if (_hasAny(tokens, _tookVerbs) || _hasAny(tokens, _addVerbs) || _hasAny(tokens, _bookVerbs)) return null;
+  final words = _medWordsAsked(tokens);
+  return words == null ? null : VoiceCommand(CommandIntent.nextDose, medWords: words);
+}
+
+/// «باخد / هاخد» — عن النهارده، مش فعل اتعمل.
+const _takingNow = {'باخد', 'هاخد', 'اخد', 'باخذ', 'بخد', 'ناخد', 'باخدها', 'باخده'};
+
+/// سؤال مش خبر: علامة سؤال من المتعرّف، أو «ولا لأ / ولا لسه»، أو «هل» /
+/// «هو أنا» / «يا ترى». من غيرها «أخدت الكونكور» خبر — وبيعدّي على «صح كده؟».
+bool _asksQuestion(String raw, List<String> tokens) {
+  if (raw.contains('؟') || raw.contains('?')) return true;
+  if (tokens.contains('هل') || tokens.contains('ياتري') || tokens.contains('ترى') || tokens.contains('تري')) return true;
+  if (tokens.isNotEmpty && (tokens.first == 'هو' || tokens.first == 'هوه')) return true;
+  final i = tokens.indexOf('ولا');
+  return i >= 0 && i + 1 < tokens.length && {'لا', 'لسه', 'لسا', 'لاء'}.contains(tokens[i + 1]);
+}
+
+/// «الكونكور ولا لأ» → «الكونكور».
+String? _withoutQuestionWords(String? words) {
+  if (words == null) return null;
+  const q = {'ولا', 'لا', 'لاء', 'لسه', 'لسا', 'هل', 'هو', 'هوه', 'يا', 'ترى', 'تري', 'ياتري', 'النهارده', 'انهارده'};
+  final kept = [for (final w in words.split(' ')) if (!q.contains(w)) w];
+  return kept.isEmpty ? null : kept.join(' ');
+}
+
+/// «دوا الصبح» / «بتاع الضهر» / «دوا العشا».
+DayPart? _dayPartIn(List<String> tokens) {
+  for (final t in tokens) {
+    if (const {'الصبح', 'صباحا', 'صباح', 'الفجر', 'الفطار', 'الفطور', 'فطار', 'الصحيان'}.contains(t)) return DayPart.morning;
+    if (const {'الضهر', 'الظهر', 'ظهرا', 'العصر', 'الغدا', 'الغداء', 'غدا'}.contains(t)) return DayPart.afternoon;
+    if (const {'المغرب', 'بالليل', 'الليل', 'ليلا', 'مساء', 'العشا', 'العشاء', 'عشا', 'النوم'}.contains(t)) return DayPart.evening;
+  }
+  return null;
+}
+
+/// اسم الدوا في سؤال («دوا **الضغط** الجاي إمتى؟») — من غير كلمة الدوا ولا
+/// كلمات السؤال. null = «الدوا» بس.
+String? _medWordsAsked(List<String> tokens) {
+  final words = [
+    for (final t in tokens)
+      if (!_medNouns.contains(t) && !_nextWords.contains(t) && !_whenWords.contains(t) && !_whatWords.contains(t) &&
+          !_todayWords.contains(t) && !_stop.contains(t) && !_filler2.contains(t) && !_dayPartToAnchor.containsKey(t))
+        t,
+  ];
+  return words.isEmpty ? null : words.join(' ');
+}
+
+const _filler2 = {'هو', 'هي', 'هوه', 'هيه', 'بتاعي', 'بتاع', 'عليا', 'عندي', 'هاخد', 'باخد', 'اخد', 'في', 'الساعه', 'كام', 'ولا', 'هل', 'بقي', 'بقى'};
+
+/// «آخر تحليل سكر كام؟» / «آخر قياس ضغط» / «السكر كان كام آخر مرة» /
+/// «آخر تحليل صورة دم».
+VoiceCommand? _parseLatestReading(List<String> tokens) {
+  if (!tokens.contains('اخر')) return null;
+  final vital = [for (final t in tokens) if (_vitalWords.containsKey(t)) _vitalWords[t]!].firstOrNull;
+  final lab = tokens.indexWhere((t) => t == 'تحليل' || t == 'التحليل');
+  final measure = tokens.any((t) => t == 'قياس' || t == 'القياس' || t == 'قراءه' || t == 'القراءه' || t == 'كام');
+  if (vital == null && lab < 0) return null;
+  if (vital == null && !measure && lab < 0) return null;
+  String? labWords;
+  if (vital == null && lab >= 0) {
+    final words = [
+      for (final t in tokens.sublist(lab + 1))
+        if (t != 'كام' && t != 'كان' && t != 'ايه' && t != 'مره' && t != 'نتيجه' && t != 'نتيجته' && t != 'بتاعي' && !_stop.contains(t)) t,
+    ];
+    labWords = words.isEmpty ? null : words.join(' ');
+  }
+  return VoiceCommand(CommandIntent.latestReading, readingType: vital, labWords: labWords);
+}
 
 bool _plural(List<String> tokens) => tokens.any((t) => t == 'ادويتي' || t == 'ادويه' || t == 'الادويه' || t == 'جرعاتي');
 

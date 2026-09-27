@@ -11,6 +11,7 @@
 library;
 
 import '../../medication/meal_relation.dart';
+import '../../places/specialty.dart';
 import '../../medication/medicine_name.dart';
 import '../answer_parser.dart' show SpokenTime, parseNumber, parseTime;
 import '../arabic_dates.dart' show extractDates;
@@ -37,7 +38,7 @@ class NluResult {
     this.food,
     this.durationDays,
     this.doctorName,
-    this.specialty,
+    this.specialtyKind,
     this.testName,
     this.labName,
     this.date,
@@ -67,7 +68,11 @@ class NluResult {
 
   // ---- احجز ميعاد / تحليل
   final String? doctorName;
-  final String? specialty;
+
+  /// التخصص اللي اتقال — للحجز («دكتور عيون») ولـ«القريب مني» («أقرب دكتور
+  /// عيون» بتفتح على الدكاترة والتخصص ده).
+  final Specialty? specialtyKind;
+  String? get specialty => specialtyKind?.label;
   final String? testName;
   final String? labName;
   final DateTime? date;
@@ -94,7 +99,7 @@ const _nearWords = {'اقرب', 'قريب', 'قريبه', 'جنبي', 'جنبن�
 const _wantWords = {'عايز', 'عاوز', 'عايزه', 'عاوزه', 'محتاج', 'محتاجه', 'اروح', 'نروح', 'هات', 'ورني', 'وريني', 'ورينى'};
 const _placeWords = <String, NearbyPlace>{
   'صيدليه': NearbyPlace.pharmacy, 'الصيدليه': NearbyPlace.pharmacy, 'اجزخانه': NearbyPlace.pharmacy, 'الاجزخانه': NearbyPlace.pharmacy, 'صيدليات': NearbyPlace.pharmacy,
-  'دكتور': NearbyPlace.doctor, 'الدكتور': NearbyPlace.doctor, 'طبيب': NearbyPlace.doctor, 'الطبيب': NearbyPlace.doctor, 'عياده': NearbyPlace.doctor, 'العياده': NearbyPlace.doctor, 'دكاتره': NearbyPlace.doctor,
+  'دكتور': NearbyPlace.doctor, 'الدكتور': NearbyPlace.doctor, 'دكتوره': NearbyPlace.doctor, 'الدكتوره': NearbyPlace.doctor, 'طبيب': NearbyPlace.doctor, 'الطبيب': NearbyPlace.doctor, 'عياده': NearbyPlace.doctor, 'العياده': NearbyPlace.doctor, 'دكاتره': NearbyPlace.doctor,
   'مستشفي': NearbyPlace.hospital, 'المستشفي': NearbyPlace.hospital, 'مستشفى': NearbyPlace.hospital, 'المستشفى': NearbyPlace.hospital, 'اسبتاليه': NearbyPlace.hospital, 'طوارئ': NearbyPlace.hospital,
   'معمل': NearbyPlace.lab, 'المعمل': NearbyPlace.lab, 'تحاليل': NearbyPlace.lab, 'التحاليل': NearbyPlace.lab, 'معامل': NearbyPlace.lab, 'اشعه': NearbyPlace.lab, 'الاشعه': NearbyPlace.lab,
 };
@@ -114,12 +119,6 @@ const _apptNouns = {'ميعاد', 'معاد', 'موعد', 'الميعاد', 'ا�
 const _doctorTitles = {'دكتور', 'الدكتور', 'دكتوره', 'الدكتوره', 'د', 'طبيب', 'الطبيب'};
 const _labNouns = {'معمل', 'المعمل', 'تحليل', 'التحليل', 'تحاليل', 'التحاليل', 'عينه', 'سحب'};
 
-/// التخصص زي ما بيتقال ← كلمته.
-const _specialties = <String, String>{
-  'عيون': 'عيون', 'رمد': 'عيون', 'باطنه': 'باطنة', 'اسنان': 'أسنان', 'سنان': 'أسنان', 'قلب': 'قلب', 'عظام': 'عظام', 'عضم': 'عظام',
-  'جلديه': 'جلدية', 'جلد': 'جلدية', 'اطفال': 'أطفال', 'نسا': 'نسا', 'نساء': 'نسا', 'مخ': 'مخ وأعصاب', 'اعصاب': 'مخ وأعصاب',
-  'انف': 'أنف وأذن', 'كلي': 'كلى', 'مسالك': 'مسالك', 'صدر': 'صدر', 'سكر': 'سكر', 'غدد': 'غدد', 'نفسي': 'نفسي', 'روماتيزم': 'روماتيزم',
-};
 
 const _periodWords = {'الصبح', 'صباحا', 'صباح', 'الفجر', 'الضهر', 'الظهر', 'ظهرا', 'العصر', 'المغرب', 'مساء', 'مساءا', 'بالليل', 'الليل', 'ليلا', 'بليل', 'ص', 'م'};
 const _clockFill = {'و', 'الا', 'نص', 'ربع', 'تلت'};
@@ -151,11 +150,14 @@ NluResult understandUtterance(String transcript, {required DateTime now}) {
   final hasAdd = has(_addVerbs) || _hasTwoWordAdd(tokens);
   final hasMed = has(_medNouns);
   final hasLab = has(_labNouns);
+  // «أقرب دكتور عيون» / «عايز دكتور أسنان»
+  final spoken = [for (final t in tokens) specialtyFromWord(t)].whereType<Specialty>().firstOrNull;
 
   final scores = <NluIntent, int>{
     NluIntent.findNearby: placeHits.isEmpty
         ? 0
-        : (hasNear ? 4 : 0) + (has(_wantWords) ? 1 : 0) + 1 - (hasBook ? 3 : 0) - (hasAppt ? 3 : 0) - (hasMed ? 3 : 0),
+        : (hasNear ? 4 : 0) + (has(_wantWords) ? 1 : 0) + 1 + (spoken != null && placeHits.any((t) => _placeWords[t] == NearbyPlace.doctor) ? 2 : 0) -
+            (hasBook ? 3 : 0) - (hasAppt ? 3 : 0) - (hasMed ? 3 : 0),
     NluIntent.addMedication: (hasAdd ? 2 : 0) + (hasMed ? 3 : 0) + (has(_nameMarkers) && hasMed ? 1 : 0) - (hasBook ? 2 : 0),
     NluIntent.bookAppointment: (hasBook ? 2 : 0) + (hasAppt ? 2 : 0) + (has(_doctorTitles) && (hasBook || hasAppt) ? 1 : 0) - (hasMed ? 2 : 0),
     NluIntent.bookLab: hasLab && (hasBook || hasAppt) ? (hasBook ? 2 : 0) + (hasAppt ? 1 : 0) + 3 : 0,
@@ -167,7 +169,7 @@ NluResult understandUtterance(String transcript, {required DateTime now}) {
     return NluResult(NluIntent.none, alternatives: [ranked[0].key, ranked[1].key]);
   }
   return switch (ranked.first.key) {
-    NluIntent.findNearby => NluResult(NluIntent.findNearby, place: _placeWords[placeHits.first]),
+    NluIntent.findNearby => _nearby(tokens, placeHits),
     NluIntent.addMedication => _addMedication(tokens, normalized, now),
     NluIntent.bookAppointment => _booking(NluIntent.bookAppointment, tokens, normalized, now),
     NluIntent.bookLab => _booking(NluIntent.bookLab, tokens, normalized, now),
@@ -175,13 +177,21 @@ NluResult understandUtterance(String transcript, {required DateTime now}) {
   };
 }
 
+/// «أقرب …» — النوع، والتخصص لو دكتور («أقرب دكتور عيون»). تخصص من غير كلمة
+/// مكان تانية = دكتور.
+NluResult _nearby(List<String> tokens, List<String> placeHits) {
+  final specialty = [for (final t in tokens) specialtyFromWord(t)].whereType<Specialty>().firstOrNull;
+  final places = [for (final t in placeHits) _placeWords[t]!];
+  final place = specialty != null && places.contains(NearbyPlace.doctor) ? NearbyPlace.doctor : places.firstOrNull ?? NearbyPlace.pharmacy;
+  return NluResult(NluIntent.findNearby, place: place, specialtyKind: place == NearbyPlace.doctor ? specialty : null);
+}
+
 /// التعادل اتحسم بدوسة («قصدك تضيف دوا؟») — نفس الجملة، بالنية دي.
 NluResult understandUtteranceAs(NluIntent intent, String transcript, {required DateTime now}) {
   final normalized = normalizeUtterance(transcript);
   final tokens = utteranceTokens(normalized);
   return switch (intent) {
-    NluIntent.findNearby => NluResult(NluIntent.findNearby,
-        place: [for (final t in tokens) if (_placeWords.containsKey(t)) _placeWords[t]!].firstOrNull ?? NearbyPlace.pharmacy),
+    NluIntent.findNearby => _nearby(tokens, [for (final t in tokens) if (_placeWords.containsKey(t)) t]),
     NluIntent.addMedication => _addMedication(tokens, normalized, now),
     NluIntent.bookAppointment => _booking(NluIntent.bookAppointment, tokens, normalized, now),
     NluIntent.bookLab => _booking(NluIntent.bookLab, tokens, normalized, now),
@@ -345,13 +355,13 @@ NluResult _booking(NluIntent intent, List<String> tokens, String normalized, Dat
   final date = _date(normalized, now);
   final clock = _clock(tokens);
   String? doctorName;
-  String? specialty;
+  Specialty? specialty;
   final d = tokens.indexWhere(_doctorTitles.contains);
   if (d >= 0) {
     final words = <String>[];
     for (final t in tokens.sublist(d + 1)) {
-      if (_specialties.containsKey(t)) {
-        specialty ??= _specialties[t];
+      if (specialtyFromWord(t) case final sp?) {
+        specialty ??= sp;
         break;
       }
       if (_isBookingStop(t)) break;
@@ -361,7 +371,7 @@ NluResult _booking(NluIntent intent, List<String> tokens, String normalized, Dat
     final name = words.isEmpty ? null : medicineNameOrNull(words.join(' '));
     if (name != null) doctorName = 'د. $name';
   }
-  specialty ??= [for (final t in tokens) if (_specialties.containsKey(t) && intent == NluIntent.bookAppointment) _specialties[t]!].firstOrNull;
+  if (intent == NluIntent.bookAppointment) specialty ??= [for (final t in tokens) specialtyFromWord(t)].whereType<Specialty>().firstOrNull;
 
   String? testName;
   String? labName;
@@ -386,7 +396,7 @@ NluResult _booking(NluIntent intent, List<String> tokens, String normalized, Dat
   return NluResult(
     intent,
     doctorName: doctorName,
-    specialty: specialty,
+    specialtyKind: specialty,
     testName: testName,
     labName: labName,
     date: date,

@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fakkarni/domain/places/specialty.dart';
 
 import 'package:fakkarni/domain/voice/nlu/nlu.dart';
 
@@ -71,9 +72,11 @@ void main() {
   tearDown(() => h.tearDown());
 
   final nearby = <NearbyPlace>[];
+  final nearbySpecialties = <Specialty?>[];
 
-  Future<CommandFlow> flowWith(List<String?> answers, {FakeReader? reader, bool Function()? cloudAllowed, void Function()? onCloudUsed, Future<bool> Function(AppointmentPrefill)? onOpenAppointment}) async {
+  Future<CommandFlow> flowWith(List<String?> answers, {FakeReader? reader, bool Function()? cloudAllowed, void Function()? onCloudUsed, Future<bool> Function(AppointmentPrefill)? onOpenAppointment, List<String> doctors = const []}) async {
     nearby.clear();
+    nearbySpecialties.clear();
     listener = FakeListener(answers: answers);
     voice = VoiceService(player: player, tts: tts, listener: listener);
     await voice.load();
@@ -94,7 +97,11 @@ void main() {
         return saveResult;
       },
       onOpenAppointment: onOpenAppointment,
-      onOpenNearby: (p) async => nearby.add(p),
+      doctorsFor: () async => doctors,
+      onOpenNearby: (p, s) async {
+        nearby.add(p);
+        nearbySpecialties.add(s);
+      },
     );
   }
 
@@ -309,13 +316,14 @@ void main() {
       final f = await flowWith(['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر'], onOpenAppointment: (x) async {
         p = x;
         return false;
-      });
+      }, doctors: ['د. حسن']);
       await f.start();
       expect(f.shown, 'فهمت إنك عايز تحجز عند د. حسن — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
       await f.confirmReview();
       expect(p!.name, 'د. حسن', reason: 'الساعة في خانتها، مش في الاسم');
       expect(p!.time, MinuteOfDay.hm(17));
       expect(p!.day, DateTime(2026, 9, 6));
+      expect(p!.doctor, 'د. حسن');
     });
 
     test('مش مفهوم → «مش متأكد…» مكتوبة، و«عيد كلامك» بتسمع تاني — مش طريق مسدود', () async {

@@ -33,6 +33,11 @@ import '../today/dose_actions.dart';
 import '../../ai/prescription_timing.dart' show daysWord, hoursWord, timesPerDayWord;
 import '../../domain/medication/medicine_name.dart';
 import '../../domain/voice/nlu/nlu.dart';
+import '../../domain/places/specialty.dart';
+import '../../domain/health/doctor_match.dart';
+import '../../data/dose_state.dart';
+import '../../data/repositories/lab_results_repository.dart';
+import '../health/usual_words.dart' show GlucoseContextWords;
 import 'cloud_tools.dart';
 import 'command_parser.dart';
 import 'voice_flags.dart';
@@ -64,6 +69,11 @@ enum CommandPhase {
 
   /// تعادل بين نيتين — «قصدك …؟» بزرار لكل واحدة.
   clarifying,
+
+  /// «احجز عند د. حسن»: الدكتور بيتدوّر عليه في دكاترة المريض — كذا واحد =
+  /// «أنهي واحد؟»، ومحدش = «مش لاقي …» ودوسة على دكاترته أو «القريب مني».
+  /// **عمرنا ما نعمل دكتور من اسم اتقال لوحده.**
+  pickingDoctor,
   done,
 }
 
@@ -111,8 +121,11 @@ class AddMedPrefill {
 
 /// «احجزلي ميعاد» → ورقة «ميعاد جديد» **متعبّية** — والحفظ بزرارها هي.
 class AppointmentPrefill {
-  const AppointmentPrefill({required this.kind, this.name, this.day, this.time});
+  const AppointmentPrefill({required this.kind, this.name, this.day, this.time, this.doctor});
   final FollowKind kind;
+
+  /// دكتور **حقيقي** من دكاترة المريض — بيتسجّل على الميعاد.
+  final String? doctor;
   final String? name;
   final DateTime? day;
 
@@ -149,8 +162,11 @@ class CommandFlow extends ChangeNotifier {
     Future<List<DoseEventView>> Function(DateTime day)? dosesFor,
     Future<Map<String, MedicationPurpose?>> Function()? purposesFor,
     Future<void> Function(String reason)? onStartFailure,
+    Future<List<String>> Function()? doctorsFor,
     MicBreaker? breaker,
   })  : breaker = breaker ?? MicBreaker(),
+        _doctorsFor = doctorsFor ??
+            (() async => distinctDoctors([for (final r in await RecordsRepository(services.db).all(services.patientId)) r.doctor])),
         _clock = clock ?? DateTime.now,
         _onStartFailure = onStartFailure ?? recordListenProblem,
         _dosesFor = dosesFor ?? ((day) => services.events.watchDay(day).first),
@@ -187,8 +203,26 @@ class CommandFlow extends ChangeNotifier {
   /// بيفتح ورقة «ميعاد جديد» متعبّية وبيرجّع «اتحفظ؟».
   final Future<bool> Function(AppointmentPrefill prefill)? onOpenAppointment;
 
-  /// «أقرب صيدلية» → «القريب مني» على النوع ده، على طول.
-  final Future<void> Function(NearbyPlace place)? onOpenNearby;
+  /// «أقرب صيدلية» → «القريب مني» على النوع ده، على طول — و«أقرب دكتور
+  /// عيون» على الدكاترة والتخصص ده.
+  final Future<void> Function(NearbyPlace place, Specialty? specialty)? onOpenNearby;
+
+  /// دكاترة المريض من ملفه — الحجز بيتطابق عليهم وبس.
+  final Future<List<String>> Function() _doctorsFor;
+
+  /// «أنهي دكتور؟» — دكاترة حقيقيين من ملفه.
+  List<String> doctorOptions = const [];
+
+  /// كل دكاترته — لـ«اختار من دكاترتك».
+  List<String> savedDoctors = const [];
+
+  /// الاسم اللي اتقال وملقيناهوش — الورقة بتقول «مش لاقي …».
+  String? doctorMissing;
+  NluResult? _bookingNlu;
+
+  /// «مش لاقي دوا اسمه كده عندك» — أدويته كشرايح، والدوسة بتجاوب عن الدوا ده.
+  List<String> medChoices = const [];
+  Future<String> Function(List<String> names)? _medAnswer;
 
   /// اللي اتسمع زي ما هو — تحت اللي فهمناه، بهدوء («إنت قلت: …»).
   String heard = '';
@@ -326,6 +360,10 @@ class CommandFlow extends ChangeNotifier {
     _reviewAction = null;
     understood = null;
     clarifyOptions = const [];
+    doctorOptions = const [];
+    doctorMissing = null;
+    medChoices = const [];
+    _medAnswer = null;
     heard = '';
     partial = '';
     // **الدوسة ← المايك على طول**: مفيش جملة قبله؛ النغمة من المتعرّف نفسه
@@ -355,6 +393,15 @@ class CommandFlow extends ChangeNotifier {
       if (nlu.intent != NluIntent.none) {
         diag('Cmd: intent=${nlu.intent.name} source=nlu latency=${_clock().difference(started).inMilliseconds}ms');
         return _handleNlu(nlu, gen);
+      }
+    }
+    // «الكونكور الجاي إمتى؟» من غير كلمة «دوا» — بس لو الاسم دوا عنده فعلاً
+    if (cmd.intent == CommandIntent.unknown) {
+      final own = await _ownMedicineQuestion(text);
+      if (own != null) {
+        diag('Cmd: intent=nextDose source=local-own-med');
+        command = own;
+        return _handle(own, gen);
       }
     }
     if (cmd.intent == CommandIntent.unknown && reader != null && voiceCommandsCloud) {
@@ -467,6 +514,8 @@ class CommandFlow extends ChangeNotifier {
     CommandIntent.upcomingAppointments,
     CommandIntent.stockStatus,
     CommandIntent.medicalQuestion,
+    CommandIntent.doseStatus,
+    CommandIntent.latestReading,
   };
 
   /// مش مفهوم — **عمره ما يبقى طريق مسدود**: الجملة مكتوبة، واللي اتسمع
@@ -488,7 +537,13 @@ class CommandFlow extends ChangeNotifier {
       case CommandIntent.medicalQuestion:
         return _say('gen_no_medical', phase: CommandPhase.answering);
       case CommandIntent.nextDose:
+        if (cmd.medWords case final words?) return _answerForMedicine(words, _nextDoseOfText);
         return _sayText(await _nextDoseText(), phase: CommandPhase.answering);
+      case CommandIntent.doseStatus:
+        if (cmd.medWords case final words?) return _answerForMedicine(words, (names) => _statusText(names: names, part: cmd.dayPart));
+        return _sayText(await _statusText(part: cmd.dayPart), phase: CommandPhase.answering);
+      case CommandIntent.latestReading:
+        return _sayText(await _latestReadingText(cmd), phase: CommandPhase.answering);
       case CommandIntent.todayList:
         return _sayText(await _todayListText(), phase: CommandPhase.answering);
       case CommandIntent.upcomingAppointments:
@@ -555,19 +610,31 @@ class CommandFlow extends ChangeNotifier {
   }
 
   Future<String> _todayListText() async {
-    final today = await _today();
+    final today = [for (final d in await _today()) if (d.state != DoseState.superseded) d];
     if (today.isEmpty) return 'مفيش أدوية متسجّلة النهارده.';
     final groups = groupByMinute(today);
     final items = <String>[];
     for (final g in groups) {
-      final names = [for (final d in g) d.medicationName].join(' و');
-      final taken = g.every((d) => d.isDone);
-      items.add('$names الساعة ${voiceTime(g.first.scheduledAt)}${taken ? ' — أخدته' : ''}');
+      // حالة كل دوا لوحده — «اتنين في نفس الساعة» مش معناها إن الاتنين اتاخدوا
+      final names = [for (final d in g) '${d.medicationName}${_stateWord(d)}'].join(' و');
+      items.add('$names الساعة ${voiceTime(g.first.scheduledAt)}');
     }
     final shownItems = items.take(5).toList();
     final more = items.length > 5 ? '، وحاجات تانية على الشاشة' : '';
-    return 'النهارده عندك ${arabicNumber(groups.length)} ${groups.length == 1 ? 'جرعة' : groups.length == 2 ? 'جرعتين' : 'جرعات'}: ${shownItems.join('، ')}$more.';
+    final count = switch (groups.length) {
+      1 => 'جرعة واحدة',
+      2 => 'جرعتين',
+      final n => '${arabicNumber(n)} جرعات',
+    };
+    return 'النهارده عندك $count: ${shownItems.join('، ')}$more.';
   }
+
+  String _stateWord(DoseEventView d) => switch (d.state) {
+        DoseState.taken => ' (أخدته)',
+        DoseState.skipped => ' (مش هتاخده)',
+        _ when d.scheduledAt.isAfter(_clock()) => '',
+        _ => ' (لسه ما اتأكدش)',
+      };
 
   /// «مواعيدك الجاية» — من نفس الدالة اللي كارت «يومك» بيقراها.
   Future<String> _upcomingText() async {
@@ -585,6 +652,178 @@ class CommandFlow extends ChangeNotifier {
     final low = [for (final v in all) if (v.isLow) stockLowLine(v.name, stock: v.quantity, daysLeft: v.daysLeft ?? 0)];
     if (low.isEmpty) return 'كل أدويتك لسه فيها كمية كويسة.';
     return 'قرب يخلص: ${low.join('، ')}.';
+  }
+
+  // ---------------------------------------------------------------- أسئلة عن بياناته
+
+  /// أدوية المريض اللي الكلام بيطابقها — بالاسم أو بالغرض («الضغط»)، بنفس
+  /// التطبيع والمطابقة بالصوت بتوع «أخدته».
+  Future<List<String>> _matchOwn(String spoken) async {
+    final purposes = await _purposesFor();
+    return matchMedication(spoken, purposes.keys.toList(), purposes: {
+      for (final e in purposes.entries)
+        if (e.value != null) e.key: e.value!.label,
+    }).names;
+  }
+
+  Future<VoiceCommand?> _ownMedicineQuestion(String text) async {
+    final candidate = medicineQuestionCandidate(text);
+    if (candidate == null) return null;
+    return (await _matchOwn(candidate.medWords!)).isEmpty ? null : candidate;
+  }
+
+  /// سؤال عن دوا بعينه: لقيناه = الرد، ملقيناهوش = «مش لاقي …» وأدويته
+  /// شرايح — **عمرنا ما نجاوب عن دوا مش عنده**.
+  Future<void> _answerForMedicine(String spoken, Future<String> Function(List<String> names) answer) async {
+    final names = await _matchOwn(spoken);
+    if (names.isNotEmpty) {
+      medChoices = const [];
+      return _sayText(await answer(names), phase: CommandPhase.answering);
+    }
+    final all = (await _purposesFor()).keys.toList()..sort();
+    medChoices = all;
+    _medAnswer = answer;
+    await _sayText(all.isEmpty ? '$unknownMedicineLine — ومفيش أدوية متسجّلة لسه.' : unknownMedicineLine, phase: CommandPhase.answering);
+  }
+
+  static const unknownMedicineLine = 'مش لاقي دوا اسمه كده عندك';
+
+  /// دوسة على شريحة دوا بعد «مش لاقي …».
+  Future<void> pickMedicine(String name) async {
+    final answer = _medAnswer;
+    if (answer == null) return;
+    medChoices = const [];
+    _medAnswer = null;
+    await _sayText(await answer([name]), phase: CommandPhase.answering);
+  }
+
+  Future<String> _nextDoseOfText(List<String> names) async {
+    final today = [for (final d in await _today()) if (names.contains(d.medicationName)) d];
+    final tomorrow = [
+      for (final d in await _dosesFor(DateTime(routineDay.year, routineDay.month, routineDay.day + 1)))
+        if (names.contains(d.medicationName)) d,
+    ];
+    return nextDoseOfText(today: today, tomorrow: tomorrow, now: _clock(), subject: names.join(' و'));
+  }
+
+  Future<String> _statusText({List<String>? names, DayPart? part}) async {
+    final today = [
+      for (final d in await _today())
+        if ((names == null || names.contains(d.medicationName)) && (part == null || dayPartOf(d.scheduledAt) == part)) d,
+    ];
+    return doseStatusText(today, now: _clock(), subject: names?.join(' و'), part: part);
+  }
+
+  /// «آخر تحليل سكر كام؟» — آخر رقم متسجّل وتاريخه، ولا كلمة غيرهم.
+  Future<String> _latestReadingText(VoiceCommand cmd) async {
+    final saidLab = normalizeArabic(heard).contains('تحليل');
+    final labs = LabResultsRepository(services.db);
+    switch (cmd.readingType) {
+      case VitalType.sugar:
+        if (saidLab) {
+          final lab = await _latestLab(labs, const ['سكر', 'glucose', 'sugar', 'fbs', 'rbs', 'hba1c']);
+          if (lab != null) return lab;
+        }
+        final rows = await ReadingsRepository(services.db).watchRecent(services.patientId, limit: 1).first;
+        if (rows.isEmpty) return (await _latestLab(labs, const ['سكر', 'glucose', 'sugar', 'fbs', 'rbs', 'hba1c'])) ?? 'مفيش قياس سكر متسجّل عندك.';
+        final r = rows.first;
+        return 'آخر قياس سكر ${arabicNumber(r.valueMgDl)} — ${r.context.label} — ${arabicDate(r.measuredAt)} الساعة ${voiceTime(r.measuredAt)}.';
+      case final VitalType type?:
+        final kind = switch (type) {
+          VitalType.bp => VitalKind.bloodPressure,
+          VitalType.pulse => VitalKind.pulse,
+          VitalType.weight => VitalKind.weight,
+          VitalType.temp => VitalKind.temperature,
+          VitalType.o2 => VitalKind.spo2,
+          VitalType.sugar => VitalKind.pulse, // مش بيوصل هنا
+        };
+        final all = [for (final v in await VitalsRepository(services.db).all(services.patientId)) if (v.kind == kind) v]
+          ..sort((a, b) => b.measuredAt.compareTo(a.measuredAt));
+        if (all.isEmpty) return 'مفيش قياس ${kind.label.replaceFirst('ال', '')} متسجّل عندك.';
+        final v = all.first;
+        return 'آخر قياس ${kind.label.replaceFirst('ال', '')} ${vitalValueText(v)} — ${arabicDate(v.measuredAt)} الساعة ${voiceTime(v.measuredAt)}.';
+      case null:
+        final words = cmd.labWords;
+        if (words == null) return 'قولّي اسم التحليل — «آخر تحليل صورة دم».';
+        return (await _latestLab(labs, normalizeArabic(words.toLowerCase()).split(' '), all: true)) ??
+            'مش لاقي تحليل اسمه كده في ملفك.';
+    }
+  }
+
+  /// أحدث نتيجة تحليل اسمها فيه أي كلمة من [words] (أو كلهم لو [all]).
+  Future<String?> _latestLab(LabResultsRepository labs, List<String> words, {bool all = false}) async {
+    for (final r in await labs.allNewestFirst(services.patientId)) {
+      final name = normalizeArabic((r.testName ?? '').toLowerCase());
+      final hit = all ? words.every(name.contains) : words.any(name.contains);
+      if (!hit) continue;
+      final value = r.value == r.value.roundToDouble() ? '${r.value.toInt()}' : '${r.value}';
+      return 'آخر تحليل ${r.testName}: ${arabicDigits(value)}${r.unit == null ? '' : ' ${r.unit}'} — ${arabicDate(r.at)}.';
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------- الدكتور
+
+  /// «احجز عند د. حسن» — في دكاترته هو وبس.
+  Future<void> _resolveDoctor(NluResult nlu) async {
+    _bookingNlu = nlu;
+    savedDoctors = await _doctorsFor();
+    final matches = matchDoctors(nlu.doctorName!, savedDoctors);
+    if (matches.length == 1) return _reviewBooking(matches.single);
+    doctorMissing = matches.isEmpty ? nlu.doctorName : null;
+    doctorOptions = matches;
+    _set(
+      CommandPhase.pickingDoctor,
+      matches.isEmpty ? noDoctorLine(nlu.doctorName!) : 'عندك أكتر من دكتور بالاسم ده — أنهي واحد؟',
+    );
+  }
+
+  static String noDoctorLine(String name) => 'مش لاقي $name عندك — اختار من دكاترتك أو دوّر في القريب مني';
+
+  Future<void> _reviewBooking(String doctor) {
+    final n = _bookingNlu!;
+    appointmentPrefill = AppointmentPrefill(
+      kind: FollowKind.visit,
+      name: doctor,
+      doctor: doctor,
+      day: n.date,
+      time: n.time == null ? null : MinuteOfDay(n.time!.minutes),
+    );
+    final p = appointmentPrefill!;
+    final wording = bookingWording(
+      NluResult(NluIntent.bookAppointment, doctorName: doctor, specialtyKind: n.specialtyKind, date: n.date, time: n.time),
+      now: _clock(),
+    );
+    return _review(wording, () async {
+      final open = onOpenAppointment;
+      if (open == null) return;
+      final saved = await open(p);
+      if (saved) await _say('cmd_done', phase: CommandPhase.done);
+    });
+  }
+
+  /// دوسة على دكتور من «أنهي واحد؟» / «دكاترتك».
+  Future<void> pickDoctor(String doctor) async {
+    if (phase != CommandPhase.pickingDoctor || _bookingNlu == null) return;
+    doctorOptions = const [];
+    doctorMissing = null;
+    await _reviewBooking(doctor);
+  }
+
+  /// «اختار من دكاترتك».
+  void showSavedDoctors() {
+    if (phase != CommandPhase.pickingDoctor) return;
+    doctorMissing = null;
+    doctorOptions = savedDoctors;
+    _set(CommandPhase.pickingDoctor, 'اختار الدكتور');
+  }
+
+  /// «دوّر في القريب مني» — على الدكاترة (وتخصصه لو اتقال).
+  Future<void> searchNearbyDoctor() async {
+    final n = _bookingNlu;
+    _set(CommandPhase.done, '');
+    unawaited(voice.stop());
+    await onOpenNearby?.call(NearbyPlace.doctor, n?.specialtyKind);
   }
 
   // ---------------------------------------------------------------- أخدته / أجّل
@@ -608,6 +847,11 @@ class CommandFlow extends ChangeNotifier {
     final picks = await _window(cmd);
     if (_interrupted(gen)) return;
     if (picks.isEmpty) {
+      // «أخدت الكونكور» وهو متأكّد خلاص (أو لسه ما جاش) — بنقول حالته النهارده
+      if (cmd.medWords case final words?) {
+        final names = await _matchOwn(words);
+        if (names.isNotEmpty) return _sayText(await _statusText(names: names), phase: CommandPhase.answering);
+      }
       return _sayText(cmd.medWords == null ? 'مفيش جرعة مستنية دلوقتي.' : 'مفيش جرعة ${cmd.medWords} مستنية دلوقتي — بص على الشاشة.', phase: CommandPhase.answering);
     }
     candidates = [for (final d in picks.take(3)) DoseCandidate(d, d.routineDay ?? routineDay)];
@@ -739,7 +983,7 @@ class CommandFlow extends ChangeNotifier {
         await voice.listener?.stop();
       case CommandPhase.confirming:
         await _listenReply();
-      case CommandPhase.asking || CommandPhase.idle || CommandPhase.choosing || CommandPhase.answering || CommandPhase.reviewing || CommandPhase.clarifying:
+      case CommandPhase.asking || CommandPhase.idle || CommandPhase.choosing || CommandPhase.answering || CommandPhase.reviewing || CommandPhase.clarifying || CommandPhase.pickingDoctor:
         await start();
     }
   }
@@ -860,7 +1104,7 @@ class CommandFlow extends ChangeNotifier {
       case NluIntent.findNearby:
         _set(CommandPhase.done, '');
         unawaited(voice.stop());
-        await onOpenNearby?.call(nlu.place ?? NearbyPlace.pharmacy);
+        await onOpenNearby?.call(nlu.place ?? NearbyPlace.pharmacy, nlu.specialtyKind);
         return;
       case NluIntent.addMedication:
         final purpose = _purposeFromWords(nlu.name);
@@ -879,6 +1123,8 @@ class CommandFlow extends ChangeNotifier {
           final saved = await onOpenAdd(p);
           if (saved) await _say('cmd_done', phase: CommandPhase.done);
         });
+      case NluIntent.bookAppointment when nlu.doctorName != null:
+        return _resolveDoctor(nlu);
       case NluIntent.bookAppointment || NluIntent.bookLab:
         appointmentPrefill = AppointmentPrefill(
           kind: nlu.intent == NluIntent.bookLab ? FollowKind.lab : FollowKind.visit,
@@ -1055,4 +1301,61 @@ NluResult nluFromLegacy(VoiceCommand c) {
     default:
       return const NluResult(NluIntent.none);
   }
+}
+
+
+// ---------------------------------------------------------------- ردود من بياناته
+
+/// جزء اليوم من الساعة: الصبح ٤–١٢، الضهر ١٢–٥، بالليل ٥–٤.
+DayPart dayPartOf(DateTime at) => at.hour >= 4 && at.hour < 12
+    ? DayPart.morning
+    : at.hour >= 12 && at.hour < 17
+        ? DayPart.afternoon
+        : DayPart.evening;
+
+String _partWord(DayPart p) => switch (p) {
+      DayPart.morning => 'الصبح',
+      DayPart.afternoon => 'الضهر',
+      DayPart.evening => 'بالليل',
+    };
+
+/// «أخدت الكونكور؟» — حالة كل جرعة النهارده، من الصفوف نفسها. **وصف بس**:
+/// اتاخدت إمتى، لسه ما اتأكدتش، أو لسه ما جاش معادها.
+String doseStatusText(List<DoseEventView> doses, {required DateTime now, String? subject, DayPart? part}) {
+  final shown = [for (final d in doses) if (d.state != DoseState.superseded) d]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  if (shown.isEmpty) {
+    if (subject != null) return 'مفيش جرعة $subject النهارده.';
+    return part == null ? 'مفيش أدوية متسجّلة النهارده.' : 'مفيش أدوية ${_partWord(part)} النهارده.';
+  }
+  final lines = <String>[];
+  for (final d in shown) {
+    final name = d.medicationName;
+    final at = voiceTime(d.scheduledAt);
+    lines.add(switch (d.state) {
+      DoseState.taken => 'أيوه، أخدت $name الساعة ${voiceTime(d.actedAt ?? d.scheduledAt)}.',
+      DoseState.skipped => '$name بتاع الساعة $at اتسجّل إنك مش هتاخده.',
+      _ when d.scheduledAt.isAfter(now) => '$name معاده الساعة $at — لسه ما جاش.',
+      _ => 'لأ، $name بتاع الساعة $at لسه ما اتأكدش.',
+    });
+  }
+  return lines.join(' ');
+}
+
+/// «دوا الضغط الجاي إمتى؟» — أول جرعة لسه ما اتأكدتش للدوا ده.
+String nextDoseOfText({
+  required List<DoseEventView> today,
+  required List<DoseEventView> tomorrow,
+  required DateTime now,
+  required String subject,
+}) {
+  bool open(DoseEventView d) => !d.isDone && d.state != DoseState.superseded;
+  final todayOpen = [for (final d in today) if (open(d)) d]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  if (todayOpen.isNotEmpty) {
+    final d = todayOpen.first;
+    if (d.scheduledAt.isBefore(now)) return 'معاد ${d.medicationName} كان الساعة ${voiceTime(d.scheduledAt)} — ولسه ما اتأكدش.';
+    return '${d.medicationName} الجاي الساعة ${voiceTime(d.scheduledAt)}.';
+  }
+  final next = [for (final d in tomorrow) if (open(d)) d]..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  if (next.isNotEmpty) return '${next.first.medicationName} الجاي بكرة الساعة ${voiceTime(next.first.scheduledAt)}.';
+  return 'مفيش جرعة $subject جاية النهارده ولا بكرة.';
 }
