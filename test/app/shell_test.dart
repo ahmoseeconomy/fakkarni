@@ -129,7 +129,7 @@ void main() {
     }
     expect(find.text('ضيف'), findsOneWidget, reason: 'الـ+ مش لوحده');
     // المخطط ٤ + طلب المالك: «الملف» و«الإعدادات» في الدوك، ومفتاح الوضع فوق
-    expect(find.text('الملف الطبي'), findsOneWidget);
+    expect(find.text('ملفّي'), findsOneWidget, reason: 'التبويب اسمه «ملفّي» (المالك، ٢٨ سبتمبر ٢٠٢٦)');
     expect(find.text('الإعدادات'), findsOneWidget);
     expect(find.text('العائلة'), findsNothing, reason: 'الربط من الإعدادات وصف الدايرة');
     expect(find.byKey(const ValueKey('dark-mode-toggle')), findsOneWidget);
@@ -146,9 +146,9 @@ void main() {
     await settle(tester);
     expect(find.text('لسه مفيش أدوية.'), findsOneWidget);
 
-    await tester.tap(find.text('الملف الطبي').last);
+    await tester.tap(find.text('ملفّي').last);
     await settle(tester);
-    expect(find.text('الملف الطبي'), findsWidgets, reason: 'التبويب التالت بقى السجل');
+    expect(find.text('ملفّي'), findsWidgets, reason: 'التبويب وعنوان الشاشة نفس الكلمة');
 
     await openSettings(tester);
     // الروتين ووضع رمضان اتشالوا (٢٧ سبتمبر ٢٠٢٦)

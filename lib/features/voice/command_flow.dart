@@ -33,6 +33,7 @@ import '../today/dose_actions.dart';
 import '../../ai/prescription_timing.dart' show daysWord, hoursWord, timesPerDayWord;
 import '../../domain/medication/medicine_name.dart';
 import '../../domain/voice/nlu/nlu.dart';
+import '../../domain/voice/phrases.dart';
 import '../../domain/places/specialty.dart';
 import '../../domain/health/doctor_match.dart';
 import '../../data/dose_state.dart';
@@ -309,10 +310,11 @@ class CommandFlow extends ChangeNotifier {
     await voice.speakLine(id);
   }
 
-  /// رد متغيّر: مكتوب، وبصوت الموبايل (أحسن صوت عربي متسطّب، أبطأ شوية).
-  Future<void> _sayText(String text, {CommandPhase? phase}) async {
+  /// رد متغيّر: **مكتوب**، وبيتقال بس لو ليه جملة متركّبة من حتت ممدوح
+  /// ([phrase]) — من غير أسامي. مفيش صوت موبايل (المالك، ٢٨ سبتمبر ٢٠٢٦).
+  Future<void> _sayText(String text, {CommandPhase? phase, SpokenPhrase? phrase}) async {
     _set(phase ?? this.phase, text);
-    await voice.speakText(text);
+    if (phrase != null) await voice.speakPhrase(phrase);
   }
 
   /// دوسة «كلّمني».
@@ -538,14 +540,16 @@ class CommandFlow extends ChangeNotifier {
         return _say('gen_no_medical', phase: CommandPhase.answering);
       case CommandIntent.nextDose:
         if (cmd.medWords case final words?) return _answerForMedicine(words, _nextDoseOfText);
-        return _sayText(await _nextDoseText(), phase: CommandPhase.answering);
+        final (text, phrase) = await _nextDoseAnswer();
+        return _sayText(text, phase: CommandPhase.answering, phrase: phrase);
       case CommandIntent.doseStatus:
         if (cmd.medWords case final words?) return _answerForMedicine(words, (names) => _statusText(names: names, part: cmd.dayPart));
         return _sayText(await _statusText(part: cmd.dayPart), phase: CommandPhase.answering);
       case CommandIntent.latestReading:
         return _sayText(await _latestReadingText(cmd), phase: CommandPhase.answering);
       case CommandIntent.todayList:
-        return _sayText(await _todayListText(), phase: CommandPhase.answering);
+        final moments = groupByMinute([for (final d in await _today()) if (d.state != DoseState.superseded) d]).length;
+        return _sayText(await _todayListText(), phase: CommandPhase.answering, phrase: todayCountPhrase(moments));
       case CommandIntent.upcomingAppointments:
         return _sayText(await _upcomingText(), phase: CommandPhase.answering);
       case CommandIntent.stockStatus:
@@ -574,8 +578,8 @@ class CommandFlow extends ChangeNotifier {
   Future<String?> _followUp(String question, int gen) async {
     final listener = voice.listener;
     if (listener == null) return null;
+    // السؤال مكتوب — مفيش حتت ليه، ومفيش صوت موبايل
     _set(CommandPhase.asking, question);
-    await voice.speakText(question);
     if (_interrupted(gen)) return null;
     partial = '';
     await voice.yieldToMic(settle: true);
@@ -591,6 +595,16 @@ class CommandFlow extends ChangeNotifier {
 
   /// أول جرعة لسه ما اتأكدتش — لو فات معادها بنقول كده (هي اللي «جاية»
   /// فعلاً بالنسبة له)، وإلا الجاية النهارده، وإلا أول واحدة بكرة.
+  /// الرد مكتوب بالأسامي، والمسموع من غيرها («الدوا الجاي الساعة ٨ بالليل») —
+  /// بس لو الجرعة لسه جاية (اللي فات معادها مالهاش حتت).
+  Future<(String, SpokenPhrase?)> _nextDoseAnswer() async {
+    final text = await _nextDoseText();
+    final open = [for (final d in await _today()) if (!d.isDone && d.state != DoseState.superseded) d]
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final next = open.firstOrNull;
+    return (text, next == null || next.scheduledAt.isBefore(_clock()) ? null : nextDosePhrase(next.scheduledAt));
+  }
+
   Future<String> _nextDoseText() async {
     final now = _clock();
     final today = await _today();

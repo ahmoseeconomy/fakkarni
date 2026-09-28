@@ -78,7 +78,8 @@ void main() {
     nearby.clear();
     nearbySpecialties.clear();
     listener = FakeListener(answers: answers);
-    voice = VoiceService(player: player, tts: tts, listener: listener);
+    // حتت ممدوح «موجودة» — عشان الجمل المتركّبة تتقال في الاختبار
+    voice = VoiceService(player: player, tts: tts, listener: listener, assetExists: (_) async => true);
     await voice.load();
     final s = h.services;
     return CommandFlow(
@@ -207,13 +208,15 @@ void main() {
   });
 
   group('قراية بس', () {
-    test('«إيه دوايا الجاي» → بصوت الموبايل، بساعة الجرعة الجاية — ومفيش تأكيد', () async {
+    test('«إيه دوايا الجاي» → مكتوب بالاسم، ومن غير صوت موبايل — ومفيش تأكيد', () async {
       await seed('Concor');
       await schedule();
       final f = await flowWith(['إيه دوايا الجاي']);
       await f.start();
       expect(f.phase, CommandPhase.answering);
-      expect(tts.spoken.single, 'معاد Concor كان الساعة ٨ بالليل — ولسه ما اتأكدش.', reason: '٨:٠٠ فاتت بخمس دقايق');
+      expect(f.shown, 'معاد Concor كان الساعة ٨ بالليل — ولسه ما اتأكدش.', reason: '٨:٠٠ فاتت بخمس دقايق');
+      expect(tts.spoken, isEmpty);
+      expect(said(), isEmpty, reason: 'اللي فات معاده مالوش حتت — مكتوب وبس');
       expect(listener.listens, 1, reason: 'مفيش سماع للتأكيد');
     });
 
@@ -227,7 +230,10 @@ void main() {
         onOpenAdd: (_) async => false,
       );
       await early.start();
-      expect(tts.spoken.single, 'دواك الجاي Concor الساعة ٨ بالليل.');
+      expect(early.shown, 'دواك الجاي Concor الساعة ٨ بالليل.');
+      expect(tts.spoken, isEmpty);
+      expect(said(), ['seg_next_dose_start', 'seg_hour_8', 'seg_part_night'],
+          reason: 'بصوت ممدوح بالحتت، ومن غير اسم الدوا');
     });
 
     test('«إيه أدويتي النهارده» → قايمة بحد أقصى خمسة و«حاجات تانية على الشاشة»', () async {
@@ -238,9 +244,11 @@ void main() {
       await schedule();
       final f = await flowWith(['إيه أدويتي النهارده']);
       await f.start();
-      expect(tts.spoken.single, contains('النهارده عندك ١٠ جرعات'));
-      expect(tts.spoken.single, contains('وحاجات تانية على الشاشة'));
-      expect('M0 M1 M2 M3 M4 X0 X1 X2 X3 X4'.split(' ').where((n) => tts.spoken.single.contains(n)).length, 5);
+      expect(f.shown, contains('النهارده عندك ١٠ جرعات'));
+      expect(f.shown, contains('وحاجات تانية على الشاشة'));
+      expect('M0 M1 M2 M3 M4 X0 X1 X2 X3 X4'.split(' ').where((n) => f.shown.contains(n)).length, 5);
+      expect(tts.spoken, isEmpty);
+      expect(said(), ['seg_today_you_have', 'seg_count_10'], reason: 'العدد بس بيتقال — الأسامي مكتوبة');
     });
 
     test('سؤال طبي → «دي حاجة لازم تسأل فيها الدكتور» وبس', () async {
@@ -546,8 +554,8 @@ void main() {
     });
 
     test('مقاطعة: الرد بيتقال ← دوسة الدايرة تسكّته وتسمع على طول', () async {
-      final f = await flowWith(['إيه دوايا الجاي', 'إيه أدويتي النهارده']);
-      tts.hold = true;
+      final f = await flowWith(['أزود الجرعة؟', 'إيه أدويتي النهارده']);
+      player.holdPlayback = true;
       unawaited(f.start());
       for (var i = 0; i < 50 && f.phase != CommandPhase.answering; i++) {
         await Future<void>.delayed(Duration.zero);
@@ -555,7 +563,7 @@ void main() {
       expect(f.mic, MicState.speaking);
       bool? speakingAtListen;
       listener.onListen = () => speakingAtListen = voice.speaking;
-      tts.hold = false;
+      player.holdPlayback = false;
       await f.tapMic();
       expect(speakingAtListen, isFalse);
       expect(listener.listens, 2);
@@ -690,7 +698,7 @@ void main() {
     test('«السكر ١٥٠» → «صايم ولا بعد الأكل؟» → «صايم» → تأكيد → قياس سكر', () async {
       final f = await flowWith(['السكر ١٥٠', 'صايم']);
       await f.start();
-      expect(tts.spoken, ['صايم ولا بعد الأكل؟']);
+      expect(tts.spoken, isEmpty, reason: 'السؤال مكتوب — مفيش صوت موبايل');
       expect(f.phase, CommandPhase.confirming);
       await f.confirmYes();
       final readings = await ReadingsRepository(h.services.db).watchRecent(h.services.patientId).first;
@@ -732,15 +740,16 @@ void main() {
       expect(said(), contains('help_later'), reason: 'نفس جملة زرار «لاحقًا»');
     });
 
-    test('«مواعيدي الجاية إيه» و«الدوا فاضل كام» → رد بصوت الموبايل، ومفيش تأكيد', () async {
+    test('«مواعيدي الجاية إيه» و«الدوا فاضل كام» → رد مكتوب، ومفيش تأكيد ولا صوت موبايل', () async {
       final f = await flowWith(['مواعيدي الجاية إيه']);
       await f.start();
       expect(f.phase, CommandPhase.answering);
-      expect(tts.spoken.single, contains('مفيش مواعيد'));
+      expect(f.shown, contains('مفيش مواعيد'));
       final g = await flowWith(['الدوا فاضل كام']);
       await g.start();
       expect(g.phase, CommandPhase.answering);
-      expect(tts.spoken.last, contains('مخزون'));
+      expect(g.shown, contains('مخزون'));
+      expect(tts.spoken, isEmpty);
     });
 
     test('«خلصت» وهو بيسمع: اللي اتسمع هو الطلب — من غير ما نستنى السكوت', () async {
@@ -752,7 +761,7 @@ void main() {
       await f.tapMic();
       await run;
       expect(f.phase, CommandPhase.answering);
-      expect(tts.spoken.single, contains('أدوية'));
+      expect(f.shown, contains('أدوية'));
     });
 
     test('«كلّمني» بيسمع بنافذة الطلب (٣٠ ثانية / ٢٫٥ سكوت)، والرد القصير بنافذة الرد', () async {

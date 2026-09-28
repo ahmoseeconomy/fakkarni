@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -50,7 +51,7 @@ class AppShell extends StatefulWidget {
 
   /// المخطط ٤: «الملف» مكان «الإعدادات». الإعدادات ما اختفتش — بقت أيقونة
   /// الشخص في الشريط العلوي (نفس اسمها، ومفيش صف بيضيع).
-  static const tabs = ['اليوم', 'الأدوية', 'الملف الطبي', 'الإعدادات'];
+  static const tabs = ['اليوم', 'الأدوية', 'ملفّي', 'الإعدادات'];
   static const elderTabs = ['الرئيسية', 'الإعدادات'];
 
   @override
@@ -118,23 +119,14 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       extendBody: true,
-      // **«ضيف» طالع فوق الدوك** (مركزه على حافته)، فكل تبويب بياخد طوله
-      // الزيادة في `padding.bottom` — آخر حاجة في أي صفحة («امسح حسابي» في
-      // الإعدادات) بتتزحلق لحد فوقه (آيفون، ٢٦ سبتمبر ٢٠٢٦: كان بيغطّيها).
-      body: Builder(
-        builder: (context) {
-          final mq = MediaQuery.of(context);
-          final extra = keyboardIsUp(context) ? 0.0 : _AddButton.overhang;
-          return MediaQuery(
-            data: mq.copyWith(padding: mq.padding.copyWith(bottom: mq.padding.bottom + extra)),
-            child: ShellBottomExtra(extra: extra, child: IndexedStack(index: _tab, children: pages)),
-          );
-        },
-      ),
+      // **«ضيف» جوّه الدوك** (المالك، ٢٨ سبتمبر ٢٠٢٦): حافة الدايرة اللي فوق
+      // على حافة الدوك اللي فوق بالظبط — مش طالع فوقه. فمفيش طلعة تتزوّد على
+      // `padding.bottom` (الدوك نفسه بقى على قد الزرار).
+      body: ShellBottomExtra(extra: 0, child: IndexedStack(index: _tab, children: pages)),
       // **الدوك و«ضيف» بيختفوا والكيبورد مرفوع** — ده اللي كان بيحط «ضيف»
       // فوق «تأكيد الجرعة».
       floatingActionButton: keyboardIsUp(context) ? null : _AddButton(onPressed: _openAdd),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: const _InDockLocation(),
       bottomNavigationBar: keyboardIsUp(context)
           ? null
           : _TabBar(
@@ -418,11 +410,12 @@ class _AddButton extends StatelessWidget {
 
   final VoidCallback onPressed;
 
-  static const double _circle = 62;
+  static const double circle = 62;
+  static const double _gap = 2;
 
-  /// قد إيه الزرار طالع فوق حافة الدوك: `centerDocked` بيحط **نص** الزرار
-  /// (الدايرة + الكلمة تحتها) فوق الحافة — ونفَس.
-  static const double overhang = (_circle + F.s4 + F.minTextSize * 1.6) / 2 + F.s8;
+  /// طول الزرار بكلمته — الدوك بيتحسب بيه عشان الزرار يقعد **جوّاه**.
+  static double heightFor(BuildContext context) =>
+      circle + _gap + MediaQuery.textScalerOf(context).scale(F.minTextSize) * _TabBar.labelLineHeight;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -433,8 +426,8 @@ class _AddButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: _circle,
-              height: _circle,
+              width: circle,
+              height: circle,
               child: FloatingActionButton(
                 onPressed: onPressed,
                 backgroundColor: F.greenDeep,
@@ -447,13 +440,32 @@ class _AddButton extends StatelessWidget {
                 child: const Icon(Icons.add, size: 32),
               ),
             ),
-            const SizedBox(height: F.s4),
+            const SizedBox(height: _gap),
             Text(
               'ضيف',
-              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+              style: TextStyle(
+                fontSize: F.minTextSize,
+                height: _TabBar.labelLineHeight,
+                fontWeight: FontWeight.w700,
+                color: _TabBar.accent,
+              ),
             ),
           ],
         ),
+      );
+}
+
+/// «ضيف» جوّه الدوك: حافة الدايرة اللي فوق على حافة الدوك اللي فوق بالظبط.
+///
+/// `contentBottom` هو أول الـ`bottomNavigationBar`؛ فوق الدوك فيه شريط
+/// التلاشي ([_TabBar.fadeHeight])، فالزرار بيبدأ تحته.
+class _InDockLocation extends FloatingActionButtonLocation {
+  const _InDockLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry g) => Offset(
+        (g.scaffoldSize.width - g.floatingActionButtonSize.width) / 2,
+        g.contentBottom + _TabBar.fadeHeight,
       );
 }
 
@@ -474,7 +486,23 @@ class _TabBar extends StatelessWidget {
   static const double _labelInset = F.s4;
 
   /// سطر الكلمة — والشريط بيتحسب بيه، فالعمود ما بيفيضش.
-  static const double _labelLineHeight = 1.3;
+  static const double labelLineHeight = 1.3;
+
+  /// شريط تلاشي فوق الدوك — اللي بيتزحلق تحته بيبهت قبل ما يوصل الزجاج.
+  static const double fadeHeight = 24;
+
+  /// أرضية الشريط كله (حوالين الدوك وتحته) — شبه مصمتة.
+  static const double groundAlpha = 0.92;
+
+  /// صبغة الزجاج نفسه.
+  static const double tintAlpha = 0.88;
+
+  /// ضباب الزجاج — ٢٠ وفوق.
+  static const double blurSigma = 24;
+
+  /// لون اللي إنت فيه: أخضر بالنهار، و**دهبي بالليل** — نفس حلقة «ضيف»
+  /// (المالك، ٢٨ سبتمبر ٢٠٢٦). مفيش لون جديد.
+  static Color get accent => F.isDark ? F.gold : F.green;
 
   final List<String> labels;
   final List<IconData> icons;
@@ -490,6 +518,39 @@ class _TabBar extends StatelessWidget {
     // بتعدّي من تحته وبتبان. كل أيقونة قاعدة على بلاطة مربعة مستديرة
     // (زي أيقونات الدوك)، واللي إنت فيه بلاطته خضرا.
     final radius = BorderRadius.circular(F.s30);
+    final dark = F.isDark;
+    final tileHeight = 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * labelLineHeight + F.s10;
+    // «ضيف» قاعد جوّه الدوك — الدوك على قده لو هو أطول من البلاطات
+    final height = gapForAdd ? math.max(tileHeight, _AddButton.heightFor(context) + F.s6) : tileHeight;
+    // **اللي تحت الدوك ما يتقريش** (المالك، ٢٨ سبتمبر ٢٠٢٦): تلاشي فوقه،
+    // وأرضية شبه مصمتة حواليه وتحته، وزجاج بضباب ٢٤ وصبغة ٨٨٪.
+    final ground = F.pageGround;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IgnorePointer(
+          child: Container(
+            key: const ValueKey('dock-fade'),
+            height: fadeHeight,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [ground.withValues(alpha: 0), ground.withValues(alpha: groundAlpha)],
+              ),
+            ),
+          ),
+        ),
+        ColoredBox(
+          key: const ValueKey('dock-ground'),
+          color: ground.withValues(alpha: groundAlpha),
+          child: _dock(context, radius, dark, height),
+        ),
+      ],
+    );
+  }
+
+  Widget _dock(BuildContext context, BorderRadius radius, bool dark, double height) {
     return SafeArea(
       top: false,
       child: Padding(
@@ -497,10 +558,11 @@ class _TabBar extends StatelessWidget {
         child: ClipRRect(
           borderRadius: radius,
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            key: const ValueKey('dock-blur'),
+            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
             child: Container(
               decoration: BoxDecoration(
-                color: F.pageGround.withValues(alpha: 0.35),
+                color: F.pageGround.withValues(alpha: tintAlpha),
                 borderRadius: radius,
                 // حافة فاتحة من فوق زي حرف الزجاج في الماك
                 border: Border.all(color: F.onDark.withValues(alpha: 0.35)),
@@ -512,7 +574,7 @@ class _TabBar extends StatelessWidget {
                 // الطول بيتحسب من البلاطة + الكلمة بمقاسها الحقيقي (نمط كبار
                 // السن ٢٤، وخط النظام ممكن يكبّرها كمان) — رقمين ثابتين كانوا
                 // بيفيضوا ٦ بكسل أول ما البلاطة كبرت.
-                height: 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * _labelLineHeight + F.s10,
+                height: height,
                 child: Row(
                   children: [
                     for (var i = 0; i < labels.length; i++) ...[
@@ -540,7 +602,7 @@ class _TabBar extends StatelessWidget {
                                     // كان هيبقى بلاطة بيضا بأيقونة فاتحة
                                     // عليها في الليل.
                                     colors: i == current
-                                        ? [F.green, F.greenDeep]
+                                        ? (dark ? [F.gold, F.gold] : [F.green, F.greenDeep])
                                         : [
                                             F.railGround.withValues(alpha: 0.75),
                                             F.cardGround.withValues(alpha: 0.75),
@@ -548,10 +610,15 @@ class _TabBar extends StatelessWidget {
                                   ),
                                   borderRadius: BorderRadius.circular(F.s12),
                                   border: Border.all(
-                                    color: i == current ? F.greenDeep : F.line.withValues(alpha: 0.6),
+                                    color: i == current ? (dark ? F.gold : F.greenDeep) : F.line.withValues(alpha: 0.6),
                                   ),
                                 ),
-                                child: Icon(icons[i], size: 24, color: i == current ? F.onDark : F.mutedDark),
+                                // بالليل الأيقونات دهبي، واللي إنت فيه حبر على دهبي
+                                child: Icon(
+                                  icons[i],
+                                  size: 24,
+                                  color: i == current ? (dark ? F.onGold : F.onDark) : (dark ? F.gold : F.mutedDark),
+                                ),
                               ),
                               const SizedBox(height: F.s4),
                               // خط النظام الكبير كان بيلف «الإعدادات» سطرين ويفيض من
@@ -570,9 +637,9 @@ class _TabBar extends StatelessWidget {
                                       fontSize: labelSize,
                                       // نفس المعامل اللي طول الشريط بيتحسب بيه —
                                       // الخط العربي سطره أطول من ١٫٣ لوحده
-                                      height: _labelLineHeight,
+                                      height: labelLineHeight,
                                       fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
-                                      color: i == current ? F.green : F.mutedDark,
+                                      color: i == current ? accent : F.mutedDark,
                                     ),
                                   ),
                                 ),

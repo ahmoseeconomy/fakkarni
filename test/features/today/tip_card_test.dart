@@ -50,14 +50,15 @@ void main() {
     expect(bulb.dx, greaterThan(title.dx));
   });
 
-  testWidgets('التوهّج بيتغيّر مع الوقت من غير أي تكبير — ودورته ١٫٦ ثانية', (tester) async {
+  testWidgets('التوهّج الدهبي بيتنفّس مع الوقت من غير أي تكبير — ودورته ٢٫٥ ثانية', (tester) async {
     await pump(tester);
-    expect(GlowingBulb.cycle, const Duration(milliseconds: 1600));
+    expect(GlowingBulb.cycle, const Duration(milliseconds: 2500));
     Color colourNow() => tester.widget<Icon>(find.byIcon(Icons.lightbulb)).color!;
     final at0 = colourNow();
     await tester.pump(const Duration(milliseconds: 800));
     final at800 = colourNow();
     expect(at800, isNot(at0), reason: 'السطوع بيتحرّك');
+    expect(at800.r, closeTo(F.gold.r, 0.001), reason: 'دهب التطبيق — مش أزرق');
     expect(find.descendant(of: find.byType(GlowingBulb), matching: find.byType(Transform)), findsNothing,
         reason: 'توهّج بس — مفيش تكبير ولا هزّ');
     final size = tester.getSize(find.byType(GlowingBulb));
@@ -69,7 +70,7 @@ void main() {
     await pump(tester, reduceMotion: true);
     Color colourNow() => tester.widget<Icon>(find.byIcon(Icons.lightbulb)).color!;
     final at0 = colourNow();
-    expect(at0, F.tipGlow);
+    expect(at0, F.gold, reason: 'دهب التطبيق، منوّرة ثابتة');
     await tester.pump(const Duration(milliseconds: 800));
     expect(colourNow(), at0);
     expect(find.descendant(of: find.byType(GlowingBulb), matching: find.byType(AnimatedBuilder)), findsNothing);

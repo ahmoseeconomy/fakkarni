@@ -8,6 +8,7 @@
 // على كل ناتج من هنا بعيّنات.
 
 import '../../core/format/arabic_time.dart';
+import 'phrases.dart';
 import 'voice_time.dart';
 
 /// امبارح — من حساب «إنت ماشي إزاي» نفسه (قواعد الأيام زي ما هي).
@@ -39,7 +40,15 @@ class BriefingInput {
     this.appointments = const [],
     this.yesterday = YesterdayOutcome.nothing,
     this.streak = 0,
+    this.nextDoseAt,
+    this.visitInDays,
   });
+
+  /// أول جرعة لسه ما اتأكدتش النهارده — null = خلصوا (للجملة المسموعة).
+  final DateTime? nextDoseAt;
+
+  /// أقرب زيارة دكتور بعد كام يوم (١ = بكرة) — null = مفيش.
+  final int? visitInDays;
 
   final DateTime now;
 
@@ -115,3 +124,8 @@ String? briefingText(BriefingInput b) {
   if (parts.isEmpty) return null;
   return '${_greeting(b.now)}. ${parts.join(' ')}';
 }
+
+/// **الملخص المسموع** — بحتت ممدوح المسجّلة، من غير أسامي. الكارت بيكتب
+/// [briefingText] كامل؛ ده اللي بيتقال منه. null = مفيش جملة تتقال كاملة.
+SpokenPhrase? briefingSpoken(BriefingInput b) =>
+    briefingPhrase(now: b.now, dosesToday: b.dosesToday, nextDoseAt: b.nextDoseAt, visitInDays: b.visitInDays);

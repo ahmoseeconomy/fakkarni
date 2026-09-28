@@ -50,7 +50,7 @@ void main() {
       ('نص المية على كارتها', F.waterInk, F.waterGround, 4.5),
       ('نص المعلومة على كارتها', F.ink, F.tipSurface, 4.5),
       ('الثانوي على كارت المعلومة', F.mutedDark, F.tipSurface, 4.5),
-      ('اللمبة على كارت المعلومة', F.tipGlow, F.tipSurface, 3.0),
+      ('اللمبة الدهبي على بلاطتها', F.gold, F.greenDeep, 3.0),
       ('الأيقونات على الصفحة', F.muted, F.pageGround, 3.0),
     ]) {
       expect(_contrast(colour, ground), greaterThanOrEqualTo(min), reason: name);

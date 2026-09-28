@@ -72,9 +72,10 @@ const placement = <String, Set<String>>{
     'help_confirm_done': {'features/reminder/reminder_screen.dart', 'features/today/dose_actions.dart'},
     // «كلّمني» بيعدّي من confirmGroup نفسها — الجملة بتتقال من dose_actions
     'help_later': {'features/today/dose_actions.dart'},
-    'help_progress': {'features/adherence/adherence_card.dart'},
+    // «ساعدني» الواحد على «يومك» بيقولها بالترتيب (المالك، ٢٨ سبتمبر ٢٠٢٦)
+    'help_progress': {'features/adherence/adherence_card.dart', 'features/today/today_screen.dart'},
     'help_progress_missed': {'features/adherence/adherence_card.dart'},
-    'help_tip': {'features/today/widgets/tip_card.dart'},
+    'help_tip': {'features/today/widgets/tip_card.dart', 'features/today/today_screen.dart'},
     'help_appointments': {'features/records/health_file_screen.dart', 'features/today/today_screen.dart'},
     'help_stock_low': {'features/today/widgets/refill_lines.dart'},
     'help_not_bought': {'features/medication/not_bought.dart'},

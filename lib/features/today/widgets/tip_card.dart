@@ -104,7 +104,8 @@ class TipCard extends StatelessWidget {
 class GlowingBulb extends StatefulWidget {
   const GlowingBulb({super.key});
 
-  static const Duration cycle = Duration(milliseconds: 1600);
+  /// نَفَس كامل (يزيد ويهدى) — ٢٫٥ ثانية (المالك، ٢٨ سبتمبر ٢٠٢٦).
+  static const Duration cycle = Duration(milliseconds: 2500);
 
   @override
   State<GlowingBulb> createState() => _GlowingBulbState();
@@ -112,7 +113,9 @@ class GlowingBulb extends StatefulWidget {
 
 class _GlowingBulbState extends State<GlowingBulb>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late final AnimationController _glow = AnimationController(vsync: this, duration: GlowingBulb.cycle);
+  // `repeat(reverse: true)` = نص الدورة طالع ونصها نازل
+  late final AnimationController _glow =
+      AnimationController(vsync: this, duration: GlowingBulb.cycle ~/ 2);
 
   @override
   void initState() {
@@ -137,31 +140,46 @@ class _GlowingBulbState extends State<GlowingBulb>
     super.dispose();
   }
 
-  Widget _tile(Color colour, double glow) => Container(
+  /// **اللمبة دهبي — دهب التطبيق نفسه**، على بلاطة زيتي (نفس «ضيف»: الدهبي
+  /// على الأبيض ٢:١ ما بيبانش)، وحواليها توهّج دهبي دايري ناعم. نفس الشكل في
+  /// الوضعين. [glow] من ٠ لـ١.
+  Widget _tile(Color colour, double glow) => SizedBox(
         width: 44,
         height: 44,
-        decoration: BoxDecoration(
-          color: F.pageGround.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(F.radiusTile),
-          boxShadow: [
-            if (glow > 0)
-              BoxShadow(color: F.tipGlow.withValues(alpha: 0.45 * glow), blurRadius: 10 + 12 * glow),
-          ],
+        child: DecoratedBox(
+          key: const ValueKey('bulb-tile'),
+          decoration: BoxDecoration(
+            color: F.greenDeep,
+            borderRadius: BorderRadius.circular(F.radiusTile),
+            boxShadow: [
+              // التوهّج الدايري — بيتنفّس، من غير تكبير ولا هزّ
+              BoxShadow(color: F.gold.withValues(alpha: 0.18 + 0.32 * glow), blurRadius: 8 + 14 * glow, spreadRadius: 1 + 3 * glow),
+            ],
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(F.radiusTile),
+              gradient: RadialGradient(
+                colors: [F.gold.withValues(alpha: 0.20 + 0.25 * glow), F.gold.withValues(alpha: 0)],
+              ),
+            ),
+            child: Icon(Icons.lightbulb, size: 26, color: colour),
+          ),
         ),
-        child: Icon(Icons.lightbulb, size: 26, color: colour),
       );
 
   @override
   Widget build(BuildContext context) {
+    // «تقليل الحركة»: توهّج ثابت، من غير نَفَس
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
-      return _tile(F.tipGlow, 0.6);
+      return _tile(F.gold, 0.6);
     }
     return AnimatedBuilder(
       animation: _glow,
       builder: (context, _) {
         final t = Curves.easeInOut.transform(_glow.value);
         // النور بيتغيّر بالسطوع: من نسخة باهتة للون الكامل
-        final colour = Color.lerp(F.tipGlow.withValues(alpha: 0.45), F.tipGlow, t)!;
+        final colour = Color.lerp(F.gold.withValues(alpha: 0.7), F.gold, t)!;
         return _tile(colour, t);
       },
     );

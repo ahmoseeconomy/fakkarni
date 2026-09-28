@@ -41,6 +41,15 @@ BriefingInput briefingInputFor({
     }
   }
 
+  final next = [for (final e in live) if (!e.isDone) e].firstOrNull?.scheduledAt;
+  final today0 = DateTime.utc(now.year, now.month, now.day);
+  int? visitIn;
+  for (final a in upcomingAppointments(openFollowUps, now: now)) {
+    if (a.kind != FollowKind.visit) continue;
+    final days = DateTime.utc(a.at.year, a.at.month, a.at.day).difference(today0).inDays;
+    if (days >= 1 && (visitIn == null || days < visitIn)) visitIn = days;
+  }
+
   final appointments = [
     for (final a in upcomingAppointments(openFollowUps, now: now))
       if (a.at.year == now.year && a.at.month == now.month && a.at.day == now.day)
@@ -68,6 +77,8 @@ BriefingInput briefingInputFor({
     appointments: appointments,
     yesterday: outcome,
     streak: adherence.currentStreak,
+    nextDoseAt: next,
+    visitInDays: visitIn,
   );
 }
 
@@ -116,7 +127,9 @@ class _BriefingCardState extends State<BriefingCard> {
     if (text == null || !widget.voice.shouldBrief(widget.dayKey)) return;
     _spoken = true;
     unawaited(widget.voice.markBriefed(widget.dayKey));
-    unawaited(widget.voice.speakText(text));
+    // بصوت ممدوح بالحتت — ولو حتة ناقصة الملخص مكتوب وبس
+    final phrase = briefingSpoken(widget.input);
+    if (phrase != null) unawaited(widget.voice.speakPhrase(phrase));
   }
 
   @override
@@ -151,12 +164,13 @@ class _BriefingCardState extends State<BriefingCard> {
                       ),
                     ],
                   ),
+                  if (briefingSpoken(widget.input) case final phrase?) ...[
                   const SizedBox(height: F.s8),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: TextButton.icon(
                       key: const ValueKey('briefing-replay'),
-                      onPressed: () => widget.voice.speakText(text),
+                      onPressed: () => widget.voice.speakPhrase(phrase),
                       icon: Icon(Icons.replay, size: 22, color: F.ink),
                       label: const Text('اسمع تاني'),
                       style: TextButton.styleFrom(
@@ -166,6 +180,7 @@ class _BriefingCardState extends State<BriefingCard> {
                       ),
                     ),
                   ),
+                  ],
                 ],
               ),
             ),

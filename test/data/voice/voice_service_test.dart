@@ -101,27 +101,20 @@ void main() {
     expect(focus.ends, greaterThanOrEqualTo(1), reason: 'الجلسة بتتسلّم بعد الكلام');
   });
 
-  test('التسجيل ناقص (false) أو وقع (throw) → صوت الموبايل بنفس النص', () async {
+  test('التسجيل ناقص (false) أو وقع (throw) → **مفيش صوت موبايل** (المالك، ٢٨ سبتمبر ٢٠٢٦) — مكتوبة وبس', () async {
     player.ok = false;
-    await voice.speakLine('help_today');
-    expect(tts.spoken, [voiceLine('help_today')]);
+    expect(await voice.speakLine('help_today'), isFalse);
+    expect(tts.spoken, isEmpty);
 
     player.throws = true;
-    await voice.speakLine('help_tip');
-    expect(tts.spoken.last, voiceLine('help_tip'));
-    expect(tts.rate, VoiceSpeed.slow.rate, reason: 'البطيء هو الافتراضي');
-  });
-
-  test('ملخص اليوم بصوت الموبايل بس — التسجيل ما بيتلمسش', () async {
-    await voice.speakText('صباح الخير. النهارده عندك ٣ أدوية.');
-    expect(player.played, isEmpty);
-    expect(tts.spoken, ['صباح الخير. النهارده عندك ٣ أدوية.']);
+    expect(await voice.speakLine('help_tip'), isFalse);
+    expect(tts.spoken, isEmpty);
+    expect(voice.caption.value, isNull);
   });
 
   test('الصوت مقفول = صمت — إلا المقدمة (force)', () async {
     await voice.setEnabled(false);
     await voice.speakLine('help_today');
-    await voice.speakText('ملخص');
     expect(player.played, isEmpty);
     expect(tts.spoken, isEmpty);
     await voice.speakLine('intro_01', force: true);

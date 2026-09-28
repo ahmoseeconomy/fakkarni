@@ -106,7 +106,7 @@ void main() {
   }
 
   for (final scale in [1.0, 1.3]) {
-    screenTestish('الدوك على ٣٧٥ (خط ×$scale): «الملف الطبي» و«الإعدادات» ما بيركبوش على بعض', (tester) async {
+    screenTestish('الدوك على ٣٧٥ (خط ×$scale): «ملفّي» و«الإعدادات» ما بيركبوش على بعض', (tester) async {
       await pumpSe(tester, AppShell(now: DateTime(2026, 8, 31, 6)), scale: scale);
       expectLabelsApart(tester, AppShell.tabs);
     });
@@ -129,7 +129,7 @@ void main() {
     await settle(tester);
     // طلع مع الصفحة: القايمة بتشيله من الشجرة أول ما يخرج من الشاشة
     expect(find.byType(HomeTopBar).hitTestable(), findsNothing, reason: 'بيتزحلق مع الصفحة — مش مثبّت');
-    for (final tab in ['الأدوية', 'الملف الطبي', 'الإعدادات']) {
+    for (final tab in ['الأدوية', 'ملفّي', 'الإعدادات']) {
       await tester.tap(find.text(tab).last);
       await settle(tester);
       expect(find.byType(HomeTopBar).hitTestable(), findsNothing, reason: '«$tab» من غير الشريط');
@@ -164,7 +164,7 @@ void main() {
       expect(under, isEmpty, reason: 'ولا نص تحت «القريب مني» بعد اللفّ للآخر');
       // وهدف اللمس ٥٦ والشكل ٤٤
       expect(tester.getSize(find.ancestor(of: pillFinder, matching: find.byType(GestureDetector)).first).height, greaterThanOrEqualTo(56));
-      expect(pill.height, 44);
+      expect(pill.height, closeTo(44, 0.001));
     });
   }
 

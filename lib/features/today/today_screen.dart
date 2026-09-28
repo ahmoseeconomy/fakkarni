@@ -327,7 +327,9 @@ class _TodayScreenState extends State<TodayScreen> {
               padding: EdgeInsets.only(bottom: F.s10 - _NearbyPill.hitSlop + MediaQuery.of(context).padding.bottom - ShellBottomExtra.of(context)),
               child: _NearbyPill(onTap: _openNearby),
             ),
-      body: StreamBuilder<List<DoseEventView>>(
+      // «ساعدني» واحد بس على «يومك» — جنب العنوان (المالك، ٢٨ سبتمبر ٢٠٢٦)
+      body: HelpQuiet(
+        child: StreamBuilder<List<DoseEventView>>(
         stream: _events,
         builder: (context, snapshot) {
           final events = snapshot.data ?? const <DoseEventView>[];
@@ -389,41 +391,6 @@ class _TodayScreenState extends State<TodayScreen> {
                   ),
                 ),
               SizedBox(height: nowCards.isNotEmpty ? F.s8 : F.gap),
-              // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
-              //
-              // الإشعارين (هادي امبارحه وواحد بيرن في يومه) ممكن يكونوا
-              // لسه برّه نافذة iOS المتدحرجة — الكارت ده هو شبكة الأمان:
-              // بيعرض الميعاد **دايماً**، وبيعدّ التنازلي، وبيقول إن
-              // الموبايل هيفكّره امبارحه. عمره ما يرن.
-              //
-              // **وتحت «الآن» عن قصد**: الجرعة هي اللي بتفضل أول حاجة
-              // على الشاشة، والميعاد اللي بعد تلات أيام مش أعجل منها.
-              StreamBuilder<List<RecordRow>>(
-                stream: _followUps,
-                builder: (context, snap) {
-                  final soon = upcomingAppointments(snap.data ?? const [], now: _now);
-                  if (soon.isEmpty) return const SizedBox.shrink();
-                  // في الوضع المضغوط مفيش فجوة زيادة: القياس على SE
-                  // بيقول إن كل ١٠ بكسل هنا بتفرق مع زرار «ضيف» العايم.
-                  return Padding(
-                    // في الوضع المضغوط مفيش فجوة زيادة خالص: الكارت
-                    // الذهبي بحدوده هو الفاصل، والستّة بكسل دي هي الفرق
-                    // بين زرار التأكيد كامل وزرار مقطوع على SE.
-                    padding: EdgeInsets.only(
-                        bottom: nowCards.isNotEmpty ? 0 : F.gap),
-                    child: _AppointmentsCard(
-                      appointments: soon,
-                      now: _now,
-                      onOpen: _openCheckup,
-                      // **جرعة مستنية تأكيد = الكتلة بتتقلّص.** المواعيد
-                      // فوق كارت الجرعة بقرار المالك، والضمانة إن القرار
-                      // ده ما يزقّش «تأكيد الجرعة» برّه أول شاشة على
-                      // أصغر آيفون. لما مفيش جرعة مستنية، فيه مكان.
-                      compact: nowCards.isNotEmpty,
-                    ),
-                  );
-                },
-              ),
               if (nowCards.isNotEmpty || glucoseNow) ...[
                 // **العدد في العنوان.** تلات كروت مكدّسة كانت بتخلّي
                 // السؤال «هما كام؟» محتاج نزول وعدّ؛ دلوقتي الإجابة في
@@ -456,9 +423,6 @@ class _TodayScreenState extends State<TodayScreen> {
                 const _AllDonePanel(),
                 const SizedBox(height: F.gap),
               ],
-              // «إنت ماشي إزاي» — **تحت** كارت الجرعة، مش فوقه: التأكيد أعجل.
-              // قراية بس، وبيستخبّى أول يومين.
-              PatientAdherenceCard(routineDay: _routineDay, now: _now),
               Text(
                 'جدول النهاردة',
                 style: TextStyle(
@@ -486,26 +450,38 @@ class _TodayScreenState extends State<TodayScreen> {
               // نفس المسافة بين كل كارت والتاني — «معلومة تهمك» كانت لازقة
               // في السكة لما مفيش بكرة ولا متابعات ولا سكر بينهم.
               const SizedBox(height: F.gap),
-              // «تنبيهات محمد هتقف يوم …» / «اللي بيتابعوك مش بيتبلّغوا
-              // دلوقتي». **تحت الجدول عن قصد**: فوق كان هيزقّ «تأكيد
-              // الجرعة» تحت الزرار العايم على SE — وده كلام عن المتابعين،
-              // مش عن دوا دلوقتي.
-              // «كونكور فاضله ٤ أيام» — تحت الجدول: مش جرعة دلوقتي، وفوق كان
-              // هيزقّ «تأكيد الجرعة» على SE
-              const RefillLines(),
-              // «فيه دوا لسه ماتشترتش» — سطر هادي، ويختفي لما القايمة تفضى
-              const NotBoughtLine(),
-              PatientFamilyNotice(
-                followerNames: [for (final f in _followers) f.name],
-                followersKnown: _followersKnown,
-                now: _now,
+              // **كارت المواعيد — من ساعة الحجز لحد ما اليوم يعدّي.**
+              //
+              // الإشعارين (هادي امبارحه وواحد بيرن في يومه) ممكن يكونوا
+              // لسه برّه نافذة iOS المتدحرجة — الكارت ده هو شبكة الأمان:
+              // بيعرض الميعاد **دايماً**، وبيعدّ التنازلي، وبيقول إن
+              // الموبايل هيفكّره امبارحه. عمره ما يرن.
+              //
+              // **ترتيب «يومك» (المالك، ٢٨ سبتمبر ٢٠٢٦)**: التحية و«كلّمني» ←
+              // أدوية النهارده («الآن» و«جدول النهاردة») ← المواعيد (زيارات
+              // وتحاليل و«خلال ٤٨ ساعة») ← الباقي.
+              StreamBuilder<List<RecordRow>>(
+                stream: _followUps,
+                builder: (context, snap) {
+                  final soon = upcomingAppointments(snap.data ?? const [], now: _now);
+                  if (soon.isEmpty) return const SizedBox.shrink();
+                  // في الوضع المضغوط مفيش فجوة زيادة: القياس على SE
+                  // بيقول إن كل ١٠ بكسل هنا بتفرق مع زرار «ضيف» العايم.
+                  return Padding(
+                    // في الوضع المضغوط مفيش فجوة زيادة خالص: الكارت
+                    // الذهبي بحدوده هو الفاصل، والستّة بكسل دي هي الفرق
+                    // بين زرار التأكيد كامل وزرار مقطوع على SE.
+                    padding: const EdgeInsets.only(bottom: F.gap),
+                    child: _AppointmentsCard(
+                      appointments: soon,
+                      now: _now,
+                      onOpen: _openCheckup,
+                      // تحت الجدول دلوقتي — مش بيزقّ «تأكيد الجرعة»، فمش مضغوط
+                      compact: false,
+                    ),
+                  );
+                },
               ),
-              // «مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا» — دعوة، مش شغل
-              // دلوقتي؛ مكانها تحت الجدول عشان ما تزقّش زرار التأكيد.
-              if (_followers.isEmpty) ...[
-                CareCircleRow(onOpen: _openCircle, followers: const []),
-                const SizedBox(height: F.gap),
-              ],
               StreamBuilder<List<DoseEventView>>(
                 stream: _tomorrow,
                 builder: (context, snap) {
@@ -541,6 +517,29 @@ class _TodayScreenState extends State<TodayScreen> {
                   );
                 },
               ),
+              // «إنت ماشي إزاي» — **تحت** كارت الجرعة، مش فوقه: التأكيد أعجل.
+              // قراية بس، وبيستخبّى أول يومين.
+              PatientAdherenceCard(routineDay: _routineDay, now: _now),
+              // «تنبيهات محمد هتقف يوم …» / «اللي بيتابعوك مش بيتبلّغوا
+              // دلوقتي». **تحت الجدول عن قصد**: فوق كان هيزقّ «تأكيد
+              // الجرعة» تحت الزرار العايم على SE — وده كلام عن المتابعين،
+              // مش عن دوا دلوقتي.
+              // «كونكور فاضله ٤ أيام» — تحت الجدول: مش جرعة دلوقتي، وفوق كان
+              // هيزقّ «تأكيد الجرعة» على SE
+              const RefillLines(),
+              // «فيه دوا لسه ماتشترتش» — سطر هادي، ويختفي لما القايمة تفضى
+              const NotBoughtLine(),
+              PatientFamilyNotice(
+                followerNames: [for (final f in _followers) f.name],
+                followersKnown: _followersKnown,
+                now: _now,
+              ),
+              // «مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا» — دعوة، مش شغل
+              // دلوقتي؛ مكانها تحت الجدول عشان ما تزقّش زرار التأكيد.
+              if (_followers.isEmpty) ...[
+                CareCircleRow(onOpen: _openCircle, followers: const []),
+                const SizedBox(height: F.gap),
+              ],
               if (_readings.isNotEmpty && !glucoseNow) ...[
                 GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
                 const SizedBox(height: F.gap),
@@ -622,6 +621,7 @@ class _TodayScreenState extends State<TodayScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }
@@ -708,6 +708,9 @@ class _HomeHeader extends StatelessWidget {
         // الافتراضي كان نص «يومك» الأعلى بيتقص.
         HelpRow(
           id: 'help_today',
+          // الشاشة كلها بالترتيب، من الجمل المسجّلة: الأدوية ← المواعيد ← الباقي
+          then: const ['help_next_dose', 'help_appointments', 'help_progress', 'help_tip'],
+          always: true,
           child: Text(
             'يومك',
             style: TextStyle(

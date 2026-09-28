@@ -50,20 +50,8 @@ class VoiceSettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: F.gap),
-              const FSectionHead('السرعة'),
-              Text(
-                'لملخص اليوم وصوت الموبايل — التسجيلات بسرعتها.',
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-              ),
-              const SizedBox(height: F.s8),
-              _Choices<VoiceSpeed>(
-                values: VoiceSpeed.values,
-                current: voice.speed,
-                label: (s) => s.label,
-                keyOf: (s) => 'voice-speed-${s.name}',
-                onPick: voice.setSpeed,
-              ),
-              const SizedBox(height: F.gap),
+              // «السرعة» اتشالت (٢٨ سبتمبر ٢٠٢٦): كانت لصوت الموبايل بس، وده
+              // مابقاش بيتكلم — كل الكلام بصوت ممدوح المسجّل بسرعته.
               const FSectionHead('علو الصوت'),
               const SizedBox(height: F.s8),
               _Choices<VoiceVolume>(

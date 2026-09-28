@@ -88,7 +88,7 @@ void main() {
     screenTest('فاضي → كل قسم بيقول تعمل إيه، ومفيش سبع زرارات', (tester) async {
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      expect(find.text('الملف الطبي'), findsOneWidget);
+      expect(find.text('ملفّي'), findsOneWidget);
       for (final head in ['مواعيدك الجاية', 'أوراقك', 'للدكتور']) {
         expect(find.text(head), findsOneWidget, reason: head);
       }
@@ -333,7 +333,7 @@ void main() {
 
       // الباب الوحيد للملف الصحي: تبويب الدوك. صف الإعدادات اتشال —
       // بابين لأوضة واحدة بيخلّي المستخدم يشك إنهم حاجتين.
-      await tester.tap(find.text('الملف الطبي').last);
+      await tester.tap(find.text('ملفّي').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
     });

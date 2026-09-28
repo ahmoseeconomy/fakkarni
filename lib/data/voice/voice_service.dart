@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
+import '../../domain/voice/phrases.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/diagnostics.dart';
@@ -8,7 +11,7 @@ import '../../domain/voice/voice_catalog.dart';
 import 'speech_listener.dart';
 
 /// تشغيل تسجيل من الحزمة. `true` = اتقال لآخره، `false` = ما عرفش
-/// (ملف ناقص، عطل في المشغّل) — ساعتها الخدمة بترجع لصوت الموبايل.
+/// (ملف ناقص، عطل في المشغّل) — ساعتها الجملة بتفضل مكتوبة وبس.
 /// التنفيذ الحقيقي في `audio_voice_player.dart` (الملف الوحيد اللي بيستورد
 /// `audioplayers`).
 abstract interface class VoicePlayer {
@@ -70,7 +73,25 @@ class VoiceService extends ChangeNotifier {
     this.listener,
     Future<SharedPreferences> Function()? prefs,
     this.micSettle = Duration.zero,
-  }) : _prefs = prefs ?? SharedPreferences.getInstance;
+    Future<bool> Function(String assetPath)? assetExists,
+  })  : _prefs = prefs ?? SharedPreferences.getInstance,
+        _assetExists = assetExists ?? _bundleHas;
+
+  /// ملف في حزمة التطبيق؟ — قبل ما جملة متركّبة تبدأ، كل حتتها لازم تكون
+  /// موجودة، وإلا الجملة ما بتتقالش خالص (ولا نصها).
+  final Future<bool> Function(String assetPath) _assetExists;
+
+  static Future<bool> _bundleHas(String path) async {
+    try {
+      await rootBundle.load(path);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// بين حتة والتانية — لازقين، من غير سكتة تبان (٨٠ ملّي وأقل).
+  static const phraseGap = Duration(milliseconds: 60);
 
   /// بعد ما جملتنا تخلص وجلسة الصوت تتسلّم، قبل ما المايك يتفتح — المشغّل
   /// بيقفل ملفه في الخلفية، والمتعرّف محتاج الجلسة فاضية.
@@ -229,8 +250,10 @@ class VoiceService extends ChangeNotifier {
         diag('Voice: التسجيل $id وقع ($e) — صوت الموبايل بداله');
       }
       if (gen != _generation) return false;
-      if (!ok) await _tts(text);
-      return gen == _generation;
+      // **مفيش صوت موبايل بداله** (المالك، ٢٨ سبتمبر ٢٠٢٦): تسجيل ناقص =
+      // الجملة مكتوبة وبس. الكلام المسموع كله بصوت ممدوح أو مفيش.
+      if (!ok) diag('Voice: تسجيل $id مش موجود — الجملة مكتوبة بس');
+      return ok && gen == _generation;
     } finally {
       await _end(gen);
     }
@@ -279,12 +302,30 @@ class VoiceService extends ChangeNotifier {
     return done.future;
   }
 
-  /// نص حر (ملخص اليوم) — **صوت الموبايل بس**، مفيش تسجيل ليه.
-  Future<void> speakText(String text, {bool force = false}) async {
-    if (!_enabled && !force) return;
-    final gen = await _begin(text);
+  /// **جملة متركّبة من حتت مسجّلة** (ملخص اليوم، ردود «كلّمني») — بصوت
+  /// ممدوح، حتة ورا حتة بفاصل [phraseGap]. **لو أي حتة ناقصة، الجملة ما
+  /// بتتقالش خالص** (ولا نصها) والشاشة بتكتبها وبس. مفيش صوت موبايل هنا.
+  /// بترجّع `true` لو اتقالت لآخرها.
+  Future<bool> speakPhrase(SpokenPhrase phrase, {bool force = false}) async {
+    if (!_enabled && !force) return false;
+    for (final id in phrase.segments) {
+      if (!segmentTexts.containsKey(id) || !await _assetExists(segmentAssetPath(id))) {
+        diag('Voice: الحتة $id مش موجودة — الجملة مكتوبة بس');
+        return false;
+      }
+    }
+    final gen = await _begin(phrase.text);
     try {
-      await _tts(text);
+      for (final (i, id) in phrase.segments.indexed) {
+        if (i > 0) await Future<void>.delayed(phraseGap);
+        if (gen != _generation) return false;
+        final ok = await player.play(segmentAssetPath(id), volume: _volume.level);
+        if (!ok || gen != _generation) return false;
+      }
+      return true;
+    } catch (e) {
+      diag('Voice: جملة متركّبة وقعت ($e)');
+      return false;
     } finally {
       await _end(gen);
     }
@@ -356,14 +397,6 @@ class VoiceService extends ChangeNotifier {
       diag('Voice: جلسة الصوت ($e)');
     }
     return gen;
-  }
-
-  Future<void> _tts(String text) async {
-    try {
-      await tts.speak(text, rate: _speed.rate, volume: _volume.level);
-    } catch (e) {
-      diag('Voice: صوت الموبايل وقع ($e)');
-    }
   }
 
   Future<void> _end(int gen) async {

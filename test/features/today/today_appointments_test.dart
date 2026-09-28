@@ -134,7 +134,7 @@ void main() {
   }
 
   group('الترتيب', () {
-    testWidgets('«مواعيدك الجاية» فوق «الآن»، و«المتابعات» بعد «جدول النهاردة»',
+    testWidgets('ترتيب المالك (٢٨ سبتمبر ٢٠٢٦): «الآن» ← «جدول النهاردة» ← المواعيد ← «المتابعات» ← الباقي',
         (tester) async {
       await addDose('Concor', DayAnchor.breakfast, offset: -30);
       await book(DateTime(2026, 9, 5), title: 'صورة دم');
@@ -143,14 +143,10 @@ void main() {
       await pump(tester);
 
       double y(String text) => tester.getTopLeft(find.text(text)).dy;
-      // **الكتلة بالمفتاح مش بالعنوان**: لما فيه جرعة مستنية تأكيد
-      // بتتقلّص لسطر واحد من غير عنوان — ده تنازل مقصود عشان زرار
-      // «تأكيد الجرعة» يفضل فوق «ضيف» العايم على أصغر آيفون.
-      expect(tester.getTopLeft(find.byKey(const ValueKey('appointments-card'))).dy,
-          lessThan(y('الآن')),
-          reason: 'الميعاد أول حاجة');
-      expect(y('الآن'), lessThan(y('جدول النهاردة')));
-      expect(y('جدول النهاردة'), lessThan(y('المتابعات')));
+      final appointments = tester.getTopLeft(find.byKey(const ValueKey('appointments-card'))).dy;
+      expect(y('الآن'), lessThan(y('جدول النهاردة')), reason: 'أدوية النهارده الأول');
+      expect(y('جدول النهاردة'), lessThan(appointments), reason: 'المواعيد بعد أدوية النهارده');
+      expect(appointments, lessThan(y('المتابعات')));
       expect(y('المتابعات'), lessThan(y('معلومة تهمك')));
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -257,11 +253,7 @@ void main() {
       final button = find.text('تأكيد الجرعة');
       expect(button, findsOneWidget);
       final box = tester.getRect(button);
-
-      // **والصفّين معروضين، مش واحد** (طلب المالك): التحليل كان
-      // بيستخبى ورا «+١» على نفس الشاشة دي بالظبط.
-      expect(find.textContaining('صورة دم'), findsOneWidget);
-      expect(find.textContaining('أشعة'), findsOneWidget);
+      expect(box.bottom, lessThanOrEqualTo(se.height), reason: 'جوّه أول شاشة');
 
       // والدوك و«ضيف» مش فوقه
       // **ولا الدوك ولا «ضيف» العايم فوقه.**
@@ -276,6 +268,11 @@ void main() {
         final rect = tester.getRect(other);
         expect(rect.overlaps(box), isFalse, reason: '«$key» فوق زرار التأكيد');
       }
+
+      // المواعيد تحت الجدول دلوقتي — والصفّين معروضين كاملين (مش مضغوطين)
+      await tester.scrollUntilVisible(find.textContaining('أشعة'), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.textContaining('صورة دم'), findsOneWidget);
+      expect(find.textContaining('أشعة'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 100));
