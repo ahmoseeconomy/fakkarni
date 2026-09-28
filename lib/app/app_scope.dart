@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../ai/lab_reader.dart';
+import '../ai/pharmacy_card_reader.dart';
 import '../ai/package_reader.dart';
 import '../core/diagnostics.dart';
 import '../ai/prescription_reader.dart';
@@ -57,6 +58,7 @@ class AppServices {
     this.prescriptionReader,
     this.labReader,
     this.packageReader,
+    this.pharmacyCardReader,
     this.commandReader,
     this.cloudCommandBudget,
     this.attachments = const DirectoryAttachmentStore(),
@@ -238,6 +240,10 @@ class AppServices {
   /// قارئ علب الأدوية — نفس المفتاح ونفس النقل. null = المفتاح مش متظبط،
   /// وشاشة التصوير هي اللي بتقول كده؛ «أكتبه بإيدي» شغّال زي ما هو.
   final MedicinePackageReader? packageReader;
+
+  /// قارئ كارت الصيدلية («صيدليتي») — نفس المفتاح ونفس النقل. null = المفتاح
+  /// مش متظبط، والورقة بتسيب الإدخال بالإيد بس.
+  final PharmacyCardReader? pharmacyCardReader;
 
   /// صور التقارير — فولدر التطبيق. الاختبارات بتحط فولدر مؤقت.
   final AttachmentStore attachments;

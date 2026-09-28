@@ -14,6 +14,7 @@ import '../../domain/places/opening_hours.dart';
 import '../../domain/places/place_links.dart';
 import '../../domain/places/specialty.dart';
 import '../emergency/emergency_widgets.dart' show dialNumber;
+import '../medication/pharmacy_sheet.dart' show PharmacyPrefill, editPharmacy;
 import '../medication/refill_actions.dart' show openWhatsApp;
 import '../records/book_appointment.dart';
 
@@ -111,8 +112,13 @@ class NearbyScreen extends StatefulWidget {
     this.now,
     this.initialKind,
     this.initialSpecialty,
+    this.onPickPharmacy,
     super.key,
   });
+
+  /// «اختار من القريب مني» من ورقة «صيدليتي»: «خليها صيدليتي» على الكارت
+  /// بترجّع المكان للورقة بدل ما تفتح ورقة تانية.
+  final void Function(Place place)? onPickPharmacy;
 
   /// «كلّمني» («أقرب صيدلية») بيفتح الشاشة على النوع ده — null = «الكل».
   final PlaceKind? initialKind;
@@ -402,7 +408,11 @@ class _NearbyScreenState extends State<NearbyScreen> {
         for (final p in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: F.s10),
-            child: _PlaceCard(place: p, meters: metersBetween(fix.lat!, fix.lon!, p.lat, p.lon), now: _now),
+            child: _PlaceCard(
+                place: p,
+                meters: metersBetween(fix.lat!, fix.lon!, p.lat, p.lon),
+                now: _now,
+                onPickPharmacy: widget.onPickPharmacy),
           ),
     ];
   }
@@ -427,9 +437,10 @@ String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
     };
 
 class _PlaceCard extends StatelessWidget {
-  const _PlaceCard({required this.place, required this.meters, required this.now});
+  const _PlaceCard({required this.place, required this.meters, required this.now, this.onPickPharmacy});
 
   final Place place;
+  final void Function(Place place)? onPickPharmacy;
   final double meters;
   final DateTime now;
 
@@ -445,6 +456,8 @@ class _PlaceCard extends StatelessWidget {
     final whatsApp = p.phone == null ? null : egyptMobileWhatsApp(p.phone!);
     // «احجز» بيسجّل الميعاد وتذكيره عندنا — مش بيكلّم العيادة
     final canBook = p.kind == PlaceKind.doctor && AppScope.maybeOf(context) != null;
+    // «خليها صيدليتي» — بتفتح ورقة «صيدليتي» متعبّية؛ مفيش حفظ قبل «احفظ»
+    final canKeep = p.kind == PlaceKind.pharmacy && (onPickPharmacy != null || AppScope.maybeOf(context) != null);
 
     return Container(
       key: ValueKey('place-${p.id}'),
@@ -562,6 +575,24 @@ class _PlaceCard extends StatelessWidget {
               ],
             ],
           ),
+          if (canKeep) ...[
+            const SizedBox(height: F.s4),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: ValueKey('keep-pharmacy-${p.id}'),
+                onPressed: () => onPickPharmacy != null
+                    ? onPickPharmacy!(p)
+                    : editPharmacy(context, prefill: PharmacyPrefill.fromPlace(p)),
+                style: TextButton.styleFrom(
+                  foregroundColor: F.greenStrong,
+                  minimumSize: const Size(F.minTapTarget, F.minTapTarget),
+                  textStyle: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+                ),
+                child: const Text('خليها صيدليتي'),
+              ),
+            ),
+          ],
           if (canBook) ...[
             const SizedBox(height: F.s4),
             Align(

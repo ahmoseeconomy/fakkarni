@@ -9,6 +9,7 @@ import '../ai/command_reader.dart';
 import '../data/services/daily_cloud_budget.dart';
 import '../ai/gemini_config.dart';
 import '../ai/lab_reader.dart';
+import '../ai/pharmacy_card_reader.dart';
 import '../ai/package_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/background_task.dart';
@@ -151,6 +152,7 @@ Future<AppServices> buildServices(
     cloudCommandBudget: cloudBudget,
     labReader: _labReaderFromEnvironment(),
     packageReader: _packageReaderFromEnvironment(),
+    pharmacyCardReader: _pharmacyCardReaderFromEnvironment(),
     auth: auth,
     care: care,
     caregiver: caregiver,
@@ -194,6 +196,12 @@ Future<void> normaliseLabReportTitles(AppDatabase db) async {
 MedicinePackageReader? _packageReaderFromEnvironment() {
   final config = GeminiConfig.tryFromEnvironment();
   return config == null ? null : GeminiPackageReader(config);
+}
+
+/// كارت الصيدلية — نفس المفتاح ونفس النقل.
+PharmacyCardReader? _pharmacyCardReaderFromEnvironment() {
+  final config = GeminiConfig.tryFromEnvironment();
+  return config == null ? null : GeminiPharmacyCardReader(config);
 }
 
 /// نفس المفتاح ونفس القاعدة: من غيره null، ومفيش طلب بمفتاح فاضي.

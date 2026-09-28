@@ -1,4 +1,5 @@
 import '../voice/help_button.dart';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -27,14 +28,26 @@ typedef PickImage = Future<Uint8List?> Function(ImageSource source);
 ///
 /// الدقة عالية عن قصد: الخط اليدوي أول حاجة بتموت مع التصغير. الأرقام دي
 /// تتظبط على روشتة حقيقية مكتوبة بالإيد، مش على شاشة.
-Future<Uint8List?> pickWithSystemCamera(ImageSource source) async {
+///
+/// [deleteFile]: الصورة ما بتتخزّنش (كارت الصيدلية) — نسخة الكاش اللي
+/// image_picker عملها بتتمسح أول ما البايتات تتقري.
+Future<Uint8List?> pickWithSystemCamera(ImageSource source, {bool deleteFile = false}) async {
   final file = await ImagePicker().pickImage(
     source: source,
     maxWidth: 2560,
     maxHeight: 2560,
     imageQuality: 92,
   );
-  return file?.readAsBytes();
+  if (file == null) return null;
+  final bytes = await file.readAsBytes();
+  if (deleteFile) {
+    try {
+      await File(file.path).delete();
+    } catch (_) {
+      // ملف مش موجود أو ممنوع — الكاش بيتنضّف لوحده، والبايتات في الذاكرة بس
+    }
+  }
+  return bytes;
 }
 
 /// «تصوير الروشتة» (المخطط 05).

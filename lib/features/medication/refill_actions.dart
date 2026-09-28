@@ -7,6 +7,9 @@ import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../domain/medication/stock.dart';
+import 'pharmacy_sheet.dart';
+
+export 'pharmacy_sheet.dart' show editPharmacy;
 
 /// بيفتح واتساب على رسالة جاهزة — **المستخدم بيراجعها ويبعتها بنفسه**.
 /// متغيّر عشان الاختبار يسجّل الرابط بدل ما يفتح تطبيق.
@@ -160,84 +163,4 @@ class _OrderBodyState extends State<_OrderBody> {
           ),
         ],
       );
-}
-
-/// «صيدليتي» — الاسم ورقم الواتساب. true = اتحفظت.
-Future<bool?> editPharmacy(BuildContext context) async {
-  final prefs = AppScope.of(context).preferences;
-  final current = await prefs.pharmacy();
-  if (!context.mounted) return null;
-  return FSheet.show<bool>(
-    context,
-    title: 'صيدليتي',
-    children: [_PharmacyBody(name: current.name, whatsapp: current.whatsapp)],
-  );
-}
-
-class _PharmacyBody extends StatefulWidget {
-  const _PharmacyBody({this.name, this.whatsapp});
-  final String? name;
-  final String? whatsapp;
-
-  @override
-  State<_PharmacyBody> createState() => _PharmacyBodyState();
-}
-
-class _PharmacyBodyState extends State<_PharmacyBody> {
-  late final _name = TextEditingController(text: widget.name ?? '');
-  late final _number = TextEditingController(text: widget.whatsapp ?? '');
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _number.dispose();
-    super.dispose();
-  }
-
-  InputDecoration _decoration(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: F.fieldGround,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final valid = whatsappNumber(_number.text) != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          key: const ValueKey('pharmacy-name'),
-          controller: _name,
-          textInputAction: TextInputAction.next,
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink),
-          decoration: _decoration('اسم الصيدلية'),
-        ),
-        const SizedBox(height: F.s8),
-        TextField(
-          key: const ValueKey('pharmacy-number'),
-          controller: _number,
-          keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.done,
-          textDirection: TextDirection.ltr,
-          onChanged: (_) => setState(() {}),
-          style: TextStyle(fontSize: F.minBodySize, color: F.ink),
-          decoration: _decoration('رقم الواتساب — زي 01012345678'),
-        ),
-        const SizedBox(height: F.gap),
-        FPrimaryButton(
-          key: const ValueKey('pharmacy-save'),
-          label: 'احفظ',
-          onPressed: !valid
-              ? null
-              : () async {
-                  final navigator = Navigator.of(context);
-                  await AppScope.of(context).preferences.setPharmacy(name: _name.text, whatsapp: _number.text);
-                  navigator.pop(true);
-                },
-        ),
-      ],
-    );
-  }
 }

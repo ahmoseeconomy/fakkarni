@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/core/widgets/f_wheels.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
@@ -72,6 +73,7 @@ void main() {
       return true;
     };
     addTearDown(() => openWhatsApp = original);
+    SharedPreferences.setMockInitialValues({}); // رقم الاتصال بتاع «صيدليتي»
     final id = await seedConcor();
     await StockRepository(h.db).setQuantity(id, 2);
     await h.pump(tester, const Scaffold(body: SingleChildScrollView(child: RefillLines())));
@@ -82,6 +84,7 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('pharmacy-name')), 'صيدلية الشفا');
     await tester.enterText(find.byKey(const ValueKey('pharmacy-number')), '0101 234 5678');
     await settle(tester);
+    await tester.ensureVisible(find.byKey(const ValueKey('pharmacy-save')));
     await tester.tap(find.byKey(const ValueKey('pharmacy-save')));
     await settle(tester);
     expect(await PreferencesRepository(h.db).pharmacy(), (name: 'صيدلية الشفا', whatsapp: '0101 234 5678'));

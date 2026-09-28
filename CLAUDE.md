@@ -5236,6 +5236,25 @@ what the person typed; its refill alert never fired for many users. Here:
 - **Dose reminders, ladder and escalation untouched** — golden plan and
   scheduler tests green with no edit.
 
+**«صيدليتي» تلات طرق (28 Sep 2026).** `features/medication/pharmacy_sheet.dart`
+(`editPharmacy`, re-exported from `refill_actions`): «اختار من القريب مني»
+(opens nearby on pharmacies; the card's «خليها صيدليتي» returns the place),
+«صوّر كارت الصيدلية» / «من الصور», then name / call number / WhatsApp.
+**Nothing is written before «احفظ»**, and data from outside asks
+«تغيّر صيدليتك من … لـ …؟» before replacing a saved one. Number rules are pure
+in `domain/places/pharmacy_numbers.dart`: Egyptian mobile = call + WhatsApp,
+landline = call only and the sheet asks «عندك رقم واتساب للصيدلية دي؟», two
+mobiles = chips, a landline is never WhatsApp. The card goes through
+`GeminiPharmacyCardReader` — **the prescription transport verbatim** — behind
+the family `scans` gate; the photo is not kept (`pickWithSystemCamera(…,
+deleteFile: true)`) and neither the image nor the extracted text is logged.
+**The call number is not in the schema** (`device_preferences` has name and
+WhatsApp only, and schema was off-limits): it lives in `shared_preferences`
+under `pharmacy.call`, wiped with the account like every other key.
+Tests: `pharmacy_numbers_test`, `pharmacy_card_reader_test`,
+`pharmacy_sheet_test` (mutation-checked on the kind guard, missing-only fill,
+and the replace confirmation).
+
 **«إنت ماشي إزاي» وصورة الدوا (25 Sep 2026).**
 - **Adherence** (`domain/adherence/`, pure): day = complete / missed /
   neutral / upcoming by the row's routine day; a dose missed **today**
