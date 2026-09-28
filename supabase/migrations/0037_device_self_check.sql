@@ -235,6 +235,12 @@ revoke all on private.admin_device_health from anon, authenticated, public;
 -- وبيرجّعها: صاحب مريض بيبعت نبضة، جلسة تانية على نفس الموبايل بتكمّل
 -- على نفس الصف، غريب ما بيقراش ولا بيكتب، الابن بيبلّغ عن موبايله، الساكت
 -- بيتعلّم لما فيه جدول شغّال وبس، والـview بتجيب اللي فيه مشكلة.
+--
+-- **Live DB has real rows — never assert global counts.** المشروع الحقيقي
+-- فيه صفوف حقيقية (الفحص وقع مرة لأن `mark_silent_devices()` علّمت صف حقيقي
+-- قديم كمان ورجّعت ٢). كل عدّ هنا متقيّد بصفوف الفحص نفسه
+-- (`patient_uuid in (v_pat, v_pat2)`)، وكل قراية لحالة صف بمفتاحه الكامل.
+-- `device_health_sql_test` بيوقع على أي `count(*)` من غير القيد ده.
 do $$
 declare
   v_owner    uuid := gen_random_uuid();
@@ -246,6 +252,7 @@ declare
   v_med      uuid := gen_random_uuid();
   v_sched    uuid := gen_random_uuid();
   v_n        integer;
+  v_silent   integer;
   v_status   text;
 begin
   begin
@@ -308,7 +315,7 @@ begin
     execute 'reset role';
     perform set_config('request.jwt.claims', json_build_object('sub', v_stranger)::text, true);
     execute 'set local role authenticated';
-    select count(*) into v_n from public.device_health;
+    select count(*) into v_n from public.device_health where patient_uuid in (v_pat, v_pat2);
     if v_n <> 0 then raise exception 'FAIL 0037: غريب قرا صفوف (%)', v_n; end if;
     begin
       insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at)
@@ -332,14 +339,14 @@ begin
     execute 'set local role authenticated';
     insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status, codes)
       values (v_pat, 'install-son', v_son, 'android', now(), 'ok', '[]'::jsonb);
-    select count(*) into v_n from public.device_health;
+    select count(*) into v_n from public.device_health where patient_uuid in (v_pat, v_pat2);
     if v_n <> 1 then raise exception 'FAIL 0037: الابن شايف غير صفه (%)', v_n; end if;
     -- والتعديل على صفّه هو شغّال (upsert — سكّة الموبايل)
     insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status, codes)
       values (v_pat, 'install-son', v_son, 'android', now(), 'healed', '[]'::jsonb)
     on conflict (patient_uuid, install_id) do update
       set checked_at = excluded.checked_at, status = excluded.status;
-    if (select status from public.device_health where install_id = 'install-son') <> 'healed' then
+    if (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-son') <> 'healed' then
       raise exception 'FAIL 0037: الابن مقدرش يحدّث صفّه هو';
     end if;
     -- ٥ب) الابن ما يكتبش فوق صف موبايل أبوه: UPDATE = صفر صفوف…
@@ -372,7 +379,7 @@ begin
     -- والابن لسه شايف صفّه هو بس
     perform set_config('request.jwt.claims', json_build_object('sub', v_son)::text, true);
     execute 'set local role authenticated';
-    select count(*) into v_n from public.device_health;
+    select count(*) into v_n from public.device_health where patient_uuid in (v_pat, v_pat2);
     if v_n <> 1 then raise exception 'FAIL 0037: الابن شايف صف غير صفّه (%)', v_n; end if;
     execute 'reset role';
 
@@ -389,12 +396,14 @@ begin
     -- تنزيلة قديمة لنفس المريض (قبل إعادة التنصيب)، أقدم من install-a — مش «ساكتة»
     insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status)
       values (v_pat, 'install-old', v_owner2, 'ios', now() - interval '5 days', 'ok');
+    -- الرقم الراجع عام (صفوف حقيقية ممكن تتعلّم معانا) — ≥ ١ وبس؛ الحكم
+    -- الحقيقي على حالات صفوف الفحص تحت
     select private.mark_silent_devices() into v_n;
-    if v_n <> 1 then raise exception 'FAIL 0037: الساكت المفروض واحد بس — لقى %', v_n; end if;
-    if (select status from public.device_health where install_id = 'install-son') = 'silent' then
+    if v_n < 1 then raise exception 'FAIL 0037: الساكت ما اتعلّمش خالص (%)', v_n; end if;
+    if (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-son') = 'silent' then
       raise exception 'FAIL 0037: موبايل الابن اتعلّم ساكت';
     end if;
-    if (select status from public.device_health where install_id = 'install-old') = 'silent' then
+    if (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-old') = 'silent' then
       raise exception 'FAIL 0037: تنزيلة قديمة اتعلّمت ساكتة وفيه أحدث منها';
     end if;
     if (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-a') <> 'silent' then
@@ -403,49 +412,55 @@ begin
     if (select status from public.device_health where patient_uuid = v_pat2) <> 'ok' then
       raise exception 'FAIL 0037: مريض من غير جداول اتعلّم ساكت';
     end if;
-    -- تاني مرة مفيش جديد
-    select private.mark_silent_devices() into v_n;
-    if v_n <> 0 then raise exception 'FAIL 0037: الساكت اتعلّم مرتين (%)', v_n; end if;
+    -- تاني مرة مفيش جديد — على صفوف الفحص (الرقم الراجع عام)
+    select count(*) into v_silent from public.device_health
+      where patient_uuid in (v_pat, v_pat2) and status = 'silent';
+    if v_silent <> 1 then raise exception 'FAIL 0037: صفوف الفحص الساكتة المفروض واحد (%)', v_silent; end if;
+    perform private.mark_silent_devices();
+    select count(*) into v_n from public.device_health
+      where patient_uuid in (v_pat, v_pat2) and status = 'silent';
+    if v_n <> v_silent then raise exception 'FAIL 0037: الساكت اتعلّم مرتين (% ← %)', v_silent, v_n; end if;
 
     -- ٧) الـview: الساكت موجود، والـok لأ، وبأعمدتها
     select count(*) into v_n from private.admin_device_health
       where device_id = 'install-a' and patient_id = v_pat and status = 'silent';
     if v_n <> 1 then raise exception 'FAIL 0037: الـview ما جابتش الساكت'; end if;
-    select count(*) into v_n from private.admin_device_health where device_id in ('install-b', 'install-old');
+    select count(*) into v_n from private.admin_device_health
+      where patient_id in (v_pat, v_pat2) and device_id in ('install-b', 'install-old');
     if v_n <> 0 then raise exception 'FAIL 0037: الـview جابت جهاز تمام'; end if;
 
     -- ٨) قيود الحالة والأكواد
     begin
-      update public.device_health set status = 'weird' where install_id = 'install-son';
+      update public.device_health set status = 'weird' where patient_uuid = v_pat and install_id = 'install-son';
       raise exception 'FAIL 0037: حالة برّه القيد اتقبلت';
     exception when check_violation then null;
     end;
     begin
-      update public.device_health set codes = '{"a":1}'::jsonb where install_id = 'install-son';
+      update public.device_health set codes = '{"a":1}'::jsonb where patient_uuid = v_pat and install_id = 'install-son';
       raise exception 'FAIL 0037: أكواد مش قايمة اتقبلت';
     exception when check_violation then null;
     end;
     begin
-      update public.device_health set codes = '[1]'::jsonb where install_id = 'install-son';
+      update public.device_health set codes = '[1]'::jsonb where patient_uuid = v_pat and install_id = 'install-son';
       raise exception 'FAIL 0037: كود مش نص اتقبل';
     exception when check_violation then null;
     end;
     begin
-      update public.device_health set codes = jsonb_build_array('x', repeat('y', 50)) where install_id = 'install-son';
+      update public.device_health set codes = jsonb_build_array('x', repeat('y', 50)) where patient_uuid = v_pat and install_id = 'install-son';
       raise exception 'FAIL 0037: كود طوله ٥٠ حرف اتقبل';
     exception when check_violation then null;
     end;
     begin
       update public.device_health
          set codes = (select jsonb_agg('c' || g) from generate_series(1, 21) g)
-       where install_id = 'install-son';
+       where patient_uuid = v_pat and install_id = 'install-son';
       raise exception 'FAIL 0037: ٢١ كود اتقبلوا';
     exception when check_violation then null;
     end;
     -- والحد نفسه مقبول: ٢٠ كود، أطولهم ٤٠ حرف
     update public.device_health
        set codes = (select jsonb_agg(repeat('z', 40)) from generate_series(1, 20))
-     where install_id = 'install-son';
+     where patient_uuid = v_pat and install_id = 'install-son';
 
     -- ٩) RLS شغّال، والمهمة متجدولة، وanon ما عندوش حاجة على الجدول ولا الـview
     if not exists (select 1 from pg_class where oid = 'public.device_health'::regclass and relrowsecurity) then

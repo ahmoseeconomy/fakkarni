@@ -182,4 +182,29 @@ void main() {
     expect(check, contains("'FAIL 0037: صاحب المريض مش شايف صفوف مريضه"));
     expect(check, contains("'FAIL 0037: الابن شايف صف غير صفّه"));
   });
+
+  // **Live DB has real rows — never assert global counts.** 0037 وقعت على المشروع
+  // الحقيقي بـ«لقى ٢» لأن الفحص كان بيقارن الرقم العام اللي راجع من
+  // mark_silent_devices() — وصف حقيقي قديم اتعلّم معاه. أي عدّ على device_health
+  // أو الـview في الفحص الذاتي لازم يتقيّد بصفوف الفحص (v_pat / v_pat2).
+  test('الفحص الذاتي ما بيعدّش عدّ عام على device_health — كله متقيّد بصفوف الفحص', () {
+    final check = sql
+        .substring(sql.indexOf('-- ================================================================ فحص ذاتي'))
+        .replaceAll(RegExp(r'--[^\n]*'), '');
+    expect(sql, contains('Live DB has real rows — never assert global counts.'));
+    final counts = RegExp(r'count\(\*\)[^;]*;').allMatches(check).map((m) => m.group(0)!.replaceAll(RegExp(r'\s+'), ' ')).toList();
+    final onHealth = counts.where((c) => c.contains('device_health')).toList();
+    expect(onHealth, isNotEmpty, reason: 'الحارس لازم يلاقي أعداد يفحصها');
+    final unscoped = onHealth.where((c) => !RegExp(r'\b(patient_uuid|patient_id)\s*(=\s*v_pat2?\b|in\s*\(v_pat, v_pat2\))').hasMatch(c)).toList();
+    expect(unscoped, isEmpty, reason: 'عدّ مش متقيّد بصفوف الفحص — صفوف حقيقية هتوقّعه:\n${unscoped.join('\n')}');
+    // والرقم الراجع من mark_silent_devices() عام — ممنوع مقارنته بالمساواة
+    expect(RegExp(r'mark_silent_devices\(\) into v_n;\s*if v_n <>').hasMatch(check), isFalse,
+        reason: 'mark_silent_devices() بترجّع عدّ الجدول كله — قارن حالات صفوف الفحص');
+    // وأي UPDATE في الفحص على device_health متقيّد بالمريض كمان
+    final updates = RegExp(r'update public\.device_health[^;]*;').allMatches(check).map((m) => m.group(0)!).toList();
+    for (final u in updates) {
+      expect(u, matches(RegExp(r'patient_uuid\s*(=\s*v_pat2?\b|in\s*\(v_pat, v_pat2\))')), reason: u);
+    }
+  });
 }
+
