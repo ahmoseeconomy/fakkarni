@@ -44,11 +44,34 @@ alter table public.device_health
   add constraint device_health_status_check
   check (status in ('ok', 'healed', 'needs_user', 'broken', 'silent'));
 
--- الأكواد قايمة نصوص وبس — مفيش كائن ولا رقم ولا أي حاجة تانية
+-- الأكواد قايمة نصوص قصيرة وبس — مفيش كائن ولا رقم ولا نص طويل (يعني مفيش
+-- مكان لاسم دوا ولا جملة). الحدود: ٢٠ عنصر، وكل عنصر نص طوله ٤٠ حرف بالكتير.
+-- دالة مساعدة لأن CHECK ما بيقبلش استعلام فرعي، و`.size()` في jsonpath
+-- بيعدّ عناصر مش حروف. `device_health_sql_test` بيقرا الرقمين دول ويتأكد إن
+-- قايمة `HealthCode` في دارت (كلها لو كلها مكسورة) وأطول اسم فيها جوّه الحد.
+create or replace function private.health_codes_ok(p_codes jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select jsonb_typeof(p_codes) = 'array'
+     and jsonb_array_length(p_codes) <= 20
+     and not exists (
+       select 1
+         from jsonb_array_elements(p_codes) as e(v)
+        where jsonb_typeof(e.v) <> 'string'
+           or char_length(e.v #>> '{}') > 40)
+$$;
+
+-- القيد بيتنفّذ بصلاحية اللي بيكتب (authenticated) — فمحتاج EXECUTE صريح
+revoke all on function private.health_codes_ok(jsonb) from anon, public;
+grant execute on function private.health_codes_ok(jsonb) to authenticated;
+
 alter table public.device_health drop constraint if exists device_health_codes_check;
 alter table public.device_health
   add constraint device_health_codes_check
-  check (jsonb_typeof(codes) = 'array');
+  check (private.health_codes_ok(codes));
 
 -- الصفوف اللي قبل الملف ده: صاحبها هو صاحب المريض (السياسة القديمة كانت
 -- بتضمن ده)، وحالتها من أكوادها القديمة
@@ -98,7 +121,10 @@ create policy device_health_insert on public.device_health
 drop policy if exists device_health_update on public.device_health;
 create policy device_health_update on public.device_health
   for update to authenticated
-  using (private.can_access_patient(patient_uuid))
+  -- صفّي أنا، أو صف على مريض أنا صاحبه (جلسة جديدة على نفس الموبايل بعد
+  -- إعادة الربط — الدين ٢). **مش** can_access_patient: ابن أو ممرض كان
+  -- هيقدر يكتب فوق صف موبايل أبوه (يقلب الحالة لـok أو ياخد user_id).
+  using (user_id = (select auth.uid()) or private.owns_patient(patient_uuid))
   with check (user_id = (select auth.uid()));
 
 drop policy if exists device_health_delete on public.device_health;
@@ -121,6 +147,9 @@ as $$ select interval '48 hours' $$;
 -- بتعلّم 'silent' على جهاز ليه جداول جرعات شغّالة (دوا مش متشال ولا موقوف،
 -- وجدول مش موقوف) ومفيش نبضة منه من [device_silent_after]. بترجّع عدد
 -- اللي اتعلّموا في المرة دي. اللي رجع بعت نبضة بيكتب حالته بنفسه فوقها.
+-- **موبايل المريض بس** (الصف كاتبه صاحب المريض — موبايل ابن أو ممرض عمره
+-- ما يبقى «ساكت»)، **وأحدث تنزيلة بس** لكل مريض (تنزيلة قديمة بعد إعادة
+-- التنصيب ما تفضلش ساكتة للأبد).
 create or replace function private.mark_silent_devices()
 returns integer
 language plpgsql
@@ -135,6 +164,17 @@ begin
        set status = 'silent'
      where h.status <> 'silent'
        and h.checked_at < now() - private.device_silent_after()
+       and exists (
+         select 1 from public.patients p
+          where p.uuid = h.patient_uuid
+            and p.owner_id = h.user_id)
+       and not exists (
+         select 1 from public.device_health h2
+           join public.patients p2 on p2.uuid = h2.patient_uuid
+          where h2.patient_uuid = h.patient_uuid
+            and h2.user_id = p2.owner_id
+            and h2.install_id <> h.install_id
+            and h2.checked_at > h.checked_at)
        and exists (
          select 1
            from public.medications m
@@ -289,6 +329,34 @@ begin
       values (v_pat, 'install-son', v_son, 'android', now(), 'ok', '[]'::jsonb);
     select count(*) into v_n from public.device_health;
     if v_n <> 1 then raise exception 'FAIL 0037: الابن شايف غير صفه (%)', v_n; end if;
+    -- والتعديل على صفّه هو شغّال (upsert — سكّة الموبايل)
+    insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status, codes)
+      values (v_pat, 'install-son', v_son, 'android', now(), 'healed', '[]'::jsonb)
+    on conflict (patient_uuid, install_id) do update
+      set checked_at = excluded.checked_at, status = excluded.status;
+    if (select status from public.device_health where install_id = 'install-son') <> 'healed' then
+      raise exception 'FAIL 0037: الابن مقدرش يحدّث صفّه هو';
+    end if;
+    -- ٥ب) الابن ما يكتبش فوق صف موبايل أبوه: UPDATE = صفر صفوف…
+    update public.device_health set status = 'ok', user_id = v_son
+      where patient_uuid = v_pat and install_id = 'install-a';
+    get diagnostics v_n = row_count;
+    if v_n <> 0 then raise exception 'FAIL 0037: الابن عدّل صف موبايل أبوه (%)', v_n; end if;
+    -- …والـupsert على نفس المفتاح بيترفض (ON CONFLICT بيرمي لما USING يرفض)
+    begin
+      insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status)
+        values (v_pat, 'install-a', v_son, 'ios', now(), 'ok')
+      on conflict (patient_uuid, install_id) do update
+        set user_id = excluded.user_id, status = excluded.status;
+      raise exception 'FAIL 0037: الابن خد صف موبايل أبوه بالـupsert';
+    exception when insufficient_privilege then
+      null; -- المطلوب
+    end;
+    execute 'reset role';
+    if (select user_id from public.device_health where patient_uuid = v_pat and install_id = 'install-a') <> v_owner2
+       or (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-a') <> 'healed' then
+      raise exception 'FAIL 0037: صف موبايل الأب اتغيّر من الابن';
+    end if;
 
     -- ٦) الساكت: جدول شغّال + ٣ أيام سكوت → silent؛ مريض من غير جداول → لأ
     execute 'reset role';
@@ -297,8 +365,20 @@ begin
       values (v_pat2, 'install-b', v_owner2, 'ios', now() - interval '3 days', 'ok');
     update public.device_health set checked_at = now() - interval '3 days'
       where patient_uuid = v_pat and install_id = 'install-a';
+    -- موبايل الابن ساكت ٣ أيام — مش «ساكت» (مش موبايل المريض)
+    update public.device_health set checked_at = now() - interval '3 days'
+      where patient_uuid = v_pat and install_id = 'install-son';
+    -- تنزيلة قديمة لنفس المريض (قبل إعادة التنصيب)، أقدم من install-a — مش «ساكتة»
+    insert into public.device_health (patient_uuid, install_id, user_id, platform, checked_at, status)
+      values (v_pat, 'install-old', v_owner2, 'ios', now() - interval '5 days', 'ok');
     select private.mark_silent_devices() into v_n;
     if v_n <> 1 then raise exception 'FAIL 0037: الساكت المفروض واحد بس — لقى %', v_n; end if;
+    if (select status from public.device_health where install_id = 'install-son') = 'silent' then
+      raise exception 'FAIL 0037: موبايل الابن اتعلّم ساكت';
+    end if;
+    if (select status from public.device_health where install_id = 'install-old') = 'silent' then
+      raise exception 'FAIL 0037: تنزيلة قديمة اتعلّمت ساكتة وفيه أحدث منها';
+    end if;
     if (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-a') <> 'silent' then
       raise exception 'FAIL 0037: الجهاز الساكت ما اتعلّمش';
     end if;
@@ -313,7 +393,7 @@ begin
     select count(*) into v_n from private.admin_device_health
       where device_id = 'install-a' and patient_id = v_pat and status = 'silent';
     if v_n <> 1 then raise exception 'FAIL 0037: الـview ما جابتش الساكت'; end if;
-    select count(*) into v_n from private.admin_device_health where device_id in ('install-son', 'install-b');
+    select count(*) into v_n from private.admin_device_health where device_id in ('install-b', 'install-old');
     if v_n <> 0 then raise exception 'FAIL 0037: الـview جابت جهاز تمام'; end if;
 
     -- ٨) قيود الحالة والأكواد
@@ -327,6 +407,27 @@ begin
       raise exception 'FAIL 0037: أكواد مش قايمة اتقبلت';
     exception when check_violation then null;
     end;
+    begin
+      update public.device_health set codes = '[1]'::jsonb where install_id = 'install-son';
+      raise exception 'FAIL 0037: كود مش نص اتقبل';
+    exception when check_violation then null;
+    end;
+    begin
+      update public.device_health set codes = jsonb_build_array('x', repeat('y', 50)) where install_id = 'install-son';
+      raise exception 'FAIL 0037: كود طوله ٥٠ حرف اتقبل';
+    exception when check_violation then null;
+    end;
+    begin
+      update public.device_health
+         set codes = (select jsonb_agg('c' || g) from generate_series(1, 21) g)
+       where install_id = 'install-son';
+      raise exception 'FAIL 0037: ٢١ كود اتقبلوا';
+    exception when check_violation then null;
+    end;
+    -- والحد نفسه مقبول: ٢٠ كود، أطولهم ٤٠ حرف
+    update public.device_health
+       set codes = (select jsonb_agg(repeat('z', 40)) from generate_series(1, 20))
+     where install_id = 'install-son';
 
     -- ٩) RLS شغّال، والمهمة متجدولة، وanon ما عندوش حاجة على الجدول ولا الـview
     if not exists (select 1 from pg_class where oid = 'public.device_health'::regclass and relrowsecurity) then

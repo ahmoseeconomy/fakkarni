@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/health/supabase_health_remote.dart';
+import 'package:fakkarni/domain/health/health_check.dart';
 import 'package:fakkarni/domain/health/health_report.dart';
 
 const _migration = 'supabase/migrations/0037_device_self_check.sql';
@@ -44,21 +45,31 @@ void main() {
       expect(sql, contains('add column if not exists $c '), reason: '$c مش في 0037');
     }
     expect(SupabaseHealthRemote.optionalColumns, {'status', 'codes', 'user_id'});
-    expect(sql, contains("check (jsonb_typeof(codes) = 'array')"), reason: 'الأكواد قايمة وبس');
+    expect(sql, contains('check (private.health_codes_ok(codes))'), reason: 'الأكواد قايمة نصوص قصيرة وبس');
   });
 
   test('السياسات على أعمدة الصف — user_id = auth.uid()، ولا owns_patient، ولا grant لـanon', () {
     // الاسم بيتذكر في تعليق الرأس (ليه اتشال) — الكود نفسه لأ
     final code = sql.replaceAll(RegExp(r'--[^\n]*'), '');
-    expect(code, isNot(contains('owns_patient')), reason: '42501 كان من هنا');
+    // owns_patient مسموح في مكان واحد: USING بتاع التعديل (جلسة جديدة لصاحب المريض)
+    final update = RegExp(r'create policy device_health_update[\s\S]*?;').firstMatch(code)!.group(0)!;
+    expect(update, contains('using (user_id = (select auth.uid()) or private.owns_patient(patient_uuid))'));
+    expect(update, contains('with check (user_id = (select auth.uid()))'));
+    expect(update, isNot(contains('can_access_patient')), reason: 'ابن أو ممرض ما يكتبش فوق صف موبايل أبوه');
+    expect('owns_patient'.allMatches(code).length, 1, reason: '42501 كان من owns_patient على الإدخال');
     expect(sql, contains('for select to authenticated\n  using (user_id = (select auth.uid()))'));
     expect(sql, contains('for delete to authenticated\n  using (user_id = (select auth.uid()))'));
     expect(sql, contains('with check (user_id = (select auth.uid()) and private.can_access_patient(patient_uuid))'));
     expect(sql, contains('revoke all on public.device_health from anon, public;'));
     expect(RegExp(r'grant\s[^;]*\bto\s+[^;]*\banon\b', caseSensitive: false).hasMatch(sql), isFalse,
         reason: 'ولا grant لـanon');
-    expect(RegExp(r'\bgrant\b', caseSensitive: false).hasMatch(sql.replaceAll(RegExp(r'--[^\n]*'), '')), isFalse,
-        reason: 'الملف كله من غير grant — القراية للمالك من اللوحة');
+    // grant واحد بس: EXECUTE لدالة قيد الأكواد على authenticated (القيد بيتنفّذ بصلاحية الكاتب)
+    final grants = RegExp(r'\bgrant\b[^;]*;', caseSensitive: false)
+        .allMatches(sql.replaceAll(RegExp(r'--[^\n]*'), ''))
+        .map((m) => m.group(0)!)
+        .toList();
+    expect(grants, ['grant execute on function private.health_codes_ok(jsonb) to authenticated;'],
+        reason: 'مفيش grant تاني — القراية للمالك من اللوحة');
   });
 
   test('الساكت: ٤٨ ساعة، جداول شغّالة بس، كل ساعة', () {
@@ -70,6 +81,10 @@ void main() {
     expect(body, contains('m.removed_at is null'));
     expect(body, contains('m.stopped_at is null'));
     expect(body, contains('s.stopped_at is null'));
+    // موبايل المريض بس، وأحدث تنزيلة بس
+    expect(body, contains('p.owner_id = h.user_id'));
+    expect(body, contains('h2.user_id = p2.owner_id'));
+    expect(body, contains('h2.checked_at > h.checked_at'));
     expect(sql, contains("cron.schedule(\n  'fakkarni-device-silent',\n  '7 * * * *',"));
   });
 
@@ -125,5 +140,34 @@ void main() {
       expect(verify, contains(ident), reason: 'صف ناقص في verify: $ident');
     }
     expect(verify, contains("when 'view' then exists ("));
+  });
+
+  test('حدود الأكواد في SQL (٢٠ عنصر، ٤٠ حرف) واسعة لقايمة HealthCode كلها', () {
+    final fn = RegExp(r"function private\.health_codes_ok[\s\S]*?\$\$;").firstMatch(sql)!.group(0)!;
+    final maxItems = int.parse(RegExp(r'jsonb_array_length\(p_codes\) <= (\d+)').firstMatch(fn)!.group(1)!);
+    final maxLen = int.parse(RegExp(r"char_length\(e\.v #>> '\{\}'\) > (\d+)").firstMatch(fn)!.group(1)!);
+    expect(maxItems, 20);
+    expect(maxLen, 40);
+    expect(fn, contains("jsonb_typeof(e.v) <> 'string'"));
+    // جهاز كل أكواده مكسورة لازم صفّه يعدّي القيد — وإلا النبضة بتقع بـ23514 في صمت
+    expect(HealthCode.values.length, lessThanOrEqualTo(maxItems),
+        reason: 'كود جديد عدّى حد ٢٠ — وسّع القيد في ترحيل جديد قبل ما تضيفه');
+    for (final c in HealthCode.values) {
+      expect(c.name.length, lessThanOrEqualTo(maxLen), reason: c.name);
+    }
+    // والفحص الذاتي بيجرّب الرفض والحد
+    expect(sql, contains("codes = '[1]'::jsonb"));
+    expect(sql, contains("repeat('y', 50)"));
+    expect(sql, contains('generate_series(1, 21)'));
+  });
+
+  test('الفحص الذاتي بيجرّب: الابن ما يعدّلش صف أبوه، والساكت موبايل المريض وأحدث تنزيلة بس', () {
+    final check = sql.substring(sql.indexOf('-- ================================================================ فحص ذاتي'));
+    expect(check, contains("get diagnostics v_n = row_count"));
+    expect(check, contains("'FAIL 0037: الابن عدّل صف موبايل أبوه"));
+    expect(check, contains("'FAIL 0037: الابن خد صف موبايل أبوه بالـupsert'"));
+    expect(check, contains("'FAIL 0037: الابن مقدرش يحدّث صفّه هو'"));
+    expect(check, contains("'FAIL 0037: موبايل الابن اتعلّم ساكت'"));
+    expect(check, contains("'install-old'"));
   });
 }
