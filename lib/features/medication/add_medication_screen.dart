@@ -1076,8 +1076,8 @@ class _Field extends StatelessWidget {
         maxLines: 1,
         style: TextStyle(
           fontSize: F.minBodySize,
-          fontFamily: mono ? F.monoFamily : null,
-          fontFamilyFallback: mono ? F.monoFallback : null,
+          fontFamily: mono ? F.bodyFamily : null,
+          fontFamilyFallback: mono ? F.fontFallback : null,
         ),
         decoration: InputDecoration(
           hintText: hint,

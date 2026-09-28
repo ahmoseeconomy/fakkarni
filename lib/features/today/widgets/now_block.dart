@@ -2,8 +2,9 @@ import '../../../domain/escalation/dose_moment.dart';
 import '../../../domain/wording/patient_words.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/med_name.dart';
+
 import '../../../core/format/arabic_time.dart';
-import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/dose_state.dart';
@@ -249,17 +250,20 @@ class _DoseLine extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
-              Text(
-                dose.medicationName,
-                textDirection: nameDirection(dose.medicationName),
-                style: TextStyle(
+              // الاسم يمين وساعته شمال — نفس الصف
+              NameTimeRow(
+                name: dose.medicationName,
+                time: arabicTime(at),
+                timeKey: ValueKey('dose-time-${dose.doseScheduleId}'),
+                nameStyle: TextStyle(
                   fontSize: F.medicationNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
-                  fontFamily: F.monoFamily,
-                  fontFamilyFallback: F.monoFallback,
+                  fontFamily: F.bodyFamily,
+                  fontFamilyFallback: F.fontFallback,
                   height: 1.3,
                 ),
+                timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.7),
               ),
               if (amount != null && amount.isNotEmpty)
                 Text(

@@ -279,9 +279,12 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   Widget build(BuildContext context) {
     final now = widget.today ?? DateTime.now();
     final today = _dayOf(now);
+    // **مفيش شريط علوي** (المالك، ٢٨ سبتمبر ٢٠٢٦): العنوان «ملفّي» كبير على
+    // اليمين جوّه الصفحة وبيطلع معاها — زي «يومك» و«الأدوية». و«ساعدني» واحد
+    // جنبه بيشرح الأقسام بالترتيب؛ زراير الأقسام مستخبية جوّه الشاشة.
     return Scaffold(
-      appBar: AppBar(title: const Text('ملفّي')),
-      body: StreamBuilder<List<RecordRow>>(
+      body: HelpQuiet(
+        child: StreamBuilder<List<RecordRow>>(
         stream: _records,
         builder: (context, snap) {
           final all = snap.data;
@@ -303,8 +306,24 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
           ]..sort((a, b) => a.happenedAt.compareTo(b.happenedAt));
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
+            padding: EdgeInsets.fromLTRB(F.gap, MediaQuery.of(context).padding.top + F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
             children: [
+              HelpRow(
+                id: 'help_appointments',
+                then: const ['help_papers', 'help_vitals', 'help_doctor'],
+                always: true,
+                child: Text(
+                  'ملفّي',
+                  key: const ValueKey('health-file-title'),
+                  style: TextStyle(
+                    fontFamily: F.displayFamily,
+                    fontSize: F.screenTitleSize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: F.gap),
               // ============================================ مواعيدك الجاية
               const HelpRow(id: 'help_appointments', child: FSectionHead('مواعيدك الجاية')),
               const SizedBox(height: F.s8),
@@ -484,6 +503,7 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }
@@ -696,6 +716,7 @@ class _AppointmentRow extends StatelessWidget {
                         child: Text(
                           title,
                           textDirection: nameDirection(title),
+                          textAlign: TextAlign.right,
                           style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                         ),
                       ),
@@ -775,6 +796,7 @@ class RecordSummary extends StatelessWidget {
               child: Text(
                 follow ? followDisplayTitle(kind, r.title) : r.title,
                 textDirection: nameDirection(r.title),
+                textAlign: TextAlign.right,
                 style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
               ),
             ),

@@ -5,6 +5,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
@@ -876,30 +878,17 @@ class _Upcoming extends StatelessWidget {
                   if (i > 0) Divider(height: 1, color: F.lineSoft),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: F.s14, vertical: F.s12),
-                    // الاسم الأول، وبعده اليوم والساعة (المخطط ٠٤)
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            g.map((d) => d.medicationName).join(' + '),
-                            textDirection: nameDirection(g.first.medicationName),
-                            textAlign: TextAlign.start,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: F.minTextSize,
-                              fontWeight: FontWeight.w700,
-                              color: F.ink,
-                              fontFamily: F.monoFamily,
-                              fontFamilyFallback: F.monoFallback,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: F.s12),
-                        Text(
-                          'بكرة ${arabicTime(g.first.scheduledAt)}',
-                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                        ),
-                      ],
+                    // الاسم يمين، واليوم والساعة شمال في نفس الصف
+                    child: NameTimeRow(
+                      name: g.map((d) => d.medicationName).join(' + '),
+                      time: 'بكرة ${arabicTime(g.first.scheduledAt)}',
+                      nameStyle: TextStyle(
+                        fontSize: F.minTextSize,
+                        fontWeight: FontWeight.w700,
+                        color: F.ink,
+                        fontFamily: F.bodyFamily,
+                        fontFamilyFallback: F.fontFallback,
+                      ),
                     ),
                   ),
                 ],
@@ -1222,6 +1211,7 @@ class _OpenFollowUps extends StatelessWidget {
                                 Text(
                                   followDisplayTitle(CheckupService.kindOf(r), r.title),
                                   textDirection: nameDirection(r.title),
+                                  textAlign: TextAlign.right,
                                   style: TextStyle(
                                     fontSize: F.minBodySize,
                                     fontWeight: FontWeight.w700,

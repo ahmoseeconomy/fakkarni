@@ -100,12 +100,13 @@ class _DoseEditorState extends State<DoseEditor> {
                     child: Text(
                       widget.name,
                       textDirection: nameDirection(widget.name),
+                      textAlign: TextAlign.right,
                       style: TextStyle(
                         fontSize: F.minBodySize,
                         fontWeight: FontWeight.w600,
                         color: F.mutedDark,
-                        fontFamily: F.monoFamily,
-                        fontFamilyFallback: F.monoFallback,
+                        fontFamily: F.bodyFamily,
+                        fontFamilyFallback: F.fontFallback,
                       ),
                     ),
                   ),

@@ -314,8 +314,8 @@ class ContactRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: F.minTextSize,
                     color: sub,
-                    fontFamily: F.monoFamily,
-                    fontFamilyFallback: F.monoFallback,
+                    fontFamily: F.bodyFamily,
+                    fontFamilyFallback: F.fontFallback,
                   ),
                 ),
               ],
@@ -366,6 +366,6 @@ class FieldValue extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = value;
     if (v == null || v.isEmpty) return Text(notFilled, style: emptyStyle);
-    return Text(v, style: style, textDirection: nameDirection(v));
+    return Text(v, style: style, textDirection: nameDirection(v), textAlign: TextAlign.right);
   }
 }

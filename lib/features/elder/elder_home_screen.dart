@@ -5,9 +5,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
-import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/wording/patient_words.dart';
 import '../today/widgets/home_top_bar.dart';
@@ -221,15 +222,14 @@ class _DayRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: F.s6),
-          Text(
+          MedName(
             group.map((d) => d.medicationName).join(' + '),
-            textDirection: nameDirection(group.first.medicationName),
             style: TextStyle(
               fontSize: F.elderNameSize,
               fontWeight: FontWeight.w700,
               color: done ? F.mutedDark : F.ink,
-              fontFamily: F.monoFamily,
-              fontFamilyFallback: F.monoFallback,
+              fontFamily: F.bodyFamily,
+              fontFamilyFallback: F.fontFallback,
               height: 1.3,
             ),
           ),
@@ -325,19 +325,15 @@ class _DoseCard extends StatelessWidget {
                   ),
                 ),
               ),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                dose.medicationName,
-                textDirection: nameDirection(dose.medicationName),
-                style: TextStyle(
-                  fontSize: F.elderNameSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                  fontFamily: F.monoFamily,
-                  fontFamilyFallback: F.monoFallback,
-                  height: 1.3,
-                ),
+            MedName(
+              dose.medicationName,
+              style: TextStyle(
+                fontSize: F.elderNameSize,
+                fontWeight: FontWeight.w700,
+                color: F.ink,
+                fontFamily: F.bodyFamily,
+                fontFamilyFallback: F.fontFallback,
+                height: 1.3,
               ),
             ),
             if (dose.amountLabel != null) Text(dose.amountLabel!, style: body),

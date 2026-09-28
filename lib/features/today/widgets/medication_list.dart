@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/med_name.dart';
+
 import '../../../core/theme/tokens.dart';
 import '../../../data/repositories/medication_repository.dart';
 
@@ -44,14 +46,14 @@ class MedicationList extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                MedName(
                                   item.medication.name,
                                   style: TextStyle(
                                     fontSize: F.minBodySize,
                                     fontWeight: FontWeight.w700,
                                     color: F.ink,
-                                    fontFamily: F.monoFamily,
-                                    fontFamilyFallback: F.monoFallback,
+                                    fontFamily: F.bodyFamily,
+                                    fontFamilyFallback: F.fontFallback,
                                   ),
                                 ),
                                 Text(

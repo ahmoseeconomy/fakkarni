@@ -232,6 +232,7 @@ class _CheckupScreenState extends State<CheckupScreen> {
                   Text(
                     '${row.title} — ${arabicNumber(stages.length)} مراحل',
                     textDirection: nameDirection(row.title),
+                    textAlign: TextAlign.right,
                     style: TextStyle(
                       fontFamily: F.displayFamily,
                       fontSize: F.screenTitleSize,

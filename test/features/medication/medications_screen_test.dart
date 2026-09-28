@@ -72,7 +72,7 @@ void main() {
     // الاسم mono ٢٤+
     final name = tester.widget<Text>(find.text('Concor 5mg'));
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
-    expect(name.style?.fontFamily, F.monoFamily);
+    expect(name.style?.fontFamily, F.bodyFamily, reason: 'خط التطبيق — مش mono (المالك، ٢٨ سبتمبر ٢٠٢٦)');
     expect(find.widgetWithText(OutlinedButton, 'خيارات'), findsNWidgets(3), reason: 'زرار واحد بيفتح التلاتة');
     expect(find.byIcon(Icons.mic), findsNothing, reason: 'مفيش زرار صوت');
     expectNoRedAndMinSize(tester);

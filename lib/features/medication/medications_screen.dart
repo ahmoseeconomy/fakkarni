@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import 'med_photo.dart';
 import '../../domain/scheduling/day_pattern.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
-import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/repositories/medication_repository.dart';
 import '../../domain/scheduling/dose_schedule.dart';
@@ -332,8 +333,11 @@ class _MedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final med = summary.medication;
     // الساعة، وكلمة الأكل لو فيه، والأيام لو مش «كل يوم»
+    String timeOf(DoseSchedule s) => arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute));
+    // ساعة واحدة = بتتكتب في صف الاسم، وسطر القاعدة من غيرها
+    final single = schedule ?? (summary.schedules.length == 1 ? summary.schedules.single : null);
     String ruleOf(DoseSchedule s) => [
-          arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute)),
+          if (single == null) timeOf(s),
           s.ruleLabel,
           dayPatternLabel(s.days),
         ].nonNulls.join(' — ');
@@ -355,20 +359,20 @@ class _MedCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    med.name,
-                    textDirection: nameDirection(med.name),
-                    style: TextStyle(
-                      fontSize: F.medicationNameSize,
-                      fontWeight: FontWeight.w700,
-                      color: stopped ? F.mutedDark : F.ink,
-                      fontFamily: F.monoFamily,
-                      fontFamilyFallback: F.monoFallback,
-                      height: 1.3,
-                    ),
+                // الاسم يمين، والساعة شمال في نفس الصف لما الدوا ليه ساعة واحدة
+                NameTimeRow(
+                  name: med.name,
+                  // الموقوف ساعته مالهاش معنى — التذكيرات واقفة
+                  time: single == null || stopped ? null : timeOf(single),
+                  nameStyle: TextStyle(
+                    fontSize: F.medicationNameSize,
+                    fontWeight: FontWeight.w700,
+                    color: stopped ? F.mutedDark : F.ink,
+                    fontFamily: F.bodyFamily,
+                    fontFamilyFallback: F.fontFallback,
+                    height: 1.3,
                   ),
+                  timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.9),
                 ),
                 const SizedBox(height: F.s4),
                 Text(

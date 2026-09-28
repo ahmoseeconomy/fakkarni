@@ -109,7 +109,7 @@ void main() {
 
     final name = tester.widget<Text>(find.text('Antodine 40 mg'));
     expect(name.style?.fontSize, greaterThanOrEqualTo(F.medicationNameSize));
-    expect(name.style?.fontFamily, F.monoFamily);
+    expect(name.style?.fontFamily, F.bodyFamily, reason: 'خط التطبيق — مش mono (المالك، ٢٨ سبتمبر ٢٠٢٦)');
     expect(name.textDirection, TextDirection.ltr);
     expect(find.text('٧:٠٠ ص'), findsOneWidget);
     // كلمة الأكل شريحة تعليمات — ما بتحرّكش الساعة

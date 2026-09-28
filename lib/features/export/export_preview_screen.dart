@@ -137,7 +137,7 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
                     widget.filename,
                     textDirection: TextDirection.ltr,
                     textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, fontFamily: F.monoFamily, fontFamilyFallback: F.monoFallback),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback),
                   ),
                 ],
               ),

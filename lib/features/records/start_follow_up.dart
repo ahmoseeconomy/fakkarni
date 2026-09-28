@@ -145,6 +145,7 @@ class _SourceRow extends StatelessWidget {
               Text(
                 record.title,
                 textDirection: nameDirection(record.title),
+                textAlign: TextAlign.right,
                 style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
               ),
               if (meta.isNotEmpty)

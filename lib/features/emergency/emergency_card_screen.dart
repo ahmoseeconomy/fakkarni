@@ -264,8 +264,8 @@ class _WhiteCard extends StatelessWidget {
             FieldValue(
               info.bloodType,
               style: allergy.copyWith(
-                fontFamily: F.monoFamily,
-                fontFamilyFallback: F.monoFallback,
+                fontFamily: F.bodyFamily,
+                fontFamilyFallback: F.fontFallback,
               ),
               emptyStyle: empty,
             ),
@@ -287,8 +287,8 @@ class _WhiteCard extends StatelessWidget {
                     textDirection: TextDirection.ltr,
                     textAlign: TextAlign.right,
                     style: value.copyWith(
-                      fontFamily: F.monoFamily,
-                      fontFamilyFallback: F.monoFallback,
+                      fontFamily: F.bodyFamily,
+                      fontFamilyFallback: F.fontFallback,
                     ),
                   ),
           ),

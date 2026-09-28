@@ -109,8 +109,8 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen>
                             fontSize: F.display2,
                             fontWeight: FontWeight.w700,
                             color: F.redDeep,
-                            fontFamily: F.monoFamily,
-                            fontFamilyFallback: F.monoFallback,
+                            fontFamily: F.bodyFamily,
+                            fontFamilyFallback: F.fontFallback,
                           ),
                           emptyStyle: TextStyle(
                             fontSize: F.minTextSize,
@@ -160,8 +160,8 @@ class _EmergencyInfoScreenState extends State<EmergencyInfoScreen>
                         textDirection: TextDirection.ltr,
                         textAlign: TextAlign.right,
                         style: value.copyWith(
-                          fontFamily: F.monoFamily,
-                          fontFamilyFallback: F.monoFallback,
+                          fontFamily: F.bodyFamily,
+                          fontFamilyFallback: F.fontFallback,
                         ),
                       ),
               ),

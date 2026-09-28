@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:drift/drift.dart' show OrderingTerm, innerJoin, BooleanExpressionOperators;
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import '../../data/repositories/vitals_repository.dart';
 import '../../domain/health/vitals.dart';
 
@@ -237,10 +239,9 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            MedName(
                               m.medication.name,
-                              textDirection: nameDirection(m.medication.name),
-                              style: body.copyWith(fontWeight: FontWeight.w700, fontFamily: F.monoFamily, fontFamilyFallback: F.monoFallback),
+                              style: body.copyWith(fontWeight: FontWeight.w700, fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback),
                             ),
                             Text(
                               [
@@ -275,6 +276,7 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                             Text(
                               doctor ?? 'من غير اسم دكتور على الورقة',
                               textDirection: doctor == null ? null : nameDirection(doctor),
+                              textAlign: TextAlign.right,
                               style: body.copyWith(fontWeight: FontWeight.w700),
                             ),
                             for (final v in visits)

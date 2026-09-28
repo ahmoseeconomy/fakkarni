@@ -155,14 +155,15 @@ class _LineBox extends StatelessWidget {
       child: Text(
         label,
         textDirection: nameDirection(label),
+        textAlign: TextAlign.right,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: F.minTextSize,
           fontWeight: FontWeight.w600,
           color: read ? F.onDark : F.onDark.withValues(alpha: 0.5),
-          fontFamily: F.monoFamily,
-          fontFamilyFallback: F.monoFallback,
+          fontFamily: F.bodyFamily,
+          fontFamilyFallback: F.fontFallback,
         ),
       ),
     );

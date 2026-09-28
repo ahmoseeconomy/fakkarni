@@ -1,8 +1,9 @@
 import '../../../domain/escalation/dose_moment.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/med_name.dart';
+
 import '../../../core/format/arabic_time.dart';
-import '../../../core/format/name_direction.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../domain/care/follower_role.dart';
 import '../../../data/dose_state.dart';
@@ -129,34 +130,22 @@ class DayRail extends StatelessWidget {
   /// المريض لازم يشوف إنه خدها، مش يلاقي السطر اختفى ويشك إنه نسي.
   Widget _quietLine(List<DoseEventView> group) => Padding(
         padding: const EdgeInsets.symmetric(vertical: F.s8),
-        child: Row(
-          children: [
-            // الصح على السكة (شوف _railRow) — هنا الاسم ووقته جنب بعض، سطر واحد
-            Flexible(
-              child: Text(
-                group.map((d) => d.medicationName).join(' + '),
-                textDirection: nameDirection(group.first.medicationName),
-                textAlign: TextAlign.start,
-                style: TextStyle(
-                  fontSize: F.minTextSize,
-                  color: F.mutedDark,
-                  fontFamily: F.monoFamily,
-                  fontFamilyFallback: F.monoFallback,
-                ),
-              ),
-            ),
-            const SizedBox(width: F.s8),
-            Text(
-              group.first.state == DoseState.skipped
-                  ? 'اتأجّل'
-                  // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
-                  : group.first.actedBy != null
-                      ? '${proxyConfirmedLine(group.first.actedBy)} ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}'
-                      : takenAtLine(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
-              key: ValueKey('taken-line-${group.first.doseScheduleId}'),
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-            ),
-          ],
+        // الصح على السكة (شوف _railRow) — هنا الاسم يمين ووقته شمال في نفس الصف
+        child: NameTimeRow(
+          name: group.map((d) => d.medicationName).join(' + '),
+          nameStyle: TextStyle(
+            fontSize: F.minTextSize,
+            color: F.mutedDark,
+            fontFamily: F.bodyFamily,
+            fontFamilyFallback: F.fontFallback,
+          ),
+          timeKey: ValueKey('taken-line-${group.first.doseScheduleId}'),
+          time: group.first.state == DoseState.skipped
+              ? 'اتأجّل'
+              // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
+              : group.first.actedBy != null
+                  ? '${proxyConfirmedLine(group.first.actedBy)} ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}'
+                  : takenAtLine(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
         ),
       );
 
@@ -188,28 +177,26 @@ class DayRail extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final dose in group)
-                      Text(
-                        dose.medicationName,
-                        textDirection: nameDirection(dose.medicationName),
-                        textAlign: TextAlign.start,
-                        style: TextStyle(
+                    // الاسم يمين والساعة شمال في نفس الصف؛ دوا تاني في نفس
+                    // الدقيقة تحته، وكلمة الأكل تحتهم
+                    for (final (i, dose) in group.indexed)
+                      NameTimeRow(
+                        name: dose.medicationName,
+                        time: i == 0 ? arabicTime(at) : null,
+                        nameStyle: TextStyle(
                           fontSize: F.minBodySize,
                           fontWeight: FontWeight.w600,
                           color: F.ink,
-                          fontFamily: F.monoFamily,
-                          fontFamilyFallback: F.monoFallback,
+                          fontFamily: F.bodyFamily,
+                          fontFamilyFallback: F.fontFallback,
                           height: 1.4,
                         ),
+                        timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.6),
                       ),
-                    const SizedBox(height: F.s4),
-                    Text(
-                      [
-                        arabicTime(at),
-                        ruleLabelFor(group.first.doseScheduleId),
-                      ].nonNulls.join(' — '),
-                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                    ),
+                    if (ruleLabelFor(group.first.doseScheduleId) case final rule?) ...[
+                      const SizedBox(height: F.s4),
+                      Text(rule, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                    ],
                     if (unconfirmed || dueNow) ...[
                       const SizedBox(height: F.s4),
                       Text(

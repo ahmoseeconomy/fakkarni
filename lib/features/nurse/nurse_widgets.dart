@@ -84,8 +84,8 @@ class NurseDoseRow extends StatelessWidget {
                           fontSize: F.minBodySize,
                           fontWeight: FontWeight.w700,
                           color: F.ink,
-                          fontFamily: F.monoFamily,
-                          fontFamilyFallback: F.monoFallback,
+                          fontFamily: F.bodyFamily,
+                          fontFamilyFallback: F.fontFallback,
                         ),
                       ),
                       if (event.amountLabel case final amount?)

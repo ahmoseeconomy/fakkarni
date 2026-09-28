@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import '../medication/med_photo.dart';
 
 import '../../app/app_scope.dart';
@@ -12,7 +14,6 @@ import '../../data/repositories/preferences_repository.dart';
 import '../../domain/voice/answer_parser.dart';
 import '../voice/listen_button.dart';
 import '../../data/repositories/dose_event_repository.dart';
-import '../../core/format/name_direction.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/escalation/escalation_ladder.dart';
@@ -324,16 +325,14 @@ class _DoseRow extends StatelessWidget {
               const SizedBox(width: F.s12),
             ],
             Expanded(
-              child: Text(
+              child: MedName(
                 dose.medicationName,
-                textDirection: nameDirection(dose.medicationName),
-                textAlign: TextAlign.start,
                 style: TextStyle(
                   fontSize: F.medicationNameSize,
                   fontWeight: FontWeight.w700,
                   color: F.ink,
-                  fontFamily: F.monoFamily,
-                  fontFamilyFallback: F.monoFallback,
+                  fontFamily: F.bodyFamily,
+                  fontFamilyFallback: F.fontFallback,
                   height: 1.3,
                 ),
               ),

@@ -81,11 +81,21 @@ void main() {
     });
   }
 
-  screenTest('عنوان الشاشة زي اسم التبويب — «ملفّي»', (tester) async {
-    await pumpShell(tester, size: const Size(1000, 2000));
+  screenTest('«ملفّي» عنوان كبير يمين جوّه الصفحة — مفيش شريط علوي، وبيطلع مع اللفّ', (tester) async {
+    await pumpShell(tester, size: const Size(390, 844));
     await tester.tap(find.text('ملفّي').last);
     await settle(tester);
-    expect(find.descendant(of: find.byType(AppBar), matching: find.text('ملفّي')), findsOneWidget);
+    final title = find.byKey(const ValueKey('health-file-title'));
+    expect(title, findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('ملفّي')), findsNothing, reason: 'مفيش عنوان في النص فوق');
+    expect(tester.widget<Text>(title).style!.fontSize, F.screenTitleSize, reason: 'نفس «يومك» و«الأدوية»');
+    final rect = tester.getRect(title);
+    expect(rect.right, greaterThan(390 - F.gap - 80), reason: 'على اليمين');
+    // «ساعدني» الواحد جنبه (لو الصوت شغّال) — والعنوان بيطلع مع اللفّ
+    final list = find.ancestor(of: title, matching: find.byType(Scrollable)).first;
+    await tester.drag(list, const Offset(0, -300));
+    await settle(tester);
+    expect(title.evaluate().isEmpty || tester.getRect(title).top < rect.top, isTrue, reason: 'بيطلع مع الصفحة');
   });
 
   screenTest('اللي تحت الدوك ما يتقريش: ضباب ٢٠ وفوق، صبغة شبه مصمتة، وتلاشي فوقه', (tester) async {

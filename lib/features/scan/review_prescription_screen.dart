@@ -4,11 +4,12 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/med_name.dart';
+
 import '../../ai/prescription_reading.dart';
 import '../../app/app_scope.dart';
 import '../../data/repositories/not_bought_repository.dart';
 import '../../core/format/arabic_time.dart';
-import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
@@ -727,15 +728,14 @@ class _MedicineRow extends StatelessWidget {
                   children: [
                     Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: Text(
+                      child: MedName(
                         name ?? 'الاسم مش واضح',
-                        textDirection: name == null ? null : nameDirection(name),
                         style: TextStyle(
                           fontSize: name == null ? F.minBodySize : F.medicationNameSize,
                           fontWeight: FontWeight.w700,
                           color: F.ink,
-                          fontFamily: name == null ? null : F.monoFamily,
-                          fontFamilyFallback: name == null ? null : F.monoFallback,
+                          fontFamily: name == null ? null : F.bodyFamily,
+                          fontFamilyFallback: name == null ? null : F.fontFallback,
                           height: 1.3,
                         ),
                       ),

@@ -351,6 +351,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   Text(
                                     e.title,
                                     textDirection: nameDirection(e.title),
+                                    textAlign: TextAlign.right,
                                     style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
                                   ),
                                   if (e.detail.isNotEmpty)

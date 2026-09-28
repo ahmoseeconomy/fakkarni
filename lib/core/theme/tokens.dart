@@ -352,12 +352,14 @@ abstract final class F {
   /// كل نصوص الواجهة.
   static const bodyFamily = 'IBM Plex Sans Arabic';
 
-  /// أسماء الأدوية والأرقام — لاتيني في mono.
-  ///
-  /// IBM Plex Mono مفيهوش حروف عربي، ومن غير البديل العربي الحروف بتتفصل
-  /// عن بعضها. عشان كده أي استخدام لـmono لازم يشيل الاحتياطي ده معاه.
+  /// **أسماء الأدوية والأرقام بخط التطبيق نفسه** (المالك، ٢٨ سبتمبر ٢٠٢٦): IBM
+  /// Plex Sans Arabic فيه حروف لاتيني، فمفيش سبب لخط mono. الاحتياطي خطوط
+  /// التطبيق بس — عمره ما يوقع على خط mono بتاع النظام.
+  static const fontFallback = <String>[bodyFamily, displayFamily];
+
+  /// mono — **لشاشات المطوّر بس** (سجل التشخيص ولوحة القراية). ولا شاشة مريض.
   static const monoFamily = 'IBM Plex Mono';
-  static const monoFallback = <String>[bodyFamily, 'Noto Sans Arabic', 'Arial'];
+  static const monoFallback = <String>[bodyFamily, displayFamily];
 
   /// الثيم بيتبني من قيم **الوضع الحالي** — نفس الاسم في النهار والليل،
   /// والجذر بيعيد البناء لما [darkMode] تتغيّر.
@@ -365,6 +367,7 @@ abstract final class F {
         useMaterial3: true,
         brightness: isDark ? Brightness.dark : Brightness.light,
         fontFamily: bodyFamily,
+        fontFamilyFallback: fontFallback,
         scaffoldBackgroundColor: pageGround,
         colorScheme: ColorScheme.fromSeed(
           seedColor: green,

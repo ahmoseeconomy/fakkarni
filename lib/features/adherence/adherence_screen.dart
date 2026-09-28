@@ -105,7 +105,7 @@ class _AdherenceDetailScreenState extends State<AdherenceDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(m.medicationName,
-                                style: text.copyWith(fontWeight: FontWeight.w700, fontFamily: F.monoFamily, fontFamilyFallback: F.monoFallback)),
+                                style: text.copyWith(fontWeight: FontWeight.w700, fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback)),
                             Text(missedWhen(m, a.today), style: text.copyWith(color: F.mutedDark)),
                             if (widget.onLateTake != null && DateUtils.isSameDay(m.routineDay, a.today)) ...[
                               const SizedBox(height: F.s8),

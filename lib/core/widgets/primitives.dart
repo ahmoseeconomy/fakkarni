@@ -338,8 +338,8 @@ class Kicker extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: color ?? F.green,
         letterSpacing: F.minTextSize * F.kickerTracking,
-        fontFamily: F.monoFamily,
-        fontFamilyFallback: F.monoFallback,
+        fontFamily: F.bodyFamily,
+        fontFamilyFallback: F.fontFallback,
       ),
     );
   }

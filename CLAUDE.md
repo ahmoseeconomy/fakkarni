@@ -272,8 +272,19 @@ These are product decisions, already settled. Do not "improve" them without aski
   screen with a 336px keyboard and asserts both the field and the button
   are **above** it and actually tappable — mutation-checked: dropping the
   padding puts the field at y=500 against a keyboard starting at 264.
-- **Any monospace font needs an Arabic fallback in the stack.** IBM Plex Mono
-  has no Arabic glyphs; without a fallback Arabic letters render disconnected.
+- **No monospace font in the app (28 Sep 2026).** Every style uses the app
+  font (`F.bodyFamily`) with `F.fontFallback`; the theme sets
+  `fontFamilyFallback` too. `F.monoFamily` survives only on the two developer
+  screens (diagnostics log, scan debug panel). `test/app/no_monospace_test.dart`
+  fails on 'monospace'/Courier in `lib/` and walks the main screens for any
+  Text resolving to a mono family.
+- **A medicine name is `MedName`; a name with its time is `NameTimeRow`**
+  (`lib/core/widgets/med_name.dart`). The name starts at the right edge
+  whether Arabic or Latin (Latin keeps its LTR order via `nameDirection` +
+  `TextAlign.right`), ellipsizes at two lines, and the time sits on the left
+  of the same row. Used on «جدول النهاردة», «الآن»، «خلال ٤٨ ساعة»، «الأدوية»،
+  نمط كبار السن، التذكير، «للدكتور» والمراجعة. «ملفّي» has no AppBar: its
+  title is page content that scrolls away, like «يومك».
 
 ---
 
