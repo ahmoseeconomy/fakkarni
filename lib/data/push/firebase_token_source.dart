@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart'
     show debugPrint, defaultTargetPlatform, TargetPlatform;
 
+import 'confirm_signals.dart';
 import 'push_tokens.dart';
 
 /// **الملف الوحيد في التطبيق اللي بيستورد Firebase.** أي ملف تاني
@@ -11,7 +14,7 @@ import 'push_tokens.dart';
 /// أندرويد بس هذه الجولة. iOS محتاج شهادة APNs وحساب مطوّر مدفوع (البند
 /// ٣ في «دين تقني»)، و`getToken()` على iOS من غيرها بترمي. فبنرجّع null
 /// عند التهيئة بدل ما نكسر إقلاع التطبيق على أيفون.
-class FirebaseTokenSource implements DeviceTokenSource {
+class FirebaseTokenSource implements DeviceTokenSource, PushMessages {
   FirebaseTokenSource._();
 
   /// بترجّع null لو Firebase مش متاح — والتطبيق بيكمّل كامل من غير دفع،
@@ -63,4 +66,23 @@ class FirebaseTokenSource implements DeviceTokenSource {
 
   @override
   Stream<String> get refreshes => FirebaseMessaging.instance.onTokenRefresh;
+
+  /// رسايل الدفع الصامتة (0035 — إشارة «اتأكّدت») والتطبيق في المقدمة أو
+  /// اتفتح من إشعار. الخلفية عندها بابها في [onBackgroundPush].
+  @override
+  Stream<Map<String, dynamic>> get data => StreamGroupLite.merge([
+        FirebaseMessaging.onMessage.map((m) => m.data),
+        FirebaseMessaging.onMessageOpenedApp.map((m) => m.data),
+      ]);
+}
+
+/// دمج بسيط من غير حزمة — رسايل قليلة.
+class StreamGroupLite {
+  static Stream<T> merge<T>(List<Stream<T>> streams) {
+    final controller = StreamController<T>.broadcast();
+    for (final s in streams) {
+      s.listen(controller.add, onError: controller.addError);
+    }
+    return controller.stream;
+  }
 }

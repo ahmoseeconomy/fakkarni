@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../ai/pharmacy_card_reader.dart';
+import '../../core/diagnostics.dart';
 import '../../ai/prescription_reader.dart' show PrescriptionReadException;
 import '../../app/app_scope.dart';
-import '../../core/diagnostics.dart';
 import '../../core/format/arabic_time.dart' show arabicDigits;
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
@@ -27,32 +26,6 @@ class PharmacyPrefill {
   factory PharmacyPrefill.fromPlace(Place p) => PharmacyPrefill(name: p.name, phone: p.phone);
 }
 
-/// رقم الاتصال بتاع «صيدليتي». **مش في القاعدة** — الجدول فيه الاسم والواتساب
-/// بس، والسكيما مقفولة؛ فالرقم ده عرض على الموبايل ده في `shared_preferences`
-/// (بيتمسح مع «امسح حسابي» زي باقي المفاتيح).
-const pharmacyCallKey = 'pharmacy.call';
-
-Future<String?> loadPharmacyCall() async {
-  try {
-    return (await SharedPreferences.getInstance()).getString(pharmacyCallKey);
-  } catch (_) {
-    return null;
-  }
-}
-
-Future<void> _savePharmacyCall(String? call) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    if (call == null) {
-      await prefs.remove(pharmacyCallKey);
-    } else {
-      await prefs.setString(pharmacyCallKey, call);
-    }
-  } catch (e) {
-    diag('Pharmacy: رقم الاتصال ما اتحفظش — ${e.runtimeType}');
-  }
-}
-
 /// «اختار من القريب مني» — بيفتح الشاشة على الصيدليات، والكارت بيرجّع مكانه.
 /// متغيّر عشان الاختبارات.
 Future<Place?> Function(BuildContext context) pickPharmacyFromNearby = (context) =>
@@ -72,26 +45,39 @@ PickImage pickPharmacyCard = (source) => pickWithSystemCamera(source, deleteFile
 Future<bool?> editPharmacy(BuildContext context, {PharmacyPrefill? prefill}) async {
   final prefs = AppScope.of(context).preferences;
   final current = await prefs.pharmacy();
-  final call = await loadPharmacyCall();
   if (!context.mounted) return null;
-  return FSheet.show<bool>(
+  return editPharmacyWith(
     context,
-    title: 'صيدليتي',
-    children: [
-      PharmacyBody(
-        current: (name: current.name, whatsapp: current.whatsapp, call: call),
-        prefill: prefill,
-      ),
-    ],
+    current: (name: current.name, whatsapp: current.whatsapp, call: current.call),
+    prefill: prefill,
+    onSave: (p) => prefs.setPharmacy(name: p.name, whatsapp: p.whatsapp, call: p.call ?? '', clearCall: p.call == null),
   );
 }
+
+/// نفس الورقة بمكان حفظ تاني — الممرض بيبعت «صيدليتي» لموبايل المريض (0035).
+Future<bool?> editPharmacyWith(
+  BuildContext context, {
+  required SavedPharmacy current,
+  required Future<void> Function(SavedPharmacy pharmacy) onSave,
+  PharmacyPrefill? prefill,
+  Future<Place?> Function(BuildContext context)? pickNearby,
+}) =>
+    FSheet.show<bool>(
+      context,
+      title: 'صيدليتي',
+      children: [PharmacyBody(current: current, prefill: prefill, onSave: onSave, pickNearby: pickNearby)],
+    );
 
 typedef SavedPharmacy = ({String? name, String? whatsapp, String? call});
 
 class PharmacyBody extends StatefulWidget {
-  const PharmacyBody({required this.current, this.prefill, super.key});
+  const PharmacyBody({required this.current, required this.onSave, this.prefill, this.pickNearby, super.key});
   final SavedPharmacy current;
   final PharmacyPrefill? prefill;
+  final Future<void> Function(SavedPharmacy pharmacy) onSave;
+
+  /// «اختار من القريب مني» — الافتراضي [pickPharmacyFromNearby].
+  final Future<Place?> Function(BuildContext context)? pickNearby;
 
   @override
   State<PharmacyBody> createState() => _PharmacyBodyState();
@@ -149,7 +135,7 @@ class _PharmacyBodyState extends State<PharmacyBody> {
   }
 
   Future<void> _fromNearby() async {
-    final place = await pickPharmacyFromNearby(context);
+    final place = await (widget.pickNearby ?? pickPharmacyFromNearby)(context);
     if (place == null || !mounted) return;
     _applyPlace(place.name, place.phone);
   }
@@ -226,8 +212,11 @@ class _PharmacyBodyState extends State<PharmacyBody> {
       return;
     }
     final navigator = Navigator.of(context);
-    await AppScope.of(context).preferences.setPharmacy(name: _name.text, whatsapp: _whatsapp.text);
-    await _savePharmacyCall(_callNumber);
+    await widget.onSave((
+      name: _name.text.trim().isEmpty ? null : _name.text.trim(),
+      whatsapp: _whatsapp.text.trim().isEmpty ? null : normalizeEgyptPhone(_whatsapp.text),
+      call: _callNumber,
+    ));
     navigator.pop(true);
   }
 

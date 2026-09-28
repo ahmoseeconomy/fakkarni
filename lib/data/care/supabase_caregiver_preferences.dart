@@ -40,21 +40,37 @@ class SupabaseCaregiverPreferences implements CaregiverPreferencesService {
       alertScope: AlertScope.fromStored(row['alert_scope'] as String?),
       quietFromMinute: row['quiet_from_minute'] as int?,
       quietToMinute: row['quiet_to_minute'] as int?,
+      // قبل 0035 العمودين مش موجودين → الافتراضي (مفتوح)
+      nurseDoseReminders: row['nurse_dose_reminders'] != false,
+      nurseUnconfirmedAlert: row['nurse_unconfirmed_alert'] != false,
     );
   }
 
   @override
-  Future<void> save(String patientUuid, CaregiverPreferences preferences) =>
-      _supabase.from(table).upsert({
-        'caregiver_id': _me,
-        'patient_uuid': patientUuid,
-        'display_name': preferences.name,
-        'relation': preferences.relation?.name,
-        'relation_other': preferences.relationOther,
-        'alert_scope': preferences.alertScope.name,
-        'quiet_from_minute': preferences.quietFromMinute,
-        'quiet_to_minute': preferences.quietToMinute,
+  Future<void> save(String patientUuid, CaregiverPreferences preferences) async {
+    final base = {
+      'caregiver_id': _me,
+      'patient_uuid': patientUuid,
+      'display_name': preferences.name,
+      'relation': preferences.relation?.name,
+      'relation_other': preferences.relationOther,
+      'alert_scope': preferences.alertScope.name,
+      'quiet_from_minute': preferences.quietFromMinute,
+      'quiet_to_minute': preferences.quietToMinute,
+    };
+    try {
+      await _supabase.from(table).upsert({
+        ...base,
+        'nurse_dose_reminders': preferences.nurseDoseReminders,
+        'nurse_unconfirmed_alert': preferences.nurseUnconfirmedAlert,
       }, onConflict: 'caregiver_id,patient_uuid');
+    } on PostgrestException catch (e) {
+      // 0035 لسه ما اتشغّلتش: الباقي بيتحفظ، ومفاتيح الممرض بتفضل على
+      // الافتراضي لحد ما الهجرة تتشغّل
+      if (e.code != 'PGRST204' && e.code != '42703') rethrow;
+      await _supabase.from(table).upsert(base, onConflict: 'caregiver_id,patient_uuid');
+    }
+  }
 
   /// **دالة، مش `select` على الجدول.** سياسات بوستجرس على مستوى الصف مش
   /// العمود، فلو الأب اتسمح له يقرا الصف كان هيقرا ساعات هدوء ابنه ونطاق

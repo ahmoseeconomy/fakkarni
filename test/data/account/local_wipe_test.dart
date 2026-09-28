@@ -11,6 +11,7 @@ import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
+import 'package:fakkarni/data/sync/change_undo.dart';
 import 'package:fakkarni/data/sync/medication_change_pull.dart';
 import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
@@ -65,7 +66,7 @@ void main() {
     final auth = FakeAuthService();
     await auth.signInToLink();
     var prefsCleared = false;
-    MedicationChangePuller.notices.value = const ['سارة ضافت دوا Concor'];
+    MedicationChangePuller.notices.value = const [ChangeNotice(uuid: 'x', line: 'سارة ضافت دوا Concor')];
 
     await LocalWipe(
       db: db,

@@ -28,9 +28,13 @@ abstract final class NotificationActions {
   /// بتاع المريض. وبيفتح التطبيق (مش في الخلفية): التأكيد نيابةً محتاج
   /// السحابة والجلسة.
   static const nurseConfirm = 'nurse_confirm';
-  static const nurseConfirmLabel = 'أكّد إنه أخدها';
+  static const nurseConfirmLabel = 'أخدها';
 
-  static bool isNurseAction(String? id) => id == nurseConfirm;
+  /// «لاحقاً» (0035): نفس التذكير بعد ربع ساعة، على موبايل الممرض بس.
+  static const nurseLater = 'nurse_later';
+  static const nurseLaterLabel = 'لاحقاً';
+
+  static bool isNurseAction(String? id) => id == nurseConfirm || id == nurseLater;
 }
 
 /// بيتنده في الخلفية لما المستخدم يدوس زرار على الإشعار.
@@ -60,8 +64,8 @@ class NotificationService {
   /// للخلفية حتى والتطبيق مفتوح. لو وصلت هنا برضه، بنعالجها بدل ما نضيّعها.
   static void Function(String actionId, String? payload)? onAction;
 
-  /// زرار «أكّد إنه أخدها» على تذكير الممرض — بخدمات التطبيق الكاملة.
-  static void Function(int? id, String? payload)? onNurseAction;
+  /// زرار «أخدها» / «لاحقاً» على تذكير الممرض — بخدمات التطبيق الكاملة.
+  static void Function(String actionId, int? id, String? payload)? onNurseAction;
 
   /// الردود اللي اتعالجت خلاص — عشان رد واحد ما يتحسبش مرتين.
   ///
@@ -232,13 +236,19 @@ class NotificationService {
     ],
   );
 
-  /// فئة تذكير الممرض على iOS — زرار واحد، **بيفتح التطبيق** (`foreground`).
+  /// فئة تذكير الممرض على iOS — زرارين، **بيفتحوا التطبيق** (`foreground`):
+  /// التأكيد نيابةً محتاج السحابة والجلسة، و«لاحقاً» محتاج الجدولة.
   static final _nurseCategory = DarwinNotificationCategory(
     'fakkarni_nurse',
     actions: [
       DarwinNotificationAction.plain(
         NotificationActions.nurseConfirm,
         NotificationActions.nurseConfirmLabel,
+        options: {DarwinNotificationActionOption.foreground},
+      ),
+      DarwinNotificationAction.plain(
+        NotificationActions.nurseLater,
+        NotificationActions.nurseLaterLabel,
         options: {DarwinNotificationActionOption.foreground},
       ),
     ],
@@ -339,7 +349,7 @@ class NotificationService {
     }
     // الممرض: باب لوحده — عمره ما يعدّي على معالج جرعات المريض
     if (NotificationActions.isNurseAction(action)) {
-      if (claimResponse(response)) onNurseAction?.call(response.id, response.payload);
+      if (claimResponse(response)) onNurseAction?.call(action!, response.id, response.payload);
       return;
     }
     lastPayload.value = response.payload;
@@ -619,6 +629,11 @@ class NotificationService {
             AndroidNotificationAction(
               NotificationActions.nurseConfirm,
               NotificationActions.nurseConfirmLabel,
+              showsUserInterface: true,
+            ),
+            AndroidNotificationAction(
+              NotificationActions.nurseLater,
+              NotificationActions.nurseLaterLabel,
               showsUserInterface: true,
             ),
           ],

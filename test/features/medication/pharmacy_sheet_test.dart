@@ -126,11 +126,10 @@ void main() {
     expect(field(tester, 'pharmacy-number'), '01012345678');
     expect(find.byKey(const ValueKey('pharmacy-wa-question')), findsNothing);
     expect(find.byKey(const ValueKey('pharmacy-review-note')), findsOneWidget);
-    expect(await prefs().pharmacy(), (name: null, whatsapp: null), reason: 'مفيش حفظ قبل الزرار');
+    expect(await prefs().pharmacy(), (name: null, whatsapp: null, call: null), reason: 'مفيش حفظ قبل الزرار');
 
     await tapKey(tester, 'pharmacy-save');
-    expect(await prefs().pharmacy(), (name: 'صيدلية العزبي', whatsapp: '01012345678'));
-    expect(await loadPharmacyCall(), '01012345678');
+    expect(await prefs().pharmacy(), (name: 'صيدلية العزبي', whatsapp: '01012345678', call: '01012345678'));
   });
 
   screenTest('أرضي → اتصال بس، الواتساب فاضي والسؤال ظاهر؛ «اكتبه» بيروح لحقل الواتساب', (tester) async {
@@ -199,22 +198,22 @@ void main() {
   });
 
   screenTest('فيه صيدلية قديمة → «تغيّر صيدليتك من … لـ …؟» قبل ما تتبدّل', (tester) async {
-    await prefs().setPharmacy(name: 'صيدلية الشفا', whatsapp: '01000000000');
+    await prefs().setPharmacy(name: 'صيدلية الشفا', whatsapp: '01000000000', call: null);
     await openSheet(tester, prefill: const PharmacyPrefill(name: 'صيدلية العزبي', phone: '01012345678'));
     await tapKey(tester, 'pharmacy-save');
     expect(find.text('تغيّر صيدليتك من صيدلية الشفا لـ صيدلية العزبي؟'), findsOneWidget);
-    expect(await prefs().pharmacy(), (name: 'صيدلية الشفا', whatsapp: '01000000000'), reason: 'لسه ما اتبدلتش');
+    expect(await prefs().pharmacy(), (name: 'صيدلية الشفا', whatsapp: '01000000000', call: null), reason: 'لسه ما اتبدلتش');
 
     await tapKey(tester, 'pharmacy-replace-yes');
-    expect(await prefs().pharmacy(), (name: 'صيدلية العزبي', whatsapp: '01012345678'));
+    expect(await prefs().pharmacy(), (name: 'صيدلية العزبي', whatsapp: '01012345678', call: '01012345678'));
   });
 
   screenTest('«لأ، خلّي القديمة» → القديمة زي ما هي', (tester) async {
-    await prefs().setPharmacy(name: 'صيدلية الشفا', whatsapp: '01000000000');
+    await prefs().setPharmacy(name: 'صيدلية الشفا', whatsapp: '01000000000', call: null);
     await openSheet(tester, prefill: const PharmacyPrefill(name: 'صيدلية العزبي', phone: '01012345678'));
     await tapKey(tester, 'pharmacy-save');
     await tapKey(tester, 'pharmacy-replace-no');
-    expect(await prefs().pharmacy(), (name: 'صيدلية الشفا', whatsapp: '01000000000'));
+    expect(await prefs().pharmacy(), (name: 'صيدلية الشفا', whatsapp: '01000000000', call: null));
   });
 
   screenTest('«اختار من القريب مني» جوّه الورقة بيملا الحقول من الكارت اللي اتختار', (tester) async {
@@ -224,7 +223,7 @@ void main() {
     await tapKey(tester, 'pharmacy-from-nearby');
     expect(field(tester, 'pharmacy-name'), 'صيدلية سيف');
     expect(field(tester, 'pharmacy-number'), '01223456789');
-    expect(await prefs().pharmacy(), (name: null, whatsapp: null));
+    expect(await prefs().pharmacy(), (name: null, whatsapp: null, call: null));
   });
 
   screenTest('كارت صيدلية في «القريب مني»: «خليها صيدليتي» بتفتح الورقة متعبّية، ومفيش حفظ', (tester) async {
@@ -246,7 +245,7 @@ void main() {
     expect(field(tester, 'pharmacy-call'), '0223456789');
     expect(field(tester, 'pharmacy-number'), '', reason: 'أرضي — مش واتساب');
     expect(find.text('عندك رقم واتساب للصيدلية دي؟'), findsOneWidget);
-    expect(await prefs().pharmacy(), (name: null, whatsapp: null));
+    expect(await prefs().pharmacy(), (name: null, whatsapp: null, call: null));
   });
 
   screenTest('كارت دكتور ما عليهوش «خليها صيدليتي»', (tester) async {

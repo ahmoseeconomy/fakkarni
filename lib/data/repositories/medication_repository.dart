@@ -448,6 +448,13 @@ class MedicationRepository {
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(const MedicationsCompanion(stoppedAt: Value(null)));
 
+  /// عكس [removeMedication] — لـ«تراجع» المريض على شيل جاي من ممرض (0035).
+  /// الصف بيرجع لكل القوايم؛ الجرعات المستقبلية اللي اتعلّمت `superseded`
+  /// بتفضل كده وبيتعمل غيرها في أول `materializeDay` (المفتاح جدول + يوم).
+  Future<void> unremoveMedication(int medicationId) =>
+      (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+          .write(const MedicationsCompanion(removedAt: Value(null)));
+
   /// بيشيل الدوا من كل القوايم — **من غير مسح، ومن غير رجوع**.
   ///
   /// الصف وأحداثه القديمة بيفضلوا مكانهم كتاريخ. المسح الحقيقي ممنوع:

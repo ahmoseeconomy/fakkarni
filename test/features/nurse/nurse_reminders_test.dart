@@ -95,7 +95,7 @@ void main() {
     test('الجاي المفتوح بس، ودواءين في نفس الدقيقة إشعار واحد باسم المريض', () {
       final out = plan([d(dose), d(same), d(past), d(taken), d(far)]);
       expect(out, hasLength(1));
-      expect(out.single.title, 'ميعاد دوا الحاج أحمد: Concor 5mg، Glucophage');
+      expect(out.single.title, 'ميعاد دوا الحاج أحمد: Concor 5mg، Glucophage — ٨:٠٠ م');
       expect(out.single.at, DateTime(2026, 8, 31, 20));
       expect(parseNursePayload(out.single.payload)!.events, [dose.uuid, same.uuid]);
       expect(parseNursePayload(out.single.payload)!.patient, 'p1');
@@ -210,7 +210,7 @@ void main() {
       final patientCalls = <String>[];
       final nurseCalls = <String?>[];
       NotificationService.onAction = (a, p) => patientCalls.add(a);
-      NotificationService.onNurseAction = (id, p) => nurseCalls.add(p);
+      NotificationService.onNurseAction = (action, id, p) => nurseCalls.add(p);
       addTearDown(() {
         NotificationService.onAction = null;
         NotificationService.onNurseAction = null;

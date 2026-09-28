@@ -200,6 +200,13 @@ function cairoTime(iso: string): string {
 
 /// نفس نبرة شاشة المتابعة: بتبلّغ، ما بتحكمش. «ما اتأكدتش» مش «فاتته».
 function notificationText(target: Target): { title: string; body: string } {
+  if (target.rung === 'nurse') {
+    // الممرض بعد نص ساعة: بيقدر يأكّد بداله من التطبيق — الجملة بتقول كده
+    return {
+      title: `${target.patient_name} — جرعة ما اتأكدتش لسه`,
+      body: `${target.medication_name}، معاد ${cairoTime(target.scheduled_at)}. لو أخدها، أكّدها من التطبيق.`,
+    };
+  }
   return {
     title: `${target.patient_name} — جرعة ما اتأكدتش`,
     body: `${target.medication_name}، معاد ${cairoTime(target.scheduled_at)}. اطمن عليه.`,
@@ -208,6 +215,9 @@ function notificationText(target: Target): { title: string; body: string } {
 
 // ------------------------------------------------------------- الإرسال
 
+/// الدرجة (0035): `caregiver` = الابن بعد ٦٠، `nurse` = الممرض بعد ٣٠.
+type Rung = 'caregiver' | 'nurse';
+
 interface Target {
   dose_event_uuid: string;
   patient_uuid: string;
@@ -215,6 +225,7 @@ interface Target {
   medication_name: string;
   scheduled_at: string;
   caregiver_id: string;
+  rung: Rung;
 }
 
 interface SendOutcome {
@@ -236,6 +247,7 @@ async function sendToToken(
     notification: { title, body },
     data: {
       type: 'escalation',
+      rung: target.rung,
       dose_event_uuid: target.dose_event_uuid,
       patient_uuid: target.patient_uuid,
     },
@@ -274,15 +286,28 @@ async function sendToToken(
 
 // --------------------------------------------------------------- الأهداف
 
-/// أهداف المسح — سؤال واحد للقاعدة، والقاعدة هي اللي بتقرر.
+/// أهداف المسح — سؤال واحد للقاعدة لكل درجة، والقاعدة هي اللي بتقرر.
+/// درجة الممرض (0035) قبل 0035 مش موجودة: 404 على الدالة بيتعدّى في صمت.
 async function scanTargets(): Promise<Target[]> {
-  const res = await db('rpc/due_escalations_for_service', {
+  const caregivers = await scanRung('due_escalations_for_service', 'caregiver', false);
+  const nurses = await scanRung('due_nurse_escalations_for_service', 'nurse', true);
+  return [...nurses, ...caregivers];
+}
+
+async function scanRung(rpc: string, rung: Rung, optional: boolean): Promise<Target[]> {
+  const res = await db(`rpc/${rpc}`, {
     method: 'POST',
     body: JSON.stringify({ p_limit: SCAN_LIMIT }),
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`due_escalations failed ${res.status}: ${text}`);
-  return JSON.parse(text) as Target[];
+  if (!res.ok) {
+    if (optional && res.status === 404) {
+      console.log(`escalate: ${rpc} مش موجودة لسه (0035 ما اتشغّلتش) — درجة ${rung} متعدّية`);
+      return [];
+    }
+    throw new Error(`${rpc} failed ${res.status}: ${text}`);
+  }
+  return (JSON.parse(text) as Omit<Target, 'rung'>[]).map((t) => ({ ...t, rung }));
 }
 
 /// **بحث**، مش اختيار: الحدث ده، ومين مربوط بصاحبه. مفيش شرط استحقاق
@@ -315,13 +340,14 @@ async function manualTargets(doseEventUuid: string): Promise<Target[]> {
     medication_name: medications[0].name,
     scheduled_at: events[0].scheduled_at,
     caregiver_id: c.caregiver_id,
+    rung: 'caregiver' as Rung,
   }));
 }
 
 // -------------------------------------------------------- معالجة هدف واحد
 
 async function handle(sa: ServiceAccount, bearer: string, target: Target) {
-  const label = `${target.patient_name}/${target.caregiver_id}`;
+  const label = `${target.patient_name}/${target.caregiver_id}/${target.rung}`;
 
   // ١) الحجز قبل الإرسال — عملية واحدة ذرّية في القاعدة (٠٠٠٩).
   //
@@ -331,11 +357,13 @@ async function handle(sa: ServiceAccount, bearer: string, target: Target) {
   //
   // الدالة بترجّع uuid لو الحجز بقى بتاعنا، وnull لو حد تاني ماسكه بحجز
   // لسه طازة.
+  // التوقيع القديم للابن (بيشتغل قبل 0035)، والجديد بالدرجة للممرض.
   const claim = await db('rpc/claim_escalation_for_service', {
     method: 'POST',
     body: JSON.stringify({
       p_dose_event_uuid: target.dose_event_uuid,
       p_caregiver_id: target.caregiver_id,
+      ...(target.rung === 'nurse' ? { p_rung: 'nurse' } : {}),
     }),
   });
   const claimText = await claim.text();

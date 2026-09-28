@@ -298,6 +298,16 @@ bool isNurseId(int id) => id >= nurseIdBase && id < nurseIdLimit;
 /// (٤ أيام × ٢) تحت ٦٤ بمسافة.
 const int maxPendingNurseReminders = 40;
 
+/// **«لاحقاً» على تذكير الممرض** (0035) — نطاق لوحده، مشتق من خانة الجرعة
+/// الأصلية زي تأجيل المريض بالظبط: التأجيل عمره ما يكتب فوق تذكير حقيقي،
+/// وتأكيد أي طرف بيلغيه من غير ما يخزّن حاجة. **مش** في [isRescheduledId].
+const int nurseSnoozeIdBase = 200000000;
+const int nurseSnoozeIdLimit = nurseSnoozeIdBase + maxPatients * patientIdSpan;
+
+int nurseSnoozeIdFor(DateTime at, {required int patientIndex}) => nurseSnoozeIdBase + _patientSlot(at, patientIndex);
+
+bool isNurseSnoozeId(int id) => id >= nurseSnoozeIdBase && id < nurseSnoozeIdLimit;
+
 /// **«قرب يخلص»** (٢٥ سبتمبر ٢٠٢٦) — رقم واحد لكل دوا: `base + medicationId`.
 /// الإشعار ده **معروض مش متجدول** (`showRefill`)، فما بياخدش خانة من الـ٦٤
 /// ومش في [isRescheduledId]. بيرمي برّه النطاق بدل ما يلفّ.

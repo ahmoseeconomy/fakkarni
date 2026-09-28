@@ -47,6 +47,7 @@ class ReviewPrescriptionScreen extends StatefulWidget {
     this.today,
     this.records,
     this.onSaved,
+    this.onDrafts,
     super.key,
   });
 
@@ -63,6 +64,10 @@ class ReviewPrescriptionScreen extends StatefulWidget {
 
   /// بيتندَه بالـid بتاع سجل الروشتة اللي اتكتب — «تابع زيارة» بتبدأ منه.
   final void Function(int recordId)? onSaved;
+
+  /// وضع المسوّدة (الممرض، 0035): «تمام» بيسلّم السطور دي بدل ما يكتبها —
+  /// موبايل المريض هو اللي بيكتب. لما موجودة، الشاشة **ما بتلمسش** القاعدة.
+  final Future<void> Function(List<MedicationDraft> drafts)? onDrafts;
 
   @override
   State<ReviewPrescriptionScreen> createState() => _ReviewPrescriptionScreenState();
@@ -304,6 +309,13 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
 
     final services = AppScope.of(context);
     final navigator = Navigator.of(context);
+
+    if (widget.onDrafts case final hand?) {
+      await hand([for (final l in keep) l.toDraft()]);
+      if (!mounted) return;
+      navigator.pop(ReviewResult.confirmed);
+      return;
+    }
 
     final ids = await services.medicationSaves.addAll(
       patientId: services.patientId,
@@ -1155,6 +1167,21 @@ class _DraftLine {
         ..once = read.duration.value == 1
         ..timesFromPaper = read.timesFromPaper
         ..requiredTimes = read.timesFromPaper ? null : read.facts.timesToPick;
+
+  /// المسوّدة زي ما هي على الكارت — للممرض (بيبعتها لموبايل المريض).
+  MedicationDraft toDraft() => MedicationDraft(
+        name: name ?? '',
+        timings: timings,
+        amountLabel: amountUnknown ? null : amountLabel,
+        amountUnknown: amountUnknown,
+        durationDays: durationDays,
+        alertMode: alertMode,
+        purpose: purpose,
+        instructions: instructions,
+        startDate: startDate,
+        once: once,
+        mealRelation: mealRelation,
+      );
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
   factory _DraftLine.fromDraft(MedicationDraft d) => _DraftLine(

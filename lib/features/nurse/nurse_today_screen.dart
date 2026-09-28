@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../core/format/arabic_time.dart' show arabicTime;
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/medication/medication_purpose.dart';
 import '../care/caregiver_status.dart';
@@ -11,6 +12,9 @@ import '../adherence/adherence_screen.dart';
 import '../adherence/circle_adherence.dart';
 import '../today/tips/tip_picker.dart';
 import '../today/widgets/tip_card.dart';
+import '../medication/pharmacy_sheet.dart' show PharmacyPrefill;
+import '../nearby/nearby_screen.dart';
+import 'nurse_actions.dart';
 import 'nurse_controller.dart';
 import 'nurse_widgets.dart';
 
@@ -98,6 +102,16 @@ class NurseTodayScreen extends StatelessWidget {
                 if (!snapshot.patient.permissions.canConfirm)
                   const NurseQuietLine('بتشوف يومه بس — التأكيد بداله محتاج المريض يسمح بيه من موبايله.',
                       key: ValueKey('nurse-read-only')),
+                // تنبيه السيرفر للممرض (0035، +٣٠): جرعة لسه مفتوحة ما اتأكدتش —
+                // بيتقال هنا فوق «الآن»، والصف تحته هو اللي بيتأكّد منه.
+                for (final a in snapshot.alerts.where((a) => a.rung == 'nurse' && openDoseStateNames.contains(a.doseState)))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: F.s10),
+                    child: GoldNote(
+                      '${a.medicationName} — معادها ${arabicTime(a.scheduledAt)} وما اتأكدتش لسه. لو أخدها، أكّدها تحت.',
+                      key: ValueKey('nurse-alert-${a.uuid}'),
+                    ),
+                  ),
                 const FSectionHead('الآن'),
                 const SizedBox(height: F.s8),
                 if (nowEvent == null)
@@ -134,6 +148,28 @@ class NurseTodayScreen extends StatelessWidget {
                   const NurseQuietLine('مفيش جرعات متسجّلة النهارده لسه.')
                 else
                   for (final e in day) row(e),
+                const SizedBox(height: F.gap),
+                // «القريب مني» على موبايل الممرض — بمكانه هو (الصيدلية اللي
+                // جنبه)، والحجز من الكارت طلب لموبايل المريض
+                FSecondaryButton(
+                  key: const ValueKey('nurse-nearby'),
+                  label: 'القريب مني',
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (nc) => NearbyScreen(
+                      onBookPlace: controller.canEdit ? (place) => bookFromNearby(nc, controller, place) : null,
+                      onPickPharmacy: controller.canEdit
+                          ? (place) async {
+                              Navigator.of(nc).pop();
+                              await editPatientPharmacy(context, controller, prefill: PharmacyPrefill.fromPlace(place));
+                            }
+                          : null,
+                    ),
+                  )),
+                ),
+                if (controller.lastLine case final l?) ...[
+                  const SizedBox(height: F.s8),
+                  NurseQuietLine(l, key: const ValueKey('nurse-last-line')),
+                ],
                 const SizedBox(height: F.gap),
                 TipCard(tip: tipFor(snapshot, t)),
                 if (snapshot.lastUpdated case final at?) ...[

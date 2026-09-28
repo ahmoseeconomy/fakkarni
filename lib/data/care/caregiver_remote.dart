@@ -25,9 +25,17 @@ class CaregiverPatient {
     required this.uuid,
     required this.name,
     this.permissions = FollowerPermissions.plainFollower,
+    this.pharmacyName,
+    this.pharmacyCall,
+    this.pharmacyWhatsapp,
   });
   final String uuid;
   final String name;
+
+  /// «صيدليتي» بتاعة المريض (0035) — الممرض بيطلب منها. null قبل الهجرة.
+  final String? pharmacyName;
+  final String? pharmacyCall;
+  final String? pharmacyWhatsapp;
 
   /// دوري وصلاحياتي على المريض ده (٠٠٢٣) — من صف العلاقة نفسه.
   final FollowerPermissions permissions;
@@ -48,6 +56,8 @@ class CaregiverMedication {
     this.stockWarnDays,
     this.dosesPerDay = 0,
     this.notBoughtAt,
+    this.stopped = false,
+    this.minutes = const [],
   });
   final String uuid;
   final String name;
@@ -70,6 +80,13 @@ class CaregiverMedication {
 
   /// ٠٠٣١: «لسه ماتشترتش» — null = اتشرى. قراية بس.
   final DateTime? notBoughtAt;
+
+  /// موقوف على موبايل المريض (0035 — «رجّعه» عند الممرض).
+  final bool stopped;
+
+  /// دقايق الجرعات الشغّالة (ساعة ثابتة) — الممرض بيبدأ منها لما يغيّر
+  /// المواعيد. نص القاعدة في [rules] زي ما هو.
+  final List<int> minutes;
 
   int? get stockDaysLeft => stockQuantity == null
       ? null
@@ -166,7 +183,11 @@ class CaregiverAlert {
     required this.deliveryStatus,
     required this.createdAt,
     this.sentAt,
+    this.rung = 'caregiver',
   });
+
+  /// 'caregiver' (الابن، +٦٠) أو 'nurse' (الممرض، +٣٠ — 0035). بالحرف.
+  final String rung;
 
   final String uuid;
   final String medicationName;

@@ -24,14 +24,17 @@ import 'reminder_scheduler.dart';
 /// `test/app/medication_writes_guard_test.dart` بيوقّع لو أي ملف في
 /// `lib/features` كتب في الأدوية أو المواعيد من غير الخدمة دي.
 class MedicationSaveService {
-  MedicationSaveService({required this.medications, required this.scheduler});
+  MedicationSaveService({required this.medications, required this.scheduler, this.clock});
 
   final MedicationRepository medications;
   final ReminderScheduler scheduler;
 
+  /// «دلوقتي» للجدولة — سحبة تغييرات الممرض بتدّي ساعتها (الاختبارات بتثبّتها).
+  final DateTime Function()? clock;
+
   Future<T> _thenSchedule<T>(Future<T> Function() write) async {
     final result = await write();
-    await scheduler.rescheduleAll();
+    await scheduler.rescheduleAll(now: clock?.call());
     return result;
   }
 
@@ -118,6 +121,10 @@ class MedicationSaveService {
         await medications.updateDetails(medicationId, instructions: instructions, durationDays: durationDays);
       });
 
+  /// الجرعة بس — تغيير من ممرض أو «تراجع» عليه (0035). نص التذكير فيه الجرعة.
+  Future<void> updateAmount(int medicationId, String amount) =>
+      _thenSchedule(() => medications.updateAmount(medicationId, amount));
+
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       _thenSchedule(() => medications.setAlertMode(medicationId, mode));
 
@@ -132,4 +139,11 @@ class MedicationSaveService {
   /// «شيله خالص» — ومعاه صورته.
   Future<void> remove(int medicationId, MedPhotos photos) =>
       _thenSchedule(() => photos.removeMedication(medications, medicationId));
+
+  /// شيل من غير صور (صحوة ما عندهاش مكان الصور) — نفس الشيل الناعم.
+  Future<void> removePlain(int medicationId) => _thenSchedule(() => medications.removeMedication(medicationId));
+
+  /// «تراجع» على شيل جاي من ممرض (0035): الدوا بيرجع لقوايمه — الجرعات
+  /// اللي اتعلّمت `superseded` بترجع `pending` مع أول `materializeDay`.
+  Future<void> unremove(int medicationId) => _thenSchedule(() => medications.unremoveMedication(medicationId));
 }

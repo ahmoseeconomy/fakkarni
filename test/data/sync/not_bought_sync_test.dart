@@ -2,7 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fakkarni/data/care/medication_changes.dart';
+import '../../support/fake_changes.dart';
 import 'package:fakkarni/data/care/supabase_caregiver_remote.dart' show medicationFromRow;
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
@@ -65,7 +65,7 @@ void main() {
   test('«اشتريته» من الممرض بتشيل العلامة على موبايل المريض — والمخزون زي ما هو', () async {
     await StockRepository(db).setQuantity(notBought, 4);
     final uuid = (await (db.select(db.medications)..where((t) => t.id.equals(notBought))).getSingle()).uuid;
-    final remote = _Changes()
+    final remote = FakeChanges()
       ..pending.add(MedicationChange(
         uuid: 'c-bought',
         kind: MedicationChangeKind.bought,
@@ -93,23 +93,8 @@ void main() {
     expect(remote.marked.single, ('c-bought', ChangeOutcome.applied));
     expect(await NotBoughtRepository(db).all(patientId), isEmpty);
     expect((await StockRepository(db).rowFor(notBought))!.quantity, 4, reason: 'مفيش كمية بتتخمّن');
-    expect(MedicationChangePuller.notices.value, ['سارة علّم إنه اشترى Concor']);
+    expect(MedicationChangePuller.notices.value.map((n) => n.line), ['سارة علّم إنه اشترى Concor']);
     expect(bought, isNot(notBought));
   });
 }
 
-class _Changes implements MedicationChangeRemote {
-  final pending = <MedicationChange>[];
-  final marked = <(String, ChangeOutcome)>[];
-  @override
-  Future<void> submit({required String patientUuid, required MedicationChangeKind kind, required MedicationChangePayload payload, String? medicationUuid, String? medicationName, String? actorName}) async {}
-  @override
-  Future<List<MedicationChange>> fetchPending(String patientUuid) async => List.of(pending);
-  @override
-  Future<List<MedicationChange>> pendingFor(String patientUuid) async => List.of(pending);
-  @override
-  Future<void> markApplied(String changeUuid, ChangeOutcome outcome) async {
-    marked.add((changeUuid, outcome));
-    pending.removeWhere((c) => c.uuid == changeUuid);
-  }
-}

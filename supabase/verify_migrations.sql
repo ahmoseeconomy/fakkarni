@@ -329,6 +329,18 @@ with expected(migration, kind, ident) as (
     ('0033_delete_account', 'constraintdef', 'public.medication_changes|medication_changes_actor_id_fkey|SET NULL')
     ('0034_meal_relation',  'column',   'public.dose_schedules.meal_relation'),
     ('0034_meal_relation',  'constraintdef', 'public.dose_schedules|dose_schedules_meal_relation_check|empty_stomach'),
+    ('0035_nurse_full_edit', 'constraintdef', 'public.medication_changes|medication_changes_kind_check|pharmacy'),
+    ('0035_nurse_full_edit', 'constraintdef', 'public.medication_changes|medication_changes_outcome_check|reverted'),
+    ('0035_nurse_full_edit', 'column',   'public.medication_changes.reverted_at'),
+    ('0035_nurse_full_edit', 'column',   'public.patients.pharmacy_call'),
+    ('0035_nurse_full_edit', 'column',   'public.caregiver_preferences.nurse_unconfirmed_alert'),
+    ('0035_nurse_full_edit', 'constraintdef', 'public.escalations|escalations_rung_check|nurse'),
+    ('0035_nurse_full_edit', 'function', 'private.nurse_grace_window'),
+    ('0035_nurse_full_edit', 'function', 'private.due_nurse_escalations'),
+    ('0035_nurse_full_edit', 'function', 'public.due_nurse_escalations_for_service'),
+    ('0035_nurse_full_edit', 'function', 'private.send_confirm_signal'),
+    ('0035_nurse_full_edit', 'trigger',  'public.dose_events|confirm_signal_on_taken'),
+    ('0035_nurse_full_edit', 'function', 'public.confirm_signal_targets_for_service'),
 ),
 checked as (
   select

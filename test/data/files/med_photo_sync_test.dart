@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/core/images/med_photo.dart';
-import 'package:fakkarni/data/care/medication_changes.dart';
+import '../../support/fake_changes.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/files/attachment_store.dart';
 import 'package:fakkarni/data/files/circle_med_photos.dart';
@@ -205,7 +205,7 @@ void main() {
       expect(pendingPhotoPathValid(null, p), isFalse);
     });
 
-    MedicationChangePuller puller(_Changes remote) => MedicationChangePuller(
+    MedicationChangePuller puller(FakeChanges remote) => MedicationChangePuller(
           remote: remote,
           db: db,
           patients: patients,
@@ -234,7 +234,7 @@ void main() {
         );
 
     test('مسار مريض تاني → بيترفض من غير أي تنزيل، ومتسجّل للأدمن', () async {
-      final remote = _Changes()..pending.add(photoChange('someone-else/med-photos/pending/x.jpg'));
+      final remote = FakeChanges()..pending.add(photoChange('someone-else/med-photos/pending/x.jpg'));
       expect(await puller(remote).pull(), 0);
       expect(remote.marked.single, ('c1', ChangeOutcome.missing));
       expect(bucket.calls.where((c) => c.startsWith('download')), isEmpty);
@@ -245,7 +245,7 @@ void main() {
     test('الملف مش صورة → بيترفض، والصورة المحلية زي ما هي، ونسخة pending بتتمسح', () async {
       final path = medPhotoPendingPath(patientUuid, 'bad');
       bucket.objects[path] = Uint8List.fromList([1, 2, 3, 4]);
-      final remote = _Changes()..pending.add(photoChange(path));
+      final remote = FakeChanges()..pending.add(photoChange(path));
       expect(await puller(remote).pull(), 0);
       expect(remote.marked.single, ('c1', ChangeOutcome.missing));
       expect((await db.select(db.medications).getSingle()).photoPath, isNull);
@@ -256,7 +256,7 @@ void main() {
     test('صورة سليمة → بتتجهّز (من غير EXIF) وتتحفظ، وتترفع رسمي، وpending بتتمسح', () async {
       final path = medPhotoPendingPath(patientUuid, 'good');
       bucket.objects[path] = photoWithExif();
-      final remote = _Changes()..pending.add(photoChange(path));
+      final remote = FakeChanges()..pending.add(photoChange(path));
       expect(await puller(remote).pull(), 1);
       expect(remote.marked.single, ('c1', ChangeOutcome.applied));
       final local = (await db.select(db.medications).getSingle()).photoPath;
@@ -314,18 +314,3 @@ void main() {
   });
 }
 
-class _Changes implements MedicationChangeRemote {
-  final pending = <MedicationChange>[];
-  final marked = <(String, ChangeOutcome)>[];
-  @override
-  Future<void> submit({required String patientUuid, required MedicationChangeKind kind, required MedicationChangePayload payload, String? medicationUuid, String? medicationName, String? actorName}) async {}
-  @override
-  Future<List<MedicationChange>> fetchPending(String patientUuid) async => List.of(pending);
-  @override
-  Future<List<MedicationChange>> pendingFor(String patientUuid) async => List.of(pending);
-  @override
-  Future<void> markApplied(String changeUuid, ChangeOutcome outcome) async {
-    marked.add((changeUuid, outcome));
-    pending.removeWhere((c) => c.uuid == changeUuid);
-  }
-}

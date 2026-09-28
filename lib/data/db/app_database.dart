@@ -34,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -524,6 +524,15 @@ class AppDatabase extends _$AppDatabase {
             }
             if (from < 30) {
               await _migrateToClockTimes();
+            }
+            if (from < 31) {
+              // رقم الاتصال بالصيدلية — عمود محلي، بحماية وجود، **فوق** التطبيع.
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('device_preferences') WHERE name = 'pharmacy_call'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement('ALTER TABLE device_preferences ADD COLUMN pharmacy_call TEXT NULL');
+              }
             }
             if (from < 6) {
               // التطبيع الوحيد في السلسلة كلها — **آخر حاجة**، بعد ما كل

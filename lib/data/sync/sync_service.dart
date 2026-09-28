@@ -576,6 +576,8 @@ class SyncService {
   /// والدفع بالترتيب، فالجرعات اللي بعد الأدوية كانت هتفضل متوسّخة والابن
   /// يتنبّه عن جرعات اتاخدت. فبنعيد الدفعة من غير الأعمدة دي، ونكمّل.
   static const _optionalColumns = <String, Set<String>>{
+    // ٠٠٣٥: «صيدليتي» على صف المريض — الممرض بيقراها ويطلب منها
+    'patients': {'pharmacy_name', 'pharmacy_call', 'pharmacy_whatsapp'},
     // ٠٠٢٦: تفاصيل الدوا اللي الممرض بيشوفها
     'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at'},
     // ٠٠٣٤: «قبل الأكل» وأخواتها — كلمة تعليمات على الجرعة
@@ -623,6 +625,8 @@ class SyncService {
               (t.profileDoneAt.isNotNull() |
                   existsQuery(_db.select(_db.medications)..where((m) => m.patientId.equalsExp(t.id))))))
         .get();
+    // «صيدليتي» (v31) على تفضيلات الجهاز — موبايل واحد = مريض واحد
+    final prefs = await (_db.select(_db.devicePreferences)..where((t) => t.id.equals(1))).getSingleOrNull();
     await _upsertAndMark(
       'patients',
       [
@@ -634,6 +638,9 @@ class SyncService {
               'uuid': p.uuid,
               'name': p.name,
               'notification_slot': p.notificationSlot,
+              'pharmacy_name': prefs?.pharmacyName,
+              'pharmacy_call': prefs?.pharmacyCall,
+              'pharmacy_whatsapp': prefs?.pharmacyWhatsapp,
             }
           ),
       ],

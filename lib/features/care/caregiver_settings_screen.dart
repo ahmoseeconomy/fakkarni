@@ -26,12 +26,19 @@ class CaregiverSettingsScreen extends StatefulWidget {
     this.patient,
     this.nurseReminders = false,
     this.onNurseRemindersChanged,
+    this.nursePatients = const [],
+    this.onNurseDoseRemindersChanged,
     super.key,
   });
 
   /// ٢٤ سبتمبر ٢٠٢٦: حساب الممرض بيشوف «فكّرني بمواعيده» هنا. المتابع لأ.
   final bool nurseReminders;
   final VoidCallback? onNurseRemindersChanged;
+
+  /// 0035: لكل مريض بيتابعه كممرض — «نبهني بمواعيد الدوا» و«نبهني لو مافيش
+  /// تأكيد»، في السحابة (الثاني السيرفر بيقراه).
+  final List<CaregiverPatient> nursePatients;
+  final void Function(String patientUuid, bool on)? onNurseDoseRemindersChanged;
 
   /// المريض المربوط — منه الـuuid اللي التفضيلات متعلّقة بيه.
   /// null قبل ما أول صورة توصل: الصف ساعتها ما بيظهرش.
@@ -137,6 +144,16 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
           if (widget.nurseReminders) ...[
             _NurseRemindersRow(onChanged: widget.onNurseRemindersChanged),
             const SizedBox(height: F.s12),
+            for (final p in widget.nursePatients) ...[
+              _NursePatientPrefs(
+                patient: p,
+                onDoseRemindersChanged: (on) {
+                  widget.onNurseDoseRemindersChanged?.call(p.uuid, on);
+                  widget.onNurseRemindersChanged?.call();
+                },
+              ),
+              const SizedBox(height: F.s12),
+            ],
           ],
           CareCard(
             child: Column(
@@ -397,4 +414,113 @@ class _NurseRemindersRowState extends State<_NurseRemindersRow> {
           ),
         ),
       );
+}
+
+/// مفتاحين لكل مريض (0035)، في السحابة عشان يعيشوا بعد إعادة التنصيب وعشان
+/// السيرفر يقرا التاني. الافتراضي مفتوح؛ فشل القراية بيسيب الافتراضي.
+class _NursePatientPrefs extends StatefulWidget {
+  const _NursePatientPrefs({required this.patient, required this.onDoseRemindersChanged});
+
+  final CaregiverPatient patient;
+  final void Function(bool on) onDoseRemindersChanged;
+
+  @override
+  State<_NursePatientPrefs> createState() => _NursePatientPrefsState();
+}
+
+class _NursePatientPrefsState extends State<_NursePatientPrefs> {
+  CaregiverPreferences _prefs = const CaregiverPreferences();
+  String? _line;
+  bool _loaded = false;
+
+  CaregiverPreferencesService? get _service => AppScope.maybeOf(context)?.caregiverPreferences;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) return;
+    _loaded = true;
+    _service?.load(widget.patient.uuid).then((p) {
+      if (mounted) setState(() => _prefs = p);
+    }).catchError((_) {});
+  }
+
+  Future<void> _save(CaregiverPreferences next, {bool dose = false}) async {
+    final before = _prefs;
+    setState(() {
+      _prefs = next;
+      _line = null;
+    });
+    if (dose) widget.onDoseRemindersChanged(next.nurseDoseReminders);
+    try {
+      await _service?.save(widget.patient.uuid, next);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _prefs = before;
+        _line = 'ما اتحفظش — جرّب تاني.';
+      });
+      if (dose) widget.onDoseRemindersChanged(before.nurseDoseReminders);
+    }
+  }
+
+  Widget _row({required Key key, required String title, required String sub, required bool on, required VoidCallback onTap}) => InkWell(
+        key: key,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: F.careTapTarget),
+          padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+                    Text(sub, style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+                  ],
+                ),
+              ),
+              Text(on ? 'شغّال' : 'مقفول',
+                  style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: on ? F.green : F.mutedDark)),
+            ],
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.patient;
+    return CareCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(F.carePad, F.s10, F.carePad, 0),
+            child: Text(p.name, style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w800, color: F.ink)),
+          ),
+          _row(
+            key: ValueKey('nurse-dose-reminders-${p.uuid}'),
+            title: 'نبهني بمواعيد الدوا',
+            sub: 'الموبايل ده بيرن في ميعاد كل جرعة',
+            on: _prefs.nurseDoseReminders,
+            onTap: () => _save(_prefs.copyWith(nurseDoseReminders: !_prefs.nurseDoseReminders), dose: true),
+          ),
+          _row(
+            key: ValueKey('nurse-unconfirmed-alert-${p.uuid}'),
+            title: 'نبهني لو مافيش تأكيد',
+            sub: 'بعد نص ساعة من غير تأكيد — قبل ما العيلة تتبلّغ',
+            on: _prefs.nurseUnconfirmedAlert,
+            onTap: () => _save(_prefs.copyWith(nurseUnconfirmedAlert: !_prefs.nurseUnconfirmedAlert)),
+          ),
+          if (_line != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(F.carePad, 0, F.carePad, F.s8),
+              child: Text(_line!, style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+            ),
+        ],
+      ),
+    );
+  }
 }

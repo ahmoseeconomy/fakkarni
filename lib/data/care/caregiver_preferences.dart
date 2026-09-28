@@ -13,7 +13,15 @@ class CaregiverPreferences {
     this.alertScope = AlertScope.everyMissedDose,
     this.quietFromMinute,
     this.quietToMinute,
+    this.nurseDoseReminders = true,
+    this.nurseUnconfirmedAlert = true,
   });
+
+  /// **مفاتيح الممرض** (0035)، لكل مريض: «نبهني بمواعيد الدوا» (موبايله
+  /// بيجدول تذكيراته) و«نبهني لو مافيش تأكيد» (السيرفر بيبعت له +٣٠).
+  /// الاتنين مفتوحين افتراضياً — ومن غير صف = مفتوح.
+  final bool nurseDoseReminders;
+  final bool nurseUnconfirmedAlert;
 
   /// اسمه زي ما كتبه — الأب بيقراه. null = لسه ما اتسألش أو تخطّى.
   final String? name;
@@ -46,6 +54,8 @@ class CaregiverPreferences {
     int? quietFromMinute,
     int? quietToMinute,
     bool clearQuiet = false,
+    bool? nurseDoseReminders,
+    bool? nurseUnconfirmedAlert,
   }) =>
       CaregiverPreferences(
         name: name ?? this.name,
@@ -54,6 +64,8 @@ class CaregiverPreferences {
         alertScope: alertScope ?? this.alertScope,
         quietFromMinute: clearQuiet ? null : (quietFromMinute ?? this.quietFromMinute),
         quietToMinute: clearQuiet ? null : (quietToMinute ?? this.quietToMinute),
+        nurseDoseReminders: nurseDoseReminders ?? this.nurseDoseReminders,
+        nurseUnconfirmedAlert: nurseUnconfirmedAlert ?? this.nurseUnconfirmedAlert,
       );
 }
 

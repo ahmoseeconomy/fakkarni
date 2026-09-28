@@ -67,15 +67,42 @@ class PreferencesRepository {
 
   /// نوع التنبيه الافتراضي. الاستدعاء بعده لازم يعيد الجدولة — الشاشة بتعمل ده.
   /// «صيدليتي» — اسم ورقم واتساب (v26). على الموبايل ده بس.
-  Future<({String? name, String? whatsapp})> pharmacy() async {
+  Future<({String? name, String? whatsapp, String? call})> pharmacy() async {
     final row = await _row.getSingleOrNull();
-    return (name: row?.pharmacyName, whatsapp: row?.pharmacyWhatsapp);
+    return (name: row?.pharmacyName, whatsapp: row?.pharmacyWhatsapp, call: row?.pharmacyCall);
   }
 
-  Future<void> setPharmacy({required String? name, required String? whatsapp}) => _write(DevicePreferencesCompanion(
-        pharmacyName: Value(name == null || name.trim().isEmpty ? null : name.trim()),
-        pharmacyWhatsapp: Value(whatsapp == null || whatsapp.trim().isEmpty ? null : whatsapp.trim()),
-      ));
+  /// [call] (v31): رقم الاتصال. `absent` = ما يتلمسش (اللي كان بينده الدالة
+  /// بالاسم والواتساب بس لسه شغّال).
+  Future<void> setPharmacy({required String? name, required String? whatsapp, String? call, bool clearCall = false}) async {
+    await _write(DevicePreferencesCompanion(
+      pharmacyName: Value(_blank(name)),
+      pharmacyWhatsapp: Value(_blank(whatsapp)),
+      pharmacyCall: clearCall ? const Value(null) : (call == null ? const Value.absent() : Value(_blank(call))),
+    ));
+    // «صيدليتي» بتركب صف المريض في السحابة (0035) — الصف بيتوسّخ عشان
+    // الدفعة الجاية تاخده. تريجر الساعة هو اللي بيحرّك updated_at_ms.
+    await _db.customStatement('UPDATE patients SET name = name');
+  }
+
+  /// **مرة واحدة** بعد v31: رقم الاتصال كان في `shared_preferences`
+  /// (`pharmacy.call`) جولة واحدة — بيتنقل للعمود ويتمسح من هناك.
+  static const legacyCallKey = 'pharmacy.call';
+
+  Future<void> migrateLegacyPharmacyCall(Future<String?> Function() readLegacy, Future<void> Function() clearLegacy) async {
+    try {
+      final legacy = await readLegacy();
+      if (legacy == null || legacy.trim().isEmpty) return;
+      final current = await pharmacy();
+      if (current.call == null) {
+        await _write(DevicePreferencesCompanion(pharmacyCall: Value(legacy.trim())));
+        await _db.customStatement('UPDATE patients SET name = name');
+      }
+      await clearLegacy();
+    } catch (_) {}
+  }
+
+  static String? _blank(String? s) => s == null || s.trim().isEmpty ? null : s.trim();
 
   Future<void> setAlertMode(AlertMode mode) =>
       _write(DevicePreferencesCompanion(alertMode: Value(mode.storageName)));

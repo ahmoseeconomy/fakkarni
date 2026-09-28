@@ -59,6 +59,12 @@ const Duration graceWindow = Duration(minutes: 45);
 /// والربع ساعة الزيادة دي ميزانية للسلك مش تأخير للمريض.
 const Duration serverGraceWindow = Duration(minutes: 60);
 
+/// **درجة الممرض** (0035): السيرفر بيبلّغ الممرض بعد ٣٠ دقيقة من غير تأكيد —
+/// **قبل** الابن. مرآة `private.nurse_grace_window()` في SQL؛
+/// `test/data/sync/nurse_grace_sql_test.dart` بيوقع لو واحد اتحرّك لوحده.
+/// سلّم المريض المحلي (+١٥/+٣٠) ومهلة الابن (٦٠) ما اتلمسوش.
+const Duration nurseGraceWindow = Duration(minutes: 30);
+
 /// درجة السلّم في وقتها الحقيقي لتذكير معيّن.
 class EscalationStep {
   const EscalationStep({required this.rung, required this.at});

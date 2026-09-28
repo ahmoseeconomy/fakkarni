@@ -37,6 +37,7 @@ CaregiverAlert alertFromRow(Map<String, dynamic> row) {
     deliveryStatus: row['delivery_status'] as String,
     createdAt: time(row['created_at'])!,
     sentAt: time(row['sent_at']),
+    rung: (row['rung'] as String?) ?? 'caregiver',
   );
 }
 
@@ -89,6 +90,14 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     ]),
     uuid: row['uuid'] as String,
     name: row['name'] as String,
+    stopped: row['stopped_at'] != null,
+    minutes: [
+      for (final s in schedules)
+        if ((s as Map)['stopped_at'] == null)
+          if (((s['fixed_timings'] is List ? ((s['fixed_timings'] as List).firstOrNull) : s['fixed_timings']) as Map?)?['minute_of_day']
+              case final int m)
+            m,
+    ],
     amountLabel: row['amount_label'] as String?,
     purpose: row['purpose'] as String?,
     instructions: row['instructions'] as String?,
@@ -216,6 +225,20 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
 
   final SupabaseClient _supabase;
 
+  /// صف المريض بـ«صيدليتي» (0035) — ولو الهجرة لسه ما اتشغّلتش، الأعمدة
+  /// القديمة بس (نفس طبقات القراية بتاعة المخزون).
+  Future<List<Map<String, dynamic>>> _patientRows(List<String> uuids) async {
+    try {
+      return await _supabase
+          .from('patients')
+          .select('uuid, name, pharmacy_name, pharmacy_call, pharmacy_whatsapp')
+          .inFilter('uuid', uuids);
+    } on PostgrestException catch (e) {
+      if (e.code != '42703' && e.code != 'PGRST204') rethrow;
+      return await _supabase.from('patients').select('uuid, name').inFilter('uuid', uuids);
+    }
+  }
+
   /// ٠٠٢٦: باكت صور الورق — خاص، والقراية للمالك وممرضينه بس (RLS).
   static const papersBucket = 'patient-papers';
 
@@ -230,17 +253,17 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             .eq('caregiver_id', me)
             .order('created_at', ascending: false);
         if (links.isEmpty) return const <CaregiverPatient>[];
-        final rows = await _supabase
-            .from('patients')
-            .select('uuid, name')
-            .inFilter('uuid', [for (final l in links) l['patient_uuid'] as String]);
-        final names = {for (final r in rows) r['uuid'] as String: r['name'] as String};
+        final rows = await _patientRows([for (final l in links) l['patient_uuid'] as String]);
+        final byUuid = {for (final r in rows) r['uuid'] as String: r};
         return [
           for (final l in links)
-            if (names[l['patient_uuid']] case final name?)
+            if (byUuid[l['patient_uuid']] case final row?)
               CaregiverPatient(
                 uuid: l['patient_uuid'] as String,
-                name: name,
+                name: row['name'] as String,
+                pharmacyName: row['pharmacy_name'] as String?,
+                pharmacyCall: row['pharmacy_call'] as String?,
+                pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
                 permissions: FollowerPermissions(
                   role: FollowerRole.fromStored(l['role'] as String?),
                   canConfirm: l['can_confirm'] == true,
@@ -311,15 +334,15 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         if (links.isEmpty) return null;
         final link = links.first;
 
-        final rows = await _supabase
-            .from('patients')
-            .select('uuid, name')
-            .eq('uuid', link['patient_uuid'] as String);
+        final rows = await _patientRows([link['patient_uuid'] as String]);
         if (rows.isEmpty) return null;
         final row = rows.single;
         return CaregiverPatient(
           uuid: row['uuid'] as String,
           name: row['name'] as String,
+          pharmacyName: row['pharmacy_name'] as String?,
+          pharmacyCall: row['pharmacy_call'] as String?,
+          pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
           // ٠٠٢٣: دوري وصلاحياتي من صف العلاقة نفسه — قبلها كل صف متابع
           permissions: FollowerPermissions(
             role: FollowerRole.fromStored(link['role'] as String?),
@@ -407,7 +430,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             DateTime.now().toUtc().subtract(alertWindow).toIso8601String();
         final alerts = await _supabase
             .from('escalations')
-            .select('uuid, delivery_status, created_at, sent_at, '
+            .select('uuid, delivery_status, created_at, sent_at, rung, '
                 'dose_events!inner(scheduled_at, state, '
                 'dose_schedules!inner(medications!inner(name, patient_uuid)))')
             .eq('caregiver_id', me)

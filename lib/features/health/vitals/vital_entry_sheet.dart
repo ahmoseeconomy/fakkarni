@@ -20,7 +20,15 @@ import '../glucose_screen.dart';
 /// عجلة»). السكر شريحة كمان — بتفتح شاشته زي ما هي.
 ///
 /// بترجّع النوع اللي اتسجّل (null = قفل من غير حفظ).
-Future<VitalKind?> showVitalEntrySheet(BuildContext context, {VitalKind? initial, DateTime? now}) async {
+///
+/// [onSave] (الممرض، 0035): بدل الكتابة المحلية — القياس بيتبعت لموبايل
+/// المريض. السكر ساعتها مش متاح (شاشته بتكتب محلي).
+Future<VitalKind?> showVitalEntrySheet(
+  BuildContext context, {
+  VitalKind? initial,
+  DateTime? now,
+  Future<void> Function(VitalEntry entry, DateTime at)? onSave,
+}) async {
   final result = await FSheet.show<_VitalResult>(
     context,
     title: 'سجّل قياس',
@@ -28,8 +36,13 @@ Future<VitalKind?> showVitalEntrySheet(BuildContext context, {VitalKind? initial
   );
   if (result == null || !context.mounted) return null;
   if (result.glucose) {
+    if (onSave != null) return null;
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const GlucoseScreen()));
     return null;
+  }
+  if (onSave != null) {
+    await onSave(result.entry!, result.at!);
+    return result.entry!.kind;
   }
   final services = AppScope.of(context);
   await VitalsRepository(services.db).add(services.patientId, result.entry!, measuredAt: result.at!);

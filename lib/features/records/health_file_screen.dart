@@ -27,6 +27,7 @@ import '../../data/services/checkup_service.dart';
 import '../../domain/health/follow_up.dart';
 import '../doctor/doctor_page_screen.dart';
 import 'calendar_screen.dart';
+import 'change_history_screen.dart';
 import 'checkup_screen.dart';
 import 'records_empty.dart';
 import 'history_screen.dart';
@@ -468,6 +469,24 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 },
               ),
               const SizedBox(height: F.gap),
+
+              // ================================================= التعديلات (0035)
+              // اللي عيلتك أو ممرضك غيّروه — مين وإيه وإمتى. من غير سحابة مفيش صف.
+              if (AppScope.of(context).medChanges case final remote?) ...[
+                FSecondaryButton(
+                  key: const ValueKey('changes-history-entry'),
+                  label: 'التعديلات',
+                  onPressed: () async {
+                    final services = AppScope.of(context);
+                    final patient = await services.patients.getPatient(services.patientId);
+                    if (patient == null || !context.mounted) return;
+                    await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => ChangeHistoryScreen(patientUuid: patient.uuid, remote: remote, now: widget.today),
+                    ));
+                  },
+                ),
+                const SizedBox(height: F.gap),
+              ],
 
               // ================================================= للدكتور
               const HelpRow(id: 'help_doctor', child: FSectionHead('للدكتور')),

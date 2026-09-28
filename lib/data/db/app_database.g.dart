@@ -3736,6 +3736,17 @@ class $DevicePreferencesTable extends DevicePreferences
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pharmacyCallMeta = const VerificationMeta(
+    'pharmacyCall',
+  );
+  @override
+  late final GeneratedColumn<String> pharmacyCall = GeneratedColumn<String>(
+    'pharmacy_call',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3745,6 +3756,7 @@ class $DevicePreferencesTable extends DevicePreferences
     alertMode,
     pharmacyName,
     pharmacyWhatsapp,
+    pharmacyCall,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3809,6 +3821,15 @@ class $DevicePreferencesTable extends DevicePreferences
         ),
       );
     }
+    if (data.containsKey('pharmacy_call')) {
+      context.handle(
+        _pharmacyCallMeta,
+        pharmacyCall.isAcceptableOrUnknown(
+          data['pharmacy_call']!,
+          _pharmacyCallMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3846,6 +3867,10 @@ class $DevicePreferencesTable extends DevicePreferences
         DriftSqlType.string,
         data['${effectivePrefix}pharmacy_whatsapp'],
       ),
+      pharmacyCall: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pharmacy_call'],
+      ),
     );
   }
 
@@ -3871,6 +3896,11 @@ class DevicePreferencesRow extends DataClass
   /// على الموبايل ده بس — مش بيتزامن، والسيرفر ما بيشيلش ولا رقم تليفون.
   final String? pharmacyName;
   final String? pharmacyWhatsapp;
+
+  /// رقم الاتصال بالصيدلية (v31) — كان في `shared_preferences` (`pharmacy.call`)
+  /// جولة واحدة، وبيتنقل هنا مرة عند أول فتحة. بيتدفع على صف المريض في
+  /// السحابة (0035) عشان الممرض يطلب منها.
+  final String? pharmacyCall;
   const DevicePreferencesRow({
     required this.id,
     required this.elderMode,
@@ -3879,6 +3909,7 @@ class DevicePreferencesRow extends DataClass
     required this.alertMode,
     this.pharmacyName,
     this.pharmacyWhatsapp,
+    this.pharmacyCall,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3893,6 +3924,9 @@ class DevicePreferencesRow extends DataClass
     }
     if (!nullToAbsent || pharmacyWhatsapp != null) {
       map['pharmacy_whatsapp'] = Variable<String>(pharmacyWhatsapp);
+    }
+    if (!nullToAbsent || pharmacyCall != null) {
+      map['pharmacy_call'] = Variable<String>(pharmacyCall);
     }
     return map;
   }
@@ -3910,6 +3944,9 @@ class DevicePreferencesRow extends DataClass
       pharmacyWhatsapp: pharmacyWhatsapp == null && nullToAbsent
           ? const Value.absent()
           : Value(pharmacyWhatsapp),
+      pharmacyCall: pharmacyCall == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pharmacyCall),
     );
   }
 
@@ -3926,6 +3963,7 @@ class DevicePreferencesRow extends DataClass
       alertMode: serializer.fromJson<String>(json['alertMode']),
       pharmacyName: serializer.fromJson<String?>(json['pharmacyName']),
       pharmacyWhatsapp: serializer.fromJson<String?>(json['pharmacyWhatsapp']),
+      pharmacyCall: serializer.fromJson<String?>(json['pharmacyCall']),
     );
   }
   @override
@@ -3939,6 +3977,7 @@ class DevicePreferencesRow extends DataClass
       'alertMode': serializer.toJson<String>(alertMode),
       'pharmacyName': serializer.toJson<String?>(pharmacyName),
       'pharmacyWhatsapp': serializer.toJson<String?>(pharmacyWhatsapp),
+      'pharmacyCall': serializer.toJson<String?>(pharmacyCall),
     };
   }
 
@@ -3950,6 +3989,7 @@ class DevicePreferencesRow extends DataClass
     String? alertMode,
     Value<String?> pharmacyName = const Value.absent(),
     Value<String?> pharmacyWhatsapp = const Value.absent(),
+    Value<String?> pharmacyCall = const Value.absent(),
   }) => DevicePreferencesRow(
     id: id ?? this.id,
     elderMode: elderMode ?? this.elderMode,
@@ -3960,6 +4000,7 @@ class DevicePreferencesRow extends DataClass
     pharmacyWhatsapp: pharmacyWhatsapp.present
         ? pharmacyWhatsapp.value
         : this.pharmacyWhatsapp,
+    pharmacyCall: pharmacyCall.present ? pharmacyCall.value : this.pharmacyCall,
   );
   DevicePreferencesRow copyWithCompanion(DevicePreferencesCompanion data) {
     return DevicePreferencesRow(
@@ -3978,6 +4019,9 @@ class DevicePreferencesRow extends DataClass
       pharmacyWhatsapp: data.pharmacyWhatsapp.present
           ? data.pharmacyWhatsapp.value
           : this.pharmacyWhatsapp,
+      pharmacyCall: data.pharmacyCall.present
+          ? data.pharmacyCall.value
+          : this.pharmacyCall,
     );
   }
 
@@ -3990,7 +4034,8 @@ class DevicePreferencesRow extends DataClass
           ..write('rungSecondOn: $rungSecondOn, ')
           ..write('alertMode: $alertMode, ')
           ..write('pharmacyName: $pharmacyName, ')
-          ..write('pharmacyWhatsapp: $pharmacyWhatsapp')
+          ..write('pharmacyWhatsapp: $pharmacyWhatsapp, ')
+          ..write('pharmacyCall: $pharmacyCall')
           ..write(')'))
         .toString();
   }
@@ -4004,6 +4049,7 @@ class DevicePreferencesRow extends DataClass
     alertMode,
     pharmacyName,
     pharmacyWhatsapp,
+    pharmacyCall,
   );
   @override
   bool operator ==(Object other) =>
@@ -4015,7 +4061,8 @@ class DevicePreferencesRow extends DataClass
           other.rungSecondOn == this.rungSecondOn &&
           other.alertMode == this.alertMode &&
           other.pharmacyName == this.pharmacyName &&
-          other.pharmacyWhatsapp == this.pharmacyWhatsapp);
+          other.pharmacyWhatsapp == this.pharmacyWhatsapp &&
+          other.pharmacyCall == this.pharmacyCall);
 }
 
 class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
@@ -4026,6 +4073,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
   final Value<String> alertMode;
   final Value<String?> pharmacyName;
   final Value<String?> pharmacyWhatsapp;
+  final Value<String?> pharmacyCall;
   const DevicePreferencesCompanion({
     this.id = const Value.absent(),
     this.elderMode = const Value.absent(),
@@ -4034,6 +4082,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     this.alertMode = const Value.absent(),
     this.pharmacyName = const Value.absent(),
     this.pharmacyWhatsapp = const Value.absent(),
+    this.pharmacyCall = const Value.absent(),
   });
   DevicePreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -4043,6 +4092,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     this.alertMode = const Value.absent(),
     this.pharmacyName = const Value.absent(),
     this.pharmacyWhatsapp = const Value.absent(),
+    this.pharmacyCall = const Value.absent(),
   });
   static Insertable<DevicePreferencesRow> custom({
     Expression<int>? id,
@@ -4052,6 +4102,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     Expression<String>? alertMode,
     Expression<String>? pharmacyName,
     Expression<String>? pharmacyWhatsapp,
+    Expression<String>? pharmacyCall,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4061,6 +4112,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
       if (alertMode != null) 'alert_mode': alertMode,
       if (pharmacyName != null) 'pharmacy_name': pharmacyName,
       if (pharmacyWhatsapp != null) 'pharmacy_whatsapp': pharmacyWhatsapp,
+      if (pharmacyCall != null) 'pharmacy_call': pharmacyCall,
     });
   }
 
@@ -4072,6 +4124,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     Value<String>? alertMode,
     Value<String?>? pharmacyName,
     Value<String?>? pharmacyWhatsapp,
+    Value<String?>? pharmacyCall,
   }) {
     return DevicePreferencesCompanion(
       id: id ?? this.id,
@@ -4081,6 +4134,7 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
       alertMode: alertMode ?? this.alertMode,
       pharmacyName: pharmacyName ?? this.pharmacyName,
       pharmacyWhatsapp: pharmacyWhatsapp ?? this.pharmacyWhatsapp,
+      pharmacyCall: pharmacyCall ?? this.pharmacyCall,
     );
   }
 
@@ -4108,6 +4162,9 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
     if (pharmacyWhatsapp.present) {
       map['pharmacy_whatsapp'] = Variable<String>(pharmacyWhatsapp.value);
     }
+    if (pharmacyCall.present) {
+      map['pharmacy_call'] = Variable<String>(pharmacyCall.value);
+    }
     return map;
   }
 
@@ -4120,7 +4177,8 @@ class DevicePreferencesCompanion extends UpdateCompanion<DevicePreferencesRow> {
           ..write('rungSecondOn: $rungSecondOn, ')
           ..write('alertMode: $alertMode, ')
           ..write('pharmacyName: $pharmacyName, ')
-          ..write('pharmacyWhatsapp: $pharmacyWhatsapp')
+          ..write('pharmacyWhatsapp: $pharmacyWhatsapp, ')
+          ..write('pharmacyCall: $pharmacyCall')
           ..write(')'))
         .toString();
   }
@@ -12030,6 +12088,7 @@ typedef $$DevicePreferencesTableCreateCompanionBuilder =
       Value<String> alertMode,
       Value<String?> pharmacyName,
       Value<String?> pharmacyWhatsapp,
+      Value<String?> pharmacyCall,
     });
 typedef $$DevicePreferencesTableUpdateCompanionBuilder =
     DevicePreferencesCompanion Function({
@@ -12040,6 +12099,7 @@ typedef $$DevicePreferencesTableUpdateCompanionBuilder =
       Value<String> alertMode,
       Value<String?> pharmacyName,
       Value<String?> pharmacyWhatsapp,
+      Value<String?> pharmacyCall,
     });
 
 class $$DevicePreferencesTableFilterComposer
@@ -12083,6 +12143,11 @@ class $$DevicePreferencesTableFilterComposer
 
   ColumnFilters<String> get pharmacyWhatsapp => $composableBuilder(
     column: $table.pharmacyWhatsapp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pharmacyCall => $composableBuilder(
+    column: $table.pharmacyCall,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12130,6 +12195,11 @@ class $$DevicePreferencesTableOrderingComposer
     column: $table.pharmacyWhatsapp,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pharmacyCall => $composableBuilder(
+    column: $table.pharmacyCall,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DevicePreferencesTableAnnotationComposer
@@ -12167,6 +12237,11 @@ class $$DevicePreferencesTableAnnotationComposer
 
   GeneratedColumn<String> get pharmacyWhatsapp => $composableBuilder(
     column: $table.pharmacyWhatsapp,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pharmacyCall => $composableBuilder(
+    column: $table.pharmacyCall,
     builder: (column) => column,
   );
 }
@@ -12218,6 +12293,7 @@ class $$DevicePreferencesTableTableManager
                 Value<String> alertMode = const Value.absent(),
                 Value<String?> pharmacyName = const Value.absent(),
                 Value<String?> pharmacyWhatsapp = const Value.absent(),
+                Value<String?> pharmacyCall = const Value.absent(),
               }) => DevicePreferencesCompanion(
                 id: id,
                 elderMode: elderMode,
@@ -12226,6 +12302,7 @@ class $$DevicePreferencesTableTableManager
                 alertMode: alertMode,
                 pharmacyName: pharmacyName,
                 pharmacyWhatsapp: pharmacyWhatsapp,
+                pharmacyCall: pharmacyCall,
               ),
           createCompanionCallback:
               ({
@@ -12236,6 +12313,7 @@ class $$DevicePreferencesTableTableManager
                 Value<String> alertMode = const Value.absent(),
                 Value<String?> pharmacyName = const Value.absent(),
                 Value<String?> pharmacyWhatsapp = const Value.absent(),
+                Value<String?> pharmacyCall = const Value.absent(),
               }) => DevicePreferencesCompanion.insert(
                 id: id,
                 elderMode: elderMode,
@@ -12244,6 +12322,7 @@ class $$DevicePreferencesTableTableManager
                 alertMode: alertMode,
                 pharmacyName: pharmacyName,
                 pharmacyWhatsapp: pharmacyWhatsapp,
+                pharmacyCall: pharmacyCall,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

@@ -64,13 +64,13 @@ void main() {
       final puller = CircleDeparturePuller(remote: remote, patients: patients, patientId: pid);
 
       expect(await puller.pull(), 1);
-      expect(MedicationChangePuller.notices.value, ['محمد خرج من الدايرة']);
+      expect(MedicationChangePuller.notices.value.map((n) => n.line), ['محمد خرج من الدايرة']);
       expect(await puller.pull(), 0, reason: 'اتشاف خلاص');
       expect(MedicationChangePuller.notices.value, hasLength(1));
 
       remote.rows = [dep('2', name: 'سارة', relation: FollowerRelation.daughter), ...remote.rows];
       expect(await puller.pull(), 1);
-      expect(MedicationChangePuller.notices.value.first, 'سارة خرجت من الدايرة');
+      expect(MedicationChangePuller.notices.value.first.line, 'سارة خرجت من الدايرة');
     });
 
     test('السحابة وقعت: ولا سطر ولا رمي', () async {

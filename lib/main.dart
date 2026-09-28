@@ -33,6 +33,10 @@ import 'data/billing/iap_store_purchases.dart';
 import 'data/billing/subscription_service.dart';
 import 'data/sync/medication_change_pull.dart';
 import 'data/testhook/test_hook.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'data/push/confirm_signal_router.dart';
+import 'data/repositories/preferences_repository.dart';
 import 'features/nurse/nurse_reminders.dart';
 import 'core/notifications/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
@@ -199,10 +203,18 @@ Future<void> main() async {
 
   // **زرار الممرض — باب لوحده.** «أكّد إنه أخدها» على تذكير الممرض =
   // تأكيد نيابةً للسحابة، وعمره ما بيعدّي على معالج «أخدته» بتاع المريض.
+  // إشارة «اتأكّدت» من السيرفر (0035): عند المريض سحبة (بتلغي السلّم)، وعند
+  // الممرض إلغاء تذكيره — والفلاج بيقفلها من --dart-define=CONFIRM_PUSH=false
+  ConfirmSignalRouter(
+    onPatientSide: services.pullFromCircle,
+    onNurseSide: (signal) => NurseReminders(sink: const DeviceNurseReminderSink())
+        .onConfirmed(patientUuid: signal.patientUuid, doseEventUuid: signal.doseEventUuid),
+  ).listen(tokenSource);
+
   NotificationService.onNurseAction =
-      (id, payload) => unawaited(confirmFromNurseNotification(services, id, payload));
+      (action, id, payload) => unawaited(handleNurseNotificationAction(services, action, id, payload));
   if (launched != null && NotificationActions.isNurseAction(launched.actionId)) {
-    unawaited(confirmFromNurseNotification(services, launched.id, launched.payload));
+    unawaited(handleNurseNotificationAction(services, launched.actionId!, launched.id, launched.payload));
   }
 
   // الجرعة اللي اتكتبت فوق لسه متوسّخة — المزامنة اتبنت بعديها. دفعة
@@ -254,6 +266,11 @@ Future<void> main() async {
   ).run());
 
   unawaited(MedicationChangePuller.loadNotices());
+  // v31: رقم اتصال الصيدلية من shared_preferences للعمود — مرة واحدة
+  unawaited(services.preferences.migrateLegacyPharmacyCall(
+    () async => (await SharedPreferences.getInstance()).getString(PreferencesRepository.legacyCallKey),
+    () async => (await SharedPreferences.getInstance()).remove(PreferencesRepository.legacyCallKey),
+  ));
   runApp(FakkarniApp(services: services));
 }
 

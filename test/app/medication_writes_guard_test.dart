@@ -64,7 +64,7 @@ void main() {
 
   test('الخدمة بتعيد الجدولة بعد كل كتابة', () {
     final src = File('lib/data/services/medication_save_service.dart').readAsStringSync();
-    expect(src, contains('scheduler.rescheduleAll()'));
+    expect(src, contains('scheduler.rescheduleAll('));
     // كل دالة عامة بتعدّي على `_thenSchedule`
     final publics = RegExp(r'\n  Future<[^>]*>+ (\w+)\(').allMatches(src).map((m) => m.group(1)).toList();
     expect(publics, isNotEmpty);

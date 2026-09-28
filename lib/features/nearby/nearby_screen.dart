@@ -113,8 +113,13 @@ class NearbyScreen extends StatefulWidget {
     this.initialKind,
     this.initialSpecialty,
     this.onPickPharmacy,
+    this.onBookPlace,
     super.key,
   });
+
+  /// الممرض (0035): «احجز ميعاد عنده» بيبعت طلب ميعاد لموبايل المريض بدل
+  /// ورقة الحجز المحلية. null = الحجز المحلي (المريض).
+  final Future<void> Function(Place place)? onBookPlace;
 
   /// «اختار من القريب مني» من ورقة «صيدليتي»: «خليها صيدليتي» على الكارت
   /// بترجّع المكان للورقة بدل ما تفتح ورقة تانية.
@@ -412,7 +417,8 @@ class _NearbyScreenState extends State<NearbyScreen> {
                 place: p,
                 meters: metersBetween(fix.lat!, fix.lon!, p.lat, p.lon),
                 now: _now,
-                onPickPharmacy: widget.onPickPharmacy),
+                onPickPharmacy: widget.onPickPharmacy,
+                onBookPlace: widget.onBookPlace),
           ),
     ];
   }
@@ -437,10 +443,11 @@ String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
     };
 
 class _PlaceCard extends StatelessWidget {
-  const _PlaceCard({required this.place, required this.meters, required this.now, this.onPickPharmacy});
+  const _PlaceCard({required this.place, required this.meters, required this.now, this.onPickPharmacy, this.onBookPlace});
 
   final Place place;
   final void Function(Place place)? onPickPharmacy;
+  final Future<void> Function(Place place)? onBookPlace;
   final double meters;
   final DateTime now;
 
@@ -455,7 +462,7 @@ class _PlaceCard extends StatelessWidget {
     final category = specialties.isEmpty ? kindWord : '$kindWord ${specialties.map((s) => s.label).join(' و')}';
     final whatsApp = p.phone == null ? null : egyptMobileWhatsApp(p.phone!);
     // «احجز» بيسجّل الميعاد وتذكيره عندنا — مش بيكلّم العيادة
-    final canBook = p.kind == PlaceKind.doctor && AppScope.maybeOf(context) != null;
+    final canBook = p.kind == PlaceKind.doctor && (onBookPlace != null || AppScope.maybeOf(context) != null);
     // «خليها صيدليتي» — بتفتح ورقة «صيدليتي» متعبّية؛ مفيش حفظ قبل «احفظ»
     final canKeep = p.kind == PlaceKind.pharmacy && (onPickPharmacy != null || AppScope.maybeOf(context) != null);
 
@@ -599,7 +606,7 @@ class _PlaceCard extends StatelessWidget {
               alignment: AlignmentDirectional.centerStart,
               child: TextButton(
                 key: ValueKey('book-${p.id}'),
-                onPressed: () => bookFromPlace(context, p, now),
+                onPressed: () => onBookPlace != null ? onBookPlace!(p) : bookFromPlace(context, p, now),
                 style: TextButton.styleFrom(
                   foregroundColor: F.greenStrong,
                   minimumSize: const Size(F.minTapTarget, F.minTapTarget),

@@ -64,23 +64,38 @@ class _RestockBodyState extends State<_RestockBody> {
 
 /// **«اطلبه من الصيدلية»** — لو «صيدليتي» مش متسجّلة بنسألها الأول، وبعدين
 /// كام علبة، والرسالة ظاهرة قبل ما واتساب يفتح. **مفيش إرسال لوحده.**
-Future<void> orderFromPharmacy(BuildContext context, String medicationName) async {
+///
+/// [pharmacy] + [edit] (الممرض، 0035): صيدلية المريض من السحابة، والتعديل
+/// طلب لموبايله — من غير قراية تفضيلات الموبايل ده.
+Future<void> orderFromPharmacy(
+  BuildContext context,
+  String medicationName, {
+  ({String? name, String? whatsapp, String? call})? pharmacy,
+  Future<({String? name, String? whatsapp, String? call})?> Function()? edit,
+}) async {
   final prefs = AppScope.of(context).preferences;
-  var pharmacy = await prefs.pharmacy();
+  var pharmacy0 = pharmacy ?? await prefs.pharmacy();
   if (!context.mounted) return;
-  if (pharmacy.whatsapp == null || whatsappNumber(pharmacy.whatsapp!) == null) {
-    final saved = await editPharmacy(context);
-    if (saved != true || !context.mounted) return;
-    pharmacy = await prefs.pharmacy();
-    if (!context.mounted) return;
+  if (pharmacy0.whatsapp == null || whatsappNumber(pharmacy0.whatsapp!) == null) {
+    if (edit != null) {
+      final next = await edit();
+      if (next == null || next.whatsapp == null || !context.mounted) return;
+      pharmacy0 = next;
+    } else {
+      final saved = await editPharmacy(context);
+      if (saved != true || !context.mounted) return;
+      pharmacy0 = await prefs.pharmacy();
+      if (!context.mounted) return;
+    }
   }
+  final pharmacy1 = pharmacy0;
   final boxes = await FSheet.show<int>(
     context,
-    title: 'اطلبه من ${pharmacy.name ?? 'الصيدلية'}',
+    title: 'اطلبه من ${pharmacy1.name ?? 'الصيدلية'}',
     children: [_OrderBody(name: medicationName)],
   );
   if (boxes == null) return;
-  final number = whatsappNumber(pharmacy.whatsapp!)!;
+  final number = whatsappNumber(pharmacy1.whatsapp!)!;
   await openWhatsApp(Uri.https('wa.me', '/$number', {'text': pharmacyOrderMessage(medicationName, boxes)}));
 }
 

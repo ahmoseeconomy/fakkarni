@@ -17,7 +17,10 @@ void main() {
       final text = code(f);
       if (text.contains('title: addSheetTitle') || text.contains("title: 'ضيف دوا'")) where.add(f.path);
     }
-    expect(where, ['lib/features/medication/add_sheet.dart']);
+    // 0035: «ضيف» عند الممرض شيت تاني بنفس العنوان ونفس المداخل — كل مدخل
+    // بيطلّع مسوّدة لموبايل المريض بدل ما يكتب. باب لحساب تاني، مش باب تاني
+    // لنفس الأوضة.
+    expect(where, unorderedEquals(['lib/features/medication/add_sheet.dart', 'lib/features/nurse/nurse_add_sheet.dart']));
   });
 
   test('المكانين بينادوا showAddSheet — الدوك وجدول الأدوية', () {

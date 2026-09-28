@@ -99,6 +99,11 @@ class DevicePreferences extends Table {
   TextColumn get pharmacyName => text().nullable()();
   TextColumn get pharmacyWhatsapp => text().nullable()();
 
+  /// رقم الاتصال بالصيدلية (v31) — كان في `shared_preferences` (`pharmacy.call`)
+  /// جولة واحدة، وبيتنقل هنا مرة عند أول فتحة. بيتدفع على صف المريض في
+  /// السحابة (0035) عشان الممرض يطلب منها.
+  TextColumn get pharmacyCall => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

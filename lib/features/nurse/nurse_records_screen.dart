@@ -14,6 +14,8 @@ import '../care/caregiver_status.dart';
 import '../care/caregiver_words.dart' show labLineText, labRangeLine, recordKindLabel;
 import '../records/health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 import '../records/record_kinds.dart' show RecordKindWords;
+import '../../app/app_scope.dart';
+import '../records/change_history_screen.dart';
 import 'nurse_controller.dart';
 import 'nurse_doctor_screen.dart';
 import 'nurse_header.dart';
@@ -45,15 +47,7 @@ class NurseRecordsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _newRecord(BuildContext context, DateTime today) async {
-    final result = await FSheet.show<MedicationChangePayload>(
-      context,
-      title: 'ورقة جديدة',
-      children: [_NewRecordBody(today: today)],
-    );
-    if (result == null) return;
-    await controller.submit(kind: MedicationChangeKind.record, payload: result);
-  }
+  Future<void> _newRecord(BuildContext context, DateTime today) => newRecordAsNurse(context, controller, today);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -196,6 +190,22 @@ class NurseRecordsScreen extends StatelessWidget {
                 builder: (_) => NurseDoctorScreen(holder: controller.holder, now: now),
               )),
             ),
+            // «التعديلات» (0035): مين غيّر إيه وإمتى — نفس القايمة عند المريض
+            if (AppScope.maybeOf(context)?.medChanges case final remote?) ...[
+              FSecondaryButton(
+                key: const ValueKey('nurse-changes-history'),
+                label: 'التعديلات',
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => ChangeHistoryScreen(patientUuid: snapshot.patient.uuid, remote: remote, now: now),
+                )),
+              ),
+              const SizedBox(height: F.s10),
+            ],
+            for (final q in controller.queued)
+              Padding(
+                padding: const EdgeInsets.only(bottom: F.s8),
+                child: NurseQuietLine(controller.queuedLine(q), key: ValueKey('nurse-queued-${q.uuid}')),
+              ),
             if (controller.pending.isNotEmpty) ...[
               const SizedBox(height: F.gap),
               for (final c in controller.pending) NurseQuietLine(NurseController.pendingLine(c)),
@@ -318,6 +328,17 @@ class NurseRecordScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// «ورقة جديدة» من الممرض — طلب `record` لموبايل المريض (من غير صورة).
+Future<void> newRecordAsNurse(BuildContext context, NurseController controller, DateTime today) async {
+  final result = await FSheet.show<MedicationChangePayload>(
+    context,
+    title: 'ورقة جديدة',
+    children: [_NewRecordBody(today: today)],
+  );
+  if (result == null) return;
+  await controller.submit(kind: MedicationChangeKind.record, payload: result);
 }
 
 /// «ورقة جديدة» — النوع والعنوان والتاريخ، والدكتور والملاحظات لو حابب.

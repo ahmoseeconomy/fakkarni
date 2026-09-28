@@ -2,7 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:fakkarni/data/care/medication_changes.dart';
+import '../../support/fake_changes.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/data/repositories/medication_repository.dart';
@@ -20,25 +20,6 @@ import '../../support/seeded_clock.dart';
 
 /// تغييرات الممرض بتتطبّق بسكّة الأب نفسها وبتعيد الجدولة — وتعديل الأب
 /// المحلي بيكسب.
-class _FakeChanges implements MedicationChangeRemote {
-  final pending = <MedicationChange>[];
-  final marked = <(String, ChangeOutcome)>[];
-
-  @override
-  Future<void> submit({required String patientUuid, required MedicationChangeKind kind, required MedicationChangePayload payload, String? medicationUuid, String? medicationName, String? actorName}) async {}
-
-  @override
-  Future<List<MedicationChange>> fetchPending(String patientUuid) async => List.of(pending);
-
-  @override
-  Future<List<MedicationChange>> pendingFor(String patientUuid) async => List.of(pending);
-
-  @override
-  Future<void> markApplied(String changeUuid, ChangeOutcome outcome) async {
-    marked.add((changeUuid, outcome));
-    pending.removeWhere((c) => c.uuid == changeUuid);
-  }
-}
 
 final _now = DateTime(2026, 9, 15, 6);
 
@@ -48,7 +29,7 @@ void main() {
   late PatientRepository patients;
   late MedicationRepository meds;
   late ReminderScheduler scheduler;
-  late _FakeChanges remote;
+  late FakeChanges remote;
   late int patientId;
 
   setUp(() async {
@@ -60,7 +41,7 @@ void main() {
     meds = MedicationRepository(db, clock: seededLongAgo);
     patientId = await patients.ensurePatient();
     scheduler = ReminderScheduler(medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: sink);
-    remote = _FakeChanges();
+    remote = FakeChanges();
   });
 
   tearDown(() => db.close());
@@ -92,8 +73,8 @@ void main() {
     // الساعة زي ما هي — مفيش روتين يحلّها على موبايل الأب
     expect(sink.scheduled.keys, contains(notificationIdFor(DateTime(2026, 9, 15, 7))));
     expect(remote.marked, [('c1', ChangeOutcome.applied)]);
-    expect(MedicationChangePuller.notices.value, ['سارة ضاف دوا Concor 5mg']);
-    expect((await SharedPreferences.getInstance()).getStringList(MedicationChangePuller.noticesKey), ['سارة ضاف دوا Concor 5mg']);
+    expect(MedicationChangePuller.notices.value.map((n) => n.line), ['سارة ضاف دوا Concor 5mg — ٧:٠٠ ص']);
+    expect((await SharedPreferences.getInstance()).getString(MedicationChangePuller.noticesKey), contains('Concor 5mg'));
   });
 
   test('إيقاف: بيتطبّق لو الأب ما لمسش الدوا بعد الاقتراح — وتعديل الأب المحلي بيكسب', () async {
@@ -152,7 +133,7 @@ void main() {
     expect(row.doctorVisitAt, isNotNull, reason: 'الميعاد اتحط على المرحلة');
     expect(row.doctorVisitAt!.day, 18);
     expect(sink.scheduled.keys.where(isAppointmentId), isNotEmpty, reason: 'إشعارات الميعاد اتجدولت على موبايله');
-    expect(MedicationChangePuller.notices.value.single, 'سارة حط ميعاد زيارة د. حسام');
+    expect(MedicationChangePuller.notices.value.single.line, 'سارة حط ميعاد زيارة د. حسام');
     expect(remote.marked, [('c-appt', ChangeOutcome.applied)]);
   });
 
@@ -173,7 +154,7 @@ void main() {
     expect(row.doctor, 'د. سامي');
     expect(row.notes, isNull, reason: 'فاضي = مش مكتوب');
     expect(row.attachmentPath, isNull);
-    expect(MedicationChangePuller.notices.value.single, 'سارة ضاف ورقة كشف القلب');
+    expect(MedicationChangePuller.notices.value.single.line, 'سارة ضاف ورقة كشف القلب');
   });
 
   test('٠٠٢٦: ورقة من غير عنوان أو نوع مش معروف → missing، ومفيش سجل', () async {

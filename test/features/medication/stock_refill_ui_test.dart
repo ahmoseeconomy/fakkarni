@@ -87,7 +87,8 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('pharmacy-save')));
     await tester.tap(find.byKey(const ValueKey('pharmacy-save')));
     await settle(tester);
-    expect(await PreferencesRepository(h.db).pharmacy(), (name: 'صيدلية الشفا', whatsapp: '0101 234 5678'));
+    // الرقم بيتحفظ مطبّع (0035) — مسافات وشرط بتتشال
+    expect(await PreferencesRepository(h.db).pharmacy(), (name: 'صيدلية الشفا', whatsapp: '01012345678', call: null));
 
     expect(find.text('محتاج Concor 5mg — ١ علبة'), findsOneWidget, reason: 'الرسالة قدّامه قبل ما يفتح');
     expect(opened, isEmpty);

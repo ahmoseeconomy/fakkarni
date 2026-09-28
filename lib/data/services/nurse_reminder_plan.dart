@@ -8,6 +8,7 @@ library;
 
 import 'dart:convert';
 
+import '../../core/format/arabic_time.dart' show arabicTime;
 import 'reminder_plan.dart';
 
 /// جرعة واحدة زي ما موبايل المريض رفعها.
@@ -66,15 +67,24 @@ class NurseNotification {
 /// أبعد من كده مفيش أحداث في السحابة أصلاً (موبايل المريض بيجهّز لحد بكرة).
 const Duration nurseReminderHorizon = Duration(hours: 36);
 
-/// الحمولة: `{"v":1,"nurse":{"p":uuid,"e":[uuids]}}` — عمرها ما تتلخبط مع
-/// حمولة جرعة المريض (مفيها `nurse`)، والباب اللي بيقراها لوحده.
-String nursePayload(String patientUuid, List<String> events) => jsonEncode({
-      'v': 1,
-      'nurse': {'p': patientUuid, 'e': events},
+/// الحمولة: `{"v":2,"nurse":{"p":uuid,"e":[uuids],"at":ms,"i":index,"t":title}}`
+/// — عمرها ما تتلخبط مع حمولة جرعة المريض (مفيها `nurse`)، والباب اللي
+/// بيقراها لوحده. `at` و`i` عشان «لاحقاً» يشتق رقم التأجيل من الخانة
+/// الأصلية من غير ما يخزّن حاجة (0035).
+String nursePayload(String patientUuid, List<String> events, {DateTime? at, int? patientIndex, String? title}) =>
+    jsonEncode({
+      'v': 2,
+      'nurse': {
+        'p': patientUuid,
+        'e': events,
+        'at': ?at?.millisecondsSinceEpoch,
+        'i': ?patientIndex,
+        't': ?title,
+      },
     });
 
 /// null = مش حمولة ممرض.
-({String patient, List<String> events})? parseNursePayload(String? payload) {
+({String patient, List<String> events, DateTime? at, int? patientIndex, String? title})? parseNursePayload(String? payload) {
   if (payload == null) return null;
   try {
     final json = jsonDecode(payload);
@@ -83,11 +93,25 @@ String nursePayload(String patientUuid, List<String> events) => jsonEncode({
     final p = n['p'];
     final e = n['e'];
     if (p is! String || e is! List) return null;
-    return (patient: p, events: [for (final x in e) if (x is String) x]);
+    final at = n['at'];
+    final i = n['i'];
+    return (
+      patient: p,
+      events: [for (final x in e) if (x is String) x],
+      at: at is num ? DateTime.fromMillisecondsSinceEpoch(at.toInt()) : null,
+      patientIndex: i is num ? i.toInt() : null,
+      title: n['t'] as String?,
+    );
   } catch (_) {
     return null;
   }
 }
+
+/// «ميعاد دوا الحاج أحمد: كونكور — ٨:٠٠ م» — نص تذكير الممرض (0035).
+String nurseReminderTitle(String patientName, List<String> medicationNames, DateTime at) =>
+    'ميعاد دوا $patientName: ${medicationNames.join('، ')} — ${arabicTime(at)}';
+
+const String nurseReminderBody = 'لما ياخده، دوس «أخدها».';
 
 /// «ميعاد دوا الحاج أحمد: كونكور» — دواءين في نفس الدقيقة إشعار واحد.
 List<NurseNotification> planNurseReminders(List<NursePatientDoses> patients, {required DateTime now}) {
@@ -105,12 +129,13 @@ List<NurseNotification> planNurseReminders(List<NursePatientDoses> patients, {re
     for (final entry in byMinute.entries) {
       final doses = entry.value;
       final names = <String>{for (final d in doses) d.medicationName}.toList();
+      final title = nurseReminderTitle(p.name, names, entry.key);
       out.add(NurseNotification(
         id: nurseIdFor(entry.key, patientIndex: p.index),
         at: entry.key,
-        title: 'ميعاد دوا ${p.name}: ${names.join('، ')}',
-        body: 'لما ياخده، دوس «أكّد إنه أخدها».',
-        payload: nursePayload(p.uuid, [for (final d in doses) d.eventUuid]),
+        title: title,
+        body: nurseReminderBody,
+        payload: nursePayload(p.uuid, [for (final d in doses) d.eventUuid], at: entry.key, patientIndex: p.index, title: title),
         insistent: doses.any((d) => d.insistent),
       ));
     }

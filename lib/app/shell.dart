@@ -12,6 +12,7 @@ import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
 import '../data/care/caregiver_remote.dart' show CaregiverPatient, MultiPatientRemote;
+import '../features/nurse/nurse_add_sheet.dart';
 import '../features/nurse/nurse_controller.dart';
 import '../features/nurse/nurse_header.dart';
 import '../features/nurse/nurse_medications_screen.dart';
@@ -170,7 +171,7 @@ class CaregiverShell extends StatefulWidget {
   /// **حساب الممرض (٢٤ سبتمبر ٢٠٢٦، قرار المالك): مرآة كاملة لتطبيق
   /// المريض** — «يومك» و«أدويته» و«السجل» بمقاسات المريض، وترويسة ثابتة
   /// «بتتابع: {اسم}» فوق كل شاشة. مش متابع بصلاحيات زيادة.
-  static const nurseTabs = ['يومك', 'أدويته', 'الملف الطبي', 'الإعدادات'];
+  static const nurseTabs = ['يومك', 'الأدوية', 'ملفّي', 'الإعدادات'];
 
   /// تبويبات البيانات — السؤال الدوري شغّال وواحد منهم ظاهر.
   static const dataTabs = {0, 1, 2};
@@ -212,6 +213,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
     _nurseReminders = NurseReminders(
       sink: widget.nurseSink ?? const DeviceNurseReminderSink(),
       remote: remote is MultiPatientRemote ? remote as MultiPatientRemote : null,
+      preferences: AppScope.of(context).caregiverPreferences,
       clock: widget.now == null ? null : () => widget.now!,
     );
   }
@@ -239,6 +241,8 @@ class _CaregiverShellState extends State<CaregiverShell> {
   /// ده كان هيخلّي التوصيل «موجود» وهو مش شغّال.
   void _onSnapshot() {
     _syncNurseReminders();
+    // طابور الممرض الأوفلاين (0035): النت رجع = الصورة وصلت = ابعت اللي مستني
+    if (_holder?.snapshot?.patient.isNurse ?? false) unawaited(_nurse?.flushQueue());
     final patient = _holder?.snapshot?.patient;
     if (patient != null) {
       unawaited(_checkOnboarding(patient.uuid));
@@ -365,6 +369,22 @@ class _CaregiverShellState extends State<CaregiverShell> {
     return Scaffold(
       extendBody: true,
       appBar: _tab == 3 ? null : NurseHeader(holder: holder),
+      // «ضيف» جوّه الدوك زي المريض بالظبط — بس كل مدخل بيطلّع مسوّدة بتتبعت
+      // لموبايله (0035). من غير «يعدّل الأدوية» مفيش زرار.
+      floatingActionButton: keyboardIsUp(context) || !nurse.canEdit
+          ? null
+          : _AddButton(
+              onPressed: () => showNurseAddSheet(
+                context,
+                nurse,
+                today: widget.now,
+                onNewRecord: () {
+                  final t = widget.now ?? DateTime.now();
+                  newRecordAsNurse(context, nurse, DateTime(t.year, t.month, t.day));
+                },
+              ),
+            ),
+      floatingActionButtonLocation: const _InDockLocation(),
       body: IndexedStack(
         index: _tab,
         children: [
@@ -377,6 +397,8 @@ class _CaregiverShellState extends State<CaregiverShell> {
                 patient: patient,
                 nurseReminders: true,
                 onNurseRemindersChanged: _syncNurseReminders,
+                nursePatients: [for (final p in (holder.patients.isEmpty ? [?patient] : holder.patients)) if (p.isNurse) p],
+                onNurseDoseRemindersChanged: (uuid, on) => _nurseReminders?.setDoseRemindersOn(uuid, on),
               ),
             ),
           ),
@@ -392,7 +414,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
                 Icons.folder_outlined,
                 Icons.settings_outlined,
               ],
-              gapForAdd: false,
+              gapForAdd: nurse.canEdit,
               current: _tab,
               onSelect: _select,
             ),

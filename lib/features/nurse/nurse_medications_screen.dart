@@ -19,6 +19,7 @@ import '../../domain/medication/medication_purpose.dart';
 import '../../domain/medication/stock.dart' show stockUnitOf;
 import '../medication/nurse_draft.dart';
 import '../medication/refill_actions.dart' show showRestockSheet;
+import 'nurse_actions.dart';
 import 'nurse_controller.dart';
 import 'nurse_widgets.dart';
 
@@ -226,13 +227,23 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
                   child: NurseQuietLine(NurseController.pendingLine(c), key: ValueKey('nurse-pending-${c.uuid}')),
                 ),
               if (snapshot.medications.isEmpty) const NurseQuietLine('لسه مفيش أدوية على موبايله.'),
+              for (final q in _c.queued)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: F.s10),
+                  child: NurseQuietLine(_c.queuedLine(q), key: ValueKey('nurse-queued-${q.uuid}')),
+                ),
               for (final m in snapshot.medications) _MedicationCard(
                 med: m,
                 patientUuid: snapshot.patient.uuid,
                 onPhoto: canEdit ? () => _changePhoto(m) : null,
                 onAmount: canEdit ? () => _editAmount(m) : null,
-                onStop: canEdit ? () => _stop(m) : null,
+                onStop: canEdit && !m.stopped ? () => _stop(m) : null,
+                onResume: canEdit && m.stopped ? () => _c.resumeMedication(m) : null,
+                onTimings: canEdit && !m.stopped ? () => editTimingsAsNurse(context, _c, m) : null,
+                onRemove: canEdit ? () => removeAsNurse(context, _c, m) : null,
                 onRestock: canEdit ? () => _restock(m) : null,
+                onSetStock: canEdit ? () => setStockAsNurse(context, _c, m) : null,
+                onOrder: m.stockLow ? () => orderForPatient(context, _c, m.name) : null,
               ),
               if (canEdit) ...[
                 const SizedBox(height: F.s8),
@@ -253,11 +264,21 @@ class _MedicationCard extends StatelessWidget {
     required this.patientUuid,
     this.onAmount,
     this.onStop,
+    this.onResume,
+    this.onTimings,
+    this.onRemove,
     this.onRestock,
+    this.onSetStock,
+    this.onOrder,
     this.onPhoto,
   });
 
   final CaregiverMedication med;
+  final VoidCallback? onResume;
+  final VoidCallback? onTimings;
+  final VoidCallback? onRemove;
+  final VoidCallback? onSetStock;
+  final VoidCallback? onOrder;
   final String patientUuid;
 
   /// «غيّر الصورة» — طلب معلّق (٠٠٢٩)، لو المريض سمح بالتعديل.
@@ -340,12 +361,45 @@ class _MedicationCard extends StatelessWidget {
                 onPressed: onPhoto,
               ),
             ],
+            if (med.stopped) line('الحالة', 'موقوف'),
             if (onRestock != null && med.stockQuantity != null) ...[
               const SizedBox(height: F.s8),
               FSecondaryButton(
                 key: ValueKey('nurse-restock-${med.uuid}'),
                 label: 'اشتريت علبة جديدة',
                 onPressed: onRestock,
+              ),
+            ],
+            if (onSetStock != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-set-stock-${med.uuid}'),
+                label: med.stockQuantity == null ? 'سجّل المخزون' : 'ظبّط المخزون',
+                onPressed: onSetStock,
+              ),
+            ],
+            if (onOrder != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-order-${med.uuid}'),
+                label: 'اطلبه من الصيدلية',
+                onPressed: onOrder,
+              ),
+            ],
+            if (onTimings != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-timings-${med.uuid}'),
+                label: 'غيّر المواعيد',
+                onPressed: onTimings,
+              ),
+            ],
+            if (onResume != null) ...[
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: ValueKey('nurse-resume-${med.uuid}'),
+                label: 'رجّعه',
+                onPressed: onResume,
               ),
             ],
             if (onAmount != null || onStop != null) ...[
@@ -360,14 +414,27 @@ class _MedicationCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: F.s8),
-                  Expanded(
-                    child: FSecondaryButton(
-                      key: ValueKey('nurse-stop-${med.uuid}'),
-                      label: 'وقّفه',
-                      onPressed: onStop,
+                  if (onStop != null)
+                    Expanded(
+                      child: FSecondaryButton(
+                        key: ValueKey('nurse-stop-${med.uuid}'),
+                        label: 'وقّفه',
+                        onPressed: onStop,
+                      ),
                     ),
-                  ),
                 ],
+              ),
+            ],
+            if (onRemove != null) ...[
+              const SizedBox(height: F.s8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  key: ValueKey('nurse-remove-${med.uuid}'),
+                  onPressed: onRemove,
+                  style: TextButton.styleFrom(foregroundColor: F.ink, minimumSize: const Size(F.minTapTarget, F.minTapTarget)),
+                  child: const Text('شيله خالص'),
+                ),
               ),
             ],
           ],

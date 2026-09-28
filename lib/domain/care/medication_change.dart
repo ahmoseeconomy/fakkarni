@@ -30,13 +30,49 @@ enum MedicationChangeKind {
   photo('غيّر صورة'),
 
   /// ٠٠٣١: «اشتريته» من الممرض — بيشيل الدوا من «أدوية لسه ماتشترتش».
-  bought('علّم إنه اشترى');
+  bought('علّم إنه اشترى'),
 
-  const MedicationChangeKind(this.verb);
+  // ---- 0035: تطبيق الممرض نسخة من تطبيق المريض
+  /// ساعات الدوا وأيامه من جديد: الجديد بيتكتب الأول والقديم بيتوقف —
+  /// نفس `replaceDoses` بتاعة شاشة التعديل.
+  timings('غيّر مواعيد'),
+
+  /// «شيله خالص» — شيل ناعم (`removed_at`)، عمره ما مسح.
+  remove('شال دوا'),
+
+  /// رجوع دوا موقوف.
+  resume('رجّع دوا'),
+
+  /// قياس (ضغط / سكر / وزن / …) — صف في `vitals` على موبايل المريض.
+  vital('سجّل قياس', stored: 'vital'),
+
+  /// الكمية دلوقتي وأيام التحذير — بتتكتب فوق، عكس «علبة جديدة» اللي بتزوّد.
+  stockSet('ظبّط مخزون', stored: 'stock_set'),
+
+  /// «صيدليتي» بتاعة المريض: الاسم ورقم الاتصال والواتساب.
+  pharmacy('غيّر صيدليتك', stored: 'pharmacy');
+
+  const MedicationChangeKind(this.verb, {String? stored}) : _stored = stored; // ignore: prefer_initializing_formals
 
   final String verb;
+  final String? _stored;
 
-  static MedicationChangeKind? fromStored(String? s) => values.asNameMap()[s];
+  /// الاسم في السحابة (قيد `medication_changes_kind_check`).
+  String get stored => _stored ?? name;
+
+  static MedicationChangeKind? fromStored(String? s) {
+    for (final k in values) {
+      if (k.stored == s) return k;
+    }
+    return null;
+  }
+
+  /// اللي المريض يقدر يرجّعه في ٢٤ ساعة. الصورة والقياس مالهمش رجوع
+  /// (الصورة القديمة راحت، والقياس رقم اتقاس فعلاً).
+  bool get undoable => switch (this) {
+        MedicationChangeKind.photo || MedicationChangeKind.vital => false,
+        _ => true,
+      };
 }
 
 /// اللي بيتبعت للسيرفر: ملء الفورم عند الممرض بشكل يتخزّن ويتقرا من غير
@@ -61,7 +97,46 @@ class MedicationChangePayload {
     this.day,
     this.quantity,
     this.photoPath,
+    this.weekdaysMask,
+    this.everyDays,
+    this.cycleOn,
+    this.cycleOff,
+    this.mealRelation,
+    this.vitalKind,
+    this.value,
+    this.value2,
+    this.pulse,
+    this.measuredAt,
+    this.warnDays,
+    this.pharmacyName,
+    this.pharmacyCall,
+    this.pharmacyWhatsapp,
   });
+
+  // ---- 0035
+  /// نمط الأيام للساعات الجديدة (v29 خام — null كله = كل يوم).
+  final int? weekdaysMask;
+  final int? everyDays;
+  final int? cycleOn;
+  final int? cycleOff;
+
+  /// كلمة الأكل (`MealRelation.storageName`).
+  final String? mealRelation;
+
+  /// القياس: النوع بالاسم، الرقم (الانقباضي أو القيمة)، الانبساطي، النبض، والوقت.
+  final String? vitalKind;
+  final double? value;
+  final double? value2;
+  final int? pulse;
+  final DateTime? measuredAt;
+
+  /// المخزون: أيام التحذير (مع [quantity]).
+  final int? warnDays;
+
+  /// «صيدليتي».
+  final String? pharmacyName;
+  final String? pharmacyCall;
+  final String? pharmacyWhatsapp;
 
   /// الكمية الجديدة — «علبة جديدة».
   final double? quantity;
@@ -116,6 +191,20 @@ class MedicationChangePayload {
         if (day != null) 'day': _date(day),
         if (quantity != null) 'quantity': quantity,
         if (photoPath != null) 'photo_path': photoPath,
+        if (weekdaysMask != null) 'weekdays_mask': weekdaysMask,
+        if (everyDays != null) 'every_days': everyDays,
+        if (cycleOn != null) 'cycle_on': cycleOn,
+        if (cycleOff != null) 'cycle_off': cycleOff,
+        if (mealRelation != null) 'meal_relation': mealRelation,
+        if (vitalKind != null) 'vital_kind': vitalKind,
+        if (value != null) 'value': value,
+        if (value2 != null) 'value2': value2,
+        if (pulse != null) 'pulse': pulse,
+        if (measuredAt != null) 'measured_at': measuredAt!.toUtc().toIso8601String(),
+        if (warnDays != null) 'warn_days': warnDays,
+        if (pharmacyName != null) 'pharmacy_name': pharmacyName,
+        if (pharmacyCall != null) 'pharmacy_call': pharmacyCall,
+        if (pharmacyWhatsapp != null) 'pharmacy_whatsapp': pharmacyWhatsapp,
       };
 
   static String? _date(DateTime? d) => d == null ? null : '${d.year}-${_two(d.month)}-${_two(d.day)}';
@@ -146,6 +235,20 @@ class MedicationChangePayload {
       day: date(json['day']),
       quantity: (json['quantity'] as num?)?.toDouble(),
       photoPath: json['photo_path'] as String?,
+      weekdaysMask: (json['weekdays_mask'] as num?)?.toInt(),
+      everyDays: (json['every_days'] as num?)?.toInt(),
+      cycleOn: (json['cycle_on'] as num?)?.toInt(),
+      cycleOff: (json['cycle_off'] as num?)?.toInt(),
+      mealRelation: json['meal_relation'] as String?,
+      vitalKind: json['vital_kind'] as String?,
+      value: (json['value'] as num?)?.toDouble(),
+      value2: (json['value2'] as num?)?.toDouble(),
+      pulse: (json['pulse'] as num?)?.toInt(),
+      measuredAt: json['measured_at'] is String ? DateTime.tryParse(json['measured_at'] as String)?.toLocal() : null,
+      warnDays: (json['warn_days'] as num?)?.toInt(),
+      pharmacyName: json['pharmacy_name'] as String?,
+      pharmacyCall: json['pharmacy_call'] as String?,
+      pharmacyWhatsapp: json['pharmacy_whatsapp'] as String?,
       name: json['name'] as String?,
       timings: timings,
       amountLabel: json['amount'] as String?,
@@ -168,7 +271,13 @@ class MedicationChange {
     this.medicationUuid,
     this.medicationName,
     this.actorName,
+    this.appliedAt,
+    this.outcome,
   });
+
+  /// 0035 — لقايمة «التعديلات»: إمتى اتطبّق وبإيه انتهى. null = لسه معلّق.
+  final DateTime? appliedAt;
+  final ChangeOutcome? outcome;
 
   final String uuid;
   final MedicationChangeKind kind;
@@ -184,7 +293,11 @@ class MedicationChange {
 }
 
 /// نتيجة التطبيق على موبايل الأب — بتتكتب على الصف في السحابة.
-enum ChangeOutcome { applied, conflict, missing }
+/// `reverted` (0035): اتطبّق وبعدين المريض داس «تراجع» في ٢٤ ساعة.
+enum ChangeOutcome { applied, conflict, missing, reverted }
+
+/// المدة اللي «تراجع» متاح فيها على «يومك».
+const Duration changeUndoWindow = Duration(hours: 24);
 
 /// «سارة ضافت دوا Concor» — الجملة على «يومك» بعد التطبيق. من غير اسم:
 /// «حد بيتابعك».
@@ -203,7 +316,21 @@ String changeSubject(MedicationChange change) {
       return name == null || name.isEmpty ? what : '$what $name';
     case MedicationChangeKind.record:
       return name == null || name.isEmpty ? 'ورقة' : name;
-    case MedicationChangeKind.add || MedicationChangeKind.stop || MedicationChangeKind.amount || MedicationChangeKind.restock || MedicationChangeKind.photo || MedicationChangeKind.bought:
+    case MedicationChangeKind.vital:
+      return name == null || name.isEmpty ? 'قياس' : name;
+    case MedicationChangeKind.pharmacy:
+      final p = change.payload.pharmacyName?.trim();
+      return (p == null || p.isEmpty) ? 'لصيدلية تانية' : 'لـ$p';
+    case MedicationChangeKind.add ||
+          MedicationChangeKind.stop ||
+          MedicationChangeKind.amount ||
+          MedicationChangeKind.restock ||
+          MedicationChangeKind.photo ||
+          MedicationChangeKind.bought ||
+          MedicationChangeKind.timings ||
+          MedicationChangeKind.remove ||
+          MedicationChangeKind.resume ||
+          MedicationChangeKind.stockSet:
       return (name == null || name.isEmpty) ? (change.medicationName ?? 'دوا') : name;
   }
 }
