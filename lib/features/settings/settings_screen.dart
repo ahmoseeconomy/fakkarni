@@ -46,7 +46,11 @@ const caregiverCanSee =
     'وبيشوف صور الورق بس لو فتحت «شارك صور الورق مع الممرض».';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.releaseMode = kReleaseMode});
+
+  /// نسخة المتجر؟ — `kReleaseMode` ثابت وقت الترجمة، فالاختبار بيمرّر الحالتين
+  /// (`settings_release_test`): «للمطوّر» مش موجود في release إلا من الباب.
+  final bool releaseMode;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -73,7 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  bool get developerVisible => !kReleaseMode || _devDoor;
+  bool get developerVisible => !widget.releaseMode || _devDoor;
 
   Future<void> _versionTap() async {
     _versionTaps++;

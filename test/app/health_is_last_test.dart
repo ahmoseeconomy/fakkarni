@@ -80,7 +80,8 @@ void main() {
 
     test('في الإعدادات: صف الفحص تحت «للمطوّر» وجوّه !kReleaseMode', () {
       // البوابة: مخفي في release إلا من باب المطوّر (٧ دوسات على سطر النسخة)
-      expect(settings, contains('bool get developerVisible => !kReleaseMode || _devDoor;'));
+      expect(settings, contains('bool get developerVisible => !widget.releaseMode || _devDoor;'));
+      expect(settings, contains('this.releaseMode = kReleaseMode'), reason: 'الافتراضي هو نسخة البناء');
       final gate = settings.indexOf('if (developerVisible)');
       final head = settings.indexOf("FSectionHead('للمطوّر')");
       final row = settings.indexOf("label: 'اطمن إن التذكير هيشتغل'");
