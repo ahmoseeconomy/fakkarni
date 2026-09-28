@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0033: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0037: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -342,6 +342,26 @@ with expected(migration, kind, ident) as (
     ('0035_nurse_full_edit', 'function', 'private.confirm_signal_window'),
     ('0035_nurse_full_edit', 'trigger',  'public.dose_events|confirm_signal_on_taken'),
     ('0035_nurse_full_edit', 'function', 'public.confirm_signal_targets_for_service'),
+    -- 0037 — الفحص الذاتي: حالة الجهاز وأكواده، الصف بصاحبه، الساكت، والـview
+    ('0037_device_self_check', 'column',   'public.device_health.status'),
+    ('0037_device_self_check', 'column',   'public.device_health.codes'),
+    ('0037_device_self_check', 'column',   'public.device_health.user_id'),
+    ('0037_device_self_check', 'column',   'public.device_health.status_since'),
+    ('0037_device_self_check', 'constraintdef', 'public.device_health|device_health_status_check|silent'),
+    ('0037_device_self_check', 'constraintdef', 'public.device_health|device_health_codes_check|jsonb_typeof'),
+    ('0037_device_self_check', 'policy',   'public.device_health|device_health_select'),
+    ('0037_device_self_check', 'policy',   'public.device_health|device_health_insert'),
+    ('0037_device_self_check', 'policy',   'public.device_health|device_health_update'),
+    ('0037_device_self_check', 'policy',   'public.device_health|device_health_delete'),
+    ('0037_device_self_check', 'index',    'public|device_health_user_idx'),
+    ('0037_device_self_check', 'index',    'public|device_health_status_idx'),
+    ('0037_device_self_check', 'function', 'private.device_health_status_since'),
+    ('0037_device_self_check', 'trigger',  'public.device_health|device_health_status_since'),
+    ('0037_device_self_check', 'function', 'private.device_silent_after'),
+    ('0037_device_self_check', 'function', 'private.mark_silent_devices'),
+    ('0037_device_self_check', 'funcsrc',  'private.mark_silent_devices|device_silent_after'),
+    ('0037_device_self_check', 'view',     'private.admin_device_health'),
+    ('0037_device_self_check', 'cron',     'fakkarni-device-silent'),
 ),
 checked as (
   select
@@ -426,6 +446,12 @@ checked as (
         where b.id = split_part(e.ident, '|', 1)
           and b.file_size_limit = split_part(e.ident, '|', 2)::bigint
           and b.allowed_mime_types = array[split_part(e.ident, '|', 3)])
+
+      -- view بالاسم: 'private.admin_device_health'
+      when 'view' then exists (
+        select 1 from pg_views v
+        where v.schemaname = split_part(e.ident, '.', 1)
+          and v.viewname   = split_part(e.ident, '.', 2))
 
       -- مهمة cron بالاسم: 'fakkarni-escalate'
       --
