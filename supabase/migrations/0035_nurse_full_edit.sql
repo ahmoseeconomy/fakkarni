@@ -366,10 +366,12 @@ begin
       values (v_pat, v_nurse, 'accepted', 'nurse',    true,  true),
              (v_pat, v_son,   'accepted', 'follower', false, false);
     insert into public.medications (uuid, patient_uuid, name) values (v_med, v_pat, 'Concor');
-    insert into public.dose_schedules (uuid, medication_uuid, timing_kind) values (v_sched, v_med, 'fixed');
+    insert into public.dose_schedules (uuid, medication_uuid, timing_kind, repeat, start_date)
+      values (v_sched, v_med, 'fixed', 'daily', current_date);
+    insert into public.fixed_timings (uuid, dose_schedule_uuid, minute_of_day) values (gen_random_uuid(), v_sched, 540);
     -- جرعة معادها من ٤٠ دقيقة: جوّه نافذة الممرض (٣٠) وبرّه نافذة الابن (٦٠)
-    insert into public.dose_events (uuid, dose_schedule_uuid, scheduled_at, state)
-      values (v_ev, v_sched, now() - interval '40 minutes', 'pending');
+    insert into public.dose_events (uuid, dose_schedule_uuid, routine_day, scheduled_at, state)
+      values (v_ev, v_sched, current_date, now() - interval '40 minutes', 'pending');
 
     -- ١) كل نوع جديد بيدخل من الممرض اللي معاه «يعدّل الأدوية» — بـuuid من
     --    الموبايل (الطابور الأوفلاين بيعيد نفس الصف، والمفتاح الأساسي هو الحارس)
@@ -450,8 +452,8 @@ begin
     -- ٥) إشارة «اتأكّدت»: جرعة من ٣ أيام بتتعلّم taken (إعادة رفع تاريخ) →
     --    **مفيش نداء**؛ جرعة النهارده → نداء واحد؛ وتأكيد نيابةً على قديمة → لأ
     create temp table confirm_signal_calls (dose_event_uuid uuid, source text) on commit drop;
-    insert into public.dose_events (uuid, dose_schedule_uuid, scheduled_at, state)
-      values (v_old_ev, v_sched, now() - interval '3 days', 'taken');
+    insert into public.dose_events (uuid, dose_schedule_uuid, routine_day, scheduled_at, state)
+      values (v_old_ev, v_sched, current_date - 3, now() - interval '3 days', 'taken');
     update public.dose_events set state = 'taken' where uuid = v_old_ev;
     select count(*) into v_n from pg_temp.confirm_signal_calls;
     if v_n <> 0 then raise exception 'FAIL 0035: جرعة من ٣ أيام طلّعت إشارة تأكيد (%)', v_n; end if;
