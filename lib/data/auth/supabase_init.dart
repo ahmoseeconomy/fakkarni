@@ -86,6 +86,9 @@ typedef IsolateCloud = ({
   SyncRemote syncRemote,
   bool Function() hasSession,
   Future<void> Function() shutdown,
+  // الفحص اليومي في الخلفية: النبضة وصاحب الجلسة (0037) — قراية وبس
+  HealthRemote health,
+  String? Function() userId,
 });
 
 /// تهيئة Supabase جوّه isolate الخلفية — بتقرا الجلسة المحفوظة، من غير شبكة.
@@ -132,6 +135,8 @@ Future<IsolateCloud?> initSupabaseForIsolate() async {
       shutdown: _initialisedByApp
           ? () async {}
           : () async => supabase.client.auth.stopAutoRefresh(),
+      health: SupabaseHealthRemote(supabase.client),
+      userId: () => supabase.client.auth.currentUser?.id,
     );
   } catch (error, stack) {
     // نفس سياسة الفتح: السحابة اختيارية، والجرعة لأ.

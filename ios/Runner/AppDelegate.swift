@@ -4,6 +4,7 @@ import UserNotifications
 import os
 // لازم عشان FlutterLocalNotificationsPlugin.setPluginRegistrantCallback
 import flutter_local_notifications
+import workmanager_apple
 
 /// أثر تشخيصي بيعيش من غير مصحّح متوصّل.
 ///
@@ -219,6 +220,12 @@ enum LiveActionChannel {
 
     // من غير السطر ده iOS مش بيعرض التذكير والتطبيق مفتوح قدام المستخدم.
     UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+
+    // الفحص الآلي اليومي (BGAppRefreshTask): BGTaskScheduler بيسلّم المهمة
+    // لتطبيق اتفتح من جديد **بس** لو معالجها اتسجّل قبل ما didFinishLaunching
+    // ترجع — وعلى دورة حياة UIScene فلاتر بيسجّل الإضافات بعدها، فالإضافة
+    // نفسها ما بتلحقش (مقروء من مصدر workmanager_apple: registerLaunchHandlers).
+    WorkmanagerPlugin.registerLaunchHandlers()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -251,6 +258,12 @@ enum LiveActionChannel {
       }
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // الفحص اليومي في الخلفية بيقوم على محرّك فلاتر تالت — من غير التسجيل
+    // ده بياخد صفر إضافات (نفس درس المحرّك الخلفي بتاع «أخدته»).
+    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
 
     // «أخدته» والتطبيق عايش — على الإنجن الرئيسي بس
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LiveActionChannel") {

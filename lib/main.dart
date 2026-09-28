@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_scope.dart';
+import 'app/background_health.dart';
 import 'app/bootstrap.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
@@ -276,6 +277,9 @@ Future<void> main() async {
   AppServices.afterScheduleChange = HealthWatcher.scheduleChanged;
   AppServices.checkHealthIfDue = () => HealthWatcher.instance!.runIfDue();
   unawaited(HealthWatcher.instance!.runIfDue(force: true));
+  // ومرة في اليوم في الخلفية (WorkManager / BGTaskScheduler) — نفس الفحص،
+  // لو المريض ما فتحش التطبيق. مجاملة، بعد كل وعد.
+  unawaited(BackgroundHealth.register());
 
   unawaited(MedicationChangePuller.loadNotices());
   // v31: رقم اتصال الصيدلية من shared_preferences للعمود — مرة واحدة

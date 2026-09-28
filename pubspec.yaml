@@ -81,6 +81,7 @@ dependencies:
   speech_to_text: ^7.5.0
   # النسخة الحقيقية من الحزمة (pubspec → Info.plist) — «النسخة» في الإعدادات والنبضة
   package_info_plus: ^10.2.1
+  workmanager: ^0.10.10
 
 dev_dependencies:
   flutter_test:
