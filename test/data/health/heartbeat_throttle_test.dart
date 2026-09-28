@@ -115,6 +115,8 @@ void main() {
       'os_version', 'tz', 'notif_permission', 'pending_count', 'horizon_until',
       'has_token', 'has_caregiver', 'last_sync_at', 'dirty_count',
       'failing_codes', 'battery_state',
+      // 0037: الحالة كلمة والأكواد jsonb — أكواد برضه، ولا بيان طبي
+      'status', 'codes',
     };
     expect(remote.rows.single.keys.toSet(), allowed);
 

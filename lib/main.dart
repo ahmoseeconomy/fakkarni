@@ -167,6 +167,7 @@ Future<void> main() async {
   final services = await buildServices(
     db,
     auth: cloud?.auth,
+    sessionHealth: cloud?.sessionHealth,
     care: cloud?.care,
     caregiver: cloud?.caregiver,
     caregiverPreferences: cloud?.caregiverPreferences,
@@ -256,14 +257,25 @@ Future<void> main() async {
   // اختبار بيقرا الملف ده ويوقع لو الترتيب اتقلب — كسرناه مرتين في يوم
   // واحد، مرة في الـisolate ومرة هنا.
   final patient = await services.patients.getPatient(services.patientId);
-  unawaited(HealthWatcher(
+  HealthWatcher.instance = HealthWatcher(
     collector: HealthCollector(services),
     // النبضة بس لما صف المريض في السحابة وبتاع الجلسة دي — نفس بوابة الدفع.
     // من غيرها كانت بترجع 42501 على كل فتحة لمريض مش مربوط.
     heartbeat: (cloud == null || patient == null || sync == null)
         ? null
-        : HealthHeartbeat(remote: cloud.health, patientUuid: patient.uuid, eligible: sync.cloudOwnsPatient),
-  ).run());
+        : HealthHeartbeat(
+            remote: cloud.health,
+            patientUuid: patient.uuid,
+            eligible: sync.cloudOwnsPatient,
+            userId: () async => cloud.auth.currentUser?.id,
+          ),
+  );
+  // الفتحة الباردة: فحص على طول؛ الرجوع للمقدمة (root) وكل حفظ (AppScope)
+  // بيندهوا `runIfDue` — عشر دقايق بين الفحوص إلا بعد تغيير جدول.
+  // **ولا إشعار ولا شاشة من الفحص ده** — بيصلّح في صمت وبيبلّغ الأدمن.
+  AppServices.afterScheduleChange = HealthWatcher.scheduleChanged;
+  AppServices.checkHealthIfDue = () => HealthWatcher.instance!.runIfDue();
+  unawaited(HealthWatcher.instance!.runIfDue(force: true));
 
   unawaited(MedicationChangePuller.loadNotices());
   // v31: رقم اتصال الصيدلية من shared_preferences للعمود — مرة واحدة

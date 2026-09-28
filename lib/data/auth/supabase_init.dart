@@ -29,6 +29,8 @@ import '../health/supabase_health_remote.dart';
 import '../push/supabase_push_tokens.dart';
 import '../sync/supabase_sync_remote.dart';
 import '../sync/sync_service.dart';
+import 'session_health.dart';
+import 'supabase_session_health.dart';
 import 'anonymous_auth_service.dart';
 import 'auth_service.dart';
 
@@ -141,6 +143,7 @@ Future<IsolateCloud?> initSupabaseForIsolate() async {
 /// خدمات السحابة مع بعض — الهوية ودائرة الرعاية فوق نفس العميل.
 typedef CloudServices = ({
   AuthService auth,
+  SessionHealth sessionHealth,
   CareCircleService care,
   CaregiverRemote caregiver,
   CaregiverPreferencesService caregiverPreferences,
@@ -179,6 +182,7 @@ Future<CloudServices?> initSupabaseAuth() async {
     // للخطة (config.googleServerClientId مستني له).
     return (
       auth: AnonymousAuthService(supabase.client),
+      sessionHealth: SupabaseSessionHealth(supabase.client),
       care: SupabaseCareCircleService(supabase.client),
       caregiver: SupabaseCaregiverRemote(supabase.client),
       caregiverPreferences: SupabaseCaregiverPreferences(supabase.client),

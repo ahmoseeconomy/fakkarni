@@ -54,7 +54,15 @@ class HealthSnapshot {
     this.planTruncated = false,
     this.patternRejectedSince,
     this.listenProblemSince,
+    this.sessionExpired,
+    this.appVersionKnown = true,
   });
+
+  /// null = مفيش جلسة (مش عطل)، true = فيه ومنتهية، false = صالحة.
+  final bool? sessionExpired;
+
+  /// النسخة اتقرت من الحزمة.
+  final bool appVersionKnown;
 
   /// آخر مرة المايك اتداس والسماع ما بدأش (مش الإذن) — null = مفيش.
   final DateTime? listenProblemSince;

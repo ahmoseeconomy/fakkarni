@@ -44,6 +44,14 @@ enum HealthCode {
   /// بإيدك» مرة والزرار اختفى؛ **السبب في سجل التشخيص (`Listen:`) وللأدمن
   /// الكود ده بس.**
   listenUnavailable,
+
+  /// الجلسة موجودة ومنتهية — الرفع والسحبات كلها هتترفض لحد ما تتجدّد.
+  /// **بيتصلّح لوحده** (تجديد)، وللأدمن لو التجديد وقع.
+  sessionExpired,
+
+  /// نسخة التطبيق ما اتقرتش من الحزمة — النبضة بتبلّغ «dev» أو فاضي.
+  /// للأدمن بس؛ مفيش حاجة يعملها المريض.
+  appVersionUnknown,
 }
 
 /// **اللي التطبيق بيصلّحه لوحده وفي صمت** — المريض عمره ما يشوف كود.
@@ -58,6 +66,7 @@ const Set<HealthCode> autoFixableCodes = {
   HealthCode.timezoneChanged,
   HealthCode.pushToken,
   HealthCode.staleSync,
+  HealthCode.sessionExpired,
 };
 
 /// **الاستثناء الوحيد اللي بيوصل شاشة المريض**: إذن التنبيهات مقفول.
@@ -459,6 +468,30 @@ HealthFinding? checkNoMedications(HealthSnapshot s) {
     title: 'لسه مفيش أدوية متسجّلة',
     why: 'مفيش حاجة تترن دلوقتي. ضيف دوا من زرار «ضيف» وهنفكّرك بيه في '
         'معاده.',
+    fix: HealthFix.none,
+  );
+}
+
+/// الجلسة منتهية — التجديد إصلاح آلي ([autoFixableCodes]).
+HealthFinding? checkSessionExpired(HealthSnapshot s) {
+  if (s.sessionExpired != true) return null;
+  return const HealthFinding(
+    code: HealthCode.sessionExpired,
+    severity: Severity.broken,
+    title: 'الربط محتاج يتجدّد',
+    why: 'التأكيدات بتفضل على الموبايل لحد ما الجلسة تتجدّد لوحدها.',
+    fix: HealthFix.none,
+  );
+}
+
+/// النسخة مش معروفة — للأدمن مع النبضة وبس.
+HealthFinding? checkAppVersion(HealthSnapshot s) {
+  if (s.appVersionKnown) return null;
+  return const HealthFinding(
+    code: HealthCode.appVersionUnknown,
+    severity: Severity.note,
+    title: 'نسخة التطبيق مش معروفة',
+    why: 'النبضة بتتبعت من غير رقم نسخة.',
     fix: HealthFix.none,
   );
 }

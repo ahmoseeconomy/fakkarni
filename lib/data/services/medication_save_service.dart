@@ -24,7 +24,7 @@ import 'reminder_scheduler.dart';
 /// `test/app/medication_writes_guard_test.dart` بيوقّع لو أي ملف في
 /// `lib/features` كتب في الأدوية أو المواعيد من غير الخدمة دي.
 class MedicationSaveService {
-  MedicationSaveService({required this.medications, required this.scheduler, this.clock});
+  MedicationSaveService({required this.medications, required this.scheduler, this.clock, this.afterSchedule});
 
   final MedicationRepository medications;
   final ReminderScheduler scheduler;
@@ -32,9 +32,16 @@ class MedicationSaveService {
   /// «دلوقتي» للجدولة — سحبة تغييرات الممرض بتدّي ساعتها (الاختبارات بتثبّتها).
   final DateTime Function()? clock;
 
+  /// بعد الجدولة (مجاملة — الفحص الآلي بيتأكّد إن المعلّق = المتوقّع).
+  /// فشله ما بيلمسش الكتابة ولا الجدولة.
+  final Future<void> Function()? afterSchedule;
+
   Future<T> _thenSchedule<T>(Future<T> Function() write) async {
     final result = await write();
     await scheduler.rescheduleAll(now: clock?.call());
+    try {
+      await afterSchedule?.call();
+    } catch (_) {}
     return result;
   }
 

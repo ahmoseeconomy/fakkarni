@@ -30,7 +30,10 @@ abstract interface class HealthRemote {
 const Duration heartbeatEvery = Duration(hours: 6);
 
 class HealthHeartbeat {
-  const HealthHeartbeat({required this.remote, required this.patientUuid, this.eligible});
+  const HealthHeartbeat({required this.remote, required this.patientUuid, this.eligible, this.userId});
+
+  /// معرّف المستخدم بتاع الجلسة — `device_health.user_id` (0037).
+  final Future<String?> Function()? userId;
 
   final HealthRemote remote;
   final String patientUuid;
@@ -42,11 +45,12 @@ class HealthHeartbeat {
   static const _codesKey = 'health.lastCodes';
   static const _sentKey = 'health.lastSentMs';
   static const _installKey = 'health.installId';
+  static const _statusKey = 'health.lastStatus';
 
   /// بترجّع true لو الصف اترفع فعلاً.
   ///
   /// **عمرها ما بترمي**: نبضة فاشلة مالهاش أي حق توقّع فتحة تطبيق.
-  Future<bool> report(HealthReport report, HealthSnapshot snapshot) async {
+  Future<bool> report(HealthReport report, HealthSnapshot snapshot, {HealthStatus status = HealthStatus.ok}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final codes = (report.brokenCodes.map((c) => c.name).toList()..sort());
@@ -55,8 +59,12 @@ class HealthHeartbeat {
       final last =
           lastMs == null ? null : DateTime.fromMillisecondsSinceEpoch(lastMs);
 
-      final changed = previous == null || !_sameCodes(previous, codes);
+      // الحالة اتغيّرت (اتصلّح / بقى محتاج المستخدم) = صف جديد برضه
+      final statusKey = prefs.getString(_statusKey);
+      final changed = previous == null || !_sameCodes(previous, codes) || statusKey != status.wire;
       final due = last == null || snapshot.now.difference(last) >= heartbeatEvery;
+      // **مفيش جلسة = مفيش نداء، والصف بيستنى محلياً**: اللي ما اتبعتش ما
+      // بيتسجّلش إنه اتبعت، فالفحص الجاي بيلاقيه «اتغيّر» وبيبعته.
       if (!changed && !due) return false;
       if (eligible != null && !await eligible!()) {
         diag('Health: النبضة مستنية — المريض مش في السحابة لسه أو مش بتاع الجلسة دي');
@@ -82,9 +90,15 @@ class HealthHeartbeat {
         // تلات حالات، مش اتنين: «ما قدرناش نبص» لازم يتعدّ لوحده
         'battery_state': snapshot.batteryState.name,
         'failing_codes': codes,
+        // 0037: كلمة واحدة للحالة + الأكواد jsonb — الأدمن بيقرا الاتنين؛
+        // وuser_id بتاع الجلسة دي (سياسة الصف بتقارنه، مش صاحب المريض)
+        'status': status.wire,
+        'codes': codes,
+        if (userId != null) 'user_id': await userId!(),
       });
 
       await prefs.setStringList(_codesKey, codes);
+      await prefs.setString(_statusKey, status.wire);
       await prefs.setInt(_sentKey, snapshot.now.millisecondsSinceEpoch);
       diag('Health: نبضة اترفعت — ${codes.isEmpty ? 'كله تمام' : codes.join(',')}');
       return true;

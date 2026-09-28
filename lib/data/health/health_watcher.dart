@@ -21,7 +21,10 @@ class HealthAutoFix {
     required this.rememberTimezone,
     required this.registerPush,
     required this.retrySync,
+    this.refreshSession = _noRefresh,
   });
+
+  static Future<bool> _noRefresh() async => false;
 
   factory HealthAutoFix.forServices(AppServices services, HealthCollector collector) =>
       HealthAutoFix(
@@ -29,6 +32,7 @@ class HealthAutoFix {
         rememberTimezone: collector.rememberTimezone,
         registerPush: () async => services.push?.registerNow(),
         retrySync: () async => services.sync?.push(),
+        refreshSession: () async => await services.sessionHealth?.refresh() ?? false,
       );
 
   /// للاختبار — ولا إصلاح بيتعمل.
@@ -43,6 +47,9 @@ class HealthAutoFix {
   final Future<void> Function() rememberTimezone;
   final Future<void> Function() registerPush;
   final Future<void> Function() retrySync;
+
+  /// الجلسة المنتهية — true = اتجدّدت.
+  final Future<bool> Function() refreshSession;
 
   /// بيصلّح كود واحد. بيرجع وصف اللي اتعمل، أو null لو الكود مالوش إصلاح.
   Future<String?> apply(HealthCode code) async {
@@ -61,6 +68,8 @@ class HealthAutoFix {
       case HealthCode.staleSync:
         await retrySync();
         return 'إعادة محاولة الرفع';
+      case HealthCode.sessionExpired:
+        return await refreshSession() ? 'تجديد الجلسة' : null;
       case HealthCode.notificationPermission:
       case HealthCode.pendingBandFull:
       case HealthCode.noCaregiver:
@@ -78,6 +87,8 @@ class HealthAutoFix {
       case HealthCode.patternSync:
       // المايك: مفيش حاجة الموبايل يصلّحها لوحده — للأدمن والسجل
       case HealthCode.listenUnavailable:
+      // النسخة مش معروفة — مفيش حاجة تتصلّح على الموبايل
+      case HealthCode.appVersionUnknown:
         return null;
     }
   }
@@ -105,6 +116,37 @@ class HealthWatcher {
   static final ValueNotifier<HealthReport?> latest =
       ValueNotifier<HealthReport?>(null);
 
+  /// آخر حالة (0037 — بتتبعت مع النبضة): ok / healed / needsUser / broken.
+  static HealthStatus? lastStatus;
+
+  /// المراقب بتاع التطبيق — `main` بيحطّه، والرجوع للمقدمة والحفظ بيندهوا
+  /// [runIfDue] عليه. null في الاختبارات اللي ما حطّتوش.
+  static HealthWatcher? instance;
+
+  /// مش أكتر من مرة كل عشر دقايق — إلا بعد تغيير جدول ([scheduleChanged]).
+  static const throttle = Duration(minutes: 10);
+  static const _lastRunKey = 'health.lastRunMs';
+
+  /// بعد أي كتابة+جدولة من الشاشات: فحص فوري (المعلّق = المتوقّع؟).
+  static Future<void> scheduleChanged() async => instance?.runIfDue(force: true);
+
+  /// الفحص لو عدّى [throttle] من آخر واحد — أو [force].
+  Future<void> runIfDue({bool force = false}) async {
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {}
+    final now = collector.clock();
+    if (!force) {
+      final lastMs = prefs?.getInt(_lastRunKey);
+      if (lastMs != null && now.difference(DateTime.fromMillisecondsSinceEpoch(lastMs)) < throttle) {
+        return;
+      }
+    }
+    await prefs?.setInt(_lastRunKey, now.millisecondsSinceEpoch);
+    await run();
+  }
+
   /// نفس الإصلاح ما بيتعادش قبل المدة دي: إعادة جدولة على مدى قصير بسبب
   /// كتر الأدوية ما بتغيّرش حاجة، وتكرارها كل فتحة ضوضا في السجل.
   static const autoFixEvery = Duration(hours: 6);
@@ -124,7 +166,8 @@ class HealthWatcher {
       }
 
       latest.value = report;
-      await heartbeat?.report(report, snapshot);
+      lastStatus = healthStatusOf(report, healedSomething: fixed.isNotEmpty);
+      await heartbeat?.report(report, snapshot, status: lastStatus!);
     } catch (error) {
       diag('Health: الفحص وقع ($error)');
     }

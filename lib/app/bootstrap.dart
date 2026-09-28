@@ -14,6 +14,7 @@ import '../ai/package_reader.dart';
 import '../ai/prescription_reader.dart';
 import '../core/notifications/background_task.dart';
 import '../core/notifications/notification_service.dart';
+import '../data/auth/session_health.dart';
 import '../data/auth/auth_service.dart';
 import '../data/auth/supabase_init.dart';
 import '../data/care/care_circle_service.dart';
@@ -55,6 +56,7 @@ import '../core/diagnostics.dart';
 Future<AppServices> buildServices(
   AppDatabase db, {
   AuthService? auth,
+  SessionHealth? sessionHealth,
   CareCircleService? care,
   CaregiverRemote? caregiver,
   CaregiverPreferencesService? caregiverPreferences,
@@ -154,6 +156,7 @@ Future<AppServices> buildServices(
     packageReader: _packageReaderFromEnvironment(),
     pharmacyCardReader: _pharmacyCardReaderFromEnvironment(),
     auth: auth,
+    sessionHealth: sessionHealth,
     care: care,
     caregiver: caregiver,
     sync: sync,

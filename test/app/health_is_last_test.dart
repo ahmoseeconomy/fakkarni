@@ -30,7 +30,7 @@ void main() {
 
     test('في main: الفحص مش متستنى قبل runApp', () {
       final main = code('lib/main.dart');
-      expect(main, contains('unawaited(HealthWatcher('),
+      expect(main, contains('unawaited(HealthWatcher.instance!.runIfDue(force: true))'),
           reason: 'شاشة المريض ما تستناش فحص');
     });
 

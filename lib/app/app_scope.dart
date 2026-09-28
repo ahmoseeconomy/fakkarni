@@ -9,6 +9,7 @@ import '../core/diagnostics.dart';
 import '../ai/prescription_reader.dart';
 import '../data/contacts/contact_picker.dart';
 import '../data/contacts/native_contact_picker.dart';
+import '../data/auth/session_health.dart';
 import '../data/auth/auth_service.dart';
 import '../data/care/care_circle_service.dart';
 import '../data/care/caregiver_preferences.dart';
@@ -65,6 +66,7 @@ class AppServices {
     this.medPhotoStore = const DirectoryAttachmentStore(subfolder: DirectoryAttachmentStore.medPhotoFolder),
     this.contacts = const NativeContactPicker(),
     this.auth,
+    this.sessionHealth,
     this.care,
     this.caregiver,
     this.caregiverPreferences,
@@ -156,7 +158,19 @@ class AppServices {
   /// دورة الفحص وتذكير الصيام (D3.7) — نفس جهاز الإشعارات بتاع الجدولة.
   /// الطريق الوحيد اللي بيكتب دوا أو مواعيده — والجدولة بعده في نفس المكان.
   MedicationSaveService get medicationSaves =>
-      MedicationSaveService(medications: medications, scheduler: scheduler);
+      MedicationSaveService(medications: medications, scheduler: scheduler, afterSchedule: afterScheduleChange);
+
+  /// الرجوع للمقدمة: الفحص لو عدّى وقته — `main` بيحطّ الدالة. مجاملة.
+  static Future<void> Function()? checkHealthIfDue;
+  Future<void> healthCheckIfDue() async {
+    try {
+      await checkHealthIfDue?.call();
+    } catch (_) {}
+  }
+
+  /// بيتنده بعد كل كتابة+جدولة من الشاشات — الفحص الآلي بيتعلّق عليه
+  /// (`main` بيحطّه). null = مفيش فحص (اختبارات).
+  static Future<void> Function()? afterScheduleChange;
 
   /// صورة الدوا — الحفظ والشيل.
   MedPhotos get medPhotos => MedPhotos(db, medPhotoStore);
@@ -212,6 +226,9 @@ class AppServices {
   /// الهوية الاختيارية — null لو إعداد Supabase مش موجود، والتطبيق كامل
   /// من غيرها. بابها الوحيد «اربط ابني».
   final AuthService? auth;
+
+  /// الجلسة صالحة/تجديدها — للفحص الآلي (null = مفيش سحابة).
+  final SessionHealth? sessionHealth;
 
   /// دائرة الرعاية — نفس شرط الهوية، ونفس الغياب الهادي.
   final CareCircleService? care;

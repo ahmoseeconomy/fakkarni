@@ -4,6 +4,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_scope.dart';
+import '../app_version.dart';
 import '../../core/notifications/notification_service.dart';
 import '../../domain/health/health_report.dart';
 import '../../domain/health/health_snapshot.dart';
@@ -90,6 +91,8 @@ class HealthCollector {
       planTruncated: services.scheduler.lastPlanTruncated,
       patternRejectedSince: await patternRejectedSince(),
       listenProblemSince: await listenProblemSince(),
+      sessionExpired: await _sessionExpired(),
+      appVersionKnown: AppVersion.current != null,
     );
   }
 
@@ -158,6 +161,16 @@ class HealthCollector {
       return (settings.rungFirstOn, settings.rungSecondOn);
     } catch (_) {
       return (true, true);
+    }
+  }
+
+  /// null = مفيش جلسة؛ فشل القراية = null كمان (مش هنقول «منتهية» من غير ما نعرف).
+  Future<bool?> _sessionExpired() async {
+    try {
+      final valid = await services.sessionHealth?.isValid();
+      return valid == null ? null : !valid;
+    } catch (_) {
+      return null;
     }
   }
 

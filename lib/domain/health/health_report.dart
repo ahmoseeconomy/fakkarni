@@ -24,7 +24,45 @@ const List<HealthFinding? Function(HealthSnapshot)> healthChecks = [
   checkLowCoverage,
   checkPatternSync,
   checkListenUnavailable,
+  checkSessionExpired,
+  checkAppVersion,
 ];
+
+/// حالة الجهاز بعد الفحص — بتتبعت للسيرفر (0037) كلمة واحدة.
+enum HealthStatus {
+  /// ولا كود مكسور.
+  ok,
+
+  /// كان فيه مكسور واتصلّح لوحده في الفحص ده، ومفيش مكسور فاضل.
+  healed,
+
+  /// مكسور في إيد المستخدم بس (إذن التنبيهات).
+  needsUser,
+
+  /// مكسور ومفيش إصلاح آلي ليه — للأدمن.
+  broken;
+
+  /// الكلمة على السلك — نفس قيد `device_health.status` في 0037
+  /// (`device_health_sql_test` مرآة).
+  String get wire => switch (this) {
+        HealthStatus.ok => 'ok',
+        HealthStatus.healed => 'healed',
+        HealthStatus.needsUser => 'needs_user',
+        HealthStatus.broken => 'broken',
+      };
+}
+
+/// الحالة من التقرير **بعد** الإصلاح، وهل اتصلّح حاجة.
+HealthStatus healthStatusOf(HealthReport report, {required bool healedSomething}) {
+  final broken = report.brokenCodes;
+  if (broken.isEmpty) {
+    return healedSomething ? HealthStatus.healed : HealthStatus.ok;
+  }
+  if (broken.every(patientVisibleCodes.contains)) {
+    return HealthStatus.needsUser;
+  }
+  return HealthStatus.broken;
+}
 
 class HealthReport {
   const HealthReport(this.findings, this.at);
