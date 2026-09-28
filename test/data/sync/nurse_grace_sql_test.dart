@@ -47,4 +47,16 @@ void main() {
   test('due_escalations بتاعة الابن ما اتلمستش في 0035', () {
     expect(sql, isNot(contains('function private.due_escalations(')));
   });
+
+  test('إشارة «اتأكّدت» للجرعات اللي معادها في آخر ٢٤ ساعة بس — التريجرين بيعدّوا على النافذة', () {
+    expect(RegExp(r"function\s+private\.confirm_signal_window\s*\(\s*\)[\s\S]*?interval\s*'24\s*hours'").hasMatch(sql), isTrue);
+    final taken = RegExp(r"function\s+private\.on_dose_taken[\s\S]*?\$\$;").firstMatch(sql)!.group(0)!;
+    final proxy = RegExp(r"function\s+private\.on_proxy_confirmed[\s\S]*?\$\$;").firstMatch(sql)!.group(0)!;
+    expect(taken, contains('private.confirm_signal_window()'));
+    expect(proxy, contains('private.confirm_signal_window()'));
+    expect(proxy, contains('public.dose_events'), reason: 'التأكيد نيابةً بيشوف معاد جرعته');
+    // والفحص الذاتي بيثبتها بعدّاد
+    expect(sql, contains("now() - interval '3 days', 'taken'"));
+    expect(sql, contains('pg_temp.confirm_signal_calls'));
+  });
 }

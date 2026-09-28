@@ -212,6 +212,7 @@ declare
   v_med      uuid := gen_random_uuid();
   v_sched    uuid := gen_random_uuid();
   v_ev       uuid := gen_random_uuid();
+  v_old_ev   uuid := gen_random_uuid();
   v_change   uuid := gen_random_uuid();
   v_n        integer;
   v_denied   boolean;
@@ -319,7 +320,23 @@ begin
     select count(*) into v_n from private.due_nurse_escalations() d where d.dose_event_uuid = v_ev;
     if v_n <> 0 then raise exception 'FAIL 0035: تأكيد نيابةً والممرض لسه بيتصعّد له'; end if;
 
-    -- ٥) الغريب ما بيشوفش حاجة
+    -- ٥) إشارة «اتأكّدت»: جرعة من ٣ أيام بتتعلّم taken (إعادة رفع تاريخ) →
+    --    **مفيش نداء**؛ جرعة النهارده → نداء واحد؛ وتأكيد نيابةً على قديمة → لأ
+    create temp table confirm_signal_calls (dose_event_uuid uuid, source text) on commit drop;
+    insert into public.dose_events (uuid, dose_schedule_uuid, scheduled_at, state)
+      values (v_old_ev, v_sched, now() - interval '3 days', 'taken');
+    update public.dose_events set state = 'taken' where uuid = v_old_ev;
+    select count(*) into v_n from pg_temp.confirm_signal_calls;
+    if v_n <> 0 then raise exception 'FAIL 0035: جرعة من ٣ أيام طلّعت إشارة تأكيد (%)', v_n; end if;
+    update public.dose_events set state = 'taken' where uuid = v_ev;
+    select count(*) into v_n from pg_temp.confirm_signal_calls where dose_event_uuid = v_ev and source = 'patient';
+    if v_n <> 1 then raise exception 'FAIL 0035: جرعة النهارده ما طلّعتش إشارة تأكيد (%)', v_n; end if;
+    delete from public.proxy_confirmations where dose_event_uuid = v_ev;
+    insert into public.proxy_confirmations (dose_event_uuid, patient_uuid, actor_id) values (v_old_ev, v_pat, v_nurse);
+    select count(*) into v_n from pg_temp.confirm_signal_calls where source = 'proxy';
+    if v_n <> 0 then raise exception 'FAIL 0035: تأكيد نيابةً على جرعة قديمة طلّع إشارة'; end if;
+
+    -- ٦) الغريب ما بيشوفش حاجة
     perform set_config('request.jwt.claims', json_build_object('sub', v_stranger)::text, true);
     execute 'set local role authenticated';
     select count(*) into v_n from public.medication_changes where patient_uuid = v_pat;
@@ -333,7 +350,7 @@ begin
     if sqlerrm <> '0035_ROLLBACK' then raise; end if;
   end;
 
-  raise notice '0035 OK — الأنواع الستة و«اترجع» وصيدليتي ومفاتيح الممرض ودرجة +٣٠ للممرض قبل الابن';
+  raise notice '0035 OK — الأنواع الستة و«اترجع» وصيدليتي ومفاتيح الممرض ودرجة +٣٠ للممرض قبل الابن، وإشارة التأكيد لآخر ٢٤ ساعة بس';
 end $$;
 
 -- ============================================ ٥) إشارة «اتأكّدت» للناحية التانية
@@ -361,6 +378,11 @@ declare
   v_url text;
   v_key text;
 begin
+  -- عدّاد للفحص الذاتي بس: لو الجلسة عاملة جدول مؤقت بالاسم ده، بنسجّل فيه
+  -- النداء قبل أي حاجة (السرّ مش موجود في الفحص، والطلب نفسه مش بيتبعت)
+  if to_regclass('pg_temp.confirm_signal_calls') is not null then
+    insert into pg_temp.confirm_signal_calls (dose_event_uuid, source) values (p_event, p_source);
+  end if;
   select decrypted_secret into v_url from vault.decrypted_secrets where name = 'confirm_signal_function_url';
   select decrypted_secret into v_key from vault.decrypted_secrets where name = 'escalate_service_role_key';
   if v_url is null or v_key is null then return; end if;
@@ -378,6 +400,17 @@ $$;
 
 revoke execute on function private.send_confirm_signal(uuid, text) from anon, public, authenticated;
 
+-- **الإشارة للجرعات اللي معادها في آخر ٢٤ ساعة بس.** موبايل بيعيد رفع
+-- تاريخه كله (أول دفعة، أو بعد تنصيب) بيمرّر مئات الجرعات القديمة كـ`taken`
+-- — ولا واحدة فيهم عندها تذكير مستني إلغاء، فمفيش داعي تفرّغ دفعات دفع.
+create or replace function private.confirm_signal_window()
+returns interval
+language sql immutable
+set search_path = ''
+as $$ select interval '24 hours' $$;
+
+revoke execute on function private.confirm_signal_window() from anon, public;
+
 create or replace function private.on_dose_taken()
 returns trigger
 language plpgsql
@@ -385,7 +418,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.state = 'taken' and (tg_op = 'INSERT' or old.state is distinct from 'taken') then
+  if new.state = 'taken'
+     and (tg_op = 'INSERT' or old.state is distinct from 'taken')
+     and new.scheduled_at >= now() - private.confirm_signal_window() then
     perform private.send_confirm_signal(new.uuid, 'patient');
   end if;
   return new;
@@ -404,7 +439,13 @@ security definer
 set search_path = ''
 as $$
 begin
-  perform private.send_confirm_signal(new.dose_event_uuid, 'proxy');
+  if exists (
+    select 1 from public.dose_events e
+    where e.uuid = new.dose_event_uuid
+      and e.scheduled_at >= now() - private.confirm_signal_window()
+  ) then
+    perform private.send_confirm_signal(new.dose_event_uuid, 'proxy');
+  end if;
   return new;
 end;
 $$;

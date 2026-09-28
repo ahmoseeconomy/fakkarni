@@ -339,6 +339,7 @@ with expected(migration, kind, ident) as (
     ('0035_nurse_full_edit', 'function', 'private.due_nurse_escalations'),
     ('0035_nurse_full_edit', 'function', 'public.due_nurse_escalations_for_service'),
     ('0035_nurse_full_edit', 'function', 'private.send_confirm_signal'),
+    ('0035_nurse_full_edit', 'function', 'private.confirm_signal_window'),
     ('0035_nurse_full_edit', 'trigger',  'public.dose_events|confirm_signal_on_taken'),
     ('0035_nurse_full_edit', 'function', 'public.confirm_signal_targets_for_service'),
 ),
