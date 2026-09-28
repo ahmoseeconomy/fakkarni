@@ -59,4 +59,17 @@ void main() {
     expect(sql, contains("now() - interval '3 days', 'taken'"));
     expect(sql, contains('pg_temp.confirm_signal_calls'));
   });
+
+  test('الفحص الذاتي آخر جملة في الملف — بعد تريجرات إشارة التأكيد، وإلا بيقع على قاعدة جديدة', () {
+    final check = sql.indexOf('-- ================================================================ فحص ذاتي');
+    expect(check, greaterThan(0));
+    expect(sql.indexOf('create trigger confirm_signal_on_taken'), lessThan(check), reason: 'التريجر لازم يكون متعرّف قبل الفحص');
+    expect(sql.indexOf('create trigger confirm_signal_on_proxy'), lessThan(check));
+    expect(sql.indexOf('function public.confirm_signal_targets_for_service'), lessThan(check));
+    // ولا `create` ولا `alter` ولا `grant` بعد بلوك الفحص
+    final after = sql.substring(check);
+    expect(RegExp(r'^(create|alter|grant|revoke|drop)\s', multiLine: true).hasMatch(after), isFalse,
+        reason: 'فيه جملة بعد الفحص الذاتي — الفحص لازم يبقى آخر حاجة');
+    expect(after.trimRight().endsWith(r'end $$;'), isTrue, reason: 'الملف بيخلص ببلوك الفحص');
+  });
 }

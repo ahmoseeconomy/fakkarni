@@ -199,6 +199,133 @@ $$;
 revoke execute on function public.claim_escalation_for_service(uuid, uuid, text) from anon, public, authenticated;
 grant  execute on function public.claim_escalation_for_service(uuid, uuid, text) to service_role;
 
+-- ============================================ ٥) إشارة «اتأكّدت» للناحية التانية
+-- المريض أكّد على موبايله → ممرضينه يلغوا تذكيرهم حالاً؛ ممرض أكّد نيابةً →
+-- موبايل المريض يسحبه (وده اللي بيلغي سلّمه) والممرضين التانيين يلغوا.
+-- الإشارة رسالة دفع **صامتة** (data) عن طريق دالة الحافة `confirm-signal`،
+-- بنفس مفتاح Vault بتاع 0008 + رابط جديد:
+--
+--   select vault.create_secret(
+--     'https://<project-ref>.supabase.co/functions/v1/confirm-signal',
+--     'confirm_signal_function_url',
+--     'نقطة نهاية إشارة التأكيد');
+--
+-- **التريجر عمره ما يرمي**: بيجري جوّه upsert موبايل المريض، ورمية هنا
+-- كانت هتوقّع دفعة الجرعات كلها. من غير السرّ = سكوت، والمقارنة الجاية على
+-- كل موبايل بتكمّل (الإشارة بتسرّع، ما بتقرّرش).
+
+create or replace function private.send_confirm_signal(p_event uuid, p_source text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_url text;
+  v_key text;
+begin
+  -- عدّاد للفحص الذاتي بس: لو الجلسة عاملة جدول مؤقت بالاسم ده، بنسجّل فيه
+  -- النداء قبل أي حاجة (السرّ مش موجود في الفحص، والطلب نفسه مش بيتبعت)
+  if to_regclass('pg_temp.confirm_signal_calls') is not null then
+    insert into pg_temp.confirm_signal_calls (dose_event_uuid, source) values (p_event, p_source);
+  end if;
+  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'confirm_signal_function_url';
+  select decrypted_secret into v_key from vault.decrypted_secrets where name = 'escalate_service_role_key';
+  if v_url is null or v_key is null then return; end if;
+  perform net.http_post(
+    url := v_url,
+    body := jsonb_build_object('dose_event_uuid', p_event, 'source', p_source),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || v_key),
+    timeout_milliseconds := 15000
+  );
+exception when others then
+  -- مجاملة: الدفعة تكمّل مهما حصل
+  null;
+end;
+$$;
+
+revoke execute on function private.send_confirm_signal(uuid, text) from anon, public, authenticated;
+
+-- **الإشارة للجرعات اللي معادها في آخر ٢٤ ساعة بس.** موبايل بيعيد رفع
+-- تاريخه كله (أول دفعة، أو بعد تنصيب) بيمرّر مئات الجرعات القديمة كـ`taken`
+-- — ولا واحدة فيهم عندها تذكير مستني إلغاء، فمفيش داعي تفرّغ دفعات دفع.
+create or replace function private.confirm_signal_window()
+returns interval
+language sql immutable
+set search_path = ''
+as $$ select interval '24 hours' $$;
+
+revoke execute on function private.confirm_signal_window() from anon, public;
+
+create or replace function private.on_dose_taken()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.state = 'taken'
+     and (tg_op = 'INSERT' or old.state is distinct from 'taken')
+     and new.scheduled_at >= now() - private.confirm_signal_window() then
+    perform private.send_confirm_signal(new.uuid, 'patient');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists confirm_signal_on_taken on public.dose_events;
+create trigger confirm_signal_on_taken
+  after insert or update of state on public.dose_events
+  for each row execute function private.on_dose_taken();
+
+create or replace function private.on_proxy_confirmed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if exists (
+    select 1 from public.dose_events e
+    where e.uuid = new.dose_event_uuid
+      and e.scheduled_at >= now() - private.confirm_signal_window()
+  ) then
+    perform private.send_confirm_signal(new.dose_event_uuid, 'proxy');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists confirm_signal_on_proxy on public.proxy_confirmations;
+create trigger confirm_signal_on_proxy
+  after insert on public.proxy_confirmations
+  for each row execute function private.on_proxy_confirmed();
+
+-- «مين يستلم الإشارة» — تعريف واحد للدالة: أصحاب المريض (المالك)، وكل ممرض
+-- مقبول. المتابع العادي لأ (ماعندوش تذكيرات يلغيها).
+create or replace function public.confirm_signal_targets_for_service(p_event uuid)
+returns table (user_id uuid, patient_uuid uuid, is_owner boolean)
+language sql stable security definer
+set search_path = ''
+as $$
+  with ev as (
+    select p.uuid as patient_uuid, p.owner_id
+    from public.dose_events e
+    join public.dose_schedules s on s.uuid = e.dose_schedule_uuid
+    join public.medications m on m.uuid = s.medication_uuid
+    join public.patients p on p.uuid = m.patient_uuid
+    where e.uuid = p_event
+  )
+  select ev.owner_id, ev.patient_uuid, true from ev
+  union
+  select cr.caregiver_id, ev.patient_uuid, false
+  from ev join public.care_relationships cr
+    on cr.patient_uuid = ev.patient_uuid and cr.status = 'accepted' and cr.role = 'nurse';
+$$;
+
+revoke execute on function public.confirm_signal_targets_for_service(uuid) from anon, public, authenticated;
+grant  execute on function public.confirm_signal_targets_for_service(uuid) to service_role;
+
 -- ================================================================ فحص ذاتي
 -- من الجداول وRLS تحت `set local role authenticated`، ولا نداء private.*
 -- في الدور ده (درس 0026). المالك في auth.users **قبل** المريض (درس 0016).
@@ -352,130 +479,3 @@ begin
 
   raise notice '0035 OK — الأنواع الستة و«اترجع» وصيدليتي ومفاتيح الممرض ودرجة +٣٠ للممرض قبل الابن، وإشارة التأكيد لآخر ٢٤ ساعة بس';
 end $$;
-
--- ============================================ ٥) إشارة «اتأكّدت» للناحية التانية
--- المريض أكّد على موبايله → ممرضينه يلغوا تذكيرهم حالاً؛ ممرض أكّد نيابةً →
--- موبايل المريض يسحبه (وده اللي بيلغي سلّمه) والممرضين التانيين يلغوا.
--- الإشارة رسالة دفع **صامتة** (data) عن طريق دالة الحافة `confirm-signal`،
--- بنفس مفتاح Vault بتاع 0008 + رابط جديد:
---
---   select vault.create_secret(
---     'https://<project-ref>.supabase.co/functions/v1/confirm-signal',
---     'confirm_signal_function_url',
---     'نقطة نهاية إشارة التأكيد');
---
--- **التريجر عمره ما يرمي**: بيجري جوّه upsert موبايل المريض، ورمية هنا
--- كانت هتوقّع دفعة الجرعات كلها. من غير السرّ = سكوت، والمقارنة الجاية على
--- كل موبايل بتكمّل (الإشارة بتسرّع، ما بتقرّرش).
-
-create or replace function private.send_confirm_signal(p_event uuid, p_source text)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_url text;
-  v_key text;
-begin
-  -- عدّاد للفحص الذاتي بس: لو الجلسة عاملة جدول مؤقت بالاسم ده، بنسجّل فيه
-  -- النداء قبل أي حاجة (السرّ مش موجود في الفحص، والطلب نفسه مش بيتبعت)
-  if to_regclass('pg_temp.confirm_signal_calls') is not null then
-    insert into pg_temp.confirm_signal_calls (dose_event_uuid, source) values (p_event, p_source);
-  end if;
-  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'confirm_signal_function_url';
-  select decrypted_secret into v_key from vault.decrypted_secrets where name = 'escalate_service_role_key';
-  if v_url is null or v_key is null then return; end if;
-  perform net.http_post(
-    url := v_url,
-    body := jsonb_build_object('dose_event_uuid', p_event, 'source', p_source),
-    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || v_key),
-    timeout_milliseconds := 15000
-  );
-exception when others then
-  -- مجاملة: الدفعة تكمّل مهما حصل
-  null;
-end;
-$$;
-
-revoke execute on function private.send_confirm_signal(uuid, text) from anon, public, authenticated;
-
--- **الإشارة للجرعات اللي معادها في آخر ٢٤ ساعة بس.** موبايل بيعيد رفع
--- تاريخه كله (أول دفعة، أو بعد تنصيب) بيمرّر مئات الجرعات القديمة كـ`taken`
--- — ولا واحدة فيهم عندها تذكير مستني إلغاء، فمفيش داعي تفرّغ دفعات دفع.
-create or replace function private.confirm_signal_window()
-returns interval
-language sql immutable
-set search_path = ''
-as $$ select interval '24 hours' $$;
-
-revoke execute on function private.confirm_signal_window() from anon, public;
-
-create or replace function private.on_dose_taken()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if new.state = 'taken'
-     and (tg_op = 'INSERT' or old.state is distinct from 'taken')
-     and new.scheduled_at >= now() - private.confirm_signal_window() then
-    perform private.send_confirm_signal(new.uuid, 'patient');
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists confirm_signal_on_taken on public.dose_events;
-create trigger confirm_signal_on_taken
-  after insert or update of state on public.dose_events
-  for each row execute function private.on_dose_taken();
-
-create or replace function private.on_proxy_confirmed()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if exists (
-    select 1 from public.dose_events e
-    where e.uuid = new.dose_event_uuid
-      and e.scheduled_at >= now() - private.confirm_signal_window()
-  ) then
-    perform private.send_confirm_signal(new.dose_event_uuid, 'proxy');
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists confirm_signal_on_proxy on public.proxy_confirmations;
-create trigger confirm_signal_on_proxy
-  after insert on public.proxy_confirmations
-  for each row execute function private.on_proxy_confirmed();
-
--- «مين يستلم الإشارة» — تعريف واحد للدالة: أصحاب المريض (المالك)، وكل ممرض
--- مقبول. المتابع العادي لأ (ماعندوش تذكيرات يلغيها).
-create or replace function public.confirm_signal_targets_for_service(p_event uuid)
-returns table (user_id uuid, patient_uuid uuid, is_owner boolean)
-language sql stable security definer
-set search_path = ''
-as $$
-  with ev as (
-    select p.uuid as patient_uuid, p.owner_id
-    from public.dose_events e
-    join public.dose_schedules s on s.uuid = e.dose_schedule_uuid
-    join public.medications m on m.uuid = s.medication_uuid
-    join public.patients p on p.uuid = m.patient_uuid
-    where e.uuid = p_event
-  )
-  select ev.owner_id, ev.patient_uuid, true from ev
-  union
-  select cr.caregiver_id, ev.patient_uuid, false
-  from ev join public.care_relationships cr
-    on cr.patient_uuid = ev.patient_uuid and cr.status = 'accepted' and cr.role = 'nurse';
-$$;
-
-revoke execute on function public.confirm_signal_targets_for_service(uuid) from anon, public, authenticated;
-grant  execute on function public.confirm_signal_targets_for_service(uuid) to service_role;
