@@ -121,7 +121,7 @@ void main() {
     expect(find.text('مش صيدلية'), findsNothing);
 
     expect(find.byKey(const ValueKey('open-state-node/2')), findsOneWidget);
-    expect(find.text('فاتحة دلوقتي'), findsOneWidget);
+    expect(find.text('مفتوح الآن'), findsOneWidget);
     expect(find.byKey(const ValueKey('open-state-node/1')), findsNothing, reason: 'مفيش تاج → مفيش حكم');
     expect(find.byKey(const ValueKey('open-state-node/3')), findsNothing);
 
@@ -169,16 +169,19 @@ void main() {
 
     // الترتيب زي ما اتطلب: الكل / صيدليات / دكاترة / مستشفيات / معامل تحاليل
     final labels = ['الكل', 'صيدليات', 'دكاترة', 'مستشفيات', 'معامل تحاليل'];
-    final xs = [for (final l in labels) tester.getCenter(find.text(l)).dx];
-    for (var i = 1; i < xs.length; i++) {
-      expect(xs[i], lessThan(xs[i - 1]), reason: 'RTL: «${labels[i]}» على شمال «${labels[i - 1]}»');
+    // ترتيب القراية: سطر ورا سطر، ويمين لشمال جوّه السطر (الشرايح بأيقوناتها ممكن تلفّ)
+    final at = [for (final l in labels) tester.getCenter(find.text(l))];
+    for (var i = 1; i < at.length; i++) {
+      final sameLine = (at[i].dy - at[i - 1].dy).abs() < 10;
+      expect(sameLine ? at[i].dx < at[i - 1].dx : at[i].dy > at[i - 1].dy, isTrue,
+          reason: 'RTL: «${labels[i]}» بعد «${labels[i - 1]}»');
     }
     for (final name in ['صيدلية العزبي', 'عيادة د. سامي', 'مستشفى القصر العيني', 'معمل البرج']) {
       expect(find.text(name), findsOneWidget, reason: '«الكل» بيعرض الأربعة');
     }
 
     final cases = <(String, String, IconData)>[
-      ('pharmacy', 'صيدلية العزبي', Icons.local_pharmacy),
+      ('pharmacy', 'صيدلية العزبي', Icons.medication),
       ('doctor', 'عيادة د. سامي', Icons.medical_services),
       ('hospital', 'مستشفى القصر العيني', Icons.local_hospital),
       ('lab', 'معمل البرج', Icons.science),
@@ -189,11 +192,13 @@ void main() {
       for (final (_, other, _) in cases) {
         expect(find.text(other), other == name ? findsOneWidget : findsNothing, reason: '$filter → $other');
       }
-      // أيقونة النوع على الكارت وعلى الخريطة — ومفيش أيقونة نوع تاني
-      expect(find.byIcon(icon), findsWidgets, reason: filter);
-      for (final (_, _, otherIcon) in cases) {
-        if (otherIcon != icon) expect(find.byIcon(otherIcon), findsNothing, reason: '$filter shows $otherIcon');
+      // بلاطة النوع على الكارت وعلى الخريطة — ومفيش بلاطة نوع تاني
+      final tiles = tester.widgetList<KindTile>(find.byType(KindTile)).toList();
+      expect(tiles.length, 2, reason: 'كارت ودبوس');
+      for (final t in tiles) {
+        expect(t.kind.name, filter, reason: '$filter shows ${t.kind}');
       }
+      expect(find.descendant(of: find.byType(KindTile), matching: find.byIcon(icon)), findsNWidgets(2));
     }
     expectNoRedAndMinSize(tester);
   });
@@ -225,7 +230,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nearby-filter-all')));
     await settle(tester);
-    expect(find.textContaining('مفيش حاجة متسجّلة على OpenStreetMap في ٢ كم حواليك.'), findsOneWidget);
+    expect(find.text(nearbyEmptyAll), findsOneWidget);
   });
 
   /// كل نص على الشاشة ما عدا حقوق الخريطة.
@@ -301,7 +306,9 @@ void main() {
 
   test('المسافة بالمتر تحت الكيلو، وبالكيلو فوقه', () {
     expect(distanceText(437), '٤٤٠ متر');
-    expect(distanceText(1234), '١.٢ كم');
+    expect(distanceText(1234), '١٫٢ كم', reason: 'فاصلة عربية — النقطة جنب الأرقام العربية بتتقري صفر');
+    expect(distanceKm(800), '٠٫٨');
+    expect(distanceKm(40), '٠٫١');
   });
 }
 

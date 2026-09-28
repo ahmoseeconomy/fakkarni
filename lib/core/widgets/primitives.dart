@@ -159,12 +159,28 @@ class AnchorChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
+    this.iconColor,
     super.key,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// أيقونة قبل الكلمة (فلاتر «القريب مني») — بلونها، وعلى الشريحة المختارة
+  /// بلون الكلمة عشان تتقري على الدهبي.
+  final IconData? icon;
+  final Color? iconColor;
+
+  Widget get _labelText => Text(
+        label,
+        style: TextStyle(
+          fontSize: F.minBodySize,
+          fontWeight: FontWeight.w700,
+          color: selected ? F.onGold : F.ink,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -184,14 +200,17 @@ class AnchorChip extends StatelessWidget {
               // Center بيتمدّد على عرض السطر كله وكل شريحة تبقى في سطر لوحدها
               child: Center(
                 widthFactor: 1,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: F.minBodySize,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? F.onGold : F.ink,
-                  ),
-                ),
+                // من غير أيقونة الكلمة زي ما كانت (بتلفّ في الشرايح الضيقة)
+                child: icon == null
+                    ? _labelText
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 22, color: selected ? F.onGold : (iconColor ?? F.ink)),
+                          const SizedBox(width: F.s6),
+                          Flexible(child: _labelText),
+                        ],
+                      ),
               ),
             ),
           ),

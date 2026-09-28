@@ -36,17 +36,54 @@ Future<bool> Function(BuildContext context, Place place, DateTime today) bookFro
 
 String distanceText(double meters) => meters < 1000
     ? '${arabicNumber((meters / 10).round() * 10)} متر'
-    : '${arabicDigits((meters / 1000).toStringAsFixed(1))} كم';
+    : '${distanceKm(meters)} كم';
+
+/// الرقم الكبير على الكارت بالكيلو: «٠٫٨» — فاصلة عشرية عربية (النقطة جنب
+/// الأرقام العربية بتتقري صفر). أقل من ١٠٠ متر = «٠٫١».
+String distanceKm(double meters) {
+  final km = meters < 100 ? 0.1 : meters / 1000;
+  return arabicDigits(km >= 10 ? km.round().toString() : km.toStringAsFixed(1)).replaceAll('.', '٫');
+}
 
 enum _Filter { all, pharmacy, doctor, hospital, lab }
 
-/// أيقونة كل نوع — من نفس المجموعة المستخدمة، ومن غير لون جديد.
-IconData _iconFor(PlaceKind kind) => switch (kind) {
-      PlaceKind.pharmacy => Icons.local_pharmacy,
-      PlaceKind.doctor => Icons.medical_services,
-      PlaceKind.hospital => Icons.local_hospital,
-      PlaceKind.lab => Icons.science,
+/// أيقونة كل نوع ولونها — **نفسها** على الكارت والفلاتر ودبابيس الخريطة.
+///
+/// الألوان من الموجود وبس (قرار المالك، ٢٨ سبتمبر ٢٠٢٦): **مفيش أحمر**
+/// (الطوارئ بس) و**مفيش دهبي** («محتاجاك دلوقتي» بس) ولا لون جديد — الأنواع
+/// بتتفرّق بالأيقونة الأول، واللون تاني: صيدلية أخضر مصمت، دكتور أخضر فاتح،
+/// مستشفى رمادي بحبر، معمل رمادي هادي.
+typedef KindStyle = ({IconData icon, Color fg, Color bg});
+
+KindStyle kindStyle(PlaceKind kind) => switch (kind) {
+      PlaceKind.pharmacy => (icon: Icons.medication, fg: F.onGreen, bg: F.green),
+      PlaceKind.doctor => (icon: Icons.medical_services, fg: F.greenStrong, bg: F.greenTint),
+      PlaceKind.hospital => (icon: Icons.local_hospital, fg: F.ink, bg: F.cardGround),
+      PlaceKind.lab => (icon: Icons.science, fg: F.mutedDark, bg: F.railGround),
     };
+
+/// بلاطة النوع — مربع مستدير بلونه وأيقونته.
+class KindTile extends StatelessWidget {
+  const KindTile(this.kind, {this.size = 56, super.key});
+  final PlaceKind kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final st = kindStyle(kind);
+    return Container(
+      key: ValueKey('kind-tile-${kind.name}'),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: st.bg,
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: F.line),
+      ),
+      child: Icon(st.icon, size: size * 0.5, color: st.fg),
+    );
+  }
+}
 
 /// كلمة النوع في الكارت («… من غير اسم على الخريطة»).
 String _kindWord(PlaceKind kind) => switch (kind) {
@@ -242,17 +279,20 @@ class _NearbyScreenState extends State<NearbyScreen> {
         spacing: F.s8,
         runSpacing: F.s8,
         children: [
-          for (final (f, label) in [
-            (_Filter.all, 'الكل'),
-            (_Filter.pharmacy, 'صيدليات'),
-            (_Filter.doctor, 'دكاترة'),
-            (_Filter.hospital, 'مستشفيات'),
-            (_Filter.lab, 'معامل تحاليل'),
+          for (final (f, label, kind) in [
+            (_Filter.all, 'الكل', null),
+            (_Filter.pharmacy, 'صيدليات', PlaceKind.pharmacy),
+            (_Filter.doctor, 'دكاترة', PlaceKind.doctor),
+            (_Filter.hospital, 'مستشفيات', PlaceKind.hospital),
+            (_Filter.lab, 'معامل تحاليل', PlaceKind.lab),
           ])
             AnchorChip(
               key: ValueKey('nearby-filter-${f.name}'),
               label: label,
               selected: _filter == f,
+              icon: kind == null ? null : kindStyle(kind).icon,
+              // على الشريحة الأرضية هادية، فالأيقونة بلون الحبر بتاع النوع
+              iconColor: kind == null ? null : (kindStyle(kind).bg == F.green ? F.green : kindStyle(kind).fg),
               onTap: () => setState(() => _filter = f),
             ),
         ],
@@ -305,9 +345,10 @@ class _NearbyScreenState extends State<NearbyScreen> {
                   for (final p in shown)
                     Marker(
                       point: LatLng(p.lat, p.lon),
-                      width: 30,
-                      height: 30,
-                      child: Icon(_iconFor(p.kind), color: F.greenDeep, size: 28),
+                      width: 34,
+                      height: 34,
+                      // نفس بلاطة الكارت والفلتر
+                      child: KindTile(p.kind, size: 34),
                     ),
                   Marker(
                     point: here,
@@ -367,6 +408,9 @@ class _NearbyScreenState extends State<NearbyScreen> {
   }
 }
 
+/// «الكل» فاضي.
+const nearbyEmptyAll = 'مفيش أماكن قريبة دلوقتي — جرّب تكبّر المسافة';
+
 /// تخصص مالوش نتايج — والجملة بتقول **إزاي بنعرف التخصص**، عشان «مفيش» ما
 /// تتقريش «مفيش دكاترة عيون في المنطقة».
 String _emptySpecialtyText(Specialty s, String source) =>
@@ -375,7 +419,7 @@ String _emptySpecialtyText(Specialty s, String source) =>
 /// الحالة الفاضية — جملة لكل نوع على نفس النمط، وكلها بتسمّي المصدر من
 /// الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
 String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
-      null => 'مفيش حاجة متسجّلة على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
+      null => nearbyEmptyAll,
       PlaceKind.pharmacy => 'مفيش صيدليات متسجّلة على $source في ٢ كم حواليك.',
       PlaceKind.doctor => 'مفيش دكاترة متسجّلين على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
       PlaceKind.hospital => 'مفيش مستشفيات متسجّلة على $source في ٢ كم حواليك.',
@@ -402,83 +446,238 @@ class _PlaceCard extends StatelessWidget {
     // «احجز» بيسجّل الميعاد وتذكيره عندنا — مش بيكلّم العيادة
     final canBook = p.kind == PlaceKind.doctor && AppScope.maybeOf(context) != null;
 
-    return FCard(
+    return Container(
       key: ValueKey('place-${p.id}'),
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(
+        color: F.pageGround,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: F.line),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // الاسم الأول وكبير
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(_iconFor(p.kind), color: F.green, size: 28),
-              const SizedBox(width: F.s8),
+              KindTile(p.kind),
+              const SizedBox(width: F.s12),
               Expanded(
-                child: Text(
-                  name,
-                  key: ValueKey('place-name-${p.id}'),
-                  textDirection: nameDirection(name),
-                  // الاسم اللاتيني LTR بس لازق يمين زي العربي — مش جنب المسافة
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: F.subtitleSize,
-                    fontWeight: FontWeight.w800,
-                    color: p.name == null ? F.mutedDark : F.ink,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      key: ValueKey('place-name-${p.id}'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textDirection: nameDirection(name),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: F.subtitleSize,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                        color: p.name == null ? F.mutedDark : F.ink,
+                      ),
+                    ),
+                    const SizedBox(height: F.s4),
+                    // النوع والتخصص — والعنوان لو الخريطة فيها عنوان
+                    Text(
+                      category,
+                      key: ValueKey('place-category-${p.id}'),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                    ),
+                    if (p.address case final address?)
+                      Text(
+                        address,
+                        key: ValueKey('place-address-${p.id}'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                      ),
+                    // «مفتوح الآن» / «مغلق» — **بس** لو مواعيد الخريطة مفهومة كلها
+                    if (state != null) ...[
+                      const SizedBox(height: F.s8),
+                      _OpenChip(key: ValueKey('open-state-${p.id}'), open: state == OpenState.open),
+                    ] else if (hours != null)
+                      Text(
+                        'مواعيدها على الخريطة: $hours',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: F.s10),
+              // المسافة رقم كبير والوحدة تحته، والتقييم تحتهم **لو المصدر اداه**
+              Column(
+                key: ValueKey('place-distance-${p.id}'),
+                children: [
+                  Text(
+                    distanceKm(meters),
+                    style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize + 4, fontWeight: FontWeight.w800, color: F.ink, height: 1.1),
+                  ),
+                  Text('كم', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
+                  if (p.rating case final r?) ...[
+                    const SizedBox(height: F.s6),
+                    Text(
+                      '★ ${arabicDigits(r.toStringAsFixed(1)).replaceAll('.', '٫')}',
+                      key: ValueKey('place-rating-${p.id}'),
+                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
-          const SizedBox(height: F.s4),
-          Text(category, key: ValueKey('place-category-${p.id}'), style: TextStyle(fontSize: F.minBodySize, color: F.ink)),
-          Text(
-            'على بعد ${distanceText(meters)}',
-            key: ValueKey('place-distance-${p.id}'),
-            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
-          ),
-          if (state != null)
-            Text(
-              state == OpenState.open ? 'فاتحة دلوقتي' : 'قافلة دلوقتي',
-              key: ValueKey('open-state-${p.id}'),
-              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: state == OpenState.open ? F.greenOk : F.mutedDark),
-            ),
-          if (hours != null)
-            Text(
-              'مواعيدها على الخريطة: $hours',
-              textDirection: TextDirection.rtl,
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-            ),
-          const SizedBox(height: F.s10),
+          const SizedBox(height: F.s12),
           Row(
             children: [
               if (p.phone != null) ...[
-                Expanded(child: FSecondaryButton(key: ValueKey('call-${p.id}'), label: 'اتصال', onPressed: () => dialNumber(p.phone!))),
-                const SizedBox(width: F.s8),
-              ],
-              if (whatsApp != null) ...[
+                // مليان في كل كارت — استثناء من «أساسيين بس في الشاشة» بقرار
+                // المالك (٢٨ سبتمبر ٢٠٢٦، تصميم «القريب مني»)
                 Expanded(
-                  child: FSecondaryButton(
-                    key: ValueKey('whatsapp-${p.id}'),
-                    label: 'واتساب',
-                    onPressed: () => openWhatsApp(whatsAppUri(whatsApp)),
+                  child: _ActionButton(
+                    key: ValueKey('call-${p.id}'),
+                    label: 'اتصال',
+                    icon: Icons.phone,
+                    filled: true,
+                    onPressed: () => dialNumber(p.phone!),
                   ),
                 ),
                 const SizedBox(width: F.s8),
               ],
-              Expanded(child: FSecondaryButton(key: ValueKey('route-${p.id}'), label: 'الطريق', onPressed: () => openDirections(p))),
+              Expanded(
+                child: _ActionButton(
+                  key: ValueKey('route-${p.id}'),
+                  label: 'اتجاهات',
+                  icon: Icons.explore_outlined,
+                  onPressed: () => openDirections(p),
+                ),
+              ),
+              if (whatsApp != null) ...[
+                const SizedBox(width: F.s8),
+                // صغير — بس بكلمته: مفيش زرار أيقونة لوحده
+                _WhatsAppButton(key: ValueKey('whatsapp-${p.id}'), onPressed: () => openWhatsApp(whatsAppUri(whatsApp))),
+              ],
             ],
           ),
           if (canBook) ...[
-            const SizedBox(height: F.s8),
-            FSecondaryButton(
-              key: ValueKey('book-${p.id}'),
-              label: 'احجز ميعاد عنده',
-              onPressed: () => bookFromPlace(context, p, now),
+            const SizedBox(height: F.s4),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                key: ValueKey('book-${p.id}'),
+                onPressed: () => bookFromPlace(context, p, now),
+                style: TextButton.styleFrom(
+                  foregroundColor: F.greenStrong,
+                  minimumSize: const Size(F.minTapTarget, F.minTapTarget),
+                  textStyle: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+                ),
+                child: const Text('احجز ميعاد عنده'),
+              ),
             ),
           ],
         ],
       ),
     );
   }
+}
+
+/// «اتصال» (مليان) / «اتجاهات» (محدّد) — ٥٦، أيقونة وكلمة.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.label, required this.icon, required this.onPressed, this.filled = false, super.key});
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(F.radiusCard),
+      side: BorderSide(color: F.buttonEdge, width: 1.5),
+    );
+    final text = Text(label, maxLines: 1, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700));
+    return SizedBox(
+      height: F.minTapTarget,
+      child: filled
+          ? FilledButton.icon(
+              onPressed: onPressed,
+              icon: Icon(icon, size: 22),
+              label: text,
+              style: FilledButton.styleFrom(
+                backgroundColor: F.green,
+                foregroundColor: F.onGreen,
+                shape: shape,
+                padding: const EdgeInsets.symmetric(horizontal: F.s8),
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: onPressed,
+              icon: Icon(icon, size: 22),
+              label: text,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: F.ink,
+                side: BorderSide(color: F.buttonEdge, width: 1.5),
+                shape: shape,
+                padding: const EdgeInsets.symmetric(horizontal: F.s8),
+              ),
+            ),
+    );
+  }
+}
+
+/// واتساب — مربع صغير بأيقونة وكلمة تحتها.
+class _WhatsAppButton extends StatelessWidget {
+  const _WhatsAppButton({required this.onPressed, super.key});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 72,
+        height: F.minTapTarget,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: F.ink,
+            padding: EdgeInsets.zero,
+            side: BorderSide(color: F.buttonEdge, width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.chat_outlined, size: 20),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('واتساب', maxLines: 1, style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, height: 1.1)),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// «مفتوح الآن» (أخضر فاتح) / «مغلق» (رمادي).
+class _OpenChip extends StatelessWidget {
+  const _OpenChip({required this.open, super.key});
+  final bool open;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: F.s10, vertical: F.s4),
+        decoration: BoxDecoration(
+          color: open ? F.greenOkSoft : F.railGround,
+          borderRadius: BorderRadius.circular(F.radiusChip),
+          border: Border.all(color: open ? F.greenOk : F.line),
+        ),
+        child: Text(
+          open ? 'مفتوح الآن' : 'مغلق',
+          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: open ? F.greenOk : F.mutedDark),
+        ),
+      );
 }
 
 class _Notice extends StatelessWidget {

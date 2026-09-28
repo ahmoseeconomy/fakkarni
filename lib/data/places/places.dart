@@ -24,7 +24,17 @@ class Place {
     this.phone,
     this.openingHours,
     this.speciality,
+    this.address,
+    this.rating,
   });
+
+  /// العنوان زي ما هو على الخريطة (OSM: `addr:*`) — null لو مش متسجّل.
+  final String? address;
+
+  /// تقييم من المصدر نفسه — **ولا مصدر عندنا بيدّيه دلوقتي** (OSM مفيهاش
+  /// تقييمات، وخرايط أبل ما بتبعتهوش)، فهو null دايماً والنجمة ما بتترسمش.
+  /// موجود عشان لو مصدر حقيقي اداه، يتعرض من غير ما حد يخترعه.
+  final double? rating;
 
   final String id;
   final PlaceKind kind;
@@ -54,6 +64,8 @@ class Place {
         if (phone != null) 'phone': phone,
         if (openingHours != null) 'openingHours': openingHours,
         if (speciality != null) 'speciality': speciality,
+        if (address != null) 'address': address,
+        if (rating != null) 'rating': rating,
       };
 
   static Place fromJson(Map<String, dynamic> json) => Place(
@@ -65,6 +77,8 @@ class Place {
         phone: json['phone'] as String?,
         openingHours: json['openingHours'] as String?,
         speciality: json['speciality'] as String?,
+        address: json['address'] as String?,
+        rating: (json['rating'] as num?)?.toDouble(),
       );
 
   /// وسوم OSM → نوع. `amenity=clinic` دكتور: في مصر OSM بيستخدمها أكتر
@@ -76,6 +90,17 @@ class Place {
     if (healthcare == 'laboratory') return PlaceKind.lab;
     if (amenity == 'doctors' || amenity == 'clinic' || healthcare == 'doctor') return PlaceKind.doctor;
     return null;
+  }
+
+  /// «٢٥ شارع التحرير، الدقي» — من وسوم `addr:*` اللي موجودة بس.
+  static String? _address(String? Function(String) tag) {
+    final full = tag('addr:full');
+    if (full != null) return full;
+    final street = tag('addr:street');
+    final number = tag('addr:housenumber');
+    final area = tag('addr:suburb') ?? tag('addr:district') ?? tag('addr:city');
+    final line = [if (number != null && street != null) '$number $street' else ?street, ?area].join('، ');
+    return line.isEmpty ? null : line;
   }
 
   static List<Place> fromOverpass(Map<String, dynamic> json) {
@@ -105,6 +130,7 @@ class Place {
         phone: tag('phone') ?? tag('contact:phone'),
         openingHours: tag('opening_hours'),
         speciality: tag('healthcare:speciality'),
+        address: _address(tag),
       ));
     }
     return places;
@@ -195,7 +221,7 @@ class NearbyPlaces {
     final lat = round3(latitude), lon = round3(longitude);
     // مجموعة الأنواع في المفتاح: لما نوع يتضاف، صفوف قديمة ناقصاه ما تتقراش.
     final kinds = PlaceKind.values.map((k) => k.name).join(',');
-    final key = 'places:v4:${source.id}:$kinds:$lat:$lon:$radiusMeters';
+    final key = 'places:v5:${source.id}:$kinds:$lat:$lon:$radiusMeters';
 
     ({DateTime at, List<Place> places})? cached;
     final raw = await cache.read(key);
@@ -352,6 +378,8 @@ class AppleMapKitPlaces implements PlacesSource {
         lon: lon.toDouble(),
         name: text('name'),
         phone: text('phone'),
+        address: text('address'),
+        rating: row['rating'] is num ? (row['rating'] as num).toDouble() : null,
         // MapKit ما بيدّيش مواعيد — ولا هنخمّنها
         openingHours: null,
       ));
