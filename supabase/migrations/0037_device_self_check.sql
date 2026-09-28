@@ -111,7 +111,12 @@ create trigger device_health_status_since before update on public.device_health
 drop policy if exists device_health_select on public.device_health;
 create policy device_health_select on public.device_health
   for select to authenticated
-  using (user_id = (select auth.uid()));
+  -- صفّي أنا، أو صفوف مريض أنا صاحبه. **لازم تبقى بعرض USING بتاع التعديل**:
+  -- `INSERT … ON CONFLICT DO UPDATE` بيفحص الصف الموجود بـSELECT كمان، فجلسة
+  -- جديدة على نفس الموبايل (الدين ٢) كانت بترجع 42501 وهي بتكمّل على صفها —
+  -- ده اللي وقّع الفحص الذاتي على المشروع الحقيقي. صاحب المريض بيشوف صف
+  -- موبايل ابنه كمان (أكواد سلامة بس — مقبول).
+  using (user_id = (select auth.uid()) or private.owns_patient(patient_uuid));
 
 drop policy if exists device_health_insert on public.device_health;
 create policy device_health_insert on public.device_health
@@ -357,6 +362,19 @@ begin
        or (select status from public.device_health where patient_uuid = v_pat and install_id = 'install-a') <> 'healed' then
       raise exception 'FAIL 0037: صف موبايل الأب اتغيّر من الابن';
     end if;
+    -- ٥ج) صاحب المريض بيشوف صف موبايله وصف موبايل الابن (أكواد بس)
+    perform set_config('request.jwt.claims', json_build_object('sub', v_owner2)::text, true);
+    execute 'set local role authenticated';
+    select count(*) into v_n from public.device_health
+      where patient_uuid = v_pat and install_id in ('install-a', 'install-son');
+    if v_n <> 2 then raise exception 'FAIL 0037: صاحب المريض مش شايف صفوف مريضه (%)', v_n; end if;
+    execute 'reset role';
+    -- والابن لسه شايف صفّه هو بس
+    perform set_config('request.jwt.claims', json_build_object('sub', v_son)::text, true);
+    execute 'set local role authenticated';
+    select count(*) into v_n from public.device_health;
+    if v_n <> 1 then raise exception 'FAIL 0037: الابن شايف صف غير صفّه (%)', v_n; end if;
+    execute 'reset role';
 
     -- ٦) الساكت: جدول شغّال + ٣ أيام سكوت → silent؛ مريض من غير جداول → لأ
     execute 'reset role';

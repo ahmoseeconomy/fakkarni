@@ -56,8 +56,18 @@ void main() {
     expect(update, contains('using (user_id = (select auth.uid()) or private.owns_patient(patient_uuid))'));
     expect(update, contains('with check (user_id = (select auth.uid()))'));
     expect(update, isNot(contains('can_access_patient')), reason: 'ابن أو ممرض ما يكتبش فوق صف موبايل أبوه');
-    expect('owns_patient'.allMatches(code).length, 1, reason: '42501 كان من owns_patient على الإدخال');
-    expect(sql, contains('for select to authenticated\n  using (user_id = (select auth.uid()))'));
+    // **القراية لازم تبقى بعرض USING بتاع التعديل — ما تضيّقهاش.**
+    // `INSERT … ON CONFLICT DO UPDATE` بيفحص الصف الموجود بسياسة SELECT كمان مش
+    // UPDATE بس. لما القراية كانت `user_id = auth.uid()` لوحدها، جلسة جديدة على
+    // نفس الموبايل (مجهول جديد — الدين ٢) رجعت 42501 وهي بتكمّل على صف
+    // تنزيلتها، والفحص الذاتي وقع على المشروع الحقيقي بالظبط عند الخطوة دي.
+    final select = RegExp(r'create policy device_health_select[\s\S]*?;').firstMatch(code)!.group(0)!;
+    expect(select, contains('using (user_id = (select auth.uid()) or private.owns_patient(patient_uuid))'));
+    expect(select, isNot(contains('can_access_patient')), reason: 'الابن ما يشوفش صف موبايل أبوه');
+    // owns_patient في القراية والتعديل بس — مش في الإدخال (42501 القديم)
+    expect('owns_patient'.allMatches(code).length, 2);
+    final insert = RegExp(r'create policy device_health_insert[\s\S]*?;').firstMatch(code)!.group(0)!;
+    expect(insert, isNot(contains('owns_patient')));
     expect(sql, contains('for delete to authenticated\n  using (user_id = (select auth.uid()))'));
     expect(sql, contains('with check (user_id = (select auth.uid()) and private.can_access_patient(patient_uuid))'));
     expect(sql, contains('revoke all on public.device_health from anon, public;'));
@@ -169,5 +179,7 @@ void main() {
     expect(check, contains("'FAIL 0037: الابن مقدرش يحدّث صفّه هو'"));
     expect(check, contains("'FAIL 0037: موبايل الابن اتعلّم ساكت'"));
     expect(check, contains("'install-old'"));
+    expect(check, contains("'FAIL 0037: صاحب المريض مش شايف صفوف مريضه"));
+    expect(check, contains("'FAIL 0037: الابن شايف صف غير صفّه"));
   });
 }
