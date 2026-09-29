@@ -226,6 +226,18 @@ enum LiveActionChannel {
     // ترجع — وعلى دورة حياة UIScene فلاتر بيسجّل الإضافات بعدها، فالإضافة
     // نفسها ما بتلحقش (مقروء من مصدر workmanager_apple: registerLaunchHandlers).
     WorkmanagerPlugin.registerLaunchHandlers()
+    // وده اللي كان بيقفّل التطبيق عند الفتح: registerLaunchHandlers بتسجّل
+    // اللي متخزّن من فتحة قبل كده بس — في أول فتحة مفيش حاجة متخزّنة، فلما
+    // دارت تنده registerPeriodicTask الإضافة بتعمل BGTaskScheduler.submit
+    // لمعرّف مالوش معالج، وiOS بيرمي NSInternalInconsistencyException
+    // (_handleSubmissionWithoutRegistrationForTaskRequest) — استثناء ObjC،
+    // ولا catch في سويفت ولا في دارت بيمسكه. تسجيل المعالج لمعرّفنا هنا
+    // (مرة لكل عملية، idempotent جوّه الإضافة) بيخلّي الـsubmit آمن دايماً.
+    // المعرّف مرآة لـBackgroundHealth.taskId وInfo.plist (background_health_test).
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "com.fakrny.app.health-daily",
+      earliestBeginInSeconds: 86400
+    )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

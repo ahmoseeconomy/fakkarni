@@ -45,6 +45,19 @@ void main() {
     expect(delegate, contains('import workmanager_apple'));
   });
 
+  // أول فتحة كانت بتقع: submit لمعرّف مالوش معالج = استثناء ObjC ما بيتمسكش.
+  // المعالج لازم يتسجّل لمعرّفنا بالاسم قبل return — مش من المتخزّن بس.
+  test('iOS: معالج المعرّف بيتسجّل بالاسم قبل return (وإلا أول فتحة بتقع)', () {
+    final call = 'WorkmanagerPlugin.registerPeriodicTask(\n'
+        '      withIdentifier: "${BackgroundHealth.taskId}",\n'
+        '      earliestBeginInSeconds: ${BackgroundHealth.every.inSeconds}\n'
+        '    )';
+    final at = delegate.indexOf(call);
+    final ret = delegate.indexOf('return super.application(application, didFinishLaunchingWithOptions: launchOptions)');
+    expect(at, greaterThan(0), reason: 'التسجيل بالمعرّف مش موجود في AppDelegate');
+    expect(at, lessThan(ret), reason: 'لازم قبل return');
+  });
+
   test('main: التسجيل بعد المراقب وبعد إعادة الجدولة، من غير await', () {
     final resched = main.indexOf('services.scheduler.rescheduleAll()');
     final watcher = main.indexOf('HealthWatcher.instance = HealthWatcher(');
