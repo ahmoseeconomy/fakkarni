@@ -28,12 +28,21 @@ class FSheet extends StatelessWidget {
         barrierColor: F.scrim,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
+        // **الشيت الطويل ما يطلعش لحد شريط الحالة** (٢٩ سبتمبر ٢٠٢٦):
+        // `isScrollControlled` من غير `useSafeArea` بيسيب الشيت يكبر لأول
+        // الشاشة، و«ميعاد جديد» (اليوم + البكرة) كان عنوانه جنب الساعة تحت
+        // النوتش. `useSafeArea` بيوقّفه تحت الشريط، والحشوة فوق بتسيب الحجاب
+        // باين عشان يبان إنه شيت يتقفل. الشيت القصير ما بيتأثرش.
+        useSafeArea: true,
         sheetAnimationStyle: const AnimationStyle(
           duration: F.sheetDuration,
           reverseDuration: F.sheetDuration,
           curve: Curves.easeOut,
         ),
-        builder: (_) => FSheet(title: title, children: children),
+        builder: (_) => Padding(
+          padding: const EdgeInsets.only(top: F.s12),
+          child: FSheet(title: title, children: children),
+        ),
       );
 
   @override
