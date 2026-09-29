@@ -363,44 +363,38 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               // ================================================= أوراقك
               const HelpRow(id: 'help_papers', child: FSectionHead('أوراقك')),
               const SizedBox(height: F.s8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      textInputAction: TextInputAction.search,
-                      key: const ValueKey('records-search'),
-                      controller: _query,
-                      style: TextStyle(fontSize: F.minBodySize, color: F.ink),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        prefixIcon: Icon(Icons.search, color: F.mutedDark),
-                        hintText: 'دوّر',
-                        hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                        filled: true,
-                        fillColor: F.railGround,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: F.s10, vertical: F.s12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(F.radiusCard),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+              _SearchBar(
+                search: TextField(
+                  textInputAction: TextInputAction.search,
+                  key: const ValueKey('records-search'),
+                  controller: _query,
+                  style: TextStyle(fontSize: F.minBodySize, color: F.ink),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search, color: F.mutedDark),
+                    hintText: 'دوّر',
+                    hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    filled: true,
+                    fillColor: F.railGround,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: F.s10, vertical: F.s12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(F.radiusCard),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-                  const SizedBox(width: F.s8),
-                  _WordButton(
-                    key: const ValueKey('records-filter'),
-                    label: 'فلتر',
-                    onTap: all == null || all.isEmpty ? null : () => _filter(all),
+                ),
+                filter: _WordButton(
+                  key: const ValueKey('records-filter'),
+                  label: 'فلتر',
+                  onTap: all == null || all.isEmpty ? null : () => _filter(all),
+                ),
+                calendar: _WordButton(
+                  key: const ValueKey('records-calendar'),
+                  label: 'التقويم',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => CalendarScreen(today: widget.today)),
                   ),
-                  const SizedBox(width: F.s6),
-                  _WordButton(
-                    key: const ValueKey('records-calendar'),
-                    label: 'التقويم',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => CalendarScreen(today: widget.today)),
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: F.s12),
               if (all == null)
@@ -752,6 +746,50 @@ class _AppointmentRow extends StatelessWidget {
             ),
           ),
         ),
+      );
+}
+
+/// سطر البحث في «أوراقك»: الحقل و«فلتر» و«التقويم». على موبايل ضيق وخط كبير
+/// (٣٢٠ ×١٫٣) التلاتة ما بيساعهمش سطر، فالحقل بياخد السطر لوحده والزرارين
+/// تحته بالنص. غير كده سطر واحد زي ما كان.
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.search, required this.filter, required this.calendar});
+
+  final Widget search;
+  final Widget filter;
+  final Widget calendar;
+
+  static const narrowBelow = 300.0;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, box) {
+          if (box.maxWidth < narrowBelow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                search,
+                const SizedBox(height: F.s8),
+                Row(
+                  children: [
+                    Expanded(child: filter),
+                    const SizedBox(width: F.s8),
+                    Expanded(child: calendar),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: search),
+              const SizedBox(width: F.s8),
+              filter,
+              const SizedBox(width: F.s6),
+              calendar,
+            ],
+          );
+        },
       );
 }
 

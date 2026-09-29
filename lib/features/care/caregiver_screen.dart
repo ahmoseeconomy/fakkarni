@@ -602,27 +602,33 @@ class _DoseRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: F.s8),
+            // Flexible: على الضيق الحالة بتاخد نص الصف بالكتير وبتلفّ، والاسم
+            // بياخد الباقي. لما تساع، مقاسها زي ما هو.
             if (ahead)
               // القسم اسمه «جاية» خلاص، فالسطر ما بيكرّرش الحالة —
               // بيقول **قد إيه فاضل**، وده الرقم اللي بيتقري.
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.schedule, size: 16, color: F.mutedDark),
-                  const SizedBox(width: F.s4),
-                  Text(
-                    timeAhead(now, event.scheduledAt),
-                    style: TextStyle(
-                      fontSize: F.careTextSize,
-                      fontWeight: FontWeight.w700,
-                      color: F.ink,
-                      height: 1.4,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.schedule, size: 16, color: F.mutedDark),
+                    const SizedBox(width: F.s4),
+                    Flexible(
+                      child: Text(
+                        timeAhead(now, event.scheduledAt),
+                        style: TextStyle(
+                          fontSize: F.careTextSize,
+                          fontWeight: FontWeight.w700,
+                          color: F.ink,
+                          height: 1.4,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               )
             else
-              CareStateMark(look: look, label: label.trim()),
+              Flexible(child: CareStateMark(look: look, label: label.trim())),
           ],
         ),
       ),
@@ -671,7 +677,7 @@ class _FollowRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: F.s8),
-              CareStateMark(look: DoseLook.upcoming, label: follow.stage.label),
+              Flexible(child: CareStateMark(look: DoseLook.upcoming, label: follow.stage.label)),
             ],
           ),
           const SizedBox(height: F.s4),

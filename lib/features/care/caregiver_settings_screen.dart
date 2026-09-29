@@ -344,7 +344,12 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
                   child: Text('اللغة',
                       style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
                 ),
-                Text('عربي — النسخة دي عربي بس', style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+                const SizedBox(width: F.s8),
+                // بتلفّ على الضيق بدل ما تعصر «اللغة» لحرف في السطر
+                Flexible(
+                  child: Text('عربي — النسخة دي عربي بس',
+                      textAlign: TextAlign.end, style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+                ),
               ],
             ),
           ),

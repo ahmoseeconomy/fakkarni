@@ -411,8 +411,13 @@ class _AccountCard extends StatelessWidget {
         : user!.isAnonymous
             ? ('حساب تجريبي', StatusTone.neutral)
             : ('مربوط', StatusTone.ok);
+    final chip = StatusChip(label: label, tone: tone);
+    // على موبايل ضيق وخط كبير (٣٢٠ ×١٫٣) الشريحة جنب الاسم كانت بتاكل عرضه
+    // كله (الاسم اتعصر لصفر): بتنزل تحت السطرين. غير كده جنب الاسم زي ما هي.
     return FCard(
-      child: Row(
+      child: LayoutBuilder(builder: (context, box) {
+        final narrow = box.maxWidth < 280;
+        return Row(
         children: [
           Container(
             width: 56,
@@ -446,13 +451,20 @@ class _AccountCard extends StatelessWidget {
                           : (user!.email ?? ''),
                   style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                 ),
+                if (narrow) ...[
+                  const SizedBox(height: F.s6),
+                  chip,
+                ],
               ],
             ),
           ),
-          const SizedBox(width: F.s8),
-          StatusChip(label: label, tone: tone),
+          if (!narrow) ...[
+            const SizedBox(width: F.s8),
+            chip,
+          ],
         ],
-      ),
+      );
+      }),
     );
   }
 }

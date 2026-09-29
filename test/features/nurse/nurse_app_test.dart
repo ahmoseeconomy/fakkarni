@@ -428,6 +428,42 @@ void main() {
     }
   });
 
+  // كل تبويب عند الممرض والمتابع على مقاسات حقيقية بخط ×١٫٣ — أصغر موبايل
+  // لحد الآيباد. أي فيضان بيوقّع (takeException).
+  group('كل المقاسات بخط ×١٫٣', () {
+    const sizes = <String, Size>{
+      '٣٢٠×٥٦٨': Size(320, 568),
+      // ضيق وطويل: القوايم بتبني الصفوف اللي تحت الطية على أضيق عرض
+      '٣٢٠×٢٤٠٠': Size(320, 2400),
+      '٣٦٠×٦٤٠': Size(360, 640),
+      '٤٣٠×٩٣٢': Size(430, 932),
+      '٧٦٨×١٠٢٤': Size(768, 1024),
+      '١٠٢٤×٧٦٨': Size(1024, 768),
+    };
+    final roles = <String, (FollowerPermissions, List<String>)>{
+      'ممرض': (editor, ['يومك', 'الأدوية', 'ملفّي', 'الإعدادات']),
+      'متابع': (FollowerPermissions.plainFollower, ['متابعة', 'الأدوية', 'الملف الطبي', 'الإعدادات']),
+    };
+    for (final MapEntry(key: sizeName, value: size) in sizes.entries) {
+      for (final MapEntry(key: role, value: (perms, tabs)) in roles.entries) {
+        for (final tab in tabs) {
+          screenTest('$role — $sizeName — «$tab»: مفيش فيض', (tester) async {
+            cloud.snapshots['p1'] = snap(permissions: perms, name: 'الحاج أحمد عبد الرحمن');
+            cloud.snapshots['p2'] = snap(uuid: 'p2', name: 'الحاجة فاطمة');
+            await pump(tester);
+            tester.view.physicalSize = size;
+            tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+            addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+            await settle(tester);
+            await tester.tap(find.text(tab).last);
+            await settle(tester);
+            expect(tester.takeException(), isNull);
+          });
+        }
+      }
+    }
+  });
+
   group('القياسات عند العيلة والممرض — قراية بس', () {
     final vitals = [Vital(kind: VitalKind.weight, value: 72.5, measuredAt: DateTime(2026, 8, 31, 9))];
 

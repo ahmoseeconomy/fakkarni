@@ -202,10 +202,14 @@ class _GlucoseScreenState extends State<GlucoseScreen> {
                         ),
                         const SizedBox(width: F.s8),
                         Text(r.context.label, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
-                        const Spacer(),
-                        Text(
-                          '${arabicDate(r.measuredAt)} — ${arabicTime(r.measuredAt)}',
-                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                        const SizedBox(width: F.s8),
+                        // بياخد الباقي وبيلفّ على الضيق (٣٢٠ بخط ×١٫٣) بدل ما يفيض
+                        Expanded(
+                          child: Text(
+                            '${arabicDate(r.measuredAt)} — ${arabicTime(r.measuredAt)}',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                          ),
                         ),
                       ],
                     ),

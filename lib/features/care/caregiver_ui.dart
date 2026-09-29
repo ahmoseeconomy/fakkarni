@@ -261,13 +261,18 @@ class CareStateMark extends StatelessWidget {
       children: [
         Icon(iconFor(look), size: 16, color: colour),
         const SizedBox(width: F.s4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: F.careTextSize,
-            fontWeight: FontWeight.w700,
-            color: F.ink,
-            height: 1.4,
+        // بيلفّ لسطر تاني لو الصف ضيق (٣٢٠ بخط ×١٫٣) — من غيره «اتنست — لسه
+        // ما اتأكدتش» كانت بتعصر اسم الدوا لصفر وتفيض. الشريحة بتتحط جوّه
+        // Flexible عند اللي بيناديها.
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: F.careTextSize,
+              fontWeight: FontWeight.w700,
+              color: F.ink,
+              height: 1.4,
+            ),
           ),
         ),
       ],

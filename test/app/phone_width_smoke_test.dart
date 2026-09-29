@@ -165,31 +165,46 @@ void main() {
     'nearby (denied)': () => NearbyScreen(location: _Denied(), now: () => now),
   };
 
-  for (final scale in [1.0, 1.3]) {
-    for (final filled in [false, true]) {
-      for (final MapEntry(key: name, value: build) in screens.entries) {
-        screenTest('عرض ٣٩٠ — خط ×$scale — ${filled ? 'مليانة' : 'فاضية'} — $name', (tester) async {
-          if (filled) await seed();
-          tester.view.physicalSize = const Size(390, 2400);
-          tester.view.devicePixelRatio = 1.0;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          await tester.pumpWidget(
-            AppScope(
-              services: h.services,
-              child: MaterialApp(
-                theme: F.light,
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-                  child: Directionality(textDirection: TextDirection.rtl, child: child!),
+  // مقاسات حقيقية: أصغر أندرويد وSE الأول، أندرويد الشائع، الأساس القديم
+  // (٣٩٠ بطول كبير عشان القوايم تبني كل حاجة)، Pro Max، وآيباد بالطول والعرض.
+  const sizes = <String, Size>{
+    '٣٢٠×٥٦٨': Size(320, 568),
+    // ضيق وطويل: القوايم بتبني الصفوف اللي تحت الطية على أضيق عرض
+    '٣٢٠×٢٤٠٠': Size(320, 2400),
+    '٣٦٠×٦٤٠': Size(360, 640),
+    '٣٩٠': Size(390, 2400),
+    '٤٣٠×٩٣٢': Size(430, 932),
+    '٧٦٨×١٠٢٤': Size(768, 1024),
+    '١٠٢٤×٧٦٨': Size(1024, 768),
+  };
+
+  for (final MapEntry(key: sizeName, value: size) in sizes.entries) {
+    for (final scale in [1.0, 1.3]) {
+      for (final filled in [false, true]) {
+        for (final MapEntry(key: name, value: build) in screens.entries) {
+          screenTest('عرض $sizeName — خط ×$scale — ${filled ? 'مليانة' : 'فاضية'} — $name', (tester) async {
+            if (filled) await seed();
+            tester.view.physicalSize = size;
+            tester.view.devicePixelRatio = 1.0;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            await tester.pumpWidget(
+              AppScope(
+                services: h.services,
+                child: MaterialApp(
+                  theme: F.light,
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+                    child: Directionality(textDirection: TextDirection.rtl, child: child!),
+                  ),
+                  home: Builder(builder: (_) => build()),
                 ),
-                home: Builder(builder: (_) => build()),
               ),
-            ),
-          );
-          // أي فيضان بيوقّع الاختبار لوحده ومعاه مكان الودجت في الكود
-          await settle(tester);
-        });
+            );
+            // أي فيضان بيوقّع الاختبار لوحده ومعاه مكان الودجت في الكود
+            await settle(tester);
+          });
+        }
       }
     }
   }
