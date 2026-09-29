@@ -9,6 +9,7 @@ import '../../core/format/arabic_time.dart' show arabicDigits;
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
+import '../../data/contacts/contact_picker.dart';
 import '../../data/places/places.dart';
 import '../../domain/billing/family_plan.dart';
 import '../../domain/medication/stock.dart' show whatsappNumber;
@@ -16,6 +17,15 @@ import '../../domain/places/pharmacy_numbers.dart';
 import '../billing/feature_gate.dart';
 import '../nearby/nearby_screen.dart';
 import '../scan/scan_prescription_screen.dart' show PickImage, pickWithSystemCamera;
+
+/// «من صورة عندي» والصورة مافيهاش موبايل.
+const pharmacyNoWhatsAppInPhoto = 'مش لاقي رقم موبايل في الصورة — اكتبه أو اختاره من جهات الاتصال.';
+
+/// الجهة اللي اتختارت رقمها أرضي.
+const pharmacyContactNotMobile = 'الرقم ده مش موبايل — الواتساب محتاج رقم موبايل.';
+
+/// النظام رفض يفتح جهات الاتصال.
+const pharmacyContactsDenied = 'مقدرناش نفتح جهات الاتصال — اكتب الرقم بإيدك.';
 
 /// اللي جاي متعبّي من برّه الورقة — كارت في «القريب مني».
 class PharmacyPrefill {
@@ -95,6 +105,12 @@ class _PharmacyBodyState extends State<PharmacyBody> {
   bool _reading = false;
   String? _error;
 
+  /// سطر تحت رقم الواتساب — نتيجة «من صورة عندي» / «من جهات الاتصال».
+  String? _waNote;
+
+  /// النظام رفض يفتح جهات الاتصال — الزرار بيختفي (مفيش سؤال تاني).
+  bool _contactsDenied = false;
+
   /// البيانات جت من برّه (القريب مني / الكارت) → الاستبدال بيتسأل.
   bool _fromOutside = false;
   bool _confirmReplace = false;
@@ -142,7 +158,9 @@ class _PharmacyBodyState extends State<PharmacyBody> {
 
   /// [missingOnly]: من سؤال الواتساب — الاسم ورقم الاتصال اللي موجودين
   /// بيفضلوا، والكارت بيملا الناقص بس.
-  Future<void> _fromCard(ImageSource source, {bool missingOnly = false}) async {
+  /// [whatsappOnly]: «من صورة عندي» تحت رقم الواتساب — الصورة بتملا رقم
+  /// الواتساب **وبس** (أو شرايح لو فيها كذا موبايل)، والاسم والاتصال زي ما هم.
+  Future<void> _fromCard(ImageSource source, {bool missingOnly = false, bool whatsappOnly = false}) async {
     final reader = AppScope.of(context).pharmacyCardReader;
     if (reader == null || _reading) return;
     if (!await ensureFamilyFeature(context, AppFeature.scans) || !mounted) return;
@@ -166,10 +184,18 @@ class _PharmacyBodyState extends State<PharmacyBody> {
     setState(() {
       _reading = false;
       if (reading == null || reading.unreadable) {
-        _error = failure ?? pharmacyCardUnreadable;
+        if (whatsappOnly) {
+          _waNote = failure ?? pharmacyCardUnreadable;
+        } else {
+          _error = failure ?? pharmacyCardUnreadable;
+        }
         return;
       }
-      _fillFromCard(reading, missingOnly: missingOnly);
+      if (whatsappOnly) {
+        _whatsappFromCard(reading);
+      } else {
+        _fillFromCard(reading, missingOnly: missingOnly);
+      }
     });
   }
 
@@ -189,6 +215,60 @@ class _PharmacyBodyState extends State<PharmacyBody> {
     _choices = _whatsapp.text.trim().isEmpty ? numbers.mobileChoices : const [];
     _askWhatsApp = _whatsapp.text.trim().isEmpty && _choices.isEmpty;
     _review = true;
+  }
+
+  void _whatsappFromCard(PharmacyCardReading r) {
+    final numbers = choosePharmacyNumbers(whatsapp: r.whatsapp, phones: r.phones);
+    _fromOutside = true;
+    _confirmReplace = false;
+    _askWhatsApp = false;
+    if (numbers.whatsapp case final wa?) {
+      _whatsapp.text = wa;
+      _choices = const [];
+      _waNote = null;
+      _review = true;
+    } else if (numbers.mobileChoices.isNotEmpty) {
+      _choices = numbers.mobileChoices;
+      _waNote = null;
+    } else {
+      // أرضي بس، أو مفيش أرقام — مفيش واتساب نختاره بالنيابة عنه
+      _waNote = pharmacyNoWhatsAppInPhoto;
+    }
+  }
+
+  /// جهة **واحدة** من شاشة النظام — اللي الشخص دوس عليها، من غير إذن
+  /// (`contacts_read_once_test`). رقمها بيروح خانة الواتساب لو موبايل مصري،
+  /// واسمها خانة الاسم لو فاضية. أرضي = سطر بيقول ليه، ومفيش حاجة بتتكتب.
+  Future<void> _fromContacts() async {
+    final picker = AppScope.of(context).contacts;
+    PickedContact? contact;
+    try {
+      contact = await picker.pickOne();
+    } on ContactPickerDenied {
+      if (mounted) {
+        setState(() {
+          _contactsDenied = true;
+          _waNote = pharmacyContactsDenied;
+        });
+      }
+      return;
+    }
+    if (contact == null || !mounted) return; // قفلها من غير ما يختار — سكوت
+    final local = normalizeEgyptPhone(contact.phone);
+    setState(() {
+      _confirmReplace = false;
+      if (local == null || !isEgyptMobile(local)) {
+        _waNote = pharmacyContactNotMobile;
+        return;
+      }
+      _fromOutside = true;
+      _whatsapp.text = local;
+      _choices = const [];
+      _askWhatsApp = false;
+      _waNote = null;
+      if (_name.text.trim().isEmpty && contact!.name.trim().isNotEmpty) _name.text = contact.name.trim();
+      _review = true;
+    });
   }
 
   String? get _callNumber => _call.text.trim().isEmpty ? null : normalizeEgyptPhone(_call.text);
@@ -294,6 +374,27 @@ class _PharmacyBodyState extends State<PharmacyBody> {
         const SizedBox(height: F.s8),
         _field('pharmacy-number', _whatsapp, 'رقم الواتساب — زي 01012345678',
             phone: true, focus: _whatsappFocus, action: TextInputAction.done),
+        // رقم الواتساب من صورة عنده، أو من جهات الاتصال (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+        if (canRead || !_contactsDenied) ...[
+          const SizedBox(height: F.s8),
+          if (canRead)
+            FSecondaryButton(
+              key: const ValueKey('pharmacy-wa-gallery'),
+              label: 'رقم الواتساب من صورة عندي',
+              onPressed: _reading ? null : () => _fromCard(ImageSource.gallery, whatsappOnly: true),
+            ),
+          if (canRead && !_contactsDenied) const SizedBox(height: F.s8),
+          if (!_contactsDenied)
+            FSecondaryButton(
+              key: const ValueKey('pharmacy-wa-contacts'),
+              label: 'رقم الواتساب من جهات الاتصال',
+              onPressed: _reading ? null : _fromContacts,
+            ),
+        ],
+        if (_waNote != null) ...[
+          const SizedBox(height: F.s8),
+          GoldNote(_waNote!, key: const ValueKey('pharmacy-wa-note')),
+        ],
         if (_choices.isNotEmpty) ...[
           const SizedBox(height: F.s8),
           _line('أنهي رقم عليه واتساب؟', key: const ValueKey('pharmacy-wa-choices')),

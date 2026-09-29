@@ -12,10 +12,17 @@ import 'package:flutter_test/flutter_test.dart';
 /// الحارس ده بيقفل تلات أبواب:
 ///   ١) استيراد الحزمة في ملف واحد بس ([_pluginFile]) — زي قاعدة
 ///      `supabase_*` / `firebase_*`.
-///   ٢) `pickOne()` بتتندَه من مكان واحد في التطبيق: زرار «من جهات الاتصال».
+///   ٢) `pickOne()` بتتندَه من زرار «من جهات الاتصال» في شاشتين بالاسم وبس.
 ///   ٣) ولا حاجة في `lib/` بتنده API بيعدّد جهات الاتصال.
 const _pluginFile = 'lib/data/contacts/native_contact_picker.dart';
-const _theOneCaller = 'lib/features/emergency/emergency_edit_screen.dart';
+/// **شاشتين بالاسم، مش «أي مكان».** جهات الطوارئ، و«صيدليتي» (رقم واتساب
+/// الصيدلية — طلب المالك، ٢٩ سبتمبر ٢٠٢٦). نفس الوعد في الاتنين: شاشة
+/// النظام، جهة واحدة، من غير إذن. الفرق المكتوب: رقم الصيدلية بيتحفظ زي ما
+/// لو اتكتب بالإيد — وده بيترفع مع صف المريض (0035)؛ أرقام الطوارئ لأ.
+const _theCallers = [
+  'lib/features/emergency/emergency_edit_screen.dart',
+  'lib/features/medication/pharmacy_sheet.dart',
+];
 
 List<File> _dartFiles(String root) => Directory(root)
     .listSync(recursive: true)
@@ -50,8 +57,8 @@ void main() {
         if (line.contains('pickOne(')) callers.add(path);
       }
     }
-    expect(callers, [_theOneCaller],
-        reason: 'جهات الاتصال بتتفتح من زرار «من جهات الاتصال» وبس');
+    expect(callers..sort(), _theCallers,
+        reason: 'جهات الاتصال بتتفتح من زرار «من جهات الاتصال» في الشاشتين دول وبس');
   });
 
   test('ولا API بيعدّد دفتر العناوين في أي مكان', () {

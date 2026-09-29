@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/ai/pharmacy_card_reader.dart';
 import 'package:fakkarni/app/app_scope.dart';
+import 'package:fakkarni/data/contacts/contact_picker.dart';
 import 'package:fakkarni/data/places/places.dart';
 import 'package:fakkarni/data/repositories/preferences_repository.dart';
 import 'package:fakkarni/features/medication/pharmacy_sheet.dart';
@@ -26,6 +27,19 @@ class FakeCardReader implements PharmacyCardReader {
   Future<PharmacyCardReading> read(Uint8List image, {String mimeType = 'image/jpeg'}) async {
     calls++;
     return reading;
+  }
+}
+
+class _FakeContacts implements ContactPicker {
+  _FakeContacts(this.next);
+  PickedContact? next;
+  bool deny = false;
+  int calls = 0;
+  @override
+  Future<PickedContact?> pickOne() async {
+    calls++;
+    if (deny) throw const ContactPickerDenied();
+    return next;
   }
 }
 
@@ -262,5 +276,101 @@ void main() {
     await settle(tester);
     expect(find.byKey(const ValueKey('place-ph1')), findsOneWidget, reason: 'الكارت نفسه موجود');
     expect(find.text('خليها صيدليتي'), findsNothing);
+  });
+
+  // رقم الواتساب من صورة عنده أو من جهات الاتصال (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+  group('رقم الواتساب من صورة أو من جهات الاتصال', () {
+    late _FakeContacts contacts;
+
+    Future<void> open(WidgetTester tester) async {
+      h.services = AppServices(
+        db: h.services.db,
+        patients: h.services.patients,
+        medications: h.services.medications,
+        events: h.services.events,
+        scheduler: h.services.scheduler,
+        patientId: h.services.patientId,
+        pharmacyCardReader: reader,
+        contacts: contacts,
+      );
+      await h.pump(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (c) => TextButton(
+              key: const ValueKey('open'),
+              onPressed: () => editPharmacy(c),
+              child: const Text('افتح'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('open')));
+      await settle(tester);
+    }
+
+    setUp(() => contacts = _FakeContacts(null));
+
+    screenTest('«من صورة عندي»: من الصور، والواتساب بس بيتملا — الاسم والاتصال زي ما هم', (tester) async {
+      reader.reading = const PharmacyCardReading(
+          name: 'صيدلية تانية', phones: ['0223456789'], whatsapp: '01012345678', highConfidence: true);
+      await open(tester);
+      await tester.enterText(find.byKey(const ValueKey('pharmacy-name')), 'صيدلية الشفا');
+      await settle(tester);
+      await tapKey(tester, 'pharmacy-wa-gallery');
+      expect(picked, [ImageSource.gallery]);
+      expect(field(tester, 'pharmacy-number'), '01012345678');
+      expect(field(tester, 'pharmacy-name'), 'صيدلية الشفا');
+      expect(field(tester, 'pharmacy-call'), isEmpty);
+      expect((await tester.runAsync(() => prefs().pharmacy()))!.whatsapp, isNull, reason: 'مفيش حفظ قبل «احفظ»');
+    });
+
+    screenTest('«من صورة عندي» بكذا موبايل = شرايح يختار منها، مش تخمين', (tester) async {
+      reader.reading = const PharmacyCardReading(phones: ['01012345678', '01112345678'], highConfidence: true);
+      await open(tester);
+      await tapKey(tester, 'pharmacy-wa-gallery');
+      expect(field(tester, 'pharmacy-number'), isEmpty);
+      expect(find.byKey(const ValueKey('pharmacy-wa-choices')), findsOneWidget);
+    });
+
+    screenTest('«من صورة عندي» والصورة فيها أرضي بس = سطر، ومفيش واتساب', (tester) async {
+      reader.reading = const PharmacyCardReading(phones: ['0223456789'], highConfidence: true);
+      await open(tester);
+      await tapKey(tester, 'pharmacy-wa-gallery');
+      expect(field(tester, 'pharmacy-number'), isEmpty);
+      expect(find.text(pharmacyNoWhatsAppInPhoto), findsOneWidget);
+    });
+
+    screenTest('«من جهات الاتصال»: موبايل = خانة الواتساب، والاسم لو فاضي', (tester) async {
+      contacts.next = const PickedContact(name: 'صيدلية العزبي', phone: '+20 100 123 4567');
+      await open(tester);
+      await tapKey(tester, 'pharmacy-wa-contacts');
+      expect(contacts.calls, 1);
+      expect(field(tester, 'pharmacy-number'), '01001234567');
+      expect(field(tester, 'pharmacy-name'), 'صيدلية العزبي');
+      await tapKey(tester, 'pharmacy-save');
+      final saved = (await tester.runAsync(() => prefs().pharmacy()))!;
+      expect(saved.whatsapp, '01001234567');
+    });
+
+    screenTest('«من جهات الاتصال»: أرضي = سطر ومفيش كتابة؛ قفلها = سكوت', (tester) async {
+      contacts.next = const PickedContact(name: 'صيدلية', phone: '0223456789');
+      await open(tester);
+      await tapKey(tester, 'pharmacy-wa-contacts');
+      expect(field(tester, 'pharmacy-number'), isEmpty);
+      expect(find.text(pharmacyContactNotMobile), findsOneWidget);
+
+      contacts.next = null;
+      await tapKey(tester, 'pharmacy-wa-contacts');
+      expect(field(tester, 'pharmacy-number'), isEmpty);
+    });
+
+    screenTest('النظام رفض يفتح جهات الاتصال: سطر، والزرار بيختفي', (tester) async {
+      contacts.deny = true;
+      await open(tester);
+      await tapKey(tester, 'pharmacy-wa-contacts');
+      expect(find.text(pharmacyContactsDenied), findsOneWidget);
+      expect(find.byKey(const ValueKey('pharmacy-wa-contacts')), findsNothing);
+    });
   });
 }
