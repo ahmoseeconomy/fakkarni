@@ -86,7 +86,7 @@ void main() {
   });
 
   group('متعبّي من برّه', () {
-    Future<void> pumpOpener(WidgetTester tester, Future<bool> Function(BuildContext) open) async {
+    Future<void> pumpOpener(WidgetTester tester, Future<Object?> Function(BuildContext) open) async {
       await h.pump(
         tester,
         Scaffold(

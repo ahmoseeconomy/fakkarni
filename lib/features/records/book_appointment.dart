@@ -14,7 +14,8 @@ import 'health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 /// [doctor] دكتور **حقيقي** — من دكاترة المريض أو من «القريب مني». بيتسجّل
 /// على الميعاد لو الاسم فضل زي ما هو؛ لو اتغيّر في الورقة، الاسم الجديد بتاع
 /// المريض والدكتور ما بيتكتبش جنبه.
-Future<bool> openBookAppointment(
+/// بيرجّع اللي اتحفظ (اليوم والساعة والنوع) — null = قفل الورقة من غير حفظ.
+Future<NewAppointmentResult?> openBookAppointment(
   BuildContext context, {
   required DateTime today,
   FollowKind kind = FollowKind.visit,
@@ -25,7 +26,7 @@ Future<bool> openBookAppointment(
   Specialty? specialty,
 }) async {
   final services = AppScope.maybeOf(context);
-  if (services == null) return false;
+  if (services == null) return null;
   final result = await FSheet.show<NewAppointmentResult>(
     context,
     title: 'ميعاد جديد',
@@ -41,7 +42,7 @@ Future<bool> openBookAppointment(
       ),
     ],
   );
-  if (result == null) return false;
+  if (result == null) return null;
   await services.checkups.bookAppointment(
     patientId: services.patientId,
     kind: result.kind,
@@ -53,5 +54,5 @@ Future<bool> openBookAppointment(
     doctor: doctor != null && (result.name ?? '') == (name ?? '').trim() ? doctor : null,
   );
   await services.refreshAppointments(now: today);
-  return true;
+  return result;
 }

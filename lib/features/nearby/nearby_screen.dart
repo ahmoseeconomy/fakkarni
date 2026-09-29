@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'doctor_booking_message.dart';
+import '../../domain/health/follow_up.dart';
+import '../../core/widgets/f_sheet.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,14 +38,61 @@ Future<void> Function(Place place) openDirections = (place) async {
 ///
 /// التخصص من المصدر **لو قال تخصص واحد بس** (وسم OSM أو كلمة في اسمه) —
 /// أكتر من واحد أو مفيش = الخانة فاضية والشخص بيختار. عمرنا ما بنختار له.
-Future<bool> Function(BuildContext context, Place place, DateTime today) bookFromPlace =
-    (context, place, today) => openBookAppointment(
-          context,
-          today: today,
-          name: place.name,
-          doctor: place.name,
-          specialty: place.specialties.length == 1 ? place.specialties.single : null,
-        );
+///
+/// **وبعد الحفظ، لو رقم الدكتور موبايل**: ورقة فيها رسالة الحجز جاهزة
+/// (`doctorBookingMessage` — اليوم والساعة اللي اختارهم، واسم المريض وسنّه)
+/// وزرار يفتح واتساب الدكتور عليها — المستخدم بيبعت بنفسه. رقم أرضي أو مفيش
+/// رقم = مفيش ورقة ومفيش رقم مخمّن؛ الميعاد اتحفظ زي ما هو.
+Future<bool> Function(BuildContext context, Place place, DateTime today) bookFromPlace = (context, place, today) async {
+  final saved = await openBookAppointment(
+    context,
+    today: today,
+    name: place.name,
+    doctor: place.name,
+    specialty: place.specialties.length == 1 ? place.specialties.single : null,
+  );
+  if (saved == null) return false;
+  final wa = place.phone == null ? null : egyptMobileWhatsApp(place.phone!);
+  if (wa == null || saved.kind != FollowKind.visit || !context.mounted) return true;
+  final services = AppScope.of(context);
+  final patient = await services.patients.getPatient(services.patientId);
+  if (!context.mounted) return true;
+  final message = doctorBookingMessage(day: saved.day, time: saved.time, patientName: patient?.name, age: patient?.age);
+  await FSheet.show<void>(
+    context,
+    title: 'ابعت الميعاد للدكتور؟',
+    children: [
+      Text(
+        'الميعاد اتحفظ عندك. دي الرسالة — هتفتح في واتساب وإنت اللي بتبعتها:',
+        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+      ),
+      Container(
+        key: const ValueKey('doctor-message'),
+        padding: const EdgeInsets.all(F.s12),
+        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+        child: Text(message, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+      ),
+      Builder(
+        builder: (sheet) => FPrimaryButton(
+          key: const ValueKey('send-doctor-whatsapp'),
+          label: 'ابعت لـ${(place.name ?? '').trim().isEmpty ? 'الدكتور' : place.name!.trim()} على واتساب',
+          onPressed: () async {
+            Navigator.of(sheet).pop();
+            await openWhatsApp(Uri.https('wa.me', '/$wa', {'text': message}));
+          },
+        ),
+      ),
+      Builder(
+        builder: (sheet) => FSecondaryButton(
+          key: const ValueKey('send-doctor-later'),
+          label: 'مش دلوقتي',
+          onPressed: () => Navigator.of(sheet).pop(),
+        ),
+      ),
+    ],
+  );
+  return true;
+};
 
 String distanceText(double meters) => meters < 1000
     ? '${arabicNumber((meters / 10).round() * 10)} متر'

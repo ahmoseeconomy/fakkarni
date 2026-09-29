@@ -72,7 +72,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
   /// «السجل» بيعدّي منها (`bookAppointment`): إشعار امبارحه وإشعار يومه.
   Future<bool> _openAppointment(AppointmentPrefill p) async {
     if (!mounted) return false;
-    return openBookAppointment(
+    final saved = await openBookAppointment(
       context,
       today: widget.now ?? DateTime.now(),
       kind: p.kind,
@@ -82,6 +82,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       doctor: p.doctor,
       specialty: p.specialty,
     );
+    return saved != null;
   }
 
   /// «أقرب صيدلية» → «القريب مني» على النوع ده.
