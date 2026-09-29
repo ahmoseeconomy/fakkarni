@@ -215,8 +215,32 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
     setState(() {
       line.timings = [for (final m in picked) FixedTiming(m)];
       line.timesFromPaper = false;
+      line.addedByHand = {};
     });
   }
+
+  /// «وقت آخر»: ساعة واحدة زيادة جنب اللي على الكارت — الإنسان بيختارها،
+  /// وبتتحفظ مع الباقي بـ«تمام» (`MedicationSaveService`). مفيش ساعة مننا.
+  Future<void> _addTime(int index) async {
+    final line = _lines[index];
+    final picked = await pickOneMoreTime(
+      context,
+      existing: [for (final t in line.timings) t.minuteOfDay],
+    );
+    if (picked == null || !mounted) return;
+    if (line.timings.any((t) => t.minuteOfDay.minutes == picked.minutes)) return;
+    setState(() {
+      line.timings = [...line.timings, FixedTiming(picked)]
+        ..sort((a, b) => a.minuteOfDay.minutes.compareTo(b.minuteOfDay.minutes));
+      line.addedByHand = {...line.addedByHand, picked.minutes};
+    });
+  }
+
+  void _removeAdded(int index, int minutes) => setState(() {
+        final line = _lines[index];
+        line.timings = [for (final t in line.timings) if (t.minuteOfDay.minutes != minutes) t];
+        line.addedByHand = {...line.addedByHand}..remove(minutes);
+      });
 
   /// أول كارت لسه محتاج ساعاته — السطر اللي تحت بيودّي عليه.
   final Map<int, GlobalKey> _cardKeys = {};
@@ -513,6 +537,8 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
                           key: _cardKeys.putIfAbsent(i, GlobalKey.new),
                           index: i,
                           onPickTimes: _busy ? null : () => _pickTimes(i),
+                          onAddTime: _busy ? null : () => _addTime(i),
+                          onRemoveAdded: _busy ? null : (m) => _removeAdded(i, m),
                           line: line,
                           timeFor: (t) =>
                               arabicTime(engine.resolveFixed(minuteOfDay: t.minuteOfDay, onDay: _today)),
@@ -684,11 +710,19 @@ class _MedicineRow extends StatelessWidget {
     required this.onDelete,
     this.onBought,
     this.onPickTimes,
+    this.onAddTime,
+    this.onRemoveAdded,
     super.key,
   });
 
   /// «اختار الساعات» — الشيت بتاع الساعات.
   final VoidCallback? onPickTimes;
+
+  /// «وقت آخر» — ساعة واحدة زيادة جنب الموجودين.
+  final VoidCallback? onAddTime;
+
+  /// «شيل» على ساعة الإنسان ضافها — بالدقيقة.
+  final ValueChanged<int>? onRemoveAdded;
 
   /// «اشتريته؟» — null = السؤال مش معروض.
   final ValueChanged<bool>? onBought;
@@ -819,6 +853,22 @@ class _MedicineRow extends StatelessWidget {
                         const SizedBox(width: F.s6),
                         StatusChip(label: m.label),
                       ],
+                      if (line.addedByHand.contains(t.minuteOfDay.minutes)) ...[
+                        const SizedBox(width: F.s6),
+                        StatusChip(label: 'إنت ضفتها', key: ValueKey('added-${t.minuteOfDay.minutes}-$index')),
+                        if (onRemoveAdded case final remove?)
+                          SizedBox(
+                            height: F.minTapTarget,
+                            child: TextButton(
+                              key: ValueKey('remove-added-${t.minuteOfDay.minutes}-$index'),
+                              onPressed: () => remove(t.minuteOfDay.minutes),
+                              child: Text(
+                                'شيل',
+                                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                              ),
+                            ),
+                          ),
+                      ],
                     ],
                   ),
               ],
@@ -865,6 +915,16 @@ class _MedicineRow extends StatelessWidget {
                       ? 'اختار الساعات'
                       : 'غيّر الساعات',
               onPressed: onPickTimes,
+            ),
+          ],
+          // «وقت آخر» جنب الساعات اللي على الكارت (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+          if (onAddTime != null && timings.isNotEmpty) ...[
+            const SizedBox(height: F.s8),
+            _RowButton(
+              key: ValueKey('add-time-$index'),
+              icon: Icons.add_alarm,
+              label: 'وقت آخر',
+              onPressed: onAddTime,
             ),
           ],
           if (!unsure && !edited && read != null) ...[
@@ -1123,6 +1183,10 @@ class _DraftLine {
   /// الساعات اللي على الكارت مكتوبة على الورقة بالحرف.
   bool timesFromPaper = false;
 
+  /// ساعات الإنسان ضافها بـ«وقت آخر» (بالدقيقة) — بتتعلّم «إنت ضفتها» عشان
+  /// «من الروشتة» ما يغطّيش ساعة الورقة ما كتبتهاش.
+  Set<int> addedByHand = {};
+
   /// «٣ مرات في اليوم» من الورقة: لازم ٣ ساعات قبل الحفظ. «عدّل» بالفورم
   /// بيشيل الشرط ده (الفورم نفسه بيقرر العدد).
   int? requiredTimes;
@@ -1230,6 +1294,7 @@ class _DraftLine {
     edited = true;
     timesFromPaper = false;
     requiredTimes = null;
+    addedByHand = {};
   }
 
   /// من غير اسم أو من غير جرعة مفيش حاجة تتجدول — ده اللي بيقفل «تمام».

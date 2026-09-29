@@ -134,3 +134,68 @@ class _PickTimesBodyState extends State<PickTimesBody> {
     );
   }
 }
+
+/// «وقت آخر» على كارت دوا ليه ساعات خلاص (من الروشتة أو اختارها) — ساعة
+/// **واحدة زيادة**، والإنسان هو اللي بيختارها (طلب المالك، ٢٩ سبتمبر ٢٠٢٦).
+/// البكرة بتقف على ٨ كمكان مش كإجابة: «ضيف» مقفول لحد ما يدوس شريحة أو
+/// يحرّك البكرة. ولا حاجة بتتكتب هنا — الساعة بترجع للمسوّدة، والحفظ لسه
+/// بـ«تمام» على المراجعة (`MedicationSaveService`).
+Future<MinuteOfDay?> pickOneMoreTime(BuildContext context, {List<MinuteOfDay> existing = const []}) =>
+    FSheet.show<MinuteOfDay>(
+      context,
+      title: 'وقت آخر',
+      children: [OneMoreTimeBody(existing: existing)],
+    );
+
+class OneMoreTimeBody extends StatefulWidget {
+  const OneMoreTimeBody({this.existing = const [], super.key});
+
+  /// الساعات اللي على الكارت — نفس الساعة مرتين ما بتتضافش.
+  final List<MinuteOfDay> existing;
+
+  @override
+  State<OneMoreTimeBody> createState() => _OneMoreTimeBodyState();
+}
+
+class _OneMoreTimeBodyState extends State<OneMoreTimeBody> {
+  MinuteOfDay _wheel = PickTimesBody.rest;
+
+  /// null = لسه ما اختارش — البكرة واقفة مكانها بس.
+  MinuteOfDay? _chosen;
+
+  String _time(MinuteOfDay m) => arabicTime(DateTime(2026, 1, 1, m.hour, m.minute));
+
+  void _choose(MinuteOfDay m) => setState(() {
+        _wheel = m;
+        _chosen = m;
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final chosen = _chosen;
+    final duplicate = chosen != null && widget.existing.any((m) => m.minutes == chosen.minutes);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'الساعة كام؟',
+          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+        ),
+        const SizedBox(height: F.s8),
+        QuickTimeChips(selected: _chosen, onPick: _choose),
+        const SizedBox(height: F.s8),
+        FTimeWheel(value: _wheel, onChanged: _choose),
+        if (duplicate) ...[
+          const SizedBox(height: F.s8),
+          GoldNote('الساعة دي على الكارت خلاص', key: const ValueKey('one-more-duplicate')),
+        ],
+        const SizedBox(height: F.gap),
+        FPrimaryButton(
+          key: const ValueKey('one-more-add'),
+          label: chosen == null ? 'اختار الساعة' : 'ضيف الساعة ${_time(chosen)}',
+          onPressed: chosen == null || duplicate ? null : () => Navigator.of(context).pop(chosen),
+        ),
+      ],
+    );
+  }
+}

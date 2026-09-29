@@ -244,6 +244,103 @@ void main() {
       expect(find.byKey(const ValueKey('missing-times')), findsNothing);
     });
 
+    // «وقت آخر» جنب الساعات اللي على الكارت (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+    group('«وقت آخر»', () {
+      ReadLine paper8() => PrescriptionReading.fromJson({
+            'medications': [
+              {
+                'name': {'value': 'Eltroxin', 'confidence': 0.95},
+                'amount': {'value': 'قرص', 'confidence': 0.95},
+                'timing': {'text': 'الساعة ٨ صباحا على الريق', 'confidence': 0.95},
+              },
+            ],
+          }).lines.single;
+
+      screenTest('ساعة من الإنسان جنب ساعة الورقة — مقفول لحد ما يختار، ومتعلّمة، وبتتحفظ مع الباقي', (tester) async {
+        await pumpReview(tester, [paper8()]);
+        await open(tester);
+        await tester.tap(find.byKey(const ValueKey('add-time-0')));
+        await settle(tester);
+
+        // البكرة واقفة مكانها — ده مش اختيار
+        final add = tester.widget<FilledButton>(
+            find.descendant(of: find.byKey(const ValueKey('one-more-add')), matching: find.byType(FilledButton)));
+        expect(add.onPressed, isNull, reason: 'مفيش ساعة مننا');
+        expect(find.text('اختار الساعة'), findsOneWidget);
+
+        await tester.tap(find.byKey(ValueKey('quick-time-${21 * 60}')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('one-more-add')));
+        await settle(tester);
+
+        expect(find.text('٨:٠٠ ص'), findsOneWidget);
+        expect(find.text('٩:٠٠ م'), findsOneWidget);
+        expect(find.byKey(ValueKey('added-${21 * 60}-0')), findsOneWidget, reason: '«إنت ضفتها»');
+        expect(find.byKey(const ValueKey('added-480-0')), findsNothing, reason: 'ساعة الورقة مش متعلّمة');
+        expect(await h.meds.activeSchedules(h.services.patientId), isEmpty, reason: 'لسه مسوّدة');
+
+        await confirm(tester);
+        final saved = await h.meds.activeSchedules(h.services.patientId);
+        expect(saved.map((s) => s.timing).toList(), [FixedTiming(MinuteOfDay.hm(8)), FixedTiming(MinuteOfDay.hm(21))]);
+        expect(h.sink.scheduled, isNotEmpty, reason: 'اتجدولت من سكّة الحفظ الواحدة');
+      });
+
+      screenTest('نفس الساعة مرتين = سطر ذهبي ومفيش «ضيف»', (tester) async {
+        final paper9 = PrescriptionReading.fromJson({
+          'medications': [
+            {
+              'name': {'value': 'Eltroxin', 'confidence': 0.95},
+              'amount': {'value': 'قرص', 'confidence': 0.95},
+              'timing': {'text': 'الساعة ٩ صباحا', 'confidence': 0.95},
+            },
+          ],
+        }).lines.single;
+        await pumpReview(tester, [paper9]);
+        await open(tester);
+        expect(find.text('٩:٠٠ ص'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('add-time-0')));
+        await settle(tester);
+        await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
+        await settle(tester);
+        expect(find.byKey(const ValueKey('one-more-duplicate')), findsOneWidget);
+        final add = tester.widget<FilledButton>(
+            find.descendant(of: find.byKey(const ValueKey('one-more-add')), matching: find.byType(FilledButton)));
+        expect(add.onPressed, isNull);
+      });
+
+      screenTest('«شيل» بتشيل الساعة اللي هو ضافها بس', (tester) async {
+        await pumpReview(tester, [paper8()]);
+        await open(tester);
+        await tester.tap(find.byKey(const ValueKey('add-time-0')));
+        await settle(tester);
+        await tester.tap(find.byKey(ValueKey('quick-time-${14 * 60}')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('one-more-add')));
+        await settle(tester);
+        expect(find.text('٢:٠٠ م'), findsOneWidget);
+        await tester.tap(find.byKey(ValueKey('remove-added-${14 * 60}-0')));
+        await settle(tester);
+        expect(find.text('٢:٠٠ م'), findsNothing);
+        expect(find.text('٨:٠٠ ص'), findsOneWidget);
+        expect(find.byKey(const ValueKey('remove-added-480-0')), findsNothing, reason: 'ساعة الورقة مالهاش «شيل» هنا');
+      });
+
+      screenTest('كارت من غير ساعات مالوش «وقت آخر» — «اختار الساعات» هي الباب', (tester) async {
+        final unclear = PrescriptionReading.fromJson({
+          'medications': [
+            {
+              'name': {'value': 'Panadol', 'confidence': 0.95},
+              'amount': {'value': 'قرص', 'confidence': 0.95},
+              'timing': {'text': '٣ مرات في اليوم', 'confidence': 0.95},
+            },
+          ],
+        }).lines.single;
+        await pumpReview(tester, [unclear]);
+        await open(tester);
+        expect(find.byKey(const ValueKey('add-time-0')), findsNothing);
+      });
+    });
+
     screenTest('مش واضح خالص → «التوقيت مش واضح في الروشتة — اسأل الصيدلي واختار الساعات»', (tester) async {
       await pumpReview(tester, [unclearLine]);
       await open(tester);
