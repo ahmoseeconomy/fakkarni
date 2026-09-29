@@ -16,6 +16,7 @@ import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/format/name_direction.dart';
 import '../../domain/health/follow_display.dart';
+import '../../domain/places/specialty.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../core/widgets/primitives.dart';
@@ -534,11 +535,38 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   }
 }
 
+/// اسم الميعاد اللي بيتحفظ — **التخصص جوّه الاسم** (قرار المالك، ٢٩ سبتمبر
+/// ٢٠٢٦: مفيش عمود ومفيش هجرة): «د. حسن — باطنة»، «دكتور باطنة» من غير اسم،
+/// والاسم لوحده لو فيه التخصص خلاص («عيادة العيون» + عيون). من غير الاتنين:
+/// «زيارة دكتور» / «تحليل» زي ما كان.
+String bookingTitle(FollowKind kind, String typedName, Specialty? specialty) {
+  final name = typedName.trim();
+  if (kind == FollowKind.lab) return name.isEmpty ? 'تحليل' : name;
+  if (specialty == null) return name.isEmpty ? 'زيارة دكتور' : name;
+  if (name.isEmpty) return specialty.doctorWord;
+  if (specialtiesOf(name: name).contains(specialty)) return name;
+  return '$name — ${specialty.label}';
+}
+
 /// نتيجة «ميعاد جديد»: نوعه واسمه ويومه — أو «عندي ورقة» فبنفتح الطرق التلاتة القديمة.
 class NewAppointmentResult {
-  const NewAppointmentResult({required this.kind, required this.title, required this.day, this.time, this.fromPaper = false});
+  const NewAppointmentResult({
+    required this.kind,
+    required this.title,
+    required this.day,
+    this.time,
+    this.fromPaper = false,
+    this.name,
+    this.specialty,
+  });
 
   final FollowKind kind;
+
+  /// الاسم زي ما اتكتب (من غير التخصص) — null = ما كتبش.
+  final String? name;
+
+  /// التخصص اللي اختاره — جوّه [title] كمان.
+  final Specialty? specialty;
 
   /// الساعة لو اختارها — اختيارية. null = من غير ساعة.
   final MinuteOfDay? time;
@@ -556,9 +584,14 @@ class NewAppointmentBody extends StatefulWidget {
     this.initialName,
     this.initialDay,
     this.initialTime,
+    this.initialSpecialty,
     this.askTime = true,
     super.key,
   });
+
+  /// التخصص اللي اتقال في «كلّمني» أو اللي المصدر قاله («القريب مني») —
+  /// **عمره ما بيتخمّن**: غير كده فاضي لحد ما الشخص يختار.
+  final Specialty? initialSpecialty;
 
   /// «الساعة ٥ العصر» من «كلّمني» — في خانة الساعة، مش في الاسم.
   final MinuteOfDay? initialTime;
@@ -588,6 +621,7 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
   /// اختيارية — null لحد ما يدوس شريحة أو يحرّك البكرة.
   late MinuteOfDay? _time = widget.initialTime;
   static final MinuteOfDay _rest = MinuteOfDay.hm(9);
+  late Specialty? _specialty = widget.initialSpecialty;
 
   @override
   void dispose() {
@@ -595,10 +629,36 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
     super.dispose();
   }
 
-  String get _title {
-    final typed = _name.text.trim();
-    if (typed.isNotEmpty) return typed;
-    return _kind == FollowKind.visit ? 'زيارة دكتور' : 'تحليل';
+  String get _title => bookingTitle(_kind, _name.text, _kind == FollowKind.visit ? _specialty : null);
+
+  String? get _typedName => _name.text.trim().isEmpty ? null : _name.text.trim();
+
+  Future<void> _pickSpecialty() async {
+    final picked = await FSheet.show<({Specialty? value})>(
+      context,
+      title: 'التخصص',
+      children: [
+        Wrap(
+          spacing: F.s8,
+          runSpacing: F.s8,
+          children: [
+            for (final sp in Specialty.values)
+              AnchorChip(
+                key: ValueKey('specialty-${sp.name}'),
+                label: sp.label,
+                selected: _specialty == sp,
+                onTap: () => Navigator.of(context).pop((value: sp)),
+              ),
+          ],
+        ),
+        FSecondaryButton(
+          key: const ValueKey('specialty-none'),
+          label: 'من غير تخصص',
+          onPressed: () => Navigator.of(context).pop((value: null)),
+        ),
+      ],
+    );
+    if (picked != null && mounted) setState(() => _specialty = picked.value);
   }
 
   @override
@@ -635,13 +695,23 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
             textInputAction: TextInputAction.done,
             style: TextStyle(fontSize: F.minBodySize, color: F.ink),
             decoration: InputDecoration(
-              hintText: _kind == FollowKind.visit ? 'اسم الدكتور أو التخصص (لو حابب)' : 'اسم التحليل (لو حابب)',
+              hintText: _kind == FollowKind.visit ? 'اسم الدكتور (لو حابب)' : 'اسم التحليل (لو حابب)',
               hintStyle: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
               filled: true,
               fillColor: F.fieldGround,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
             ),
           ),
+          // التخصص (طلب المالك، ٢٩ سبتمبر ٢٠٢٦): اختياري، ومن الشخص بس — أو من
+          // «كلّمني» أو «القريب مني» لو قالوه. بيتحفظ في اسم الزيارة.
+          if (_kind == FollowKind.visit) ...[
+            const SizedBox(height: F.s8),
+            FSecondaryButton(
+              key: const ValueKey('new-appt-specialty'),
+              label: _specialty == null ? 'التخصص (لو حابب)' : 'التخصص: ${_specialty!.label}',
+              onPressed: _pickSpecialty,
+            ),
+          ],
           const SizedBox(height: F.s12),
           Text('إمتى؟', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark)),
           const SizedBox(height: F.s8),
@@ -686,7 +756,14 @@ class _NewAppointmentBodyState extends State<NewAppointmentBody> {
           FPrimaryButton(
             key: const ValueKey('new-appt-save'),
             label: 'احفظ الميعاد',
-            onPressed: () => Navigator.of(context).pop(NewAppointmentResult(kind: _kind, title: _title, day: _day, time: _time)),
+            onPressed: () => Navigator.of(context).pop(NewAppointmentResult(
+              kind: _kind,
+              title: _title,
+              day: _day,
+              time: _time,
+              name: _typedName,
+              specialty: _kind == FollowKind.visit ? _specialty : null,
+            )),
           ),
           // الطرق التلاتة القديمة (من ورقة في الملف / بالصورة / بالإيد) لسه
           // موجودة — من هنا، مش كزرارين على الشاشة الأولى.

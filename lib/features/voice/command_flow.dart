@@ -122,8 +122,12 @@ class AddMedPrefill {
 
 /// «احجزلي ميعاد» → ورقة «ميعاد جديد» **متعبّية** — والحفظ بزرارها هي.
 class AppointmentPrefill {
-  const AppointmentPrefill({required this.kind, this.name, this.day, this.time, this.doctor});
+  const AppointmentPrefill({required this.kind, this.name, this.day, this.time, this.doctor, this.specialty});
   final FollowKind kind;
+
+  /// التخصص اللي اتقال («دكتور بطنه» = باطنة) — في خانة التخصص في الورقة،
+  /// والورقة هي اللي بتركّب الاسم (`bookingTitle`).
+  final Specialty? specialty;
 
   /// دكتور **حقيقي** من دكاترة المريض — بيتسجّل على الميعاد.
   final String? doctor;
@@ -800,6 +804,7 @@ class CommandFlow extends ChangeNotifier {
       kind: FollowKind.visit,
       name: doctor,
       doctor: doctor,
+      specialty: n.specialtyKind,
       day: n.date,
       time: n.time == null ? null : MinuteOfDay(n.time!.minutes),
     );
@@ -1140,9 +1145,12 @@ class CommandFlow extends ChangeNotifier {
       case NluIntent.bookAppointment when nlu.doctorName != null:
         return _resolveDoctor(nlu);
       case NluIntent.bookAppointment || NluIntent.bookLab:
+        final lab = nlu.intent == NluIntent.bookLab;
         appointmentPrefill = AppointmentPrefill(
-          kind: nlu.intent == NluIntent.bookLab ? FollowKind.lab : FollowKind.visit,
-          name: appointmentTitle(nlu),
+          kind: lab ? FollowKind.lab : FollowKind.visit,
+          // الدكتور: الاسم فاضي والتخصص في خانته — الورقة بتقول «دكتور باطنة»
+          name: lab ? appointmentTitle(nlu) : null,
+          specialty: lab ? null : nlu.specialtyKind,
           day: nlu.date,
           time: nlu.time == null ? null : MinuteOfDay(nlu.time!.minutes),
         );

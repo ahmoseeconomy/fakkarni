@@ -32,8 +32,17 @@ Future<void> Function(Place place) openDirections = (place) async {
 
 /// «احجز» على كارت دكتور — ورقة «ميعاد جديد» متعبّية باسمه. متغيّر عشان
 /// الاختبارات؛ من غير `AppScope` الزرار مش موجود.
+///
+/// التخصص من المصدر **لو قال تخصص واحد بس** (وسم OSM أو كلمة في اسمه) —
+/// أكتر من واحد أو مفيش = الخانة فاضية والشخص بيختار. عمرنا ما بنختار له.
 Future<bool> Function(BuildContext context, Place place, DateTime today) bookFromPlace =
-    (context, place, today) => openBookAppointment(context, today: today, name: place.name, doctor: place.name);
+    (context, place, today) => openBookAppointment(
+          context,
+          today: today,
+          name: place.name,
+          doctor: place.name,
+          specialty: place.specialties.length == 1 ? place.specialties.single : null,
+        );
 
 String distanceText(double meters) => meters < 1000
     ? '${arabicNumber((meters / 10).round() * 10)} متر'

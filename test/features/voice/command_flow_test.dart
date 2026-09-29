@@ -319,6 +319,22 @@ void main() {
       expect(opened.single.timings, isEmpty);
     });
 
+    // «بطنه» = باطنة (طلب المالك، ٢٩ سبتمبر ٢٠٢٦) — تخصص في خانته، مش دكتور اسمه «بطنه»
+    test('«احجز دكتور بطنه بكرة الساعة ٥ العصر» → خانة التخصص باطنة، ومفيش اسم', () async {
+      AppointmentPrefill? p;
+      final f = await flowWith(['احجز دكتور بطنه بكرة الساعة ٥ العصر'], onOpenAppointment: (x) async {
+        p = x;
+        return false;
+      });
+      await f.start();
+      expect(f.shown, contains('دكتور باطنة'));
+      await f.confirmReview();
+      expect(p!.specialty, Specialty.internal);
+      expect(p!.name, isNull, reason: 'الورقة بتركّب «دكتور باطنة» من الخانة');
+      expect(p!.doctor, isNull);
+      expect(p!.time, MinuteOfDay.hm(17));
+    });
+
     test('«احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → د. حسن، الأحد الجاي، ٥ م', () async {
       AppointmentPrefill? p;
       final f = await flowWith(['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر'], onOpenAppointment: (x) async {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/widgets/f_sheet.dart';
 import '../../domain/health/follow_up.dart';
+import '../../domain/places/specialty.dart';
 import '../../domain/scheduling/minute_of_day.dart';
 import 'health_file_screen.dart' show NewAppointmentBody, NewAppointmentResult;
 
@@ -21,6 +22,7 @@ Future<bool> openBookAppointment(
   DateTime? day,
   MinuteOfDay? time,
   String? doctor,
+  Specialty? specialty,
 }) async {
   final services = AppScope.maybeOf(context);
   if (services == null) return false;
@@ -35,6 +37,7 @@ Future<bool> openBookAppointment(
         initialName: name,
         initialDay: day,
         initialTime: time,
+        initialSpecialty: specialty,
       ),
     ],
   );
@@ -46,7 +49,8 @@ Future<bool> openBookAppointment(
     day: result.day,
     today: today,
     time: result.time,
-    doctor: doctor != null && result.title.trim() == (name ?? '').trim() ? doctor : null,
+    // الدكتور بيتسجّل لو الاسم فضل زي ما هو — التخصص جنبه ما بيغيّرش ده
+    doctor: doctor != null && (result.name ?? '') == (name ?? '').trim() ? doctor : null,
   );
   await services.refreshAppointments(now: today);
   return true;

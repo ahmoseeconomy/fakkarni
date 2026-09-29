@@ -80,6 +80,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
       day: p.day,
       time: p.time,
       doctor: p.doctor,
+      specialty: p.specialty,
     );
   }
 
