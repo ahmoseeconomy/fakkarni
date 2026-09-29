@@ -5,6 +5,7 @@ import '../../../app/app_scope.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/primitives.dart';
 import '../../../data/repositories/stock_repository.dart';
+import '../../../data/repositories/stock_unit_store.dart';
 import '../../../domain/medication/stock.dart';
 import '../../medication/refill_actions.dart';
 
@@ -21,6 +22,17 @@ class RefillLines extends StatefulWidget {
 class _RefillLinesState extends State<RefillLines> {
   Stream<List<MedicationStockView>>? _stream;
 
+  /// الوحدة اللي اتختارت على الموبايل ده لدوا جرعته ما بتقولش.
+  Map<int, String> _chosen = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    StockUnitStore.all().then((m) {
+      if (mounted) setState(() => _chosen = m);
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -28,8 +40,11 @@ class _RefillLinesState extends State<RefillLines> {
     _stream ??= StockRepository(s.db).watch(s.patientId);
   }
 
-  Future<void> _restock(MedicationStockView v) async {
-    final added = await showRestockSheet(context, name: v.name, unit: v.unit);
+  String _unit(MedicationStockView v) =>
+      resolveStockUnit(v.unit == unknownStockUnit ? null : v.unit, chosen: _chosen[v.medicationId]) ?? v.unit;
+
+  Future<void> _restock(MedicationStockView v, {StockPack pack = StockPack.box}) async {
+    final added = await showRestockSheet(context, name: v.name, unit: _unit(v), pack: pack);
     if (added == null || !mounted) return;
     final services = AppScope.of(context);
     await StockRepository(services.db).restock(v.medicationId, added.toDouble());
@@ -70,11 +85,20 @@ class _RefillLinesState extends State<RefillLines> {
                           label: 'اشتريت علبة جديدة',
                           onPressed: () => _restock(v),
                         ),
+                        // مش كل الناس بتشتري علبة (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+                        if (stripAllowed(_unit(v))) ...[
+                          const SizedBox(height: F.s6),
+                          FSecondaryButton(
+                            key: ValueKey('refill-strip-${v.medicationId}'),
+                            label: 'اشتريت شريط',
+                            onPressed: () => _restock(v, pack: StockPack.strip),
+                          ),
+                        ],
                         const SizedBox(height: F.s6),
                         FSecondaryButton(
                           key: ValueKey('refill-order-${v.medicationId}'),
                           label: 'اطلبه من الصيدلية',
-                          onPressed: () => orderFromPharmacy(context, v.name),
+                          onPressed: () => orderFromPharmacy(context, v.name, allowStrip: stripAllowed(_unit(v))),
                         ),
                       ],
                     ),

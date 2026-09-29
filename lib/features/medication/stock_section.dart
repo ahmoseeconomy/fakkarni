@@ -5,8 +5,10 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/repositories/stock_repository.dart';
+import '../../data/repositories/stock_unit_store.dart';
 import '../../domain/medication/stock.dart';
 import 'refill_actions.dart';
+import 'stock_left_card.dart';
 
 /// **المخزون على شاشة الدوا** — اختياري. «عندك كام {وحدة} دلوقتي؟» على
 /// عجلة، والعجلة **ما بتكتبش حاجة لحد ما تتحرّك** (رقم بنخترعه = مخزون
@@ -27,6 +29,22 @@ class _StockSectionState extends State<StockSection> {
   Stream<List<MedicationStockView>>? _stream;
   bool _editing = false;
 
+  /// الوحدة اللي اتختارت هنا لو الجرعة ما بتقولش — [StockUnitStore].
+  String? _chosen;
+
+  @override
+  void initState() {
+    super.initState();
+    StockUnitStore.read(widget.medicationId).then((u) {
+      if (mounted && u != null) setState(() => _chosen = u);
+    });
+  }
+
+  Future<void> _chooseUnit(String? unit) async {
+    setState(() => _chosen = unit);
+    if (unit != null) await StockUnitStore.write(widget.medicationId, unit);
+  }
+
   StockRepository get _repo => StockRepository(AppScope.of(context).db);
 
   @override
@@ -43,15 +61,17 @@ class _StockSectionState extends State<StockSection> {
     await _repo.setQuantity(widget.medicationId, value.toDouble());
   }
 
-  Future<void> _restock(String unit) async {
-    final added = await showRestockSheet(context, name: widget.name, unit: unit);
+  Future<void> _restock(String unit, {StockPack pack = StockPack.box}) async {
+    final added = await showRestockSheet(context, name: widget.name, unit: unit, pack: pack);
     if (added == null || !mounted) return;
     await _repo.restock(widget.medicationId, added.toDouble());
   }
 
   @override
   Widget build(BuildContext context) {
-    final unit = stockUnitOf(widget.amountLabel);
+    final resolved = resolveStockUnit(widget.amountLabel, chosen: _chosen);
+    final fromAmount = stockUnitOf(widget.amountLabel) != unknownStockUnit;
+    final unit = resolved ?? unknownStockUnit;
     final label = TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark);
     return StreamBuilder<List<MedicationStockView>>(
       stream: _stream,
@@ -63,33 +83,34 @@ class _StockSectionState extends State<StockSection> {
           key: const ValueKey('stock-section'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('المخزون (لو حابب)', style: label),
-            const SizedBox(height: F.s8),
             if (view != null && !_editing) ...[
+              Text('المخزون', style: label),
+              const SizedBox(height: F.s8),
               Text(
                 stockSummaryLine(stock: view.quantity, unit: unit, daysLeft: view.daysLeft),
                 key: const ValueKey('stock-summary'),
                 style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
               ),
               const SizedBox(height: F.s8),
-              Row(
-                children: [
-                  Expanded(
-                    child: FSecondaryButton(
-                      key: const ValueKey('stock-restock'),
-                      label: 'اشتريت علبة جديدة',
-                      onPressed: () => _restock(unit),
-                    ),
-                  ),
-                  const SizedBox(width: F.s8),
-                  Expanded(
-                    child: FSecondaryButton(
-                      key: const ValueKey('stock-edit'),
-                      label: 'صحّح الرقم',
-                      onPressed: () => setState(() => _editing = true),
-                    ),
-                  ),
-                ],
+              FSecondaryButton(
+                key: const ValueKey('stock-restock'),
+                label: 'اشتريت علبة جديدة',
+                onPressed: () => _restock(unit),
+              ),
+              // مش كل الناس بتشتري علبة (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
+              if (stripAllowed(resolved)) ...[
+                const SizedBox(height: F.s8),
+                FSecondaryButton(
+                  key: const ValueKey('stock-restock-strip'),
+                  label: 'اشتريت شريط',
+                  onPressed: () => _restock(unit, pack: StockPack.strip),
+                ),
+              ],
+              const SizedBox(height: F.s8),
+              FSecondaryButton(
+                key: const ValueKey('stock-edit'),
+                label: 'صحّح الرقم',
+                onPressed: () => setState(() => _editing = true),
               ),
               const SizedBox(height: F.s12),
               Text('نبّهني لما يفضل كام يوم؟', style: label),
@@ -102,26 +123,23 @@ class _StockSectionState extends State<StockSection> {
                 semanticsLabel: 'نبّهني قبلها بكام يوم',
                 onChanged: (v) => _repo.setWarnDays(widget.medicationId, v),
               ),
-            ] else ...[
-              Text('عندك كام $unit دلوقتي؟', style: TextStyle(fontSize: F.minBodySize, color: F.ink)),
-              FNumberWheel(
-                key: const ValueKey('stock-wheel'),
+            ] else
+              // «باقي كام قرص؟» — كارت لوحده، بوحدة الدوا (أو «ده إيه؟» الأول)
+              StockLeftCard(
+                unit: resolved,
+                unitChosen: !fromAmount,
                 // فاضية لحد ما تتحرّك — الرقم ده بتاع الإنسان، مش بتاعنا
                 value: view?.quantity.round(),
-                rest: 30,
-                min: 0,
-                max: 500,
-                unit: unit,
-                semanticsLabel: 'المخزون',
+                onUnit: _chooseUnit,
                 onChanged: _set,
+                trailing: view == null
+                    ? null
+                    : FSecondaryButton(
+                        key: const ValueKey('stock-edit-done'),
+                        label: 'تمام',
+                        onPressed: () => setState(() => _editing = false),
+                      ),
               ),
-              if (view != null)
-                FSecondaryButton(
-                  key: const ValueKey('stock-edit-done'),
-                  label: 'تمام',
-                  onPressed: () => setState(() => _editing = false),
-                ),
-            ],
           ],
         );
       },

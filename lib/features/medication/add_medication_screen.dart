@@ -6,7 +6,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../data/repositories/stock_repository.dart';
-import '../../domain/medication/stock.dart' show stockUnitOf;
+import '../../data/repositories/stock_unit_store.dart';
+import '../../domain/medication/stock.dart' show resolveStockUnit, stockLeftQuestion, stockUnitOf, unknownStockUnit;
+import 'stock_left_card.dart';
 
 import '../../ai/package_reading.dart';
 import 'scan_package_screen.dart' show unreadablePackage;
@@ -189,6 +191,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// المخزون الاختياري — null لحد ما العجلة تتحرّك.
   bool _askStock = false;
   int? _stock;
+
+  /// «ده إيه؟» لما الجرعة ما بتقولش — بيتحفظ على الموبايل ده بعد الحفظ.
+  String? _stockUnit;
 
   /// صورة الدوا اللي اختارها — بايتس لحد الحفظ (بتتصغّر ويتشال الـEXIF
   /// وقت الحفظ). null = من غير صورة.
@@ -478,6 +483,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       try {
         if (_stock case final stock?) {
           await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
+          if (_stockUnit case final u? when stockUnitOf(_amount.text) == unknownStockUnit) {
+            await StockUnitStore.write(medicationId, u);
+          }
         }
         if (_photo case final photo?) {
           // صورة ما اتفكّتش = الدوا بيتحفظ من غيرها، من غير كلام تقني
@@ -848,26 +856,26 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         // ما بتكتبش حاجة لحد ما تتحرّك. للحفظ بس (مش لمراجعة الروشتة).
                         if (!widget.draft) ...[
                           const SizedBox(height: F.gap),
+                          // «باقي كام قرص؟» — كارت لوحده (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
                           if (!_askStock)
                             _CompactChip(
                               key: const ValueKey('add-stock-open'),
-                              label: 'عندك كام ${stockUnitOf(_amount.text)} دلوقتي؟ (لو حابب)',
+                              label: '${switch (resolveStockUnit(_amount.text, chosen: _stockUnit)) {
+                                final u? => stockLeftQuestion(u),
+                                null => 'باقي كام؟',
+                              }} (لو حابب)',
                               selected: false,
                               onTap: () => setState(() => _askStock = true),
                             )
-                          else ...[
-                            _FieldLabel('عندك كام ${stockUnitOf(_amount.text)} دلوقتي؟'),
-                            FNumberWheel(
-                              key: const ValueKey('add-stock-wheel'),
+                          else
+                            StockLeftCard(
+                              wheelKey: const ValueKey('add-stock-wheel'),
+                              unit: resolveStockUnit(_amount.text, chosen: _stockUnit),
+                              unitChosen: stockUnitOf(_amount.text) == unknownStockUnit,
                               value: _stock,
-                              rest: 30,
-                              min: 0,
-                              max: 500,
-                              unit: stockUnitOf(_amount.text),
-                              semanticsLabel: 'المخزون',
+                              onUnit: (u) => setState(() => _stockUnit = u),
                               onChanged: (v) => setState(() => _stock = v),
                             ),
-                          ],
                           const SizedBox(height: F.gap),
                           MedPhotoSlot(
                             previewBytes: _photo,

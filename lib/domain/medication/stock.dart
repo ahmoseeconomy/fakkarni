@@ -62,6 +62,30 @@ String stockUnitOf(String? amountLabel) {
   return 'وحدة';
 }
 
+/// الوحدة لما الجرعة **ما بتقولش** هي إيه — «وحدة» كانت بتتسأل «عندك كام
+/// وحدة؟» ومحدش بيفهمها (طلب المالك، ٢٩ سبتمبر ٢٠٢٦).
+const unknownStockUnit = 'وحدة';
+
+/// اللي الشخص بيختار منه لما الجرعة ما بتقولش — نفس وحدات [stockUnitOf].
+const stockUnitChoices = ['قرص', 'كبسولة', 'حقنة', 'ملعقة', 'نقط'];
+
+/// وحدة المخزون: من الجرعة لو بتقول، وإلا اللي الشخص اختاره على الموبايل
+/// ده، وإلا null = **لسه هنسأله** (مش بنخمّن إنها أقراص).
+String? resolveStockUnit(String? amountLabel, {String? chosen}) {
+  final fromAmount = stockUnitOf(amountLabel);
+  if (fromAmount != unknownStockUnit) return fromAmount;
+  return chosen != null && stockUnitChoices.contains(chosen) ? chosen : null;
+}
+
+/// «باقي كام قرص؟» — السؤال بوحدته هو.
+String stockLeftQuestion(String unit) => 'باقي كام ${unit == 'نقط' ? 'نقطة' : unit}؟';
+
+/// الشريط للأقراص والكبسولات بس — الشراب والحقن مالهاش شرايط.
+bool stripAllowed(String? unit) => unit == 'قرص' || unit == 'كبسولة';
+
+/// علبة ولا شريط — في «اشتريت» وفي طلب الصيدلية.
+enum StockPack { box, strip }
+
 /// المخزون بعد جرعة اتاخدت — عمره ما ينزل تحت الصفر.
 double stockAfterTaken(double stock, double amount) => (stock - amount).clamp(0, double.infinity).toDouble();
 
@@ -137,13 +161,24 @@ String stockSummaryLine({required double stock, required String unit, required i
 }
 
 /// رسالة الصيدلية — المستخدم بيراجعها ويبعتها بنفسه.
-String pharmacyOrderMessage(String medicationName, int boxes) =>
-    'محتاج $medicationName — ${switch (boxes) {
-      1 => '${_arabic(1)} علبة',
-      2 => 'علبتين',
-      <= 10 => '${_arabic(boxes)} علب',
-      _ => '${_arabic(boxes)} علبة',
-    }}';
+String pharmacyOrderMessage(String medicationName, int count, {StockPack pack = StockPack.box}) =>
+    'محتاج $medicationName — ${packCount(count, pack)}';
+
+/// «١ علبة» / «علبتين» / «٣ علب» — و«١ شريط» / «شريطين» / «٣ شرايط».
+String packCount(int count, StockPack pack) => switch (pack) {
+      StockPack.box => switch (count) {
+          1 => '${_arabic(1)} علبة',
+          2 => 'علبتين',
+          <= 10 => '${_arabic(count)} علب',
+          _ => '${_arabic(count)} علبة',
+        },
+      StockPack.strip => switch (count) {
+          1 => '${_arabic(1)} شريط',
+          2 => 'شريطين',
+          <= 10 => '${_arabic(count)} شرايط',
+          _ => '${_arabic(count)} شريط',
+        },
+    };
 
 /// رسالة الصيدلية لأكتر من دوا («أدوية لسه ماتشترتش») — دوا في كل سطر
 /// بعلبة واحدة، والمستخدم بيعدّلها في واتساب لو حابب قبل ما يبعت.
