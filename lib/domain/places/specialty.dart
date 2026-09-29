@@ -9,22 +9,22 @@
 import '../voice/nlu/normalize.dart';
 
 enum Specialty {
-  eyes('عيون', osm: {'ophthalmology', 'optometry'}, words: {'عيون', 'العيون', 'رمد', 'الرمد', 'بصريات', 'eye', 'eyes', 'ophthalmology', 'optical', 'vision'}),
-  internal('باطنة', osm: {'internal', 'general_internal_medicine', 'gastroenterology'}, words: {'باطنه', 'الباطنه', 'باطنيه', 'جهاز هضمي', 'internal', 'gastro'}),
-  dental('أسنان', osm: {'dentistry', 'dental_surgery', 'orthodontics', 'dental'}, words: {'اسنان', 'الاسنان', 'سنان', 'dental', 'dentist', 'dentistry', 'teeth', 'orthodontic'}),
-  children('أطفال', osm: {'paediatrics', 'pediatrics'}, words: {'اطفال', 'الاطفال', 'pediatric', 'paediatric', 'kids', 'children'}),
-  bones('عظام', osm: {'orthopaedics', 'orthopedics', 'orthopaedic_surgery'}, words: {'عظام', 'العظام', 'عضم', 'ortho', 'orthopedic', 'orthopaedic', 'bones'}),
-  skin('جلدية', osm: {'dermatology', 'dermatovenereology'}, words: {'جلديه', 'الجلديه', 'جلد', 'تناسليه', 'derma', 'dermatology', 'skin'}),
-  women('نسا وتوليد', osm: {'gynaecology', 'gynecology', 'obstetrics'}, words: {'نسا', 'النسا', 'نساء', 'توليد', 'التوليد', 'gyn', 'gynecology', 'gynaecology', 'obstetrics', 'women'}),
-  heart('قلب', osm: {'cardiology', 'cardiac_surgery'}, words: {'قلب', 'القلب', 'اوعيه', 'cardio', 'cardiology', 'heart'}),
-  ent('أنف وأذن', osm: {'otolaryngology', 'ent'}, words: {'انف', 'الانف', 'اذن', 'حنجره', 'ent', 'otolaryngology'}),
-  neuro('مخ وأعصاب', osm: {'neurology', 'neurosurgery'}, words: {'مخ', 'اعصاب', 'الاعصاب', 'neuro', 'neurology', 'neurosurgery'}),
-  urology('مسالك', osm: {'urology'}, words: {'مسالك', 'المسالك', 'بوليه', 'uro', 'urology'}),
-  kidney('كلى', osm: {'nephrology'}, words: {'كلي', 'الكلي', 'nephro', 'nephrology', 'kidney'}),
+  eyes('عيون', osm: {'ophthalmology', 'optometry'}, words: {'عنين', 'العنين', 'عيون', 'العيون', 'رمد', 'الرمد', 'بصريات', 'eye', 'eyes', 'ophthalmology', 'optical', 'vision'}),
+  internal('باطنة', osm: {'internal', 'general_internal_medicine', 'gastroenterology'}, words: {'بطنه', 'البطنه', 'باطني', 'الباطني', 'بطن', 'البطن', 'هضمي', 'هضم', 'معده', 'المعده', 'باطنه', 'الباطنه', 'باطنيه', 'جهاز هضمي', 'internal', 'gastro'}),
+  dental('أسنان', osm: {'dentistry', 'dental_surgery', 'orthodontics', 'dental'}, words: {'ضروس', 'الضروس', 'ضرس', 'تقويم', 'سنانه', 'اسنان', 'الاسنان', 'سنان', 'dental', 'dentist', 'dentistry', 'teeth', 'orthodontic'}),
+  children('أطفال', osm: {'paediatrics', 'pediatrics'}, words: {'عيال', 'العيال', 'طفل', 'اطفالي', 'اطفال', 'الاطفال', 'pediatric', 'paediatric', 'kids', 'children'}),
+  bones('عظام', osm: {'orthopaedics', 'orthopedics', 'orthopaedic_surgery'}, words: {'عضام', 'العضام', 'العضم', 'عظم', 'كسور', 'الكسور', 'عظام', 'العظام', 'عضم', 'ortho', 'orthopedic', 'orthopaedic', 'bones'}),
+  skin('جلدية', osm: {'dermatology', 'dermatovenereology'}, words: {'جلدي', 'الجلد', 'جلديه', 'الجلديه', 'جلد', 'تناسليه', 'derma', 'dermatology', 'skin'}),
+  women('نسا وتوليد', osm: {'gynaecology', 'gynecology', 'obstetrics'}, words: {'نسائيه', 'ولاده', 'الولاده', 'حوامل', 'الحوامل', 'نسا', 'النسا', 'نساء', 'توليد', 'التوليد', 'gyn', 'gynecology', 'gynaecology', 'obstetrics', 'women'}),
+  heart('قلب', osm: {'cardiology', 'cardiac_surgery'}, words: {'قلبيه', 'قلب', 'القلب', 'اوعيه', 'cardio', 'cardiology', 'heart'}),
+  ent('أنف وأذن', osm: {'otolaryngology', 'ent'}, words: {'الاذن', 'ودن', 'الودن', 'ودان', 'الودان', 'زور', 'الزور', 'الحنجره', 'انف', 'الانف', 'اذن', 'حنجره', 'ent', 'otolaryngology'}),
+  neuro('مخ وأعصاب', osm: {'neurology', 'neurosurgery'}, words: {'المخ', 'مخ', 'اعصاب', 'الاعصاب', 'neuro', 'neurology', 'neurosurgery'}),
+  urology('مسالك', osm: {'urology'}, words: {'بروستاتا', 'البروستاتا', 'مسالك', 'المسالك', 'بوليه', 'uro', 'urology'}),
+  kidney('كلى', osm: {'nephrology'}, words: {'كلاوي', 'الكلاوي', 'كلي', 'الكلي', 'nephro', 'nephrology', 'kidney'}),
   chest('صدر', osm: {'pulmonology', 'pneumology'}, words: {'صدر', 'الصدر', 'صدريه', 'chest', 'pulmonology'}),
-  diabetes('سكر وغدد', osm: {'endocrinology', 'diabetology'}, words: {'سكر', 'السكر', 'غدد', 'الغدد', 'endocrine', 'endocrinology', 'diabetes'}),
-  psych('نفسي', osm: {'psychiatry'}, words: {'نفسي', 'نفسيه', 'psychiatry', 'psychiatric'}),
-  rheumatology('روماتيزم', osm: {'rheumatology'}, words: {'روماتيزم', 'الروماتيزم', 'rheumatology'});
+  diabetes('سكر وغدد', osm: {'endocrinology', 'diabetology'}, words: {'سكري', 'السكري', 'غده', 'سكر', 'السكر', 'غدد', 'الغدد', 'endocrine', 'endocrinology', 'diabetes'}),
+  psych('نفسي', osm: {'psychiatry'}, words: {'نفساني', 'النفساني', 'نفسانيه', 'نفسي', 'نفسيه', 'psychiatry', 'psychiatric'}),
+  rheumatology('روماتيزم', osm: {'rheumatology'}, words: {'روماتزم', 'الروماتزم', 'روماتيزم', 'الروماتيزم', 'rheumatology'});
 
   const Specialty(this.label, {required this.osm, required this.words});
 
