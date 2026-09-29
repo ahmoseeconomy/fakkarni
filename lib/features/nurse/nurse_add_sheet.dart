@@ -19,7 +19,7 @@ import 'nurse_controller.dart';
 /// لموبايل المريض. الصورة بتروح لـGemini من هنا زي ما بتروح عند المريض، ومن
 /// غير ما تتخزّن. «صوّر تقرير تحليل» مش هنا: التقرير بيتحفظ بصورته على موبايل
 /// المريض، والصورة ما بتعدّيش من الممرض.
-Future<void> showNurseAddSheet(BuildContext context, NurseController c, {DateTime? today, VoidCallback? onNewRecord}) {
+Future<void> showNurseAddSheet(BuildContext context, NurseController c, {DateTime? today}) {
   final services = AppScope.of(context);
   final navigator = Navigator.of(context);
 
@@ -77,15 +77,6 @@ Future<void> showNurseAddSheet(BuildContext context, NurseController c, {DateTim
           await showVitalEntrySheet(context, now: today, onSave: (entry, at) => c.addVital(entry, at));
         },
       ),
-      if (onNewRecord != null)
-        FSecondaryButton(
-          key: const ValueKey('nurse-add-record'),
-          label: addSheetLabels[5],
-          onPressed: () {
-            navigator.pop();
-            onNewRecord();
-          },
-        ),
     ],
   );
 }

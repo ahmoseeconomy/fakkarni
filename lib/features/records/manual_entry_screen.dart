@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
@@ -7,6 +9,7 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import 'record_kinds.dart';
+import 'record_photo.dart';
 
 /// حقول كل نوع — نفس الأعمدة، بكلام مختلف.
 class _Fields {
@@ -70,11 +73,18 @@ const _fields = <RecordKind, _Fields>{
 /// «إدخال يدوي» (المخطط ٢٨): خمس استمارات بنفس البدائيات.
 ///
 /// التاريخ شرايح («النهارده»/«امبارح»، أو «بكرة» للحجز) + «تاريخ تاني»
-/// بمنتقي تاريخ. الفاضي بيتحفظ فاضي. مفيش مرفقات لسه (D3.6).
+/// بمنتقي تاريخ. الفاضي بيتحفظ فاضي.
+///
+/// **والزيارة والتحليل والأشعة ليهم صورة** (٢٩ سبتمبر ٢٠٢٦): روشتة الزيارة
+/// أو التقرير — من الكاميرا أو من الصور، اختيارية، وبتتحفظ وبس.
+/// [initialPhoto] = جاية جاهزة من «ضيف» («صوّر تقرير أشعة»).
 class ManualEntryScreen extends StatefulWidget {
-  const ManualEntryScreen({this.kind = RecordKind.imaging, this.today, super.key});
+  const ManualEntryScreen({this.kind = RecordKind.imaging, this.today, this.initialPhoto, super.key});
 
   final RecordKind kind;
+
+  /// صورة اتاخدت قبل الاستمارة — بتتحفظ مع السجل.
+  final Uint8List? initialPhoto;
 
   /// للاختبارات.
   final DateTime? today;
@@ -90,6 +100,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   final _place = TextEditingController();
   final _notes = TextEditingController();
   late DateTime _date = _today;
+  late Uint8List? _photo = widget.initialPhoto;
   String? _patientName;
   bool _saving = false;
 
@@ -133,19 +144,36 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     if (picked != null) setState(() => _date = picked);
   }
 
+  Future<void> _pickPhoto(String word) async {
+    final bytes = await askRecordPhoto(context, title: word);
+    if (bytes != null && mounted) setState(() => _photo = bytes);
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     final services = AppScope.of(context);
     final f = _fields[_kind]!;
-    await RecordsRepository(services.db).add(
-      patientId: services.patientId,
-      kind: _kind,
-      title: _title.text,
-      happenedAt: _date,
-      doctor: f.doctor == null ? null : _doctor.text,
-      place: f.place == null ? null : _place.text,
-      notes: f.notes == null ? null : _notes.text,
-    );
+    // الصورة للأنواع اللي ليها صورة بس — لو النوع اتغيّر لروشتة، ما بتتحفظش.
+    final photo = recordPhotoWord(_kind) == null ? null : _photo;
+    final path = photo == null ? null : await services.attachments.save(photo);
+    try {
+      await RecordsRepository(services.db).add(
+        patientId: services.patientId,
+        kind: _kind,
+        title: _title.text,
+        happenedAt: _date,
+        doctor: f.doctor == null ? null : _doctor.text,
+        place: f.place == null ? null : _place.text,
+        notes: f.notes == null ? null : _notes.text,
+        attachmentPath: path,
+      );
+    } catch (_) {
+      // الصف ما اتكتبش — الملف ما يفضلش يتيم
+      if (path != null) await services.attachments.delete(path);
+      rethrow;
+    }
+    // الممرض (لو المشاركة مفتوحة) — مجاملة، بتمسك غلطها لوحدها
+    if (path != null) await services.papers?.sync(patientId: services.patientId);
     if (mounted) Navigator.of(context).pop(true);
   }
 
@@ -187,7 +215,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('اكتب ورقة بإيدك')),
+      appBar: AppBar(title: Text(widget.initialPhoto == null ? 'اكتب ورقة بإيدك' : 'احفظ الورقة')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
@@ -248,6 +276,46 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           ),
           const SizedBox(height: F.gap),
           if (f.notes != null) field(_notes, f.notes!, key: const ValueKey('record-notes'), lines: null),
+          if (recordPhotoWord(_kind) case final word?) ...[
+            SectionHead('$word (لو حابب)'),
+            const SizedBox(height: F.s8),
+            if (_photo case final photo?)
+              Row(
+                key: const ValueKey('record-photo-picked'),
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(F.radiusTile),
+                    child: Image.memory(photo, width: 88, height: 88, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(width: F.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FSecondaryButton(
+                          key: const ValueKey('record-photo-change'),
+                          label: 'غيّرها',
+                          onPressed: () => _pickPhoto(word),
+                        ),
+                        const SizedBox(height: F.s8),
+                        FSecondaryButton(
+                          key: const ValueKey('record-photo-remove'),
+                          label: 'شيلها',
+                          onPressed: () => setState(() => _photo = null),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else
+              FSecondaryButton(
+                key: const ValueKey('record-photo-add'),
+                label: 'ضيف $word',
+                onPressed: () => _pickPhoto(word),
+              ),
+            const SizedBox(height: F.gap),
+          ],
           const SizedBox(height: F.s8),
           FPrimaryButton(
             label: name == null || name.isEmpty || name == 'أنا' ? 'احفظ في الملف' : 'احفظ في ملف $name',

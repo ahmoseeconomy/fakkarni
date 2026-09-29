@@ -31,6 +31,7 @@ import 'change_history_screen.dart';
 import 'checkup_screen.dart';
 import 'records_empty.dart';
 import 'history_screen.dart';
+import 'manual_entry_screen.dart';
 import 'record_row_card.dart';
 import 'records_of_kind_screen.dart';
 import 'start_follow_up.dart';
@@ -362,6 +363,17 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
 
               // ================================================= أوراقك
               const HelpRow(id: 'help_papers', child: FSectionHead('أوراقك')),
+              const SizedBox(height: F.s8),
+              // تسجيل زيارة أو تحليل أو أشعة بالإيد — **هنا**، مش في «ضيف»
+              // (طلب المالك، ٢٩ سبتمبر ٢٠٢٦). الاستمارة فيها صورة الروشتة أو
+              // التقرير (كاميرا أو من الصور) — بتتحفظ وبس.
+              FSecondaryButton(
+                key: const ValueKey('papers-new'),
+                label: 'سجّل زيارة أو تحليل أو أشعة',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(kind: RecordKind.visit, today: widget.today)),
+                ),
+              ),
               const SizedBox(height: F.s8),
               _SearchBar(
                 search: TextField(

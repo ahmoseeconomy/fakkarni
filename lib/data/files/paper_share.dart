@@ -48,6 +48,16 @@ class PaperShareService {
     await sync(patientId: patientId);
   }
 
+  /// صورة السجل اتغيّرت — المرة الجاية [sync] بترفعها تاني (الرفع upsert
+  /// على نفس المسار). من غيرها السجل متعلّم «اترفع» والممرض يفضل شايف القديمة.
+  static Future<void> forgetUpload(String recordUuid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uploaded = (prefs.getStringList(uploadedKey) ?? const <String>[]).toSet();
+      if (uploaded.remove(recordUuid)) await prefs.setStringList(uploadedKey, uploaded.toList());
+    } catch (_) {}
+  }
+
   /// مفتوح: ارفع اللي لسه ما اترفعش، وامسح اللي سجله اتمسح. مقفول: امسح كله.
   Future<void> sync({required int patientId}) async {
     try {

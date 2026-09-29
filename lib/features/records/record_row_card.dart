@@ -10,6 +10,7 @@ import '../../data/services/checkup_service.dart';
 import '../../domain/health/follow_display.dart';
 import 'attachment_viewer.dart';
 import 'checkup_screen.dart';
+import 'record_photo.dart';
 import 'health_file_screen.dart' show RecordSummary;
 
 /// صف سجل واحد بكل اللي بيعمله: يفتح متابعته، أو صورته، أو «⋯ خيارات».
@@ -53,6 +54,26 @@ class RecordRowCard extends StatelessWidget {
             onPressed: () async {
               Navigator.of(context).pop();
               await _rename(context, records);
+            },
+          ),
+        // روشتة الزيارة، وتقرير التحليل أو الأشعة — صورة تتحفظ على السجل.
+        if (recordPhotoWord(record.kind) case final word?)
+          FSecondaryButton(
+            key: const ValueKey('record-attach-photo'),
+            label: record.attachmentPath == null ? 'ضيف $word' : 'غيّر $word',
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await attachRecordPhoto(context, record);
+            },
+          ),
+        // المتابعة الدوسة عليها بتفتح مراحلها، فالصورة بتتشاف من هنا.
+        if (isFollow && record.attachmentPath != null)
+          FSecondaryButton(
+            key: const ValueKey('record-view-photo'),
+            label: 'شوف الصورة',
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAttachment(context, record);
             },
           ),
         FSecondaryButton(

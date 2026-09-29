@@ -7,7 +7,9 @@ import '../../domain/billing/family_plan.dart';
 import '../billing/feature_gate.dart';
 import '../health/vitals/vital_entry_sheet.dart';
 import '../health/scan_lab_screen.dart';
+import '../../data/db/tables.dart' show RecordKind;
 import '../records/manual_entry_screen.dart';
+import '../records/record_photo.dart';
 import '../scan/scan_prescription_screen.dart';
 import '../voice/help_button.dart';
 import 'add_medication_screen.dart';
@@ -70,8 +72,22 @@ Future<void> showAddSheet(BuildContext context) {
         label: addSheetLabels[4],
         onPressed: () => openScan(ScanLabScreen(reader: services.labReader)),
       ),
-      // الملف الصحي (D3.5) — مش دوا، فمش بيتجدول
-      FSecondaryButton(label: addSheetLabels[5], onPressed: () => open(const ManualEntryScreen())),
+      // تقرير الأشعة (٢٩ سبتمبر ٢٠٢٦): الصورة **بتتحفظ وبس، ما بتتقراش** —
+      // مفيش Gemini، فمش ورا بوابة القراية. الصورة الأول، وبعدها الاستمارة
+      // بنوع «أشعة» والصورة عليها. تسجيل زيارة أو تحليل أو أشعة بالإيد بقى
+      // جوّه «ملفّي» (طلب المالك) — مش هنا.
+      FSecondaryButton(
+        key: const ValueKey('add-imaging-report'),
+        label: addSheetLabels[5],
+        onPressed: () async {
+          navigator.pop();
+          final photo = await askRecordPhoto(context, title: 'تقرير الأشعة');
+          if (photo == null || !context.mounted) return;
+          navigator.push(MaterialPageRoute<void>(
+            builder: (_) => ManualEntryScreen(kind: RecordKind.imaging, initialPhoto: photo),
+          ));
+        },
+      ),
     ],
   );
 }
@@ -85,5 +101,5 @@ const addSheetLabels = [
   'أكتبها بإيدي',
   'سجّل قياس',
   'صوّر تقرير تحليل',
-  'سجّل زيارة أو تحليل أو أشعة',
+  'صوّر تقرير أشعة',
 ];

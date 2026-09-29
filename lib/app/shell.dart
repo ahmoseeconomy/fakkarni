@@ -378,10 +378,6 @@ class _CaregiverShellState extends State<CaregiverShell> {
                 context,
                 nurse,
                 today: widget.now,
-                onNewRecord: () {
-                  final t = widget.now ?? DateTime.now();
-                  newRecordAsNurse(context, nurse, DateTime(t.year, t.month, t.day));
-                },
               ),
             ),
       floatingActionButtonLocation: const _InDockLocation(),

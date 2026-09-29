@@ -80,6 +80,25 @@ class RecordsRepository {
     );
   }
 
+  /// بيحط صورة على سجل موجود — روشتة الزيارة، أو تقرير التحليل أو الأشعة.
+  ///
+  /// **صورة واحدة لكل سجل** (قرار المالك، ٢٩ سبتمبر ٢٠٢٦): اللي بعدها
+  /// بتاخد مكانها، والشاشة بتسأل قبل. الملف القديم بيتمسح **بعد** ما الصف
+  /// اتكتب — صف بيشاور على ملف مش موجود أهون من ملف يتيم فيه بيانات مريض.
+  /// الصورة بتفضل على الموبايل زي [add] بالظبط. بيرجّع uuid السجل.
+  Future<String?> setAttachment(int id, String attachmentPath, {AttachmentStore? attachments}) async {
+    final path = attachmentPath.trim();
+    if (path.isEmpty) throw ArgumentError.value(attachmentPath, 'attachmentPath', 'المسار فاضي');
+    final row = await (_db.select(_db.records)..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
+        .getSingleOrNull();
+    if (row == null) return null;
+    await (_db.update(_db.records)..where((t) => t.id.equals(id)))
+        .write(RecordsCompanion(attachmentPath: Value(path)));
+    final old = row.attachmentPath;
+    if (old != null && old != path) await attachments?.delete(old);
+    return row.uuid;
+  }
+
   /// **بيمسح.** المحتوى بيروح دلوقتي، والصف بيفضل شاهدة فاضية.
   ///
   /// «هيفضل باين مشطوب، وهيتمسح نهائي بعد ٣٠ يوم» كان غلط في الحالة اللي

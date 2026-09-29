@@ -319,16 +319,16 @@ void main() {
   });
 
   group('الوصول', () {
-    screenTest('تبويب «الملف» في الدوك، و«ضيف» → «سجّل زيارة أو تحليل أو أشعة»', (tester) async {
+    // «سجّل زيارة أو تحليل أو أشعة» اتنقل من «ضيف» لـ«ملفّي» (٢٩ سبتمبر ٢٠٢٦)
+    screenTest('تبويب «ملفّي» في الدوك، و«سجّل زيارة أو تحليل أو أشعة» جوّاه مش في «ضيف»', (tester) async {
       await h.pump(tester, AppShell(now: DateTime(2026, 8, 31, 8)));
       await settle(tester);
 
       await tester.tap(find.byType(FloatingActionButton));
       await settle(tester);
-      await tester.tap(find.text('سجّل زيارة أو تحليل أو أشعة'));
-      await settle(tester);
-      expect(find.byType(ManualEntryScreen), findsOneWidget);
-      await tester.pageBack();
+      expect(find.text('سجّل زيارة أو تحليل أو أشعة'), findsNothing);
+      expect(find.text('صوّر تقرير أشعة'), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10));
       await settle(tester);
 
       // الباب الوحيد للملف الصحي: تبويب الدوك. صف الإعدادات اتشال —
@@ -336,6 +336,9 @@ void main() {
       await tester.tap(find.text('ملفّي').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('papers-new')));
+      await settle(tester);
+      expect(find.byType(ManualEntryScreen), findsOneWidget);
     });
   });
 }
