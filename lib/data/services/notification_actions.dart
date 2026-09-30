@@ -49,9 +49,18 @@ class NotificationActionHandler {
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
   Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
-    if (!NotificationActions.isAction(actionId)) return;
+    // **كل خروج هادي بيتسجّل** (تشخيص «أخدته» اللي بتضيع، ٣٠ سبتمبر ٢٠٢٦):
+    // الطابور بيعتبر الخروج ده «اتطبّق» وبيشيل الملف — فمن غير السطر ده
+    // الدوسة بتختفي من غير أثر. أرقام وأيام بس، ولا اسم دوا.
+    if (!NotificationActions.isAction(actionId)) {
+      diag('Handle: خروج — الزرار مش معروف (action=$actionId)');
+      return;
+    }
     final decoded = decodePayload(payload);
-    if (decoded == null) return;
+    if (decoded == null) {
+      diag('Handle: خروج — الـpayload ما اتفكّش (action=$actionId، طوله ${payload?.length ?? 0})');
+      return;
+    }
 
     const engine = ScheduleEngine();
     final day = decoded.routineDay;
@@ -67,7 +76,13 @@ class NotificationActionHandler {
         for (final dose in reminder.doses)
           if (decoded.scheduleIds.contains(dose.id)) dose,
     ];
-    if (doses.isEmpty) return; // دوا اتوقف بعد ما الإشعار اتجدول
+    if (doses.isEmpty) {
+      // دوا اتوقف أو مواعيده اتغيّرت بعد ما الإشعار اتجدول
+      diag('Handle: خروج — مفيش جرعة شغّالة للإشعار ده (action=$actionId، '
+          'يوم=${_day(decoded.routineDay)}، جداول=${decoded.scheduleIds.join(',')}، '
+          'جرعات اليوم=${reminders.fold<int>(0, (n, r) => n + r.doses.length)})');
+      return;
+    }
     final at = engine.resolve(doses.first, day);
 
     switch (actionId) {
@@ -88,6 +103,8 @@ class NotificationActionHandler {
             state: DoseState.taken,
           );
         }
+        diag('Handle: اتكتب taken — ${doses.length} جرعة، يوم=${_day(day)}، '
+            'جداول=${doses.map((d) => d.id).join(',')}');
 
         // القاعدة الخامسة — وعد كمان: التأكيد بيسكّت كل درجات السلّم
         // للخانة دي في نفس اللحظة. الإلغاء بيمرّ على الإضافة، فالتهيئة
@@ -116,6 +133,7 @@ class NotificationActionHandler {
           payload: payload!,
           now: now,
         );
+        diag('Handle: اتأجّل ربع ساعة — ${doses.length} جرعة، يوم=${_day(day)}');
     }
 
     // السحابة **آخر حاجة خالص**، وبعد ما كل اللي فوق خلص.
@@ -166,3 +184,7 @@ class NotificationActionHandler {
     }
   }
 }
+
+/// «٢٠٢٦-٠٩-٣٠» بأرقام لاتيني — للسجل بس.
+String _day(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

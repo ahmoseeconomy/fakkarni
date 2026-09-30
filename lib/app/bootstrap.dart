@@ -313,6 +313,10 @@ Future<void> handleNotificationAction({
 /// يفتح التطبيق — وهو مالوش سبب يفتحه.
 @pragma('vm:entry-point')
 Future<void> onBackgroundNotificationAction(NotificationResponse response) async {
+  // **قبل أي حاجة خالص** (تشخيص «أخدته» اللي بتضيع، ٣٠ سبتمبر ٢٠٢٦): لو
+  // الـisolate مات في تسجيل الإضافات، السطر ده بس هو اللي بيقول إنه قام.
+  // `diag` ما بتحتاجش أي إضافة — ملف و`Platform` بس.
+  diag('Isolate: المحرّك التاني شغّل المعالج بتاعنا — action=${response.actionId}');
   // الـisolate ده جديد: الإضافات (path_provider، الإشعارات) لازم تتسجّل فيه.
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
@@ -354,7 +358,8 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
     diag('Isolate: خلص المعالج — handled=ok action=${response.actionId}');
     // الدوسة دي سويفت كتبتها في الطابور كمان — اتعالجت، فتتشال؛ ولو فيه
     // دوسات أقدم الإضافة ضيّعتها، دي فرصتها.
-    await PendingActionStore().drainOthers(action: response.actionId, payload: response.payload, door: (a, p) => handleNotificationAction(db: db, actionId: a, payload: p));
+    final others = await PendingActionStore().drainOthers(action: response.actionId, payload: response.payload, door: (a, p) => handleNotificationAction(db: db, actionId: a, payload: p));
+    diag('Isolate: الطابور — دوستي اتشالت، واتطبّق $others غيرها');
   } catch (error, stack) {
     diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');
   } finally {
@@ -362,5 +367,6 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
     await db.close();
     // من غير ده النظام بيقفل التطبيق قفل لما المهلة تخلص.
     await BackgroundTask.end(task);
+    diag('Isolate: خرجنا — action=${response.actionId}');
   }
 }

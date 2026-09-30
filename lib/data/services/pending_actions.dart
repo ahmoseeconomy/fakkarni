@@ -34,23 +34,45 @@ class PendingAction {
   final DateTime at;
   final String? payload;
 
-  static PendingAction? parse(File file) {
+  static PendingAction? parse(File file) => parseWithReason(file).action;
+
+  /// زي [parse] بالظبط — ومعاه **ليه** ما اتقراش، عشان سطر التشخيص. السبب
+  /// نوع العطل والمفاتيح الناقصة بس؛ محتوى الملف عمره ما بيتكتب في السجل.
+  static ({PendingAction? action, String? reason}) parseWithReason(File file) {
+    final String text;
     try {
-      final map = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-      final action = map['action'] as String?;
-      final at = map['at'] as int?;
-      if (action == null || at == null) return null;
-      return PendingAction(
-        file: file,
-        action: action,
-        id: (map['id'] as num?)?.toInt() ?? -1,
-        at: DateTime.fromMillisecondsSinceEpoch(at),
-        payload: map['payload'] as String?,
+      text = file.readAsStringSync();
+    } catch (e) {
+      return (action: null, reason: 'القراية وقعت (${e.runtimeType})');
+    }
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! Map<String, dynamic>) return (action: null, reason: 'مش JSON object (${text.length} بايت)');
+      final action = decoded['action'];
+      final at = decoded['at'];
+      if (action is! String || at is! int) {
+        return (
+          action: null,
+          reason: 'مفاتيح ناقصة أو نوعها غلط — action=${action.runtimeType} at=${at.runtimeType}',
+        );
+      }
+      return (
+        action: PendingAction(
+          file: file,
+          action: action,
+          id: (decoded['id'] as num?)?.toInt() ?? -1,
+          at: DateTime.fromMillisecondsSinceEpoch(at),
+          payload: decoded['payload'] as String?,
+        ),
+        reason: null,
       );
-    } catch (_) {
-      return null;
+    } catch (e) {
+      return (action: null, reason: 'مش JSON (${e.runtimeType}، ${text.length} بايت)');
     }
   }
+
+  /// اسم الملف بس — من غير المسار.
+  String get name => file.uri.pathSegments.last;
 }
 
 const pendingActionsFolder = 'pending_actions';
@@ -81,21 +103,35 @@ class PendingActionStore {
   }
 
   /// الأقدم الأول — ملف ما ينفعش يتقرا بيتشال (مش هيبقى ينفع بكرة).
+  ///
+  /// **كل قراية بتتسجّل** (تشخيص «أخدته» اللي بتضيع، ٣٠ سبتمبر ٢٠٢٦): أنهي
+  /// مجلد، وكام ملف لقى، وكام اتقرا — وأي ملف اتشال بسببه. قبل كده القراية
+  /// الفاضية والملف اللي ما اتقراش كانوا بيعدّوا من غير ولا سطر.
   List<PendingAction> list() {
     final dir = directory;
-    if (dir == null) return const [];
+    if (dir == null) {
+      diag('Pending: الطابور — مفيش مجلد (المنصة دي مالهاش طابور)');
+      return const [];
+    }
     try {
-      if (!dir.existsSync()) return const [];
+      if (!dir.existsSync()) {
+        diag('Pending: الطابور — المجلد مش موجود: ${dir.path}');
+        return const [];
+      }
       final out = <PendingAction>[];
+      var files = 0;
       for (final f in dir.listSync().whereType<File>()) {
         if (!f.path.endsWith('.json')) continue;
-        final parsed = PendingAction.parse(f);
-        if (parsed == null) {
+        files++;
+        final parsed = PendingAction.parseWithReason(f);
+        if (parsed.action == null) {
+          diag('Pending: ملف اتشال (ما اتقراش) — ${f.uri.pathSegments.last} — ${parsed.reason}');
           _delete(f);
           continue;
         }
-        out.add(parsed);
+        out.add(parsed.action!);
       }
+      diag('Pending: الطابور — مجلد=${dir.path} — ملفات=$files — اتقرا=${out.length}');
       return out..sort((a, b) => a.at.compareTo(b.at));
     } catch (e) {
       diag('Pending: قراية الطابور وقعت ($e)');
@@ -107,7 +143,10 @@ class PendingActionStore {
   /// تعيدهاش.
   void removeMatching({required String? action, required String? payload}) {
     for (final a in list()) {
-      if (a.action == action && a.payload == payload) _delete(a.file);
+      if (a.action == action && a.payload == payload) {
+        diag('Pending: ملف اتشال (الصحوة عالجت الدوسة دي) — ${a.name}');
+        _delete(a.file);
+      }
     }
   }
 
@@ -149,7 +188,7 @@ Future<int> drainPendingActions(
       await door(a.action, a.payload);
       store._delete(a.file);
       applied++;
-      diag('Pending: اتطبّق ${a.action} (اتداس ${a.at})');
+      diag('Pending: اتطبّق ${a.action} (اتداس ${a.at}) — ${a.name} اتشال');
     } catch (e, stack) {
       diag('Pending: تطبيق ${a.action} وقع — هيتعاد الفتحة الجاية: $e\n$stack');
     }
@@ -184,7 +223,10 @@ abstract final class LiveActions {
   /// سويفت بتنده ده — بيطبّق الطابور ويرجّع عدد اللي اتطبّق.
   static Future<int> drain() async {
     final d = door;
-    if (d == null) return 0;
+    if (d == null) {
+      diag('Live: drain — الباب لسه مش جاهز، مفيش حاجة اتطبّقت (الملف فاضل في الطابور)');
+      return 0;
+    }
     final n = await drainPendingActions(store, d);
     diag('Live: الإنجن الرئيسي طبّق $n من الطابور');
     return n;
