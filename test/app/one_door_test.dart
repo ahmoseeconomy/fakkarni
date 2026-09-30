@@ -22,7 +22,8 @@ void main() {
   final main = code('lib/main.dart');
 
   test('الدالة المشتركة موجودة وبتنده المعالج', () {
-    expect(boot, contains('Future<void> handleNotificationAction('));
+    // بترجّع اللي حصل فعلاً (٣٠ سبتمبر ٢٠٢٦) — الطابور ما بيشيلش غير المتسجّل
+    expect(boot, contains('Future<ActionOutcome> handleNotificationAction('));
     expect(boot, contains('actionHandlerFor('));
     expect(boot, contains('.handle(actionId, payload)'));
   });

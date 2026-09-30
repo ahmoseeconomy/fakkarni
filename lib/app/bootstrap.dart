@@ -264,7 +264,7 @@ NotificationActionHandler actionHandlerFor(
 /// بيسيبها فاضية فبتتبني هنا. الاتنين بيوصلوا لنفس
 /// [NotificationActionHandler.handle] وبنفس الترتيب: الصف، الإلغاء،
 /// النافذة، وبعدين السحابة.
-Future<void> handleNotificationAction({
+Future<ActionOutcome> handleNotificationAction({
   required AppDatabase db,
   required String? actionId,
   required String? payload,
@@ -273,7 +273,7 @@ Future<void> handleNotificationAction({
   Future<SyncService?> Function()? cloud,
 }) async {
   final resolved = services ?? await buildServices(db);
-  await actionHandlerFor(
+  return actionHandlerFor(
     resolved,
     prepareNotifications: prepareNotifications,
     cloud: cloud,
@@ -333,7 +333,7 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
   try {
     // الشغل نفسه في [handleNotificationAction] — نفس الدالة اللي
     // المقدمة بتنادي عليها. اللي فاضل هنا محوّل أندرويد وبس.
-    await handleNotificationAction(
+    final mine = await handleNotificationAction(
       db: db,
       actionId: response.actionId,
       payload: response.payload,
@@ -358,7 +358,9 @@ Future<void> onBackgroundNotificationAction(NotificationResponse response) async
     diag('Isolate: خلص المعالج — handled=ok action=${response.actionId}');
     // الدوسة دي سويفت كتبتها في الطابور كمان — اتعالجت، فتتشال؛ ولو فيه
     // دوسات أقدم الإضافة ضيّعتها، دي فرصتها.
-    final others = await PendingActionStore().drainOthers(action: response.actionId, payload: response.payload, door: (a, p) => handleNotificationAction(db: db, actionId: a, payload: p));
+    // نفس المجلد اللي سويفت كتبت فيه — من المستندات، مش من البيئة
+    await PendingActionStore.resolve();
+    final others = await PendingActionStore().drainOthers(action: response.actionId, payload: response.payload, mine: mine, door: (a, p) => handleNotificationAction(db: db, actionId: a, payload: p));
     diag('Isolate: الطابور — دوستي اتشالت، واتطبّق $others غيرها');
   } catch (error, stack) {
     diag('زرار الإشعار مقدرش يتعالج في الخلفية: $error\n$stack');

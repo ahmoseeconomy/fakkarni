@@ -64,12 +64,13 @@ void main() {
       expect(withPrefix('Pending: الطابور').single, contains('المجلد مش موجود: ${missing.path}'));
     });
 
-    test('ملف مش JSON بيتشال — والسطر بيقول ليه واسمه، من غير محتواه', () {
+    test('ملف مش JSON بيتنقل لـbad/ (مش بيتمسح) — والسطر بيقول ليه واسمه، من غير محتواه', () {
       write('bad.json', '{secret not json');
       final list = PendingActionStore(directoryOverride: tmp).list();
       expect(list, isEmpty);
-      expect(File('${tmp.path}/bad.json').existsSync(), isFalse, reason: 'السلوك زي ما هو: بيتشال');
-      final l = withPrefix('Pending: ملف اتشال').single;
+      expect(File('${tmp.path}/bad.json').existsSync(), isFalse);
+      expect(File('${tmp.path}/$badPendingFolder/bad.json').existsSync(), isTrue, reason: 'مفيش دوسة بتتمسح');
+      final l = withPrefix('Pending: ملف بايظ').single;
       expect(l, contains('bad.json'));
       expect(l, contains('مش JSON'));
       expect(l, isNot(contains('secret')));
@@ -80,7 +81,7 @@ void main() {
       write('noat.json', jsonEncode({'action': 'taken'}));
       write('strat.json', jsonEncode({'action': 'taken', 'at': '123'}));
       PendingActionStore(directoryOverride: tmp).list();
-      final removed = withPrefix('Pending: ملف اتشال');
+      final removed = withPrefix('Pending: ملف بايظ');
       expect(removed, hasLength(2));
       expect(removed.every((l) => l.contains('مفاتيح ناقصة أو نوعها غلط')), isTrue);
       expect(removed.any((l) => l.contains('at=String')), isTrue);
@@ -111,7 +112,7 @@ void main() {
 
     test('اتطبّق بيقول اسم الملف اللي اتشال', () async {
       write('done.json', record());
-      final n = await drainPendingActions(PendingActionStore(directoryOverride: tmp), (_, _) async {});
+      final n = await drainPendingActions(PendingActionStore(directoryOverride: tmp), (_, _) async => ActionOutcome.recorded);
       expect(n, 1);
       expect(withPrefix('Pending: اتطبّق').single, contains('done.json اتشال'));
     });
@@ -161,14 +162,16 @@ void main() {
 
     test('زرار مش معروف', () async {
       final (handler, _) = await seed();
-      await handler.handle('open', encodePayloadFor(day, ['1']), now: DateTime(2026, 9, 30, 13, 54));
+      expect(await handler.handle('open', encodePayloadFor(day, ['1']), now: DateTime(2026, 9, 30, 13, 54)),
+          ActionOutcome.unknownAction);
       expect(withPrefix('Handle: خروج — الزرار مش معروف').single, contains('action=open'));
       noMedName();
     });
 
     test('payload ما اتفكّش — بطوله، مش بمحتواه', () async {
       final (handler, _) = await seed();
-      await handler.handle(NotificationActions.taken, '{"v":9,"x":"hidden"}', now: DateTime(2026, 9, 30, 13, 54));
+      expect(await handler.handle(NotificationActions.taken, '{"v":9,"x":"hidden"}', now: DateTime(2026, 9, 30, 13, 54)),
+          ActionOutcome.badPayload);
       final l = withPrefix('Handle: خروج — الـpayload ما اتفكّش').single;
       expect(l, contains('طوله 20'));
       expect(l, isNot(contains('hidden')));
@@ -176,7 +179,8 @@ void main() {
 
     test('مفيش جرعة شغّالة للإشعار ده — اليوم والجداول، من غير اسم', () async {
       final (handler, _) = await seed();
-      await handler.handle(NotificationActions.taken, encodePayloadFor(day, ['999']), now: DateTime(2026, 9, 30, 13, 54));
+      expect(await handler.handle(NotificationActions.taken, encodePayloadFor(day, ['999']), now: DateTime(2026, 9, 30, 13, 54)),
+          ActionOutcome.noActiveDose);
       final l = withPrefix('Handle: خروج — مفيش جرعة شغّالة').single;
       expect(l, contains('يوم=2026-09-30'));
       expect(l, contains('جداول=999'));
@@ -186,8 +190,10 @@ void main() {
 
     test('اتكتب taken — والسطر من غير اسم الدوا', () async {
       final (handler, scheduleId) = await seed();
-      await handler.handle(NotificationActions.taken, encodePayloadFor(day, [scheduleId]),
-          now: DateTime(2026, 9, 30, 13, 54));
+      expect(
+          await handler.handle(NotificationActions.taken, encodePayloadFor(day, [scheduleId]),
+              now: DateTime(2026, 9, 30, 13, 54)),
+          ActionOutcome.recorded);
       final l = withPrefix('Handle: اتكتب taken').single;
       expect(l, contains('1 جرعة'));
       expect(l, contains('جداول=$scheduleId'));
@@ -196,8 +202,10 @@ void main() {
 
     test('اتأجّل — سطر', () async {
       final (handler, scheduleId) = await seed();
-      await handler.handle(NotificationActions.snooze, encodePayloadFor(day, [scheduleId]),
-          now: DateTime(2026, 9, 30, 13, 54));
+      expect(
+          await handler.handle(NotificationActions.snooze, encodePayloadFor(day, [scheduleId]),
+              now: DateTime(2026, 9, 30, 13, 54)),
+          ActionOutcome.snoozed);
       expect(withPrefix('Handle: اتأجّل'), hasLength(1));
       noMedName();
     });

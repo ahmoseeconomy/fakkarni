@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fakkarni/data/services/notification_actions.dart' show ActionOutcome;
 
 import 'package:fakkarni/app/bootstrap.dart';
 import 'package:fakkarni/core/notifications/notification_service.dart';
@@ -59,16 +60,20 @@ void main() {
       _queue(tmp, action: 'taken', at: now.subtract(const Duration(hours: 7)), payload: 'boom');
       final store = PendingActionStore(directoryOverride: tmp);
       final seen = <String?>[];
-      Future<void> door(String? a, String? p) async {
+      Future<ActionOutcome> door(String? a, String? p) async {
         seen.add(p);
         if (p == 'boom') throw StateError('قاعدة مقفولة');
+        return ActionOutcome.recorded;
       }
 
       expect(await drainPendingActions(store, door, now: now), 1);
       expect(seen, ['ok', 'boom']);
       expect([for (final a in store.list()) a.payload], ['boom'], reason: 'الفاشل فاضل');
       seen.clear();
-      expect(await drainPendingActions(store, (a, p) async => seen.add(p), now: now), 1);
+      expect(await drainPendingActions(store, (a, p) async {
+        seen.add(p);
+        return a == NotificationActions.snooze ? ActionOutcome.snoozed : ActionOutcome.recorded;
+      }, now: now), 1);
       expect(seen, ['boom']);
       expect(store.list(), isEmpty);
     });
@@ -79,7 +84,10 @@ void main() {
       _queue(tmp, action: NotificationActions.snooze, at: now.subtract(const Duration(minutes: 10)), payload: 'fresh');
       _queue(tmp, action: NotificationActions.taken, at: now.subtract(const Duration(days: 2)), payload: 'taken');
       final seen = <String?>[];
-      await drainPendingActions(PendingActionStore(directoryOverride: tmp), (a, p) async => seen.add(p), now: now);
+      await drainPendingActions(PendingActionStore(directoryOverride: tmp), (a, p) async {
+        seen.add(p);
+        return a == NotificationActions.snooze ? ActionOutcome.snoozed : ActionOutcome.recorded;
+      }, now: now);
       expect(seen, ['taken', 'fresh']);
       expect(tmp.listSync().whereType<File>(), isEmpty);
     });

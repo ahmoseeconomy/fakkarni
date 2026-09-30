@@ -173,6 +173,11 @@ enum LiveActionChannel {
       if call.method == "ready" {
         ready = true
         FKDiag.log("live — دارت جاهزة على الإنجن الرئيسي")
+        // **المجلد اللي بنكتب فيه — لدارت.** على الجهاز البيئة ما كانتش
+        // بتوصل للإنجن الرئيسي، فدارت كانت بتقول «مفيش مجلد» وبتطبّق ٠
+        // (٣٠ سبتمبر ٢٠٢٦). مصدر واحد للمسار: هنا.
+        result(PendingActionQueue.directory?.path)
+        return
       }
       result(nil)
     }
@@ -189,7 +194,9 @@ enum LiveActionChannel {
         done()
       }
     }
-    ch.invokeMethod("drain", arguments: nil) { reply in
+    // المجلد مع كل دوسة — دارت بتقرا منه هو، مش من بيئتها
+    let args: [String: Any] = PendingActionQueue.directory.map { ["folder": $0.path] } ?? [:]
+    ch.invokeMethod("drain", arguments: args) { reply in
       FKDiag.log("live — drain رجع \(reply ?? "nil")")
       finish()
     }

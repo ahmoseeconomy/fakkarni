@@ -15,6 +15,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/app_scope.dart';
 import 'app/background_health.dart';
 import 'app/bootstrap.dart';
+import 'data/services/notification_actions.dart' show ActionOutcome;
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'data/auth/supabase_init.dart';
@@ -75,7 +76,7 @@ Future<void> main() async {
   // بتتقفل عليها الجرعة وخلاص. الصف بيفضل متوسّخاً لحد ما المزامنة
   // تشتغل بعد شوية — وده مقبول، الرفع مجاملة والكتابة هي الوعد.
   final local = await buildServices(db);
-  Future<void> door(String? action, String? payload) =>
+  Future<ActionOutcome> door(String? action, String? payload) =>
       handleNotificationAction(
           db: db, services: local, actionId: action, payload: payload);
   NotificationService.onAction = door;
@@ -97,6 +98,9 @@ Future<void> main() async {
   }
   // **الدوسات اللي الإضافة ضيّعتها** — سويفت كتبتها في طابور، ودي أول
   // فتحة بعدها. قبل السحابة: ده وعد، وده ممكن يكون إطلاق خلفية عمره ثواني.
+  // المجلد من المستندات الأول — البيئة على الجهاز ما كانتش فيها المسار
+  // (٣٠ سبتمبر ٢٠٢٦: «مفيش مجلد» والدوسة ضاعت). سويفت بتأكّده مع «ready».
+  await PendingActionStore.resolve();
   await drainPendingActions(PendingActionStore(), door);
   // من هنا: «أخدته» والتطبيق عايش بتيجي للإنجن ده على طول، مش لإنجن تاني
   LiveActions.door = door;
@@ -200,7 +204,7 @@ Future<void> main() async {
   // ونفس الخدمات للدوسات اللي سويفت بتسلّمها وإحنا عايشين (مع السحابة)
   LiveActions.door = (action, payload) async {
     unawaited(voice.stop());
-    await actions.handle(action, payload);
+    return actions.handle(action, payload);
   };
 
   // **زرار الممرض — باب لوحده.** «أكّد إنه أخدها» على تذكير الممرض =

@@ -2,10 +2,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/diagnostics.dart';
 import '../../domain/escalation/escalation_ladder.dart' show graceWindow;
 import '../../core/notifications/notification_service.dart' show NotificationActions;
+import 'notification_actions.dart' show ActionOutcome;
+
+/// الباب اللي بيطبّق دوسة — بيرجّع اللي حصل فعلاً (شوف [ActionOutcome]).
+typedef TapDoor = Future<ActionOutcome> Function(String? action, String? payload);
 
 /// **دوسة على زرار الإشعار عمرها ما تضيع.**
 ///
@@ -38,22 +43,25 @@ class PendingAction {
 
   /// زي [parse] بالظبط — ومعاه **ليه** ما اتقراش، عشان سطر التشخيص. السبب
   /// نوع العطل والمفاتيح الناقصة بس؛ محتوى الملف عمره ما بيتكتب في السجل.
-  static ({PendingAction? action, String? reason}) parseWithReason(File file) {
+  static ({PendingAction? action, String? reason, bool readFailed}) parseWithReason(File file) {
     final String text;
     try {
       text = file.readAsStringSync();
     } catch (e) {
-      return (action: null, reason: 'القراية وقعت (${e.runtimeType})');
+      return (action: null, reason: 'القراية وقعت (${e.runtimeType})', readFailed: true);
     }
     try {
       final decoded = jsonDecode(text);
-      if (decoded is! Map<String, dynamic>) return (action: null, reason: 'مش JSON object (${text.length} بايت)');
+      if (decoded is! Map<String, dynamic>) {
+        return (action: null, reason: 'مش JSON object (${text.length} بايت)', readFailed: false);
+      }
       final action = decoded['action'];
       final at = decoded['at'];
       if (action is! String || at is! int) {
         return (
           action: null,
           reason: 'مفاتيح ناقصة أو نوعها غلط — action=${action.runtimeType} at=${at.runtimeType}',
+          readFailed: false,
         );
       }
       return (
@@ -65,9 +73,10 @@ class PendingAction {
           payload: decoded['payload'] as String?,
         ),
         reason: null,
+        readFailed: false,
       );
     } catch (e) {
-      return (action: null, reason: 'مش JSON (${e.runtimeType}، ${text.length} بايت)');
+      return (action: null, reason: 'مش JSON (${e.runtimeType}، ${text.length} بايت)', readFailed: false);
     }
   }
 
@@ -76,6 +85,10 @@ class PendingAction {
 }
 
 const pendingActionsFolder = 'pending_actions';
+
+/// الدوسات اللي عمرها ما هتتسجّل (زرار مش بتاعنا، payload بايظ، دوا اتوقف)
+/// بتتنقل هنا بدل ما تتمسح — **ولا دوسة بتختفي من غير أثر**.
+const badPendingFolder = 'bad';
 
 /// تأجيل أقدم من مهلة الجهاز (٤٥ دقيقة) بقى بلا معنى — الدرجات اللي بعده
 /// رنّت أو اتلغت خلاص.
@@ -87,11 +100,45 @@ class PendingActionStore {
   /// للاختبارات — الافتراضي مجلد التطبيق (تحت).
   final Directory? directoryOverride;
 
-  /// المجلد من غير أي قناة: `FAKKARNI_DOCS` (سويفت بتحطها عند الإطلاق)،
-  /// وإلا `$HOME/Documents` على iOS. null = مفيش طابور على المنصة دي.
+  /// **المجلد اللي سويفت بتكتب فيه، متأكَّد منه** — من سويفت نفسها (مع
+  /// «ready» ومع كل «drain») أو من `path_provider` ([resolve]).
+  ///
+  /// الجهاز قال ليه ده لازم (٣٠ سبتمبر ٢٠٢٦، profile): على الإنجن الرئيسي
+  /// لا `FAKKARNI_DOCS` ولا `HOME` كانوا في بيئة دارت، فالطابور كان بيرجّع
+  /// «مفيش مجلد» — سويفت كتبت الدوسة ودارت طبّقت ٠ والدوسة ضاعت.
+  static Directory? known;
+
+  /// سويفت قالت المجلد — بيتحفظ لباقي العملية.
+  static void adopt(String? folder) {
+    if (folder == null || folder.isEmpty) return;
+    if (known?.path == folder) return;
+    known = Directory(folder);
+    diag('Pending: المجلد من سويفت — $folder');
+  }
+
+  /// المجلد من `getApplicationDocumentsDirectory()` — نفس اللي سويفت بتكتب
+  /// فيه (`FileManager.documentDirectory`). على iOS بس (الطابور سويفت)،
+  /// إلا لو الاختبار ادّاله [documents]. عمره ما بيرمي.
+  static Future<Directory?> resolve({Future<Directory> Function()? documents}) async {
+    if (known != null) return known;
+    if (documents == null && !Platform.isIOS) return null;
+    try {
+      final docs = await (documents ?? getApplicationDocumentsDirectory)();
+      known = Directory('${docs.path}/$pendingActionsFolder');
+      diag('Pending: المجلد من المستندات — ${known!.path}');
+    } catch (e) {
+      diag('Pending: مقدرناش نعرف مجلد المستندات (${e.runtimeType}) — هنجرّب البيئة');
+    }
+    return known;
+  }
+
+  /// المجلد: الاختبار، ثم [known]، ثم البيئة (`FAKKARNI_DOCS` أو `$HOME` على
+  /// iOS) كآخر حل. null = مفيش طابور على المنصة دي.
   Directory? get directory {
     final given = directoryOverride;
     if (given != null) return given;
+    final sure = known;
+    if (sure != null) return sure;
     try {
       final docs = Platform.environment['FAKKARNI_DOCS'];
       if (docs != null && docs.isNotEmpty) return Directory('$docs/$pendingActionsFolder');
@@ -125,8 +172,14 @@ class PendingActionStore {
         files++;
         final parsed = PendingAction.parseWithReason(f);
         if (parsed.action == null) {
-          diag('Pending: ملف اتشال (ما اتقراش) — ${f.uri.pathSegments.last} — ${parsed.reason}');
-          _delete(f);
+          final name = f.uri.pathSegments.last;
+          if (parsed.readFailed) {
+            // القراية وقعت (ممكن تكون لحظية) — **الملف فاضل** للمرة الجاية
+            diag('Pending: ملف ما اتقراش، فاضل للمحاولة الجاية — $name — ${parsed.reason}');
+          } else {
+            diag('Pending: ملف بايظ اتنقل لـ$badPendingFolder/ — $name — ${parsed.reason}');
+            _quarantine(f);
+          }
           continue;
         }
         out.add(parsed.action!);
@@ -150,14 +203,20 @@ class PendingActionStore {
     }
   }
 
-  /// للـisolate: دوسته هو اتعالجت خلاص — تتشال، والباقي يتطبّق. سطر واحد
-  /// عند النداء عشان محوّل أندرويد يفضل رفيع (`one_door_test`).
+  /// للـisolate: دوسته هو — **لو اتسجّلت** ([mine] done) — تتشال، والباقي
+  /// يتطبّق. لو ما اتسجّلتش، ملفها بيفضل وبيتطبّق مع الباقي بالباب. سطر
+  /// واحد عند النداء عشان محوّل أندرويد يفضل رفيع (`one_door_test`).
   Future<int> drainOthers({
     required String? action,
     required String? payload,
-    required Future<void> Function(String? action, String? payload) door,
+    required ActionOutcome mine,
+    required TapDoor door,
   }) {
-    removeMatching(action: action, payload: payload);
+    if (mine.done) {
+      removeMatching(action: action, payload: payload);
+    } else {
+      diag('Pending: دوسة الصحوة ما اتسجّلتش (${mine.name}) — ملفها فاضل في الطابور');
+    }
     return drainPendingActions(this, door);
   }
 
@@ -166,14 +225,28 @@ class PendingActionStore {
       f.deleteSync();
     } catch (_) {}
   }
+
+  /// نقل لـ`bad/` — **مش مسح**. لو النقل نفسه وقع، الملف بيفضل مكانه.
+  void _quarantine(File f) {
+    try {
+      final bad = Directory('${f.parent.path}/$badPendingFolder')..createSync(recursive: true);
+      f.renameSync('${bad.path}/${f.uri.pathSegments.last}');
+    } catch (e) {
+      diag('Pending: نقل الملف لـ$badPendingFolder/ وقع (${e.runtimeType}) — فاضل مكانه');
+    }
+  }
 }
 
 /// بيطبّق كل اللي في الطابور على [door] (نفس باب الإشعار) ويشيله.
 /// بيرجّع عدد اللي اتطبّق. عطل في واحدة ما بيوقّفش الباقي، والملف بيفضل
 /// للمحاولة الجاية — **التأكيد ما بيتشالش غير بعد ما يتكتب**.
+///
+/// **الملف ما بيتشالش غير لما الجرعة تتسجّل فعلاً** (قرار المالك، ٣٠ سبتمبر
+/// ٢٠٢٦): [ActionOutcome.done] = يتشال؛ خروج هادي = يتنقل لـ`bad/` بسطر؛
+/// رمية = يفضل للمرة الجاية.
 Future<int> drainPendingActions(
   PendingActionStore store,
-  Future<void> Function(String? action, String? payload) door, {
+  TapDoor door, {
   DateTime? now,
 }) async {
   final clock = now ?? DateTime.now();
@@ -185,7 +258,12 @@ Future<int> drainPendingActions(
       continue;
     }
     try {
-      await door(a.action, a.payload);
+      final outcome = await door(a.action, a.payload);
+      if (!outcome.done) {
+        diag('Pending: الدوسة ما اتسجّلتش (${outcome.name}) — ${a.name} اتنقل لـ$badPendingFolder/');
+        store._quarantine(a.file);
+        continue;
+      }
       store._delete(a.file);
       applied++;
       diag('Pending: اتطبّق ${a.action} (اتداس ${a.at}) — ${a.name} اتشال');
@@ -215,7 +293,7 @@ abstract final class LiveActions {
   static const MethodChannel _channel = MethodChannel(channelName);
 
   /// الباب الحالي — `main` بيبدّله لما الخدمات الكاملة تتبني.
-  static Future<void> Function(String? action, String? payload)? door;
+  static TapDoor? door;
 
   /// للاختبارات.
   static PendingActionStore store = PendingActionStore();
@@ -232,16 +310,21 @@ abstract final class LiveActions {
     return n;
   }
 
-  static Future<Object?> handle(MethodCall call) async => switch (call.method) {
-        'drain' => drain(),
-        _ => null,
-      };
+  /// سويفت بتبعت المجلد مع «drain» — بيتحفظ قبل ما الطابور يتقرا.
+  static Future<Object?> handle(MethodCall call) async {
+    if (call.method != 'drain') return null;
+    final args = call.arguments;
+    if (args is Map) PendingActionStore.adopt(args['folder'] as String?);
+    return drain();
+  }
 
   /// بيسجّل المعالج وبيقول لسويفت «أنا جاهز» — من هنا الدوسات بتيجي هنا.
   static Future<void> listen() async {
     _channel.setMethodCallHandler(handle);
     try {
-      await _channel.invokeMethod<void>('ready').timeout(const Duration(milliseconds: 500));
+      // سويفت بترد بالمجلد اللي بتكتب فيه
+      final folder = await _channel.invokeMethod<String>('ready').timeout(const Duration(milliseconds: 500));
+      PendingActionStore.adopt(folder);
     } catch (e) {
       // أندرويد والاختبارات: مفيش سويفت — الصحوة هناك isolate زي ما هي
       diag('Live: مفيش قناة سويفت ($e)');

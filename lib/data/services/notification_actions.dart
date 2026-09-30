@@ -9,6 +9,29 @@ import 'reminder_plan.dart';
 import 'reminder_scheduler.dart';
 import '../../core/diagnostics.dart';
 
+/// اللي المعالج عمله فعلاً بالدوسة — **الطابور ما بيشيلش الملف غير لو
+/// [done]** (قرار المالك، ٣٠ سبتمبر ٢٠٢٦: الدوسة عمرها ما تتشال قبل ما
+/// الجرعة تتسجّل). الباقي خروج هادي: الدوسة دي عمرها ما هتتسجّل، فالملف
+/// بيتنقل لـ`bad/` ومعاه سطر — مش بيتمسح، ومش بيتعاد للأبد.
+enum ActionOutcome {
+  /// الجرعة اتكتبت taken.
+  recorded,
+
+  /// «فكّرني بعدين» اتجدول.
+  snoozed,
+
+  /// زرار مش بتاعنا.
+  unknownAction,
+
+  /// الـpayload ما اتفكّش.
+  badPayload,
+
+  /// مفيش جرعة شغّالة للإشعار ده (الدوا اتوقف أو مواعيده اتغيّرت).
+  noActiveDose;
+
+  bool get done => this == recorded || this == snoozed;
+}
+
 /// بيعالج زرار اتداس على الإشعار — من الخلفية أو من التطبيق.
 ///
 /// من غير واجهة خالص عن قصد: بيشتغل والتطبيق مقفول، على isolate لوحده، ومع
@@ -48,18 +71,18 @@ class NotificationActionHandler {
   final Future<SyncService?> Function()? cloud;
 
   /// [now] للاختبارات — على الجهاز الساعة الحقيقية.
-  Future<void> handle(String? actionId, String? payload, {DateTime? now}) async {
+  Future<ActionOutcome> handle(String? actionId, String? payload, {DateTime? now}) async {
     // **كل خروج هادي بيتسجّل** (تشخيص «أخدته» اللي بتضيع، ٣٠ سبتمبر ٢٠٢٦):
     // الطابور بيعتبر الخروج ده «اتطبّق» وبيشيل الملف — فمن غير السطر ده
     // الدوسة بتختفي من غير أثر. أرقام وأيام بس، ولا اسم دوا.
     if (!NotificationActions.isAction(actionId)) {
       diag('Handle: خروج — الزرار مش معروف (action=$actionId)');
-      return;
+      return ActionOutcome.unknownAction;
     }
     final decoded = decodePayload(payload);
     if (decoded == null) {
       diag('Handle: خروج — الـpayload ما اتفكّش (action=$actionId، طوله ${payload?.length ?? 0})');
-      return;
+      return ActionOutcome.badPayload;
     }
 
     const engine = ScheduleEngine();
@@ -81,9 +104,10 @@ class NotificationActionHandler {
       diag('Handle: خروج — مفيش جرعة شغّالة للإشعار ده (action=$actionId، '
           'يوم=${_day(decoded.routineDay)}، جداول=${decoded.scheduleIds.join(',')}، '
           'جرعات اليوم=${reminders.fold<int>(0, (n, r) => n + r.doses.length)})');
-      return;
+      return ActionOutcome.noActiveDose;
     }
     final at = engine.resolve(doses.first, day);
+    final outcome = actionId == NotificationActions.taken ? ActionOutcome.recorded : ActionOutcome.snoozed;
 
     switch (actionId) {
       case NotificationActions.taken:
@@ -154,7 +178,7 @@ class NotificationActionHandler {
     if (build == null) {
       diag(
           'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
-      return;
+      return outcome;
     }
     SyncService? service;
     try {
@@ -162,14 +186,15 @@ class NotificationActionHandler {
     } catch (error, stack) {
       diag('Handle: ⚠ تهيئة السحابة فشلت (التأكيد اتسجّل برضه): '
           '$error\n$stack');
-      return;
+      return outcome;
     }
     if (service == null) {
       diag(
           'Handle: الرفع للسحابة — ${describePushOutcome(PushOutcome.noConfig)}');
-      return;
+      return outcome;
     }
     await _courtesy('الرفع للسحابة', service.pushOnce);
+    return outcome;
   }
 
   /// خطوة مسموح لها تفشل — بس مش مسموح لها تفشل في صمت.

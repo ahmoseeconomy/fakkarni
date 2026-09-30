@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fakkarni/data/services/notification_actions.dart' show ActionOutcome;
 
 import 'package:fakkarni/app/bootstrap.dart';
 import 'package:fakkarni/core/notifications/notification_service.dart';
@@ -59,7 +60,7 @@ void main() {
     if (await tmp.exists()) await tmp.delete(recursive: true);
   });
 
-  Future<void> door(String? a, String? p) =>
+  Future<ActionOutcome> door(String? a, String? p) =>
       handleNotificationAction(db: h.services.db, services: h.services, actionId: a, payload: p);
 
   /// كل رقم الخانة دي ممكن ترنّه — القاعدة ٥: كله يسكت.
