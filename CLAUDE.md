@@ -1901,10 +1901,14 @@ was reading the database and the audit was reading the repo.
 ### Migrations confirmed run on the live project
 
 **آخر تشغيلة: ٤ أكتوبر ٢٠٢٦ — `supabase/verify_migrations.sql` رجّع
-٣٧ صف، كلهم `ok = true`** (`0001`–`0038`، و`0036` محجوز ومش موجود؛ ٣١٨ فحص).
-الملف نفسه ما كانش بيتحلّل من ٢٧ سبتمبر (فاصلة ناقصة بعد صفوف 0033) لحد
-`af6b68f`. (قبلها: ٢٤ سبتمبر ٢٢/٢٢، ٢٣ سبتمبر ٢١/٢١، و٢٠ سبتمبر ١٧/١٧
-بـ١٦١ فحص.)
+٣٧ صف: ٣٦ `ok = true` و`0037_device_self_check` **`ok = false`** (متوقّع ١٩،
+لقى ١٨، الناقص: `constraintdef public.device_health|device_health_codes_check|jsonb_typeof`).**
+`0038_medicine_form` ٢/٢. الأرجح إن صف الفحص هو اللي بايت مش القاعدة:
+`55954f1` غيّر القيد لـ`check (private.health_codes_ok(codes))` وصف الفحص لسه
+بيدوّر على `jsonb_typeof` في نص القيد — **مش متأكَّد لحد ما الاستعلام يتشغّل
+على المشروع الحقيقي** (التقرير في المحادثة، ٤ أكتوبر). الملف نفسه ما كانش
+بيتحلّل من ٢٧ سبتمبر (فاصلة ناقصة بعد صفوف 0033) لحد `af6b68f`. (قبلها:
+٢٤ سبتمبر ٢٢/٢٢، ٢٣ سبتمبر ٢١/٢١، و٢٠ سبتمبر ١٧/١٧ بـ١٦١ فحص.)
 
 **This list is evidence from the database, not from the repo.** That
 distinction is the whole point of it: the previous version of this list was
@@ -1919,7 +1923,7 @@ on the live project.
 | **22 Sep 2026** | **`0019_battery_state`** و**`0020_caregiver_preferences`** — اتشغّلوا واتأكّدوا في نفس اليوم: **١٥/١٥ على ٠٠٢٠، و٢٠ صف كلهم `ok = true`** |
 | **23 Sep 2026** | **`0021_admin`** — اتشغّلت واتأكّدت في نفس اليوم؛ `verify` رجّع **٢١ صف كلهم `ok = true`** |
 | **24 Sep 2026** | **`0022_admin_devices`** — اتشغّلت واتأكّدت في نفس اليوم (المالك): `verify` رجّع **٢٢ صف كلهم `ok = true`** |
-| **4 Oct 2026** | **`0023`–`0035` و`0037` و`0038`** — كلهم متطبّقين على المشروع الحقيقي: `verify` رجّع **٣٧ صف كلهم `ok = true`** (المالك، بعد ما طبّق `0038` وفحصها الذاتي عدّى). مفيش هجرة «not yet run» دلوقتي. **اللي `verify` ما بيغطّيهوش** (شوف تحت): دوال الحافة `escalate` المحدّثة و`confirm-signal` و`delete-account` وأسرار Vault — دول مش متأكَّدين من الجدول ده. |
+| **4 Oct 2026** | **`0023`–`0035` و`0038`** — `ok = true` على المشروع الحقيقي (المالك؛ `0038` اتطبّقت وفحصها الذاتي عدّى). **`0037_device_self_check` مش متأكَّدة كاملة**: ١٨ من ١٩ — `device_health_codes_check` ما اتلقاش **بالنص** `jsonb_typeof` (الأرجح صف فحص بايت بعد `55954f1`، أو القيد مش موجود — لسه ما اتحسمش). **اللي `verify` ما بيغطّيهوش** (شوف تحت): دوال الحافة `escalate` المحدّثة و`confirm-signal` و`delete-account` وأسرار Vault. |
 
 **والصف اللي كان بيقول `0019` «not yet run» كان بايت** — تشغيلة ٢٢ سبتمبر
 رجّعت **٢٠ صف كلهم true**، و٢٠ صف يعني `0001`–`0020`، يعني `0019` فيهم.
@@ -2638,7 +2642,7 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 مصدر الحقيقة للتذكير**، والسلّم ومهلة الـ٦٠ وتنبيه الابن ما اتلمسوش —
 اختبار الخطة الذهبية والمجدول أخضر من غير تعديل.
 
-- **`0023_nurse_role.sql`** (متطبّقة على المشروع الحقيقي — اتأكّدت ٤ أكتوبر ٢٠٢٦، `verify` ٣٧/٣٧): الأعمدة التلاتة على
+- **`0023_nurse_role.sql`** (متطبّقة على المشروع الحقيقي — `ok = true` في `verify` ٤ أكتوبر ٢٠٢٦): الأعمدة التلاتة على
   `care_relationships` بافتراضيات بتسيب كل متابع موجود زي ما هو؛ `role`
   على `invite_codes`؛ `create_invite(uuid, text default 'follower')` (التوقيع
   القديم اتشال عشان نداء PostgREST ما يبقاش غامضاً) و`redeem_invite` بتنقل
@@ -2677,7 +2681,7 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
   تغيير الدور (لممرض بيفتح التأكيد معاه، لمتابع بيقفله)، «يعدّل الأدوية»
   مفتاح بكلمته، و«شيله» بتأكيد بالاسم.
 - **المرحلة ب — تعديل الأدوية من المرآة** (`0024_medication_changes.sql`،
-  متطبّقة — اتأكّدت ٤ أكتوبر ٢٠٢٦): الممرض اللي معاه `can_edit_meds` بيبعت **تغيير معلّق** — إضافة
+  متطبّقة — `ok = true` في `verify` ٤ أكتوبر ٢٠٢٦): الممرض اللي معاه `can_edit_meds` بيبعت **تغيير معلّق** — إضافة
   (المسوّدة كاملة: الاسم والمراسي/الساعة والجرعة والمدة والغرض
   والتعليمات ونوع التنبيه والبداية)، أو إيقاف، أو تعديل جرعة — صف في
   `medication_changes` (إدخال بـ`private.can_edit_meds_for`، التعليم
@@ -2762,7 +2766,7 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
   بتمسح الدرجتين (404 على الجديدة = قبل الهجرة، بتتعدّى)، وعنوان الممرض
   «… ما اتأكدتش لسه». **`due_escalations` بتاعة الابن ما اتلمستش.** التنبيه
   بيظهر على «يومك» عند الممرض (`nurse-alert-*`).
-- **0035 (متطبّقة على المشروع الحقيقي — اتأكّدت ٤ أكتوبر ٢٠٢٦، `verify` ٣٧/٣٧)، وكان شرط للي فوق**: من غيره الأنواع الجديدة بتترفض (قيد) وتفضل
+- **0035 (متطبّقة على المشروع الحقيقي — `ok = true` في `verify` ٤ أكتوبر ٢٠٢٦)، وكان شرط للي فوق**: من غيره الأنواع الجديدة بتترفض (قيد) وتفضل
   في طابور الممرض، مفاتيح الممرض على الافتراضي، والدرجة ما بتتبعتش. وقبلها
   لازم الدالتين `escalate` (المحدّثة) و`confirm-signal` يتنشروا، و
   `confirm_signal_function_url` في Vault. الاختبارات:
@@ -2852,7 +2856,7 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 - **اتشالت** `CaregiverMirrorScreen` واختبارها؛ السلوك اتنقل
   لـ`nurse_app_test` (+ آيفون SE بخط ×١٫٣).
 - **ما اتجرّبش على جهاز**: الإشعار وزراره على iOS وأندرويد، الرفع للباكت،
-  والتنزيل منه. (الهجرة متطبّقة على المشروع الحقيقي — اتأكّدت ٤ أكتوبر ٢٠٢٦، `verify` ٣٧/٣٧.)
+  والتنزيل منه. (الهجرة متطبّقة على المشروع الحقيقي — `ok = true` في `verify` ٤ أكتوبر ٢٠٢٦.)
 
 ## الكود في ست خانات، والكلام بيسمّي العيلة والممرض (٢٥ سبتمبر ٢٠٢٦)
 
@@ -3530,7 +3534,7 @@ jarvis-ai-finance (`webSpeechStt.js` / `MicOrb.jsx` / `affirm.js` /
   0037** (`SupabaseHealthRemote.optionalColumns` — PGRST204/42703 → نفس الصف
   من غيرهم). **من غير جلسة مفيش نداء** والصف بيستنى محلياً (اللي ما اتبعتش ما
   بيتسجّلش إنه اتبعت) وبيتبعت أول ما الجلسة تيجي — من غير ما يستنى ست ساعات.
-- **0037_device_self_check.sql (متطبّقة على المشروع الحقيقي — اتأكّدت ٤ أكتوبر ٢٠٢٦، `verify` ٣٧/٣٧؛ 0036 محجوز لـPRN)**:
+- **0037_device_self_check.sql (متطبّقة، بس **مش متأكَّدة كاملة**: `verify` ٤ أكتوبر ٢٠٢٦ رجّع ١٨/١٩ — `device_health_codes_check` مش متطابق بالنص؛ 0036 محجوز لـPRN)**:
   `status` (قيد ok/healed/needs_user/broken/**silent**) و`codes` jsonb (قيد
   قايمة) و`status_since` (تريجر بيحرّكه لما الحالة تتغيّر) و`user_id`؛
   **إصلاح 42501**: السياسات على أعمدة الصف — القراية/المسح `user_id = auth.uid()`،
@@ -3666,7 +3670,7 @@ jarvis-ai-finance (`webSpeechStt.js` / `MicOrb.jsx` / `affirm.js` /
   **الإصلاح المتبقي على السيرفر**: نشر `supabase/functions/delete-account/index.ts`
   مكان القالب. ومستخدم مجهول واحد اتعمل في `auth.users` بالتجربة دي وما اتمسحش
   (القالب ما بيمسحش) — بيتمسح من لوحة Auth.
-- **ما اتجرّبش**: الدالة (مفيش Deno هنا). (الهجرة 0033 متطبّقة على المشروع الحقيقي — اتأكّدت ٤ أكتوبر ٢٠٢٦، `verify` ٣٧/٣٧.) وابن مريض مسح حسابه
+- **ما اتجرّبش**: الدالة (مفيش Deno هنا). (الهجرة 0033 متطبّقة على المشروع الحقيقي — `ok = true` في `verify` ٤ أكتوبر ٢٠٢٦.) وابن مريض مسح حسابه
   بيرجع لشاشة البداية من غير جملة بتقول ليه — المريض نفسه اتمسح، ومفيش صف
   يتعلّق عليه سطر.
 
@@ -3729,7 +3733,7 @@ then `true`.
   `0025` runs. Both live once in `SubscriptionConfig` and once as SQL
   functions in `0025`; the mirror test pins the four numbers (14/30/3/5)
   and the two product ids against the SQL and the Edge Function.
-- **Cloud: `0025_family_subscription.sql`** (applied on the live project — confirmed 4 Oct 2026, `verify` 37/37):
+- **Cloud: `0025_family_subscription.sql`** (applied on the live project — `ok = true` in `verify`, 4 Oct 2026):
   `family_subscriptions` keyed by `patient_uuid` (status trial/active/
   expired, `trial_ends_at`, `expires_at`, `store`, `product_id`,
   `purchaser_id`, `last_verified_at`), select for the circle through
