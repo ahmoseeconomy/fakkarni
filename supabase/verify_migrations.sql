@@ -348,7 +348,7 @@ with expected(migration, kind, ident) as (
     ('0037_device_self_check', 'column',   'public.device_health.user_id'),
     ('0037_device_self_check', 'column',   'public.device_health.status_since'),
     ('0037_device_self_check', 'constraintdef', 'public.device_health|device_health_status_check|silent'),
-    ('0037_device_self_check', 'constraintdef', 'public.device_health|device_health_codes_check|jsonb_typeof'),
+    ('0037_device_self_check', 'constraintdef', 'public.device_health|device_health_codes_check|health_codes_ok'),
     ('0037_device_self_check', 'policy',   'public.device_health|device_health_select'),
     ('0037_device_self_check', 'policy',   'public.device_health|device_health_insert'),
     ('0037_device_self_check', 'policy',   'public.device_health|device_health_update'),
