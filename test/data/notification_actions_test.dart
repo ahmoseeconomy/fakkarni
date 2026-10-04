@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,6 +61,7 @@ final trace = <String>[];
 /// سحابة وهمية بتقدر تقع أو تعلّق — زي شبكة مصرية في صحوة خلفية.
 class FakeRemote implements SyncRemote {
   final List<String> tables = [];
+  final Map<String, List<Map<String, dynamic>>> sent = {};
   bool fail = false;
   Duration? hangFor;
 
@@ -66,6 +69,7 @@ class FakeRemote implements SyncRemote {
   Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
     trace.add('upsert:$table');
     tables.add(table);
+    sent.putIfAbsent(table, () => []).addAll(rows);
     if (hangFor != null) await Future<void>.delayed(hangFor!);
     if (fail) throw Exception('السحابة وقعت');
   }
@@ -468,6 +472,43 @@ void main() {
           reason: 'القاعدة الخامسة: إعادة ٧:١٠ ما ترنّش على حاجة اتعملت');
     }
     expect(device.cancelled, contains(escalationIdFor(first.at, EscalationRung.second)));
+  });
+
+  group('«مش هاخده» من الإشعار (طلب المدير، ٤ أكتوبر ٢٠٢٦ — قرار المالك أ)', () {
+    test('بتكتب skipped وبتلغي الإعادات والسلّم كله — نفس وعد «أخدته»', () async {
+      final first = firstReminder();
+      final repeat = device.scheduled[repeatIdFor(first.at, 0)]!;
+      final outcome = await wake().handle(NotificationActions.skip, repeat.payload,
+          now: DateTime(2026, 8, 31, 7, 6));
+
+      expect(outcome, ActionOutcome.skipped);
+      expect(outcome.done, isTrue, reason: 'الطابور يشيل الملف بعد ما الصف اتكتب بس');
+      final events = await db.select(db.doseEvents).get();
+      expect(events.where((e) => e.state == DoseState.skipped).length, 1);
+      expect(events.where((e) => e.state == DoseState.taken), isEmpty, reason: 'مش «أخدته»');
+      for (var i = 0; i < maxRepeats; i++) {
+        expect(device.scheduled.containsKey(repeatIdFor(first.at, i)), isFalse);
+      }
+      for (final rung in EscalationRung.values) {
+        expect(device.cancelled, contains(escalationIdFor(first.at, rung)));
+        expect(device.scheduled.containsKey(escalationIdFor(first.at, rung)), isFalse);
+      }
+    });
+
+    test('الصف بيوصل السحابة skipped — والسيرفر ما بيصعّدش skipped (مفيش تنبيه لحد)', () async {
+      await link();
+      final first = firstReminder();
+      await wake().handle(NotificationActions.skip, first.payload, now: DateTime(2026, 8, 31, 7, 1));
+      final pushed = remote.sent['dose_events'] ?? const [];
+      expect(pushed.where((r) => r['state'] == 'skipped'), isNotEmpty);
+    });
+
+    test('الزرار التالت في الإشعار نفسه — على أندرويد وiOS بنفس المعرّف', () {
+      expect(NotificationActions.isAction(NotificationActions.skip), isTrue);
+      expect(NotificationActions.skipLabel, 'مش هاخده');
+      final src = File('lib/core/notifications/notification_service.dart').readAsStringSync();
+      expect('NotificationActions.skip,'.allMatches(src).length, 2, reason: 'فئة iOS وأزرار أندرويد');
+    });
   });
 
   test('صحوة بعد المهلة من غير أي زرار: الجرعة اللي فاتت «اتنست» — لا لوم ولا مسح',

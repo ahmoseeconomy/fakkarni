@@ -20,6 +20,9 @@ enum ActionOutcome {
   /// «فكّرني بعدين» اتجدول.
   snoozed,
 
+  /// «مش هاخده» — الجرعة اتكتبت skipped.
+  skipped,
+
   /// زرار مش بتاعنا.
   unknownAction,
 
@@ -29,7 +32,7 @@ enum ActionOutcome {
   /// مفيش جرعة شغّالة للإشعار ده (الدوا اتوقف أو مواعيده اتغيّرت).
   noActiveDose;
 
-  bool get done => this == recorded || this == snoozed;
+  bool get done => this == recorded || this == snoozed || this == skipped;
 }
 
 /// بيعالج زرار اتداس على الإشعار — من الخلفية أو من التطبيق.
@@ -107,10 +110,17 @@ class NotificationActionHandler {
       return ActionOutcome.noActiveDose;
     }
     final at = engine.resolve(doses.first, day);
-    final outcome = actionId == NotificationActions.taken ? ActionOutcome.recorded : ActionOutcome.snoozed;
+    final outcome = switch (actionId) {
+      NotificationActions.taken => ActionOutcome.recorded,
+      NotificationActions.skip => ActionOutcome.skipped,
+      _ => ActionOutcome.snoozed,
+    };
+    final state = actionId == NotificationActions.skip ? DoseState.skipped : DoseState.taken;
 
     switch (actionId) {
-      case NotificationActions.taken:
+      // «مش هاخده» = نفس وعد «أخدته» بحالة تانية: الصف الأول، وبعده إلغاء
+      // كل اللي الخانة دي لسه ممكن ترنّه (القاعدة ٥). مفيش مخزون بينقص.
+      case NotificationActions.taken || NotificationActions.skip:
         // ---------------------------------------------------- الوعد
         // أصغر كتابة ممكنة، الأول خالص. صف الحدث ممكن يكون لسه مش
         // موجود — «يومك» هي اللي بتنزّله، والتطبيق ما اتفتحش النهاردة —
@@ -124,10 +134,10 @@ class NotificationActionHandler {
             doseScheduleId: int.parse(dose.id),
             routineDay: day,
             scheduledAt: at,
-            state: DoseState.taken,
+            state: state,
           );
         }
-        diag('Handle: اتكتب taken — ${doses.length} جرعة، يوم=${_day(day)}، '
+        diag('Handle: اتكتب ${state.name} — ${doses.length} جرعة، يوم=${_day(day)}، '
             'جداول=${doses.map((d) => d.id).join(',')}');
 
         // القاعدة الخامسة — وعد كمان: التأكيد بيسكّت كل درجات السلّم

@@ -92,6 +92,19 @@ void main() {
       expect(tmp.listSync().whereType<File>(), isEmpty);
     });
 
+    test('«مش هاخده» في الطابور: بيتطبّق مهما كان عمره، والملف بيتشال بعد ما يتسجّل بس', () async {
+      final now = DateTime(2026, 9, 26, 8);
+      _queue(tmp, action: NotificationActions.skip, at: now.subtract(const Duration(hours: 9)), payload: 'skip');
+      final store = PendingActionStore(directoryOverride: tmp);
+      final seen = <String?>[];
+      expect(await drainPendingActions(store, (a, p) async {
+        seen.add(a);
+        return ActionOutcome.skipped;
+      }, now: now), 1);
+      expect(seen, [NotificationActions.skip], reason: 'مش زي التأجيل القديم — قرار، بيتسجّل');
+      expect(store.list(), isEmpty);
+    });
+
     test('removeMatching بيشيل دوسة الـisolate بس', () {
       _queue(tmp, action: 'taken', at: DateTime(2026, 9, 25, 10), payload: 'mine');
       _queue(tmp, action: 'taken', at: DateTime(2026, 9, 25, 11), payload: 'other');

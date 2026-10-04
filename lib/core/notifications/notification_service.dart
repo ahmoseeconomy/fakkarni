@@ -21,7 +21,14 @@ abstract final class NotificationActions {
   static const takenLabel = 'أخدته';
   static const snoozeLabel = 'فكّرني بعدين';
 
-  static bool isAction(String? id) => id == taken || id == snooze;
+  /// «مش هاخده» (طلب المدير، ٤ أكتوبر ٢٠٢٦) — قرار إنسان، مش نسيان: بيكتب
+  /// `skipped` وبيسكّت السلّم والإعادات زي «أخدته» بالظبط (القاعدة ٥).
+  /// **قرار المالك (أ):** ولا تنبيه بيروح لحد — السيرفر ما بيصعّدش `skipped`
+  /// أصلاً، والابن والممرض بيشوفوها «متخطّية». نفس الطابور ونفس الباب.
+  static const skip = 'skip';
+  static const skipLabel = 'مش هاخده';
+
+  static bool isAction(String? id) => id == taken || id == snooze || id == skip;
 
   /// **زرار الممرض** (٢٤ سبتمبر ٢٠٢٦) — على موبايل الممرض، عن جرعة مريض.
   /// باب لوحده عن قصد: [isAction] ما بيشملوش، فعمره ما يوصل معالج «أخدته»
@@ -232,6 +239,10 @@ class NotificationService {
       DarwinNotificationAction.plain(
         NotificationActions.snooze,
         NotificationActions.snoozeLabel,
+      ),
+      DarwinNotificationAction.plain(
+        NotificationActions.skip,
+        NotificationActions.skipLabel,
       ),
     ],
   );
@@ -575,6 +586,11 @@ class NotificationService {
             AndroidNotificationAction(
               NotificationActions.snooze,
               NotificationActions.snoozeLabel,
+            ),
+            // التالت والأخير — أندرويد بيعرض ٣ أزرار بالكتير
+            AndroidNotificationAction(
+              NotificationActions.skip,
+              NotificationActions.skipLabel,
             ),
           ],
         ),
