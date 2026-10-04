@@ -751,7 +751,7 @@ class CommandFlow extends ChangeNotifier {
     final purposes = await _purposesFor();
     return matchMedication(spoken, purposes.keys.toList(), purposes: {
       for (final e in purposes.entries)
-        if (e.value != null) e.key: e.value!.label,
+        if (e.value != null) e.key: e.value!.word,
     }).names;
   }
 
@@ -918,7 +918,7 @@ class CommandFlow extends ChangeNotifier {
     final names = {for (final d in window) d.medicationName}.toList();
     final match = matchMedication(cmd.medWords, names, purposes: {
       for (final e in purposes.entries)
-        if (e.value != null) e.key: e.value!.label,
+        if (e.value != null) e.key: e.value!.word,
     });
     return [for (final d in window) if (match.names.contains(d.medicationName)) d];
   }
@@ -1434,7 +1434,7 @@ class CommandFlow extends ChangeNotifier {
     final key = medKey(words);
     for (final p in MedicationPurpose.values) {
       if (p == MedicationPurpose.other) continue;
-      if (medKey(p.label).split(' ').any((w) => key.split(' ').contains(w))) return p;
+      if (medKey(p.word).split(' ').any((w) => key.split(' ').contains(w))) return p;
     }
     return null;
   }

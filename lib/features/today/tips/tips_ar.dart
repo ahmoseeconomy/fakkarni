@@ -42,6 +42,9 @@ const Map<MedicationPurpose, List<String>> purposeTips = {
     'حاول تاخد جرعات المضاد الحيوي ({name}) في مواعيدها بالظبط.',
   ],
   // «حاجة تانية» ما بتقولش لنا إيه — فالنصيحة العامة هي اللي بتظهر
+  // للعين وللجلد: مفيش جمل لسه (المالك، ٤ أكتوبر ٢٠٢٦) — زي «حاجة تانية»
+  MedicationPurpose.eye: [],
+  MedicationPurpose.skin: [],
   MedicationPurpose.other: [],
 };
 

@@ -163,6 +163,8 @@ flutter:
     - assets/voices/segments/
     # نغمة «سامعك» — speech_to_text على iOS بيشغّلها بنفسه لحظة فتح المايك
     - assets/sounds/
+    # رسومات نوع الدوا — نسخ متصغّرة من رسومات المالك (tool/make_med_type_art.py)
+    - assets/med_types/
 
   # assets:
   #   - images/a_dot_burr.jpeg

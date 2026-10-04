@@ -8,28 +8,39 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../records/attachment_viewer.dart';
+import 'med_type_art.dart';
 
 /// **صورة الدوا جنب اسمه** — العين بتعرف الحباية قبل ما تقرا اسمها.
 ///
-/// مفيش صورة، أو الملف راح، أو اتفكّ غلط → [fallback] (الأيقونة اللي كانت
-/// موجودة). **عمرها ما بتعرض صورة مكسورة.** الدوسة بتفتحها ملء الشاشة.
+/// مفيش صورة، أو الملف راح، أو اتفكّ غلط → [fallback] لو اتبعت، وإلا رسمة
+/// نوع الدوا ([MedTypeArt] بـ[form]، والاسم مكتوب عليها لو المقاس كبير).
+/// **صورته هو بتكسب دايماً**، و**عمرها ما بتعرض صورة مكسورة.** الدوسة على
+/// الصورة بتفتحها ملء الشاشة؛ الرسمة ما بتتفتحش (مفيش حاجة تتكبّر).
 class MedPhotoThumb extends StatelessWidget {
   const MedPhotoThumb({
     required this.path,
     required this.name,
-    required this.fallback,
+    this.fallback,
+    this.form,
     this.size = 48,
     super.key,
   });
 
   final String? path;
   final String name;
-  final Widget fallback;
+
+  /// بديل صريح (زي ما كانت الشاشات بتبعت قبل الرسومات) — null = الرسمة.
+  final Widget? fallback;
+
+  /// نوع الدوا للرسمة — null = الرسمة العامة.
+  final MedicineForm? form;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final fallback = this.fallback ?? MedTypeArt(form: form, size: size, name: name);
     final path = this.path;
     final scope = AppScope.maybeOf(context);
     if (path == null || scope == null) return fallback;

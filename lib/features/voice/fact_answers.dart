@@ -36,7 +36,8 @@ String medInfoText(MedFact m, MedInfoAspect aspect) {
       // مش متسجّل = مش بنخمّن ولا بنشرح — ده سؤال للدكتور
       return p == null
           ? 'مش متسجّل عندي ${m.name} لإيه — ده سؤال للدكتور أو الصيدلي.'
-          : 'إنت كاتب إن ${m.name} لـ$p.';
+          // الكلمة بقت بـ«لل» («للضغط»)؛ التلاتة اللي فضلوا أسامي بياخدوا «لـ»
+          : 'إنت كاتب إن ${m.name} ${p.startsWith('لل') ? p : 'لـ$p'}.';
     case MedInfoAspect.times:
       if (m.minutes.isEmpty) return 'مفيش مواعيد شغّالة لـ${m.name} دلوقتي.';
       final sorted = [...m.minutes]..sort();

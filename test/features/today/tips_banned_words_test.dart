@@ -80,11 +80,13 @@ void main() {
     expect(offenders, isEmpty);
   });
 
-  test('كل غرض ليه نصيحة إلا «حاجة تانية» — ونص الجملة فيه «{name}» بالشكل اللي القالب بيبدّله', () {
+  test('كل غرض ليه نصيحة إلا «حاجة تانية» و«للعين» و«للجلد» — ونص الجملة فيه «{name}» بالشكل اللي القالب بيبدّله', () {
+    // للعين وللجلد فاضيين بقرار المالك (٤ أكتوبر ٢٠٢٦) لحد ما جملهم تتكتب وتتراجع
+    const empty = {MedicationPurpose.other, MedicationPurpose.eye, MedicationPurpose.skin};
     for (final p in MedicationPurpose.values) {
       final tips = purposeTips[p] ?? const [];
-      if (p == MedicationPurpose.other) {
-        expect(tips, isEmpty, reason: '«حاجة تانية» ما بتقولش لنا إيه');
+      if (empty.contains(p)) {
+        expect(tips, isEmpty, reason: '${p.label}: مالوش جمل لسه');
       } else {
         expect(tips, isNotEmpty, reason: p.label);
       }

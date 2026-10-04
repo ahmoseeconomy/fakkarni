@@ -53,6 +53,11 @@ abstract final class F {
   static const ivoryPale = Color(0xFFF7F5EC);
   static const ivoryDim = Color(0xFFEFEDE3);
 
+  /// لوحة الاسم المرسومة على رسمة نوع الدوا (`MedTypeArt`). الرسمة فاتحة في
+  /// الوضعين، فاللوحة وحبرها **ثابتين** — `ink` كان هيقلب أبيض على أبيض بالليل.
+  static const medArtLabelGround = white;
+  static const medArtLabelInk = inkLight;
+
   /// رمادي الكروت من المخططات (٠٤-home) — الكارت بيبان على الأبيض من غير حد.
   static const cardGrey = Color(0xFFEFEFEF);
 

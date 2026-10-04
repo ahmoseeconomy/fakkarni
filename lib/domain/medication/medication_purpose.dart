@@ -13,9 +13,28 @@ enum MedicationPurpose {
   cholesterol,
   vitamins,
   antibiotic,
+  eye,
+  skin,
   other;
 
+  /// الكلمة على الشريحة والكارت — بصيغة «لل» زي التصميم (المالك، ٤ أكتوبر
+  /// ٢٠٢٦). التلاتة اللي «لل» ما بتركبش عليهم بيفضلوا أسماء بقراره.
   String get label => switch (this) {
+        pressure => 'للضغط',
+        sugar => 'للسكر',
+        heart => 'للقلب',
+        stomach => 'للمعدة والقولون',
+        cholesterol => 'للكوليسترول',
+        vitamins => 'فيتامينات',
+        antibiotic => 'مضاد حيوي',
+        eye => 'للعين',
+        skin => 'للجلد',
+        other => 'حاجة تانية',
+      };
+
+  /// الكلمة من غير «لل» — اللي الراجل بيقولها لـ«كلّمني» («دوا الضغط»).
+  /// المطابقة بالصوت بتقارن بيها مش بـ[label].
+  String get word => switch (this) {
         pressure => 'ضغط',
         sugar => 'سكر',
         heart => 'قلب',
@@ -23,6 +42,8 @@ enum MedicationPurpose {
         cholesterol => 'كوليسترول',
         vitamins => 'فيتامينات',
         antibiotic => 'مضاد حيوي',
+        eye => 'عين',
+        skin => 'جلد',
         other => 'حاجة تانية',
       };
 
