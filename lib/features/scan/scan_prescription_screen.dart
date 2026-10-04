@@ -19,6 +19,21 @@ import 'scan_stage.dart';
 /// بيجيب صورة من الكاميرا أو المعرض. مفصول عشان الشاشة تتختبر من غير جهاز.
 typedef PickImage = Future<Uint8List?> Function(ImageSource source);
 
+/// كذا صورة من المعرض مرة واحدة — لحد [limit].
+typedef PickImages = Future<List<Uint8List>> Function(int limit);
+
+/// الافتراضي: معرض النظام باختيار متعدد، بنفس الدقة بتاعة الكاميرا.
+Future<List<Uint8List>> pickManyWithSystem(int limit) async {
+  if (limit < 1) return const [];
+  final files = await ImagePicker().pickMultiImage(
+    maxWidth: 2560,
+    maxHeight: 2560,
+    imageQuality: 92,
+    limit: limit,
+  );
+  return [for (final f in files.take(limit)) await f.readAsBytes()];
+}
+
 /// الافتراضي: كاميرا النظام نفسها.
 ///
 /// مفيش viewfinder بتاعنا عن قصد: المستخدم عنده ٧٢ سنة وعارف كاميرا موبايله،
@@ -66,11 +81,15 @@ class ScanPrescriptionScreen extends StatefulWidget {
   const ScanPrescriptionScreen({
     required this.reader,
     this.pickImage = pickWithSystemCamera,
+    this.pickImages = pickManyWithSystem,
     this.today,
     this.onSaved,
     this.onDrafts,
     super.key,
   });
+
+  /// المعرض — اختيار متعدد (صفحات نفس الروشتة).
+  final PickImages pickImages;
 
 
   /// سجل الروشتة اللي اتكتب بعد التأكيد — «تابع زيارة» بتبدأ منه.
@@ -95,7 +114,8 @@ class ScanPrescriptionScreen extends StatefulWidget {
 /// [reading]: مستنيين Gemini — مفيش سطور. [revealing]: الرد وصل، بنعلّم
 /// السطور اللي رجعت. [retake]: رجع من المراجعة بـ«صوّر تاني» — الشاشة دي
 /// نفسها هي الاختيار بين الكاميرا والصور، فمش بنفتح الكاميرا لوحدنا.
-enum _Phase { idle, reading, revealing, failed, retake }
+/// [collecting]: فيه صفحات جاهزة ومستنية «اقرا الروشتة» أو صفحة كمان.
+enum _Phase { idle, collecting, reading, revealing, failed, retake }
 
 class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
   _Phase _phase = _Phase.idle;
@@ -114,12 +134,43 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
 
   bool get _busy => _phase == _Phase.reading || _phase == _Phase.revealing;
 
-  Future<void> _capture(ImageSource source) async {
-    final reader = widget.reader;
-    if (reader == null || _busy) return;
+  /// صفحات الروشتة اللي اتصوّرت ولسه ما اتقرتش — بتتقري كلها في طلب واحد.
+  final List<Uint8List> _pages = [];
 
-    final image = await widget.pickImage(source);
-    if (image == null || !mounted) return; // رجع من الكاميرا من غير صورة
+  /// صفحة (أو صفحات) جديدة — **من غير قراية**: «اقرا الروشتة» هي اللي بتقرا.
+  Future<void> _capture(ImageSource source) async {
+    if (widget.reader == null || _busy) return;
+    final room = maxScanPages - _pages.length;
+    if (room < 1) return;
+    final List<Uint8List> picked;
+    if (source == ImageSource.gallery) {
+      picked = await widget.pickImages(room);
+    } else {
+      final one = await widget.pickImage(source);
+      picked = [?one];
+    }
+    if (picked.isEmpty || !mounted) return; // رجع من غير صورة
+    setState(() {
+      _pages.addAll(picked.take(room));
+      _phase = _Phase.collecting;
+      _image = _pages.last;
+      _lines = null;
+      _error = null;
+      _cause = null;
+    });
+  }
+
+  void _clearPages() => setState(() {
+        _pages.clear();
+        _phase = _Phase.idle;
+        _image = null;
+      });
+
+  Future<void> _read() async {
+    final reader = widget.reader;
+    if (reader == null || _busy || _pages.isEmpty) return;
+    final image = _pages.first;
+    final morePages = _pages.sublist(1);
 
     setState(() {
       _phase = _Phase.reading;
@@ -131,8 +182,9 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
     });
 
     try {
-      final reading = await reader.read(image);
+      final reading = await reader.read(image, morePages: morePages);
       if (!mounted) return;
+      _pages.clear();
 
       // الرد وصل — دلوقتي بس فيه سطور حقيقية نعلّمها.
       final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -184,6 +236,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
+        _pages.clear();
         _error = e.message;
         _cause = e.cause?.toString();
         _lines = null;
@@ -192,6 +245,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
+        _pages.clear();
         _error = 'حصلت مشكلة وإحنا بنقرا الروشتة — صوّر تاني.';
         _cause = e.toString();
         _lines = null;
@@ -277,6 +331,17 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                 ),
               ],
               const SizedBox(height: F.gap),
+              if (_phase == _Phase.collecting)
+                PagesControls(
+                  count: _pages.length,
+                  max: maxScanPages,
+                  readLabel: 'اقرا الروشتة',
+                  onRead: _read,
+                  onCamera: () => _capture(ImageSource.camera),
+                  onGallery: () => _capture(ImageSource.gallery),
+                  onClear: _clearPages,
+                )
+              else ...[
               SizedBox(
                 height: F.primaryButtonHeight,
                 child: FilledButton(
@@ -313,6 +378,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
                   ),
                 ],
               ),
+              ],
             ],
           ],
         ),

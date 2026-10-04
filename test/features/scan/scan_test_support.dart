@@ -43,9 +43,13 @@ class FakeReader implements PrescriptionReader {
   FakeReader(this.result);
   final Future<PrescriptionReading> Function() result;
   int calls = 0;
+
+  /// عدد الصفحات في كل قراية.
+  final pages = <int>[];
   @override
-  Future<PrescriptionReading> read(Uint8List image, {String mimeType = 'image/jpeg'}) {
+  Future<PrescriptionReading> read(Uint8List image, {String mimeType = 'image/jpeg', List<Uint8List> morePages = const []}) {
     calls++;
+    pages.add(1 + morePages.length);
     return result();
   }
 }

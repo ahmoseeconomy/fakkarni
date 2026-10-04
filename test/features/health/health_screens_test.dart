@@ -29,9 +29,13 @@ class FakeLabReader implements LabReportReader {
   final Future<LabReading> Function() answer;
   int calls = 0;
 
+  /// عدد الصفحات في كل قراية.
+  final pages = <int>[];
+
   @override
-  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg'}) {
+  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg', List<Uint8List> morePages = const []}) {
     calls++;
+    pages.add(1 + morePages.length);
     return answer();
   }
 }
@@ -197,6 +201,10 @@ void main() {
       await settle(tester);
 
       await tester.tap(find.text('صوّر التقرير'));
+      await tester.pump();
+      await tester.pump();
+      expect(reader.calls, 0, reason: 'الصورة بتتجمّع — «اقرا التقرير» هي اللي بتقرا');
+      await tester.tap(find.text('اقرا التقرير'));
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
@@ -224,6 +232,34 @@ void main() {
       expect(find.byType(LabReportScreen), findsOneWidget);
       expect(await h.db.select(h.db.labResults).get(), isEmpty, reason: 'القاعدة ٤ — مفيش حفظ قبل «تمام»');
     });
+  });
+
+  screenTest('تقرير بكذا صفحة: كاميرا ثم المعرض بصفحتين ← طلب واحد بتلات صفحات', (tester) async {
+    final reader = FakeLabReader(() async => LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [line('HbA1c', 7.6, '%')],
+        ));
+    withLab(reader: reader);
+    await h.pump(
+      tester,
+      ScanLabScreen(
+        reader: reader,
+        pickImage: (_) async => Uint8List.fromList([1, 2, 3]),
+        pickImages: (limit) async => [Uint8List.fromList([4]), Uint8List.fromList([5])],
+        today: sep15,
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.text('صوّر التقرير'));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('pages-gallery')));
+    await settle(tester);
+    expect(find.textContaining('٣ صفحات جاهزين'), findsOneWidget);
+    await tester.tap(find.text('اقرا التقرير'));
+    await settle(tester);
+    expect(reader.pages, [3]);
+    expect(find.byType(LabReportScreen), findsOneWidget);
   });
 
   group('قراءة التقرير (المخطط ٨)', () {

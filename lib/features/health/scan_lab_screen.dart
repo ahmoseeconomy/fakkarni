@@ -7,13 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../ai/gemini_config.dart';
 import '../../ai/lab_reader.dart';
 import '../../ai/lab_reading.dart';
-import '../../ai/prescription_reader.dart' show PrescriptionReadException;
+import '../../ai/prescription_reader.dart' show PrescriptionReadException, maxScanPages;
 import '../../core/theme/tokens.dart';
 import '../../data/db/tables.dart';
 import '../records/manual_entry_screen.dart';
 import '../scan/debug_panel.dart';
 import '../scan/review_prescription_screen.dart' show ReviewResult;
-import '../scan/scan_prescription_screen.dart' show PickImage, pickWithSystemCamera;
+import '../scan/scan_prescription_screen.dart' show PickImage, PickImages, pickManyWithSystem, pickWithSystemCamera;
 import '../scan/scan_stage.dart';
 import 'lab_report_screen.dart';
 import 'usual_words.dart';
@@ -22,15 +22,20 @@ import 'usual_words.dart';
 ///
 /// **نفس قاعدة الأمانة بتاعة D2.3 بالحرف:** وإحنا مستنيين Gemini مفيش ولا
 /// سطر متعلّم — «بيقرا التقرير…» بس. بعد ما الرد يوصل، الكشف بيمشي على
-/// السطور اللي رجعت فعلاً. صفحة واحدة لكل تصوير (المتعدد في المؤجَّل).
+/// السطور اللي رجعت فعلاً. كذا صفحة من نفس التقرير بتتقري في طلب واحد
+/// (طلب المدير، ٤ أكتوبر ٢٠٢٦).
 class ScanLabScreen extends StatefulWidget {
   const ScanLabScreen({
     required this.reader,
     this.pickImage = pickWithSystemCamera,
+    this.pickImages = pickManyWithSystem,
     this.today,
     this.onSaved,
     super.key,
   });
+
+  /// المعرض — اختيار متعدد (صفحات نفس التقرير).
+  final PickImages pickImages;
 
   final LabReportReader? reader;
   final PickImage pickImage;
@@ -46,7 +51,7 @@ class ScanLabScreen extends StatefulWidget {
   State<ScanLabScreen> createState() => _ScanLabScreenState();
 }
 
-enum _Phase { idle, reading, revealing, failed, retake }
+enum _Phase { idle, collecting, reading, revealing, failed, retake }
 
 class _ScanLabScreenState extends State<ScanLabScreen> {
   _Phase _phase = _Phase.idle;
@@ -64,11 +69,42 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
     return v == null ? name : '$name — ${arabicDecimal(v)}${l.unit.value == null ? '' : ' ${l.unit.value}'}';
   }
 
+  /// صفحات التقرير اللي لسه ما اتقرتش — بتتقري كلها في طلب واحد.
+  final List<Uint8List> _pages = [];
+
   Future<void> _capture(ImageSource source) async {
+    if (widget.reader == null || _busy) return;
+    final room = maxScanPages - _pages.length;
+    if (room < 1) return;
+    final List<Uint8List> picked;
+    if (source == ImageSource.gallery) {
+      picked = await widget.pickImages(room);
+    } else {
+      final one = await widget.pickImage(source);
+      picked = [?one];
+    }
+    if (picked.isEmpty || !mounted) return;
+    setState(() {
+      _pages.addAll(picked.take(room));
+      _phase = _Phase.collecting;
+      _image = _pages.last;
+      _labels = null;
+      _error = null;
+      _cause = null;
+    });
+  }
+
+  void _clearPages() => setState(() {
+        _pages.clear();
+        _phase = _Phase.idle;
+        _image = null;
+      });
+
+  Future<void> _read() async {
     final reader = widget.reader;
-    if (reader == null || _busy) return;
-    final image = await widget.pickImage(source);
-    if (image == null || !mounted) return;
+    if (reader == null || _busy || _pages.isEmpty) return;
+    final image = _pages.first;
+    final morePages = _pages.sublist(1);
 
     setState(() {
       _phase = _Phase.reading;
@@ -80,8 +116,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
     });
 
     try {
-      final reading = await reader.read(image);
+      final reading = await reader.read(image, morePages: morePages);
       if (!mounted) return;
+      _pages.clear();
       // الرد وصل — دلوقتي بس فيه سطور حقيقية نعلّمها.
       final reduceMotion = MediaQuery.disableAnimationsOf(context);
       if (reading.lines.isNotEmpty && !reduceMotion) {
@@ -128,6 +165,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
+        _pages.clear();
         _error = e.message;
         _cause = e.cause?.toString();
         _labels = null;
@@ -136,6 +174,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
+        _pages.clear();
         _error = 'حصلت مشكلة وإحنا بنقرا التقرير — صوّر تاني.';
         _cause = e.toString();
         _labels = null;
@@ -175,7 +214,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                 labels: _labels,
                 revealed: _revealed,
                 adviceTitle: 'صفحة النتايج كلها جوّه الإطار',
-                adviceBody: 'الأرقام والوحدات لازم تبان. صفحة واحدة في المرة.',
+                adviceBody: 'الأرقام والوحدات لازم تبان. صوّر كل صفحة لوحدها، وبعدين «اقرا التقرير».',
                 waitingText: 'بيقرا التقرير…',
               ),
               const SizedBox(height: F.s14),
@@ -197,6 +236,17 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                 const PanelOnDark(text: 'صوّره تاني في نور أحسن، أو اختار صورة أوضح من الصور.'),
               ],
               const SizedBox(height: F.gap),
+              if (_phase == _Phase.collecting)
+                PagesControls(
+                  count: _pages.length,
+                  max: maxScanPages,
+                  readLabel: 'اقرا التقرير',
+                  onRead: _read,
+                  onCamera: () => _capture(ImageSource.camera),
+                  onGallery: () => _capture(ImageSource.gallery),
+                  onClear: _clearPages,
+                )
+              else ...[
               SizedBox(
                 height: F.primaryButtonHeight,
                 child: FilledButton(
@@ -224,6 +274,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                   Expanded(child: SecondaryOnDark(label: 'أكتبه بإيدي', onPressed: _busy ? null : _byHand)),
                 ],
               ),
+              ],
             ],
           ],
         ),

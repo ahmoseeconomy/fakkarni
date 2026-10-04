@@ -366,3 +366,91 @@ class PanelOnDark extends StatelessWidget {
     ),
   );
 }
+
+/// «كذا صفحة في تصويرة واحدة» (طلب المدير، ٤ أكتوبر ٢٠٢٦): بعد أول صورة
+/// الشاشة ما بتقراش على طول — بتقول كام صفحة جاهزة، و«اقرا» زرارها الأساسي،
+/// و«صفحة كمان» من الكاميرا أو من الصور. القراية **طلب واحد** لكل الصفحات.
+class PagesControls extends StatelessWidget {
+  const PagesControls({
+    required this.count,
+    required this.max,
+    required this.readLabel,
+    required this.onRead,
+    required this.onCamera,
+    required this.onGallery,
+    required this.onClear,
+    super.key,
+  });
+
+  final int count;
+  final int max;
+
+  /// «اقرا الروشتة» / «اقرا التقرير».
+  final String readLabel;
+  final VoidCallback onRead;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final full = count >= max;
+    final ready = count == 1 ? 'صفحة واحدة جاهزة' : '${arabicNumber(count)} صفحات جاهزين';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PanelOnDark(
+          key: const ValueKey('pages-ready'),
+          text: full
+              ? '$ready — ده أقصى عدد في المرة.'
+              : '$ready. لو الورقة أكتر من صفحة، صوّر الباقي قبل ما تدوس «اقرا».',
+        ),
+        const SizedBox(height: F.gap),
+        SizedBox(
+          height: F.primaryButtonHeight,
+          child: FilledButton(
+            key: const ValueKey('pages-read'),
+            onPressed: onRead,
+            style: FilledButton.styleFrom(
+              backgroundColor: F.green,
+              foregroundColor: F.onGreen,
+              textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
+            ),
+            child: Text(readLabel),
+          ),
+        ),
+        const SizedBox(height: F.s10),
+        Row(
+          children: [
+            Expanded(
+              child: SecondaryOnDark(
+                key: const ValueKey('pages-camera'),
+                label: 'صوّر صفحة كمان',
+                onPressed: full ? null : onCamera,
+              ),
+            ),
+            const SizedBox(width: F.s10),
+            Expanded(
+              child: SecondaryOnDark(
+                key: const ValueKey('pages-gallery'),
+                label: 'ضيف من الصور',
+                onPressed: full ? null : onGallery,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(
+          height: F.minTapTarget,
+          child: TextButton(
+            key: const ValueKey('pages-clear'),
+            onPressed: onClear,
+            child: const Text(
+              'ابدأ من الأول',
+              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.onDark),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

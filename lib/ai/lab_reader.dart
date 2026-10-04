@@ -8,7 +8,8 @@ import 'prescription_reader.dart';
 
 /// بيقرا صورة تقرير تحليل — واجهة عشان الشاشات تتختبر من غير شبكة.
 abstract interface class LabReportReader {
-  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg'});
+  /// [morePages]: باقي صفحات **نفس** التقرير — في نفس الطلب.
+  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg', List<Uint8List> morePages = const []});
 }
 
 /// نفس نقل Gemini بتاع الروشتة ([GeminiPrescriptionReader.generate]).
@@ -19,9 +20,10 @@ class GeminiLabReader implements LabReportReader {
   final GeminiPrescriptionReader _transport;
 
   @override
-  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg'}) async {
+  Future<LabReading> read(Uint8List image, {String mimeType = 'image/jpeg', List<Uint8List> morePages = const []}) async {
     final result = await _transport.generate(
       image: image,
+      morePages: morePages,
       mimeType: mimeType,
       prompt: prompt,
       schema: labSchema,

@@ -11,8 +11,20 @@ import 'prescription_reading.dart';
 
 /// بيقرا صورة روشتة وبيرجّع اقتراح — واجهة عشان الشاشات تتختبر من غير شبكة.
 abstract interface class PrescriptionReader {
-  Future<PrescriptionReading> read(Uint8List image, {String mimeType = 'image/jpeg'});
+  /// [morePages]: باقي صفحات **نفس** الروشتة (طلب المدير، ٤ أكتوبر ٢٠٢٦) —
+  /// بتتبعت في نفس الطلب، مش طلب لكل صفحة.
+  Future<PrescriptionReading> read(Uint8List image, {String mimeType = 'image/jpeg', List<Uint8List> morePages = const []});
 }
+
+/// أقصى عدد صفحات في التصويرة الواحدة — كل صفحة صورة كاملة في نفس الطلب،
+/// فالسقف بيحدّ الحجم والفاتورة.
+const int maxScanPages = 4;
+
+/// السطر اللي بيتزوّد على البرومبت لما الصور أكتر من واحدة.
+String multiPageNote(int pages) => '''
+
+The $pages attached photos are pages (or parts) of ONE single paper. Read them together as one document.
+A row that appears on two photos (an overlap) is ONE row — return it once. Do not invent rows to join pages.''';
 
 /// محاولة واحدة عند جوجل: الحالة، نص الرد، وهل المهلة خلصت.
 /// `status = 0` معناها ما وصلناش لرد أصلاً.
@@ -74,9 +86,11 @@ class GeminiPrescriptionReader implements PrescriptionReader {
   Future<PrescriptionReading> read(
     Uint8List image, {
     String mimeType = 'image/jpeg',
+    List<Uint8List> morePages = const [],
   }) async {
     final result = await generate(
       image: image,
+      morePages: morePages,
       mimeType: mimeType,
       prompt: prompt,
       schema: prescriptionSchema,
@@ -95,6 +109,7 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     required Map<String, dynamic> schema,
     required String failure,
     String? systemInstruction,
+    List<Uint8List> morePages = const [],
   }) async {
     // التصغير هنا وبس (C1). النقل ده هو الطريق الوحيد لـGemini — الروشتة
     // والتحليل الاتنين بيعدّوا منه — فمفيش نقطة نداء تقدر تنسى تصغّر،
@@ -111,14 +126,18 @@ class GeminiPrescriptionReader implements PrescriptionReader {
     //
     // واللوج بيتطبع **هنا**، مش جوّه العزلة: `debugPrint` هناك ما بيوصلش
     // ترمنال `flutter run`. العزلة بترجّع التقرير مع البايتات.
-    final report = mayNeedShrinkForAi(image)
-        ? await compute(shrinkForAiOrNull, image)
-        : unchangedShrinkReport(image);
-    debugPrint('Gemini: ${describeShrink(report)}');
-    final shrunk = report.bytes ?? image;
-    final wireType = report.bytes == null ? mimeType : 'image/jpeg';
+    // كل صفحة بتتصغّر لوحدها بنفس الطريق — صفحة واحدة = نفس الطلب بالحرف.
+    final pages = <({Uint8List bytes, String type})>[];
+    for (final page in [image, ...morePages.take(maxScanPages - 1)]) {
+      final report = mayNeedShrinkForAi(page)
+          ? await compute(shrinkForAiOrNull, page)
+          : unchangedShrinkReport(page);
+      debugPrint('Gemini: ${describeShrink(report)}');
+      pages.add((bytes: report.bytes ?? page, type: report.bytes == null ? mimeType : 'image/jpeg'));
+    }
+    final fullPrompt = pages.length > 1 ? '$prompt${multiPageNote(pages.length)}' : prompt;
     String bodyFor(bool thinking) => jsonEncode(
-          _request(shrunk, wireType, prompt, schema, systemInstruction,
+          _request(pages, fullPrompt, schema, systemInstruction,
               thinking ? config.thinkingBudget : null),
         );
 
@@ -272,8 +291,7 @@ class GeminiPrescriptionReader implements PrescriptionReader {
       body.length <= max ? body : '${body.substring(0, max)}…';
 
   Map<String, dynamic> _request(
-    Uint8List image,
-    String mimeType,
+    List<({Uint8List bytes, String type})> pages,
     String prompt,
     Map<String, dynamic> schema,
     String? systemInstruction,
@@ -290,12 +308,13 @@ class GeminiPrescriptionReader implements PrescriptionReader {
           {
             'parts': [
               {'text': prompt},
-              {
-                'inline_data': {
-                  'mime_type': mimeType,
-                  'data': base64Encode(image),
-                }
-              },
+              for (final page in pages)
+                {
+                  'inline_data': {
+                    'mime_type': page.type,
+                    'data': base64Encode(page.bytes),
+                  }
+                },
             ],
           },
         ],

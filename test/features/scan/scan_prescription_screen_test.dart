@@ -46,6 +46,7 @@ void main() {
     WidgetTester tester, {
     required PrescriptionReader? reader,
     Future<Uint8List?> Function(ImageSource)? pick,
+    Future<List<Uint8List>> Function(int limit)? pickMany,
   }) =>
       h.pump(
         tester,
@@ -54,8 +55,22 @@ void main() {
           reader: reader,
           today: aug31,
           pickImage: pick ?? (_) async => bytes,
+          pickImages: pickMany ??
+              (limit) async {
+                final one = await (pick ?? (_) async => bytes)(ImageSource.gallery);
+                return [?one];
+              },
         ),
       );
+
+  /// صورة ← «اقرا الروشتة» (الصفحات بتتجمّع الأول، والقراية بدوسة).
+  Future<void> shoot(WidgetTester tester, [String label = 'صوّر الروشتة']) async {
+    await tester.tap(find.text(label));
+    await tester.pump();
+    await tester.pump();
+    final read = find.byKey(const ValueKey('pages-read'));
+    if (read.evaluate().isNotEmpty) await tester.tap(read);
+  }
 
   screenTest('نصيحة التصوير قبل الكاميرا، والتأكيد بإيد إنسان مكتوب', (tester) async {
     await pumpScan(tester, reader: FakeReader(() async => PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine])));
@@ -75,7 +90,7 @@ void main() {
     final reader = FakeReader(() => pending.future);
     await pumpScan(tester, reader: reader);
 
-    await tester.tap(find.text('صوّر الروشتة'));
+    await shoot(tester);
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -131,7 +146,7 @@ void main() {
     final reader = FakeReader(() async => PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine]));
     await pumpScan(tester, reader: reader);
 
-    await tester.tap(find.text('صوّر الروشتة'));
+    await shoot(tester);
     await settle(tester);
 
     expect(reader.calls, 1);
@@ -143,7 +158,7 @@ void main() {
     final reader = FakeReader(() async => throw StateError('ما كانش المفروض'));
     await pumpScan(tester, reader: reader, pick: (_) async => null);
 
-    await tester.tap(find.text('صوّر الروشتة'));
+    await shoot(tester);
     await settle(tester);
 
     expect(reader.calls, 0);
@@ -157,7 +172,7 @@ void main() {
         ));
     await pumpScan(tester, reader: reader);
 
-    await tester.tap(find.text('صوّر الروشتة'));
+    await shoot(tester);
     await settle(tester);
 
     expect(find.text('مقدرتش أقرا الروشتة دلوقتي — صوّر تاني.'), findsOneWidget);
@@ -176,7 +191,7 @@ void main() {
       return bytes;
     });
 
-    await tester.tap(find.text('صوّر الروشتة'));
+    await shoot(tester);
     await settle(tester);
     expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
 
@@ -203,7 +218,7 @@ void main() {
     });
 
     // إلغاء من المعرض → الشاشة زي ما هي وولا حاجة اتكتبت
-    await tester.tap(find.text('اختار من الصور'));
+    await shoot(tester, 'اختار من الصور');
     await settle(tester);
     expect(sources, [ImageSource.gallery]);
     expect(reader.calls, 0);
@@ -213,10 +228,64 @@ void main() {
 
     // اختيار صورة → نفس الطريق للمراجعة
     cancelNext = false;
-    await tester.tap(find.text('اختار من الصور'));
+    await shoot(tester, 'اختار من الصور');
     await settle(tester);
     expect(reader.calls, 1);
     expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+  });
+
+  group('كذا صفحة في تصويرة واحدة', () {
+    screenTest('صورة ← «صوّر صفحة كمان» ← «اقرا الروشتة»: طلب واحد بالصفحتين', (tester) async {
+      final reader = FakeReader(() async => PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine]));
+      await pumpScan(tester, reader: reader);
+
+      await tester.tap(find.text('صوّر الروشتة'));
+      await settle(tester);
+      expect(reader.calls, 0, reason: 'الصورة لوحدها ما بتقراش — «اقرا» هي اللي بتقرا');
+      expect(find.text('صفحة واحدة جاهزة. لو الورقة أكتر من صفحة، صوّر الباقي قبل ما تدوس «اقرا».'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('pages-camera')));
+      await settle(tester);
+      expect(find.textContaining('٢ صفحات جاهزين'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('pages-read')));
+      await settle(tester);
+      expect(reader.calls, 1);
+      expect(reader.pages, [2]);
+      expect(find.byType(ReviewPrescriptionScreen), findsOneWidget);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('المعرض بيختار كذا صورة — والسقف ٤، وبعده مفيش «صفحة كمان»', (tester) async {
+      final reader = FakeReader(() async => PrescriptionReading(doctor: const ReadField.missing(), lines: [clearLine]));
+      final limits = <int>[];
+      await pumpScan(tester, reader: reader, pickMany: (limit) async {
+        limits.add(limit);
+        return List.filled(6, bytes);
+      });
+
+      await tester.tap(find.text('اختار من الصور'));
+      await settle(tester);
+      expect(limits, [maxScanPages]);
+      expect(find.textContaining('٤ صفحات جاهزين — ده أقصى عدد في المرة.'), findsOneWidget);
+      expect(tester.widget<OutlinedButton>(find.descendant(of: find.byKey(const ValueKey('pages-camera')), matching: find.byType(OutlinedButton))).onPressed, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('pages-read')));
+      await settle(tester);
+      expect(reader.pages, [4]);
+    });
+
+    screenTest('«ابدأ من الأول» بيرمي الصفحات من غير قراية', (tester) async {
+      final reader = FakeReader(() async => throw StateError('مش المفروض'));
+      await pumpScan(tester, reader: reader);
+      await tester.tap(find.text('صوّر الروشتة'));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('pages-clear')));
+      await settle(tester);
+      expect(reader.calls, 0);
+      expect(find.text('صوّر الروشتة'), findsOneWidget);
+      expect(find.byKey(const ValueKey('pages-read')), findsNothing);
+    });
   });
 
   group('نفس القيود للكاميرا والمعرض — على ImagePicker نفسه', () {
