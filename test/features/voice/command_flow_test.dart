@@ -22,6 +22,7 @@ import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/data/repositories/not_bought_repository.dart';
 import 'package:fakkarni/data/repositories/readings_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
+import 'package:fakkarni/data/services/checkup_service.dart';
 import 'package:fakkarni/data/repositories/visit_questions_repository.dart';
 import 'package:fakkarni/data/repositories/vitals_repository.dart';
 import 'package:fakkarni/data/voice/speech_listener.dart';
@@ -260,32 +261,33 @@ void main() {
   });
 
   group('ضيفلي دوا', () {
-    test('«ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار» → اللي فهمناه مكتوب → «صح كده» → الفورم متعبّي، **وولا صف اتكتب**', () async {
-      final f = await flowWith(['ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار']);
+    test('E2: «ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار» → «اسم الدوا إيه؟» → دوسة وإجابة → الملخص + «صح كده؟» → **ولا صف قبل «أيوه»** → بعدها اتحفظ', () async {
+      final f = await flowWith(['ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار', 'كونكور']);
       await f.start();
-      expect(f.phase, CommandPhase.reviewing);
-      expect(f.shown, 'فهمت إنك عايز تضيف دوا: الضغط — بعد الأكل — الساعات: ٨:٠٠ ص');
-      expect(f.heard, 'ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار');
-      expect(tts.spoken, isEmpty, reason: 'التأكيد مكتوب بس');
-      expect(said(), isEmpty);
-      expect(opened, isEmpty, reason: 'لسه ما قالش «صح كده»');
-      await f.confirmReview();
-      expect(f.phase, CommandPhase.done);
-      expect(opened, hasLength(1));
-      expect(opened.single.purpose, MedicationPurpose.pressure);
-      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(8))]);
-      // «بعد الفطار» كلمة أكل — تعليمات، مش ساعة
-      expect(opened.single.mealRelation, MealRelation.after);
-      expect(await h.meds.currentMedicines(h.services.patientId), isEmpty, reason: 'الفورم هو اللي بيحفظ');
-      expect(said().last, 'cmd_done', reason: 'الفورم رجّع «اتحفظ»');
+      expect(f.phase, CommandPhase.asking);
+      expect(f.shown, 'اسم الدوا إيه؟', reason: '«الضغط» غرض مش اسم');
+      expect(tts.spoken, isEmpty, reason: 'مفيش صوت موبايل');
+      expect(listener.listens, 1, reason: 'مفيش سماع لوحده — الإجابة بدوسة (١أ)');
+      await f.tapMic();
+      expect(f.phase, CommandPhase.confirming);
+      expect(f.shown, 'هضيف كونكور — الساعة ٨:٠٠ ص — بعد الأكل');
+      expect(said().last, 'lis_confirm');
+      expect(await h.meds.currentMedicines(h.services.patientId), isEmpty, reason: 'ولا صف قبل «أيوه»');
+      await f.confirmYes();
+      final saved = await h.meds.activeSchedules(h.services.patientId);
+      expect(saved.single.medicationName, 'كونكور');
+      expect(saved.single.timing, const FixedTiming(MinuteOfDay(8 * 60)));
+      expect(saved.single.mealRelation, MealRelation.after);
+      expect(opened, isEmpty, reason: 'اتحفظ من غير فورم');
+      expect(said().last, 'cmd_done');
     });
 
-    test('رجع من الفورم من غير حفظ → مفيش «عملتها»', () async {
+    test('«عدّل بإيدك» وهو بيتسأل → الفورم متعبّي باللي اتقال، ورجع من غير حفظ → مفيش «عملتها»', () async {
       saveResult = false;
       final f = await flowWith(['ضيفلي دوا اسمه زنك مرتين في اليوم']);
       await f.start();
-      expect(f.shown, 'فهمت إنك عايز تضيف دوا: زنك — مرتين في اليوم — الساعات: لسه هتختارها');
-      await f.confirmReview();
+      expect(f.shown, 'الجرعة رقم ١ الساعة كام؟', reason: 'مرتين من غير ساعات = سؤال لكل جرعة');
+      await f.editInForm();
       expect(opened.single.name, 'زنك');
       expect(opened.single.timings, isEmpty, reason: 'ولا ساعة مننا');
       expect(opened.single.emptyDoses, 2, reason: 'صفين فاضيين يختار ساعاتهم');
@@ -309,45 +311,39 @@ void main() {
       });
     }
 
-    test('«عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة» → الاسم كونكور بس، والفاصل ١٢', () async {
-      final f = await flowWith(['عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة']);
+    test('«عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة» → «أول جرعة الساعة كام؟» → الفاصل بيكمّل', () async {
+      final f = await flowWith(['عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة', '٨ الصبح']);
       await f.start();
-      expect(f.shown, 'فهمت إنك عايز تضيف دوا: كونكور — كل ١٢ ساعة — الساعات: لسه هتختارها');
-      await f.confirmReview();
-      expect(opened.single.name, 'كونكور');
-      expect(opened.single.everyHours, 12);
-      expect(opened.single.timings, isEmpty);
+      expect(f.shown, 'أول جرعة الساعة كام؟');
+      await f.tapMic();
+      expect(f.shown, 'هضيف كونكور — الساعة ٨:٠٠ ص و٨:٠٠ م');
+      await f.confirmYes();
+      expect((await h.meds.activeSchedules(h.services.patientId)).map((s) => s.timing),
+          containsAll([const FixedTiming(MinuteOfDay(8 * 60)), const FixedTiming(MinuteOfDay(20 * 60))]));
     });
 
     // «بطنه» = باطنة (طلب المالك، ٢٩ سبتمبر ٢٠٢٦) — تخصص في خانته، مش دكتور اسمه «بطنه»
-    test('«احجز دكتور بطنه بكرة الساعة ٥ العصر» → خانة التخصص باطنة، ومفيش اسم', () async {
-      AppointmentPrefill? p;
-      final f = await flowWith(['احجز دكتور بطنه بكرة الساعة ٥ العصر'], onOpenAppointment: (x) async {
-        p = x;
-        return false;
-      });
+    test('«احجز دكتور بطنه بكرة الساعة ٥ العصر» → كله اتقال → الملخص → «أيوه» → الميعاد اتحجز بنفس دالة الزرار', () async {
+      final f = await flowWith(['احجز دكتور بطنه بكرة الساعة ٥ العصر']);
       await f.start();
-      expect(f.shown, contains('دكتور باطنة'));
-      await f.confirmReview();
-      expect(p!.specialty, Specialty.internal);
-      expect(p!.name, isNull, reason: 'الورقة بتركّب «دكتور باطنة» من الخانة');
-      expect(p!.doctor, isNull);
-      expect(p!.time, MinuteOfDay.hm(17));
+      expect(f.phase, CommandPhase.confirming);
+      expect(f.shown, 'هحجز دكتور باطنة — بكرة — الساعة ٥:٠٠ م');
+      expect(await RecordsRepository(h.services.db).all(h.services.patientId), isEmpty, reason: 'ولا صف قبل «أيوه»');
+      await f.confirmYes();
+      final rows = await RecordsRepository(h.services.db).all(h.services.patientId);
+      expect(rows.single.title, 'دكتور باطنة');
+      expect(rows.single.doctor, isNull, reason: 'مفيش دكتور مخترع');
+      expect(rows.single.doctorVisitAt, DateTime(2026, 9, 1, 17));
     });
 
-    test('«احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → د. حسن، الأحد الجاي، ٥ م', () async {
-      AppointmentPrefill? p;
-      final f = await flowWith(['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر'], onOpenAppointment: (x) async {
-        p = x;
-        return false;
-      }, doctors: ['د. حسن']);
+    test('«احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → د. حسن من ملفه، الأحد الجاي، ٥ م → «أيوه» → اتحجز', () async {
+      final f = await flowWith(['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر'], doctors: ['د. حسن']);
       await f.start();
-      expect(f.shown, 'فهمت إنك عايز تحجز عند د. حسن — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
-      await f.confirmReview();
-      expect(p!.name, 'د. حسن', reason: 'الساعة في خانتها، مش في الاسم');
-      expect(p!.time, MinuteOfDay.hm(17));
-      expect(p!.day, DateTime(2026, 9, 6));
-      expect(p!.doctor, 'د. حسن');
+      expect(f.shown, 'هحجز د. حسن — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
+      await f.confirmYes();
+      final row = (await RecordsRepository(h.services.db).all(h.services.patientId)).single;
+      expect(row.doctor, 'د. حسن');
+      expect(row.doctorVisitAt, DateTime(2026, 9, 6, 17));
     });
 
     test('مش مفهوم → «مش متأكد…» مكتوبة، و«عيد كلامك» بتسمع تاني — مش طريق مسدود', () async {
@@ -366,24 +362,21 @@ void main() {
       expect(f.phase, CommandPhase.clarifying);
       expect(f.clarifyOptions.map((o) => o.label), containsAll(['أضيف دوا', 'أحجز ميعاد دكتور']));
       await f.clarify(NluIntent.addMedication);
-      expect(f.phase, CommandPhase.reviewing);
-      expect(f.shown, startsWith('فهمت إنك عايز تضيف دوا: كونكور'));
+      expect(f.phase, CommandPhase.asking);
+      expect(f.shown, 'بتاخده كام مرة في اليوم، والساعة كام؟');
     });
 
-    test('«ضيف دوا كونكور» من غير ساعة → صف واحد فاضي، مش ٩ الصبح', () async {
+    test('«ضيف دوا كونكور» من غير ساعة → بيسأل، مش ٩ الصبح', () async {
       final f = await flowWith(['ضيف دوا كونكور']);
       await f.start();
-      await f.confirmReview();
-      expect(opened.single.timings, isEmpty);
-      expect(opened.single.emptyDoses, 1);
+      expect(f.shown, 'بتاخده كام مرة في اليوم، والساعة كام؟');
+      expect(await h.meds.currentMedicines(h.services.patientId), isEmpty);
     });
 
-    test('«لا» لوحدها عمرها ما تبقى اسم دوا', () async {
+    test('«لا» لوحدها عمرها ما تبقى اسم دوا — بيسأل عن الاسم', () async {
       final f = await flowWith(['ضيف دوا لا']);
       await f.start();
-      expect(f.shown, startsWith('فهمت إنك عايز تضيف دوا: الاسم لسه هتكتبه'));
-      await f.confirmReview();
-      expect(opened.single.name, isNull);
+      expect(f.shown, 'اسم الدوا إيه؟');
     });
 
     test('«أخدت الدوا» و«ضغطي ١٢٠ على ٨٠» لسه بالقارئ القديم', () async {
@@ -448,16 +441,16 @@ void main() {
       expect(said().last, 'lis_not_understood');
     });
 
-    test('السحابة رجّعت ضيفلي بكلمات → بتتفهم محلي وبتتطابق على الموبايل', () async {
+    test('السحابة رجّعت ضيفلي بكلمات → بتتفهم محلي — ونفس الأسئلة', () async {
       final reader = FakeReader(
           result: const CloudReadResult(tool: CloudTool(tool: 'add_medication', args: {'name': 'السكر', 'times': ['15:00'], 'meal_relation': 'after_meal'})));
-      final f = await flowWith(['xyz'], reader: reader);
+      final f = await flowWith(['xyz', 'جلوكوفاج'], reader: reader);
       await f.start();
-      expect(f.phase, CommandPhase.reviewing, reason: 'السحابة كمان بتعدّي من نفس التأكيد');
-      await f.confirmReview();
-      expect(opened.single.purpose, MedicationPurpose.sugar);
-      expect(opened.single.timings, [FixedTiming(MinuteOfDay.hm(15))]);
-      expect(opened.single.mealRelation, MealRelation.after);
+      expect(f.shown, 'اسم الدوا إيه؟', reason: '«السكر» غرض — السحابة كمان بتعدّي من نفس الأسئلة');
+      await f.tapMic();
+      expect(f.shown, 'هضيف جلوكوفاج — الساعة ٣:٠٠ م — بعد الأكل');
+      await f.confirmYes();
+      expect((await h.meds.activeSchedules(h.services.patientId)).single.timing, const FixedTiming(MinuteOfDay(15 * 60)));
     });
   });
 
@@ -617,75 +610,77 @@ void main() {
     Future<List<String>> questions() async =>
         [for (final q in await VisitQuestionsRepository(h.services.db).watch(h.services.patientId).first) q.body];
 
-    test('«احجزلي ميعاد دكتور يوم الحد الساعة ٥» → من غير سؤال: «الساعة: لسه هتختارها» → «صح كده» → الورقة، ومفيش حفظ غير من زرارها', () async {
-      AppointmentPrefill? prefill;
-      final f = await flowWith(['احجزلي ميعاد دكتور يوم الحد الساعة ٥'], onOpenAppointment: (p) async {
-        prefill = p;
-        return false;
-      });
+    test('«احجزلي ميعاد دكتور يوم الحد الساعة ٥» → «الصبح ولا بالليل؟» → «العصر» → الملخص → «أيوه»', () async {
+      final f = await flowWith(['احجزلي ميعاد دكتور يوم الحد الساعة ٥', 'العصر']);
       await f.start();
-      expect(f.phase, CommandPhase.reviewing);
-      expect(f.shown, contains('يوم الأحد ٦ سبتمبر'), reason: 'الحد الجاي بعد ٣١ أغسطس ٢٠٢٦ (الاتنين)');
-      expect(f.shown, contains('الساعة: لسه هتختارها'), reason: '«الساعة ٥» من غير الصبح/بالليل ما بتتخمّنش');
+      expect(f.shown, 'الساعة ٥ الصبح ولا بالليل؟', reason: '«الساعة ٥» من غير جزء اليوم ما بتتخمّنش');
       expect(tts.spoken, isEmpty);
-      expect(listener.listens, 1, reason: 'مفيش سؤال متابعة');
-      await f.confirmReview();
-      expect(prefill!.kind, FollowKind.visit);
-      expect(prefill!.day, DateTime(2026, 9, 6));
-      expect(await RecordsRepository(h.services.db).all(h.services.patientId), isEmpty, reason: 'الورقة هي اللي بتحفظ');
+      await f.tapMic();
+      expect(f.shown, 'هحجز زيارة دكتور — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
+      await f.confirmYes();
+      final row = (await RecordsRepository(h.services.db).all(h.services.patientId)).single;
+      expect(row.doctorVisitAt, DateTime(2026, 9, 6, 17));
     });
 
-    test('ميعاد معمل من غير يوم → «اليوم: لسه هتختاره» → الورقة من غير يوم؛ «بكرة» → الورقة باليوم', () async {
-      AppointmentPrefill? prefill;
-      final f = await flowWith(['احجزلي ميعاد معمل'], onOpenAppointment: (p) async {
-        prefill = p;
-        return true;
-      });
+    test('ميعاد معمل من غير يوم → «الميعاد يوم إيه؟» → «بكرة» → الساعة → «من غير ساعة» → «أيوه»', () async {
+      final f = await flowWith(['احجزلي معمل تحليل سكر', 'بكرة', 'من غير ساعة']);
       await f.start();
-      expect(f.shown, contains('اليوم: لسه هتختاره'));
-      await f.confirmReview();
-      expect(prefill!.kind, FollowKind.lab);
-      expect(prefill!.day, isNull);
+      expect(f.shown, 'الميعاد يوم إيه؟');
+      await f.tapMic();
+      expect(f.shown, 'الساعة كام؟ ولو مش عارف قول «من غير ساعة».');
+      await f.tapMic();
+      expect(f.shown, 'هحجز تحليل سكر — بكرة — من غير ساعة');
+      await f.confirmYes();
+      final row = (await RecordsRepository(h.services.db).all(h.services.patientId)).single;
+      expect(CheckupService.kindOf(row), FollowKind.lab);
+      expect(row.labBookingAt, isNotNull);
       expect(said().last, 'cmd_done');
-
-      prefill = null;
-      final g = await flowWith(['احجزلي معمل تحليل سكر بكرة'], onOpenAppointment: (p) async {
-        prefill = p;
-        return false;
-      });
-      await g.start();
-      expect(g.shown, 'فهمت إنك عايز تحجز تحليل سكر — بكرة — الساعة: لسه هتختارها');
-      await g.confirmReview();
-      expect(prefill!.kind, FollowKind.lab);
-      expect(prefill!.name, 'تحليل سكر');
-      expect(prefill!.day, DateTime(2026, 9, 1));
     });
 
-    test('«ضيف دوا الضغط الساعة ٩ بالليل كل يوم» → ٩ بالليل؛ و«الساعة ٩» لوحدها → مفيش ساعة، ومفيش سؤال', () async {
-      final f = await flowWith(['ضيف دوا الضغط الساعة ٩ بالليل كل يوم']);
+    test('«الساعة ٩» لوحدها → «الصبح ولا بالليل؟» — مش تخمين', () async {
+      final f = await flowWith(['ضيف دوا الكونكور الساعة ٩', 'بالليل']);
       await f.start();
-      await f.confirmReview();
-      expect(opened.single.purpose, MedicationPurpose.pressure);
+      expect(f.shown, 'الساعة ٩ الصبح ولا بالليل؟');
+      await f.tapMic();
+      expect(f.shown, startsWith('هضيف'));
+      expect(f.shown, contains('٩:٠٠ م'));
+      expect(tts.spoken, isEmpty);
+    });
+
+    test('«بعد الفطار» من غير ساعة → كلمة الأكل بتفضل، والساعات بتتسأل', () async {
+      final f = await flowWith(['ضيفلي دوا الكونكور بعد الفطار', 'مرة واحدة', 'تمانية الصبح']);
+      await f.start();
+      expect(f.shown, 'بتاخده كام مرة في اليوم، والساعة كام؟');
+      await f.tapMic();
+      expect(f.shown, 'تاخده الساعة كام؟');
+      await f.tapMic();
+      expect(f.shown, contains('بعد الأكل'));
+      await f.confirmYes();
+      expect((await h.meds.activeSchedules(h.services.patientId)).single.mealRelation, MealRelation.after);
+    });
+
+    test('إجابة مش مفهومة مرتين → الفورم بيتفتح متعبّي باللي اتقال', () async {
+      final f = await flowWith(['ضيف دوا كونكور', 'مش عارف', 'برضه مش عارف']);
+      await f.start();
+      await f.tapMic();
+      expect(f.phase, CommandPhase.asking);
+      expect(f.note, contains('قولها تاني'));
+      await f.tapMic();
+      expect(opened.single.name, 'كونكور');
+      expect(await h.meds.currentMedicines(h.services.patientId), isEmpty);
+    });
+
+    test('«لأ» على الملخص → ولا صف، و«عدّل بإيدك» على الملخص بيفتح الفورم', () async {
+      final f = await flowWith(['ضيف دوا كونكور الساعة ٩ بالليل']);
+      await f.start();
+      expect(f.phase, CommandPhase.confirming);
+      expect(f.canEditInForm, isTrue);
+      await f.confirmNo();
+      expect(await h.meds.currentMedicines(h.services.patientId), isEmpty);
+      final g = await flowWith(['ضيف دوا كونكور الساعة ٩ بالليل']);
+      await g.start();
+      await g.editInForm();
       expect(opened.single.timings, [const FixedTiming(MinuteOfDay(21 * 60))]);
-      expect(tts.spoken, isEmpty);
-
-      opened.clear();
-      final g = await flowWith(['ضيف دوا الضغط الساعة ٩']);
-      await g.start();
-      expect(g.shown, contains('الساعات: لسه هتختارها'));
-      await g.confirmReview();
-      expect(opened.single.timings, isEmpty);
-      expect(tts.spoken, isEmpty);
-    });
-
-    test('«بعد الفطار» من غير ساعة → كلمة الأكل بس، والساعات «لسه هتختارها»', () async {
-      final f = await flowWith(['ضيفلي دوا الكونكور بعد الفطار']);
-      await f.start();
-      expect(tts.spoken, isEmpty);
-      expect(f.shown, 'فهمت إنك عايز تضيف دوا: الكونكور — بعد الأكل — الساعات: لسه هتختارها');
-      await f.confirmReview();
-      expect(opened.single.timings, isEmpty);
-      expect(opened.single.mealRelation, MealRelation.after);
     });
 
     test('«ضغطي ١٢٠ على ٨٠» → كارت تأكيد + «صح كده؟» المسجّلة → **ولا صف قبل «أيوه»** → بعدها اتكتب', () async {

@@ -84,40 +84,35 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const ValueKey('mic-orb-label'))).data, 'دوس واتكلم');
   });
 
-  screenTest('«احجزلي ميعاد عند الدكتور حسن» → اللي فهمناه + «إنت قلت» → «صح كده» → ورقة الميعاد فيها د. حسن', (tester) async {
+  screenTest('E2 على الشاشة: «احجزلي ميعاد عند الدكتور حسن» → «الميعاد يوم إيه؟» + «دوس على الدايرة وجاوب» → «عدّل بإيدك» → الورقة فيها د. حسن', (tester) async {
     await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن']);
     await seedDoctor('د. حسن');
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
 
-    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-understood'))).data,
-        'فهمت إنك عايز تحجز عند د. حسن — اليوم: لسه هتختاره — الساعة: لسه هتختارها');
-    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-heard'))).data, 'إنت قلت: احجزلي ميعاد عند الدكتور حسن');
-    expect(find.byKey(const ValueKey('talk-retry')), findsOneWidget);
-    expect(player.played, isEmpty, reason: 'التأكيد مكتوب بس');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-question'))).data, 'الميعاد يوم إيه؟');
+    expect(find.byKey(const ValueKey('talk-tap-to-answer')), findsOneWidget, reason: 'الإجابة بدوسة — مفيش سماع لوحده');
+    expect(find.byKey(const ValueKey('talk-edit')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('talk-right')));
+    await tester.tap(find.byKey(const ValueKey('talk-edit')));
     await settle(tester);
     expect(find.text('ميعاد جديد'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget);
-    expect(await h.db.select(h.db.records).get(), hasLength(1), reason: 'ولا حاجة اتحفظت قبل زرار الورقة — غير زيارته القديمة');
+    expect(await h.db.select(h.db.records).get(), hasLength(1), reason: 'ولا حاجة اتحفظت — غير زيارته القديمة');
   });
 
-  screenTest('«… عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → الاسم «د. حسن» والساعة في خانتها ٥:٠٠ م → الحفظ بيكتب الأحد الجاي ١٧:٠٠', (tester) async {
+  screenTest('«… عند الدكتور حسن يوم الأحد الساعة ٥ العصر» → الملخص الكبير و«أيوه» → الميعاد اتحجز الأحد الجاي ١٧:٠٠ من غير ورقة', (tester) async {
     await setUpWith(voiceOn: true, answers: ['احجزلي ميعاد عند الدكتور حسن يوم الأحد الساعة ٥ العصر']);
     await seedDoctor('د. حسن');
     tester.view.physicalSize = const Size(1000, 3200);
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 8)));
     await tester.tap(find.byKey(const ValueKey('talk-button')));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('talk-right')));
-    await settle(tester);
 
-    expect(find.widgetWithText(TextField, 'د. حسن'), findsOneWidget, reason: 'الساعة مش في الاسم');
-    expect(tester.widget<Text>(find.byKey(const ValueKey('new-appt-time-line'))).data, 'الساعة ٥:٠٠ م');
-    await tester.ensureVisible(find.byKey(const ValueKey('new-appt-save')));
-    await tester.tap(find.byKey(const ValueKey('new-appt-save')));
+    expect(tester.widget<Text>(find.byKey(const ValueKey('talk-shown'))).data, 'هحجز د. حسن — يوم الأحد ٦ سبتمبر — الساعة ٥:٠٠ م');
+    expect(find.byKey(const ValueKey('talk-edit')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('talk-yes')));
     await settle(tester);
 
     final row = (await h.db.select(h.db.records).get()).singleWhere((r) => r.doctorVisitAt != null);

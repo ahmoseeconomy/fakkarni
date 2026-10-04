@@ -44,6 +44,8 @@ import 'command_parser.dart';
 import 'voice_flags.dart';
 import '../adherence/weekly_summary_sources.dart';
 import 'fact_answers.dart';
+import 'dialog/slot_dialog.dart';
+import '../../domain/medication/duplicate_check.dart';
 
 /// مراحل «كلّمني».
 enum CommandPhase {
@@ -366,6 +368,10 @@ class CommandFlow extends ChangeNotifier {
     appointmentPrefill = null;
     _pendingWrite = null;
     _reviewAction = null;
+    _medDialog = null;
+    _bookDialog = null;
+    _editInForm = null;
+    _purpose = null;
     understood = null;
     clarifyOptions = const [];
     doctorOptions = const [];
@@ -865,25 +871,15 @@ class CommandFlow extends ChangeNotifier {
 
   Future<void> _reviewBooking(String doctor) {
     final n = _bookingNlu!;
-    appointmentPrefill = AppointmentPrefill(
-      kind: FollowKind.visit,
-      name: doctor,
+    _bookDialog = BookingDialog(
+      lab: false,
+      title: doctor,
       doctor: doctor,
-      specialty: n.specialtyKind,
       day: n.date,
-      time: n.time == null ? null : MinuteOfDay(n.time!.minutes),
+      time: n.time?.minutes,
+      hourNeedsPeriod: n.time == null ? n.hourNeedsPeriod : null,
     );
-    final p = appointmentPrefill!;
-    final wording = bookingWording(
-      NluResult(NluIntent.bookAppointment, doctorName: doctor, specialtyKind: n.specialtyKind, date: n.date, time: n.time),
-      now: _clock(),
-    );
-    return _review(wording, () async {
-      final open = onOpenAppointment;
-      if (open == null) return;
-      final saved = await open(p);
-      if (saved) await _say('cmd_done', phase: CommandPhase.done);
-    });
+    return _continueBooking();
   }
 
   /// دوسة على دكتور من «أنهي واحد؟» / «دكاترتك».
@@ -1067,6 +1063,8 @@ class CommandFlow extends ChangeNotifier {
         await voice.listener?.stop();
       case CommandPhase.confirming:
         await _listenReply();
+      case CommandPhase.asking when dialogOpen:
+        await _answerDialog();
       case CommandPhase.asking || CommandPhase.idle || CommandPhase.choosing || CommandPhase.answering || CommandPhase.reviewing || CommandPhase.clarifying || CommandPhase.pickingDoctor:
         await start();
     }
@@ -1145,6 +1143,7 @@ class CommandFlow extends ChangeNotifier {
     if (phase != CommandPhase.confirming) return;
     final write = _pendingWrite;
     _pendingWrite = null;
+    _editInForm = null;
     _set(CommandPhase.done);
     // الدوسة بتكسب: «صح كده؟» والمايك بيقفوا على طول
     unawaited(voice.stop());
@@ -1162,6 +1161,9 @@ class CommandFlow extends ChangeNotifier {
     chosen = null;
     prefill = null;
     _pendingWrite = null;
+    _medDialog = null;
+    _bookDialog = null;
+    _editInForm = null;
     await voice.stop();
     await _say('cmd_cancelled', phase: CommandPhase.answering);
   }
@@ -1172,6 +1174,9 @@ class CommandFlow extends ChangeNotifier {
   /// «اقفل» — المايك بيقف على طول.
   Future<void> cancel() async {
     _pendingWrite = null;
+    _medDialog = null;
+    _bookDialog = null;
+    _editInForm = null;
     _set(CommandPhase.idle, '');
     await voice.stop();
   }
@@ -1191,50 +1196,195 @@ class CommandFlow extends ChangeNotifier {
         await onOpenNearby?.call(nlu.place ?? NearbyPlace.pharmacy, nlu.specialtyKind);
         return;
       case NluIntent.addMedication:
+        // E2: الناقص بيتسأل واحد واحد، والحفظ بعد «أيوه» — الفورم بس لو
+        // الإجابة ما اتفهمتش مرتين، أو لو داس «عدّل بإيدك»
         final purpose = _purposeFromWords(nlu.name);
-        prefill = AddMedPrefill(
-          name: purpose == null ? nlu.name : null,
-          purpose: purpose,
-          timings: [for (final t in nlu.times) FixedTiming(MinuteOfDay(t.minutes))],
-          amount: nlu.doseText,
-          everyHours: nlu.everyHours,
-          emptyDoses: nlu.times.isEmpty && nlu.everyHours == null ? (nlu.perDay ?? 1) : null,
-          durationDays: nlu.durationDays,
-          mealRelation: nlu.food,
-        );
-        final p = prefill!;
-        return _review(addMedicationWording(nlu), () async {
-          final saved = await onOpenAdd(p);
-          if (saved) await _say('cmd_done', phase: CommandPhase.done);
-        });
+        _purpose = purpose;
+        _medDialog = MedDialog.fromNlu(purpose == null ? nlu : _withoutName(nlu));
+        return _continueMed();
       case NluIntent.bookAppointment when nlu.doctorName != null:
         return _resolveDoctor(nlu);
       case NluIntent.bookAppointment || NluIntent.bookLab:
         final lab = nlu.intent == NluIntent.bookLab;
-        appointmentPrefill = AppointmentPrefill(
-          kind: lab ? FollowKind.lab : FollowKind.visit,
-          // الدكتور: الاسم فاضي والتخصص في خانته — الورقة بتقول «دكتور باطنة»
-          name: lab ? appointmentTitle(nlu) : null,
-          specialty: lab ? null : nlu.specialtyKind,
+        _bookDialog = BookingDialog(
+          lab: lab,
+          title: appointmentTitle(nlu),
           day: nlu.date,
-          time: nlu.time == null ? null : MinuteOfDay(nlu.time!.minutes),
+          time: nlu.time?.minutes,
+          hourNeedsPeriod: nlu.time == null ? nlu.hourNeedsPeriod : null,
         );
-        final p = appointmentPrefill!;
-        return _review(bookingWording(nlu, now: _clock()), () async {
-          final open = onOpenAppointment;
-          if (open == null) return;
-          final saved = await open(p);
-          if (saved) await _say('cmd_done', phase: CommandPhase.done);
-        });
+        return _continueBooking();
       case NluIntent.none:
         return _fail(gen);
     }
   }
 
-  Future<void> _review(String text, Future<void> Function() action) async {
-    _reviewAction = action;
-    await voice.stop(); // مكتوب بس — من غير «صح كده؟» بصوت
-    _set(CommandPhase.reviewing, text);
+  // ---------------------------------------------------------------- E2: الأسئلة
+
+  MedDialog? _medDialog;
+  BookingDialog? _bookDialog;
+  MedicationPurpose? _purpose;
+
+  /// «عدّل بإيدك» على «صح كده؟» — الفورم متعبّي باللي اتقال.
+  Future<void> Function()? _editInForm;
+  bool get canEditInForm => _editInForm != null;
+
+  /// السؤال الحالي مستني إجابة — **الدوسة بتفتح المايك** (قرار ١أ: مفيش سماع لوحده).
+  bool get dialogOpen => _medDialog != null || _bookDialog != null;
+
+  static NluResult _withoutName(NluResult n) => NluResult(
+        n.intent,
+        doseText: n.doseText,
+        everyHours: n.everyHours,
+        perDay: n.perDay,
+        times: n.times,
+        hourNeedsPeriod: n.hourNeedsPeriod,
+        food: n.food,
+        durationDays: n.durationDays,
+      );
+
+  Future<void> _ask(DialogQuestion q) async {
+    // مكتوب — الجملة المسجّلة بتدخل الكتالوج في E4 (`script_dialog_ar.md`)
+    _set(CommandPhase.asking, q.text);
+  }
+
+  Future<void> _continueMed() async {
+    final d = _medDialog!;
+    if (d.tries >= maxDialogTries) return _medToForm();
+    final q = d.question;
+    if (q != null) return _ask(q);
+    final summaries = await services.medications.watchActiveSummaries(services.patientId).first;
+    final dup = findDuplicate(
+      name: d.name!,
+      existing: [for (final s in summaries) ExistingMedicine(name: s.medication.name, activeIngredient: s.medication.activeIngredient)],
+    );
+    _editInForm = _medToForm;
+    await _confirmWrite(d.summary(duplicateOf: dup?.existing), () async {
+      await services.medicationSaves.add(
+        patientId: services.patientId,
+        name: d.name!,
+        timings: [for (final m in d.minutes) FixedTiming(m)],
+        startDate: routineDay,
+        amountLabel: d.amount,
+        durationDays: d.durationDays,
+        mealRelation: d.meal,
+        purpose: _purpose,
+      );
+      _medDialog = null;
+    });
+  }
+
+  Future<void> _continueBooking() async {
+    final b = _bookDialog!;
+    if (b.tries >= maxDialogTries) return _bookingToForm();
+    final q = b.question;
+    if (q != null) return _ask(q);
+    _editInForm = _bookingToForm;
+    await _confirmWrite(b.summary(spokenDay(b.day!, now: _clock())), () async {
+      final today = _clock();
+      await services.checkups.bookAppointment(
+        patientId: services.patientId,
+        kind: b.lab ? FollowKind.lab : FollowKind.visit,
+        title: b.title,
+        day: b.day!,
+        today: today,
+        doctor: b.doctor,
+        time: b.time == null ? null : MinuteOfDay(b.time!),
+      );
+      await services.refreshAppointments(now: today);
+      _bookDialog = null;
+    });
+  }
+
+  /// الملخص كبير + «صح كده؟» المسجّلة — **ولا كتابة قبل «أيوه»**.
+  Future<void> _confirmWrite(String summary, Future<void> Function() write) async {
+    _pendingWrite = write;
+    _understood = summary;
+    _set(CommandPhase.confirming, summary);
+    await voice.speakLine('lis_confirm');
+  }
+
+  /// الإجابة على سؤال مفتوح — سماع واحد بالدوسة.
+  Future<void> _answerDialog() async {
+    final listener = voice.listener;
+    if (listener == null || _busy) return;
+    _busy = true;
+    try {
+      await voice.stop();
+      final gen = voice.interrupts;
+      note = null;
+      partial = '';
+      await voice.yieldToMic(settle: false);
+      if (_interrupted(gen)) return;
+      final text = await _hearReply(listener, gen);
+      if (text == null) {
+        // سكوت أو وقعة — السؤال فاضل على الشاشة
+        final q = _medDialog?.question ?? _bookDialog?.question;
+        if (q != null && phase != CommandPhase.idle) _set(CommandPhase.asking, q.text);
+        return;
+      }
+      heard = text.trim();
+      final now = _clock();
+      final ok = _medDialog?.answer(text, now: now) ?? _bookDialog!.answer(text, now: now);
+      note = ok ? null : 'معلش، قولها تاني — أو دوس «عدّل بإيدك».';
+      if (_medDialog != null) {
+        await _continueMed();
+      } else {
+        await _continueBooking();
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  /// الفورم متعبّي باللي اتقال — الحفظ بزراره هو.
+  Future<void> _medToForm() async {
+    final d = _medDialog;
+    if (d == null) return;
+    _medDialog = null;
+    _editInForm = null;
+    _pendingWrite = null;
+    final known = [for (final t in d.times) if (t != null) FixedTiming(MinuteOfDay(t))];
+    prefill = AddMedPrefill(
+      name: d.name,
+      purpose: _purpose,
+      timings: d.everyHours == null ? known : const [],
+      amount: d.amount,
+      everyHours: d.everyHours,
+      emptyDoses: known.isEmpty && d.everyHours == null ? (d.count ?? 1) : null,
+      durationDays: d.durationDays,
+      mealRelation: d.meal,
+    );
+    _set(CommandPhase.done, '');
+    unawaited(voice.stop());
+    final saved = await onOpenAdd(prefill!);
+    if (saved) await _say('cmd_done', phase: CommandPhase.done);
+  }
+
+  Future<void> _bookingToForm() async {
+    final b = _bookDialog;
+    if (b == null) return;
+    _bookDialog = null;
+    _editInForm = null;
+    _pendingWrite = null;
+    appointmentPrefill = AppointmentPrefill(
+      kind: b.lab ? FollowKind.lab : FollowKind.visit,
+      name: b.title,
+      doctor: b.doctor,
+      day: b.day,
+      time: b.time == null ? null : MinuteOfDay(b.time!),
+    );
+    _set(CommandPhase.done, '');
+    unawaited(voice.stop());
+    final open = onOpenAppointment;
+    if (open == null) return;
+    if (await open(appointmentPrefill!)) await _say('cmd_done', phase: CommandPhase.done);
+  }
+
+  /// «عدّل بإيدك» — من «صح كده؟» أو وهو بيتسأل.
+  Future<void> editInForm() async {
+    if (_medDialog != null) return _medToForm();
+    if (_bookDialog != null) return _bookingToForm();
   }
 
   /// «صح كده» — بيفتح الفورم متعبّي. الحفظ بزرار الفورم هو.

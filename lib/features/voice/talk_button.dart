@@ -264,9 +264,11 @@ class _CommandBodyState extends State<_CommandBody> {
             ),
           ],
           if (flow.phase == CommandPhase.asking) ...[
-            // سؤال المتابعة — مكتوب وبيتقال، وبعده المايك بيتفتح لوحده مرة
+            // السؤال مكتوب — والإجابة بدوسة على الدايرة (مفيش سماع لوحده)
             const SizedBox(height: F.s12),
             Text(flow.shown, key: const ValueKey('talk-question'), textAlign: TextAlign.center, style: big),
+            const SizedBox(height: F.s8),
+            Text('دوس على الدايرة وجاوب', key: const ValueKey('talk-tap-to-answer'), textAlign: TextAlign.center, style: quiet),
           ],
           if (flow.phase == CommandPhase.listening) ...[
             // الكلام وهو بيتقال
@@ -311,6 +313,25 @@ class _CommandBodyState extends State<_CommandBody> {
                   FPrimaryButton(key: const ValueKey('talk-yes'), label: 'أيوه', onPressed: flow.confirmYes),
                   const SizedBox(height: F.s10),
                   FSecondaryButton(key: const ValueKey('talk-no'), label: 'لأ', onPressed: flow.confirmNo),
+                  if (flow.canEditInForm) ...[
+                    const SizedBox(height: F.s10),
+                    FSecondaryButton(key: const ValueKey('talk-edit'), label: 'عدّل بإيدك', onPressed: flow.editInForm),
+                  ],
+                ],
+              ),
+            CommandPhase.asking when flow.dialogOpen => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FSecondaryButton(key: const ValueKey('talk-edit'), label: 'عدّل بإيدك', onPressed: flow.editInForm),
+                  const SizedBox(height: F.s10),
+                  FSecondaryButton(
+                    key: const ValueKey('talk-close'),
+                    label: 'اقفل',
+                    onPressed: () {
+                      unawaited(flow.cancel());
+                      Navigator.of(context).maybePop();
+                    },
+                  ),
                 ],
               ),
             CommandPhase.choosing => Column(

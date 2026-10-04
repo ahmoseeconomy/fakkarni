@@ -259,9 +259,9 @@ void main() {
       test('دكتوره الوحيد بالاسم ده → اتعبّى بيه', () async {
         final f = await flowWith(['احجزلي عند الدكتور هشام بكرة'], doctors: ['د. هشام سعيد']);
         await f.start();
-        expect(f.phase, CommandPhase.reviewing);
-        expect(f.shown, startsWith('فهمت إنك عايز تحجز عند د. هشام سعيد'));
-        await f.confirmReview();
+        // E2: اليوم اتقال (بكرة)، والساعة بتتسأل — والاسم من ملفه
+        expect(f.phase, CommandPhase.asking);
+        await f.editInForm();
         expect(booked.single.doctor, 'د. هشام سعيد');
         expect(booked.single.name, 'د. هشام سعيد');
       });
@@ -272,8 +272,9 @@ void main() {
         expect(f.phase, CommandPhase.pickingDoctor);
         expect(f.doctorOptions, ['د. حسن علي', 'د. حسن فؤاد']);
         await f.pickDoctor('د. حسن فؤاد');
-        expect(f.phase, CommandPhase.reviewing);
-        await f.confirmReview();
+        expect(f.phase, CommandPhase.asking, reason: 'اليوم لسه — بيتسأل');
+        expect(f.shown, 'الميعاد يوم إيه؟');
+        await f.editInForm();
         expect(booked.single.doctor, 'د. حسن فؤاد');
       });
 
@@ -307,7 +308,8 @@ void main() {
           onOpenAdd: (_) async => false,
         );
         await f.start();
-        expect(f.shown, startsWith('فهمت إنك عايز تحجز عند د. حسن علي'));
+        expect(f.shown, 'الميعاد يوم إيه؟', reason: 'د. حسن علي اتلقى من ملفه — والسؤال الجاي اليوم');
+        await f.editInForm();
       });
     });
 
