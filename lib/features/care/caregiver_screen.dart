@@ -15,6 +15,8 @@ import 'caregiver_ui.dart';
 import 'caregiver_snapshot_holder.dart';
 import 'family_notice_card.dart';
 import 'caregiver_words.dart';
+import '../adherence/weekly_summary_sources.dart';
+import 'care_weekly_summary.dart';
 
 // السؤال الدوري وشرطه عايشين في CaregiverSnapshotHolder (صورة واحدة للتبويبين).
 export 'caregiver_snapshot_holder.dart' show refreshEvery;
@@ -143,6 +145,8 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // ٠ — **التنبيهات واقفة (أو هتقف).** فوق الإجابة: «كله
                 // تمام» تحت سكوت السيرفر بتبقى كدبة بالسكوت.
                 CareFamilyNotice(patientName: snapshot.patient.name, now: _now),
+                // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق «متابعة»
+                CareWeeklySummary(summary: summaryFromSnapshot(snapshot, _now)),
                 // ١ — **الإجابة الأول.** الابن بيفتح الشاشة عشان سؤال
                 // واحد، فأول حاجة يشوفها هي الرد عليه: كله تمام، ولا فيه
                 // حاجة محتاجاه. وتحتها آخر جرعة مؤكَّدة وإمتى — دي اللي

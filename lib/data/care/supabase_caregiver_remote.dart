@@ -408,7 +408,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
           }
         }
 
-        final since = DateTime.now().toUtc().subtract(const Duration(days: 7));
+        // ٨ أيام مش ٧ (٤ أكتوبر ٢٠٢٦): «ملخص الأسبوع» = آخر ٧ أيام **كاملة**،
+        // و٧×٢٤ ساعة من دلوقتي كانت بتقصّ أول يوم فيهم من نصّه.
+        final since = DateTime.now().toUtc().subtract(const Duration(days: 8));
         final events = await _supabase
             .from('dose_events')
             .select('uuid, scheduled_at, routine_day, state, acted_at, updated_at, '

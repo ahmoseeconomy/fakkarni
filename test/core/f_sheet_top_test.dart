@@ -94,7 +94,9 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await settle(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('new-appointment')));
+    // ملخص الأسبوع فوق المواعيد (٤ أكتوبر ٢٠٢٦) — الزرار بقى تحت أول شاشة
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('new-appointment')), 200,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.byKey(const ValueKey('new-appointment')));
     await settle(tester);
 

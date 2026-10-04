@@ -188,7 +188,8 @@ void main() {
         find.descendant(of: mark, matching: find.byIcon(Icons.error_outline)));
     expect(icon.color, F.gold);
     expect(find.textContaining('فاتت'), findsNothing, reason: 'بنبلّغ مش بنحكم');
-    expect(find.textContaining('جاي'), findsOneWidget);
+    // عنوان قسم «جاية» — مش سطر «مفيش مواعيد جاية» بتاع ملخص الأسبوع
+    expect(find.text('جاية'), findsOneWidget);
     expectCaregiverDensity(tester);
   });
 

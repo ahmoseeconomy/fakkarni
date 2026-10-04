@@ -46,6 +46,7 @@ import 'manual_entry_screen.dart';
 import 'record_row_card.dart';
 import 'records_of_kind_screen.dart';
 import 'start_follow_up.dart';
+import '../adherence/weekly_summary_card.dart';
 import 'record_kinds.dart';
 
 /// «الملف الصحي» (المخطط ١٣): بحث بالاسم والدكتور والتاريخ، و«⋯ خيارات»
@@ -395,6 +396,9 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: F.gap),
+              // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — آخر ٧ أيام كاملة
+              PatientWeeklySummary(now: widget.today),
               const SizedBox(height: F.gap),
               // ============================================ مواعيدك الجاية
               const HelpRow(id: 'help_appointments', child: FSectionHead('مواعيدك الجاية')),

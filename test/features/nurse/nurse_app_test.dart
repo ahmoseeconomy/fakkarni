@@ -189,6 +189,15 @@ void main() {
       expect(find.text('معلومة تهمك'), findsOneWidget, reason: 'كارت المعلومة زي «يومك»');
     });
 
+    screenTest('ملخص الأسبوع فوق «الآن» عند الممرض (طلب المدير، ٤ أكتوبر ٢٠٢٦)', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      expect(find.byKey(const ValueKey('weekly-summary')), findsOneWidget);
+      expect(find.text('ملخص الأسبوع — ٢٤ أغسطس لـ٣٠ أغسطس'), findsOneWidget);
+      final summaryY = tester.getTopLeft(find.byKey(const ValueKey('weekly-summary'))).dy;
+      expect(summaryY, lessThan(tester.getTopLeft(find.text('الآن')).dy));
+    });
+
     screenTest('المتابع العادي: شاشته القديمة زي ما هي', (tester) async {
       cloud.snapshots['p1'] = snap(permissions: FollowerPermissions.plainFollower);
       await pump(tester);

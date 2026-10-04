@@ -17,6 +17,8 @@ import '../nearby/nearby_screen.dart';
 import 'nurse_actions.dart';
 import 'nurse_controller.dart';
 import 'nurse_widgets.dart';
+import '../adherence/weekly_summary_card.dart';
+import '../adherence/weekly_summary_sources.dart';
 
 /// **«يومك» بتاع المريض على موبايل الممرض** — «الآن» وجدول النهارده
 /// و«معلومة تهمك»، بمقاسات تطبيق المريض نفسه.
@@ -112,6 +114,9 @@ class NurseTodayScreen extends StatelessWidget {
                       key: ValueKey('nurse-alert-${a.uuid}'),
                     ),
                   ),
+                // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق، بعد التنبيهات
+                WeeklySummaryCard(summary: summaryFromSnapshot(snapshot, t)),
+                const SizedBox(height: F.gap),
                 const FSectionHead('الآن'),
                 const SizedBox(height: F.s8),
                 if (nowEvent == null)
