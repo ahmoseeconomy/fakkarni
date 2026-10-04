@@ -71,6 +71,9 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<!-- إشارة «اتأكّدت» الصامتة (confirm-signal: content-available) —
+		     من غير الوضع ده النظام ما بيصحّيش التطبيق ليها في الخلفية -->
+		<string>remote-notification</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

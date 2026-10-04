@@ -6,14 +6,19 @@ import 'package:flutter/foundation.dart'
     show debugPrint, defaultTargetPlatform, TargetPlatform;
 
 import 'confirm_signals.dart';
+import 'firebase_ios_options.dart';
 import 'push_tokens.dart';
 
 /// **الملف الوحيد في التطبيق اللي بيستورد Firebase.** أي ملف تاني
 /// بيستورده يبقى كسر للحاجز — زي ما `lib/data/auth/` بيلمّ Supabase.
 ///
-/// أندرويد بس هذه الجولة. iOS محتاج شهادة APNs وحساب مطوّر مدفوع (البند
-/// ٣ في «دين تقني»)، و`getToken()` على iOS من غيرها بترمي. فبنرجّع null
-/// عند التهيئة بدل ما نكسر إقلاع التطبيق على أيفون.
+/// أندرويد وiOS (الدين ٣ اتدفع ٤ أكتوبر ٢٠٢٦: مفتاح APNs ‏Production-only
+/// ‏`SD46FFWC42` اترفع على Firebase للتطبيق `com.fakrny.app`). على iOS
+/// التهيئة بالقيم الصريحة ([firebaseIosOptions]) — مش بالـplist جوّه
+/// الحزمة، عشان `project.pbxproj` عمره ما بيتكوميت. والمفتاح Production
+/// بس: نسخة TestFlight/المتجر بتستلم، و`flutter run` على الجهاز (توكن
+/// sandbox) **لأ** — بيتسجّل التوكن وبيقف عند `InvalidApnsCredential`
+/// في سجل دالة `escalate`، مش عندنا.
 class FirebaseTokenSource implements DeviceTokenSource, PushMessages {
   FirebaseTokenSource._();
 
@@ -25,12 +30,15 @@ class FirebaseTokenSource implements DeviceTokenSource, PushMessages {
   /// `android/app/google-services.json` وقت البناء، فمفيش داعي لملف
   /// مولّد من flutterfire CLI ولا لمفاتيح في الكود.
   static Future<FirebaseTokenSource?> initialise() async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
-      debugPrint('Push: الدفع أندرويد بس دلوقتي — iOS مستني APNs');
+    final ios = defaultTargetPlatform == TargetPlatform.iOS;
+    if (!ios && defaultTargetPlatform != TargetPlatform.android) {
+      debugPrint('Push: الدفع على أندرويد وiOS بس');
       return null;
     }
     try {
-      await Firebase.initializeApp();
+      // أندرويد: الموارد من google-services.json وقت البناء.
+      // iOS: القيم صراحةً — الـplist متكوميت كمرجع ومرآة، مش في الحزمة.
+      await Firebase.initializeApp(options: ios ? firebaseIosOptions : null);
       return FirebaseTokenSource._();
     } catch (error) {
       // أشهر سبب: google-services.json ناقص أو الإضافة مش مطبّقة.
@@ -40,7 +48,8 @@ class FirebaseTokenSource implements DeviceTokenSource, PushMessages {
   }
 
   @override
-  PushPlatform get platform => PushPlatform.android;
+  PushPlatform get platform =>
+      defaultTargetPlatform == TargetPlatform.iOS ? PushPlatform.ios : PushPlatform.android;
 
   @override
   Future<bool> ensurePermission() async {
@@ -57,6 +66,15 @@ class FirebaseTokenSource implements DeviceTokenSource, PushMessages {
   @override
   Future<String?> token() async {
     try {
+      // iOS: توكن FCM بيستنى توكن APNs، واللي بيوصل بعد `requestPermission`
+      // بلحظة — `getToken` بدري بيرمي «APNS token has not been set».
+      // تلات محاولات بثانيتين كفاية؛ بعدها بنسيبها للـrefresh العادي.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        for (var attempt = 0; attempt < 3; attempt++) {
+          if (await FirebaseMessaging.instance.getAPNSToken() != null) break;
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+      }
       return await FirebaseMessaging.instance.getToken();
     } catch (error) {
       debugPrint('Push: getToken فشل — $error');

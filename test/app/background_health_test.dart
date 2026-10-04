@@ -28,9 +28,11 @@ void main() {
   test('المعرّف مرآة بين دارت وInfo.plist، والوضع fetch وبس', () {
     expect(BackgroundHealth.taskId, 'com.fakrny.app.health-daily');
     expect(plist, contains('<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>${BackgroundHealth.taskId}</string>\n\t</array>'));
-    expect(plist, contains('<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t</array>'));
-    // مفيش remote-notification ولا processing — مفيش APNs (الدين ٣) ومفيش شغل خلفية تاني
-    expect(plist, isNot(contains('remote-notification')));
+    expect(plist, contains('<string>fetch</string>'));
+    // remote-notification اتضاف ٤ أكتوبر ٢٠٢٦ (إشارة «اتأكّدت» الصامتة —
+    // الدين ٣ اتدفع)؛ processing لسه مش موجود — مفيش شغل خلفية تاني
+    expect(plist, contains('<string>remote-notification</string>'));
+    expect(plist, isNot(contains('processing')));
     expect(plist, isNot(contains('<string>processing</string>')));
     expect(BackgroundHealth.every, const Duration(hours: 24));
   });

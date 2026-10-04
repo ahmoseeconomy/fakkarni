@@ -47,9 +47,23 @@ void main() {
     expect(config, contains("String.fromEnvironment('GEMINI_API_KEY')"));
     // مفيش أي نص شبه مفتاح حقيقي متكتوب
     expect(RegExp(r"'AIza[0-9A-Za-z_\-]{10,}'").hasMatch(config), isFalse);
+    // **استثناء واحد بحارسه**: مفتاح Firebase لـiOS شكله AIza برضه، بس ده
+    // بيانات منصّة متكوميتة (توأم google-services.json المتكوميت) مش سر
+    // Gemini. الاستثناء مربوط: القيمة لازم تساوي API_KEY بتاع
+    // GoogleService-Info.plist بالحرف — فمفيش طريقة يتحط فيه مفتاح Gemini.
+    const firebaseOptions = 'lib/data/push/firebase_ios_options.dart';
+    final plistKey = RegExp('<key>API_KEY</key>\\s*<string>(AIza[0-9A-Za-z_\\-]+)</string>')
+        .firstMatch(File('ios/Runner/GoogleService-Info.plist').readAsStringSync())!
+        .group(1)!;
     for (final f in libFiles()) {
-      expect(RegExp(r"'AIza[0-9A-Za-z_\-]{10,}'").hasMatch(f.readAsStringSync()), isFalse,
-          reason: f.path);
+      final src = f.readAsStringSync();
+      final hits = RegExp(r"'(AIza[0-9A-Za-z_\-]{10,})'").allMatches(src).toList();
+      if (f.path.replaceAll(r'\', '/') == firebaseOptions) {
+        expect([for (final h in hits) h.group(1)], [plistKey],
+            reason: 'القيمة الوحيدة المسموحة هنا هي مفتاح Firebase من الـplist');
+        continue;
+      }
+      expect(hits, isEmpty, reason: f.path);
     }
   });
 

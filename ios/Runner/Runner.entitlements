@@ -7,5 +7,12 @@
 	     App ID في بوابة Apple Developer، وإلا الإشعار بيتعامل كعادي في صمت. -->
 	<key>com.apple.developer.usernotifications.time-sensitive</key>
 	<true/>
+	<!-- APNs (الدين ٣، اتدفع ٤ أكتوبر ٢٠٢٦). القيمة هنا development عن قصد:
+	     دي القيمة القياسية في الملف، وXcode بيقلبها production لوحده وقت
+	     التصدير للمتجر/TestFlight. والملف ده على Release بس أصلاً، فبناء
+	     flutter run ما بيتأثرش. الشرط التاني في بوابة Apple: Push
+	     Notifications مفعّلة على App ID com.fakrny.app — زي Time Sensitive. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>
