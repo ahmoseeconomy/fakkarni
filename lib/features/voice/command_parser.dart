@@ -37,8 +37,21 @@ enum CommandIntent {
 
   /// «آخر تحليل سكر كام؟» / «آخر قياس ضغط» — من اللي متسجّل عنده وبس.
   latestReading,
+
+  /// «باخد الكونكور إمتى؟» — اللي **هو** حافظه عن الدوا ([MedInfoAspect])،
+  /// لدوا عنده وبس (E1). الغرض والجرعة لسه طبي لحد قرار المالك.
+  medInfo,
+
+  /// «مين دكاترتي؟» — من ملفه.
+  myDoctors,
+
+  /// «ملخص الأسبوع» / «الأسبوع ده ماشي إزاي؟» — نفس كارت Phase D.
+  weeklySummary,
   unknown,
 }
+
+/// أنهي حاجة عن الدوا اتسألت.
+enum MedInfoAspect { purpose, times, amount }
 
 /// جزء اليوم في سؤال («دوا الصبح») — من الساعة، مش من روتين.
 enum DayPart { morning, afternoon, evening }
@@ -124,7 +137,19 @@ class VoiceCommand {
     this.dayPart,
     this.readingType,
     this.labWords,
+    this.infoAspect,
+    this.apptKind,
+    this.withWhom,
   });
+
+  /// [CommandIntent.medInfo]: الغرض، المواعيد، أو الجرعة.
+  final MedInfoAspect? infoAspect;
+
+  /// «التحليل إمتى؟» / «ميعاد الدكتور الجاي» — فلتر على المواعيد الجاية.
+  final AppointmentKind? apptKind;
+
+  /// «ميعاد د. حسام إمتى؟» — الاسم زي ما اتقال (بيتطابق على ملفه).
+  final String? withWhom;
 
   final CommandIntent intent;
 
@@ -325,6 +350,14 @@ VoiceCommand parseCommand(String text, {DateTime? now}) {
     if (vital != null) return vital;
   }
 
+  // ---- «مين دكاترتي؟» / «ملخص الأسبوع» — أسئلة عن ملفه، قبل الطبي (E1)
+  if (_asksDoctors(tokens)) return const VoiceCommand(CommandIntent.myDoctors);
+  if (_asksWeek(tokens)) return const VoiceCommand(CommandIntent.weeklySummary);
+
+  // ---- «باخد الكونكور إمتى؟» — مواعيده المتسجّلة، **قبل** الطبي.
+  final info = _parseMedInfo(tokens);
+  if (info != null) return info;
+
   // ---- طبي الأول: أي كلمة طبية ومعاها كلام عن دوا أو جسم = سؤال للدكتور
   if (_isMedical(tokens)) return VoiceCommand.medical;
 
@@ -334,7 +367,20 @@ VoiceCommand parseCommand(String text, {DateTime? now}) {
   final apptDates = mentionsMed ? const <SpokenDate>[] : extractDates(text, now: today, future: true);
   final asksAppt = _hasAny(tokens, _apptQuestionWords) || _hasAny(tokens, _nextWords);
   if (mentionsAppt && asksAppt && apptDates.isEmpty && !tokens.contains('الساعه')) {
-    return const VoiceCommand(CommandIntent.upcomingAppointments);
+    return VoiceCommand(
+      CommandIntent.upcomingAppointments,
+      apptKind: _hasAny(tokens, _labWords)
+          ? AppointmentKind.lab
+          : _hasAny(tokens, _doctorWords)
+              ? AppointmentKind.doctor
+              : null,
+      withWhom: _doctorNameIn(tokens),
+    );
+  }
+  // ---- «التحليل إمتى؟» / «المعمل إمتى؟» — من غير كلمة «ميعاد»
+  if (!mentionsMed && _hasAny(tokens, _labWords) && _hasAny(tokens, _apptQuestionWords) &&
+      !_hasAny(tokens, _bookVerbs) && apptDates.isEmpty && !tokens.contains('اخر')) {
+    return const VoiceCommand(CommandIntent.upcomingAppointments, apptKind: AppointmentKind.lab);
   }
 
   // ---- احجزلي ميعاد
@@ -560,6 +606,52 @@ VoiceCommand? _parseLatestReading(List<String> tokens) {
     labWords = words.isEmpty ? null : words.join(' ');
   }
   return VoiceCommand(CommandIntent.latestReading, readingType: vital, labWords: labWords);
+}
+
+/// «مين دكاترتي؟» / «الدكاترة بتوعي مين؟».
+bool _asksDoctors(List<String> tokens) =>
+    tokens.contains('دكاترتي') ||
+    (tokens.any((t) => t == 'الدكاتره' || t == 'دكاتره' || t == 'دكاترة') && _hasAny(tokens, const {'مين', 'بتوعي', 'عندي', 'ايه'}));
+
+/// «ملخص الأسبوع» / «الأسبوع ده ماشي إزاي؟» — مش «الأسبوع الجاي».
+bool _asksWeek(List<String> tokens) {
+  if (_hasAny(tokens, _bookVerbs) || _hasAny(tokens, _nextWords)) return false;
+  if (tokens.contains('ملخص')) return true;
+  final week = tokens.any((t) => t == 'الاسبوع' || t == 'اسبوع' || t == 'الاسبوعي');
+  return week && _hasAny(tokens, const {'ماشي', 'عملت', 'ازاي', 'ايه', 'اخبار'});
+}
+
+/// «ميعاد د. حسام» / «دكتور حسام» → «د. حسام». null = من غير اسم.
+String? _doctorNameIn(List<String> tokens) {
+  final i = tokens.indexWhere((t) => t == 'دكتور' || t == 'الدكتور' || t == 'دكتوره' || t == 'الدكتوره' || t == 'د');
+  if (i < 0 || i + 1 >= tokens.length) return null;
+  final name = tokens[i + 1];
+  const notNames = {'الجاي', 'الجايه', 'جاي', 'امتى', 'امتي', 'امتا', 'ايه', 'كام', 'بتاعي', 'عيون', 'اسنان', 'قلب', 'باطنه', 'عظام'};
+  if (notNames.contains(name) || name.length < 2) return null;
+  return 'د. $name';
+}
+
+/// «باخد الكونكور إمتى؟» / «الجلوكوفاج باخده الساعة كام؟» — مواعيده زي ما
+/// هي متسجّلة. من غير اسم = null.
+///
+/// **«لإيه؟» و«جرعته كام؟» لسه طبي** (قرار مكتوب، `command_parser_test`):
+/// الرد عليهم من اللي حافظه جاهز في `medInfoText` بس مش متوصّل — مستني
+/// قرار المالك (E1، ٤ أكتوبر ٢٠٢٦).
+VoiceCommand? _parseMedInfo(List<String> tokens) {
+  final times = _hasAny(tokens, _takingNow) &&
+      tokens.any((t) => t == 'امتى' || t == 'امتي' || t == 'امتا' || t == 'مواعيد' || t == 'مواعيده' || t == 'الساعه') &&
+      !_hasAny(tokens, _nextWords) &&
+      !_hasAny(tokens, _todayWords);
+  if (!times) return null;
+  // كلمة طبية قوية جنبها = طبي زي ما هو
+  if (_isMedical([for (final t in tokens) if (t != 'كام') t])) return null;
+  const drop = {'كام', 'امتى', 'امتي', 'امتا', 'مواعيد', 'مواعيده', 'الساعه', 'من', 'ده', 'دي', 'هو', 'هي', 'قرص', 'حبايه', 'حبه'};
+  final words = [
+    for (final t in tokens)
+      if (!drop.contains(t) && !_medNouns.contains(t) && !_takingNow.contains(t) && !_stop.contains(t) && !_filler2.contains(t)) t,
+  ];
+  if (words.isEmpty) return null;
+  return VoiceCommand(CommandIntent.medInfo, medWords: words.join(' '), infoAspect: MedInfoAspect.times);
 }
 
 bool _plural(List<String> tokens) => tokens.any((t) => t == 'ادويتي' || t == 'ادويه' || t == 'الادويه' || t == 'جرعاتي');

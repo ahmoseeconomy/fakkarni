@@ -42,6 +42,8 @@ import '../health/usual_words.dart' show GlucoseContextWords;
 import 'cloud_tools.dart';
 import 'command_parser.dart';
 import 'voice_flags.dart';
+import '../adherence/weekly_summary_sources.dart';
+import 'fact_answers.dart';
 
 /// مراحل «كلّمني».
 enum CommandPhase {
@@ -522,6 +524,9 @@ class CommandFlow extends ChangeNotifier {
     CommandIntent.medicalQuestion,
     CommandIntent.doseStatus,
     CommandIntent.latestReading,
+    CommandIntent.medInfo,
+    CommandIntent.myDoctors,
+    CommandIntent.weeklySummary,
   };
 
   /// مش مفهوم — **عمره ما يبقى طريق مسدود**: الجملة مكتوبة، واللي اتسمع
@@ -555,7 +560,16 @@ class CommandFlow extends ChangeNotifier {
         final moments = groupByMinute([for (final d in await _today()) if (d.state != DoseState.superseded) d]).length;
         return _sayText(await _todayListText(), phase: CommandPhase.answering, phrase: todayCountPhrase(moments));
       case CommandIntent.upcomingAppointments:
+        if (cmd.apptKind != null || cmd.withWhom != null) {
+          return _sayText(await _filteredUpcoming(cmd), phase: CommandPhase.answering);
+        }
         return _sayText(await _upcomingText(), phase: CommandPhase.answering);
+      case CommandIntent.medInfo:
+        return _answerForMedicine(cmd.medWords!, (names) => _medInfo(names, cmd.infoAspect!));
+      case CommandIntent.myDoctors:
+        return _sayText(doctorsText(await _doctorsFor()), phase: CommandPhase.answering);
+      case CommandIntent.weeklySummary:
+        return _sayText(await _weeklySummaryText(), phase: CommandPhase.answering);
       case CommandIntent.stockStatus:
         return _sayText(await _stockText(), phase: CommandPhase.answering);
       case CommandIntent.markTaken:
@@ -661,6 +675,57 @@ class CommandFlow extends ChangeNotifier {
     if (soon.isEmpty) return 'مفيش مواعيد جاية متسجّلة.';
     final items = [for (final a in soon.take(3)) '${a.headline} ${a.displayTitle} يوم ${arabicDate(a.at)}'];
     return 'مواعيدك الجاية: ${items.join('، ')}${soon.length > 3 ? '، وحاجات تانية على الشاشة' : ''}.';
+  }
+
+  // ---------------------------------------------------------------- E1: من بياناته
+
+  /// أدويته الشغّالة زي ما هي متسجّلة — الاسم والجرعة والغرض والمواعيد
+  /// وكلمة الأكل. اللي اتطابق بس ([names]) بيتقال عنه.
+  Future<String> _medInfo(List<String> names, MedInfoAspect aspect) async {
+    final summaries = await services.medications.watchActiveSummaries(services.patientId).first;
+    final lines = <String>[];
+    for (final s in summaries) {
+      if (!names.contains(s.medication.name)) continue;
+      final active = [for (final d in s.schedules) d];
+      lines.add(medInfoText(
+        MedFact(
+          name: s.medication.name,
+          amountLabel: s.medication.amountLabel,
+          purposeLabel: MedicationPurpose.fromStorage(s.medication.purpose)?.label,
+          minutes: [for (final d in active) d.timing.minuteOfDay.minutes],
+          mealLabel: active.map((d) => d.mealRelation).whereType<MealRelation>().firstOrNull?.label,
+        ),
+        aspect,
+      ));
+    }
+    return lines.isEmpty ? unknownMedicineLine : lines.join('\n');
+  }
+
+  /// «التحليل إمتى؟» / «ميعاد د. حسام إمتى؟» — من نفس دالة الكارت، بفلتر.
+  Future<String> _filteredUpcoming(VoiceCommand cmd) async {
+    final rows = await RecordsRepository(services.db).all(services.patientId);
+    final byId = {for (final r in rows) r.id: r};
+    return filteredUpcomingText(
+      upcomingAppointments(rows, now: _clock()),
+      kind: cmd.apptKind,
+      withWhom: cmd.withWhom,
+      doctorOf: (a) => byId[a.recordId]?.doctor,
+    );
+  }
+
+  /// «ملخص الأسبوع» — نفس حساب كارت «ملفّي» (Phase D) بالحرف.
+  Future<String> _weeklySummaryText() async {
+    final day = routineDay;
+    final week = await services.events
+        .watchRoutineDays(DateTime(day.year, day.month, day.day - 7), DateTime(day.year, day.month, day.day - 1))
+        .first;
+    return weeklySummaryText(summaryFromLocal(
+      week: week,
+      stock: await StockRepository(services.db).all(services.patientId),
+      records: await RecordsRepository(services.db).all(services.patientId),
+      today: day,
+      now: _clock(),
+    ));
   }
 
   /// «فاضل كام؟» — من نفس حساب «قرب يخلص».
