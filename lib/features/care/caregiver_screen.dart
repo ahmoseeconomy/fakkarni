@@ -145,8 +145,6 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 // ٠ — **التنبيهات واقفة (أو هتقف).** فوق الإجابة: «كله
                 // تمام» تحت سكوت السيرفر بتبقى كدبة بالسكوت.
                 CareFamilyNotice(patientName: snapshot.patient.name, now: _now),
-                // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق «متابعة»
-                CareWeeklySummary(summary: summaryFromSnapshot(snapshot, _now)),
                 // ١ — **الإجابة الأول.** الابن بيفتح الشاشة عشان سؤال
                 // واحد، فأول حاجة يشوفها هي الرد عليه: كله تمام، ولا فيه
                 // حاجة محتاجاه. وتحتها آخر جرعة مؤكَّدة وإمتى — دي اللي
@@ -159,6 +157,9 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                   CareHead('تنبيهات', accent: F.careAlertInk),
                   for (final alert in open) _AlertCard(alert: alert, when: _when),
                 ],
+                // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — **تحت التنبيهات**:
+                // التنبيه المفتوح جرعة بتفوت دلوقتي، والملخص عن الأسبوع اللي فات.
+                CareWeeklySummary(summary: summaryFromSnapshot(snapshot, _now)),
                 // ٣ — المواعيد الجاية. تحت سطر الحالة على طول لما مفيش
                 // تنبيه مفتوح — والتنبيه المفتوح بيفضل فوقها، لأنه جرعة
                 // بتفوت **دلوقتي** وده قرار مكتوب من جولة ٢٨.
