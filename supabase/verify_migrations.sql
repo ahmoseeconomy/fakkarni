@@ -326,7 +326,7 @@ with expected(migration, kind, ident) as (
     ('0033_delete_account', 'funcsrc',  'public.admin_counts|account_deletions'),
     ('0033_delete_account', 'constraintdef', 'public.invite_codes|invite_codes_used_by_fkey|SET NULL'),
     ('0033_delete_account', 'constraintdef', 'public.proxy_confirmations|proxy_confirmations_actor_id_fkey|SET NULL'),
-    ('0033_delete_account', 'constraintdef', 'public.medication_changes|medication_changes_actor_id_fkey|SET NULL')
+    ('0033_delete_account', 'constraintdef', 'public.medication_changes|medication_changes_actor_id_fkey|SET NULL'),
     ('0034_meal_relation',  'column',   'public.dose_schedules.meal_relation'),
     ('0034_meal_relation',  'constraintdef', 'public.dose_schedules|dose_schedules_meal_relation_check|empty_stomach'),
     ('0035_nurse_full_edit', 'constraintdef', 'public.medication_changes|medication_changes_kind_check|pharmacy'),
@@ -364,7 +364,7 @@ with expected(migration, kind, ident) as (
     ('0037_device_self_check', 'cron',     'fakkarni-device-silent'),
     -- 0038 — نوع الدوا: العمود والقايمة المقفولة
     ('0038_medicine_form', 'column',   'public.medications.form'),
-    ('0038_medicine_form', 'constraintdef', 'public.medications|medications_form_check|suppository'),
+    ('0038_medicine_form', 'constraintdef', 'public.medications|medications_form_check|suppository')
 ),
 checked as (
   select
