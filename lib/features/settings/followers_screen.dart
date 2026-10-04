@@ -124,7 +124,7 @@ class _FollowersScreenState extends State<FollowersScreen> {
             Center(child: CircularProgressIndicator(color: F.green))
           else if (rows != null && rows.isEmpty)
             Text(
-              'مفيش حد من عيلتك أو ممرضك لسه — اعمل كود من «دائرة الرعاية».',
+              'مفيش حد مربوط بحسابك لسه — اعمل كود من «دائرة الرعاية».',
               key: const ValueKey('followers-empty'),
               style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.6),
             )

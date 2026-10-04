@@ -1,4 +1,3 @@
-import '../voice/briefing_card.dart';
 import '../voice/help_button.dart';
 import '../voice/talk_button.dart';
 import 'dart:async';
@@ -9,6 +8,8 @@ import '../../core/widgets/med_name.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
+import '../../data/services/appointment_plan.dart' show dayBeforeMinute, dayOfMinute;
+import '../../domain/scheduling/minute_of_day.dart';
 import '../../core/format/name_direction.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/wording/patient_words.dart';
@@ -106,12 +107,6 @@ class _TodayScreenState extends State<TodayScreen> {
   List<MedicationSummary> _summaries = const [];
   List<DoseEventView> _lastWeek = const [];
 
-  /// لملخص اليوم: ما بنقولش ملخص قبل ما كل مصادره توصل.
-  bool _schedulesLoaded = false;
-  bool _weekLoaded = false;
-  bool _followUpsLoaded = false;
-  StreamSubscription<List<RecordRow>>? _followUpsSub;
-  List<RecordRow> _openFollowUps = const [];
 
   DateTime get _now => widget.now ?? DateTime.now();
   DateTime get _routineDay => currentRoutineDay(_now);
@@ -130,14 +125,6 @@ class _TodayScreenState extends State<TodayScreen> {
     unawaited(_loadFollowers(services));
     _amountUnknown = services.medications.watchAmountUnknown(services.patientId);
     _followUps = services.checkups.watchOpen(services.patientId);
-    _followUpsSub = _followUps!.listen((rows) {
-      if (mounted) {
-        setState(() {
-          _openFollowUps = rows;
-          _followUpsLoaded = true;
-        });
-      }
-    });
     _readingsSub = ReadingsRepository(services.db).watchRecent(services.patientId).listen((rows) {
       if (mounted) setState(() => _readings = rows);
     });
@@ -147,12 +134,7 @@ class _TodayScreenState extends State<TodayScreen> {
     _weekSub = services.events
         .watchBetween(DateTime(_now.year, _now.month, _now.day - 7), DateTime(_now.year, _now.month, _now.day))
         .listen((rows) {
-      if (mounted) {
-        setState(() {
-          _lastWeek = rows;
-          _weekLoaded = true;
-        });
-      }
+      if (mounted) setState(() => _lastWeek = rows);
     });
 
     // أول ما الأدوية تتغيّر بنولّد أحداث اليوم من جديد — الإضافة بتظهر
@@ -164,10 +146,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
   Future<void> _onSchedules(List<DoseSchedule> schedules) async {
     if (!mounted) return;
-    setState(() {
-      _schedules = schedules;
-      _schedulesLoaded = true;
-    });
+    setState(() => _schedules = schedules);
 
     final services = AppScope.of(context);
     const engine = ScheduleEngine();
@@ -186,7 +165,6 @@ class _TodayScreenState extends State<TodayScreen> {
     _schedulesSub?.cancel();
     _summariesSub?.cancel();
     _weekSub?.cancel();
-    _followUpsSub?.cancel();
     _readingsSub?.cancel();
     super.dispose();
   }
@@ -376,22 +354,8 @@ class _TodayScreenState extends State<TodayScreen> {
                   talk: TalkButton(routineDay: _routineDay, now: widget.now, gapAbove: F.s12),
                 ),
               ),
-              // ملخص اليوم بالصوت — أول فتحة في يوم الروتين، من البيانات
-              // المحلية، ومكتوب هنا بنفس الكلام. مش موجود من غير صوت.
-              if (AppScope.of(context).voice case final voice?)
-                BriefingCard(
-                  voice: voice,
-                  dayKey: briefingDayKey(_routineDay),
-                  ready: snapshot.hasData && _schedulesLoaded && _weekLoaded && _followUpsLoaded,
-                  input: briefingInputFor(
-                    now: _now,
-                    routineDay: _routineDay,
-                    today: events,
-                    schedules: _schedules,
-                    openFollowUps: _openFollowUps,
-                    lastWeek: _lastWeek,
-                  ),
-                ),
+              // كارت «صباح الخير. النهارده عندك…» اتشال (طلب المدير، ٤ أكتوبر
+              // ٢٠٢٦) — الكلام والكارت الاتنين.
               SizedBox(height: nowCards.isNotEmpty ? F.s8 : F.gap),
               if (nowCards.isNotEmpty || glucoseNow) ...[
                 // **العدد في العنوان.** تلات كروت مكدّسة كانت بتخلّي
@@ -536,7 +500,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 followersKnown: _followersKnown,
                 now: _now,
               ),
-              // «مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا» — دعوة، مش شغل
+              // «ضيف حد مربوط بحسابك» (كانت «مفيش حد من عيلتك…» لحد ٤ أكتوبر ٢٠٢٦) — دعوة، مش شغل
               // دلوقتي؛ مكانها تحت الجدول عشان ما تزقّش زرار التأكيد.
               if (_followers.isEmpty) ...[
                 CareCircleRow(onOpen: _openCircle, followers: const []),
@@ -1150,10 +1114,13 @@ class _AppointmentsCard extends StatelessWidget {
                 if (!compact)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s10),
+                    // «هنفكّرك امبارحه وفي يومه» ما كانتش واضحة (طلب المدير، ٤
+                    // أكتوبر ٢٠٢٦): الساعتين بالحرف من نفس ثوابت الإشعارات،
+                    // في سطر واحد تحت المواعيد. مش بتتقصّ لو الخط كبير.
                     child: Text(
-                      'هنفكّرك امبارحه وفي يومه.',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                      appointmentReminderLine,
+                      key: const ValueKey('appointments-reminder-line'),
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                     ),
                   ),
               ],
@@ -1161,6 +1128,19 @@ class _AppointmentsCard extends StatelessWidget {
           ),
         ],
       );
+}
+
+/// «هنفكّرك ٨ بالليل قبلها بيوم، و٨ الصبح في يومها» — من
+/// [dayBeforeMinute] و[dayOfMinute] نفسهم، فالجملة ما تقدرش تكدب على الإشعار.
+String get appointmentReminderLine {
+  String at(MinuteOfDay m) {
+    final h12 = m.hour % 12 == 0 ? 12 : m.hour % 12;
+    final hour = m.minute == 0 ? arabicNumber(h12) : arabicTime(DateTime(2026, 1, 1, m.hour, m.minute)).split(' ').first;
+    final part = m.hour < 12 ? 'الصبح' : m.hour < 17 ? 'الضهر' : 'بالليل';
+    return '$hour $part';
+  }
+
+  return 'هنفكّرك ${at(dayBeforeMinute)} قبلها بيوم، و${at(dayOfMinute)} في يومها';
 }
 
 class _OpenFollowUps extends StatelessWidget {

@@ -49,7 +49,7 @@ void main() {
 
   group('سطر «مين بيتابعك»', () {
     test('محدش', () {
-      expect(followersLine(const []), 'مفيش حد من عيلتك أو ممرضك لسه — ضيفه من هنا');
+      expect(followersLine(const []), 'ضيف حد مربوط بحسابك');
     });
 
     test('واحد بياخد جملته كاملة', () {
