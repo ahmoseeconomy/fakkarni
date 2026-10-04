@@ -17,6 +17,7 @@ import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -183,6 +184,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
           initialOnce: line.once,
           initialAlertMode: line.alertMode,
           initialPurpose: line.purpose,
+          initialForm: line.form,
           initialInstructions: line.instructions,
           initialStartDate: line.startDate,
           // جرعة الورقة مش واضحة → تفضل «مش معروفة» لو سابها فاضية
@@ -359,6 +361,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
             instructions: l.instructions,
             startDate: l.startDate,
             mealRelation: l.mealRelation,
+            form: l.form,
           ),
       ],
     );
@@ -1204,6 +1207,9 @@ class _DraftLine {
   MedicationPurpose? purpose;
   String? instructions;
 
+  /// نوع الدوا — الروشتة ما بتقولوش، فمن القراية null؛ «عدّل» بيحدده.
+  MedicineForm? form;
+
   /// من قراية الذكاء — بثقتها وملاحظاتها زي ما هي.
   /// «هتبدأ الدوا من إمتى؟» لو اتغيّرت من «عدّل» — null = يوم التأكيد.
   DateTime? startDate;
@@ -1245,6 +1251,7 @@ class _DraftLine {
         startDate: startDate,
         once: once,
         mealRelation: mealRelation,
+        form: form,
       );
 
   /// «أضف دوا ما اتعرفش عليه» — إنسان كتبه، فمفيش شك فيه.
@@ -1262,7 +1269,8 @@ class _DraftLine {
         edited: true,
       )
         ..startDate = d.startDate
-        ..once = d.once;
+        ..once = d.once
+        ..form = d.form;
 
   /// null = السطر اتكتب بالإيد، مش من الورقة.
   final ReadLine? read;
@@ -1289,6 +1297,7 @@ class _DraftLine {
     purpose = d.purpose;
     instructions = d.instructions;
     mealRelation = d.mealRelation;
+    form = d.form;
     startDate = d.startDate;
     once = d.once;
     edited = true;

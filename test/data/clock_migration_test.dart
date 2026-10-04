@@ -73,7 +73,7 @@ void main() {
     raw.execute("INSERT INTO dose_events (id, uuid, dose_schedule_id, routine_day, scheduled_at, state, acted_at, updated_at_ms) VALUES (2, 'e-2', 10, '2026-08-30', $concorAt, 'taken', $concorAt, 5000)");
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 31);
+    await verifier.migrateAndValidate(db, 32);
     return db;
   }
 
@@ -166,7 +166,7 @@ void main() {
         "VALUES (1, 's-1', 1, 'anchor', 'dinner', 30, 'daily', '2026-08-01', 4000)");
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 31);
+    await verifier.migrateAndValidate(db, 32);
     expect((await db.select(db.fixedTimings).get()).single.minuteOfDay, 20 * 60 + 30);
     expect((await db.select(db.patients).get()).single.profileDoneAt, isNull, reason: 'صف «أنا» مش مريض');
     final s = (await MedicationRepository(db).activeSchedules(1)).single;

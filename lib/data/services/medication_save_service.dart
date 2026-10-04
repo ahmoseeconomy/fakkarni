@@ -1,6 +1,7 @@
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/scheduling/day_pattern.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../files/med_photos.dart';
@@ -61,6 +62,7 @@ class MedicationSaveService {
     String? instructions,
     DayPattern days = DayPattern.everyDay,
     MealRelation? mealRelation,
+    MedicineForm? form,
   }) =>
       _thenSchedule(() => medications.addMedicationWithDoses(
           patientId: patientId,
@@ -77,6 +79,7 @@ class MedicationSaveService {
           instructions: instructions,
           days: days,
           mealRelation: mealRelation,
+          form: form,
         ));
 
   /// روشتة كاملة في معاملة واحدة — مراجعة الروشتة.
@@ -131,6 +134,12 @@ class MedicationSaveService {
   /// الجرعة بس — تغيير من ممرض أو «تراجع» عليه (0035). نص التذكير فيه الجرعة.
   Future<void> updateAmount(int medicationId, String amount) =>
       _thenSchedule(() => medications.updateAmount(medicationId, amount));
+
+  /// نوع الدوا — زي أي كتابة على الدوا بتعدّي من نفس الباب. النوع ما بيظهرش
+  /// في الإشعار ولا بيحرّك ساعة، فإعادة الجدولة هنا بتطلّع **نفس** الأرقام
+  /// بالظبط (اختبار بيقارن قبل وبعد).
+  Future<void> setForm(int medicationId, MedicineForm? form) =>
+      _thenSchedule(() => medications.setForm(medicationId, form));
 
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       _thenSchedule(() => medications.setAlertMode(medicationId, mode));

@@ -2,7 +2,7 @@
 -- بيكتب. سكريبت تأكيد بيغيّر القاعدة مش سكريبت تأكيد.
 --
 -- الصق الملف ده في محرر SQL بتاع المشروع. بيرجّع **صف لكل ترحيل** من 0001
--- لـ0037: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
+-- لـ0038: اسمه، كام حاجة المفروض تكون موجودة، كام لقاها، وok — وعمود
 -- `missing` بأسامي اللي ناقص، عشان الرد يبقى «0012 ناقصها records_select»
 -- مش «0012 وقعت».
 --
@@ -362,6 +362,9 @@ with expected(migration, kind, ident) as (
     ('0037_device_self_check', 'funcsrc',  'private.mark_silent_devices|device_silent_after'),
     ('0037_device_self_check', 'view',     'private.admin_device_health'),
     ('0037_device_self_check', 'cron',     'fakkarni-device-silent'),
+    -- 0038 — نوع الدوا: العمود والقايمة المقفولة
+    ('0038_medicine_form', 'column',   'public.medications.form'),
+    ('0038_medicine_form', 'constraintdef', 'public.medications|medications_form_check|suppository'),
 ),
 checked as (
   select

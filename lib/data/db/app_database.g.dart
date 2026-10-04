@@ -819,6 +819,15 @@ class $MedicationsTable extends Medications
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _formMeta = const VerificationMeta('form');
+  @override
+  late final GeneratedColumn<String> form = GeneratedColumn<String>(
+    'form',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stoppedAtMeta = const VerificationMeta(
     'stoppedAt',
   );
@@ -870,6 +879,7 @@ class $MedicationsTable extends Medications
     instructions,
     photoPath,
     notBoughtAt,
+    form,
     stoppedAt,
     removedAt,
     createdAt,
@@ -998,6 +1008,12 @@ class $MedicationsTable extends Medications
         ),
       );
     }
+    if (data.containsKey('form')) {
+      context.handle(
+        _formMeta,
+        form.isAcceptableOrUnknown(data['form']!, _formMeta),
+      );
+    }
     if (data.containsKey('stopped_at')) {
       context.handle(
         _stoppedAtMeta,
@@ -1085,6 +1101,10 @@ class $MedicationsTable extends Medications
         DriftSqlType.dateTime,
         data['${effectivePrefix}not_bought_at'],
       ),
+      form: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}form'],
+      ),
       stoppedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}stopped_at'],
@@ -1157,6 +1177,10 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
   /// الجرعات بتبدأ زي ما «هتبدأ الدوا من إمتى؟» قالت. محلي، مش في الدفع.
   final DateTime? notBoughtAt;
 
+  /// نوع الدوا (v32) — `MedicineForm.wire` (قرص، كبسولة…). null = ما اتحددش
+  /// (كل القديم)، والوحدة بتفضل من كلام الجرعة. بيتدفع للدائرة (0038).
+  final String? form;
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش
@@ -1187,6 +1211,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     this.instructions,
     this.photoPath,
     this.notBoughtAt,
+    this.form,
     this.stoppedAt,
     this.removedAt,
     required this.createdAt,
@@ -1226,6 +1251,9 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     }
     if (!nullToAbsent || notBoughtAt != null) {
       map['not_bought_at'] = Variable<DateTime>(notBoughtAt);
+    }
+    if (!nullToAbsent || form != null) {
+      map['form'] = Variable<String>(form);
     }
     if (!nullToAbsent || stoppedAt != null) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt);
@@ -1272,6 +1300,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       notBoughtAt: notBoughtAt == null && nullToAbsent
           ? const Value.absent()
           : Value(notBoughtAt),
+      form: form == null && nullToAbsent ? const Value.absent() : Value(form),
       stoppedAt: stoppedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(stoppedAt),
@@ -1303,6 +1332,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       instructions: serializer.fromJson<String?>(json['instructions']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       notBoughtAt: serializer.fromJson<DateTime?>(json['notBoughtAt']),
+      form: serializer.fromJson<String?>(json['form']),
       stoppedAt: serializer.fromJson<DateTime?>(json['stoppedAt']),
       removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1327,6 +1357,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       'instructions': serializer.toJson<String?>(instructions),
       'photoPath': serializer.toJson<String?>(photoPath),
       'notBoughtAt': serializer.toJson<DateTime?>(notBoughtAt),
+      'form': serializer.toJson<String?>(form),
       'stoppedAt': serializer.toJson<DateTime?>(stoppedAt),
       'removedAt': serializer.toJson<DateTime?>(removedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1349,6 +1380,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     Value<String?> instructions = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
     Value<DateTime?> notBoughtAt = const Value.absent(),
+    Value<String?> form = const Value.absent(),
     Value<DateTime?> stoppedAt = const Value.absent(),
     Value<DateTime?> removedAt = const Value.absent(),
     DateTime? createdAt,
@@ -1370,6 +1402,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     instructions: instructions.present ? instructions.value : this.instructions,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     notBoughtAt: notBoughtAt.present ? notBoughtAt.value : this.notBoughtAt,
+    form: form.present ? form.value : this.form,
     stoppedAt: stoppedAt.present ? stoppedAt.value : this.stoppedAt,
     removedAt: removedAt.present ? removedAt.value : this.removedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -1405,6 +1438,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
       notBoughtAt: data.notBoughtAt.present
           ? data.notBoughtAt.value
           : this.notBoughtAt,
+      form: data.form.present ? data.form.value : this.form,
       stoppedAt: data.stoppedAt.present ? data.stoppedAt.value : this.stoppedAt,
       removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1429,6 +1463,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           ..write('instructions: $instructions, ')
           ..write('photoPath: $photoPath, ')
           ..write('notBoughtAt: $notBoughtAt, ')
+          ..write('form: $form, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -1453,6 +1488,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
     instructions,
     photoPath,
     notBoughtAt,
+    form,
     stoppedAt,
     removedAt,
     createdAt,
@@ -1476,6 +1512,7 @@ class MedicationRow extends DataClass implements Insertable<MedicationRow> {
           other.instructions == this.instructions &&
           other.photoPath == this.photoPath &&
           other.notBoughtAt == this.notBoughtAt &&
+          other.form == this.form &&
           other.stoppedAt == this.stoppedAt &&
           other.removedAt == this.removedAt &&
           other.createdAt == this.createdAt);
@@ -1497,6 +1534,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
   final Value<String?> instructions;
   final Value<String?> photoPath;
   final Value<DateTime?> notBoughtAt;
+  final Value<String?> form;
   final Value<DateTime?> stoppedAt;
   final Value<DateTime?> removedAt;
   final Value<DateTime> createdAt;
@@ -1516,6 +1554,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.instructions = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.notBoughtAt = const Value.absent(),
+    this.form = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1536,6 +1575,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     this.instructions = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.notBoughtAt = const Value.absent(),
+    this.form = const Value.absent(),
     this.stoppedAt = const Value.absent(),
     this.removedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1557,6 +1597,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Expression<String>? instructions,
     Expression<String>? photoPath,
     Expression<DateTime>? notBoughtAt,
+    Expression<String>? form,
     Expression<DateTime>? stoppedAt,
     Expression<DateTime>? removedAt,
     Expression<DateTime>? createdAt,
@@ -1577,6 +1618,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       if (instructions != null) 'instructions': instructions,
       if (photoPath != null) 'photo_path': photoPath,
       if (notBoughtAt != null) 'not_bought_at': notBoughtAt,
+      if (form != null) 'form': form,
       if (stoppedAt != null) 'stopped_at': stoppedAt,
       if (removedAt != null) 'removed_at': removedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -1599,6 +1641,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     Value<String?>? instructions,
     Value<String?>? photoPath,
     Value<DateTime?>? notBoughtAt,
+    Value<String?>? form,
     Value<DateTime?>? stoppedAt,
     Value<DateTime?>? removedAt,
     Value<DateTime>? createdAt,
@@ -1619,6 +1662,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
       instructions: instructions ?? this.instructions,
       photoPath: photoPath ?? this.photoPath,
       notBoughtAt: notBoughtAt ?? this.notBoughtAt,
+      form: form ?? this.form,
       stoppedAt: stoppedAt ?? this.stoppedAt,
       removedAt: removedAt ?? this.removedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -1673,6 +1717,9 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
     if (notBoughtAt.present) {
       map['not_bought_at'] = Variable<DateTime>(notBoughtAt.value);
     }
+    if (form.present) {
+      map['form'] = Variable<String>(form.value);
+    }
     if (stoppedAt.present) {
       map['stopped_at'] = Variable<DateTime>(stoppedAt.value);
     }
@@ -1703,6 +1750,7 @@ class MedicationsCompanion extends UpdateCompanion<MedicationRow> {
           ..write('instructions: $instructions, ')
           ..write('photoPath: $photoPath, ')
           ..write('notBoughtAt: $notBoughtAt, ')
+          ..write('form: $form, ')
           ..write('stoppedAt: $stoppedAt, ')
           ..write('removedAt: $removedAt, ')
           ..write('createdAt: $createdAt')
@@ -9885,6 +9933,7 @@ typedef $$MedicationsTableCreateCompanionBuilder =
       Value<String?> instructions,
       Value<String?> photoPath,
       Value<DateTime?> notBoughtAt,
+      Value<String?> form,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -9906,6 +9955,7 @@ typedef $$MedicationsTableUpdateCompanionBuilder =
       Value<String?> instructions,
       Value<String?> photoPath,
       Value<DateTime?> notBoughtAt,
+      Value<String?> form,
       Value<DateTime?> stoppedAt,
       Value<DateTime?> removedAt,
       Value<DateTime> createdAt,
@@ -10047,6 +10097,11 @@ class $$MedicationsTableFilterComposer
 
   ColumnFilters<DateTime> get notBoughtAt => $composableBuilder(
     column: $table.notBoughtAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get form => $composableBuilder(
+    column: $table.form,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10218,6 +10273,11 @@ class $$MedicationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get form => $composableBuilder(
+    column: $table.form,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get stoppedAt => $composableBuilder(
     column: $table.stoppedAt,
     builder: (column) => ColumnOrderings(column),
@@ -10321,6 +10381,9 @@ class $$MedicationsTableAnnotationComposer
     column: $table.notBoughtAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get form =>
+      $composableBuilder(column: $table.form, builder: (column) => column);
 
   GeneratedColumn<DateTime> get stoppedAt =>
       $composableBuilder(column: $table.stoppedAt, builder: (column) => column);
@@ -10452,6 +10515,7 @@ class $$MedicationsTableTableManager
                 Value<String?> instructions = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> notBoughtAt = const Value.absent(),
+                Value<String?> form = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10471,6 +10535,7 @@ class $$MedicationsTableTableManager
                 instructions: instructions,
                 photoPath: photoPath,
                 notBoughtAt: notBoughtAt,
+                form: form,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,
@@ -10492,6 +10557,7 @@ class $$MedicationsTableTableManager
                 Value<String?> instructions = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<DateTime?> notBoughtAt = const Value.absent(),
+                Value<String?> form = const Value.absent(),
                 Value<DateTime?> stoppedAt = const Value.absent(),
                 Value<DateTime?> removedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10511,6 +10577,7 @@ class $$MedicationsTableTableManager
                 instructions: instructions,
                 photoPath: photoPath,
                 notBoughtAt: notBoughtAt,
+                form: form,
                 stoppedAt: stoppedAt,
                 removedAt: removedAt,
                 createdAt: createdAt,

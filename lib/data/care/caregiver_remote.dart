@@ -56,6 +56,7 @@ class CaregiverMedication {
     this.stockWarnDays,
     this.dosesPerDay = 0,
     this.notBoughtAt,
+    this.form,
     this.stopped = false,
     this.minutes = const [],
   });
@@ -81,6 +82,15 @@ class CaregiverMedication {
   /// ٠٠٣١: «لسه ماتشترتش» — null = اتشرى. قراية بس.
   final DateTime? notBoughtAt;
 
+  /// نوع الدوا (٠٠٣٨، `MedicineForm.wire`) — null = ما اتحددش أو قبل الهجرة.
+  final String? form;
+
+  /// وحدة المخزون — النوع الأول، وإلا كلام الجرعة.
+  String get stockUnit => stock_math.stockUnitOfMedication(amountLabel, form);
+
+  /// مرهم أو بخاخة — مالهمش مخزون.
+  bool get tracksStock => stock_math.formTracksStock(form);
+
   /// موقوف على موبايل المريض (0035 — «رجّعه» عند الممرض).
   final bool stopped;
 
@@ -88,20 +98,20 @@ class CaregiverMedication {
   /// المواعيد. نص القاعدة في [rules] زي ما هو.
   final List<int> minutes;
 
-  int? get stockDaysLeft => stockQuantity == null
+  int? get stockDaysLeft => stockQuantity == null || !tracksStock
       ? null
       : stock_math.stockDaysLeft(stock: stockQuantity!, dosesPerDay: dosesPerDay, amount: stock_math.doseAmountOf(amountLabel));
 
   bool get stockLow =>
-      stockQuantity != null && stock_math.stockIsLow(daysLeft: stockDaysLeft, warnDays: stockWarnDays ?? stock_math.defaultRefillWarnDays);
+      tracksStock && stockQuantity != null && stock_math.stockIsLow(daysLeft: stockDaysLeft, warnDays: stockWarnDays ?? stock_math.defaultRefillWarnDays);
 
   /// «معاك ٢٠ قرص — تكفّي ١٠ أيام» / لو قرب يخلص «كونكور فاضله ٤ أيام».
   /// null = المريض ما كتبش مخزون.
   String? get stockLine {
     final q = stockQuantity;
-    if (q == null) return null;
+    if (q == null || !tracksStock) return null;
     if (stockLow) return stock_math.stockLowLine(name, stock: q, daysLeft: stockDaysLeft ?? 0);
-    return stock_math.stockSummaryLine(stock: q, unit: stock_math.stockUnitOf(amountLabel), daysLeft: stockDaysLeft);
+    return stock_math.stockSummaryLine(stock: q, unit: stockUnit, daysLeft: stockDaysLeft);
   }
 
   /// قاعدة كل جرعة زي ما اتسجلت — «الفطار − ٣٠ د» أو «ساعة ثابتة · ٨:٠٠ ص».

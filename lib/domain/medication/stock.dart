@@ -11,6 +11,8 @@
 //   * «قرب يخلص» = اللي فاضل يكفّي ≤ N يوم (افتراضي ٥) من **الجدول
 //     الحالي**: عدد جرعات اليوم × الجرعة — مش تخمين.
 
+import 'medicine_form.dart';
+
 /// افتراضي «قرب يخلص» — بيتغيّر لكل دوا.
 const int defaultRefillWarnDays = 5;
 
@@ -62,6 +64,14 @@ String stockUnitOf(String? amountLabel) {
   return 'وحدة';
 }
 
+/// وحدة دوا محفوظ — **النوع الأول** (عمود `form`)، وإلا من كلام الجرعة.
+/// المكان الواحد اللي كل شاشة بتسأله (المريض والابن والممرض).
+String stockUnitOfMedication(String? amountLabel, String? formWire) =>
+    MedicineForm.fromWire(formWire)?.stockUnit ?? stockUnitOf(amountLabel);
+
+/// دوا نوعه مالوش مخزون (مرهم، بخاخة) — ولا كارت ولا تنبيه «قرب يخلص».
+bool formTracksStock(String? formWire) => MedicineForm.fromWire(formWire)?.tracksStock ?? true;
+
 /// الوحدة لما الجرعة **ما بتقولش** هي إيه — «وحدة» كانت بتتسأل «عندك كام
 /// وحدة؟» ومحدش بيفهمها (طلب المالك، ٢٩ سبتمبر ٢٠٢٦).
 const unknownStockUnit = 'وحدة';
@@ -71,7 +81,11 @@ const stockUnitChoices = ['قرص', 'كبسولة', 'حقنة', 'ملعقة', '�
 
 /// وحدة المخزون: من الجرعة لو بتقول، وإلا اللي الشخص اختاره على الموبايل
 /// ده، وإلا null = **لسه هنسأله** (مش بنخمّن إنها أقراص).
-String? resolveStockUnit(String? amountLabel, {String? chosen}) {
+///
+/// **النوع الأول** (طلب المدير، ٤ أكتوبر ٢٠٢٦): كبسولة = «كبسولة» مهما كانت
+/// الجرعة مكتوبة إزاي. المرهم والبخاخة مالهمش مخزون أصلاً ([MedicineForm.tracksStock]).
+String? resolveStockUnit(String? amountLabel, {String? chosen, MedicineForm? form}) {
+  if (form?.stockUnit case final u?) return u;
   final fromAmount = stockUnitOf(amountLabel);
   if (fromAmount != unknownStockUnit) return fromAmount;
   return chosen != null && stockUnitChoices.contains(chosen) ? chosen : null;

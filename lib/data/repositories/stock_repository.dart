@@ -112,11 +112,13 @@ class StockRepository {
       for (final r in rows) {
         final med = r.readTable(_db.medications);
         final stock = r.readTable(_db.medicationStock);
+        // مرهم أو بخاخة: مفيش مخزون ولا «قرب يخلص» (قرار المالك، ٤ أكتوبر ٢٠٢٦)
+        if (!formTracksStock(med.form)) continue;
         out.add(MedicationStockView(
           medicationId: med.id,
           name: med.name,
           quantity: stock.quantity,
-          unit: stockUnitOf(med.amountLabel),
+          unit: stockUnitOfMedication(med.amountLabel, med.form),
           amount: doseAmountOf(med.amountLabel),
           dosesPerDay: await _dosesPerDay(med.id),
           warnDays: stock.warnDays ?? defaultRefillWarnDays,

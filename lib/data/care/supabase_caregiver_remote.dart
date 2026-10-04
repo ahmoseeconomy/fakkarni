@@ -103,6 +103,7 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     instructions: row['instructions'] as String?,
     alertMode: row['alert_mode'] as String?,
     notBoughtAt: row['not_bought_at'] == null ? null : DateTime.tryParse(row['not_bought_at'] as String)?.toLocal(),
+    form: row['form'] as String?,
     rules: [
       // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن. والنمط (٠٠٣٢)
       // قبل القاعدة: «السبت والتلات — الفطار − ٣٠ د».
@@ -382,6 +383,8 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             'dose_schedules(timing_kind, anchor, offset_minutes, meal_relation, repeat, stopped_at, '
             'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
         const tiers = [
+          // ٠٠٣٨ — نوع الدوا
+          'purpose, instructions, alert_mode, not_bought_at, form, medication_stock(quantity, warn_days), $medColumnsMeal',
           'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsMeal',
           'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsPatterns',
           // ٠٠٣١ — «لسه ماتشترتش»

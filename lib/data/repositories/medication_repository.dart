@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 
 import '../../domain/medication/duplicate_check.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/scheduling/day_pattern.dart';
 import '../../domain/medication/meal_relation.dart';
@@ -37,6 +38,9 @@ typedef MedicationWrite = ({
 
   /// «قبل الأكل» وأخواتها — كلمة تعليمات على كل جرعة، مش توقيت.
   MealRelation? mealRelation,
+
+  /// نوع الدوا (قرص، كبسولة…) — null = ما اتحددش.
+  MedicineForm? form,
 });
 
 class MedicationRepository {
@@ -136,6 +140,9 @@ class MedicationRepository {
 
     /// «قبل الأكل» وأخواتها — على كل جرعة من جرعاته. تعليمات، مش توقيت.
     MealRelation? mealRelation,
+
+    /// نوع الدوا — null = ما اتحددش (مفيش تخمين).
+    MedicineForm? form,
   }) {
     if (timings.isEmpty) {
       throw ArgumentError.value(timings, 'timings', 'الدوا لازم له جرعة واحدة على الأقل');
@@ -155,6 +162,7 @@ class MedicationRepository {
               alertMode: Value(alertMode?.storageName),
               purpose: Value(purpose?.storageName),
               instructions: Value(instructions),
+              form: Value(form?.wire),
             ),
           );
       for (final timing in timings) {
@@ -204,6 +212,7 @@ class MedicationRepository {
               purpose: m.purpose,
               instructions: m.instructions,
               mealRelation: m.mealRelation,
+              form: m.form,
               repeat: onceAt.contains(i) ? DoseRepeat.once : DoseRepeat.daily,
             ),
           );
@@ -357,6 +366,11 @@ class MedicationRepository {
 
   /// نوع التنبيه بتاع دوا محفوظ — null = ارجع لإعداد الجهاز. اللي بينده
   /// لازم يعيد الجدولة بعدها: الإعادات بتتبني وقت الجدولة.
+  /// نوع الدوا — **مالوش علاقة بالتذكير**، ولا بيحتاج إعادة جدولة.
+  Future<void> setForm(int medicationId, MedicineForm? form) =>
+      (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+          .write(MedicationsCompanion(form: Value(form?.wire)));
+
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(MedicationsCompanion(alertMode: Value(mode?.storageName)));

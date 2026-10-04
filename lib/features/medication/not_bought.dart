@@ -8,7 +8,7 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/not_bought_repository.dart';
 import '../../data/repositories/stock_repository.dart';
-import '../../domain/medication/stock.dart' show stockUnitOf;
+import '../../domain/medication/stock.dart' show formTracksStock, stockUnitOfMedication;
 import 'refill_actions.dart';
 
 /// **«أدوية لسه ماتشترتش»** — تذكرة شرا، مش مفتاح للتذكير.
@@ -40,8 +40,8 @@ class _NotBoughtSectionState extends State<NotBoughtSection> {
     final services = AppScope.of(context);
     final stock = StockRepository(services.db);
     // المخزون متتبّع؟ كام في العلبة — نفس «اشتريت علبة جديدة»
-    if (await stock.rowFor(med.id) != null && mounted) {
-      final added = await showRestockSheet(context, name: med.name, unit: stockUnitOf(med.amountLabel));
+    if (formTracksStock(med.form) && await stock.rowFor(med.id) != null && mounted) {
+      final added = await showRestockSheet(context, name: med.name, unit: stockUnitOfMedication(med.amountLabel, med.form));
       if (added != null) await stock.restock(med.id, added.toDouble());
     }
     await NotBoughtRepository(services.db).markBought(med.id);

@@ -1,6 +1,7 @@
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 
 /// دوا زي ما الإنسان ظبّطه — **ولسه ما اتحفظش**.
@@ -22,6 +23,7 @@ class MedicationDraft {
     this.startDate,
     this.once = false,
     this.mealRelation,
+    this.form,
   });
 
   final String name;
@@ -53,4 +55,7 @@ class MedicationDraft {
 
   /// «قبل الأكل» وأخواتها — كلمة تعليمات على كل جرعة، مش توقيت. null = مفيش.
   final MealRelation? mealRelation;
+
+  /// نوع الدوا (قرص، كبسولة…) — null = ما اتحددش.
+  final MedicineForm? form;
 }

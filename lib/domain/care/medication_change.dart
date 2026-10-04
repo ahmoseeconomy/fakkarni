@@ -102,6 +102,7 @@ class MedicationChangePayload {
     this.cycleOn,
     this.cycleOff,
     this.mealRelation,
+    this.form,
     this.vitalKind,
     this.value,
     this.value2,
@@ -122,6 +123,9 @@ class MedicationChangePayload {
 
   /// كلمة الأكل (`MealRelation.storageName`).
   final String? mealRelation;
+
+  /// نوع الدوا (`MedicineForm.wire`) — جوّه الـJSON، مفيش عمود ولا هجرة.
+  final String? form;
 
   /// القياس: النوع بالاسم، الرقم (الانقباضي أو القيمة)، الانبساطي، النبض، والوقت.
   final String? vitalKind;
@@ -196,6 +200,7 @@ class MedicationChangePayload {
         if (cycleOn != null) 'cycle_on': cycleOn,
         if (cycleOff != null) 'cycle_off': cycleOff,
         if (mealRelation != null) 'meal_relation': mealRelation,
+        if (form != null) 'form': form,
         if (vitalKind != null) 'vital_kind': vitalKind,
         if (value != null) 'value': value,
         if (value2 != null) 'value2': value2,
@@ -240,6 +245,7 @@ class MedicationChangePayload {
       cycleOn: (json['cycle_on'] as num?)?.toInt(),
       cycleOff: (json['cycle_off'] as num?)?.toInt(),
       mealRelation: json['meal_relation'] as String?,
+      form: json['form'] as String?,
       vitalKind: json['vital_kind'] as String?,
       value: (json['value'] as num?)?.toDouble(),
       value2: (json['value2'] as num?)?.toDouble(),

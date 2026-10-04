@@ -143,6 +143,7 @@ void main() {
           instructions: null,
           startDate: null,
           mealRelation: null,
+          form: null,
         ),
         (
           name: 'B',
@@ -155,6 +156,7 @@ void main() {
           instructions: null,
           startDate: _later,
           mealRelation: null,
+          form: null,
         ),
       ],
     );

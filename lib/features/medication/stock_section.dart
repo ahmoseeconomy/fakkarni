@@ -9,17 +9,21 @@ import '../../data/repositories/stock_unit_store.dart';
 import '../../domain/medication/stock.dart';
 import 'refill_actions.dart';
 import 'stock_left_card.dart';
+import '../../domain/medication/medicine_form.dart';
 
 /// **المخزون على شاشة الدوا** — اختياري. «عندك كام {وحدة} دلوقتي؟» على
 /// عجلة، والعجلة **ما بتكتبش حاجة لحد ما تتحرّك** (رقم بنخترعه = مخزون
 /// غلط). بعدها: «معاك ٢٠ قرص — تكفّي ١٠ أيام»، «نبّهني لما يفضل كام
 /// يوم؟»، و«اشتريت علبة جديدة».
 class StockSection extends StatefulWidget {
-  const StockSection({required this.medicationId, required this.name, required this.amountLabel, super.key});
+  const StockSection({required this.medicationId, required this.name, required this.amountLabel, this.form, super.key});
 
   final int medicationId;
   final String name;
   final String? amountLabel;
+
+  /// نوع الدوا (`MedicineForm.wire`) — لو محدد، هو اللي بيقول الوحدة.
+  final String? form;
 
   @override
   State<StockSection> createState() => _StockSectionState();
@@ -69,8 +73,10 @@ class _StockSectionState extends State<StockSection> {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = resolveStockUnit(widget.amountLabel, chosen: _chosen);
-    final fromAmount = stockUnitOf(widget.amountLabel) != unknownStockUnit;
+    final form = MedicineForm.fromWire(widget.form);
+    final resolved = resolveStockUnit(widget.amountLabel, chosen: _chosen, form: form);
+    // الوحدة متقالة (من النوع أو من كلام الجرعة) — مش هنسألها
+    final fromAmount = form?.stockUnit != null || stockUnitOf(widget.amountLabel) != unknownStockUnit;
     final unit = resolved ?? unknownStockUnit;
     final label = TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark);
     return StreamBuilder<List<MedicationStockView>>(

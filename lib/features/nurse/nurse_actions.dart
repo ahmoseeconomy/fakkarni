@@ -8,7 +8,6 @@ import '../../data/care/caregiver_remote.dart';
 import '../../data/places/places.dart';
 import '../../domain/care/medication_change.dart';
 import '../../domain/health/vitals.dart';
-import '../../domain/medication/stock.dart' show stockUnitOf;
 import '../medication/medication_draft.dart';
 import '../medication/nurse_draft.dart' show pickTimingsAsNurse;
 import '../medication/pharmacy_sheet.dart';
@@ -34,6 +33,7 @@ extension NurseActions on NurseController {
           alertMode: d.alertMode,
           startDate: d.startDate,
           mealRelation: d.mealRelation?.storageName,
+          form: d.form?.wire,
         ),
       );
 
@@ -142,7 +142,7 @@ Future<void> editTimingsAsNurse(BuildContext context, NurseController c, Caregiv
 
 /// «ظبّط المخزون»: الكمية دلوقتي على بكرة (بتكتب فوق) — عكس «علبة جديدة».
 Future<void> setStockAsNurse(BuildContext context, NurseController c, CaregiverMedication med) async {
-  final unit = stockUnitOf(med.amountLabel);
+  final unit = med.stockUnit;
   final q = await FSheet.show<int>(
     context,
     title: 'مخزون ${med.name}',

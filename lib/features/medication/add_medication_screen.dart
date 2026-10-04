@@ -19,6 +19,7 @@ import '../../core/widgets/primitives.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/duplicate_check.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
@@ -69,6 +70,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.initialOnce = false,
     this.initialAlertMode,
     this.initialPurpose,
+    this.initialForm,
     this.initialInstructions,
     this.initialMealRelation,
     this.packageReading,
@@ -112,6 +114,9 @@ class AddMedicationScreen extends StatefulWidget {
   final bool initialOnce;
   final AlertMode? initialAlertMode;
   final MedicationPurpose? initialPurpose;
+
+  /// نوع الدوا من المسوّدة (عدّل في المراجعة) — العلبة بتملاه لوحدها لو واضح.
+  final MedicineForm? initialForm;
   final String? initialInstructions;
 
   /// «قبل الأكل» وأخواتها من الروشتة أو المسوّدة — كلمة تعليمات، مش توقيت.
@@ -172,6 +177,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _pattern == DosePattern.cycle;
   MedicationPurpose? _purpose;
 
+  /// نوع الدوا — اختياري. من العلبة لو الكلمة واضحة، وإلا فاضي.
+  MedicineForm? _form;
+
   /// جرعات اليوم — صف لكل واحدة، **في الذاكرة، ولسه ما اتحفظتش**.
   /// null = ساعة لسه ما اتختارتش.
   List<FixedTiming?> _doses = const [];
@@ -225,6 +233,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
     _alertMode = widget.initialAlertMode;
     _purpose = widget.initialPurpose;
+    _form = widget.initialForm ?? MedicineForm.fromPackageText(widget.packageReading?.formField);
     _meal = widget.initialMealRelation;
     if (widget.initialStartDate case final d?) _startDate = DateTime(d.year, d.month, d.day);
     // «اليوم فقط» من الورقة = «مرة واحدة» (نفس السلوك بالظبط، بكلمته)
@@ -433,6 +442,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       // «أيام معينة» من غير ولا يوم = مفيش جرعة ترن
       (_pattern != DosePattern.weekdays || _weekdays.isNotEmpty);
 
+  /// الوحدة اتسألت (مش من النوع ولا من كلام الجرعة) — ساعتها بس اختيار
+  /// الشخص بيتحفظ على الموبايل.
+  bool get _unitIsAsked => _form?.stockUnit == null && stockUnitOf(_amount.text) == unknownStockUnit;
+
   Future<void> _save() async {
     if (!_ready) return;
     setState(() => _busy = true);
@@ -455,6 +468,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         instructions: instructions.isEmpty ? null : instructions,
         startDate: _startDate,
         mealRelation: _meal,
+        form: _form,
       );
 
       if (widget.draft) {
@@ -479,11 +493,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
         purpose: result.purpose,
         instructions: result.instructions,
         mealRelation: result.mealRelation,
+        form: result.form,
       );
       try {
         if (_stock case final stock?) {
           await StockRepository(services.db).setQuantity(medicationId, stock.toDouble());
-          if (_stockUnit case final u? when stockUnitOf(_amount.text) == unknownStockUnit) {
+          if (_stockUnit case final u? when _unitIsAsked) {
             await StockUnitStore.write(medicationId, u);
           }
         }
@@ -604,6 +619,23 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                                 selected: _purpose == p,
                                 // دوسة تانية بتشيله — اختياري فعلاً
                                 onTap: () => setState(() => _purpose = _purpose == p ? null : p),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: F.gap),
+                        // --------------------------------------- نوعه
+                        // (طلب المدير، ٤ أكتوبر ٢٠٢٦) — هو اللي بيحدد وحدة المخزون
+                        const _FieldLabel('نوعه؟ (لو حابب)'),
+                        Wrap(
+                          spacing: F.s8,
+                          runSpacing: F.s8,
+                          children: [
+                            for (final f in MedicineForm.values)
+                              AnchorChip(
+                                key: ValueKey('form-${f.name}'),
+                                label: f.label,
+                                selected: _form == f,
+                                onTap: () => setState(() => _form = _form == f ? null : f),
                               ),
                           ],
                         ),
@@ -855,12 +887,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         // المخزون — **اختياري**، سطر مقفول لحد ما يدوس عليه، والعجلة
                         // ما بتكتبش حاجة لحد ما تتحرّك. للحفظ بس (مش لمراجعة الروشتة).
                         if (!widget.draft) ...[
+                          // المرهم والبخاخة مالهمش مخزون (قرار المالك، ٤ أكتوبر ٢٠٢٦)
+                          if (_form?.tracksStock ?? true) ...[
                           const SizedBox(height: F.gap),
                           // «باقي كام قرص؟» — كارت لوحده (طلب المالك، ٢٩ سبتمبر ٢٠٢٦)
                           if (!_askStock)
                             _CompactChip(
                               key: const ValueKey('add-stock-open'),
-                              label: '${switch (resolveStockUnit(_amount.text, chosen: _stockUnit)) {
+                              label: '${switch (resolveStockUnit(_amount.text, chosen: _stockUnit, form: _form)) {
                                 final u? => stockLeftQuestion(u),
                                 null => 'باقي كام؟',
                               }} (لو حابب)',
@@ -870,12 +904,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           else
                             StockLeftCard(
                               wheelKey: const ValueKey('add-stock-wheel'),
-                              unit: resolveStockUnit(_amount.text, chosen: _stockUnit),
-                              unitChosen: stockUnitOf(_amount.text) == unknownStockUnit,
+                              unit: resolveStockUnit(_amount.text, chosen: _stockUnit, form: _form),
+                              unitChosen: _unitIsAsked,
                               value: _stock,
                               onUnit: (u) => setState(() => _stockUnit = u),
                               onChanged: (v) => setState(() => _stock = v),
                             ),
+                          ],
                           const SizedBox(height: F.gap),
                           MedPhotoSlot(
                             previewBytes: _photo,

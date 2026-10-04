@@ -579,7 +579,7 @@ class SyncService {
     // ٠٠٣٥: «صيدليتي» على صف المريض — الممرض بيقراها ويطلب منها
     'patients': {'pharmacy_name', 'pharmacy_call', 'pharmacy_whatsapp'},
     // ٠٠٢٦: تفاصيل الدوا اللي الممرض بيشوفها
-    'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at'},
+    'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at', 'form'},
     // ٠٠٣٤: «قبل الأكل» وأخواتها — كلمة تعليمات على الجرعة
     'dose_schedules': {'meal_relation'},
   };
@@ -684,6 +684,8 @@ class SyncService {
                 // ٠٠٣١: «لسه ماتشترتش» — null = اتشرى (أغلب الصفوف). الدائرة
                 // بتقراه، والتذكير والتصعيد عمرهم ما بيقروه.
                 'not_bought_at': m.notBoughtAt == null ? null : utcIso(m.notBoughtAt!),
+                // ٠٠٣٨: نوع الدوا — الدائرة بتقرا وحدة المخزون منه
+                'form': m.form,
               }
             );
           }(),

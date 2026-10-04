@@ -29,6 +29,8 @@ import '../../domain/escalation/alert_mode.dart';
 import 'alert_mode_chips.dart';
 import 'dose_editor.dart';
 import 'dose_row.dart';
+import '../../domain/medication/medicine_form.dart';
+import '../../domain/medication/stock.dart' show formTracksStock;
 
 /// تعديل دوا موجود: الجرعة زي ما الصيدلي قالها، توقيت كل جرعة من
 /// [DoseEditor]، أو إيقافه.
@@ -543,8 +545,33 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         ),
                       ),
                       const SizedBox(height: F.gap),
-                      StockSection(medicationId: med.id, name: med.name, amountLabel: med.amountLabel),
+                      // نوعه (طلب المدير، ٤ أكتوبر ٢٠٢٦) — كتابة من غير جدولة
+                      Text(
+                        'نوعه؟ (لو حابب)',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: F.s8,
+                        runSpacing: F.s8,
+                        children: [
+                          for (final f in MedicineForm.values)
+                            AnchorChip(
+                              key: ValueKey('edit-form-${f.name}'),
+                              label: f.label,
+                              selected: med.form == f.wire,
+                              onTap: () => AppScope.of(context)
+                                  .medicationSaves
+                                  .setForm(med.id, med.form == f.wire ? null : f),
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: F.gap),
+                      // المرهم والبخاخة مالهمش مخزون (قرار المالك)
+                      if (formTracksStock(med.form)) ...[
+                        StockSection(medicationId: med.id, name: med.name, amountLabel: med.amountLabel, form: med.form),
+                        const SizedBox(height: F.gap),
+                      ],
                       FutureBuilder<File?>(
                         future: AppScope.of(context).medPhotoStore.fileFor(med.photoPath ?? ''),
                         builder: (context, file) => MedPhotoSlot(

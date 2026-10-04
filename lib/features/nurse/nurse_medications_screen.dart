@@ -16,7 +16,6 @@ import '../../data/care/caregiver_remote.dart';
 import '../../domain/care/medication_change.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/medication_purpose.dart';
-import '../../domain/medication/stock.dart' show stockUnitOf;
 import '../medication/nurse_draft.dart';
 import '../medication/refill_actions.dart' show showRestockSheet;
 import 'nurse_actions.dart';
@@ -152,7 +151,7 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
   }
 
   Future<void> _restock(CaregiverMedication med) async {
-    final added = await showRestockSheet(context, name: med.name, unit: stockUnitOf(med.amountLabel));
+    final added = await showRestockSheet(context, name: med.name, unit: med.stockUnit);
     if (added == null || !mounted) return;
     await _c.submit(
       kind: MedicationChangeKind.restock,
@@ -362,7 +361,7 @@ class _MedicationCard extends StatelessWidget {
               ),
             ],
             if (med.stopped) line('الحالة', 'موقوف'),
-            if (onRestock != null && med.stockQuantity != null) ...[
+            if (onRestock != null && med.tracksStock && med.stockQuantity != null) ...[
               const SizedBox(height: F.s8),
               FSecondaryButton(
                 key: ValueKey('nurse-restock-${med.uuid}'),
@@ -370,7 +369,7 @@ class _MedicationCard extends StatelessWidget {
                 onPressed: onRestock,
               ),
             ],
-            if (onSetStock != null) ...[
+            if (onSetStock != null && med.tracksStock) ...[
               const SizedBox(height: F.s8),
               FSecondaryButton(
                 key: ValueKey('nurse-set-stock-${med.uuid}'),

@@ -349,6 +349,10 @@ class Medications extends Table with SyncIdentity {
   /// الجرعات بتبدأ زي ما «هتبدأ الدوا من إمتى؟» قالت. محلي، مش في الدفع.
   DateTimeColumn get notBoughtAt => dateTime().nullable()();
 
+  /// نوع الدوا (v32) — `MedicineForm.wire` (قرص، كبسولة…). null = ما اتحددش
+  /// (كل القديم)، والوحدة بتفضل من كلام الجرعة. بيتدفع للدائرة (0038).
+  TextColumn get form => text().nullable()();
+
   /// null معناها الدوا لسه شغّال.
   ///
   /// العمود ده ما بيتكتبش غير من `stopMedication` — يعني بإيد إنسان. مفيش

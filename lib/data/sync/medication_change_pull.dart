@@ -30,6 +30,7 @@ import '../services/checkup_service.dart';
 import '../services/medication_save_service.dart';
 import '../services/reminder_scheduler.dart';
 import 'change_undo.dart';
+import '../../domain/medication/medicine_form.dart';
 
 /// **سحبة تغييرات الأدوية اللي اقترحها ممرض** (المرحلة ب) لموبايل الأب.
 ///
@@ -341,6 +342,7 @@ class MedicationChangePuller {
           instructions: p.instructions,
           days: _pattern(p),
           mealRelation: MealRelation.fromStorage(p.mealRelation),
+          form: MedicineForm.fromWire(p.form),
         );
         return (outcome: ChangeOutcome.applied, notice: _notice(change, medicationId: id, detail: timesLine(p.timings)));
       case MedicationChangeKind.timings:
