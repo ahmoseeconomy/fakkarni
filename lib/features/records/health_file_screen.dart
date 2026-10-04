@@ -2,7 +2,17 @@ import '../../domain/scheduling/minute_of_day.dart';
 import '../medication/dose_editor.dart' show QuickTimeChips;
 import '../../core/widgets/f_wheels.dart';
 import '../voice/help_button.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../ai/appointment_paper_reader.dart';
+import '../../ai/prescription_reader.dart' show PrescriptionReadException;
+import '../../core/diagnostics.dart';
+import '../../domain/billing/family_plan.dart' show AppFeature;
+import '../billing/feature_gate.dart';
+import '../scan/scan_prescription_screen.dart' show PickImage, pickWithSystemCamera;
 
 import '../medication/not_bought.dart';
 
@@ -48,6 +58,10 @@ import 'record_kinds.dart';
 /// المسح بيمسح: الصف بيختفي من هنا في لحظته. مفيش شاشة
 /// «محذوفات» — الكلام ما بيوعدش بيها. «استخراج الملف» بييجي في D3.8،
 /// و«نشطة/منتهية» بتاعة التصميم جاية من الأدوية مش السجلات فمش هنا.
+/// اختيار صورة ورقة الميعاد — **من غير ما الملف يفضل** (الصورة مش بتتحفظ).
+/// متغيّر عشان الاختبارات تبدّله.
+PickImage pickAppointmentPaper = (source) => pickWithSystemCamera(source, deleteFile: true);
+
 class HealthFileScreen extends StatefulWidget {
   const HealthFileScreen({this.today, super.key});
 
@@ -88,18 +102,19 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
         MaterialPageRoute<void>(builder: (_) => CheckupScreen(recordId: id)),
       );
 
-  /// اسم الفحص (والدكتور لو معروف) → مرحلة ١ «طلب الطبيب».
-  /// **تلات طرق تبدأ بيها متابعة** — من الملف، من صورة جديدة، أو بالإيد.
+  /// «عندي روشتة/تقرير — ابدأ منها»: من ورقة في الملف، أو صورة بتتقري
+  /// **للميعاد بس**. الكتابة بالإيد مش هنا — هي ورقة «ميعاد جديد» نفسها.
   Future<void> _startFollowUp(FollowKind kind) async {
-    final way = await askStartWay(context, kind);
+    final reader = AppScope.of(context).appointmentPaperReader;
+    final way = await askStartWay(context, kind, canRead: reader != null);
     if (way == null || !mounted) return;
     switch (way) {
       case StartFollowUpWay.fromFile:
         await _startFromFile(kind);
-      case StartFollowUpWay.fromPhoto:
-        await _startFromPhoto(kind);
-      case StartFollowUpWay.byHand:
-        await _startByHand(kind);
+      case StartFollowUpWay.fromCamera:
+        await _appointmentFromPaper(kind, ImageSource.camera);
+      case StartFollowUpWay.fromGallery:
+        await _appointmentFromPaper(kind, ImageSource.gallery);
     }
   }
 
@@ -117,10 +132,65 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
     await _startFrom(picked.recordId, kind);
   }
 
-  Future<void> _startFromPhoto(FollowKind kind) async {
-    final recordId = await scanForFollowUp(context, kind, today: widget.today);
-    if (recordId == null || !mounted) return;
-    await _startFrom(recordId, kind);
+  /// صورة الورقة ← اسم الدكتور والميعاد الجاي ← ورقة «ميعاد جديد» **متعبّية**
+  /// والحفظ بزرارها (القاعدة ٤). **ولا دوا بيتضاف، ولا الصورة بتتحفظ.**
+  /// مفيش ميعاد جاي مكتوب = جملة واحدة و«ضيفه بإيدك».
+  Future<void> _appointmentFromPaper(FollowKind kind, ImageSource source) async {
+    final reader = AppScope.of(context).appointmentPaperReader;
+    if (reader == null) return;
+    if (!await ensureFamilyFeature(context, AppFeature.scans) || !mounted) return;
+    final image = await pickAppointmentPaper(source);
+    if (image == null || !mounted) return;
+    final today = widget.today ?? DateTime.now();
+    final navigator = Navigator.of(context);
+    unawaited(showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ReadingPaperDialog(),
+    ));
+    AppointmentPaperReading? reading;
+    String? failure;
+    try {
+      reading = await reader.read(image);
+    } on Exception catch (e) {
+      // اللي اتقرا عمره ما يتسجّل — نوع العطل بس
+      diag('Appointment: قراية الورقة وقعت — ${e.runtimeType}');
+      failure = e is PrescriptionReadException ? e.message : appointmentPaperUnreadable;
+    }
+    navigator.pop();
+    if (!mounted) return;
+    final lab = kind == FollowKind.lab;
+    if (reading == null || !reading.hasUpcoming(today)) {
+      final message = failure ??
+          (reading != null && reading.date != null && !reading.highConfidence
+              ? appointmentPaperUnreadable
+              : noUpcomingAppointment(lab: lab));
+      final byHand = await FSheet.show<bool>(
+        context,
+        title: lab ? 'التقرير' : 'الروشتة',
+        children: [
+          Text(message,
+              key: const ValueKey('paper-no-appointment'),
+              style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+          const SizedBox(height: F.gap),
+          FPrimaryButton(
+            key: const ValueKey('paper-add-by-hand'),
+            label: 'ضيفه بإيدك',
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      );
+      if (byHand == true && mounted) await _newAppointment(initialKind: kind, allowFromPaper: false);
+      return;
+    }
+    await _newAppointment(
+      initialKind: kind,
+      initialName: reading.name,
+      initialDay: reading.date,
+      initialTime: reading.time,
+      allowFromPaper: false,
+      title: 'راجع الميعاد',
+    );
   }
 
   Future<void> _startFrom(int sourceId, FollowKind kind) async {
@@ -146,23 +216,6 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
     if (mounted) _openCheckup(id);
   }
 
-  Future<void> _startByHand(FollowKind kind) async {
-    final services = AppScope.of(context);
-    final result = await showDialog<({String title, String doctor})>(
-      context: context,
-      builder: (_) => _StartCheckupDialog(kind: kind),
-    );
-    if (result == null || result.title.trim().isEmpty || !mounted) return;
-    final id = await services.checkups.start(
-      patientId: services.patientId,
-      kind: kind,
-      title: result.title,
-      doctor: result.doctor,
-      today: widget.today ?? DateTime.now(),
-    );
-    if (mounted) _openCheckup(id);
-  }
-
 
   /// مدخل لكل نوع فيه سجلات، بعدده — والدوسة بتفتح «الحالات السابقة»
   /// على النوع ده.
@@ -172,12 +225,28 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   /// «ميعاد جديد» — سؤالين (دكتور ولا معمل؟ وإمتى؟) والتذكير بيتعمل تحت
   /// من نفس سكّة المتابعة. **مفيش سجل «حجز» بيتكتب من غير تذكير** — ده
   /// الباب اللي كان بيوقّع الراجل قبل كده.
-  Future<void> _newAppointment() async {
+  Future<void> _newAppointment({
+    FollowKind? initialKind,
+    String? initialName,
+    DateTime? initialDay,
+    MinuteOfDay? initialTime,
+    bool allowFromPaper = true,
+    String title = 'ميعاد جديد',
+  }) async {
     final today = widget.today ?? DateTime.now();
     final result = await FSheet.show<NewAppointmentResult>(
       context,
-      title: 'ميعاد جديد',
-      children: [NewAppointmentBody(today: DateTime(today.year, today.month, today.day))],
+      title: title,
+      children: [
+        NewAppointmentBody(
+          today: DateTime(today.year, today.month, today.day),
+          initialKind: initialKind,
+          initialName: initialName,
+          initialDay: initialDay,
+          initialTime: initialTime,
+          allowFromPaper: allowFromPaper,
+        ),
+      ],
     );
     if (result == null || !mounted) return;
     if (result.fromPaper) {
@@ -972,70 +1041,22 @@ class RecordSummary extends StatelessWidget {
   }
 }
 
-class _StartCheckupDialog extends StatefulWidget {
-  const _StartCheckupDialog({required this.kind});
-
-  final FollowKind kind;
-
-  @override
-  State<_StartCheckupDialog> createState() => _StartCheckupDialogState();
-}
-
-class _StartCheckupDialogState extends State<_StartCheckupDialog> {
-  final _title = TextEditingController();
-  final _doctor = TextEditingController();
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _doctor.dispose();
-    super.dispose();
-  }
+/// «بيقرا الورقة…» وإحنا مستنيين الرد — مفيش زرار، الرد بيقفله.
+class _ReadingPaperDialog extends StatelessWidget {
+  const _ReadingPaperDialog();
 
   @override
   Widget build(BuildContext context) => AlertDialog(
         backgroundColor: F.dialogGround,
-        title: Text(
-          widget.kind == FollowKind.lab ? 'متابعة تحليل جديدة' : 'متابعة زيارة جديدة',
-          style: const TextStyle(fontSize: F.subtitleSize, fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        content: Row(
           children: [
-            TextField(
-              textInputAction: TextInputAction.next,
-              key: const ValueKey('checkup-title'),
-              controller: _title,
-              style: const TextStyle(fontSize: F.minBodySize),
-              decoration: InputDecoration(
-                labelText: widget.kind == FollowKind.lab ? 'اسم الفحص' : 'الزيارة عند مين؟',
-                hintText: widget.kind == FollowKind.lab ? 'مثلاً: صورة دم كاملة' : 'مثلاً: د. حسام',
-              ),
+            const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+            const SizedBox(width: F.s12),
+            Expanded(
+              child: Text('بيقرا الورقة…',
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
             ),
-            // الزيارة اسمها هو الدكتور نفسه، فمفيش حقل تاني يتكتب مرتين.
-            if (widget.kind == FollowKind.lab)
-              TextField(
-                textInputAction: TextInputAction.done,
-                controller: _doctor,
-                style: const TextStyle(fontSize: F.minBodySize),
-                decoration: const InputDecoration(labelText: 'الدكتور اللي طلبه'),
-              ),
           ],
         ),
-        actions: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FPrimaryButton(
-                key: const ValueKey('checkup-start'),
-                label: 'ابدأ',
-                onPressed: () => Navigator.of(context).pop((
-                  title: _title.text,
-                  doctor: widget.kind == FollowKind.lab ? _doctor.text : _title.text,
-                )),
-              ),
-            ],
-          ),
-        ],
       );
 }

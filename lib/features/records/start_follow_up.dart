@@ -11,8 +11,6 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../domain/health/follow_display.dart';
 import '../../domain/health/follow_up.dart';
-import '../health/scan_lab_screen.dart';
-import '../scan/scan_prescription_screen.dart';
 
 /// **تلات طرق تبدأ بيها متابعة، بالترتيب ده — واللي في الملف الأول.**
 ///
@@ -21,7 +19,11 @@ import '../scan/scan_prescription_screen.dart';
 /// جديد بعده، والكتابة بالإيد آخر حاجة — مش لأنها أقل، لأنها أتعب.
 ///
 /// ولا واحدة فيهم بتبدأ متابعة من غير دوسة إنسان (القاعدة ٤).
-enum StartFollowUpWay { fromFile, fromPhoto, byHand }
+/// **«اكتبه بإيدي» اتشال من هنا** (طلب المدير، ٤ أكتوبر ٢٠٢٦): الإدخال
+/// بالإيد موجود خلاص على ورقة «ميعاد جديد» نفسها، والباب ده كان تاني لنفس
+/// الحاجة. والتصوير بقى بيقرا **اسم الدكتور والميعاد الجاي وبس** —
+/// (`AppointmentPaperReader`) — مش الروشتة كاملة بأدويتها.
+enum StartFollowUpWay { fromFile, fromCamera, fromGallery }
 
 /// السجلات اللي ينفع تبدأ منها متابعة من النوع ده.
 ///
@@ -51,7 +53,11 @@ String followTitleFrom(FollowKind kind, RecordRow source) => followDisplayTitle(
     );
 
 /// بيسأل: تبدأ منين؟ وبيرجّع الاختيار، أو null لو قفلها.
-Future<StartFollowUpWay?> askStartWay(BuildContext context, FollowKind kind) => FSheet.show<StartFollowUpWay>(
+///
+/// [canRead]: من غير مفتاح القراية مفيش زرار تصوير — زرار بيفتح كاميرا
+/// وبعدين يقول «مش متظبط» أوحش من مفيش زرار.
+Future<StartFollowUpWay?> askStartWay(BuildContext context, FollowKind kind, {bool canRead = true}) =>
+    FSheet.show<StartFollowUpWay>(
       context,
       title: kind.startLabel,
       children: [
@@ -60,16 +66,18 @@ Future<StartFollowUpWay?> askStartWay(BuildContext context, FollowKind kind) => 
           label: kind == FollowKind.lab ? 'من تقرير في الملف' : 'من روشتة في الملف',
           onPressed: () => Navigator.of(context).pop(StartFollowUpWay.fromFile),
         ),
-        FSecondaryButton(
-          key: const ValueKey('follow-from-photo'),
-          label: kind == FollowKind.lab ? 'صوّر تقرير جديد' : 'صوّر روشتة جديدة',
-          onPressed: () => Navigator.of(context).pop(StartFollowUpWay.fromPhoto),
-        ),
-        FSecondaryButton(
-          key: const ValueKey('follow-by-hand'),
-          label: 'اكتبه بإيدي',
-          onPressed: () => Navigator.of(context).pop(StartFollowUpWay.byHand),
-        ),
+        if (canRead) ...[
+          FSecondaryButton(
+            key: const ValueKey('follow-from-photo'),
+            label: kind == FollowKind.lab ? 'صوّر التقرير' : 'صوّر الروشتة',
+            onPressed: () => Navigator.of(context).pop(StartFollowUpWay.fromCamera),
+          ),
+          FSecondaryButton(
+            key: const ValueKey('follow-from-gallery'),
+            label: 'اختار من الصور',
+            onPressed: () => Navigator.of(context).pop(StartFollowUpWay.fromGallery),
+          ),
+        ],
       ],
     );
 
@@ -166,22 +174,4 @@ class _SourceRow extends StatelessWidget {
       ),
     );
   }
-}
-
-/// شاشة التصوير المناسبة للنوع، وبترجّع id السجل اللي اتأكد (أو null).
-Future<int?> scanForFollowUp(BuildContext context, FollowKind kind, {DateTime? today}) async {
-  final services = AppScope.of(context);
-  int? saved;
-  void onSaved(int id) => saved = id;
-  if (!context.mounted) return null;
-  await Navigator.of(context).push<void>(MaterialPageRoute<void>(
-    builder: (_) => kind == FollowKind.lab
-        ? ScanLabScreen(reader: services.labReader, today: today, onSaved: onSaved)
-        : ScanPrescriptionScreen(
-            reader: services.prescriptionReader,
-            today: today,
-            onSaved: onSaved,
-          ),
-  ));
-  return saved;
 }

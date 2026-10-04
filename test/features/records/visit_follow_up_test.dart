@@ -222,22 +222,12 @@ void main() {
     });
   });
 
-  group('الدخول بالإيد', () {
-    screenTest('«تابع زيارة» بالإيد: الاسم هو الدكتور، والمتابعة بتبدأ عند «اتحجزت»', (tester) async {
+  group('مفيش «اكتبه بإيدي» في «عندي روشتة»', () {
+    screenTest('الإدخال بالإيد على ورقة «ميعاد جديد» نفسها — مش باب تاني', (tester) async {
       await openFile(tester);
       await startFollow(tester, 'visit');
-      await tester.tap(find.byKey(const ValueKey('follow-by-hand')));
-      await settle(tester);
-      await tester.enterText(find.byKey(const ValueKey('checkup-title')), 'د. منى');
-      await tester.tap(find.byKey(const ValueKey('checkup-start')));
-      await settle(tester);
-
-      final follow = (await RecordsRepository(h.db).all(h.services.patientId))
-          .firstWhere((r) => r.checkupStage != null);
-      expect(CheckupService.kindOf(follow), FollowKind.visit);
-      expect(CheckupService.stageOf(follow), VisitStage.booked);
-      expect(follow.doctor, 'د. منى');
-      expect(follow.followSourceId, isNull, reason: 'اتكتبت بالإيد، مفيش ورقة جت منها');
+      expect(find.byKey(const ValueKey('follow-by-hand')), findsNothing);
+      expect(find.byKey(const ValueKey('follow-from-file')), findsOneWidget);
     });
   });
 

@@ -10,6 +10,7 @@ import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/health/checkup.dart';
+import 'package:fakkarni/domain/health/follow_up.dart';
 import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/schedule_engine.dart';
@@ -292,39 +293,24 @@ void main() {
     });
 
     screenTest(
-      '«تابع تحليل» من الملف الصحي → الشاشة، و«امسحه» على متابعة عليها تذكير بيلغيه',
+      'متابعة تحليل في الملف الصحي، و«امسحه» على متابعة عليها تذكير بيلغيه',
       (tester) async {
+        // «اكتبه بإيدي» اتشال من «عندي تقرير» (٤ أكتوبر ٢٠٢٦) — المتابعة
+        // بتبدأ من الخدمة نفسها، والاختبار عن الشاشة والمسح.
+        final id = await h.services.checkups.start(
+          patientId: h.services.patientId,
+          kind: FollowKind.lab,
+          title: 'صورة دم كاملة',
+          today: sep15,
+        );
         await h.pump(tester, HealthFileScreen(today: sep15));
         await settle(tester);
-        // «ميعاد جديد» → «معمل» → «عندي تقرير» → الطرق التلاتة القديمة
-        await tester.tap(find.byKey(const ValueKey('new-appointment')));
-        await settle(tester);
-        await tester.tap(find.byKey(const ValueKey('new-appt-lab')));
-        await settle(tester);
-        await tester.tap(find.byKey(const ValueKey('start-follow-lab')));
-        await settle(tester);
-        // تلات طرق دلوقتي — دي بتاعة الكتابة بالإيد
-        await tester.tap(find.byKey(const ValueKey('follow-by-hand')));
-        await settle(tester);
-        await tester.enterText(
-          find.byKey(const ValueKey('checkup-title')),
-          'صورة دم كاملة',
-        );
-        await tester.tap(find.byKey(const ValueKey('checkup-start')));
-        await settle(tester);
-        expect(find.byType(CheckupScreen), findsOneWidget);
-
-        final id = (await RecordsRepository(h.db).all(h.services.patientId))
-            .single
-            .id;
         await h.services.checkups.setFastingReminder(
           id,
           draw: DateTime(2026, 9, 17, 8),
           hours: 8,
           now: sep15,
         );
-        await tester.pageBack();
-        await settle(tester);
         // المتابعة سجل `lab` — مدخل التحاليل ورا «فلتر»
         await tester.tap(find.byKey(const ValueKey('records-filter')));
         await settle(tester);
