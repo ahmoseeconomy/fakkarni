@@ -71,7 +71,6 @@ void main() {
     for (final t in ['٧:٠٠ ص', '٧:٣٠ ص', '٢:٣٠ م', '٨:٠٠ م']) {
       expect(rule, contains(t), reason: 'الجرعة $t اتشالت من السطر');
     }
-    expect(find.text('دوا واحد'), findsOneWidget);
   });
 
   test('ملف التصدير بيقول «٤× في اليوم» — مش ١×', () async {

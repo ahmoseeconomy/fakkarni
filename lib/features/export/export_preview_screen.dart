@@ -104,8 +104,9 @@ class _ExportPreviewScreenState extends State<ExportPreviewScreen> {
           const SizedBox(height: F.s12),
           for (final (i, page) in _pages.indexed) ...[
             DecoratedBox(
-              // الصفحة شفافة — ورقة بيضا وراها زي ما هتتفتح عند اللي هيستلمها
-              decoration: BoxDecoration(color: F.pageGround, border: Border.all(color: F.line), boxShadow: F.shadowCard),
+              // الصفحة شفافة — ورقة بيضا وراها زي ما هتتفتح عند اللي هيستلمها،
+              // **بيضا بالليل كمان** (pageGround بيغمق، والكلام كان بيختفي)
+              decoration: BoxDecoration(color: F.paperGround, border: Border.all(color: F.line), boxShadow: F.shadowCard),
               child: Image.memory(page, key: ValueKey('preview-page-$i'), gaplessPlayback: true),
             ),
             const SizedBox(height: F.s12),

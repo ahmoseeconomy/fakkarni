@@ -75,6 +75,11 @@ abstract final class F {
   static Color get medGroupAntibioticInk => _mode(const Color(0xFF4F6475), const Color(0xFFA7B9C7));
   static Color get medGroupAntibioticTint => _mode(const Color(0xFFE7ECF1), const Color(0xFF1D252C));
 
+  /// **الورقة** — أرضية صفحات الـPDF في «معاينة الملف». ثابتة بيضا في الوضعين:
+  /// الصفحة شفافة وكلامها غامق، وكانت قاعدة على `pageGround` اللي بيغمق بالليل
+  /// فالكلام كان بيختفي (المالك، ٤ أكتوبر ٢٠٢٦). المعاينة = اللي هيتطبع.
+  static const paperGround = white;
+
   /// رمادي الكروت من المخططات (٠٤-home) — الكارت بيبان على الأبيض من غير حد.
   static const cardGrey = Color(0xFFEFEFEF);
 
@@ -368,20 +373,25 @@ abstract final class F {
   static const fadeDuration = Duration(milliseconds: 150);
 
   // -------------------------------------------------------------- الخطوط
-  /// العناوين والعلامة.
-  static const displayFamily = 'Alexandria';
+  /// **Cairo — خط واحد للتطبيق كله** (المالك، ٤ أكتوبر ٢٠٢٦): العناوين
+  /// والمتن، عربي ولاتيني. كان Alexandria للعناوين وIBM Plex Sans Arabic
+  /// للمتن. الاسمين فاضلين عشان الشاشات بتقول «ده عنوان» و«ده متن» — والقيمة
+  /// واحدة. ملحوظتين: سطر Cairo الطبيعي أطول (١٫٨٧ من حجم الخط مقابل ١٫٥
+  /// لـPlex) — النص اللي محدّد `height` ما بيتأثرش؛ ومفيهوش «✓»، فبيترسم بخط
+  /// الموبايل (قرار المالك).
+  static const displayFamily = 'Cairo';
 
   /// كل نصوص الواجهة.
-  static const bodyFamily = 'IBM Plex Sans Arabic';
+  static const bodyFamily = 'Cairo';
 
-  /// **أسماء الأدوية والأرقام بخط التطبيق نفسه** (المالك، ٢٨ سبتمبر ٢٠٢٦): IBM
-  /// Plex Sans Arabic فيه حروف لاتيني، فمفيش سبب لخط mono. الاحتياطي خطوط
-  /// التطبيق بس — عمره ما يوقع على خط mono بتاع النظام.
-  static const fontFallback = <String>[bodyFamily, displayFamily];
+  /// **أسماء الأدوية والأرقام بخط التطبيق نفسه** (المالك، ٢٨ سبتمبر ٢٠٢٦):
+  /// Cairo فيه لاتيني، فمفيش سبب لخط mono. الاحتياطي خط التطبيق بس — عمره ما
+  /// يوقع على خط mono بتاع النظام.
+  static const fontFallback = <String>[bodyFamily];
 
   /// mono — **لشاشات المطوّر بس** (سجل التشخيص ولوحة القراية). ولا شاشة مريض.
   static const monoFamily = 'IBM Plex Mono';
-  static const monoFallback = <String>[bodyFamily, displayFamily];
+  static const monoFallback = <String>[bodyFamily];
 
   /// الثيم بيتبني من قيم **الوضع الحالي** — نفس الاسم في النهار والليل،
   /// والجذر بيعيد البناء لما [darkMode] تتغيّر.

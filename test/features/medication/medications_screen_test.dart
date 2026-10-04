@@ -55,7 +55,7 @@ void main() {
 
   double y(WidgetTester tester, Finder f) => tester.getCenter(f).dy;
 
-  screenTest('العنوان «أدويتك» والعدد تحته — الموقوف مش محسوب', (tester) async {
+  screenTest('العنوان «أدويتك» على اليمين — ومن غير سطر عدد تحته (المالك)', (tester) async {
     await add('Concor 5 mg', FixedTiming(MinuteOfDay.hm(9)), amount: 'قرص', purpose: MedicationPurpose.pressure);
     await add('Glucophage 500 mg', FixedTiming(MinuteOfDay.hm(9)), amount: 'قرص', purpose: MedicationPurpose.sugar);
     final stopped = await add('Telfast 180 mg', FixedTiming(MinuteOfDay.hm(20)), amount: 'قرص');
@@ -63,7 +63,12 @@ void main() {
     await pump(tester);
 
     expect(find.text('أدويتك'), findsOneWidget);
-    expect(find.text('دواءين'), findsOneWidget, reason: 'العدد للشغّال بس (قرار المالك)');
+    final title = tester.getRect(find.text('أدويتك'));
+    final list = tester.getRect(find.byType(ListView));
+    expect(title.right, closeTo(list.right - F.gap, 1.5), reason: 'العنوان على البداية (اليمين)');
+    for (final count in ['دواءين', 'دوا واحد', '٢ أدوية', '٣ أدوية']) {
+      expect(find.text(count), findsNothing, reason: 'سطر العدد اتشال');
+    }
     expect(find.byIcon(Icons.arrow_back), findsNothing, reason: 'تبويب — مفيش رجوع');
     expect(find.byIcon(Icons.arrow_back_ios), findsNothing);
   });
@@ -117,7 +122,6 @@ void main() {
     expect(tester.widget<Text>(find.byKey(ValueKey('med-times-$id'))).data, '٨:٠٠ ص و٨:٠٠ م');
     expect(y(tester, find.byKey(ValueKey('med-dose-$id'))), lessThan(y(tester, find.byKey(ValueKey('med-times-$id')))));
     expect(find.byKey(ValueKey('med-extra-$id')), findsNothing, reason: 'مفيش كلمة أكل ولا أيام — مفيش سطر تالت');
-    expect(find.text('دوا واحد'), findsOneWidget);
   });
 
   screenTest('الجرعة مش معروفة في سطر والساعة تحته، وكلمة الأكل في سطر تالت', (tester) async {

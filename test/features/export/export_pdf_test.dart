@@ -6,6 +6,8 @@ import 'package:drift/native.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/theme/tokens.dart';
+
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/emergency_repository.dart';
@@ -133,8 +135,8 @@ void main() {
       ),
     );
     fonts = PdfFonts.fromBytes(
-      ByteData.sublistView(File('assets/fonts/IBMPlexSansArabic-Regular.ttf').readAsBytesSync()),
-      ByteData.sublistView(File('assets/fonts/IBMPlexSansArabic-Bold.ttf').readAsBytesSync()),
+      ByteData.sublistView(File('assets/fonts/pdf/CairoPdf-Regular.ttf').readAsBytesSync()),
+      ByteData.sublistView(File('assets/fonts/pdf/CairoPdf-Bold.ttf').readAsBytesSync()),
     );
   });
   tearDown(() => db.close());
@@ -157,6 +159,16 @@ void main() {
     for (final token in ['Xatral', 'HbA1c', 'Chest CT', 'Penicillin', 'O+', '١٥٢']) {
       expect(text.contains(token), isTrue, reason: 'لو البحث ما لقاش «$token» وهو ظاهر، الاختبار اللي بعده مالوش معنى');
     }
+  });
+
+  test('الملف نفسه ما بيتغيّرش مع الوضع الليلي — نفس البايتس', () async {
+    final day = await build(ExportSection.values.toSet());
+    F.setDark(on: true);
+    addTearDown(() => F.setDark(on: false));
+    final night = await build(ExportSection.values.toSet());
+    // مكتبة pdf بتحط /ID عشوائي في كل ملف — غيره لازم يتطابق بايت ببايت
+    String stable(Uint8List b) => latin1.decode(b).replaceAll(RegExp(r'/ID\s*\[[^\]]*\]'), '');
+    expect(stable(night), stable(day), reason: 'الليل بيغيّر المعاينة بس، مش الملف اللي بيتطبع ويتشارك');
   });
 
   test('القسم المخفي مش موجود في ملف الـPDF أصلاً — مش مستخبي', () async {

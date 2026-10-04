@@ -17,23 +17,34 @@ void main() {
           .allMatches(pubspec)
           .map((m) => m.group(1)!)
           .toList();
-      expect(assets.length, 8, reason: 'Alexandria ٢ + Plex Sans Arabic ٤ + Plex Mono ٢');
+      expect(assets.length, 7, reason: 'Cairo ٥ + Plex Mono ٢ (لشاشتين المطوّر)');
       for (final path in assets) {
         expect(File(path).existsSync(), isTrue, reason: path);
         expect(File(path).lengthSync(), greaterThan(50000), reason: '$path مش فاضي');
       }
     });
 
-    test('Alexandria الاتنين static — وزن ٥٠٠ و٧٠٠ ملفّين مختلفين', () {
-      // ملف variable واحد كان هيخلّي Bold = Medium على الجهاز
-      final medium = File('assets/fonts/Alexandria-Medium.ttf').readAsBytesSync();
-      final bold = File('assets/fonts/Alexandria-Bold.ttf').readAsBytesSync();
-      expect(medium, isNot(equals(bold)));
-      // جدول fvar هو علامة الخط المتغيّر — مش موجود في أي منهم
-      for (final bytes in [medium, bold]) {
-        final head = String.fromCharCodes(bytes.take(4096));
-        expect(head.contains('fvar'), isFalse, reason: 'static مش variable');
+    test('Cairo static — خمس أوزان، كل وزن ملف مختلف ومفيش ولا واحد variable', () {
+      // ملف variable واحد كان هيخلّي Bold = Regular على الجهاز
+      final files = ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']
+          .map((w) => File('assets/fonts/Cairo-$w.ttf').readAsBytesSync())
+          .toList();
+      for (var i = 0; i < files.length; i++) {
+        for (var j = i + 1; j < files.length; j++) {
+          expect(files[i], isNot(equals(files[j])));
+        }
+        // جدول fvar هو علامة الخط المتغيّر
+        expect(String.fromCharCodes(files[i].take(4096)).contains('fvar'), isFalse, reason: 'static مش variable');
       }
+      expect(File('assets/fonts/OFL-Cairo.txt').existsSync(), isTrue, reason: 'الرخصة جنب الخط');
+    });
+
+    test('خط واحد للتطبيق: العناوين والمتن Cairo، وmono لشاشات المطوّر بس', () {
+      expect(F.displayFamily, 'Cairo');
+      expect(F.bodyFamily, 'Cairo');
+      final pubspec = File('pubspec.yaml').readAsStringSync();
+      expect(pubspec, isNot(contains('Alexandria')));
+      expect(pubspec, isNot(contains('IBMPlexSansArabic')));
     });
 
     test('العائلات في الثيم هي هي اللي في pubspec', () {

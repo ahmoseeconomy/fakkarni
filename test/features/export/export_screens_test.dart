@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/core/theme/tokens.dart';
+
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/repositories/emergency_repository.dart';
 import 'package:fakkarni/data/repositories/lab_results_repository.dart';
@@ -66,8 +68,8 @@ void main() {
   final sep15 = DateTime(2026, 9, 15, 10);
 
   PdfFonts fonts() => PdfFonts.fromBytes(
-        ByteData.sublistView(File('assets/fonts/IBMPlexSansArabic-Regular.ttf').readAsBytesSync()),
-        ByteData.sublistView(File('assets/fonts/IBMPlexSansArabic-Bold.ttf').readAsBytesSync()),
+        ByteData.sublistView(File('assets/fonts/pdf/CairoPdf-Regular.ttf').readAsBytesSync()),
+        ByteData.sublistView(File('assets/fonts/pdf/CairoPdf-Bold.ttf').readAsBytesSync()),
       );
 
   Future<void> seed() async {
@@ -211,6 +213,33 @@ void main() {
       expect(actions.shared, same(actions.rasterized), reason: 'واللي اتشارك');
       expect(find.byKey(const ValueKey('saved-path')), findsOneWidget);
     });
+
+    // المالك (٤ أكتوبر ٢٠٢٦): الصفحة شفافة، وكانت قاعدة على أرضية الصفحة اللي
+    // بتغمق بالليل — فكلام الملف كله كان بيختفي. دلوقتي ورقة بيضا في الوضعين.
+    for (final dark in [false, true]) {
+      screenTest('صفحات المعاينة على ورقة بيضا — ${dark ? 'بالليل' : 'بالنهار'}', (tester) async {
+        F.setDark(on: dark);
+        addTearDown(() => F.setDark(on: false));
+        await seed();
+        final actions = FakeActions();
+        await h.pump(tester, ExportScreen(actions: actions, fonts: fonts(), now: () => sep15));
+        await settle(tester);
+        await tester.runAsync(() async {
+          await tester.tap(find.byKey(const ValueKey('export-preview')));
+          for (var i = 0; i < 40 && find.byType(ExportPreviewScreen).evaluate().isEmpty; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            await tester.pump();
+          }
+        });
+        await settle(tester);
+
+        final page = find.byKey(const ValueKey('preview-page-0'));
+        expect(page, findsOneWidget);
+        final paper = tester.widget<DecoratedBox>(find.ancestor(of: page, matching: find.byType(DecoratedBox)).first);
+        expect((paper.decoration as BoxDecoration).color, F.white, reason: 'الورقة بيضا مهما كان الوضع');
+        if (dark) expect(F.pageGround, isNot(F.white), reason: 'الحارس ليه معنى بس لو أرضية الليل غامقة');
+      });
+    }
 
     screenTest('لو قايمة المشاركة ما اتفتحتش → المكان مكتوب بوضوح — مش زرار ما بيعملش حاجة', (tester) async {
       final actions = FakeActions()..shareOpens = false;

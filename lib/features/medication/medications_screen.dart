@@ -68,19 +68,24 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
           padding: EdgeInsets.fromLTRB(F.gap, pad.top + F.gap, F.gap, F.gap + pad.bottom),
           children: [
+            // العنوان على اليمين (البداية)، ومن غير سطر عدد تحته (المالك)
             Text(
               'أدويتك',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize + 3, fontWeight: FontWeight.w800, color: F.ink),
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontFamily: F.displayFamily,
+                fontSize: F.screenTitleSize + 3,
+                fontWeight: FontWeight.w800,
+                color: F.ink,
+              ),
             ),
-            const SizedBox(height: F.s4),
-            Text(
-              // الموقوف مش محسوب — العدد لـ«بتاخد إيه دلوقتي» (قرار المالك)
-              active.isEmpty ? 'لسه مفيش أدوية.' : medicineCount(active.length),
-              key: const ValueKey('medicines-count'),
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-            ),
+            if (active.isEmpty) ...[
+              const SizedBox(height: F.s4),
+              Text(
+                'لسه مفيش أدوية.',
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+              ),
+            ],
             for (final g in groups.entries) ...[
               const SizedBox(height: F.gap),
               MedGroupHead(g.key),
@@ -109,14 +114,6 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
   static int _byName(MedicationSummary a, MedicationSummary b) =>
       a.medication.name.toLowerCase().compareTo(b.medication.name.toLowerCase());
 }
-
-/// «٤ أدوية» — العدد بالكلام زي باقي التطبيق.
-String medicineCount(int n) => switch (n) {
-  1 => 'دوا واحد',
-  2 => 'دواءين',
-  _ when n <= 10 => '${arabicNumber(n)} أدوية',
-  _ => '${arabicNumber(n)} دوا',
-};
 
 /// الأدوية الشغّالة بمجموعاتها، بترتيب [MedGroup] (التلاتة اللي في التصميم
 /// الأول)، والمجموعة الفاضية مش موجودة. جوّه المجموعة: بأول ساعة، وبعدين

@@ -49,13 +49,13 @@ Future<void> _loadFonts() async {
     await loader.load();
   }
 
-  await load('IBM Plex Sans Arabic', [
-    'IBMPlexSansArabic-Regular.ttf',
-    'IBMPlexSansArabic-Medium.ttf',
-    'IBMPlexSansArabic-SemiBold.ttf',
-    'IBMPlexSansArabic-Bold.ttf',
+  await load('Cairo', [
+    'Cairo-Regular.ttf',
+    'Cairo-Medium.ttf',
+    'Cairo-SemiBold.ttf',
+    'Cairo-Bold.ttf',
+    'Cairo-ExtraBold.ttf',
   ]);
-  await load('Alexandria', ['Alexandria-Medium.ttf', 'Alexandria-Bold.ttf']);
 }
 
 /// كلمات الروتين والجنس اللي ما ينفعش تظهر على الشاشة دي تاني.

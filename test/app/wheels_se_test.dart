@@ -34,13 +34,13 @@ Future<void> _loadFonts() async {
     await loader.load();
   }
 
-  await load('IBM Plex Sans Arabic', [
-    'IBMPlexSansArabic-Regular.ttf',
-    'IBMPlexSansArabic-Medium.ttf',
-    'IBMPlexSansArabic-SemiBold.ttf',
-    'IBMPlexSansArabic-Bold.ttf',
+  await load('Cairo', [
+    'Cairo-Regular.ttf',
+    'Cairo-Medium.ttf',
+    'Cairo-SemiBold.ttf',
+    'Cairo-Bold.ttf',
+    'Cairo-ExtraBold.ttf',
   ]);
-  await load('Alexandria', ['Alexandria-Medium.ttf', 'Alexandria-Bold.ttf']);
   await load('IBM Plex Mono', ['IBMPlexMono-Medium.ttf', 'IBMPlexMono-SemiBold.ttf']);
 }
 

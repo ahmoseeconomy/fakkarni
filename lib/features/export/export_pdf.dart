@@ -17,8 +17,8 @@ class PdfFonts {
       PdfFonts(regular: pw.Font.ttf(regular), bold: pw.Font.ttf(bold));
 
   static Future<PdfFonts> fromAssets() async => fromBytes(
-        await rootBundle.load('assets/fonts/IBMPlexSansArabic-Regular.ttf'),
-        await rootBundle.load('assets/fonts/IBMPlexSansArabic-Bold.ttf'),
+        await rootBundle.load('assets/fonts/pdf/CairoPdf-Regular.ttf'),
+        await rootBundle.load('assets/fonts/pdf/CairoPdf-Bold.ttf'),
       );
 }
 
