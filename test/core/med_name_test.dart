@@ -96,9 +96,11 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await h.pump(tester, const MedicationsScreen());
-      final row = find.ancestor(of: find.text('concor'), matching: find.byType(NameTimeRow));
-      expect(row, findsOneWidget);
-      expect(tester.getRect(find.text('concor')).right, closeTo(tester.getRect(row).right, 1.5));
+      // «أدويتك» (إعادة التصميم): الاسم MedName لوحده في عمود الصف — والساعات
+      // في سطر القاعدة تحته. الاسم مكتوب كمان على الرسمة، فبندوّر جوّه MedName.
+      final name = find.descendant(of: find.byType(MedName), matching: find.text('concor'));
+      expect(name, findsOneWidget);
+      expect(tester.getRect(name).right, closeTo(tester.getRect(find.byType(MedName)).right, 1.5));
     });
   });
 }

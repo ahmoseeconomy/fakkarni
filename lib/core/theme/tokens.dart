@@ -53,10 +53,27 @@ abstract final class F {
   static const ivoryPale = Color(0xFFF7F5EC);
   static const ivoryDim = Color(0xFFEFEDE3);
 
-  /// لوحة الاسم المرسومة على رسمة نوع الدوا (`MedTypeArt`). الرسمة فاتحة في
-  /// الوضعين، فاللوحة وحبرها **ثابتين** — `ink` كان هيقلب أبيض على أبيض بالليل.
-  static const medArtLabelGround = white;
-  static const medArtLabelInk = inkLight;
+  // ------------------------------------------------- مجموعات «أدويتك»
+  /// أرضية عنوان المجموعة ولون أيقونتها على «أدويتك» (إعادة التصميم، ٤ أكتوبر
+  /// ٢٠٢٦). النص فوقها `ink` دايماً — اللون للأيقونة والأرضية بس.
+  ///
+  /// **الاستثناء التالت من «الأحمر للطوارئ بس»، بقرار صاحب المنتج**: قلب
+  /// أحمر على أرضية وردي في عنوان «للقلب والضغط». ومتحدّد زي اللي قبله: ملف
+  /// واحد (`features/medication/med_groups.dart`)، والاسمين مضافين للنمط
+  /// الممنوع في `red_only_in_emergency_test` — في أي ملف تاني بيوقع.
+  static Color get medGroupHeartInk => _mode(red, const Color(0xFFE8747B));
+  static Color get medGroupHeartTint => _mode(const Color(0xFFFBE4E6), const Color(0xFF3A2226));
+  static Color get medGroupSugarInk => _mode(const Color(0xFF1F6FC4), const Color(0xFF7DB6F0));
+  static Color get medGroupSugarTint => _mode(const Color(0xFFE3EEFA), const Color(0xFF182A3D));
+  static Color get medGroupEyeSkinTint => _mode(const Color(0xFFE4F2EA), const Color(0xFF15291F));
+  static Color get medGroupCholesterolInk => _mode(const Color(0xFF6B4FA0), const Color(0xFFB9A3E0));
+  static Color get medGroupCholesterolTint => _mode(const Color(0xFFEEE9F6), const Color(0xFF241E33));
+  static Color get medGroupStomachInk => _mode(const Color(0xFF8A6A3C), const Color(0xFFD2B58A));
+  static Color get medGroupStomachTint => _mode(const Color(0xFFF4EDE1), const Color(0xFF2B241A));
+  static Color get medGroupVitaminsInk => _mode(const Color(0xFF1F7A72), const Color(0xFF6CC7BD));
+  static Color get medGroupVitaminsTint => _mode(const Color(0xFFE2F3F1), const Color(0xFF142A28));
+  static Color get medGroupAntibioticInk => _mode(const Color(0xFF4F6475), const Color(0xFFA7B9C7));
+  static Color get medGroupAntibioticTint => _mode(const Color(0xFFE7ECF1), const Color(0xFF1D252C));
 
   /// رمادي الكروت من المخططات (٠٤-home) — الكارت بيبان على الأبيض من غير حد.
   static const cardGrey = Color(0xFFEFEFEF);

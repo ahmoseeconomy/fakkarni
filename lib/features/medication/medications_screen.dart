@@ -1,32 +1,31 @@
 import 'package:flutter/material.dart';
 
-import '../../core/widgets/med_name.dart';
-
-import 'med_photo.dart';
-import '../../domain/scheduling/day_pattern.dart';
-
 import '../../app/app_scope.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/widgets/med_name.dart';
 import '../../data/repositories/medication_repository.dart';
+import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
+import '../../domain/scheduling/day_pattern.dart';
 import '../../domain/scheduling/dose_schedule.dart';
-import '../../domain/scheduling/schedule_engine.dart';
-import '../../core/widgets/f_sheet.dart';
-import '../../core/widgets/primitives.dart';
 import 'add_sheet.dart';
 import 'edit_medication_screen.dart';
+import 'med_groups.dart';
+import 'med_photo.dart';
 
-/// تبويب «الأدوية» (المخطط 09): الأدوية مجمّعة بالمرساة.
+/// تبويب «أدويتك» (إعادة التصميم، ٤ أكتوبر ٢٠٢٦).
 ///
-/// عنوان كل مجموعة المرساة ووقتها المحسوب من روتين الأب (ده جهازه — هو
-/// الجدول الوحيد)، وتحتها كارت لكل جرعة: الاسم mono، الجرعة أو «الجرعة مش
-/// معروفة» بهدوء، القاعدة، و«عدّل». الدوا الموقوف بيفضل باين في قسم
-/// «موقوفة» رمادي — **ما يختفيش**، نفس مبدأ الجرعة المأخوذة في السكة.
-/// مفيش زرار صوت: الإضافة من «ضيف» في الشريط السفلي.
+/// الأدوية **متجمّعة بالغرض** (`MedGroup`) — كل دوا صف واحد مهما كان عدد
+/// جرعاته، والساعات كلها مكتوبة في سطر القاعدة. صورته هو، أو رسمة نوعه
+/// والاسم مكتوب عليها. على كل صف «تعديل» بس — والإيقاف والرجوع والشيل جوّه
+/// شاشة التعديل. اللي ما اتقالش لإيه في «من غير تصنيف»، والموقوف بيفضل
+/// باين في «موقوفة» آخر الشاشة — **ما يختفيش**، زي الجرعة المأخوذة في السكة.
+/// و«ضيف دوا» تحت بيفتح نفس شيت الدوك.
 class MedicationsScreen extends StatefulWidget {
   const MedicationsScreen({this.today, super.key});
 
-  /// للاختبارات — يوم حساب الأوقات.
+  /// للاختبارات — يوم «هيبدأ يوم …».
   final DateTime? today;
 
   @override
@@ -44,342 +43,205 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     _all = services.medications.watchAllSummaries(services.patientId);
   }
 
-  void _edit(int medicationId) => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => EditMedicationScreen(medicationId: medicationId),
-        ),
-      );
-
-  /// التلات أفعال من زرار واحد: عدّل، وقّفه، شيله.
-  ///
-  /// الفرق بين الاتنين الأخيرين مكتوب على الشيت نفسه، مش متروك للاسم:
-  /// الإيقاف بيتراجع، والشيل لأ.
-  Future<void> _actions(MedicationSummary summary) async {
-    final med = summary.medication;
-    final stopped = med.stoppedAt != null;
-    final services = AppScope.of(context);
-    final navigator = Navigator.of(context);
-
-    await FSheet.show<void>(
-      context,
-      title: med.name,
-      children: [
-        FPrimaryButton(
-          label: 'عدّل',
-          onPressed: () {
-            navigator.pop();
-            _edit(med.id);
-          },
-        ),
-        if (stopped)
-          FSecondaryButton(
-            label: 'رجّعه تاني',
-            onPressed: () async {
-              navigator.pop();
-              await services.medicationSaves.resume(med.id);
-            },
-          )
-        else
-          FSecondaryButton(
-            label: 'وقّفه دلوقتي',
-            onPressed: () async {
-              navigator.pop();
-              // التذكيرات الجاية بتتلغى هنا — جوّه نطاق الجرعات بس.
-              await services.medicationSaves.stop(med.id);
-            },
-          ),
-        FSecondaryButton(
-          label: 'شيله خالص',
-          onPressed: () {
-            navigator.pop();
-            _confirmRemove(summary);
-          },
-        ),
-      ],
-    );
-  }
-
-  /// **سؤال واحد قبل الشيل، والاسم فيه.** الشيل مالوش رجوع، فالتأكيد مش
-  /// تفصيلة: «شيله خالص» على كارت غلط بتشيل دوا المريض بياخده.
-  ///
-  /// الزرار غامق مش أحمر — الأحمر للطوارئ وبس، حتى في الحاجة اللي مالهاش رجوع.
-  Future<void> _confirmRemove(MedicationSummary summary) async {
-    final med = summary.medication;
-    final services = AppScope.of(context);
-    final navigator = Navigator.of(context);
-
-    await FSheet.show<void>(
-      context,
-      title: 'تشيل ${med.name}؟',
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: F.gap),
-          child: Text(
-            'هيختفي من كل القوايم ومن ملف التصدير، وتذكيراته هتقف. '
-            'اللي فات من جرعاته بيفضل في تاريخك. **مفيش رجوع من الخطوة دي** — '
-            'لو ناوي توقفه مؤقتاً، «وقّفه دلوقتي» بترجع.',
-            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
-          ),
-        ),
-        FPrimaryButton(
-          label: 'أيوه، شيله',
-          onPressed: () async {
-            navigator.pop();
-            // شيل الدوا بيشيل صورته كمان — مفيش ملف يتيم
-            await services.medicationSaves.remove(med.id, services.medPhotos);
-            services.syncMedPhotosSoon();
-          },
-        ),
-        FSecondaryButton(label: 'لا، سيبه', onPressed: () => navigator.pop()),
-      ],
-    );
-  }
+  void _edit(int medicationId) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EditMedicationScreen(medicationId: medicationId)));
 
   @override
   Widget build(BuildContext context) {
-    return Builder(
-      builder: (context) {
-        return StreamBuilder<List<MedicationSummary>>(
-          stream: _all,
-          builder: (context, snap) {
-            final all = snap.data ?? const <MedicationSummary>[];
-            final active = [for (final m in all) if (m.medication.stoppedAt == null) m];
-            final stopped = [for (final m in all) if (m.medication.stoppedAt != null) m];
-            final groups = _groupByTime(active, widget.today ?? DateTime.now());
+    final today = widget.today ?? DateTime.now();
+    return StreamBuilder<List<MedicationSummary>>(
+      stream: _all,
+      builder: (context, snap) {
+        final all = snap.data ?? const <MedicationSummary>[];
+        final active = [
+          for (final m in all)
+            if (m.medication.stoppedAt == null) m,
+        ];
+        final stopped = [
+          for (final m in all)
+            if (m.medication.stoppedAt != null) m,
+        ]..sort(_byName);
+        final groups = groupByPurpose(active);
+        final pad = MediaQuery.paddingOf(context);
 
-            return ListView(
-              // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
-              padding: EdgeInsets.fromLTRB(F.gap, MediaQuery.of(context).padding.top + F.gap, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
-              children: [
-                Text(
-                  'جدول الأدوية',
-                  style: TextStyle(
-                    fontFamily: F.displayFamily,
-                    fontSize: F.screenTitleSize,
-                    fontWeight: FontWeight.w700,
-                    color: F.ink,
-                  ),
-                ),
-                const SizedBox(height: F.s4),
-                Text(
-                  // الكارت تحت هو الدعوة — الجملة ما بتشاورش على الدوك
-                  active.isEmpty ? 'لسه مفيش أدوية.' : '${_count(active.length)} — مرتّبة بالساعة',
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-                ),
-                const SizedBox(height: F.s10),
-                // «قريب منك» مكانه حبّاية «القريب مني» على الرئيسية، مش هنا.
-                _AddCard(onTap: () => showAddSheet(context)),
-                for (final group in groups) ...[
-                  const SizedBox(height: F.gap),
-                  _GroupHead(label: group.label, time: group.time),
-                  const SizedBox(height: F.s8),
-                  for (final entry in group.entries) ...[
-                    _MedCard(
-                      today: widget.today ?? DateTime.now(),
-                      summary: entry.summary,
-                      schedule: entry.schedule,
-                      onActions: () => _actions(entry.summary),
-                    ),
-                    const SizedBox(height: F.s8),
-                  ],
-                ],
-                if (stopped.isNotEmpty) ...[
-                  const SizedBox(height: F.gap),
-                  const _GroupHead(label: 'موقوفة', time: null, muted: true),
-                  const SizedBox(height: F.s8),
-                  for (final m in stopped) ...[
-                    _MedCard(summary: m, schedule: null, onActions: () => _actions(m), today: widget.today ?? DateTime.now(), stopped: true),
-                    const SizedBox(height: F.s8),
-                  ],
-                ],
+        return ListView(
+          // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
+          padding: EdgeInsets.fromLTRB(F.gap, pad.top + F.gap, F.gap, F.gap + pad.bottom),
+          children: [
+            Text(
+              'أدويتك',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontFamily: F.displayFamily, fontSize: F.screenTitleSize + 3, fontWeight: FontWeight.w800, color: F.ink),
+            ),
+            const SizedBox(height: F.s4),
+            Text(
+              // الموقوف مش محسوب — العدد لـ«بتاخد إيه دلوقتي» (قرار المالك)
+              active.isEmpty ? 'لسه مفيش أدوية.' : medicineCount(active.length),
+              key: const ValueKey('medicines-count'),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+            ),
+            for (final g in groups.entries) ...[
+              const SizedBox(height: F.gap),
+              MedGroupHead(g.key),
+              for (final (i, m) in g.value.indexed) ...[
+                if (i > 0) Divider(height: 1, thickness: 1, color: F.line),
+                _MedRow(summary: m, today: today, onEdit: () => _edit(m.medication.id)),
               ],
-            );
-          },
+            ],
+            if (stopped.isNotEmpty) ...[
+              const SizedBox(height: F.gap),
+              const MedGroupHead(MedGroup.stopped),
+              for (final (i, m) in stopped.indexed) ...[
+                if (i > 0) Divider(height: 1, thickness: 1, color: F.line),
+                _MedRow(summary: m, today: today, stopped: true, onEdit: () => _edit(m.medication.id)),
+              ],
+            ],
+            const SizedBox(height: F.gap),
+            // «قريب منك» مكانه حبّاية «القريب مني» على الرئيسية، مش هنا.
+            _AddButton(onTap: () => showAddSheet(context)),
+          ],
         );
       },
     );
   }
 
-  static String _count(int n) => switch (n) {
-        1 => 'دوا واحد',
-        2 => 'دواءين',
-        _ when n <= 10 => '${arabicNumber(n)} أدوية',
-        _ => '${arabicNumber(n)} دوا',
-      };
+  static int _byName(MedicationSummary a, MedicationSummary b) =>
+      a.medication.name.toLowerCase().compareTo(b.medication.name.toLowerCase());
+}
 
-  /// كل جرعة تحت ساعتها (الدوا اللي بياخده ٣ مرات بيظهر ٣ مرات — ده جدول).
-  /// الترتيب بالوقت.
-  static List<_Group> _groupByTime(List<MedicationSummary> items, DateTime today) {
-    const engine = ScheduleEngine();
-    final byKey = <int, _Group>{};
-    for (final m in items) {
-      for (final s in m.schedules) {
-        final at = engine.resolve(s, today);
-        byKey.putIfAbsent(s.timing.minuteOfDay.minutes, () => _Group(arabicTime(at), at)).entries.add((summary: m, schedule: s));
-      }
-    }
-    final groups = byKey.values.toList()
-      ..sort((a, b) {
-        if (a.time == null) return 1;
-        if (b.time == null) return -1;
-        return a.time!.compareTo(b.time!);
-      });
-    return groups;
+/// «٤ أدوية» — العدد بالكلام زي باقي التطبيق.
+String medicineCount(int n) => switch (n) {
+  1 => 'دوا واحد',
+  2 => 'دواءين',
+  _ when n <= 10 => '${arabicNumber(n)} أدوية',
+  _ => '${arabicNumber(n)} دوا',
+};
+
+/// الأدوية الشغّالة بمجموعاتها، بترتيب [MedGroup] (التلاتة اللي في التصميم
+/// الأول)، والمجموعة الفاضية مش موجودة. جوّه المجموعة: بأول ساعة، وبعدين
+/// بالاسم.
+Map<MedGroup, List<MedicationSummary>> groupByPurpose(List<MedicationSummary> active) {
+  final by = <MedGroup, List<MedicationSummary>>{};
+  for (final m in active) {
+    by.putIfAbsent(MedGroup.of(MedicationPurpose.fromStorage(m.medication.purpose)), () => []).add(m);
   }
+  int firstMinute(MedicationSummary m) =>
+      m.schedules.isEmpty ? 24 * 60 : m.schedules.map((s) => s.timing.minuteOfDay.minutes).reduce((a, b) => a < b ? a : b);
+  return {
+    for (final g in MedGroup.values)
+      if (by[g] case final list?)
+        g: list
+          ..sort((a, b) {
+            final t = firstMinute(a).compareTo(firstMinute(b));
+            return t != 0 ? t : a.medication.name.toLowerCase().compareTo(b.medication.name.toLowerCase());
+          }),
+  };
 }
 
-class _Group {
-  _Group(this.label, this.time);
-  final String label;
-  final DateTime? time;
-  final List<({MedicationSummary summary, DoseSchedule schedule})> entries = [];
-}
-
-/// عنوان مجموعة: المرساة · الوقت، وخط على الجنب زي التصميم.
-class _GroupHead extends StatelessWidget {
-  const _GroupHead({required this.label, required this.time, this.muted = false});
-
-  final String label;
-  final DateTime? time;
-  final bool muted;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Flexible(
-            child: Text(
-            label,
-            style: TextStyle(
-              fontSize: F.sectionHeadSize,
-              fontWeight: FontWeight.w700,
-              color: muted ? F.mutedDark : F.green,
-            ),
-          ),
-          ),
-          const SizedBox(width: F.s10),
-          Expanded(child: Container(height: 1, color: F.line)),
-        ],
-      );
-}
-
-/// كارت دوا: الاسم mono ٢٤+، الجرعة والقاعدة، و«عدّل». الموقوف رمادي.
-/// كارت «ضيف دوا» — بنفس لغة كروت الشاشة (نفس الزوايا والحشو والحبر، ومن غير
-/// لون جديد)، علامة زايد وكلمتين وبس. بيفتح نفس شيت الدوك.
-class _AddCard extends StatelessWidget {
-  const _AddCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: F.cardGround,
-      borderRadius: BorderRadius.circular(F.radiusCard),
-      child: InkWell(
-        key: const ValueKey('add-medication-card'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: F.minTapTarget),
-          padding: const EdgeInsets.all(F.s14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(F.radiusCard),
-            border: Border.all(color: F.line),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.add, color: F.green, size: 26),
-              const SizedBox(width: F.s10),
-              Text(
-                addSheetTitle,
-                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+/// سطور الجرعة على صف «أدويتك» (المالك، بعد ما شافها على الموبايل): الجرعة
+/// في سطر، والساعات في السطر اللي تحته — من غير شَرطة. كلمة الأكل والأيام
+/// في سطر تالت، بس لو موجودين.
+///
+/// «قرص» / «٨:٠٠ ص و٨:٠٠ م» / «بعد الأكل».
+({String dose, String times, String? extra}) doseLines(MedicationSummary summary) {
+  final med = summary.medication;
+  final schedules = [...summary.schedules]..sort((a, b) => a.timing.minuteOfDay.minutes.compareTo(b.timing.minuteOfDay.minutes));
+  String timeOf(DoseSchedule s) => arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute));
+  final meals = {for (final s in schedules) ?s.ruleLabel}.join(' و');
+  final days = {for (final s in schedules) ?dayPatternLabel(s.days)}.join(' و');
+  final extra = [if (meals.isNotEmpty) meals, if (days.isNotEmpty) days].join(' — ');
+  return (
+    // الجرعة مش معروفة — بهدوء، من غير لوم: سؤال للصيدلي مش غلطة
+    dose: med.amountLabel ?? 'الجرعة مش معروفة',
+    times: {for (final s in schedules) timeOf(s)}.join(' و'),
+    extra: extra.isEmpty ? null : extra,
+  );
 }
 
 /// دوا بدايته لسه جاية: كل جدوله بيبدأ بعد النهارده.
 bool startsLater(MedicationSummary s, DateTime today) =>
     s.schedules.isNotEmpty && s.schedules.every((sch) => !sch.isActiveOn(today) && sch.startDate.isAfter(today));
 
-DateTime firstStartDay(MedicationSummary s) =>
-    s.schedules.map((sch) => sch.startDate).reduce((a, b) => a.isBefore(b) ? a : b);
+DateTime firstStartDay(MedicationSummary s) => s.schedules.map((sch) => sch.startDate).reduce((a, b) => a.isBefore(b) ? a : b);
 
-class _MedCard extends StatelessWidget {
-  const _MedCard({
-    required this.summary,
-    required this.schedule,
-    required this.onActions,
-    required this.today,
-    this.stopped = false,
-  });
+/// مقاس الصورة في الصف (المالك اختار ١٢٠ — قريب من التصميم ١١٥).
+const medRowPictureSize = 120.0;
 
-  /// النهارده — «هيبدأ يوم …» بتتحسب عليه.
-  final DateTime today;
+class _MedRow extends StatelessWidget {
+  const _MedRow({required this.summary, required this.today, required this.onEdit, this.stopped = false});
 
   final MedicationSummary summary;
-
-  /// الجرعة اللي الكارت بيمثّلها في مجموعته — null للموقوف (كل جداوله).
-  final DoseSchedule? schedule;
-  /// زرار واحد بيفتح التلاتة: «عدّل»، «وقّفه دلوقتي»، «شيله خالص».
-  final VoidCallback onActions;
+  final DateTime today;
+  final VoidCallback onEdit;
   final bool stopped;
 
   @override
   Widget build(BuildContext context) {
     final med = summary.medication;
-    // الساعة، وكلمة الأكل لو فيه، والأيام لو مش «كل يوم»
-    String timeOf(DoseSchedule s) => arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute));
-    // ساعة واحدة = بتتكتب في صف الاسم، وسطر القاعدة من غيرها
-    final single = schedule ?? (summary.schedules.length == 1 ? summary.schedules.single : null);
-    String ruleOf(DoseSchedule s) => [
-          if (single == null) timeOf(s),
-          s.ruleLabel,
-          dayPatternLabel(s.days),
-        ].nonNulls.join(' — ');
-    final rule = schedule == null ? summary.schedules.map(ruleOf).join(' + ') : ruleOf(schedule!);
-    return Container(
-      padding: const EdgeInsets.all(F.s14),
-      decoration: BoxDecoration(
-        color: stopped ? F.railGround : F.cardGround,
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        border: Border.all(color: F.line),
-      ),
+    final purpose = MedicationPurpose.fromStorage(med.purpose);
+    final lines = doseLines(summary);
+    return Padding(
+      key: ValueKey('med-row-${med.id}'),
+      padding: const EdgeInsets.symmetric(vertical: F.s12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (med.photoPath != null) ...[
-            MedPhotoThumb(path: med.photoPath, name: med.name, size: 56, fallback: const SizedBox.shrink()),
-            const SizedBox(width: F.s12),
-          ],
+          Opacity(
+            opacity: stopped ? 0.55 : 1,
+            child: MedPhotoThumb(path: med.photoPath, name: med.name, form: MedicineForm.fromWire(med.form), size: medRowPictureSize),
+          ),
+          const SizedBox(width: F.s12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // الاسم يمين، والساعة شمال في نفس الصف لما الدوا ليه ساعة واحدة
-                NameTimeRow(
-                  name: med.name,
-                  // الموقوف ساعته مالهاش معنى — التذكيرات واقفة
-                  time: single == null || stopped ? null : timeOf(single),
-                  nameStyle: TextStyle(
+                MedName(
+                  med.name,
+                  style: TextStyle(
                     fontSize: F.medicationNameSize,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: stopped ? F.mutedDark : F.ink,
                     fontFamily: F.bodyFamily,
                     fontFamilyFallback: F.fontFallback,
                     height: 1.3,
                   ),
-                  timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.9),
                 ),
-                const SizedBox(height: F.s4),
+                if (purpose != null) ...[
+                  const SizedBox(height: F.s6),
+                  Align(alignment: AlignmentDirectional.centerStart, child: MedPurposeChip(purpose)),
+                ],
+                const SizedBox(height: F.s6),
                 Text(
-                  // الجرعة مش معروفة — بهدوء، من غير لوم: سؤال للصيدلي مش غلطة
-                  '${med.amountLabel ?? 'الجرعة مش معروفة'} — $rule',
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                  lines.dose,
+                  key: ValueKey('med-dose-${med.id}'),
+                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
                 ),
+                if (lines.times.isNotEmpty)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        // الساعة أيقونة هادية — الدهبي لـ«محتاجك دلوقتي» بس
+                        child: Icon(Icons.schedule, size: 22, color: F.mutedDark),
+                      ),
+                      const SizedBox(width: F.s6),
+                      Expanded(
+                        child: Text(
+                          lines.times,
+                          key: ValueKey('med-times-${med.id}'),
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (lines.extra case final extra?)
+                  Text(
+                    extra,
+                    key: ValueKey('med-extra-${med.id}'),
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
+                  ),
                 if (!stopped && startsLater(summary, today))
                   Padding(
                     padding: const EdgeInsets.only(top: F.s4),
@@ -391,7 +253,7 @@ class _MedCard extends StatelessWidget {
                   ),
                 if (stopped)
                   Padding(
-                    padding: EdgeInsets.only(top: F.s4),
+                    padding: const EdgeInsets.only(top: F.s4),
                     child: Text(
                       'موقوف — التذكيرات واقفة',
                       style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
@@ -401,25 +263,83 @@ class _MedCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: F.s8),
-          SizedBox(
-            height: F.minTapTarget,
-            child: OutlinedButton.icon(
-              key: ValueKey('med-actions-${summary.medication.id}'),
-              onPressed: onActions,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: F.ink,
-                minimumSize: const Size(0, F.minTapTarget),
-                padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                side: BorderSide(color: F.line, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusTile)),
-              ),
-              icon: const Icon(Icons.tune, size: 22),
-              // كلمة مع الأيقونة — مفيش زرار أيقونة من غير كلمة
-              label: const Text('خيارات', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700)),
-            ),
-          ),
+          Container(width: 1, height: medRowPictureSize * 0.7, color: F.line),
+          const SizedBox(width: F.s4),
+          _EditButton(medicationId: med.id, onTap: onEdit),
         ],
       ),
     );
   }
+}
+
+/// «تعديل» — دايرة بقلم وكلمتها تحتها. مفيش زرار أيقونة من غير كلمة.
+class _EditButton extends StatelessWidget {
+  const _EditButton({required this.medicationId, required this.onTap});
+
+  final int medicationId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'تعديل',
+    excludeSemantics: true,
+    child: Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        key: ValueKey('med-edit-$medicationId'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(F.radiusTile),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 64, minHeight: F.minTapTarget),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: F.s6, horizontal: F.s4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(color: F.medGroupEyeSkinTint, shape: BoxShape.circle),
+                  child: Padding(
+                    padding: const EdgeInsets.all(F.s10),
+                    child: Icon(Icons.edit_outlined, size: 24, color: F.green),
+                  ),
+                ),
+                const SizedBox(height: F.s4),
+                Text(
+                  'تعديل',
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// «ضيف دوا» — أخضر مش مرجاني، علامة زايد وكلمتين. بيفتح نفس شيت الدوك.
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: F.primaryButtonHeight,
+    child: FilledButton.icon(
+      key: const ValueKey('add-medication-card'),
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: F.green,
+        foregroundColor: F.onGreen,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard * 2)),
+      ),
+      icon: const Icon(Icons.add_circle, size: 30),
+      label: const Text(
+        addSheetTitle,
+        style: TextStyle(fontSize: F.minBodySize + 2, fontWeight: FontWeight.w800),
+      ),
+    ),
+  );
 }

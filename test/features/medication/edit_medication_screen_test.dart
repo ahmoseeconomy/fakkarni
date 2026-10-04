@@ -227,19 +227,16 @@ void main() {
   group('من تبويب «الأدوية»', () {
     Future<void> pumpMeds(WidgetTester tester) => h.pump(tester, MedicationsScreen(today: aug31));
 
-    screenTest('«جدول الأدوية»: مجمّع بالساعة، الاسم والجرعة — الساعة، و«عدّل» بيفتح التعديل', (tester) async {
-      await seedTelfast(unknown: false);
+    screenTest('«أدويتك»: الجرعة في سطر والساعة تحتها، و«تعديل» بيفتح التعديل', (tester) async {
+      final id = await seedTelfast(unknown: false);
       await pumpMeds(tester);
 
-      expect(find.text('جدول الأدوية'), findsOneWidget);
-      expect(find.text('٨:٠٠ م'), findsWidgets, reason: 'عنوان المجموعة بالساعة');
-      expect(find.textContaining('قرص واحد'), findsOneWidget);
+      expect(find.text('أدويتك'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(ValueKey('med-dose-$id'))).data, 'قرص واحد');
+      expect(tester.widget<Text>(find.byKey(ValueKey('med-times-$id'))).data, '٨:٠٠ م');
       expect(find.textContaining('العشا'), findsNothing);
 
-      // «خيارات» → شيت التلات أفعال → «عدّل»
-      await tester.tap(find.text('خيارات'));
-      await settle(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'عدّل'));
+      await tester.tap(find.byKey(ValueKey('med-edit-$id')));
       await settle(tester);
       expect(find.byType(EditMedicationScreen), findsOneWidget);
     });
@@ -249,10 +246,10 @@ void main() {
       await h.meds.stopMedication(id);
       await pumpMeds(tester);
 
+      expect(find.byKey(const ValueKey('med-group-stopped')), findsOneWidget);
       expect(find.text('موقوفة'), findsOneWidget);
-      expect(find.text('Telfast 180 mg'), findsOneWidget);
+      expect(find.byKey(ValueKey('med-row-$id')), findsOneWidget);
       expect(find.text('موقوف — التذكيرات واقفة'), findsOneWidget);
-      expect(find.text('٨:٠٠ م'), findsNothing, reason: 'مش في مجموعة ساعة');
     });
 
     screenTest('«جدول النهاردة» مابقاش فيه قايمة «أدويتك»', (tester) async {

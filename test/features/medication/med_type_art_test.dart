@@ -1,21 +1,19 @@
 // رسومات نوع الدوا (الخيار ب، المالك ٤ أكتوبر ٢٠٢٦) والأغراض الجديدة.
 //
-// الرسمة بديل لما مفيش صورة، والاسم بيرسمه التطبيق — على الكبير بس، عشان
-// مفيش نص تحت ١٧. والأغراض بقت بصيغة «لل» و«كلّمني» لسه فاهمها.
+// الرسمة بديل لما مفيش صورة — نضيفة من غير كلام عليها. والأغراض بقت بصيغة
+// «لل» و«كلّمني» لسه فاهمها.
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fakkarni/core/theme/tokens.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
 import 'package:fakkarni/domain/medication/medicine_form.dart';
 import 'package:fakkarni/features/medication/med_photo.dart';
 import 'package:fakkarni/features/medication/med_type_art.dart';
 import 'package:fakkarni/features/voice/command_parser.dart';
 
-import '../../support/contrast_audit.dart';
 
 Widget _host(Widget child) => MaterialApp(
       home: Directionality(
@@ -61,45 +59,23 @@ void main() {
       expect(File('pubspec.yaml').readAsStringSync(), contains('- assets/med_types/'));
     });
 
-    testWidgets('رسمة صغيرة (٥٦): من غير اسم', (tester) async {
-      await tester.pumpWidget(_host(const MedTypeArt(form: MedicineForm.tablet, size: 56, name: 'Concor 5 mg')));
-      expect(find.byKey(const ValueKey('med-type-art-tablet')), findsOneWidget);
-      expect(find.text('Concor 5 mg'), findsNothing);
-    });
-
-    testWidgets('تحت الحد بنقطة: من غير اسم — وعنده بالظبط: بالاسم', (tester) async {
-      await tester.pumpWidget(_host(const MedTypeArt(form: MedicineForm.drops, size: MedTypeArt.nameMinSize - 1, name: 'Systane')));
-      expect(find.text('Systane'), findsNothing);
-      await tester.pumpWidget(_host(const MedTypeArt(form: MedicineForm.drops, size: MedTypeArt.nameMinSize, name: 'Systane')));
-      expect(find.text('Systane'), findsOneWidget);
-    });
-
-    for (final dark in [false, true]) {
-      testWidgets('رسمة كبيرة (١٨٠): الاسم مرسوم بخط ١٧ وحبر ثابت ومقروء — ${dark ? 'بالليل' : 'بالنهار'}', (tester) async {
-        F.setDark(on: dark);
-        addTearDown(() => F.setDark(on: false));
-        await tester.pumpWidget(_host(const MedTypeArt(form: MedicineForm.syrup, size: 180, name: 'Concor 5 mg')));
-        final text = tester.widget<Text>(find.text('Concor 5 mg'));
-        expect(text.style!.fontSize, greaterThanOrEqualTo(F.minTextSize));
-        expect(text.style!.color, F.medArtLabelInk, reason: 'الرسمة فاتحة في الوضعين — F.ink كان هيبقى أبيض على أبيض');
-        expect(text.maxLines, 2);
-        expect(text.overflow, TextOverflow.ellipsis);
-        expectReadableText(tester, where: 'رسمة الدوا ${dark ? 'ليلي' : 'نهاري'}');
+    // المالك بعد ما شافها على الموبايل: الرسمة نضيفة زي الأصل في كل مقاس —
+    // من غير اسم ولا أي كلام عليها. الاسم مكتوب جنبها.
+    for (final size in [56.0, 120.0, 180.0]) {
+      testWidgets('رسمة ${size.round()}: نضيفة — ولا نص عليها', (tester) async {
+        await tester.pumpWidget(_host(MedTypeArt(form: MedicineForm.tablet, size: size)));
+        final art = find.byKey(const ValueKey('med-type-art-tablet'));
+        expect(art, findsOneWidget);
+        expect(tester.getSize(art), Size(size, size));
+        expect(find.descendant(of: art, matching: find.byType(Text)), findsNothing);
+        expect(find.descendant(of: art, matching: find.byType(Image)), findsOneWidget);
       });
     }
 
-    testWidgets('اسم طويل ما بيفيضش ولا بيكبّر الرسمة', (tester) async {
-      await tester.pumpWidget(_host(const MedTypeArt(
-        form: null,
-        size: 160,
-        name: 'Augmentin 1g Duo Extended Release Film Coated Tablets',
-      )));
-      expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byKey(const ValueKey('med-type-art-generic'))), const Size(160, 160));
-      final label = tester.getRect(find.byKey(const ValueKey('med-type-art-name')));
-      final art = tester.getRect(find.byKey(const ValueKey('med-type-art-generic')));
-      expect(label.left, greaterThanOrEqualTo(art.left));
-      expect(label.right, lessThanOrEqualTo(art.right));
+    testWidgets('MedPhotoThumb كبيرة من غير صورة: الرسمة من غير الاسم', (tester) async {
+      await tester.pumpWidget(_host(const MedPhotoThumb(path: null, name: 'Concor 5 mg', form: MedicineForm.syrup, size: 180)));
+      expect(find.byKey(const ValueKey('med-type-art-syrup')), findsOneWidget);
+      expect(find.text('Concor 5 mg'), findsNothing);
     });
 
     testWidgets('MedPhotoThumb من غير صورة ومن غير بديل: الرسمة بنوعها', (tester) async {

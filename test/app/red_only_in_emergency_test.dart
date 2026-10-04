@@ -27,10 +27,15 @@ const _labFlagFile = 'lib/features/health/lab_flag.dart';
 /// الحارس شايفه ومسامح في مكان واحد.
 const _caregiverAlertFile = 'lib/features/care/caregiver_screen.dart';
 
+/// **الاستثناء التالت، بقرار صاحب المنتج (٤ أكتوبر ٢٠٢٦)**: عنوان مجموعة
+/// «للقلب والضغط» على «أدويتك» — قلب أحمر على أرضية وردي زي التصميم. ملف
+/// واحد، والاسمين في النمط الممنوع، فأي ملف تاني بيكتبهم بيوقع.
+const _medGroupsFile = 'lib/features/medication/med_groups.dart';
+
 void main() {
   test('F.red / F.redDeep / F.redPanel / F.onRed وقيمهم ما بيظهروش برّه شاشات الطوارئ', () {
     final forbidden = RegExp(
-      r'F\.(red|redDeep|redPanel|onRed|onRedMuted|outOfRangeInk|careAlertInk)\b'
+      r'F\.(red|redDeep|redPanel|onRed|onRedMuted|outOfRangeInk|careAlertInk|medGroupHeartInk|medGroupHeartTint)\b'
       r'|0xFFC0202F|0xFFA81E26|0xFF8C1820|0xFFE8747B|Colors\.red',
       caseSensitive: false,
     );
@@ -42,6 +47,7 @@ void main() {
       if (path == 'lib/core/theme/tokens.dart') continue; // التعريف نفسه
       if (path == _labFlagFile) continue; // استثناء ١ — وبشروطه تحت
       if (path == _caregiverAlertFile) continue; // استثناء ٢ — وبشروطه تحت
+      if (path == _medGroupsFile) continue; // استثناء ٣ — عنوان «للقلب والضغط» بس
       final lines = entity.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i].trimLeft();

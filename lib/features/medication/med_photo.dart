@@ -15,7 +15,7 @@ import 'med_type_art.dart';
 /// **صورة الدوا جنب اسمه** — العين بتعرف الحباية قبل ما تقرا اسمها.
 ///
 /// مفيش صورة، أو الملف راح، أو اتفكّ غلط → [fallback] لو اتبعت، وإلا رسمة
-/// نوع الدوا ([MedTypeArt] بـ[form]، والاسم مكتوب عليها لو المقاس كبير).
+/// نوع الدوا ([MedTypeArt] بـ[form]) — نضيفة، من غير كلام عليها.
 /// **صورته هو بتكسب دايماً**، و**عمرها ما بتعرض صورة مكسورة.** الدوسة على
 /// الصورة بتفتحها ملء الشاشة؛ الرسمة ما بتتفتحش (مفيش حاجة تتكبّر).
 class MedPhotoThumb extends StatelessWidget {
@@ -40,7 +40,7 @@ class MedPhotoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = this.fallback ?? MedTypeArt(form: form, size: size, name: name);
+    final fallback = this.fallback ?? MedTypeArt(form: form, size: size);
     final path = this.path;
     final scope = AppScope.maybeOf(context);
     if (path == null || scope == null) return fallback;

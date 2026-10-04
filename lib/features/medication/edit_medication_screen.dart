@@ -421,6 +421,51 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
     if (mounted) navigator.pop(true);
   }
 
+  Future<void> _resume() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+    await services.medicationSaves.resume(widget.medicationId);
+    if (mounted) navigator.pop(true);
+  }
+
+  /// **سؤال واحد قبل الشيل، والاسم فيه.** الشيل مالوش رجوع، فالتأكيد مش
+  /// تفصيلة: «شيله خالص» على دوا غلط بتشيل دوا المريض بياخده.
+  ///
+  /// الزرار غامق مش أحمر — الأحمر للطوارئ وبس، حتى في الحاجة اللي مالهاش رجوع.
+  Future<void> _confirmRemove(MedicationRow med) async {
+    final services = AppScope.of(context);
+    final navigator = Navigator.of(context);
+
+    await FSheet.show<void>(
+      context,
+      title: 'تشيل ${med.name}؟',
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: F.gap),
+          child: Text(
+            'هيختفي من كل القوايم ومن ملف التصدير، وتذكيراته هتقف. '
+            'اللي فات من جرعاته بيفضل في تاريخك. مفيش رجوع من الخطوة دي — '
+            'لو ناوي توقفه مؤقتاً، «وقّف الدوا ده» بترجع.',
+            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+          ),
+        ),
+        FPrimaryButton(
+          label: 'أيوه، شيله',
+          onPressed: () async {
+            navigator.pop();
+            // شيل الدوا بيشيل صورته كمان — مفيش ملف يتيم
+            await services.medicationSaves.remove(med.id, services.medPhotos);
+            services.syncMedPhotosSoon();
+            if (mounted) navigator.pop(true);
+          },
+        ),
+        FSecondaryButton(label: 'لا، سيبه', onPressed: () => navigator.pop()),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -695,7 +740,25 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         onChanged: _busy ? (_) {} : (m) => _setAlertMode(m),
                       ),
                       const SizedBox(height: F.gap + 6),
-                      if (_confirmingStop) _StopConfirm(
+                      // الموقوف: «رجّعه تاني» مكان «وقّف» (كان في شيت «خيارات» على
+                      // القايمة — إعادة التصميم نقلت التلاتة هنا، ٤ أكتوبر ٢٠٢٦)
+                      if (med.stoppedAt != null)
+                        SizedBox(
+                          height: F.minTapTarget,
+                          child: OutlinedButton(
+                            key: const ValueKey('resume-medication'),
+                            onPressed: _busy ? null : _resume,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: F.ink,
+                              side: BorderSide(color: F.ink, width: 1.5),
+                            ),
+                            child: const Text(
+                              'رجّعه تاني',
+                              style: TextStyle(fontSize: F.minTextSize + 1, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        )
+                      else if (_confirmingStop) _StopConfirm(
                         name: med.name,
                         busy: _busy,
                         onStop: _stop,
@@ -717,10 +780,28 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         ),
                       const SizedBox(height: 8),
                       Text(
-                        'ملحوظة: خلّصت العلبة أو الدكتور غيّر الدوا؟ وقّفه من هنا. '
-                        'التطبيق عمره ما بيوقف دوا لوحده'
-                        '${_durationNote(med)}',
+                        med.stoppedAt != null
+                            ? 'موقوف — التذكيرات واقفة. «رجّعه تاني» بترجّع تذكيراته.'
+                            : 'ملحوظة: خلّصت العلبة أو الدكتور غيّر الدوا؟ وقّفه من هنا. '
+                                'التطبيق عمره ما بيوقف دوا لوحده'
+                                '${_durationNote(med)}',
                         style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.6),
+                      ),
+                      const SizedBox(height: F.gap),
+                      SizedBox(
+                        height: F.minTapTarget,
+                        child: OutlinedButton(
+                          key: const ValueKey('remove-medication'),
+                          onPressed: _busy || _confirmingStop ? null : () => _confirmRemove(med),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: F.ink,
+                            side: BorderSide(color: F.line, width: 1.5),
+                          ),
+                          child: const Text(
+                            'شيله خالص',
+                            style: TextStyle(fontSize: F.minTextSize + 1, fontWeight: FontWeight.w600),
+                          ),
+                        ),
                       ),
                     ],
                   ),

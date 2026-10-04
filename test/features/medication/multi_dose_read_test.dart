@@ -56,7 +56,7 @@ void main() {
     );
   });
 
-  screenTest('جدول الأدوية بيعرض الدوا تحت كل ساعة من الأربعة — أربع كروت', (tester) async {
+  screenTest('«أدويتك» بيعرض الدوا صف واحد بساعاته الأربعة في سطره', (tester) async {
     tester.view.physicalSize = const Size(1000, 4000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -65,8 +65,13 @@ void main() {
 
     await h.pump(tester, MedicationsScreen(today: aug31));
 
-    expect(find.text('Augmentin'), findsNWidgets(4), reason: 'كارت لكل جرعة — ده جدول');
-    expect(find.text('دوا واحد — مرتّبة بالساعة'), findsOneWidget);
+    // صف واحد للدوا (إعادة التصميم — متجمّع بالغرض)، والساعات الأربعة في سطرها
+    expect(find.byKey(const ValueKey('med-row-1')), findsOneWidget);
+    final rule = tester.widget<Text>(find.byKey(const ValueKey('med-times-1'))).data!;
+    for (final t in ['٧:٠٠ ص', '٧:٣٠ ص', '٢:٣٠ م', '٨:٠٠ م']) {
+      expect(rule, contains(t), reason: 'الجرعة $t اتشالت من السطر');
+    }
+    expect(find.text('دوا واحد'), findsOneWidget);
   });
 
   test('ملف التصدير بيقول «٤× في اليوم» — مش ١×', () async {
