@@ -6,6 +6,7 @@ import 'package:fakkarni/domain/medication/meal_relation.dart';
 
 import 'package:fakkarni/ai/prescription_reading.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/core/widgets/primitives.dart' show FPrimaryButton;
 import 'package:fakkarni/data/db/tables.dart';
 import 'package:fakkarni/data/db/app_database.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
@@ -160,8 +161,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('pick-times-0')));
       await settle(tester);
       expect(find.byKey(const ValueKey('continue-interval')), findsNothing, reason: 'الاقتراح بعد أول ساعة بس');
-      // البكرة واقفة على ٨ — «ضيف الساعة ٨:٠٠ ص»
-      await tester.tap(find.byKey(const ValueKey('add-time')));
+      // البكرة واقفة على ٨ مكان مش إجابة — «احفظ» مقفول لحد ما يختار
+      expect(tester.widget<FPrimaryButton>(find.byKey(const ValueKey('times-done'))).onPressed, isNull);
+      await tester.tap(find.byKey(const ValueKey('quick-time-${9 * 60}')));
       await settle(tester);
       expect(find.byKey(const ValueKey('continue-interval')), findsOneWidget);
       expect(find.textContaining('كمّل كل ١٢ ساعة'), findsOneWidget);
@@ -178,7 +180,7 @@ void main() {
       await confirm(tester);
       final saved = await h.meds.activeSchedules(h.services.patientId);
       final aug = saved.where((s) => s.medicationName == 'Augmentin 1g').map((s) => s.timing).toList();
-      expect(aug, [FixedTiming(MinuteOfDay.hm(8)), FixedTiming(MinuteOfDay.hm(20))]);
+      expect(aug, [FixedTiming(MinuteOfDay.hm(9)), FixedTiming(MinuteOfDay.hm(21))]);
       expect(saved.firstWhere((s) => s.medicationName == 'Augmentin 1g').mealRelation, MealRelation.after);
     });
 
@@ -205,9 +207,6 @@ void main() {
         await tester.tap(find.byKey(ValueKey('quick-time-$minute')));
         await settle(tester);
         expect(find.byKey(const ValueKey('continue-interval')), findsNothing, reason: 'مفيش ساعات محسوبة لـ«N مرات»');
-        await tester.tap(find.byKey(const ValueKey('add-time')));
-        await settle(tester);
-        expect(find.byKey(const ValueKey('continue-interval')), findsNothing);
         await tester.tap(find.byKey(const ValueKey('times-done')));
         await settle(tester);
       }

@@ -15,6 +15,11 @@ import '../medication/dose_editor.dart' show QuickTimeChips;
 /// سريعة + البكرة)، وبعدها بس بنعرض دوسة واحدة «كمّل كل ١٢ ساعة» — اقتراح
 /// هو اللي بيوافق عليه. ولا حاجة بتتكتب هنا: الشيت بيرجّع الساعات للمسوّدة،
 /// والحفظ لسه بـ«تمام» على شاشة المراجعة.
+///
+/// **زرار واحد «احفظ»** (طلب المدير، ٤ أكتوبر ٢٠٢٦): كان «ضيف الساعة» وبعدين
+/// «تمام» — خطوتين لنفس النية، والراجل كان بيدوس «تمام» من غير «ضيف» فالساعة
+/// تضيع. دلوقتي كل جرعة خانة، الشريحة أو البكرة بتكتب في الخانة المختارة،
+/// و«احفظ» بياخد اللي اتختار.
 Future<List<MinuteOfDay>?> pickTimes(
   BuildContext context, {
   required TimingFacts facts,
@@ -41,31 +46,63 @@ class PickTimesBody extends StatefulWidget {
 }
 
 class _PickTimesBodyState extends State<PickTimesBody> {
-  late final List<MinuteOfDay> _picked = [...widget.initial];
-  late MinuteOfDay _current = widget.initial.isEmpty ? PickTimesBody.rest : widget.initial.last;
+  /// خانة لكل جرعة — null = لسه ما اتختارتش. العدد من الورقة لو قالته.
+  late final List<MinuteOfDay?> _slots = () {
+    final count = widget.facts.timesToPick ?? widget.facts.dosesPerDay ?? 1;
+    final slots = <MinuteOfDay?>[...widget.initial];
+    while (slots.length < count) {
+      slots.add(null);
+    }
+    return slots;
+  }();
+
+  /// الخانة اللي الشرايح والبكرة بيكتبوا فيها.
+  late int _sel = () {
+    final empty = _slots.indexWhere((m) => m == null);
+    return empty >= 0 ? empty : _slots.length - 1;
+  }();
 
   String _time(MinuteOfDay m) => arabicTime(DateTime(2026, 1, 1, m.hour, m.minute));
 
-  List<MinuteOfDay> _sorted(Iterable<MinuteOfDay> xs) =>
-      ({for (final x in xs) x.minutes: x}.values.toList())..sort((a, b) => a.minutes.compareTo(b.minutes));
+  List<MinuteOfDay> get _picked {
+    final out = {for (final m in _slots.whereType<MinuteOfDay>()) m.minutes: m}.values.toList()
+      ..sort((a, b) => a.minutes.compareTo(b.minutes));
+    return out;
+  }
 
   /// باقي جرعات اليوم لو كمّل بالفاصل من أول ساعة — null = مفيش اقتراح.
   List<MinuteOfDay>? get _continuation {
     final step = widget.facts.stepHours;
     final n = widget.facts.dosesPerDay;
-    if (step == null || n == null || n < 2 || _picked.length != 1) return null;
-    final first = _picked.single.minutes;
-    return [for (var k = 1; k < n; k++) MinuteOfDay((first + k * step * 60) % 1440)];
+    final first = _slots.first;
+    if (step == null || n == null || n < 2 || first == null) return null;
+    if (_slots.skip(1).any((m) => m != null)) return null;
+    return [for (var k = 1; k < n; k++) MinuteOfDay((first.minutes + k * step * 60) % 1440)];
   }
 
-  void _add() => setState(() {
-        if (!_picked.any((m) => m.minutes == _current.minutes)) _picked.add(_current);
+  void _set(MinuteOfDay m, {bool advance = false}) => setState(() {
+        _slots[_sel] = m;
+        if (advance) {
+          final next = _slots.indexWhere((x) => x == null);
+          if (next >= 0) _sel = next;
+        }
+      });
+
+  void _continue(List<MinuteOfDay> more) => setState(() {
+        while (_slots.length < more.length + 1) {
+          _slots.add(null);
+        }
+        for (var k = 0; k < more.length; k++) {
+          _slots[k + 1] = more[k];
+        }
       });
 
   @override
   Widget build(BuildContext context) {
     final words = widget.facts.words;
     final more = _continuation;
+    final many = _slots.length > 1;
+    final current = _slots[_sel];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -76,29 +113,8 @@ class _PickTimesBodyState extends State<PickTimesBody> {
           ),
           const SizedBox(height: F.s12),
         ],
-        if (_picked.isNotEmpty) ...[
-          for (final m in _sorted(_picked))
-            Padding(
-              padding: const EdgeInsets.only(bottom: F.s8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _time(m),
-                      key: ValueKey('picked-${m.minutes}'),
-                      style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
-                    ),
-                  ),
-                  SizedBox(
-                    height: F.minTapTarget,
-                    child: TextButton(
-                      onPressed: () => setState(() => _picked.removeWhere((x) => x.minutes == m.minutes)),
-                      child: Text('شيل', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        if (many) ...[
+          for (var i = 0; i < _slots.length; i++) _slotRow(i),
           const SizedBox(height: F.s4),
         ],
         if (more != null) ...[
@@ -106,31 +122,102 @@ class _PickTimesBodyState extends State<PickTimesBody> {
           FSecondaryButton(
             key: const ValueKey('continue-interval'),
             label: 'كمّل كل ${hoursWord(widget.facts.stepHours!)} — ${more.map(_time).join(' و')}',
-            onPressed: () => setState(() => _picked.addAll(more)),
+            onPressed: () => _continue(more),
           ),
           const SizedBox(height: F.gap),
         ],
         Text(
-          _picked.isEmpty ? 'أول جرعة الساعة كام؟' : 'ساعة تانية؟',
+          _sel == 0 ? 'أول جرعة الساعة كام؟' : 'الجرعة ${arabicDigits('${_sel + 1}')} الساعة كام؟',
           style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
         ),
         const SizedBox(height: F.s8),
-        QuickTimeChips(selected: _current, onPick: (m) => setState(() => _current = m)),
+        QuickTimeChips(selected: current, onPick: (m) => _set(m, advance: true)),
         const SizedBox(height: F.s8),
-        FTimeWheel(value: _current, onChanged: (m) => setState(() => _current = m)),
-        const SizedBox(height: F.s8),
-        FSecondaryButton(
-          key: const ValueKey('add-time'),
-          label: 'ضيف الساعة ${_time(_current)}',
-          onPressed: _add,
+        FTimeWheel(
+          key: ValueKey('pick-wheel-$_sel'),
+          value: current ?? PickTimesBody.rest,
+          onChanged: (m) => _set(m),
         ),
-        const SizedBox(height: F.gap),
+        if (!many && current != null)
+          Text(
+            'الساعة ${_time(current)}',
+            key: ValueKey('picked-${current.minutes}'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+          ),
+        SizedBox(
+          height: F.minTapTarget,
+          child: TextButton(
+            key: const ValueKey('one-more-slot'),
+            onPressed: () => setState(() {
+              _slots.add(null);
+              _sel = _slots.length - 1;
+            }),
+            child: Text('ساعة كمان', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+          ),
+        ),
+        const SizedBox(height: F.s8),
         FPrimaryButton(
           key: const ValueKey('times-done'),
-          label: 'تمام',
-          onPressed: _picked.isEmpty ? null : () => Navigator.of(context).pop(_sorted(_picked)),
+          label: 'احفظ',
+          onPressed: _picked.isEmpty ? null : () => Navigator.of(context).pop(_picked),
         ),
       ],
+    );
+  }
+
+  Widget _slotRow(int i) {
+    final m = _slots[i];
+    final selected = i == _sel;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: F.s8),
+      child: Material(
+        color: F.railGround,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          // الخانة اللي بتكتب فيها دلوقتي — «الحالة اللي إنت عليها» = دهبي
+          side: BorderSide(color: selected ? F.gold : F.railGround, width: 2),
+        ),
+        child: InkWell(
+          key: ValueKey('slot-$i'),
+          borderRadius: BorderRadius.circular(F.radiusCard),
+          onTap: () => setState(() => _sel = i),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: F.minTapTarget),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: F.s12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'الجرعة ${arabicDigits('${i + 1}')} — ${m == null ? 'اختار الساعة' : _time(m)}',
+                      key: m == null ? null : ValueKey('picked-${m.minutes}'),
+                      style: TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: m == null ? FontWeight.w500 : FontWeight.w700,
+                        color: m == null ? F.mutedDark : F.ink,
+                      ),
+                    ),
+                  ),
+                  if (m != null)
+                    SizedBox(
+                      height: F.minTapTarget,
+                      child: TextButton(
+                        key: ValueKey('slot-clear-$i'),
+                        onPressed: () => setState(() {
+                          _slots[i] = null;
+                          _sel = i;
+                        }),
+                        child: Text('شيل',
+                            style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
