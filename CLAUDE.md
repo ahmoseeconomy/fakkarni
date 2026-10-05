@@ -201,6 +201,27 @@ These are product decisions, already settled. Do not "improve" them without aski
   `MinuteStepper` and `features/onboarding/time_wheel.dart` are gone;
   `test/app/wheels_se_test.dart` pumps every screen that gained a wheel at
   375×667 with the real fonts and asserts the primary button is on screen.
+- **زرارَا النداء «فقاعة لامعة» — شكل واحد من غلاف واحد** (المرحلة ٣،
+  ٥ أكتوبر ٢٠٢٦ مساءً، المالك اختار لمعة MEDIUM): `GlossPill` في
+  `primitives.dart` هو التعريف الوحيد — كبسولة مستديرة بالكامل، لمعة
+  بيضا من فوق (`F.glossTop` ٣٢٪ ← `F.glossMid` ١١٪ وبتخلص بعد نص
+  الزرار بشوية)، خيط أبيض رفيع على الحافة الجوّانية الفوقانية، ضل
+  جوّاني خفيف تحت، وضل برّاني **بلون الزرار نفسه** للأساسي
+  (`F.glossShadowOf`) ومحايد للثانوي (`F.bubbleShadow`). الثانوي «فقاعة»
+  بيضا بحد رفيع خفيف (`F.bubbleEdge` — المالك 2B بعد مراجعة اللقطات:
+  ٣:١ ضد أرضية الصفحة في الوضعين، WCAG 1.4.11، والاختبار بيحسبها
+  بالرقم)؛ بالليل سطحها غامق
+  (`F.bubbleGround`) ولمعتها أضعف بكتير (`glossTopWeak` ١٠٪) عشان ما
+  تلمعش في العين، والأساسي بنفس لمعة النهار. المعطّل مسطّح: من غير لمعة
+  ولا ضل. **طبقة التعبئة أصل للنص عن قصد** — `contrast_audit` بيطلع
+  للأول سطح ملوّن، ولو التعبئة أخت كان هيقيس على أرضية الصفحة. الزرار
+  الجوّاني لسه `FilledButton`/`OutlinedButton` (شفافين) فالاختبارات
+  اللي بتدوّر عليهم شغّالة، والمقاسات والكلام والسلوك زي ما هم.
+  الأرقام كلها توكنز، و`gloss_buttons_test` متحقّق بالطفرة تلات
+  اتجاهات (تسطيح، لمعة ليل كاملة، شكل مش كبسولة). الزراير المحلية
+  المخصوصة (أزرار الطوارئ الحمرا، «أعدّل/تمام» المتساويين بتوع
+  المراجعة، أزرار مراحل التصوير على الصورة) **برّه الغلاف عن قصد** —
+  لكل واحد عقده المثبّت.
 - **Copy is warm Egyptian colloquial**, the way a family speaks:
   "بتفطر الساعة كام؟" — not "يرجى تحديد موعد وجبة الإفطار".
 - **The app has a night mode, and every colour flips from one place.**
@@ -4442,17 +4463,16 @@ Consequences to handle:
    one. **The correct long-term shape is A1:** create the row only when
    «نتعرّف عليك» saves, and build the patient-bound services after that.
    It is a refactor of everything that reads `patientId`, not a tweak.
-6. **Two dark-mode faults found in the caregiver round, reported and NOT
-   fixed — both are app-wide, not caregiver-specific.**
-   - **`FSecondaryButton` and `FPrimaryButton` outline in `F.greenDeep`**
-     (`primitives.dart:112` and `:144`), a constant. On the night page
-     ground that is **1.71:1** — the outline is invisible, so a secondary
-     button reads as bare text with no boundary. The label itself is
-     `F.ink` (16:1) so nothing is unreadable; what is lost is the button's
-     edge. Not text, so AA's 4.5 does not apply, but WCAG 1.4.11 wants 3:1
-     for a control boundary. The fix is one token, and it repaints **every
-     button in the app** — it belongs in its own round with a look at the
-     patient screens, not in a round about the son's switch.
+6. **Two dark-mode faults found in the caregiver round — the first is now
+   SUPERSEDED, the second still open.**
+   - **PAID with المرحلة ٣ (5 Oct 2026, owner 2B):**
+     `FPrimaryButton`/`FSecondaryButton` are glossy pills (see «الفقاعة
+     اللامعة» in UI rules). The primary's boundary is its fill; the
+     secondary bubble carries a thin faint edge, `F.bubbleEdge`, measured
+     at ≥3:1 against the page ground **in both modes** (WCAG 1.4.11),
+     pinned numerically by `gloss_buttons_test` — so the old
+     invisible-at-night 1.71:1 outline cannot come back silently. The old
+     `buttonEdge` token survives on chips and other outlined controls.
    - **Toggling the mode drops you back on the first tab.** `main` keys
      the whole app on the mode (`KeyedSubtree(key: ValueKey(dark))`)
      because a `const` subtree will not rebuild otherwise — and that key

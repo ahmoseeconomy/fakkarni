@@ -150,7 +150,47 @@ abstract final class F {
   static Color get greenStrong => _mode(greenDeep, greenOnDark);
 
   /// حد الأزرار — كان `greenDeep` الثابت (١٫٧:١ بالليل، الدين ٦).
+  /// من المرحلة ٣ (فقاعات لامعة) زرارَي النداء ما بقوش بياخدوه — حدّهم
+  /// بقى الضل والتعبئة؛ لسه بيتاخد على شرايح وحدود تانية.
   static Color get buttonEdge => greenStrong;
+
+  // ------------------------------------------------------------------
+  // لمعة زرارَي النداء — «فقاعة لامعة» بلمعة MEDIUM (المرحلة ٣، ٥ أكتوبر
+  // ٢٠٢٦ مساءً بقرار المالك). الأرقام كلها هنا عشان الشاشات ما تسمّيش
+  // شفافية بنفسها — ونسخة الليل للثانوي **أضعف بكتير** عن قصد: فقاعة
+  // بيضا بتلمع في ضلمة الأوضة.
+  // ------------------------------------------------------------------
+
+  /// قمة اللمعة — أبيض ~٣٢٪ فوق، بيهدى لـ~١١٪ قرب النص، وبيخلص بعده بشوية.
+  static Color get glossTop => white.withValues(alpha: 0.32);
+  static Color get glossMid => white.withValues(alpha: 0.11);
+
+  /// لمعة الثانوي بالليل — نفس البنية بس ما تلمعش في العين.
+  static Color get glossTopWeak => white.withValues(alpha: 0.10);
+  static Color get glossMidWeak => white.withValues(alpha: 0.035);
+
+  /// الخيط الأبيض الرفيع على الحافة الجوّانية الفوقانية.
+  static Color get glossEdge => white.withValues(alpha: _modeD(0.55, 0.35));
+
+  /// الضل الجوّاني الخفيف تحت — بيدّي جسم الفقاعة.
+  static Color get glossInnerShade => Colors.black.withValues(alpha: 0.10);
+
+  /// أرضية «الفقاعة» الثانوية: بيضا بالنهار، وسطح الكارت الغامق بالليل
+  /// (فقاعة بيضا على صفحة الليل كانت هتبقى كشّاف).
+  static Color get bubbleGround => _mode(white, const Color(0xFF1C2724));
+
+  /// ضل الفقاعة الثانوية — محايد، أتقل شوية بالليل عشان يبان على الغامق.
+  static Color get bubbleShadow => Colors.black.withValues(alpha: _modeD(0.16, 0.45));
+
+  /// حد الفقاعة الثانوية — رفيع وخفيف (المالك 2B، ٥ أكتوبر مساءً): أخف
+  /// رمادي بيعدّي ٣:١ ضد أرضية الصفحة في وضعه (WCAG 1.4.11 لحدود
+  /// العناصر) — `gloss_buttons_test` بيحسبها بالرقم، فأي تفتيح بيوقع.
+  static Color get bubbleEdge => _mode(const Color(0xFF8F8F8F), const Color(0xFF5C6865));
+
+  /// ضل الأساسي — بلون الزرار نفسه (أخضر على الأخضر، دهبي على الدهبي).
+  static Color glossShadowOf(Color fill) => fill.withValues(alpha: 0.38);
+
+  static double _modeD(double light, double dark) => isDark ? dark : light;
 
   /// أرضية الاختيار المتحدّد (المخطط ٢): أخضر فاتح جداً على الأبيض.
   static Color get greenTint => _mode(const Color(0xFFEAF3F0), const Color(0xFF1E3A33));

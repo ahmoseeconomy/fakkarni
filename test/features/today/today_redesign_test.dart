@@ -10,6 +10,7 @@ import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/core/theme/tokens.dart';
+import 'package:fakkarni/core/widgets/primitives.dart';
 import 'package:fakkarni/data/dose_state.dart';
 import 'package:fakkarni/data/repositories/dose_event_repository.dart';
 import 'package:fakkarni/domain/medication/medication_purpose.dart';
@@ -178,8 +179,9 @@ void main() {
       }
       expect(find.descendant(of: card, matching: find.text('قرص واحد')), findsOneWidget);
       expect(find.descendant(of: card, matching: find.text('٩:٠٠ ص')), findsOneWidget);
-      final button = tester.widget<FilledButton>(find.descendant(of: find.byKey(const ValueKey('confirm-all')), matching: find.byType(FilledButton)));
-      expect(button.style!.backgroundColor!.resolve({}), F.green, reason: '«أخدتها» أخضر مش أحمر');
+      // لون الزرار بقى على [GlossPill.fill] (المرحلة ٣) — الزرار الجوّاني شفاف
+      final button = tester.widget<GlossPill>(find.descendant(of: find.byKey(const ValueKey('confirm-all')), matching: find.byType(GlossPill)));
+      expect(button.fill, F.green, reason: '«أخدتها» أخضر مش أحمر');
       expect(find.text('أخدتها'), findsOneWidget);
       expect(find.text('فكّرني بعد ١٥ دقيقة'), findsOneWidget);
       // ولا أيقونة دهبي غير الحافة: الساعة هادية

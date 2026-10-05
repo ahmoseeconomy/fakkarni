@@ -76,6 +76,116 @@ class FSectionHead extends StatelessWidget {
 
 /// الزرار الأساسي — ٦٤. أخضر افتراضياً، ذهبي لما الفعل هو التذكير نفسه
 /// («أخدته»).
+/// «الفقاعة اللامعة» — غلاف الشكل **الواحد** لزرارَي النداء (المرحلة ٣،
+/// ٥ أكتوبر ٢٠٢٦ مساءً، المالك اختار لمعة MEDIUM): حبة شكل كبسولة
+/// (مستديرة بالكامل)، لمعة بيضا من فوق (`F.glossTop` ← `F.glossMid`
+/// وبتخلص بعد نص الزرار بشوية)، خيط أبيض رفيع على الحافة الجوّانية
+/// الفوقانية (`F.glossEdge`)، ضل جوّاني خفيف تحت (`F.glossInnerShade`)،
+/// وضل برّاني — بلون الزرار نفسه للأساسي ومحايد للثانوي.
+///
+/// **طبقة التعبئة فوق الطفل في شجرة الأسلاف عن قصد**: فاحص التباين
+/// (`contrast_audit`) بيطلع لفوق لحد أول سطح ملوّن — لو التعبئة كانت
+/// أخت مش أصل، النص كان هيتقاس على أرضية الصفحة ويقع بالغلط.
+/// الزرار الحقيقي (FilledButton/OutlinedButton بتعبئة شفافة) جوّاها —
+/// فالدوسة والتموّج والتعطيل والدلالات زي ما هم، والاختبارات اللي
+/// بتدوّر على النوعين دول لسه بتلاقيهم.
+class GlossPill extends StatelessWidget {
+  const GlossPill({
+    required this.fill,
+    required this.shadow,
+    required this.glossTop,
+    required this.glossMid,
+    required this.enabled,
+    required this.child,
+    this.edge,
+    super.key,
+  });
+
+  final Color fill;
+  final Color shadow;
+  final Color glossTop;
+  final Color glossMid;
+
+  /// حد رفيع خفيف — الفقاعة الثانوية بس (المالك 2B): ٣:١ ضد أرضية
+  /// الصفحة، فحدّها مش معتمد على الضل لوحده. الأساسي من غيره.
+  final Color? edge;
+
+  /// المعطّل مسطّح: من غير لمعة ولا ضل — زرار نايم مش فقاعة.
+  final bool enabled;
+  final Widget child;
+
+  static const BorderRadius pillRadius = BorderRadius.all(Radius.circular(999));
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: pillRadius,
+          // الحد على الطبقة البرّانية (مش المقصوصة) عشان يتبع الكبسولة
+          border: enabled && edge != null ? Border.all(color: edge!, width: 1) : null,
+          boxShadow: enabled
+              ? [BoxShadow(color: shadow, blurRadius: 14, offset: const Offset(0, 6))]
+              : const [],
+        ),
+        child: ClipRRect(
+          borderRadius: pillRadius,
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: enabled ? fill : F.railGround),
+            child: Stack(
+              children: [
+                if (enabled) ...[
+                  // اللمعة: ٣٢٪ فوق ← ١١٪ قرب النص ← مفيش بعد النص بشوية
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0, 0.45, 0.56],
+                          colors: [glossTop, glossMid, glossMid.withValues(alpha: 0)],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // الضل الجوّاني الخفيف تحت
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0, 0.8, 1],
+                          colors: [
+                            F.glossInnerShade.withValues(alpha: 0),
+                            F.glossInnerShade.withValues(alpha: 0),
+                            F.glossInnerShade,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // الخيط الأبيض الرفيع على الحافة الفوقانية
+                  Positioned(
+                    top: 1.5,
+                    left: 14,
+                    right: 14,
+                    child: Container(
+                      key: const ValueKey('gloss-edge-line'),
+                      height: 1.2,
+                      decoration: BoxDecoration(
+                        color: F.glossEdge,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+                ],
+                Positioned.fill(child: child),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 class FPrimaryButton extends StatelessWidget {
   const FPrimaryButton({
     required this.label,
@@ -95,26 +205,36 @@ class FPrimaryButton extends StatelessWidget {
   final double fontSize;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: double.infinity,
-        height: height,
+  Widget build(BuildContext context) {
+    final fill = gold ? F.gold : F.green;
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: GlossPill(
+        fill: fill,
+        // الضل بلون الزرار نفسه — ده اللي بيخلّيه «بيضوي» مش «مرمي»
+        shadow: F.glossShadowOf(fill),
+        glossTop: F.glossTop,
+        glossMid: F.glossMid,
+        enabled: onPressed != null,
         child: FilledButton(
           onPressed: onPressed,
           style: FilledButton.styleFrom(
-            backgroundColor: gold ? F.gold : F.green,
+            // التعبئة والضل في [GlossPill] — الزرار نفسه شفاف عشان اللمعة
+            // تبان تحته والتموّج يبان فوقها
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
             foregroundColor: gold ? F.onGold : F.onGreen,
-            disabledBackgroundColor: F.railGround,
+            disabledBackgroundColor: Colors.transparent,
             disabledForegroundColor: F.mutedDark,
             textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
-            // كل زرار مستدير بحد زيتي — شكل واحد في التطبيق كله
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(F.radiusCard),
-              side: BorderSide(color: F.buttonEdge, width: 1.5),
-            ),
+            shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
           ),
           child: Text(label),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// الزرار الثانوي — ٥٦، محدّد.
@@ -136,19 +256,30 @@ class FSecondaryButton extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity,
         height: height,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: F.ink,
-            // نفس الحد الزيتي بتاع الأساسي — الشكل واحد، والوزن مختلف
-            side: BorderSide(color: F.buttonEdge, width: 1.5),
-            textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-            // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
-            // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠
-            padding: EdgeInsets.symmetric(horizontal: F.s8),
+        // «فقاعة» بيضا بنفس بنية لمعة الأساسي — من غير حد صلب (قرار
+        // المالك): حدّها الضل المحايد. بالليل السطح غامق واللمعة أضعف
+        // بكتير (`glossTopWeak`) عشان ما تلمعش في العين.
+        child: GlossPill(
+          fill: F.bubbleGround,
+          shadow: F.bubbleShadow,
+          edge: F.bubbleEdge,
+          glossTop: F.isDark ? F.glossTopWeak : F.glossTop,
+          glossMid: F.isDark ? F.glossMidWeak : F.glossMid,
+          enabled: onPressed != null,
+          child: OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: F.ink,
+              side: BorderSide.none,
+              disabledForegroundColor: F.mutedDark,
+              textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+              shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
+              // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
+              // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠
+              padding: EdgeInsets.symmetric(horizontal: F.s8),
+            ),
+            child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
           ),
-          child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
         ),
       );
 }
