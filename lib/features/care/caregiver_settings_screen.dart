@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/dark_mode_toggle.dart';
+import '../../core/widgets/display_mode_row.dart';
 import 'dart:async';
 
 import '../../data/care/caregiver_preferences.dart';
@@ -319,6 +320,9 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
           // «الإعدادات» مالهاش شريط أصلاً. فالصف ده هو المكان الوحيد اللي
           // بيتوصّل له من أي تبويب. الكلمة جنب الزرار عشان «مفيش زرار
           // أيقونة من غير كلمة».
+          // «وضع الشاشة» (٥ أكتوبر ٢٠٢٦) — نفس إعداد الموبايل بتاع الأب،
+          // وزرار القمر تحته زي ما هو
+          const CareCard(child: DisplayModeRow()),
           CareCard(
             child: Row(
               children: [

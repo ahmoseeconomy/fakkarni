@@ -1210,6 +1210,8 @@ class CommandFlow extends ChangeNotifier {
         _purpose = nlu.purpose ?? fromName;
         _form = nlu.form;
         _medDialog = MedDialog.fromNlu(fromName == null ? nlu : _withoutName(nlu));
+        // «دوا الضغط» — الغرض جه من مطابقة الاسم: مايتسألش تاني
+        if (fromName != null) _medDialog!.purpose = fromName;
         return _continueMed();
       case NluIntent.bookAppointment when nlu.doctorName != null:
         return _resolveDoctor(nlu);
@@ -1251,6 +1253,8 @@ class CommandFlow extends ChangeNotifier {
         hourNeedsPeriod: n.hourNeedsPeriod,
         food: n.food,
         durationDays: n.durationDays,
+        purpose: n.purpose,
+        form: n.form,
       );
 
   Future<void> _ask(DialogQuestion q) async {
@@ -1269,6 +1273,9 @@ class CommandFlow extends ChangeNotifier {
       existing: [for (final s in summaries) ExistingMedicine(name: s.medication.name, activeIngredient: s.medication.activeIngredient)],
     );
     _editInForm = _medToForm;
+    // اللي الحوار جمعه (من الجملة أو من سؤاله) هو اللي بيتكتب وبيتعبّى
+    _purpose = d.purpose ?? _purpose;
+    _form = d.form ?? _form;
     await _confirmWrite(d.summary(duplicateOf: dup?.existing), () async {
       await services.medicationSaves.add(
         patientId: services.patientId,
@@ -1279,6 +1286,7 @@ class CommandFlow extends ChangeNotifier {
         durationDays: d.durationDays,
         mealRelation: d.meal,
         purpose: _purpose,
+        form: _form,
       );
       _medDialog = null;
     });
@@ -1328,6 +1336,12 @@ class CommandFlow extends ChangeNotifier {
       if (_interrupted(gen)) return;
       final text = await _hearReply(listener, gen);
       if (text == null) {
+        // سكوت على سؤال اختياري (النوع/الغرض) = عدّي بخانة فاضية
+        // (قرار المالك، ٥ أكتوبر ٢٠٢٦)
+        if (_medDialog?.skipOptional() ?? false) {
+          await _continueMed();
+          return;
+        }
         // سكوت أو وقعة — السؤال فاضل على الشاشة
         final q = _medDialog?.question ?? _bookDialog?.question;
         if (q != null && phase != CommandPhase.idle) _set(CommandPhase.asking, q.text);
@@ -1357,14 +1371,15 @@ class CommandFlow extends ChangeNotifier {
     final known = [for (final t in d.times) if (t != null) FixedTiming(MinuteOfDay(t))];
     prefill = AddMedPrefill(
       name: d.name,
-      purpose: _purpose,
+      // اللي الحوار جمعه لحد ما «عدّل بإيدك» اندوست — مش بيضيع
+      purpose: d.purpose ?? _purpose,
       timings: d.everyHours == null ? known : const [],
       amount: d.amount,
       everyHours: d.everyHours,
       emptyDoses: known.isEmpty && d.everyHours == null ? (d.count ?? 1) : null,
       durationDays: d.durationDays,
       mealRelation: d.meal,
-      form: _form,
+      form: d.form ?? _form,
     );
     _set(CommandPhase.done, '');
     unawaited(voice.stop());

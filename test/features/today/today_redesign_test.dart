@@ -126,6 +126,13 @@ void main() {
         reason: 'الشمس بعد التحية — المفروض قبلها زي التصميم',
       );
 
+      // **الضهر صباح** — الحد بقى الشروق/الغروب الحقيقيين (٥ أكتوبر ٢٠٢٦)،
+      // مش ١٢: الساعة ١ الضهر لسه «صباح الخير» وشمسها، لحد الغروب
+      await tester.pumpWidget(const SizedBox.shrink());
+      await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 13)));
+      expect(find.text('صباح الخير يا محمد'), findsOneWidget);
+      expect(find.byKey(const ValueKey('greeting-sun')), findsOneWidget);
+
       await tester.pumpWidget(const SizedBox.shrink());
       await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 21)));
       expect(find.text('مساء الخير يا محمد'), findsOneWidget);

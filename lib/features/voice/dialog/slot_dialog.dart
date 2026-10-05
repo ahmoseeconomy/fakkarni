@@ -1,10 +1,13 @@
 import '../../../core/format/arabic_time.dart';
 import '../../../domain/medication/meal_relation.dart';
+import '../../../domain/medication/medication_purpose.dart';
+import '../../../domain/medication/medicine_form.dart';
 import '../../../domain/medication/medicine_name.dart';
 import '../../../domain/scheduling/every_hours.dart';
 import '../../../domain/scheduling/minute_of_day.dart';
 import '../../../domain/voice/answer_parser.dart';
 import '../../../domain/voice/nlu/nlu.dart';
+import '../../../domain/voice/nlu/normalize.dart';
 
 /// **«كلّمني» بيسأل عن الناقص** (E2، طلب المدير ٤ أكتوبر ٢٠٢٦) — دارت نقية.
 ///
@@ -41,7 +44,7 @@ SpokenTime? withPeriod(int hour, String answer) => parseTime('${arabicNumber(hou
 
 // ================================================================== ضيف دوا
 
-enum _MedAsk { name, count, firstTime, time, period }
+enum _MedAsk { name, count, firstTime, time, period, form, purpose }
 
 class MedDialog {
   MedDialog._({
@@ -55,6 +58,13 @@ class MedDialog {
   }) : times = times ?? [];
 
   /// من الجملة الأولى («ضيف دوا كونكور مرتين بعد الأكل»).
+  /// «عدّي» وأخواتها — السؤالين الاختياريين (النوع والغرض) بيتعدّوا بيها
+  /// والخانة بتفضل فاضية (قرار المالك، ٥ أكتوبر ٢٠٢٦). السكوت بيعدّي برضه
+  /// ([skipOptional] — الـflow بينده عليها).
+  static const skipWords = {'عدي', 'عدى', 'مش عارف', 'معرفش', 'مش عارفه', 'سيبها', 'سيبه', 'مش فارقه', 'لا', 'ولا حاجه'};
+
+  static bool _isSkip(String text) => skipWords.contains(normalizeArabic(text).trim());
+
   factory MedDialog.fromNlu(NluResult n) {
     final every = n.everyHours != null && 24 % n.everyHours! == 0 && n.everyHours! < 24 ? n.everyHours : null;
     final explicit = [for (final t in n.times) t.minutes];
@@ -66,7 +76,9 @@ class MedDialog {
       durationDays: n.durationDays,
       everyHours: every,
       count: count,
-    );
+    )
+      ..form = n.form
+      ..purpose = n.purpose;
     if (count != null) {
       d.times.addAll(List<int?>.filled(count, null));
       for (var i = 0; i < explicit.length && i < count; i++) {
@@ -87,6 +99,15 @@ class MedDialog {
   int? everyHours;
   int? count;
 
+  /// «نوعه إيه؟» و«الدوا ده لإيه؟» — اختياريين: اتقالوا في الجملة = مفيش
+  /// سؤال؛ «عدّي» أو سكوت = الخانة بتفضل فاضية. (٥ أكتوبر ٢٠٢٦.)
+  MedicineForm? form;
+  MedicationPurpose? purpose;
+  bool _formAsked = false;
+  bool _purposeAsked = false;
+  int _formTries = 0;
+  int _purposeTries = 0;
+
   /// ساعة كل جرعة (دقيقة اليوم) — null = لسه.
   final List<int?> times;
   ({int index, int hour})? _pendingHour;
@@ -96,9 +117,29 @@ class MedDialog {
   _MedAsk? get _ask {
     if (name == null) return _MedAsk.name;
     if (_pendingHour != null) return _MedAsk.period;
-    if (everyHours != null) return times.first == null ? _MedAsk.firstTime : null;
-    if (count == null) return _MedAsk.count;
-    return times.contains(null) ? _MedAsk.time : null;
+    if (everyHours != null && times.first == null) return _MedAsk.firstTime;
+    if (everyHours == null) {
+      if (count == null) return _MedAsk.count;
+      if (times.contains(null)) return _MedAsk.time;
+    }
+    // الاختياريين — بعد الاسم والساعات (قرار المالك)
+    if (form == null && !_formAsked) return _MedAsk.form;
+    if (purpose == null && !_purposeAsked) return _MedAsk.purpose;
+    return null;
+  }
+
+  /// السؤال الحالي اختياري؟ — السكوت عليه بيعدّيه (الـflow بينده).
+  bool skipOptional() {
+    switch (_ask) {
+      case _MedAsk.form:
+        _formAsked = true;
+        return true;
+      case _MedAsk.purpose:
+        _purposeAsked = true;
+        return true;
+      default:
+        return false;
+    }
   }
 
   bool get complete => _ask == null;
@@ -113,6 +154,8 @@ class MedDialog {
             count == 1 ? 'تاخده الساعة كام؟' : 'الجرعة رقم ${arabicNumber(times.indexOf(null) + 1)} الساعة كام؟',
           ),
         _MedAsk.period => DialogQuestion('dlg_part_of_day', 'الساعة ${arabicNumber(_pendingHour!.hour)} الصبح ولا بالليل؟'),
+        _MedAsk.form => const DialogQuestion('dlg_med_form', 'نوعه إيه؟'),
+        _MedAsk.purpose => const DialogQuestion('dlg_med_purpose', 'الدوا ده لإيه؟'),
       };
 
   /// الإجابة على السؤال الحالي — true = اتفهمت واتحطّت.
@@ -171,6 +214,45 @@ class MedDialog {
         if (n.times.isNotEmpty) times[0] = n.times.first.minutes;
         if (n.times.isEmpty && n.hourNeedsPeriod != null) _pendingHour = (index: 0, hour: n.hourNeedsPeriod!);
         return true;
+      case _MedAsk.form:
+        if (_isSkip(text)) {
+          _formAsked = true;
+          return true;
+        }
+        for (final t in utteranceTokens(normalizeUtterance(text))) {
+          if (MedicineForm.fromSpoken(t) case final f?) {
+            form = f;
+            return true;
+          }
+        }
+        // إجابة مش مفهومة مرتين على سؤال اختياري = عدّي بخانة فاضية —
+        // مش الفورم: السؤال مش مستاهل يقطع الحوار
+        if (_formTries++ >= 1) {
+          _formAsked = true;
+          return true;
+        }
+        return false;
+      case _MedAsk.purpose:
+        if (_isSkip(text)) {
+          _purposeAsked = true;
+          return true;
+        }
+        final tokens = utteranceTokens(normalizeUtterance(text));
+        for (var i = 0; i < tokens.length; i++) {
+          if (tokens[i] == 'مضاد' && i + 1 < tokens.length && tokens[i + 1].startsWith('حيوي')) {
+            purpose = MedicationPurpose.antibiotic;
+            return true;
+          }
+          if (MedicationPurpose.fromSpokenWord(tokens[i]) case final p?) {
+            purpose = p;
+            return true;
+          }
+        }
+        if (_purposeTries++ >= 1) {
+          _purposeAsked = true;
+          return true;
+        }
+        return false;
     }
   }
 
@@ -199,6 +281,8 @@ class MedDialog {
   /// «Concor — الساعة ٩:٠٠ ص و٩:٠٠ م — بعد الأكل — الجرعة قرص — لمدة ٧ أيام».
   String summary({String? duplicateOf}) => [
         'هضيف ${name!}',
+        if (form case final f?) f.label,
+        if (purpose case final p?) p.label,
         'الساعة ${minutes.map((m) => _clock(m.minutes)).join(' و')}',
         if (meal case final m?) m.label,
         if (amount case final a?) 'الجرعة ${arabicDigits(a)}',

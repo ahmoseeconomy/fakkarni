@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/med_name.dart';
 
 import '../../app/app_scope.dart';
+import '../../app/day_night.dart';
 import '../../core/format/arabic_time.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/wording/patient_words.dart';
@@ -256,7 +257,8 @@ class _Greeting extends StatelessWidget {
           id: 'help_today',
           elder: true,
           child: Text(
-            now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير',
+            // نفس حد «يومك»: الشروق والغروب الحقيقيين (٥ أكتوبر ٢٠٢٦)
+            DayNight.isDaytime(now) ? 'صباح الخير' : 'مساء الخير',
             style: TextStyle(
               fontFamily: F.displayFamily,
               fontSize: F.elderTitleSize,

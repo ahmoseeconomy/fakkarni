@@ -14,6 +14,7 @@ import '../../data/files/paper_share.dart';
 import '../billing/family_plan_screen.dart';
 import '../medication/refill_actions.dart';
 import 'followers_screen.dart';
+import '../../core/widgets/display_mode_row.dart';
 import '../../core/widgets/legal_links_row.dart';
 import '../account/delete_account_screen.dart';
 import 'diagnostics_log_screen.dart';
@@ -144,6 +145,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _open(const NotificationsScreen()),
             ),
             _ElderModeRow(settings: services.preferences),
+            // «وضع الشاشة» (٥ أكتوبر ٢٠٢٦) — إعداد الموبايل ده، جنب زرار
+            // القمر اللي في الشريط مش بداله (قرار الزرار معلّق عند المالك)
+            const FCard(child: DisplayModeRow()),
+            const SizedBox(height: F.s12),
             if (services.voice case final voice?)
               _Row(
                 key: const ValueKey('settings-voice'),

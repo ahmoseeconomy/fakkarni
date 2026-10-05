@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/med_name.dart';
 
 import '../../app/app_scope.dart';
+import '../../app/day_night.dart';
 import '../../core/format/arabic_time.dart';
 import '../../data/services/appointment_plan.dart' show dayBeforeMinute, dayOfMinute;
 import '../../domain/scheduling/minute_of_day.dart';
@@ -676,7 +677,10 @@ class _HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = patient?.name;
     final hasName = name != null && name.isNotEmpty && name != 'أنا';
-    final morning = now.hour >= 4 && now.hour < 12;
+    // بالشروق والغروب الحقيقيين (المالك، ٥ أكتوبر ٢٠٢٦): «صباح الخير»
+    // وشمسها من الشروق للغروب، و«مساء الخير» وهلالها بعده — **بالوقت
+    // الحقيقي دايماً**، مهما كان وضع الشاشة.
+    final morning = DayNight.isDaytime(now);
     // **الشاشات القصيرة** (آيفون SE): الدايرة جنب التحية — «أخدتها» لازم
     // يفضل في أول شاشة فوق الدوك (المالك، ٤ أكتوبر ٢٠٢٦)
     final compact = isShortScreen(context);

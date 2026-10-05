@@ -262,15 +262,18 @@ void main() {
 
   group('ضيفلي دوا', () {
     test('E2: «ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار» → «اسم الدوا إيه؟» → دوسة وإجابة → الملخص + «صح كده؟» → **ولا صف قبل «أيوه»** → بعدها اتحفظ', () async {
-      final f = await flowWith(['ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار', 'كونكور']);
+      final f = await flowWith(['ضيفلي دوا الضغط الساعة ٨ الصبح بعد الفطار', 'كونكور', 'عدّي']);
       await f.start();
       expect(f.phase, CommandPhase.asking);
       expect(f.shown, 'اسم الدوا إيه؟', reason: '«الضغط» غرض مش اسم');
       expect(tts.spoken, isEmpty, reason: 'مفيش صوت موبايل');
       expect(listener.listens, 1, reason: 'مفيش سماع لوحده — الإجابة بدوسة (١أ)');
       await f.tapMic();
+      // الغرض جه من «دوا الضغط» فما بيتسألش — النوع بيتسأل و«عدّي» بتعدّيه
+      expect(f.shown, 'نوعه إيه؟');
+      await f.tapMic();
       expect(f.phase, CommandPhase.confirming);
-      expect(f.shown, 'هضيف كونكور — الساعة ٨:٠٠ ص — بعد الأكل');
+      expect(f.shown, 'هضيف كونكور — للضغط — الساعة ٨:٠٠ ص — بعد الأكل');
       expect(said().last, 'lis_confirm');
       expect(await h.meds.currentMedicines(h.services.patientId), isEmpty, reason: 'ولا صف قبل «أيوه»');
       await f.confirmYes();
@@ -278,6 +281,7 @@ void main() {
       expect(saved.single.medicationName, 'كونكور');
       expect(saved.single.timing, const FixedTiming(MinuteOfDay(8 * 60)));
       expect(saved.single.mealRelation, MealRelation.after);
+      expect((await h.db.select(h.db.medications).get()).single.purpose, 'pressure');
       expect(opened, isEmpty, reason: 'اتحفظ من غير فورم');
       expect(said().last, 'cmd_done');
     });
@@ -312,14 +316,22 @@ void main() {
     }
 
     test('«عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة» → «أول جرعة الساعة كام؟» → الفاصل بيكمّل', () async {
-      final f = await flowWith(['عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة', '٨ الصبح']);
+      final f = await flowWith(['عايزك تضيف لي دواء اسمه كونكور وآخده كل ١٢ ساعة', '٨ الصبح', 'قرص', 'للضغط']);
       await f.start();
       expect(f.shown, 'أول جرعة الساعة كام؟');
       await f.tapMic();
-      expect(f.shown, 'هضيف كونكور — الساعة ٨:٠٠ ص و٨:٠٠ م');
+      // وبعد الساعات: النوع والغرض — اختياريين، وهنا بيجاوبهم فعلاً
+      expect(f.shown, 'نوعه إيه؟');
+      await f.tapMic();
+      expect(f.shown, 'الدوا ده لإيه؟');
+      await f.tapMic();
+      expect(f.shown, 'هضيف كونكور — قرص — للضغط — الساعة ٨:٠٠ ص و٨:٠٠ م');
       await f.confirmYes();
       expect((await h.meds.activeSchedules(h.services.patientId)).map((s) => s.timing),
           containsAll([const FixedTiming(MinuteOfDay(8 * 60)), const FixedTiming(MinuteOfDay(20 * 60))]));
+      final med = (await h.db.select(h.db.medications).get()).single;
+      expect(med.form, 'tablet');
+      expect(med.purpose, 'pressure');
     });
 
     // «بطنه» = باطنة (طلب المالك، ٢٩ سبتمبر ٢٠٢٦) — تخصص في خانته، مش دكتور اسمه «بطنه»
@@ -444,11 +456,13 @@ void main() {
     test('السحابة رجّعت ضيفلي بكلمات → بتتفهم محلي — ونفس الأسئلة', () async {
       final reader = FakeReader(
           result: const CloudReadResult(tool: CloudTool(tool: 'add_medication', args: {'name': 'السكر', 'times': ['15:00'], 'meal_relation': 'after_meal'})));
-      final f = await flowWith(['xyz', 'جلوكوفاج'], reader: reader);
+      final f = await flowWith(['xyz', 'جلوكوفاج', 'عدّي'], reader: reader);
       await f.start();
       expect(f.shown, 'اسم الدوا إيه؟', reason: '«السكر» غرض — السحابة كمان بتعدّي من نفس الأسئلة');
       await f.tapMic();
-      expect(f.shown, 'هضيف جلوكوفاج — الساعة ٣:٠٠ م — بعد الأكل');
+      expect(f.shown, 'نوعه إيه؟');
+      await f.tapMic();
+      expect(f.shown, 'هضيف جلوكوفاج — للسكر — الساعة ٣:٠٠ م — بعد الأكل');
       await f.confirmYes();
       expect((await h.meds.activeSchedules(h.services.patientId)).single.timing, const FixedTiming(MinuteOfDay(15 * 60)));
     });
@@ -638,9 +652,14 @@ void main() {
     });
 
     test('«الساعة ٩» لوحدها → «الصبح ولا بالليل؟» — مش تخمين', () async {
-      final f = await flowWith(['ضيف دوا الكونكور الساعة ٩', 'بالليل']);
+      final f = await flowWith(['ضيف دوا الكونكور الساعة ٩', 'بالليل', null, null]);
       await f.start();
       expect(f.shown, 'الساعة ٩ الصبح ولا بالليل؟');
+      await f.tapMic();
+      // **سكوت** على «نوعه إيه؟» و«الدوا ده لإيه؟» = عدّي بخانة فاضية
+      expect(f.shown, 'نوعه إيه؟');
+      await f.tapMic();
+      expect(f.shown, 'الدوا ده لإيه؟');
       await f.tapMic();
       expect(f.shown, startsWith('هضيف'));
       expect(f.shown, contains('٩:٠٠ م'));
@@ -648,12 +667,14 @@ void main() {
     });
 
     test('«بعد الفطار» من غير ساعة → كلمة الأكل بتفضل، والساعات بتتسأل', () async {
-      final f = await flowWith(['ضيفلي دوا الكونكور بعد الفطار', 'مرة واحدة', 'تمانية الصبح']);
+      final f = await flowWith(['ضيفلي دوا الكونكور بعد الفطار', 'مرة واحدة', 'تمانية الصبح', 'عدّي', 'عدّي']);
       await f.start();
       expect(f.shown, 'بتاخده كام مرة في اليوم، والساعة كام؟');
       await f.tapMic();
       expect(f.shown, 'تاخده الساعة كام؟');
       await f.tapMic();
+      await f.tapMic(); // نوعه إيه؟ → عدّي
+      await f.tapMic(); // الدوا ده لإيه؟ → عدّي
       expect(f.shown, contains('بعد الأكل'));
       await f.confirmYes();
       expect((await h.meds.activeSchedules(h.services.patientId)).single.mealRelation, MealRelation.after);
@@ -671,13 +692,16 @@ void main() {
     });
 
     test('«لأ» على الملخص → ولا صف، و«عدّل بإيدك» على الملخص بيفتح الفورم', () async {
-      final f = await flowWith(['ضيف دوا كونكور الساعة ٩ بالليل']);
+      final f = await flowWith(['ضيف دوا كونكور قرص للضغط الساعة ٩ بالليل']);
       await f.start();
+      // النوع والغرض اتقالوا في الجملة — **مفيش سؤال عليهم**
       expect(f.phase, CommandPhase.confirming);
+      expect(f.shown, contains('قرص'));
+      expect(f.shown, contains('للضغط'));
       expect(f.canEditInForm, isTrue);
       await f.confirmNo();
       expect(await h.meds.currentMedicines(h.services.patientId), isEmpty);
-      final g = await flowWith(['ضيف دوا كونكور الساعة ٩ بالليل']);
+      final g = await flowWith(['ضيف دوا كونكور قرص للضغط الساعة ٩ بالليل']);
       await g.start();
       await g.editInForm();
       expect(opened.single.timings, [const FixedTiming(MinuteOfDay(21 * 60))]);

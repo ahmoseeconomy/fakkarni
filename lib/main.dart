@@ -47,13 +47,20 @@ import 'core/theme/theme_mode_store.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
 import 'data/db/connection.dart';
+import 'app/day_night.dart';
 import 'data/services/reminder_scheduler.dart' show logReminderRepairs;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // تفضيل العرض الأول — قبل أول فريم، عشان الشاشة ما تلمعش أبيض في الليل
+  // تفضيل العرض الأول — قبل أول فريم، عشان الشاشة ما تلمعش أبيض في الليل.
+  // «تلقائي» بيقرا الشمس (القاهرة افتراضياً)؛ المكان الهادي مجاملة بعدها —
+  // لو إذن «القريب مني» موجود خلاص، النافذة بتتظبط وبيتطبّق تاني.
+  ThemeModeStore.isNight = (now) => !DayNight.isDaytime(now);
   await ThemeModeStore.load();
+  unawaited(DayNight.refreshLocation().then((moved) {
+    if (moved) ThemeModeStore.apply(DateTime.now());
+  }).catchError((Object e) => diag('DayNight: $e')));
 
   final db = AppDatabase(openConnection());
 

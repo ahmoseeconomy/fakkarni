@@ -14,6 +14,7 @@ import '../features/link/sign_in_screen.dart';
 import '../features/onboarding/profile_onboarding_screen.dart';
 import '../features/reminder/reminder_screen.dart';
 import '../features/voice/voice_intro_screen.dart';
+import '../core/theme/theme_mode_store.dart';
 import 'app_scope.dart';
 import 'shell.dart';
 import '../data/services/reminder_scheduler.dart' show logReminderRepairs;
@@ -77,6 +78,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // وضع «تلقائي» بيتبع الشمس عند الرجوع — **مفيش مؤقّت**: التطبيق
+      // المفتوح عبر الغروب بيقلب هنا (٥ أكتوبر ٢٠٢٦). رخيص ومتزامن.
+      ThemeModeStore.apply(DateTime.now());
       final services = AppScope.of(context);
       services.sync?.onAppForeground();
       unawaited(

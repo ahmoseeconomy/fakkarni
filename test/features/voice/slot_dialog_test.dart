@@ -1,6 +1,8 @@
 // E2: «كلّمني» بيسأل عن الناقص واحد واحد — ومفيش ساعة مننا.
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/medication/medication_purpose.dart';
+import 'package:fakkarni/domain/medication/medicine_form.dart';
 import 'package:fakkarni/domain/voice/nlu/nlu.dart';
 import 'package:fakkarni/features/voice/dialog/slot_dialog.dart';
 
@@ -21,8 +23,46 @@ void main() {
       expect(d.answer('تسعة الصبح', now: now), isTrue);
       expect(d.question!.text, 'الجرعة رقم ٢ الساعة كام؟');
       expect(d.answer('تسعة بالليل', now: now), isTrue);
+      // وبعد الساعات: النوع والغرض — اختياريين، «عدّي» بتعدّيهم (٥ أكتوبر)
+      expect(d.question!.id, 'dlg_med_form');
+      expect(d.answer('عدّي', now: now), isTrue);
+      expect(d.question!.id, 'dlg_med_purpose');
+      expect(d.answer('عدّي', now: now), isTrue);
       expect(d.complete, isTrue);
+      expect(d.form, isNull, reason: '«عدّي» = الخانة فاضية، مش تخمين');
+      expect(d.purpose, isNull);
       expect(d.minutes.map((m) => m.minutes), [9 * 60, 21 * 60]);
+    });
+
+    test('«نوعه إيه؟» و«الدوا ده لإيه؟» — بيتجاوبوا، والسكوت بيعدّي، والمش مفهومة مرتين بتعدّي بخانة فاضية', () {
+      final d = med('ضيف دوا كونكور الساعة ٩ بالليل');
+      expect(d.question!.id, 'dlg_med_form');
+      expect(d.answer('حباية', now: now), isTrue);
+      expect(d.form, MedicineForm.tablet);
+      expect(d.question!.id, 'dlg_med_purpose');
+      expect(d.answer('للضغط', now: now), isTrue);
+      expect(d.purpose, MedicationPurpose.pressure);
+      expect(d.complete, isTrue);
+      expect(d.summary(), contains('قرص'));
+      expect(d.summary(), contains('للضغط'));
+
+      // السكوت بيعدّي (الـflow بينده skipOptional على text == null)
+      final q = med('ضيف دوا كونكور الساعة ٩ بالليل');
+      expect(q.question!.id, 'dlg_med_form');
+      expect(q.skipOptional(), isTrue);
+      expect(q.question!.id, 'dlg_med_purpose');
+      expect(q.skipOptional(), isTrue);
+      expect(q.complete, isTrue);
+      // وعلى سؤال أساسي السكوت **مش** بيعدّي
+      final r = med('ضيف دوا');
+      expect(r.skipOptional(), isFalse, reason: 'الاسم مش اختياري');
+
+      // مش مفهومة مرتين على الاختياري = عدّي بخانة فاضية — مش الفورم
+      final w = med('ضيف دوا كونكور الساعة ٩ بالليل');
+      expect(w.answer('أبيض', now: now), isFalse);
+      expect(w.answer('أبيض', now: now), isTrue, reason: 'التانية بتعدّي');
+      expect(w.form, isNull);
+      expect(w.question!.id, 'dlg_med_purpose');
     });
 
     test('«الساعة ٩» من غير الصبح/بالليل → «الصبح ولا بالليل؟» — مش تخمين', () {
@@ -60,8 +100,11 @@ void main() {
     });
 
     test('الجملة كاملة من الأول → مفيش أسئلة، والملخص بالكلام', () {
-      final d = med('ضيف دوا كونكور الساعة ٩ بالليل بعد الأكل');
+      // النوع والغرض في الجملة = ولا سؤال عليهم (قرار المالك، ٥ أكتوبر)
+      final d = med('ضيف دوا كونكور قرص للضغط الساعة ٩ بالليل بعد الأكل');
       expect(d.complete, isTrue);
+      expect(d.form, MedicineForm.tablet);
+      expect(d.purpose, MedicationPurpose.pressure);
       expect(d.summary(), contains('٩:٠٠ م'));
       expect(d.summary(), contains('بعد الأكل'));
       expect(d.summary(duplicateOf: 'Concor'), contains('Concor عندك خلاص'));
