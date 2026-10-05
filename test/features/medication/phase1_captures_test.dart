@@ -16,7 +16,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fakkarni/ai/lab_reading.dart';
 import 'package:fakkarni/ai/prescription_reading.dart' show ReadField;
 import 'package:fakkarni/core/theme/tokens.dart';
-import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/features/health/lab_report_screen.dart';
 import 'package:fakkarni/features/health/scan_lab_screen.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';

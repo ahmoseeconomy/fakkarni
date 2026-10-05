@@ -36,8 +36,8 @@ import '../../domain/scheduling/day_pattern.dart';
 import 'medication_draft.dart';
 import 'med_voice_input.dart';
 import '../../domain/voice/nlu/nlu.dart' show NluIntent, understandUtteranceAs;
-import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, utteranceTokens;
-import '../../domain/voice/answer_parser.dart' show parseTime, parseNumber;
+import '../../domain/voice/answer_parser.dart' show normalizeArabic, parseTime, parseNumber;
+import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, spokenAnswer;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/diagnostics.dart';
 
@@ -351,17 +351,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     if (_duplicateChecked) _checkDuplicate();
   }
 
-  /// (ب) «للضغط» / «الضغط» / «مضاد حيوي» — بيملا بكرة «لإيه؟» وبس.
+  /// (ب) «للضغط» / «آه للضغط.» / «مضاد حيوي» — بيملا بكرة «لإيه؟» وبس.
+  /// مطابقة متسامحة (contains على القايمة المقفولة) — المتعرّف الحقيقي
+  /// بيرجّع جُمل بحشو وترقيم والتوكنة الصارمة كانت بتقع (المرحلة ٢).
   void _hearPurpose(String text) {
-    final tokens = utteranceTokens(normalizeUtterance(text));
-    MedicationPurpose? found;
-    for (var i = 0; i < tokens.length && found == null; i++) {
-      if (tokens[i] == 'مضاد' && i + 1 < tokens.length && tokens[i + 1].startsWith('حيوي')) {
-        found = MedicationPurpose.antibiotic;
-        break;
-      }
-      found = MedicationPurpose.fromSpokenWord(tokens[i]);
-    }
+    final found = MedicationPurpose.fromSpokenText(spokenAnswer(text));
     if (found == null) {
       setState(() => _voice?.note = 'مافهمتش — قول زي «للضغط» أو «للسكر»، أو حرّك البكرة بإيدك.');
       return;
@@ -369,14 +363,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     setState(() => _purpose = found);
   }
 
-  /// (ب) «قرص» / «شراب» / «حباية» — بيملا بكرة «نوعه؟» وبس.
+  /// (ب) «قرص» / «شراب يعني.» / «حباية» — بيملا بكرة «نوعه؟» وبس.
+  /// نفس التسامح: contains على القايمة المقفولة (المرحلة ٢).
   void _hearForm(String text) {
-    final tokens = utteranceTokens(normalizeUtterance(text));
-    MedicineForm? found;
-    for (final t in tokens) {
-      found = MedicineForm.fromSpoken(t);
-      if (found != null) break;
-    }
+    final found = MedicineForm.fromSpokenText(spokenAnswer(text));
     if (found == null) {
       setState(() => _voice?.note = 'مافهمتش — قول زي «قرص» أو «شراب»، أو حرّك البكرة بإيدك.');
       return;
@@ -387,8 +377,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// (ب) «بياخده إزاي؟» — «كل ١٢ ساعة» بينتقل للفاصل بساعاته، وأسماء
   /// الأنماط بكلمتها («أيام معينة» بتفتح اختيار الأيام والإنسان بيكمّل).
   void _hearPattern(String text) {
-    final norm = normalizeUtterance(text);
-    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now());
+    final norm = spokenAnswer(text);
+    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $norm', now: DateTime.now());
     if (r.everyHours case final h? when everyHoursChoices.contains(h)) {
       _pickPattern(DosePattern.everyHours);
       setState(() {
@@ -419,8 +409,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
 
   /// (ب) «كام مرة في اليوم؟» — «مرتين» / «٣ مرات» / رقم لوحده (١–١٢).
   void _hearCount(String text) {
-    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now());
-    final n = r.perDay ?? parseNumber(text);
+    final clean = spokenAnswer(text);
+    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $clean', now: DateTime.now());
+    final n = r.perDay ?? parseNumber(clean);
     if (n == null || n < 1 || n > _maxCount) {
       setState(() => _voice?.note = 'مافهمتش — قول زي «مرتين» أو «٣ مرات»، أو حرّك البكرة بإيدك.');
       return;
@@ -436,10 +427,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// (ب) «المواعيد» — ساعة أو أكتر بالواو: «تسعة الصبح وتسعة بالليل».
   /// كل ساعة لازم جزء يومها (مفيش تخمين)، والصفوف بتتكتب باللي اتقال.
   void _hearTimes(String text) {
-    final parts = normalizeUtterance(text).split(RegExp(r'\s+و(?=\S)|\sو\s'));
+    final parts = spokenAnswer(text).split(RegExp(r'\s+و(?=\S)|\sو\s'));
     final minutes = <int>{};
     for (final part in parts) {
-      final t = parseTime(part.trim());
+      final t = parseTime(spokenAnswer(part));
       if (t == null) {
         setState(() => _voice?.note = 'مافهمتش «${part.trim()}» — قول الساعة بجزء يومها، زي «٩ الصبح».');
         return;
@@ -462,7 +453,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// (ب) «الساعة كام؟» — ساعة واحدة بجزء يومها («٩ الصبح»)، بتكتب أول
   /// جرعة والباقي بيتوزّع وراها زي البكرة بالظبط ([_pickFirstFixed]).
   void _hearFirstTime(String text) {
-    final t = parseTime(normalizeUtterance(text).trim());
+    final t = parseTime(spokenAnswer(text));
     if (t == null) {
       setState(() => _voice?.note = 'مافهمتش — قول الساعة بجزء يومها، زي «٩ الصبح».');
       return;
@@ -472,12 +463,17 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
 
   /// (ب) «مع الأكل؟» — كلمة الأكل من نفس قارئ «كلّمني»، و«من غير» بتمسح.
   void _hearMeal(String text) {
-    final norm = normalizeUtterance(text);
+    final norm = spokenAnswer(text);
     if (norm.contains('من غير') || norm.contains('عادي') || norm.contains('ولا حاجه')) {
       setState(() => _meal = null);
       return;
     }
-    final food = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now()).food;
+    var food = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $norm', now: DateTime.now()).food;
+    // والكلمة بلفظها كمان — contains على الأربع كلمات المقفولة (المرحلة ٢)
+    for (final m in MealRelation.values) {
+      if (food != null) break;
+      if (norm.contains(normalizeArabic(m.label))) food = m;
+    }
     if (food == null) {
       setState(() => _voice?.note = 'مافهمتش — قول زي «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
       return;
@@ -790,7 +786,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                   // «قولها بصوتك» اتشال من الفورم (المالك، ٥ أكتوبر مساءً) —
                   // الدوا كله بالصوت مكانه «كلّمني» على «يومك». اللي فاضل:
                   // المفتاح ومايكات الحقول.
-                  if (_voice case final v?) ...[
+                  if (_voice != null) ...[
                     // «أدخّل بصوتي» — مفتاح مايكات الحقول (مقفول افتراضياً):
                     // «ساعدني» و«قولها» كانوا بيزاحموا بعض، فواحد منهم بس
                     Row(
@@ -808,21 +804,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                         ),
                       ],
                     ),
-                    // سطر حالة الصوت («ما سمعتش حاجة» / سبب الاختفا) — كان
-                    // تحت «قولها بصوتك»، والمايكات الصغيرة مالهاش مكان ليه
-                    AnimatedBuilder(
-                      animation: v,
-                      builder: (context, _) => v.note == null
-                          ? const SizedBox.shrink()
-                          : Padding(
-                              padding: const EdgeInsets.only(bottom: F.s8),
-                              child: Text(
-                                v.note!,
-                                key: const ValueKey('med-voice-note'),
-                                style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
-                              ),
-                            ),
-                    ),
+                    // سطر حالة الصوت اتنقل **جنب البكرة بتاعته** ([MicNote]
+                    // تحت كل حقل) — المالك 1A، المرحلة ٢: السطر البعيد هنا
+                    // كان بيتقري على الجهاز «ولا حاجة حصلت».
                     const SizedBox(height: F.s12),
                   ],
                   if (_duplicate case final dup?) ...[
@@ -853,6 +837,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             if (_duplicateChecked) _checkDuplicate();
                           },
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'اسم الدوا'),
                         if (_name.text.trim().isNotEmpty && isNotAMedicineName(_name.text)) ...[
                           const SizedBox(height: F.s8),
                           Text(
@@ -879,6 +864,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                           semanticsLabel: 'الدوا ده لإيه',
                           onChanged: (p) => setState(() => _purpose = p),
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'الدوا ده لإيه'),
                         const SizedBox(height: F.gap),
                         // --------------------------------------- نوعه
                         // (طلب المدير، ٤ أكتوبر ٢٠٢٦) — هو اللي بيحدد وحدة المخزون
@@ -894,6 +880,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                           semanticsLabel: 'نوع الدوا',
                           onChanged: (f) => setState(() => _form = f),
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'نوعه'),
                       ],
                     ),
                   ),
@@ -929,6 +916,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             if (p != null) _pickPattern(p);
                           },
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'بياخده إزاي'),
                         const SizedBox(height: F.gap),
                         if (_pattern == DosePattern.everyHours) ...[
                           EveryHoursPicker(
@@ -992,6 +980,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             }
                           },
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'كام مرة'),
                         if (_customCount) ...[
                           const SizedBox(height: F.s8),
                           FNumberWheel(
@@ -1023,6 +1012,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             },
                             onChanged: _pickFirstFixed,
                           ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'الساعة'),
                           const SizedBox(height: F.gap),
                         ],
                         ],
@@ -1042,6 +1032,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                           semanticsLabel: 'مع الأكل',
                           onChanged: (m) => setState(() => _meal = m),
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'مع الأكل'),
                       ],
                     ),
                   ),
@@ -1076,6 +1067,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                               : 'البكرة فوق بتختار أول ساعة، والباقي بيتوزّع على يومك — دوس على أي جرعة لو عايز تغيّرها.',
                           style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
                         ),
+                        if (_mics) MicNote(session: _voice!, forWhat: 'المواعيد'),
                       ],
                     ),
                   ),

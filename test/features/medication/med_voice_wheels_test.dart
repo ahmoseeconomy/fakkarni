@@ -2,6 +2,8 @@
 // (أول صف «من غير تحديد» بيكتب null)، «قولها بصوتك» بيملا الفورم كله بفهم
 // «كلّمني» والناقص بيفضل فاضي، ومايك للبكر وحقول النص وبس (سؤال ٤ زراير أو أقل من غير مايك — ٥ أكتوبر مساءً) — ولا حاجة
 // بتتحفظ غير بـ«احفظ»، والصوت مقفول على فورم الممرض.
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -334,5 +336,119 @@ void main() {
       expect(find.byKey(const ValueKey('purpose-wheel')), findsOneWidget);
     });
 
+  });
+
+  // المرحلة ٢ (المالك 1A): على الآيفون الحقيقي «قولها» على البكر ما كانتش
+  // بتحرّكها — والمتعرّف الحقيقي بيرجّع جُمل بحشو وترقيم («آه للضغط.»)
+  // والنقطة بالذات normalizeArabic ما بيشيلهاش، فالتوكنة الصارمة كانت
+  // بتقع في صمت. العيّنات هنا بشكل كلام المتعرّف الحقيقي، لكل نوع بكرة.
+  group('عيّنات متعرّف حقيقي — البكرة بتتحرّك باللي اتقال، والسطر جنبها', () {
+    late Harness h;
+    late FakeListener listener;
+
+    Future<void> setUpWith({List<Object?> answers = const []}) async {
+      SharedPreferences.setMockInitialValues({VoiceService.enabledKey: true});
+      h = Harness();
+      await h.setUp();
+      final voice = VoiceService(
+        player: FakePlayer(),
+        tts: FakeTts(),
+        listener: listener = FakeListener(answers: answers),
+        micSettle: Duration.zero,
+      );
+      await voice.load();
+      final s = h.services;
+      h.services = AppServices(
+        db: s.db, patients: s.patients, medications: s.medications, events: s.events,
+        scheduler: s.scheduler, patientId: s.patientId, voice: voice,
+      );
+    }
+
+    tearDown(() => h.tearDown());
+
+    Future<void> pumpMics(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1000, 6000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await h.pump(tester, AddMedicationScreen(today: aug31));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('voice-input-switch')));
+      await settle(tester);
+    }
+
+    int wheelItem(WidgetTester tester, Key key) =>
+        tester.widget<CupertinoPicker>(find.byKey(key)).scrollController!.selectedItem;
+
+    screenTest('FChoiceWheel «لإيه؟»: «آه للضغط.» بتنط للضغط — بالحشو والنقطة', (tester) async {
+      await setUpWith(answers: ['آه للضغط.']);
+      await pumpMics(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-الدوا ده لإيه')));
+      await settle(tester);
+      expect(wheelItem(tester, const ValueKey('purpose-wheel')),
+          MedicationPurpose.values.indexOf(MedicationPurpose.pressure) + 1,
+          reason: 'البكرة نفسها اتحرّكت — مش الحالة بس');
+    });
+
+    screenTest('FChoiceWheel «نوعه؟»: «شراب يعني.» — و«جل» ككلمة بس («للجلد» مش مرهم)', (tester) async {
+      await setUpWith(answers: ['شراب يعني.', 'للجلد.']);
+      await pumpMics(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-نوعه')));
+      await settle(tester);
+      expect(wheelItem(tester, const ValueKey('form-wheel')),
+          MedicineForm.values.indexOf(MedicineForm.syrup) + 1);
+      // «للجلد» على بكرة النوع: مش نوع — سطر «مافهمتش» جنبها، والبكرة ثابتة
+      await tester.tap(find.byKey(const ValueKey('field-mic-نوعه')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('mic-note-نوعه')), findsOneWidget);
+      expect(wheelItem(tester, const ValueKey('form-wheel')),
+          MedicineForm.values.indexOf(MedicineForm.syrup) + 1, reason: 'ما اتحركتش على كلام مش نوع');
+    });
+
+    screenTest('بكرة النمط وبكرة العدد: «كل ١٢ ساعة طبعا.» و«آه مرتين.»', (tester) async {
+      await setUpWith(answers: ['آه مرتين.', 'كل ١٢ ساعة طبعا.']);
+      await pumpMics(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-كام مرة')));
+      await settle(tester);
+      expect(find.text('اختار الساعة'), findsNWidgets(2), reason: '«مرتين» بالحشو = صفّين');
+      await tester.tap(find.byKey(const ValueKey('field-mic-بياخده إزاي')));
+      await settle(tester);
+      expect(find.textContaining('كل ١٢ ساعة'), findsWidgets);
+    });
+
+    screenTest('FTimeWheel «الساعة كام؟»: «آه ٩ بالليل.» بتنط عليها — و«مع الأكل» بـ«بعد الأكل طبعا.»', (tester) async {
+      await setUpWith(answers: ['آه ٩ بالليل.', 'بعد الأكل طبعا.']);
+      await pumpMics(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
+      await settle(tester);
+      expect(tester.widget<FTimeWheel>(find.byType(FTimeWheel)).value.minutes, 21 * 60);
+      await tester.tap(find.byKey(const ValueKey('field-mic-مع الأكل')));
+      await settle(tester);
+      expect(wheelItem(tester, const ValueKey('meal-wheel')), 3, reason: '«بعد الأكل» رغم الحشو');
+      expect(listener.listens, 2);
+    });
+
+    screenTest('سطر «مافهمتش» **جنب البكرة بتاعته** — مش تحت المفتاح، ومش جنب غيرها', (tester) async {
+      await setUpWith(answers: ['كلام ملوش علاقة.']);
+      await pumpMics(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-الدوا ده لإيه')));
+      await settle(tester);
+      // السطر بمفتاح حقله، وجغرافياً بين بكرة «لإيه؟» وترويسة «نوعه؟»
+      final note = tester.getRect(find.byKey(const ValueKey('mic-note-الدوا ده لإيه')));
+      final purpose = tester.getRect(find.byKey(const ValueKey('purpose-wheel')));
+      final form = tester.getRect(find.byKey(const ValueKey('form-wheel')));
+      expect(note.top, greaterThan(purpose.bottom - 1), reason: 'تحت بكرته');
+      expect(note.bottom, lessThan(form.top), reason: 'وفوق اللي بعده');
+      // ومفيش نسخة تانية تحت المفتاح ولا جنب بكرة تانية
+      expect(find.byKey(const ValueKey('med-voice-note')), findsNothing, reason: 'السطر العام اتشال');
+      expect(find.byKey(const ValueKey('mic-note-نوعه')), findsNothing);
+      expect(find.textContaining('مافهمتش'), findsOneWidget);
+    });
+
+    test('سطر الأثر موجود في المصدر: MedVoice: heard=«…» → … — جولة الجهاز بتقرا منه', () {
+      final src = File('lib/features/medication/med_voice_input.dart').readAsStringSync();
+      expect(src.contains('MedVoice: heard=«'), isTrue);
+      expect(src.contains('diag('), isTrue);
+    });
   });
 }

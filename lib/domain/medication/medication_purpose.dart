@@ -61,6 +61,31 @@ enum MedicationPurpose {
   /// من كلمة **متقالة** (مطبّعة: ة→ه، أ→ا) — «للضغط» / «الضغط» / «ضغط».
   /// «لل» و«ال» بيتشالوا الأول؛ مش واضحة = null. «مضاد حيوي» كلمتين،
   /// فالقارئ بيبعتهم متوصّلين («مضادحيوي») أو بيمسك الزوج بنفسه.
+  /// مطابقة **متسامحة** على القايمة المقفولة — `contains` زي ما زرار
+  /// «نوع التنبيه» القديم كان بيعمل (المرحلة ٢، المالك 1A): المتعرّف
+  /// الحقيقي بيرجّع جُمل بحشو وترقيم («اه للضغط») والتوكنة الصارمة كانت
+  /// بتقع عليها. الترتيب مقصود: «مضاد حيوي» قبل الكلمات القصيرة.
+  static MedicationPurpose? fromSpokenText(String normalized) {
+    for (final (purpose, keys) in _spokenKeys) {
+      for (final k in keys) {
+        if (normalized.contains(k)) return purpose;
+      }
+    }
+    return null;
+  }
+
+  static const _spokenKeys = <(MedicationPurpose, List<String>)>[
+    (antibiotic, ['مضاد حيوي', 'مضادحيوي']),
+    (pressure, ['ضغط']),
+    (sugar, ['سكر']),
+    (heart, ['قلب']),
+    (stomach, ['معده', 'قولون']),
+    (cholesterol, ['كوليسترول', 'كولسترول', 'دهون']),
+    (vitamins, ['فيتامين']),
+    (eye, ['عيون', 'عين']),
+    (skin, ['جلد', 'بشره']),
+  ];
+
   static MedicationPurpose? fromSpokenWord(String token) {
     var t = token;
     if (t.startsWith('لل')) t = 'ال${t.substring(2)}';

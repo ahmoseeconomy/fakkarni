@@ -55,6 +55,31 @@ enum MedicineForm {
   /// من كلمة **متقالة** (مطبّعة: ة→ه، من غير «ال») — «حباية»، «برشام»،
   /// «قطرة»… مش واضحة = null، **مفيش تخمين**. «معلقة» مش هنا عن قصد:
   /// دي وحدة جرعة («معلقة واحدة»)، مش نوع.
+  /// مطابقة متسامحة بالـ`contains` على القايمة المقفولة — نفس قرار
+  /// [MedicationPurpose.fromSpokenText] (المرحلة ٢، المالك 1A). المفتاح
+  /// القصير («جل») بيتطابق ككلمة كاملة بس — «جلد» مش مرهم.
+  static MedicineForm? fromSpokenText(String normalized) {
+    final words = normalized.split(' ');
+    for (final (form, keys) in _spokenKeys) {
+      for (final k in keys) {
+        final hit = k.length <= 2 ? words.contains(k) : normalized.contains(k);
+        if (hit) return form;
+      }
+    }
+    return null;
+  }
+
+  static const _spokenKeys = <(MedicineForm, List<String>)>[
+    (capsule, ['كبسول']),
+    (suppository, ['لبوس']),
+    (inhaler, ['بخاخ']),
+    (drops, ['نقط', 'قطره', 'قطاره']),
+    (syrup, ['شراب']),
+    (injection, ['حقن']),
+    (ointment, ['مرهم', 'كريم', 'جل']),
+    (tablet, ['قرص', 'اقراص', 'حبايه', 'حبايات', 'حبوب', 'برشام']),
+  ];
+
   static MedicineForm? fromSpoken(String token) {
     final t = token.startsWith('ال') ? token.substring(2) : token;
     return switch (t) {

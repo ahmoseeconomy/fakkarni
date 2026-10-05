@@ -33,11 +33,27 @@ class MedVoiceSession extends ChangeNotifier {
   /// بنسمع لمين دلوقتي — اسم الحقل، والزرار بيكتبه.
   String? listeningFor;
 
-  /// سطر مكتوب تحت الزرار — «ما سمعتش حاجة …» وأخواتها.
+  /// سطر مكتوب — «ما سمعتش حاجة …» وأخواتها.
   String? note;
+
+  /// السطر بتاع مين — **بيترندر جنب البكرة نفسها** ([MicNote])، مش تحت
+  /// المفتاح (المرحلة ٢، المالك 1A): على الجهاز السطر البعيد كان بيتقري
+  /// «ولا حاجة حصلت». بيتحدد في [hear]، وأي سطر المعالج بيكتبه جوّه
+  /// [hearAndApply] بيتبع نفس الحقل.
+  String? noteFor;
 
   bool _hidden = false;
   bool get busy => listeningFor != null;
+
+  /// الدوسة كاملة: سماع ← تسليم للمعالج ← **سطر الأثر الواحد** — جولة
+  /// الجهاز بتقرا منه إيه اللي المتعرّف رجّعه فعلاً وراح فين، لأن ده
+  /// بالظبط اللي مقاس المرحلة ١ ما قدرش يجاوبه من برّه.
+  Future<void> hearAndApply(String forWhat, ValueChanged<String> onHeard) async {
+    final text = await hear(forWhat);
+    if (text != null) onHeard(text);
+    diag('MedVoice: heard=«${text ?? ''}» → ${note ?? 'اتقبلت'} ($forWhat)');
+    notifyListeners();
+  }
 
   /// سماع واحد: بيسلّم الجلسة، بيسمع، وبيرجّع الكلام أو null — والسبب
   /// بيتكتب في [note].
@@ -46,6 +62,7 @@ class MedVoiceSession extends ChangeNotifier {
     if (listener == null || _hidden || busy) return null;
     listeningFor = forWhat;
     note = null;
+    noteFor = forWhat;
     notifyListeners();
     try {
       await voice.yieldToMic();
@@ -107,10 +124,7 @@ class FieldMicButton extends StatelessWidget {
   final String forWhat;
   final ValueChanged<String> onHeard;
 
-  Future<void> _tap(BuildContext context) async {
-    final text = await session.hear(forWhat);
-    if (text != null) onHeard(text);
-  }
+  Future<void> _tap(BuildContext context) => session.hearAndApply(forWhat, onHeard);
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -155,3 +169,30 @@ class FieldMicButton extends StatelessWidget {
   );
 }
 
+
+/// سطر حالة الصوت **جنب البكرة بتاعته** — «ما سمعتش حاجة» و«مافهمتش»
+/// وأخواتهم بيظهروا تحت الحقل اللي اتسمع له، مش تحت مفتاح «أدخّل بصوتي»
+/// (المرحلة ٢، المالك 1A): السطر البعيد على الجهاز كان بيتقري «ولا حاجة
+/// حصلت» والراجل بيدوس تاني وتاني.
+class MicNote extends StatelessWidget {
+  const MicNote({required this.session, required this.forWhat, super.key});
+
+  final MedVoiceSession session;
+  final String forWhat;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: session,
+        builder: (context, _) {
+          if (session.note == null || session.noteFor != forWhat) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: F.s8),
+            child: Text(
+              session.note!,
+              key: ValueKey('mic-note-$forWhat'),
+              style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
+            ),
+          );
+        },
+      );
+}

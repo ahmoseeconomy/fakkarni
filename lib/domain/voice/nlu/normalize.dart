@@ -23,6 +23,38 @@ String normalizeUtterance(String text) {
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+/// إجابة حقل واحدة زي ما **المتعرّف الحقيقي** بيرجّعها (المرحلة ٢، المالك
+/// 1A): فوق [normalizeUtterance] بيشيل علامات الوقف اللي [normalizeArabic]
+/// بيسيبها — **النقطة** بالذات: آيفون بيختم كل جملة بيها، فكانت «للضغط.»
+/// بتقع في التوكنة الصارمة والبكرة ما بتتحركش — وبيشيل كلمات الحشو من
+/// الطرفين («آه للضغط.» = «للضغط»، «شراب يعني.» = «شراب»). للمطابقة
+/// المتسامحة على قايمة مقفولة — مش للفهم الحر؛ النقطتين «:» بتفضل عشان
+/// «9:30».
+String spokenAnswer(String text) {
+  final s = normalizeUtterance(text)
+      .replaceAll(RegExp(r'[.…]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final words = s.split(' ');
+  var start = 0;
+  var end = words.length;
+  while (start < end && _answerFillers.contains(words[start])) {
+    start++;
+  }
+  while (end > start && _answerFillers.contains(words[end - 1])) {
+    end--;
+  }
+  return words.sublist(start, end).join(' ');
+}
+
+/// حشو الكلام — بالصيغة **المطبّعة** (آه → اه، أيوه → ايوه). من الطرفين
+/// بس: كلمة منهم في النص هي النص نفسه («تمام» لوحدها) ما بتتشالش لو هي
+/// كل الإجابة... بتتشال برضه — القوايم المقفولة مفيهاش ولا واحدة منهم.
+const _answerFillers = {
+  'اه', 'ايوه', 'ايوا', 'اها', 'ها', 'يعني', 'هو', 'هي', 'طبعا', 'خلاص',
+  'تمام', 'ماشي', 'اوك', 'امم', 'اممم', 'بقي', 'كده',
+};
+
 /// كلمات الجملة بعد التطبيع — والواو الملزوقة بتتفصل قدّام فعل الأخذ
 /// («وآخده» → «و» + «اخده») عشان تبقى حد لاسم الدوا.
 List<String> utteranceTokens(String normalized) {
