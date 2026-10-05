@@ -105,12 +105,9 @@ void main() {
     // النوع من العلبة واقف على البكرة (البكرة بدل الشرايح — ٥ أكتوبر)
     expect(find.byKey(const ValueKey('form-wheel')), findsOneWidget);
     expect(find.text('كبسولة'), findsWidgets);
-    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
-    await settle(tester);
-    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-    await settle(tester);
-    await tester.tap(find.text('احفظ الجرعة'));
-    await settle(tester);
+    // جرعة واحدة = مفيش كارت صفوف (٥ أكتوبر مساءً) — الساعة من بكرة
+    // «الساعة كام؟» على طول (الشرايح السريعة اتشالت)
+    await pickTime(tester, const MinuteOfDay(9 * 60));
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     final med = (await h.db.select(h.db.medications).get()).single;
@@ -130,12 +127,9 @@ void main() {
     await settle(tester);
     await tester.drag(find.byKey(const ValueKey('form-wheel')), const Offset(0, 5 * 44.0));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
-    await settle(tester);
-    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-    await settle(tester);
-    await tester.tap(find.text('احفظ الجرعة'));
-    await settle(tester);
+    // جرعة واحدة = مفيش كارت صفوف (٥ أكتوبر مساءً) — الساعة من بكرة
+    // «الساعة كام؟» على طول (الشرايح السريعة اتشالت)
+    await pickTime(tester, const MinuteOfDay(9 * 60));
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     expect((await h.db.select(h.db.medications).get()).single.form, isNull);

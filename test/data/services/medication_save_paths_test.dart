@@ -125,8 +125,7 @@ void main() {
   screenTest('بالإيد: «ضيف دوا» ← احفظ ← التذكيرات بالظبط', (tester) async {
     await pump(tester, const AddMedicationScreen());
     await tester.enterText(find.byType(TextField).first, 'Concor');
-    await tester.tap(find.byKey(ValueKey('quick-time-$nine')));
-    await settle(tester);
+    await pickTime(tester, const MinuteOfDay(21 * 60));
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
     await expectExactly(tester, minute: nine);
@@ -159,8 +158,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('med-photo-use-box')));
     await tester.tap(find.byKey(const ValueKey('med-photo-use-box')));
     await settle(tester);
-    await tester.tap(find.byKey(ValueKey('quick-time-$nine')));
-    await settle(tester);
+    await pickTime(tester, const MinuteOfDay(21 * 60));
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     for (var i = 0; i < 20 && photos.saves == 0; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -188,8 +186,7 @@ void main() {
     await pump(tester, EditMedicationScreen(medicationId: id!));
     await tester.tap(find.text('عدّل').first);
     await settle(tester);
-    await tester.tap(find.byKey(ValueKey('quick-time-$nine')));
-    await settle(tester);
+    await pickTime(tester, const MinuteOfDay(21 * 60)); // بكرة المحرّر
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
 

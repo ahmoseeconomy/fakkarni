@@ -27,7 +27,7 @@ import '../../domain/scheduling/schedule_engine.dart';
 import '../../domain/wording/rule_wording.dart';
 import '../../core/widgets/f_wheels.dart';
 import 'alert_mode_chips.dart';
-import 'dose_editor.dart' show DoseEditor, QuickTimeChips;
+import 'dose_editor.dart' show DoseEditor;
 import 'med_photo.dart';
 import '../../domain/scheduling/every_hours.dart';
 import 'day_pattern_picker.dart';
@@ -38,7 +38,6 @@ import 'med_voice_input.dart';
 import '../../domain/voice/nlu/nlu.dart' show NluIntent, understandUtteranceAs;
 import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, utteranceTokens;
 import '../../domain/voice/answer_parser.dart' show parseTime, parseNumber;
-import '../../domain/voice/arabic_dates.dart' show extractDates;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/diagnostics.dart';
 
@@ -460,6 +459,17 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     });
   }
 
+  /// (ب) «الساعة كام؟» — ساعة واحدة بجزء يومها («٩ الصبح»)، بتكتب أول
+  /// جرعة والباقي بيتوزّع وراها زي البكرة بالظبط ([_pickFirstFixed]).
+  void _hearFirstTime(String text) {
+    final t = parseTime(normalizeUtterance(text).trim());
+    if (t == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول الساعة بجزء يومها، زي «٩ الصبح».');
+      return;
+    }
+    _pickFirstFixed(MinuteOfDay(t.minutes));
+  }
+
   /// (ب) «مع الأكل؟» — كلمة الأكل من نفس قارئ «كلّمني»، و«من غير» بتمسح.
   void _hearMeal(String text) {
     final norm = normalizeUtterance(text);
@@ -475,41 +485,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     setState(() => _meal = food);
   }
 
-  /// (ب) «البداية» — «بكرة» / «يوم الحد» / «بعد أسبوع»، جوّه حد الـ٦٠ يوم.
-  void _hearStart(String text) {
-    final today = _today;
-    // «بكرة» تتحسب من يوم الفورم نفسه — مش ساعة حائط الاختبار/الجهاز
-    final dates = extractDates(text, now: DateTime(today.year, today.month, today.day, 12), future: true);
-    final day = dates.firstOrNull?.date;
-    if (day == null) {
-      setState(() => _voice?.note = 'مافهمتش — قول زي «بكرة» أو «يوم السبت»، أو اختار بإيدك.');
-      return;
-    }
-    final max = today.add(const Duration(days: 60));
-    if (day.isBefore(today) || day.isAfter(max)) {
-      setState(() => _voice?.note = 'البداية من النهارده لحد ٦٠ يوم — اختار يوم أقرب.');
-      return;
-    }
-    setState(() => _startDate = DateTime(day.year, day.month, day.day));
-  }
-
-  /// (ب) «نوع التنبيه» — بكلمة النوع نفسها («يتكرر» / «مستمر» / «مرة واحدة»).
-  void _hearAlert(String text) {
-    final norm = normalizeUtterance(text);
-    if (norm.contains('الجهاز') || norm.contains('افتراضي')) {
-      setState(() => _alertMode = null);
-      return;
-    }
-    AlertMode? found;
-    for (final m in AlertMode.values) {
-      if (norm.contains(normalizeUtterance(m.label))) found = m;
-    }
-    if (found == null) {
-      setState(() => _voice?.note = 'مافهمتش — قول «يتكرر» أو «مستمر» أو «مرة واحدة».');
-      return;
-    }
-    setState(() => _alertMode = found);
-  }
+  // «البداية» و«نوع التنبيه» **مالهمش مايك** (قاعدة المالك، ٥ أكتوبر ٢٠٢٦
+  // مساءً): سؤال إجابته ٤ زراير أو أقل الدوسة فيه أسرع وأدق من الكلام —
+  // المايك للبكر وحقول النص وبس. `_hearStart` و`_hearAlert` اتشالوا معاها.
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -1029,17 +1007,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                         const SizedBox(height: F.gap),
                         ],
                         // الساعة تحت «كام مرة» على طول: بتكتب أول جرعة، والباقي
-                        // بيتوزّع وراها. الشرايح السريعة بتحط البكرة عليها.
+                        // بيتوزّع وراها. البكرة وبس — الشرايح السريعة اتشالت
+                        // (المالك، ٥ أكتوبر ٢٠٢٦ مساءً)، والمايك بيكتب عليها.
                         if (_doses.isNotEmpty) ...[
-                          const _SectionHead('الساعة كام؟'),
-                          QuickTimeChips(
-                            selected: switch (_doses.first) {
-                              FixedTiming(:final minuteOfDay) => minuteOfDay,
-                              _ => null,
-                            },
-                            onPick: _pickFirstFixed,
+                          _SectionHead(
+                            'الساعة كام؟',
+                            mic: _mics ? FieldMicButton(session: _voice!, forWhat: 'الساعة', onHeard: _hearFirstTime) : null,
                           ),
-                          const SizedBox(height: F.s12),
                           _InlineFixedClock(
                             key: const ValueKey('inline-fixed-clock'),
                             label: _doses.length == 1 ? 'الساعة' : 'ساعة الجرعة الأولى',
@@ -1073,6 +1047,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                   ),
                   const SizedBox(height: F.s12),
                   // -------------------------------------- مواعيد الجرعات
+                  // جرعة واحدة في اليوم = الكارت مستخبي (المالك، ٥ أكتوبر
+                  // ٢٠٢٦ مساءً): ساعتها بتتظبط من «الساعة كام؟» فوق، وصف
+                  // واحد تحتها بيكرّر نفس الرقم من غير ما يضيف حاجة.
+                  if (_doses.length >= 2) ...[
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1102,16 +1080,15 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                     ),
                   ),
                   const SizedBox(height: F.s12),
+                  ],
                   // ----------------------------------------- نوع التنبيه
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _SectionHead(
-                          'نوع التنبيه',
-                          help: _mics ? null : 'help_alert_mode',
-                          mic: _mics ? FieldMicButton(session: _voice!, forWhat: 'نوع التنبيه', onHeard: _hearAlert) : null,
-                        ),
+                        // ٤ شرايح = مفيش مايك (قاعدة «٤ زراير أو أقل») —
+                        // و«ساعدني» راجع دايماً مكانه.
+                        const _SectionHead('نوع التنبيه', help: 'help_alert_mode'),
                         AlertModeChips(
                           value: _alertMode,
                           allowDefault: true,
@@ -1129,10 +1106,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // زرارين = مفيش مايك (نفس قاعدة «نوع التنبيه»).
                         _SectionHead(
                           _pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟',
-                          help: _mics ? null : 'help_start_date',
-                          mic: _mics ? FieldMicButton(session: _voice!, forWhat: 'البداية', onHeard: _hearStart) : null,
+                          help: 'help_start_date',
                         ),
                         Row(
                           children: [

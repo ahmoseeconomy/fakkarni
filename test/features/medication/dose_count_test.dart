@@ -45,15 +45,23 @@ void main() {
   }
 
   /// [count] صف جرعة ظاهرين في الفورم — مفيش مشي — وبعدها «احفظ».
+  ///
+  /// جرعة واحدة = **مفيش كارت صفوف أصلاً** (المالك، ٥ أكتوبر ٢٠٢٦ مساءً):
+  /// ساعتها من «الساعة كام؟» فوق، وصف واحد كان بيكرّر نفس الرقم.
   Future<void> walk(WidgetTester tester, int count) async {
-    for (var i = 0; i < count; i++) {
-      expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget, reason: 'صف $i من $count');
+    if (count < 2) {
+      expect(find.byKey(const ValueKey('dose-row-0')), findsNothing,
+          reason: 'جرعة واحدة = الكارت مستخبي');
+    } else {
+      for (var i = 0; i < count; i++) {
+        expect(find.byKey(ValueKey('dose-row-$i')), findsOneWidget, reason: 'صف $i من $count');
+      }
+      expect(find.byKey(ValueKey('dose-row-$count')), findsNothing);
     }
-    expect(find.byKey(ValueKey('dose-row-$count')), findsNothing);
-    // الصفوف فاضية من غير ساعات مننا — أول ساعة بيختارها هو وبتوزّع الباقي
+    // الصفوف فاضية من غير ساعات مننا — أول ساعة بيختارها هو (البكرة؛
+    // الشرايح السريعة اتشالت) وبتوزّع الباقي
     if (find.text('اختار الساعة').evaluate().isNotEmpty) {
-      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-      await settle(tester);
+      await pickTime(tester, const MinuteOfDay(9 * 60));
     }
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);

@@ -17,6 +17,7 @@ import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_plan.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/services/reminder_sink.dart';
+import 'package:fakkarni/core/widgets/f_wheels.dart' show FTimeWheel;
 import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import '../../support/seeded_clock.dart';
@@ -144,6 +145,36 @@ Future<void> pickWheel(WidgetTester tester, Key key, int targetIndex) async {
   if (current == targetIndex) return;
   await tester.drag(find.byKey(key), Offset(0, -44.0 * (targetIndex - current)));
   await settle(tester);
+}
+
+/// بيحرّك [FTimeWheel] لساعة بعينها — الفترة بدوستها («ص»/«م») والعمودين
+/// بسحبة محسوبة زي [pickWheel]. بديل الشرايح السريعة اللي اتشالت من
+/// «الساعة كام؟» (المالك، ٥ أكتوبر ٢٠٢٦ مساءً).
+Future<void> pickTime(WidgetTester tester, MinuteOfDay target, {Finder? wheel}) async {
+  final f = wheel ?? find.byType(FTimeWheel);
+  MinuteOfDay current() => tester.widget<FTimeWheel>(f).value;
+  final wantEvening = target.hour >= 12;
+  if (wantEvening != (current().hour >= 12)) {
+    await tester.tap(find.descendant(of: f, matching: find.text(wantEvening ? 'م' : 'ص')));
+    await settle(tester);
+  }
+  int h12(int h) => h % 12 == 0 ? 12 : h % 12;
+  final dh = h12(target.hour) - h12(current().hour);
+  if (dh != 0) {
+    await tester.drag(
+      find.descendant(of: f, matching: find.byKey(FTimeWheel.hoursKey)),
+      Offset(0, -44.0 * dh),
+    );
+    await settle(tester);
+  }
+  final dm = target.minute - current().minute;
+  if (dm != 0) {
+    await tester.drag(
+      find.descendant(of: f, matching: find.byKey(FTimeWheel.minutesKey)),
+      Offset(0, -44.0 * dm),
+    );
+    await settle(tester);
+  }
 }
 
 void screenTest(String name, Future<void> Function(WidgetTester) body) {

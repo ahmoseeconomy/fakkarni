@@ -93,8 +93,8 @@ void main() {
     // متعبّي بالساعة الحالية
     expect(find.text('هيرن الساعة ٨:٠٠ م'), findsOneWidget);
 
-    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-    await settle(tester);
+    // الشرايح اتشالت من المحرّر — البكرة: م←ص وساعة ٨←٩
+    await pickTime(tester, const MinuteOfDay(9 * 60));
     await tester.tap(find.text('احفظ الجرعة'));
     await settle(tester);
 

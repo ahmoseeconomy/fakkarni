@@ -155,8 +155,7 @@ void main() {
         contains('الدوا ده عندك في القايمة باسم «Concor 10 mg»'),
       );
       // **بنقول، مش بنمنع** — الزرار شغّال لما يختار الساعة، والقرار قراره
-      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-      await settle(tester);
+      await pickTime(tester, const MinuteOfDay(9 * 60));
       expect(
         tester.widget<FPrimaryButton>(find.byType(FPrimaryButton)).onPressed,
         isNotNull,
@@ -199,8 +198,7 @@ void main() {
       // العلبة ما بتقولش ميعاد — الصف فاضي و«احفظ» مقفول لحد ما يختار
       expect(find.text('الساعة ٩:٠٠ ص'), findsNothing, reason: 'ولا ساعة مننا');
       expect(tester.widget<FPrimaryButton>(find.byType(FPrimaryButton)).onPressed, isNull);
-      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-      await settle(tester);
+      await pickTime(tester, const MinuteOfDay(9 * 60));
       await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 
@@ -216,8 +214,7 @@ void main() {
       await h.pump(tester, AddMedicationScreen(today: aug31));
       await tester.enterText(find.byType(TextField).first, 'Telfast 180 mg');
       await settle(tester);
-      await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-      await settle(tester);
+      await pickTime(tester, const MinuteOfDay(9 * 60));
       await tester.tap(find.byKey(const ValueKey('save-medication')));
       await settle(tester);
 

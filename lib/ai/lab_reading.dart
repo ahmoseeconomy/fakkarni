@@ -59,11 +59,12 @@ class LabReading {
   LabReading withModelWarning(String warning) =>
       LabReading(lab: lab, date: date, lines: lines, modelWarning: warning);
 
-  factory LabReading.fromJson(Map<String, dynamic> json) {
+  /// [now] لحارس «تاريخ في المستقبل» — بيتحقن في الاختبار، وإلا ساعة الجهاز.
+  factory LabReading.fromJson(Map<String, dynamic> json, {DateTime? now}) {
     final results = json['results'];
     return LabReading(
       lab: _string(json['lab']),
-      date: _date(json['reportDate']),
+      date: _date(json['reportDate'], now ?? DateTime.now()),
       lines: [
         if (results is List)
           for (final r in results)
@@ -106,13 +107,21 @@ class LabReading {
     return ReadField(value: n, confidence: n == null ? 0 : _confidence(field));
   }
 
-  static ReadField<DateTime> _date(dynamic field) {
+  /// التاريخ بحارسين زي الروشتة (المالك 2A، ٥ أكتوبر ٢٠٢٦):
+  /// سنة برّه ٢٠٠٠–٢١٠٠ = مفيش تاريخ (نفس حد `prescription_reading.dart`)؛
+  /// وتاريخ **في المستقبل** = القيمة موجودة بثقة صفر — تقرير معمل بيتكتب
+  /// عن حاجة حصلت، والمستقبل هنا أغلبه «١٢/٠٩» اتقرت أمريكي. الشاشة ساعتها
+  /// بتقع على النهارده وبتقولها بالذهبي («هيتسجّل بتاريخ النهارده»).
+  static ReadField<DateTime> _date(dynamic field, DateTime now) {
     if (field is! Map) return const ReadField.missing();
     final v = field['value'];
     final d = v is String ? DateTime.tryParse(v) : null;
+    if (d == null || d.year < 2000 || d.year > 2100) return const ReadField.missing();
+    final day = DateTime(d.year, d.month, d.day);
+    final today = DateTime(now.year, now.month, now.day);
     return ReadField(
-      value: d == null ? null : DateTime(d.year, d.month, d.day),
-      confidence: d == null ? 0 : _confidence(field),
+      value: day,
+      confidence: day.isAfter(today) ? 0 : _confidence(field),
     );
   }
 }

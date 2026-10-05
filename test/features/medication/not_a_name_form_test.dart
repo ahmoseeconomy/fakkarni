@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
 
 import '../scan/scan_test_support.dart';
@@ -22,9 +23,8 @@ void main() {
 
   screenTest('كتب «أيوه» بإيده → «ده مش اسم دوا» و«احفظ» مقفول؛ الاسم الحقيقي بيفتحه', (tester) async {
     await h.pump(tester, AddMedicationScreen());
-    // الساعة متختارة — فالمانع الوحيد الباقي هو الاسم
-    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-    await settle(tester);
+    // الساعة متختارة (بالبكرة — الشرايح اتشالت) — فالمانع الباقي هو الاسم
+    await pickTime(tester, const MinuteOfDay(9 * 60));
     await tester.enterText(find.byType(TextField).first, 'أيوه');
     await settle(tester);
     expect(find.byKey(const ValueKey('not-a-name')), findsOneWidget);

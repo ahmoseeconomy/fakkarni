@@ -139,11 +139,16 @@ These are product decisions, already settled. Do not "improve" them without aski
   means nothing, a principle does not. The mockups show a coral FAB in the
   bottom bar — build that FAB in green, not coral. Gold must be the only
   colour that pops.
-- **The dose editor is a clock** (27 Sep 2026): «الساعة كام؟», four quick
-  chips — «الصبح ٩ / الضهر ٢ / العصر ٥ / بالليل ٩» (`quickTimes` in
-  `dose_editor.dart`, editable defaults that set the wheel) — and the
-  `FTimeWheel` under them. «كل كام ساعة» starts from a chosen first time
-  (default 8:00). No anchors, no offset wheel, no system time picker.
+- **The dose editor is a clock — the wheel alone** (27 Sep 2026; the four
+  quick chips were removed from «الساعة كام؟» on 5 Oct 2026, owner's call):
+  «الساعة كام؟» is the `FTimeWheel` and nothing else, in `DoseEditor` and
+  on the «ضيف دوا» form alike, and the form's «الساعة كام؟» head carries a
+  «قولها» mic that writes the first dose (`_hearFirstTime` — a spoken time
+  with its day part). `quickTimes` / `QuickTimeChips` survive only on the
+  two surfaces whose own specs name them: the prescription's
+  «اختار الساعات» (`pick_times_sheet`) and the «ميعاد جديد» optional hour.
+  «كل كام ساعة» starts from a chosen first time (default 8:00). No anchors,
+  no offset wheel, no system time picker.
 - **No preset time chips anywhere, and the clock wheel steps by one
   minute** (product change, 24 Sep 2026). The «٦:٠٠ / ٦:٣٠ / ٧:٠٠» rows
   above the routine questions, in «عدّل يومك», in the ask-meal sheet, and
@@ -3145,11 +3150,16 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 صغير جنب كل قسم بيتعبّى بالصوت — («قولها بصوتك» الكبير اللي كان بياخد
 الجملة كلها **اتشال ٥ أكتوبر مساءً** بقرار المالك: الدوا كله بالصوت
 مكانه «كلّمني» على «يومك»، ووجود الاتنين على الفورم هو اللي لخبط تجربة
-المحاكي) — (الاسم، البكر الخمسة، المواعيد
-«٩ الصبح و٩ بالليل» بالواو، البداية «بكرة/يوم السبت» — بتتحسب من يوم
-الفورم مش ساعة الحائط — ونوع التنبيه) بيملا حقله هو بس
-(`MedicationPurpose.fromSpokenWord` / `MedicineForm.fromSpoken` — نقيين)،
-وسطر حالة الصوت («ما سمعتش حاجة») تحت المفتاح.
+المحاكي). **وقاعدة المالك (٥ أكتوبر مساءً): سؤال إجابته ٤ زراير أو أقل
+مالوش مايك خالص — المايك للبكر وحقول النص وبس**: الدوسة على زرارين
+(«البداية») أو أربع شرايح («نوع التنبيه») أسرع وأدق من سماعة، فالاتنين
+دول خسروا مايكهم و«ساعدني» رجع مكانه دايماً. اللي معاه مايك دلوقتي:
+الاسم (حقل نص)، البكر الخمسة، «الساعة كام؟» (بكرة — ساعة واحدة بجزء
+يومها بتكتب أول جرعة)، والمواعيد («٩ الصبح و٩ بالليل» بالواو). كل مايك
+بيملا حقله هو بس (`MedicationPurpose.fromSpokenWord` /
+`MedicineForm.fromSpoken` — نقيين)، وسطر حالة الصوت («ما سمعتش حاجة»)
+تحت المفتاح. `voice_placement_test` بيثبّت قايمة `forWhat` بالحرف —
+مايك جديد على سؤال زراير بيوقّع.
 **مايكات الحقول ورا مفتاح «أدخّل بصوتي»** (٥ أكتوبر، مقفول افتراضياً،
 `voice.formMics`): مقفول = «ساعدني» ظاهر ومفيش مايكات؛ مفتوح = المايكات
 ظاهرة و«ساعدني» بيستخبى — **إلا قسم الصورة**: مفيش صوت يملاه، فمساعدته
@@ -3637,7 +3647,16 @@ jarvis-ai-finance (`webSpeechStt.js` / `MicOrb.jsx` / `affirm.js` /
   «اقرا»)، سقف `maxScanPages` = ٤، **طلب Gemini واحد** بكل الصفحات وسطر
   `multiPageNote`؛ صفحة واحدة = نفس الطلب القديم بالحرف. أول صفحة بس بتتحفظ
   صورة السجل.
-- **قراية التقارير (قياس بس، ما اتصلّحش):** على تقرير مخترع ٢٦ سطر اتقرا
+- **قراية التقارير — التواريخ اتصلّحت ٥ أكتوبر مساءً (المالك 2A)، والباقي
+  لسه:** البرومبت بيقول للموديل إن الورق المصري بيكتب **يوم/شهر** والغامض
+  يرجع بثقة تحت ٠٫٨؛ و`lab_reading._date` خد حارسين زي الروشتة بالظبط —
+  سنة برّه ٢٠٠٠–٢١٠٠ مفقودة، وتاريخ **في المستقبل** (أغلبه «١٢/٠٩» اتقرت
+  أمريكي) بيرجع بثقة صفر فالشاشة بتقع على النهارده وبتقولها بالذهبي
+  («هيتسجّل بتاريخ النهارده» — `date-fallback`، نفس ملاحظة الروشتة).
+  وصفحات فوق سقف الـ٤ (المالك 4A) ما بتتقصّش في صمت: «اتقرا أول ٤ صفحات
+  بس.» على شاشة التصوير، بتروح مع «ابدأ من الأول». اللي لسه (مراحله
+  جاية): النتيجة النصية («Negative») بتقفل «تمام» — المرحلة ٥.
+- **قراية التقارير (قياس ٤ أكتوبر، الأصل):** على تقرير مخترع ٢٦ سطر اتقرا
   الكل بثقة ٠٫٩٩، لكن **النتيجة النصية** («Negative»/«Nil»/«2 - 4») قيمتها
   null وبتقفل «تمام» — `lab_results.value` رقم بس؛ و**التاريخ بيتقري أمريكي**
   (١٢/٠٩ ← ٩ ديسمبر بثقة ٠٫٩٩)؛ والتصغير لـ١٦٠٠ بيخلّي نص ورقة بعيدة ~٨ بكسل
@@ -4888,7 +4907,11 @@ drive a tips card on «يومك» later, not built) → «كام مرة» → «
 بعد الأكل / ساعة محددة» (**a 2×2 grid of equal-width chips** since the
 device round of 24 Sep 2026 — four in one row clipped «ساعة محددة» on
 SE; `wheels_se_test` pins full labels at ×1.0 and ×1.3) → **«مواعيد
-الجرعات»: one row per dose, always visible, in plain words** —
+الجرعات»: one row per dose, in plain words — shown only for 2+ doses a
+day** (owner, 5 Oct 2026 evening: a single dose's time is set by the
+«الساعة كام؟» wheel directly, and one row under it repeated the same
+number; the row card, its «المواعيد» mic and the per-row `DoseEditor`
+appear from two doses up) —
 «قبل الفطار بنص ساعة — ٧:٠٠ ص», «بعد العشا بربع ساعة — …», «مع الغدا — …»,
 «الساعة ٩:٠٠ م», «الفطار — مش متحدد» or «اختار الساعة». The words come
 from `spokenTimingWording` / `spokenOffset` / `spokenFixedWording` in

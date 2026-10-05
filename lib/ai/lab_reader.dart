@@ -81,6 +81,8 @@ Never omit a range field: a missing field and a null field mean different things
   refText: use it INSTEAD of the numbers when the printed range is not numeric, e.g. "Negative", "Non reactive". Copy it character for character.
   If this report prints no range for the row, return null for all three with confidence 0. Do not supply one from memory.
 lab: the laboratory name if printed. reportDate: YYYY-MM-DD only if a date is printed.
+Egyptian reports print dates as DAY/MONTH: "12/09" means 12 September, never December 9. When the printed
+order is ambiguous, read it as day/month AND return the date with confidence below 0.8 so a human checks it.
 confidence is 0..1 per field based on legibility. Below 0.8 means a human must check it.
 Do not add, merge, rename or skip rows.
 ''';

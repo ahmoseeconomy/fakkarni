@@ -81,6 +81,11 @@ class _LabReportScreenState extends State<LabReportScreen> {
 
   bool get _blocked => _lines.isEmpty || _lines.any((l) => l.blocks);
 
+  DateTime get _today {
+    final t = widget.today ?? DateTime.now();
+    return DateTime(t.year, t.month, t.day);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -193,6 +198,19 @@ class _LabReportScreenState extends State<LabReportScreen> {
             'بنكتب الرقم، ونحطّ جنبه نطاق الورقة زي ما هو، ونقارنه بتحاليلك إنت اللي فاتت — وبس.',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
           ),
+          // تاريخ ناقص أو مش واضح = التقرير هيتسجّل بتاريخ النهارده — بنقولها
+          // **قبل** الدوسة بالذهبي، زي شاشة الروشتة بالظبط (تاريخ غلط في ملف
+          // طبي أوحش من تاريخ ناقص). وده بيشمل التاريخ المستقبلي (١٢/٠٩
+          // اللي اتقرت أمريكي) — بيرجع من القراية بثقة صفر فبيقع هنا.
+          if (_lines.isNotEmpty &&
+              (reading.date.value == null || reading.date.needsReview)) ...[
+            const SizedBox(height: F.s8),
+            GoldNote(
+              'التقرير مش كاتب تاريخ واضح — هيتسجّل بتاريخ النهارده '
+              '(${arabicDate(_today)}).',
+              key: const ValueKey('date-fallback'),
+            ),
+          ],
           const SizedBox(height: F.gap),
           if (_lines.isEmpty)
             Container(

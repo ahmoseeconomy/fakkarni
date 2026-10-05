@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import '../../core/theme/tokens.dart';
 import '../../domain/escalation/alert_mode.dart';
 
-/// **«نوع التنبيه» — صف واحد من شرايح كبيرة، على iPhone SE كمان.**
+/// **«نوع التنبيه» — شرايح كبيرة، اتنين في الصف، على iPhone SE كمان.**
 ///
-/// نفس الصف في الإعدادات (تلات شرايح: الافتراضي للجهاز) وعلى فورم الدوا
-/// (أربع شرايح: «الافتراضي» = زي الجهاز). الشرايح متساوية العرض
-/// (`Expanded`) عشان أربعة يقعدوا في ٣٤٣ بكسل، والخط ١٧ — الحد الأدنى
-/// اللي القاعدة بتسمح بيه — عشان «مرة واحدة» تدخل من غير ما تتقصّ.
-/// الذهبي = المختار، نفس معناه في كل التطبيق. وتحت الصف سطر بيشرح
+/// نفس الشرايح في الإعدادات (تلاتة: الافتراضي للجهاز) وعلى فورم الدوا
+/// (أربعة: «الافتراضي» = زي الجهاز). كانت صف واحد متساوي العرض والخط ١٧
+/// «عشان «مرة واحدة» تدخل من غير ما تتقصّ» — **وما دخلتش**: أربع شرايح
+/// في ٣٤٣ بكسل بتدّي ~٧٨ للواحدة، و«مرة واحدة» بخط ١٧ w700 أعرض،
+/// والفيض `visible` كان بيترسم تحت الشريحة الجنبية فأول حرف بيتقصّ
+/// (مراجعة المالك على الجهاز، ٥ أكتوبر ٢٠٢٦ مساءً). الحل نفس سابقة شبكة
+/// الأكل: **اتنين في الصف** (٤ ← ٢×٢، ٣ ← ٢+١ بنفس العرض)، فالكلمة
+/// واسعة حتى بخط ×١٫٣ — واختبار هندسي بيقيس عرض الكلمة ضد عرض شريحتها.
+/// الذهبي = المختار، نفس معناه في كل التطبيق. وتحت الشرايح سطر بيشرح
 /// المختار — الاسم لوحده («مستمر») ما بيقولش قد إيه.
 class AlertModeChips extends StatelessWidget {
   const AlertModeChips({
@@ -35,35 +39,37 @@ class AlertModeChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effective = value ?? defaultMode ?? AlertMode.standard;
+    final chips = <Widget>[
+      if (allowDefault)
+        _ModeChip(
+          key: const ValueKey('alert-mode-default'),
+          label: defaultLabel,
+          selected: value == null,
+          onTap: () => onChanged(null),
+        ),
+      for (final mode in AlertMode.values)
+        _ModeChip(
+          key: ValueKey('alert-mode-${mode.name}'),
+          label: mode.label,
+          selected: value == mode,
+          onTap: () => onChanged(mode),
+        ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            if (allowDefault) ...[
-              Expanded(
-                child: _ModeChip(
-                  key: const ValueKey('alert-mode-default'),
-                  label: defaultLabel,
-                  selected: value == null,
-                  onTap: () => onChanged(null),
-                ),
-              ),
+        // اتنين في الصف — والعدد الفردي آخره شريحة بنص العرض (مش بالعرض
+        // كله): نفس إيقاع الشبكة، والفراغ الجنبي بيقول إنها آخر واحدة.
+        for (var i = 0; i < chips.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: F.s6),
+          Row(
+            children: [
+              Expanded(child: chips[i]),
               const SizedBox(width: F.s6),
+              Expanded(child: i + 1 < chips.length ? chips[i + 1] : const SizedBox.shrink()),
             ],
-            for (final mode in AlertMode.values) ...[
-              Expanded(
-                child: _ModeChip(
-                  key: ValueKey('alert-mode-${mode.name}'),
-                  label: mode.label,
-                  selected: value == mode,
-                  onTap: () => onChanged(mode),
-                ),
-              ),
-              if (mode != AlertMode.values.last) const SizedBox(width: F.s6),
-            ],
-          ],
-        ),
+          ),
+        ],
         const SizedBox(height: F.s8),
         Text(
           value == null && allowDefault
@@ -103,7 +109,10 @@ class _ModeChip extends StatelessWidget {
                   label,
                   maxLines: 1,
                   softWrap: false,
-                  overflow: TextOverflow.visible,
+                  // «visible» كان بيرسم الفايض تحت الشريحة الجنبية فأول حرف
+                  // يتقصّ في صمت — «…» بيقول فيه مشكلة، والاختبار الهندسي
+                  // بيمنع توصل أصلاً.
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: F.minTextSize,
                     fontWeight: FontWeight.w700,

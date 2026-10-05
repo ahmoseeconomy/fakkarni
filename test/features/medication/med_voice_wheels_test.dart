@@ -1,6 +1,6 @@
 // «ضيف دوا» بعد مراجعة ٥ أكتوبر ٢٠٢٦: «لإيه؟» و«نوعه؟» بكرة مش شرايح
 // (أول صف «من غير تحديد» بيكتب null)، «قولها بصوتك» بيملا الفورم كله بفهم
-// «كلّمني» والناقص بيفضل فاضي، ومايك لكل حقل بيملاه هو وبس — ولا حاجة
+// «كلّمني» والناقص بيفضل فاضي، ومايك للبكر وحقول النص وبس (سؤال ٤ زراير أو أقل من غير مايك — ٥ أكتوبر مساءً) — ولا حاجة
 // بتتحفظ غير بـ«احفظ»، والصوت مقفول على فورم الممرض.
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
@@ -154,13 +154,17 @@ void main() {
       expect(find.text('ساعدني'), findsWidgets, reason: 'الصوت شغّال والمايكات مقفولة = «ساعدني» شغلته');
 
       await micsOn(tester);
-      // مفتوح: مايك على كل قسم بيتعبّى بالصوت، و«ساعدني» بيستخبى
-      for (final f in ['اسم الدوا', 'الدوا ده لإيه', 'نوعه', 'بياخده إزاي', 'كام مرة', 'المواعيد', 'مع الأكل', 'البداية', 'نوع التنبيه']) {
+      // مفتوح: مايك على البكر وحقول النص وبس (قاعدة المالك، ٥ أكتوبر مساءً:
+      // سؤال إجابته ٤ زراير أو أقل مالوش مايك) — فـ«البداية» (زرارين)
+      // و«نوع التنبيه» (٤ شرايح) من غير مايك، و«ساعدني» بتاعهم راجع دايماً
+      for (final f in ['اسم الدوا', 'الدوا ده لإيه', 'نوعه', 'بياخده إزاي', 'كام مرة', 'مع الأكل', 'الساعة']) {
         expect(find.byKey(ValueKey('field-mic-$f')), findsOneWidget, reason: f);
       }
-      // «ساعدني» بيستخبى من الأقسام اللي خدت مايك — **إلا الصورة**: قسم
-      // مفيش صوت يملاه (بتتصوّر)، وشيل مساعدته كان هيسيبه من غير الاتنين
-      expect(find.text('ساعدني'), findsOneWidget, reason: 'بتاعة الصورة بس');
+      for (final f in ['البداية', 'نوع التنبيه']) {
+        expect(find.byKey(ValueKey('field-mic-$f')), findsNothing, reason: '$f — ٤ زراير أو أقل');
+      }
+      // «ساعدني» فاضل على الصورة (مفيش صوت يملاها) وعلى سؤالي الزراير
+      expect(find.text('ساعدني'), findsNWidgets(3), reason: 'الصورة + البداية + نوع التنبيه');
       expect(
         find.descendant(of: find.byKey(const ValueKey('med-photo-slot')), matching: find.text('ساعدني')),
         findsOneWidget,
@@ -186,26 +190,26 @@ void main() {
       expect(listener.listens, 2, reason: 'دوسة = سماع واحد');
     });
 
-    screenTest('مايكات الأقسام الجديدة: المواعيد بالواو، وكام مرة، والنمط، والأكل، والبداية، ونوع التنبيه', (tester) async {
+    screenTest('مايكات الأقسام: المواعيد بالواو، وكام مرة، والنمط، والأكل — والبداية ونوع التنبيه من غير مايك', (tester) async {
       await setUpWith(answers: [
-        'تسعة الصبح وتسعة بالليل', // المواعيد
-        'تلات مرات', // كام مرة — بيبني ٣ صفوف فاضية
+        'تلات مرات', // كام مرة — بيبني ٣ صفوف فاضية (وبيظهر كارت المواعيد)
+        'تسعة الصبح وتسعة بالليل', // المواعيد — بتكتب الصفوف باللي اتقال
         'كل ١٢ ساعة', // النمط → الفاصل بساعاته
         'بعد الأكل', // الأكل
-        'بكرة', // البداية
-        'مستمر', // نوع التنبيه
       ]);
       await pumpAdd(tester);
       await micsOn(tester);
+
+      // جرعة واحدة (الافتراضي) = كارت «مواعيد الجرعات» مستخبي ومايكه معاه
+      expect(find.byKey(const ValueKey('field-mic-المواعيد')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('field-mic-كام مرة')));
+      await settle(tester);
+      expect(find.text('اختار الساعة'), findsNWidgets(3), reason: 'العدد اتقال من غير ساعات = صفوف فاضية');
 
       await tester.tap(find.byKey(const ValueKey('field-mic-المواعيد')));
       await settle(tester);
       expect(find.text('الساعة ٩:٠٠ ص'), findsOneWidget);
       expect(find.text('الساعة ٩:٠٠ م'), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('field-mic-كام مرة')));
-      await settle(tester);
-      expect(find.text('اختار الساعة'), findsNWidgets(3), reason: 'العدد اتقال من غير ساعات = صفوف فاضية');
 
       await tester.tap(find.byKey(const ValueKey('field-mic-بياخده إزاي')));
       await settle(tester);
@@ -215,26 +219,44 @@ void main() {
       await settle(tester);
       final meal = tester.widget<CupertinoPicker>(find.byKey(const ValueKey('meal-wheel')));
       expect(meal.scrollController!.selectedItem, 3, reason: '«بعد الأكل»');
+      expect(listener.listens, 4, reason: 'كل مايك سماع واحد');
+    });
 
-      await tester.tap(find.byKey(const ValueKey('field-mic-البداية')));
-      await settle(tester);
-      expect(find.textContaining('هيبدأ بكرة'), findsOneWidget);
+    screenTest('مايك «الساعة كام؟»: «تسعة بالليل» بيكتب أول جرعة والبكرة بتنط عليها — و«تسعة» لوحدها سطر', (tester) async {
+      await setUpWith(answers: ['تسعة', 'تسعة بالليل']);
+      await pumpAdd(tester);
+      await micsOn(tester);
+      // جرعة واحدة (الافتراضي «مرة») = مفيش كارت «مواعيد الجرعات» أصلاً —
+      // الساعة من البكرة دي وبس (المالك، ٥ أكتوبر مساءً)
+      expect(find.text('مواعيد الجرعات'), findsNothing);
+      expect(find.byKey(ValueKey('quick-time-${21 * 60}')), findsNothing, reason: 'الشرايح السريعة اتشالت');
 
-      await tester.tap(find.byKey(const ValueKey('field-mic-نوع التنبيه')));
+      await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
       await settle(tester);
-      // «مستمر» اتختار — شريحة نوع التنبيه لسه شرايح، فاختيارها بيبان عليها
-      expect(find.text('مستمر'), findsWidgets);
-      expect(listener.listens, 6, reason: 'كل مايك سماع واحد');
+      expect(find.textContaining('جزء يومها'), findsOneWidget, reason: '«٩» من غير الصبح/بالليل — مفيش تخمين');
+
+      await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
+      await settle(tester);
+      final wheel = tester.widget<FTimeWheel>(find.byType(FTimeWheel));
+      expect(wheel.value.minutes, 21 * 60, reason: 'البكرة نطّت على اللي اتقال');
+
+      // و«مرتين» بيرجّع كارت الصفوف (٢ فأكتر بس)
+      await pickWheel(tester, const ValueKey('count-wheel'), 1);
+      expect(find.text('مواعيد الجرعات'), findsOneWidget);
+      expect(find.byKey(const ValueKey('dose-row-1')), findsOneWidget);
     });
 
     screenTest('مايك المواعيد: ساعة من غير جزء يومها = سطر، ولا صف اتغيّر', (tester) async {
       await setUpWith(answers: ['تسعة وتسعة بالليل']);
       await pumpAdd(tester);
       await micsOn(tester);
+      // الكارت بيظهر من جرعتين (٥ أكتوبر مساءً) — «مرتين» الأول
+      await pickWheel(tester, const ValueKey('count-wheel'), 1);
       await tester.tap(find.byKey(const ValueKey('field-mic-المواعيد')));
       await settle(tester);
       expect(find.textContaining('جزء يومها'), findsOneWidget, reason: '«٩» من غير الصبح/بالليل — مفيش تخمين');
-      expect(find.text('اختار الساعة'), findsOneWidget, reason: 'الصف زي ما كان');
+      // الصفّين لسه فاضيين زي ما كانوا — «مرتين» ما بتحطش ساعات مننا
+      expect(find.text('اختار الساعة'), findsNWidgets(2), reason: 'ولا صف اتغيّر');
     });
 
     screenTest('نظام مسافات واحد: كل مايك «قولها» بمسافة ترويسة واحدة فوق عنصره — مش لازق (المالك، ٥ أكتوبر مساءً)', (tester) async {

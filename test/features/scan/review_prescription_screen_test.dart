@@ -437,18 +437,14 @@ void main() {
     expect(find.byType(AddMedicationScreen), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Cataflam'), findsOneWidget);
 
-    // الورقة ما كتبتش ساعة → الصف فاضي («اختار الساعة»)، مش ٩ الصبح مننا
-    expect(find.byKey(const ValueKey('dose-row-0')), findsOneWidget);
+    // الورقة ما كتبتش ساعة → البكرة واقفة ومفيش ساعة مننا — وجرعة واحدة =
+    // مفيش كارت صفوف (٥ أكتوبر مساءً): الساعة من بكرة «الساعة كام؟» نفسها
+    expect(find.byKey(const ValueKey('dose-row-0')), findsNothing);
     expect(find.text('الساعة ٩:٠٠ ص'), findsNothing);
     expect(tester.widget<FilledButton>(find.descendant(
             of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton))).onPressed,
         isNull, reason: 'من غير ساعة مفيش حفظ');
-    await tester.tap(find.byKey(const ValueKey('dose-row-0')));
-    await settle(tester);
-    await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
-    await settle(tester);
-    await tester.tap(find.text('احفظ الجرعة'));
-    await settle(tester);
+    await pickTime(tester, const MinuteOfDay(9 * 60));
     await tester.tap(find.byKey(const ValueKey('save-medication')));
     await settle(tester);
 

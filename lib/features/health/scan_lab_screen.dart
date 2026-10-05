@@ -72,6 +72,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
   /// صفحات التقرير اللي لسه ما اتقرتش — بتتقري كلها في طلب واحد.
   final List<Uint8List> _pages = [];
 
+  /// اتساب صفحات فوق السقف — السطر بيفضل ظاهر لحد ما الصفحات تتمسح.
+  bool _droppedPages = false;
+
   Future<void> _capture(ImageSource source) async {
     if (widget.reader == null || _busy) return;
     final room = maxScanPages - _pages.length;
@@ -85,6 +88,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
     }
     if (picked.isEmpty || !mounted) return;
     setState(() {
+      // اختار أكتر من اللي فاضل = الزيادة بتتساب — **وبنقولها** (المالك 4A،
+      // ٥ أكتوبر ٢٠٢٦): قصّ صامت معناه صفحة من التقرير ضاعت ومحدش عرف.
+      _droppedPages = _droppedPages || picked.length > room;
       _pages.addAll(picked.take(room));
       _phase = _Phase.collecting;
       _image = _pages.last;
@@ -96,6 +102,7 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
 
   void _clearPages() => setState(() {
         _pages.clear();
+        _droppedPages = false;
         _phase = _Phase.idle;
         _image = null;
       });
@@ -234,6 +241,13 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
               if (_phase == _Phase.retake) ...[
                 const SizedBox(height: F.gap),
                 const PanelOnDark(text: 'صوّره تاني في نور أحسن، أو اختار صورة أوضح من الصور.'),
+              ],
+              if (_droppedPages && _phase == _Phase.collecting) ...[
+                const SizedBox(height: F.gap),
+                const PanelOnDark(
+                  key: ValueKey('pages-dropped'),
+                  text: 'اتقرا أول ٤ صفحات بس.',
+                ),
               ],
               const SizedBox(height: F.gap),
               if (_phase == _Phase.collecting)

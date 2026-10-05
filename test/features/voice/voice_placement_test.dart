@@ -310,6 +310,21 @@ void main() {
         if (e.value.contains('FieldMicButton(') && e.key != 'features/medication/med_voice_input.dart') e.key,
     };
     expect(fieldMic, {'features/medication/add_medication_screen.dart'});
+    // **قاعدة المالك (٥ أكتوبر مساءً): سؤال إجابته ٤ زراير أو أقل مالوش
+    // مايك — المايك للبكر وحقول النص وبس.** القايمة بالحرف: «البداية»
+    // (زرارين) و«نوع التنبيه» (٤ شرايح) اتشالوا، و«الساعة» (بكرة) اتضافت.
+    // مايك جديد على سؤال زراير بيوقّع هنا بالاسم.
+    final forWhats = {
+      for (final m in RegExp(r"forWhat:\s*'([^']+)'")
+          .allMatches(src['features/medication/add_medication_screen.dart']!))
+        m.group(1)!,
+    };
+    expect(forWhats, {
+      'اسم الدوا', // حقل نص
+      'الدوا ده لإيه', 'نوعه', 'بياخده إزاي', 'كام مرة', 'مع الأكل', // بكر
+      'الساعة', // بكرة الوقت — بتكتب أول جرعة
+      'المواعيد', // ساعات بالواو — صفوف الجرعات
+    });
     // الصوت للمريض وبس: كل باب ممرض للفورم بيقفله بالحرف — بالعدّ، عشان
     // شيل واحدة من التلاتة ما يعدّيش
     expect('voiceInput: false'.allMatches(src['features/nurse/nurse_add_sheet.dart']!).length, 3,
