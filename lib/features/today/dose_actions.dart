@@ -17,12 +17,22 @@ List<List<DoseEventView>> groupByMinute(List<DoseEventView> events) {
   return [for (final time in times) byTime[time]!];
 }
 
-/// «الآن»: اللي فات معاده من غير تأكيد (الأقدم الأول)، وبعده الجاية.
+/// «الآن»: اللي معاده جه من غير تأكيد (الأقدم الأول) — **ولو مفيش،
+/// الجاية لوحدها** (قرار المالك، ٥ أكتوبر ٢٠٢٦).
+///
+/// كانت بترجّع الفايتة **والجاية معاها**، فجرعة لسه ما جاش معادها كانت
+/// بتقعد في كارت «الجرعة الجاية» جنب الفايتة، و«أخدتهم كلهم» كان بيأكّدها
+/// بدري في صمت. دلوقتي: فيه جرعة معادها جه (فايتة أو دلوقتي) → الكارت
+/// ليها هي بس والجاية في «باقي اليوم»؛ مفيش → أقرب جرعة جاية هي
+/// «الجرعة الجاية» زي ما كانت (وتأكيدها بدري قرار واضح من صاحبها، مش
+/// عرَض تأكيد جماعي). ده تعريف «الآن» الواحد — الكارت ونمط كبار السن
+/// و«كلّمني» بيقروا منه.
 List<List<DoseEventView>> nowGroups(List<List<DoseEventView>> groups, DateTime now) {
   final open = [for (final g in groups) if (g.any((d) => !d.isDone)) g];
-  final overdue = [for (final g in open) if (g.first.scheduledAt.isBefore(now)) g];
-  final upcoming = [for (final g in open) if (!g.first.scheduledAt.isBefore(now)) g];
-  return [...overdue, if (upcoming.isNotEmpty) upcoming.first];
+  final due = [for (final g in open) if (!g.first.scheduledAt.isAfter(now)) g];
+  if (due.isNotEmpty) return due;
+  final upcoming = [for (final g in open) if (g.first.scheduledAt.isAfter(now)) g];
+  return [if (upcoming.isNotEmpty) upcoming.first];
 }
 
 /// «تأكيد» — كل جرعة في المجموعة اتاخدت، وبعدها القاعدة ٥: الخانة كلها

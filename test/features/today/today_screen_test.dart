@@ -162,7 +162,9 @@ void main() {
     expect(find.text('الجرعة الجاية'), findsOneWidget);
     // الجرعة الوحيدة في الكارت — «باقي اليوم» مفيهوش غيرها، فمش ظاهر
     expect(find.text('باقي اليوم'), findsNothing);
-    expect(find.text('كمان ٦ ساعات — ٢:٠٠ م'), findsOneWidget);
+    // الساعة مرة واحدة — في صفها؛ العدّ التنازلي من غيرها (المالك، ٥ أكتوبر)
+    expect(find.text('كمان ٦ ساعات'), findsOneWidget);
+    expect(find.text('٢:٠٠ م'), findsOneWidget);
 
     final button = tester.getSize(actionButtons.first);
     expect(button.height, F.primaryButtonHeight);
@@ -210,7 +212,8 @@ void main() {
     await pumpToday(tester, now: DateTime(2026, 8, 31, 15));
 
     expect(find.text('نسيتها؟'), findsOneWidget);
-    expect(find.text('لسه ما اتأكدتش — كان معادها ٢:٠٠ م'), findsOneWidget);
+    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
+    expect(find.textContaining('كان معادها'), findsNothing, reason: 'الساعة مكتوبة مرة واحدة — في صفها');
     // الحافة الدهبي فاضلة على الكارت — محتاجاه دلوقتي
     expect(tester.widget<FCard>(find.descendant(of: find.byType(NowBlock), matching: find.byType(FCard))).tone, FCardTone.attention);
     expect(find.text('أخدتها'), findsOneWidget, reason: 'نسي — لسه يقدر يأكّد');
@@ -245,9 +248,12 @@ void main() {
     await addDose('Vitamin D', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
-    expect(find.text('الجاية'), findsOneWidget);
+    // كلمة «الجاية» اتشالت (المالك، ٥ أكتوبر) — الكارت واحد والاتنين جوّاه،
+    // وكل سطر زراره الأخضر «أخدتها»
+    expect(find.byType(NowBlock), findsOneWidget);
     expect(find.textContaining('Antodine'), findsWidgets);
     expect(find.textContaining('Vitamin D'), findsWidgets);
+    expect(find.descendant(of: find.byType(NowBlock), matching: find.text('أخدتها')), findsNWidgets(2));
   });
 
   screenTest('الجرعات مرتّبة بالوقت على الشريط', (tester) async {
@@ -268,7 +274,9 @@ void main() {
     // الساعة ٩ الصبح، وجرعة ٧:٠٠ فاتت
     await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
 
-    expect(find.textContaining('كان معادها'), findsOneWidget);
+    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
+    expect(find.textContaining('كان معادها'), findsNothing,
+        reason: 'الساعة بتتكتب مرة واحدة — في صف الساعة (المالك، ٥ أكتوبر)');
 
     for (final text in tester.widgetList<Text>(find.byType(Text))) {
       final colour = text.style?.color;
@@ -278,7 +286,7 @@ void main() {
     }
   });
 
-  screenTest('الفايتة والجاية في الكارت بحافته الدهبي — والمأخوذة ✓ على «باقي اليوم» ما بتتشالش', (tester) async {
+  screenTest('الفايتة في الكارت بحافته الدهبي — والجاية والمأخوذة ✓ على «باقي اليوم»', (tester) async {
     await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — هتتاخد
     await addDose('LINEX', DayAnchor.breakfast, offset: 30); // ٨:٠٠ — فاتت
     await addDose('Telfast', DayAnchor.dinner, offset: 0); // ٨:٠٠ م — منتظرة
@@ -295,19 +303,22 @@ void main() {
     await services.events.markTaken(int.parse(antodine.id), aug31);
     await settle(tester);
 
-    // الفايتة (LINEX ٨:٠٠) والجاية (Telfast ٨ م) الاتنين في الكارت — وحافته دهبي
+    // الفايتة (LINEX ٨:٠٠) لوحدها في الكارت — **الجاية (٨ م) مش معاها**
+    // (المالك، ٥ أكتوبر ٢٠٢٦): جرعة لسه ما جاش معادها مكانها «باقي اليوم».
     final block = find.byType(NowBlock);
     expect(find.descendant(of: block, matching: find.text('LINEX')), findsOneWidget);
-    expect(find.descendant(of: block, matching: find.text('Telfast')), findsOneWidget);
+    expect(find.descendant(of: block, matching: find.text('Telfast')), findsNothing);
+    expect(find.descendant(of: find.byType(DayRail), matching: find.text('Telfast')), findsOneWidget);
     expect(tester.widget<FCard>(find.descendant(of: block, matching: find.byType(FCard))).tone, FCardTone.attention);
-    expect(find.text('لسه ما اتأكدتش — كان معادها ٨:٠٠ ص'), findsOneWidget);
+    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
     // Antodine نزلت «باقي اليوم» بـ✓ هادي — ما اتشالتش
     expect(find.descendant(of: find.byType(DayRail), matching: find.text('Antodine')), findsOneWidget);
     expect(find.byKey(const ValueKey('rail-mark-done')), findsOneWidget);
     // ولا علامة دهبي على السكة لجرعة جاية — الدهبي لـ«محتاجك دلوقتي» بس
     expect(find.byKey(const ValueKey('rail-mark-needs-you')), findsNothing);
-    // زرار أساسي واحد بس — «أخدتهم كلهم»
+    // دوا واحد في الكارت = زرار أساسي واحد «أخدتها»
     expect(actionButtons, findsOneWidget);
+    expect(find.text('أخدتها'), findsOneWidget);
     expectNoRed(tester);
   });
 
@@ -417,27 +428,32 @@ void main() {
       expect(find.text('تعمل إيه دلوقتي؟'), findsNothing);
     });
 
-    screenTest('«الجرعات — ٢»: كارت واحد، الفايتة قبل الجاية، ذهبي من غير أحمر', (tester) async {
+    screenTest('دواءين معادهم جه في الكارت: «الجرعة الجاية»، الفايتة قبل اللي معادها دلوقتي، ذهبي من غير أحمر', (tester) async {
       await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — فاتت
-      await addDose('LINEX', DayAnchor.lunch, offset: -30); // ٢:٠٠ م — الجاية
+      await addDose('LINEX', DayAnchor.breakfast, offset: 90); // ٩:٠٠ — معادها دلوقتي
       await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
 
-      // **كتلة واحدة، مش كارت لكل جرعة** — والعدد في عنوانها.
+      // **كتلة واحدة، مش كارت لكل جرعة.**
       final block = find.byType(NowBlock);
       expect(block, findsOneWidget);
-      expect(find.text('الجرعات — ٢'), findsOneWidget);
+      expect(find.text('الجرعة الجاية'), findsOneWidget);
 
       final missed = tester.getCenter(find.descendant(of: block, matching: find.text('Antodine')));
       final next = tester.getCenter(find.descendant(of: block, matching: find.text('LINEX')));
       expect(missed.dy, lessThan(next.dy));
-      expect(find.text('لسه ما اتأكدتش — كان معادها ٧:٠٠ ص'), findsOneWidget);
+      expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
       expect(
         tester.widget<FCard>(find.descendant(of: block, matching: find.byType(FCard))).tone,
         FCardTone.attention,
       );
-      // زرار أساسي واحد للكتلة كلها
+      // **زرار أساسي (مليان) واحد — «أخدتهم كلهم»** (القاعدة رجعت بقرار
+      // المالك، ٥ أكتوبر): زرار السطر «أخدتها» محدّد أخضر مش مليان.
       expect(actionButtons, findsOneWidget);
       expect(find.text('أخدتهم كلهم'), findsOneWidget);
+      expect(
+        find.descendant(of: block, matching: find.widgetWithText(OutlinedButton, 'أخدتها')),
+        findsNWidgets(2),
+      );
       expectNoRed(tester);
     });
 

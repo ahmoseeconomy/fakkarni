@@ -26,8 +26,11 @@ void main() {
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 20)));
     expect(find.textContaining('معادها دلوقتي'), findsWidgets);
     expect(find.text('نسيتها؟'), findsNothing);
-    expect(find.textContaining('كان معادها'), findsNothing);
     expect(find.text('لسه ما اتأكدتش'), findsNothing);
+    // **والساعة مرة واحدة** (المالك، ٥ أكتوبر ٢٠٢٦): في صف الساعة بس —
+    // مش في سطر الحالة ولا كلمة فوق الاسم.
+    expect(find.text('٨:٠٠ م'), findsOneWidget);
+    expect(find.text('دلوقتي'), findsNothing, reason: 'الكلمة اتشالت — سطر الحالة بيقولها');
   });
 
   screenTest('بعد ٤٤ دقيقة: لسه «دلوقتي»', (tester) async {
@@ -36,10 +39,13 @@ void main() {
     expect(find.textContaining('معادها دلوقتي'), findsWidgets);
   });
 
-  screenTest('بعد مهلة الـ٤٥: «نسيتها؟ — لسه ما اتأكدتش — كان معادها ٨:٠٠ م»', (tester) async {
+  screenTest('بعد مهلة الـ٤٥: «نسيتها؟» و«لسه ما اتأكدتش» — والساعة لسه مرة واحدة', (tester) async {
     await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 20, 50)));
     expect(find.text('نسيتها؟'), findsWidgets);
-    expect(find.textContaining('كان معادها'), findsWidgets);
+    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
     expect(find.textContaining('معادها دلوقتي'), findsNothing);
+    expect(find.textContaining('كان معادها'), findsNothing,
+        reason: 'الساعة في صفها — مش بتتعاد في سطر الحالة (المالك، ٥ أكتوبر)');
+    expect(find.text('٨:٠٠ م'), findsOneWidget);
   });
 }

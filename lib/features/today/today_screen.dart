@@ -713,6 +713,15 @@ class _HomeHeader extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      // الأيقونة **قبل** التحية — يعني على يمينها في RTL،
+                      // زي التصميم (مراجعة المالك على المحاكي، ٥ أكتوبر ٢٠٢٦).
+                      Icon(
+                        morning ? Icons.wb_sunny_outlined : Icons.nightlight_outlined,
+                        key: ValueKey(morning ? 'greeting-sun' : 'greeting-moon'),
+                        size: compact ? 28 : 34,
+                        color: F.greetingIconInk,
+                      ),
+                      const SizedBox(width: F.s8),
                       Flexible(
                         child: Text(
                           hasName ? '$greeting يا $name' : greeting,
@@ -725,13 +734,6 @@ class _HomeHeader extends StatelessWidget {
                             height: 1.35,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: F.s8),
-                      Icon(
-                        morning ? Icons.wb_sunny_outlined : Icons.nightlight_outlined,
-                        key: ValueKey(morning ? 'greeting-sun' : 'greeting-moon'),
-                        size: compact ? 28 : 34,
-                        color: F.greetingIconInk,
                       ),
                     ],
                   ),

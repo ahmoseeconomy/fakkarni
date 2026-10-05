@@ -20,8 +20,8 @@ import '../../voice/help_button.dart';
 /// **كتلة «الآن» — واحدة، بعدّادها.**
 ///
 /// كانت كارت لكل جرعة، مكدّسين. تلات أدوية مأجّلة معناها تلات كروت: الراجل
-/// مش عارف هما كام ولا مين فيهم غير لما ينزل ويعدّهم. دلوقتي كتلة واحدة،
-/// العدد في عنوانها، وكل دوا سطر.
+/// مش عارف هما كام ولا مين فيهم غير لما ينزل ويعدّهم. دلوقتي كتلة واحدة
+/// وكل دوا سطر.
 ///
 /// **اللي اتأجّل ليه مجموعته المتسمّية** («أجّلتها — ٢»)، وكل سطر فيها
 /// بيقول الموبايل هيفكّره إمتى تاني — ده السؤال الوحيد اللي بيسأله عن دوا
@@ -30,12 +30,15 @@ import '../../voice/help_button.dart';
 /// الفايتة **ذهبي ونصّها محايد** («لسه ما اتأكدتش») — الأحمر للطوارئ بس.
 /// نسي، ما فشلش.
 ///
-/// **إعادة التصميم (٤ أكتوبر ٢٠٢٦)**: الكتلة بقت كارت «الجرعة الجاية» —
-/// العنوان جوّه الكارت («الجرعة الجاية»، أو «الجرعات — ٣» لأكتر من دوا)،
-/// ودوا واحد بيتعرض كبير: رسمة نوعه (أو صورته) من غير كلام عليها، اسمه،
-/// شريحة الغرض، الجرعة، والساعة. الزرار «أخدتها» أخضر (أو «أخدتهم كلهم»)،
-/// و«فكّرني بعد ١٥ دقيقة» = التأجيل نفسه. السطور والتأكيد لكل سطر و«نسيتها؟»
-/// والحافة الدهبي زي ما هم.
+/// **إعادة التصميم (٤ أكتوبر ٢٠٢٦، ومراجعة المالك ٥ أكتوبر)**: الكتلة كارت
+/// «الجرعة الجاية» — **العنوان ده دايماً**، مهما كان عدد السطور (المالك شال
+/// «الجرعات — ٢»). كل دوا بياخد عرض التصميم نفسه: رسمة نوعه (أو صورته) من
+/// غير كلام عليها، اسمه، شريحة الغرض، الجرعة، **والساعة مرة واحدة** — سطر
+/// الحالة من غيرها («معادها دلوقتي» مش «معادها دلوقتي — ١٠:٠٠ ص»)، ومفيش
+/// كلمة «دلوقتي»/«الجاية» فوق الاسم («نسيتها؟» بعد المهلة فضلت — مش ساعة).
+/// التأكيد لكل سطر زرار «أخدتها» أخضر مليان بنفس شكل التصميم (لما فيه أكتر
+/// من سطر)، و«أخدتهم كلهم» تحت الكتلة، و«فكّرني بعد ١٥ دقيقة» = التأجيل
+/// نفسه. الطيّ («+ دوا كمان») والحافة الدهبي زي ما هم.
 class NowBlock extends StatefulWidget {
   const NowBlock({
     required this.lines,
@@ -103,7 +106,7 @@ class _NowBlockState extends State<NowBlock> {
                 const SizedBox(width: F.s8),
                 Flexible(
                   child: Text(
-                    nextDoseTitle(all.length),
+                    nextDoseTitle,
                     key: const ValueKey('now-title'),
                     style: TextStyle(
                       fontFamily: F.displayFamily,
@@ -118,21 +121,26 @@ class _NowBlockState extends State<NowBlock> {
             ),
           ),
           const SizedBox(height: F.s10),
-          if (single)
-            _SingleDose(line: all.single, now: widget.now, compact: widget.compact)
-          else
-            for (final (i, line) in due.indexed) ...[
-              if (i > 0) const _LineGap(),
-              _DoseLine(
-                line: line,
-                now: widget.now,
-                // **الكلمة مرة واحدة لكل حالة.** دواءين في نفس الدقيقة
-                // حالتهم واحدة، و«الجاية» مكتوبة مرتين فوق بعض ضوضا.
-                showKicker: i == 0 || _kicker(due[i - 1], widget.now) != _kicker(line, widget.now),
-                onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
+          for (final (i, line) in due.indexed) ...[
+            if (i > 0) const _LineGap(),
+            _DoseBig(
+              line: line,
+              now: widget.now,
+              compact: widget.compact,
+              // دوا واحد بياخد الرسمة الكاملة؛ مع أكتر الرسمة الوسطانية —
+              // لسه رسمة التصميم، بس الكتلة ما تبقاش أطول من يوم الراجل.
+              pictureSize: single && !widget.compact ? nextDosePictureSize : nextDosePictureCompactSize,
+            ),
+            if (perLine) ...[
+              const SizedBox(height: F.s8),
+              _LineTaken(
+                key: ValueKey('confirm-${line.dose.doseScheduleId}'),
+                name: line.dose.medicationName,
+                onPressed: () => widget.onConfirmLine(line),
               ),
             ],
-          if (!single && postponed.isNotEmpty) ...[
+          ],
+          if (postponed.isNotEmpty) ...[
             if (due.isNotEmpty) const _LineGap(),
             Padding(
               padding: const EdgeInsets.only(bottom: F.s8),
@@ -148,13 +156,20 @@ class _NowBlockState extends State<NowBlock> {
             ),
             for (final (i, line) in postponed.indexed) ...[
               if (i > 0) const _LineGap(),
-              _DoseLine(
+              _DoseBig(
                 line: line,
                 now: widget.now,
-                // المأجّلة عنوان مجموعتها بيسمّيها — مفيش كلمة فوق كل سطر.
-                showKicker: false,
-                onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
+                compact: widget.compact,
+                pictureSize: single && !widget.compact ? nextDosePictureSize : nextDosePictureCompactSize,
               ),
+              if (perLine) ...[
+                const SizedBox(height: F.s8),
+                _LineTaken(
+                  key: ValueKey('confirm-${line.dose.doseScheduleId}'),
+                  name: line.dose.medicationName,
+                  onPressed: () => widget.onConfirmLine(line),
+                ),
+              ],
             ],
           ],
           if (hidden > 0) ...[
@@ -199,8 +214,9 @@ class _NowBlockState extends State<NowBlock> {
   }
 }
 
-/// عنوان الكارت: «الجرعة الجاية» لدوا واحد، «الجرعات — ٣» لأكتر.
-String nextDoseTitle(int doses) => doses <= 1 ? 'الجرعة الجاية' : 'الجرعات — ${arabicNumber(doses)}';
+/// عنوان الكارت — **دايماً «الجرعة الجاية»**، مهما كان عدد السطور (مراجعة
+/// المالك، ٥ أكتوبر ٢٠٢٦: «الجرعات — ٢» اتشالت).
+const String nextDoseTitle = 'الجرعة الجاية';
 
 /// «فكّرني بعد ١٥ دقيقة» — المدة من [snoozeDelay] نفسها، فالكلمة ما تقدرش
 /// تكدب على التأجيل.
@@ -209,7 +225,7 @@ String get laterLabel => 'فكّرني بعد ${arabicNumber(snoozeDelay.inMinut
 /// مقاس رسمة الدوا الكبيرة في الكارت.
 const double nextDosePictureSize = 132;
 
-/// ونفسها على الشاشات القصيرة.
+/// ونفسها على الشاشات القصيرة، ولكل سطر لما الكارت فيه أكتر من دوا.
 const double nextDosePictureCompactSize = 96;
 
 /// سطر الجرعة: «قرص واحد بعد الأكل» — الجرعة وكلمة الأكل من غير شَرطة.
@@ -219,21 +235,31 @@ String doseAmountLine(DoseEventView dose) => [
       ?dose.mealLabel,
     ].join(' ');
 
-/// **دوا واحد في الكارت — كبير زي التصميم.** الاسم والشريحة والجرعة يمين،
-/// والساعة تحت خط، والرسمة (أو صورته) شمال من غير أي كلام عليها.
-class _SingleDose extends StatelessWidget {
-  const _SingleDose({required this.line, required this.now, this.compact = false});
+/// **سطر دوا بعرض التصميم.** الاسم والشريحة والجرعة يمين، والساعة تحت خط،
+/// والرسمة (أو صورته) شمال من غير أي كلام عليها.
+///
+/// **الساعة مكتوبة مرة واحدة** — في صفها الكبير. سطر الحالة تحتها من غيرها
+/// (مراجعة المالك ٥ أكتوبر: «دلوقتي» + «١٠:٠٠ ص» + «معادها دلوقتي — ١٠:٠٠ ص»
+/// كانوا تلات مرات لنفس اللحظة). «نسيتها؟» فوق الاسم بعد المهلة بس — كلمة
+/// حالة مش ساعة، وهي الجملة المكتوبة من زمان.
+class _DoseBig extends StatelessWidget {
+  const _DoseBig({
+    required this.line,
+    required this.now,
+    required this.pictureSize,
+    this.compact = false,
+  });
 
   final NowLine line;
   final DateTime now;
   final bool compact;
+  final double pictureSize;
 
   @override
   Widget build(BuildContext context) {
     final dose = line.dose;
     final at = dose.scheduledAt;
     final moment = _momentOf(dose, now);
-    final kicker = line.postponed ? null : _kickerFor(moment);
     final purpose = MedicationPurpose.fromStorage(dose.purpose);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,9 +268,9 @@ class _SingleDose extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (kicker != null && moment != DoseMoment.upcoming)
+              if (!line.postponed && moment == DoseMoment.missed)
                 Text(
-                  kicker,
+                  forgotItLine,
                   style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark, height: 1.3),
                 ),
               MedName(
@@ -302,47 +328,31 @@ class _SingleDose extends StatelessWidget {
           path: dose.photoPath,
           name: dose.medicationName,
           form: MedicineForm.fromWire(dose.form),
-          size: compact ? nextDosePictureCompactSize : nextDosePictureSize,
+          size: pictureSize,
         ),
       ],
     );
   }
 }
 
-/// سطر الحالة تحت الساعة — نفس الكلام اللي السطور الكتير بتقوله.
+/// سطر الحالة تحت الساعة — **من غير الساعة**: هي مكتوبة فوقه خلاص، وكتابتها
+/// تاني هي «الساعة تلات مرات» اللي المالك شالها. «هيفكّرك ١٠:٣٠ ص» بتفضل
+/// بساعتها لأنها لحظة **تانية** (ميعاد التذكير)، مش تكرار.
 String _statusOf(NowLine line, DoseMoment moment, DateTime now) {
   final at = line.dose.scheduledAt;
   return switch (line.remindAgainAt) {
     // **الإجابة على «أجّلته لإمتى؟»** — نفس اللحظة اللي الإشعار اتجدول عليها
     final again? => 'هيفكّرك ${arabicTime(again)}',
     _ => switch (moment) {
-        DoseMoment.missed => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
-        DoseMoment.dueNow => 'معادها دلوقتي — ${arabicTime(at)}',
-        DoseMoment.upcoming => '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
+        DoseMoment.missed => 'لسه ما اتأكدتش',
+        DoseMoment.dueNow => 'معادها دلوقتي',
+        DoseMoment.upcoming => arabicCountdown(at.difference(now)),
       },
   };
 }
 
-/// كلمة حالة السطر — «نسيتها؟» / «الجاية»، أو null للمأجّلة.
-///
-/// **بتاخد [now] المحقونة**، مش `DateTime.now()`: الشاشة كلها بتتبني على
-/// وقت واحد، واختبار بيحقن وقته — ساعة تانية هنا معناها سطر بيقول حاجة
-/// والكلمة فوقه بتقول غيرها.
-String? _kicker(NowLine line, DateTime now) {
-  if (line.postponed) return null;
-  final dose = line.dose;
-  return _kickerFor(_momentOf(dose, now));
-}
-
 DoseMoment _momentOf(DoseEventView dose, DateTime now) =>
     doseMomentOf(scheduledAt: dose.scheduledAt, now: now, markedMissed: dose.state == DoseState.missed);
-
-/// «نسيتها؟» بعد المهلة بس — في معادها «دلوقتي».
-String _kickerFor(DoseMoment m) => switch (m) {
-      DoseMoment.missed => forgotItLine,
-      DoseMoment.dueNow => 'دلوقتي',
-      DoseMoment.upcoming => 'الجاية',
-    };
 
 class _LineGap extends StatelessWidget {
   const _LineGap();
@@ -354,135 +364,33 @@ class _LineGap extends StatelessWidget {
   );
 }
 
-/// سطر دوا واحد: الاسم وجرعته، وحالته، وزرار تأكيده.
-class _DoseLine extends StatelessWidget {
-  const _DoseLine({
-    required this.line,
-    required this.now,
-    required this.showKicker,
-    required this.onConfirm,
-  });
-
-  final NowLine line;
-  final DateTime now;
-
-  /// الكلمة بتتكتب مرة لكل حالة، مش فوق كل سطر.
-  final bool showKicker;
-
-  /// null = الكتلة فيها سطر واحد، والزرار الأساسي هو تأكيده.
-  final VoidCallback? onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    final dose = line.dose;
-    final at = dose.scheduledAt;
-    final moment = _momentOf(dose, now);
-    final status = _statusOf(line, moment, now);
-    // كلمة الحالة («نسيتها؟» بعد المهلة / «دلوقتي» / «الجاية»)، ومتشالة عن
-    // المأجّلة: عنوان المجموعة فوقها بيقول «أجّلتها» خلاص.
-    final kicker = !showKicker || line.postponed ? null : _kickerFor(moment);
-    final amount = dose.amountLabel;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // صورة الحباية لو موجودة — الأيقونة لو لأ
-        MedPhotoThumb(
-          path: dose.photoPath,
-          name: dose.medicationName,
-          form: MedicineForm.fromWire(dose.form),
-          size: 56,
-        ),
-        const SizedBox(width: F.s8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (kicker != null)
-                Text(
-                  kicker,
-                  style: TextStyle(
-                    fontSize: F.minTextSize,
-                    fontWeight: FontWeight.w700,
-                    color: F.mutedDark,
-                    height: 1.3,
-                  ),
-                ),
-              // الاسم يمين وساعته شمال — نفس الصف
-              NameTimeRow(
-                name: dose.medicationName,
-                time: arabicTime(at),
-                timeKey: ValueKey('dose-time-${dose.doseScheduleId}'),
-                nameStyle: TextStyle(
-                  fontSize: F.medicationNameSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                  fontFamily: F.bodyFamily,
-                  fontFamilyFallback: F.fontFallback,
-                  height: 1.3,
-                ),
-                timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.7),
-              ),
-              if (amount != null && amount.isNotEmpty)
-                Text(
-                  amount,
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
-                ),
-              Text(
-                status,
-                key: ValueKey('dose-status-${dose.doseScheduleId}'),
-                style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-        if (onConfirm case final confirm?) ...[
-          const SizedBox(width: F.s8),
-          _LineConfirm(
-            key: ValueKey('confirm-${dose.doseScheduleId}'),
-            name: dose.medicationName,
-            onPressed: confirm,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// زرار تأكيد سطر واحد — **بكلمته**، وهدف لمسه كامل.
-///
-/// مش أيقونة لوحدها: «مفيش زرار أيقونة من غير كلمة» قاعدة مكتوبة، وراجل
-/// عنده ٧٢ سنة مش هيخمّن معنى علامة صح جنب اسم دوا. و`Semantics` بتسمّي
-/// الدوا للقارئ عشان «تأكيد» × ٣ ما تبقاش تلات أزرار بنفس الاسم.
-class _LineConfirm extends StatelessWidget {
-  const _LineConfirm({required this.name, required this.onPressed, super.key});
+/// زرار تأكيد سطر واحد — **«أخدتها» محدّد أخضر، مش مليان** (المالك،
+/// ٥ أكتوبر ٢٠٢٦): «زرارين أساسيين في الشاشة كحد أقصى» قاعدة بتفضل،
+/// فالمليان الوحيد في الكتلة هو «أخدتهم كلهم». بعرض الكارت وبكلمة
+/// التصميم، وأقصر من زرار الكل (هدف اللمس ٥٦ مش ٦٤). و`Semantics`
+/// بتسمّي الدوا للقارئ عشان «أخدتها» × ٣ ما تبقاش تلات أزرار بنفس الاسم.
+class _LineTaken extends StatelessWidget {
+  const _LineTaken({required this.name, required this.onPressed, super.key});
 
   final String name;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'تأكيد $name',
+    label: 'أخدتها — $name',
     button: true,
     excludeSemantics: true,
-    // **`IntrinsicWidth` مش زينة**: الزرار جوّه `Row` من غير `Expanded`،
-    // يعني عرضه بيوصله لانهاية — و`SizedBox` بارتفاع ثابت بتمرّرها
-    // لجوّه فبتوقع وقت التخطيط. ده بيخلّي العرض من النص نفسه، فالكلمة
-    // بتكبر مع تكبير الخط من غير ما تتقص.
-    child: IntrinsicWidth(
-      child: SizedBox(
-        height: F.minTapTarget,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: F.ink,
-            side: BorderSide(color: F.buttonEdge, width: 1.5),
-            padding: const EdgeInsets.symmetric(horizontal: F.s12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-            textStyle: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700),
-          ),
-          child: const Text('تأكيد'),
+    child: SizedBox(
+      height: F.minTapTarget,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: F.green,
+          side: BorderSide(color: F.green, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+          textStyle: const TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w800),
         ),
+        child: const Text('أخدتها'),
       ),
     ),
   );

@@ -15,10 +15,14 @@ class TodayProgressRow extends StatelessWidget {
 
   final TodayProgress progress;
 
-  static const double ringSize = 112;
+  /// **المقاس محسوب من الكلام اللي جوّاها، مش بالعين**: «جرعات اليوم» بخط
+  /// ١٧ لازم تقعد جوّه الدايرة الداخلية (نص القطر − سمك الخط) من غير ما
+  /// تلمسها — `today_redesign_test` بيقيس كل ركن نص ضد نص القطر، على
+  /// SE وبخط ×١٫٣ (المالك، ٥ أكتوبر ٢٠٢٦: «جرعات اليوم» كانت لازقة).
+  static const double ringSize = 128;
 
   /// الدايرة الصغيرة جنب التحية على الشاشات القصيرة (آيفون SE) — الرقم بس.
-  static const double compactRingSize = 76;
+  static const double compactRingSize = 96;
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +153,10 @@ class TodayProgressLine extends StatelessWidget {
   }
 }
 
+/// سمك خط الدايرة — مكشوف عشان اختبار «الكلام جوّه الدايرة» يقيس بنفس
+/// الرقم اللي الرسم بيستعمله.
+const double ringStroke = 10;
+
 class _RingPainter extends CustomPainter {
   _RingPainter({required this.fraction, required this.track, required this.fill});
 
@@ -158,7 +166,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 10.0;
+    const stroke = ringStroke;
     final rect = Offset.zero & size;
     final circle = rect.deflate(stroke / 2);
     final base = Paint()
