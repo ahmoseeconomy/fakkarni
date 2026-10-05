@@ -724,18 +724,15 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: F.s8,
-                        runSpacing: F.s8,
-                        children: [
-                          for (final m in MealRelation.values)
-                            AnchorChip(
-                              key: ValueKey('meal-${m.name}'),
-                              label: m.label,
-                              selected: _meal == m,
-                              onTap: _busy ? () {} : () => _setMeal(_meal == m ? null : m),
-                            ),
-                        ],
+                      // بكرة زي «ضيف دوا» (٥ أكتوبر) — «من غير تحديد» بتمسح،
+                      // زي ما الدوسة التانية كانت
+                      FChoiceWheel<MealRelation>(
+                        wheelKey: const ValueKey('edit-meal-wheel'),
+                        choices: MealRelation.values,
+                        labelOf: (m) => m.label,
+                        value: _meal,
+                        semanticsLabel: 'مع الأكل',
+                        onChanged: _busy ? (_) {} : _setMeal,
                       ),
                       const SizedBox(height: F.gap),
                       Text(

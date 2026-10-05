@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -132,6 +133,17 @@ Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 60; i++) {
     await tester.pump(const Duration(milliseconds: 25));
   }
+}
+
+/// بيوصّل بكرة اختيار ([FChoiceWheel]) لصف برقمه — بالسحب من مكانها
+/// الحالي، زي ما الإيد بتعمل. الشرايح بقت بكر (٥ أكتوبر ٢٠٢٦)، والدوسة
+/// على صف بعيد مش مضمونة (برّه نافذة الرسم) — السحبة المحسوبة مضمونة.
+Future<void> pickWheel(WidgetTester tester, Key key, int targetIndex) async {
+  final picker = tester.widget<CupertinoPicker>(find.byKey(key));
+  final current = picker.scrollController!.selectedItem;
+  if (current == targetIndex) return;
+  await tester.drag(find.byKey(key), Offset(0, -44.0 * (targetIndex - current)));
+  await settle(tester);
 }
 
 void screenTest(String name, Future<void> Function(WidgetTester) body) {

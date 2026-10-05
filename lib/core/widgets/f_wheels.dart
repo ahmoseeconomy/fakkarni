@@ -190,6 +190,10 @@ class _FNumberWheelState extends State<FNumberWheel> {
 /// المالك) — نفس عقد [FNumberWheel.value]: مفيش حاجة بتتكتب غير لما
 /// الإنسان يحرّك، والرجوع لأول صف بيمسح الاختيار. الصف المختار بنفس
 /// خط العيلة الكبير وأرضيته الخضرا.
+///
+/// **قسم ليه افتراضي النهارده** (زي «بياخده إزاي؟» = كل يوم) بيبعت
+/// `noneLabel: null`: مفيش صف «من غير تحديد»، والبكرة واقفة على
+/// الافتراضي — القيمة موجودة دايماً زي ما الشرايح كانت (٥ أكتوبر ٢٠٢٦).
 class FChoiceWheel<T> extends StatefulWidget {
   const FChoiceWheel({
     required this.choices,
@@ -208,17 +212,24 @@ class FChoiceWheel<T> extends StatefulWidget {
   final List<T> choices;
   final String Function(T choice) labelOf;
 
-  /// null = واقفة على «من غير تحديد».
+  /// null = واقفة على «من غير تحديد» (لما الصف ده موجود).
   final T? value;
   final ValueChanged<T?> onChanged;
-  final String noneLabel;
+
+  /// null = **مفيش** صف «من غير تحديد» — للقسم اللي ليه افتراضي.
+  final String? noneLabel;
+
+  bool get _hasNone => noneLabel != null;
   final double height;
   final String? semanticsLabel;
 
   /// مفتاح على البكرة نفسها — الاختبار بيسحبها بيه.
   final Key? wheelKey;
 
-  int _indexOf(T? v) => v == null ? 0 : choices.indexOf(v) + 1;
+  int _indexOf(T? v) {
+    if (_hasNone) return v == null ? 0 : choices.indexOf(v) + 1;
+    return v == null ? 0 : choices.indexOf(v).clamp(0, choices.length - 1);
+  }
 
   @override
   State<FChoiceWheel<T>> createState() => _FChoiceWheelState<T>();
@@ -244,7 +255,11 @@ class _FChoiceWheelState<T> extends State<FChoiceWheel<T>> {
 
   void _picked(int index) {
     if (_syncing) return;
-    widget.onChanged(index == 0 ? null : widget.choices[index - 1]);
+    if (widget._hasNone) {
+      widget.onChanged(index == 0 ? null : widget.choices[index - 1]);
+    } else {
+      widget.onChanged(widget.choices[index]);
+    }
   }
 
   @override
@@ -257,7 +272,7 @@ class _FChoiceWheelState<T> extends State<FChoiceWheel<T>> {
   Widget build(BuildContext context) => _WheelColumn(
         pickerKey: widget.wheelKey,
         controller: _controller,
-        labels: [widget.noneLabel, for (final c in widget.choices) widget.labelOf(c)],
+        labels: [?widget.noneLabel, for (final c in widget.choices) widget.labelOf(c)],
         onChanged: _picked,
         semantics: widget.semanticsLabel ?? 'اختيار',
         height: widget.height,

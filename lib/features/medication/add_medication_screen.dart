@@ -37,6 +37,9 @@ import 'medication_draft.dart';
 import 'med_voice_input.dart';
 import '../../domain/voice/nlu/nlu.dart' show NluIntent, understandUtteranceAs;
 import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, utteranceTokens;
+import '../../domain/voice/answer_parser.dart' show parseTime, parseNumber;
+import '../../domain/voice/arabic_dates.dart' show extractDates;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/diagnostics.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
@@ -144,10 +147,40 @@ class AddMedicationScreen extends StatefulWidget {
 /// ثابتة)، أو مرة واحدة (`DoseRepeat.once`).
 enum DosePattern { daily, everyHours, weekdays, everyNDays, cycle, once }
 
+/// كلمة النمط — كانت على الشرايح، والبكرة والصوت بيقروا منها.
+String patternLabel(DosePattern p) => switch (p) {
+      DosePattern.daily => 'كل يوم',
+      DosePattern.everyHours => 'كل كام ساعة',
+      DosePattern.weekdays => 'أيام معينة',
+      DosePattern.everyNDays => 'كل كام يوم',
+      DosePattern.cycle => 'فترة وراحة',
+      DosePattern.once => 'مرة واحدة',
+    };
+
 class _AddMedicationScreenState extends State<AddMedicationScreen> {
   /// صوت الفورم — null = مفيش صوت على الشاشة دي (ممرض، أو مفيش متعرّف).
   MedVoiceSession? _voice;
   bool _voiceWired = false;
+
+  /// «أدخّل بصوتي» (المالك، ٥ أكتوبر ٢٠٢٦) — **مقفول افتراضياً**: مقفول =
+  /// مفيش مايك حقول و«ساعدني» ظاهر؛ مفتوح = مايك على كل قسم بيتعبّى
+  /// بالصوت و«ساعدني» بيستخبى. «قولها بصوتك» ظاهر في الحالتين. متخزّن
+  /// على الموبايل ([micsKey]) عشان اللي بيدخّل بصوته ما يفتحهوش كل مرة.
+  static const micsKey = 'voice.formMics';
+  bool _micsOn = false;
+
+  /// مايكات الحقول ظاهرة؟
+  bool get _mics => _voice != null && _micsOn;
+
+  Future<void> _setMics(bool on) async {
+    setState(() => _micsOn = on);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(micsKey, on);
+    } catch (_) {
+      // تفضيل — مش أهم من الشاشة
+    }
+  }
 
   // «لا» اللي اتسمعت مع «ضيف دوا» مش اسم — الحقل يبدأ فاضي
   late final _name = TextEditingController(text: medicineNameOrNull(widget.initialName) ?? '');
@@ -352,6 +385,132 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     setState(() => _form = found);
   }
 
+  /// (ب) «بياخده إزاي؟» — «كل ١٢ ساعة» بينتقل للفاصل بساعاته، وأسماء
+  /// الأنماط بكلمتها («أيام معينة» بتفتح اختيار الأيام والإنسان بيكمّل).
+  void _hearPattern(String text) {
+    final norm = normalizeUtterance(text);
+    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now());
+    if (r.everyHours case final h? when everyHoursChoices.contains(h)) {
+      _pickPattern(DosePattern.everyHours);
+      setState(() {
+        _everyHours = h;
+        _expandEveryHours();
+      });
+      return;
+    }
+    final byLabel = {
+      for (final p in DosePattern.values) normalizeUtterance(patternLabel(p)): p,
+    };
+    DosePattern? found;
+    if (norm.contains('كل يوم')) found = DosePattern.daily;
+    for (final e in byLabel.entries) {
+      if (found != null) break;
+      if (norm.contains(e.key)) found = e.value;
+    }
+    if (found == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «كل يوم» أو «كل ١٢ ساعة»، أو حرّك البكرة بإيدك.');
+      return;
+    }
+    if (widget.draft && const {DosePattern.weekdays, DosePattern.everyNDays, DosePattern.cycle}.contains(found)) {
+      setState(() => _voice?.note = 'أنماط الأيام مش في مراجعة الروشتة — كمّل من «ضيف دوا».');
+      return;
+    }
+    _pickPattern(found);
+  }
+
+  /// (ب) «كام مرة في اليوم؟» — «مرتين» / «٣ مرات» / رقم لوحده (١–١٢).
+  void _hearCount(String text) {
+    final r = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now());
+    final n = r.perDay ?? parseNumber(text);
+    if (n == null || n < 1 || n > _maxCount) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «مرتين» أو «٣ مرات»، أو حرّك البكرة بإيدك.');
+      return;
+    }
+    if (n <= _countChips.last) {
+      _pickCount(n);
+    } else {
+      setState(() => _customCount = true);
+      _pickCustomCount(n);
+    }
+  }
+
+  /// (ب) «المواعيد» — ساعة أو أكتر بالواو: «تسعة الصبح وتسعة بالليل».
+  /// كل ساعة لازم جزء يومها (مفيش تخمين)، والصفوف بتتكتب باللي اتقال.
+  void _hearTimes(String text) {
+    final parts = normalizeUtterance(text).split(RegExp(r'\s+و(?=\S)|\sو\s'));
+    final minutes = <int>{};
+    for (final part in parts) {
+      final t = parseTime(part.trim());
+      if (t == null) {
+        setState(() => _voice?.note = 'مافهمتش «${part.trim()}» — قول الساعة بجزء يومها، زي «٩ الصبح».');
+        return;
+      }
+      minutes.add(t.minutes);
+    }
+    if (minutes.isEmpty) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «٩ الصبح و٩ بالليل».');
+      return;
+    }
+    final sorted = minutes.toList()..sort();
+    setState(() {
+      _timesPerDay = sorted.length;
+      _customCount = sorted.length > _countChips.last;
+      _doses = [for (final m in sorted) FixedTiming(MinuteOfDay(m))];
+      _spreadLive = false; // الساعات دي اتقالت — العجلة ما تلمسهاش
+    });
+  }
+
+  /// (ب) «مع الأكل؟» — كلمة الأكل من نفس قارئ «كلّمني»، و«من غير» بتمسح.
+  void _hearMeal(String text) {
+    final norm = normalizeUtterance(text);
+    if (norm.contains('من غير') || norm.contains('عادي') || norm.contains('ولا حاجه')) {
+      setState(() => _meal = null);
+      return;
+    }
+    final food = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $text', now: DateTime.now()).food;
+    if (food == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
+      return;
+    }
+    setState(() => _meal = food);
+  }
+
+  /// (ب) «البداية» — «بكرة» / «يوم الحد» / «بعد أسبوع»، جوّه حد الـ٦٠ يوم.
+  void _hearStart(String text) {
+    final today = _today;
+    // «بكرة» تتحسب من يوم الفورم نفسه — مش ساعة حائط الاختبار/الجهاز
+    final dates = extractDates(text, now: DateTime(today.year, today.month, today.day, 12), future: true);
+    final day = dates.firstOrNull?.date;
+    if (day == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «بكرة» أو «يوم السبت»، أو اختار بإيدك.');
+      return;
+    }
+    final max = today.add(const Duration(days: 60));
+    if (day.isBefore(today) || day.isAfter(max)) {
+      setState(() => _voice?.note = 'البداية من النهارده لحد ٦٠ يوم — اختار يوم أقرب.');
+      return;
+    }
+    setState(() => _startDate = DateTime(day.year, day.month, day.day));
+  }
+
+  /// (ب) «نوع التنبيه» — بكلمة النوع نفسها («يتكرر» / «مستمر» / «مرة واحدة»).
+  void _hearAlert(String text) {
+    final norm = normalizeUtterance(text);
+    if (norm.contains('الجهاز') || norm.contains('افتراضي')) {
+      setState(() => _alertMode = null);
+      return;
+    }
+    AlertMode? found;
+    for (final m in AlertMode.values) {
+      if (norm.contains(normalizeUtterance(m.label))) found = m;
+    }
+    if (found == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول «يتكرر» أو «مستمر» أو «مرة واحدة».');
+      return;
+    }
+    setState(() => _alertMode = found);
+  }
+
   /// (أ) الدوا كله بجملة واحدة — نفس فهم «كلّمني» والزرار نفسه هو النية.
   /// **الناقص بيفضل فاضي** (قرار المالك: مفيش أسئلة واحد واحد)، ومفيش
   /// حاجة بتتحفظ غير بـ«احفظ».
@@ -399,6 +558,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     final voice = AppScope.maybeOf(context)?.voice;
     if (widget.voiceInput && voice != null && voice.listener != null) {
       _voice = MedVoiceSession(voice);
+      SharedPreferences.getInstance().then((prefs) {
+        if (!mounted) return;
+        final on = prefs.getBool(micsKey) ?? false;
+        if (on != _micsOn) setState(() => _micsOn = on);
+      }).catchError((Object _) {});
     }
   }
 
@@ -437,8 +601,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   static String _timesLabel(int n) => n <= 10 ? '${arabicNumber(n)} مرات' : '${arabicNumber(n)} مرة';
 
   /// دوسة تانية على نفس الشريحة بتشيلها — اختيارية فعلاً، ومش بتلمس الساعات.
-  void _pickMeal(MealRelation m) => setState(() => _meal = _meal == m ? null : m);
-
   void _pickPattern(DosePattern p) {
     if (_pattern == p) return;
     // بين «كل يوم» وأنماط الأيام: الأيام بس بتتغيّر، والمواعيد زي ما هي
@@ -680,7 +842,25 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                   // ---------------------------- «قولها بصوتك» (المالك، ٥ أكتوبر)
                   if (_voice case final v?) ...[
                     SayItAllButton(session: v, onHeard: _applySpoken),
-                    const SizedBox(height: F.s12),
+                    const SizedBox(height: F.s8),
+                    // «أدخّل بصوتي» — مفتاح مايكات الحقول (مقفول افتراضياً):
+                    // «ساعدني» و«قولها» كانوا بيزاحموا بعض، فواحد منهم بس
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'أدخّل بصوتي',
+                            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+                          ),
+                        ),
+                        Switch(
+                          key: const ValueKey('voice-input-switch'),
+                          value: _micsOn,
+                          onChanged: _setMics,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: F.s8),
                   ],
                   if (_duplicate case final dup?) ...[
                     GoldNote(
@@ -698,9 +878,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         Row(
                           children: [
                             const Expanded(child: _FieldLabel('اسم الدوا والتركيز')),
-                            if (_voice case final v?)
+                            if (_mics)
                               FieldMicButton(
-                                session: v,
+                                session: _voice!,
                                 forWhat: 'اسم الدوا',
                                 onHeard: _hearName,
                               ),
@@ -731,10 +911,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         // أول صف «من غير تحديد» وبيكتب null
                         Row(
                           children: [
-                            const Expanded(child: _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: 'help_purpose')),
-                            if (_voice case final v?)
+                            // «ساعدني» بيستخبى لما المايكات شغّالة — واحد منهم بس
+                            Expanded(child: _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: _mics ? null : 'help_purpose')),
+                            if (_mics)
                               FieldMicButton(
-                                session: v,
+                                session: _voice!,
                                 forWhat: 'الدوا ده لإيه',
                                 onHeard: _hearPurpose,
                               ),
@@ -754,9 +935,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         Row(
                           children: [
                             const Expanded(child: _FieldLabel('نوعه؟ (لو حابب)')),
-                            if (_voice case final v?)
+                            if (_mics)
                               FieldMicButton(
-                                session: v,
+                                session: _voice!,
                                 forWhat: 'نوعه',
                                 onHeard: _hearForm,
                               ),
@@ -779,29 +960,33 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('بياخده إزاي؟', help: 'help_pattern'),
-                        Wrap(
-                          spacing: F.s8,
-                          runSpacing: F.s8,
+                        Row(
                           children: [
+                            Expanded(child: _FieldLabel('بياخده إزاي؟', help: _mics ? null : 'help_pattern')),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'بياخده إزاي', onHeard: _hearPattern),
+                          ],
+                        ),
+                        // بكرة مش ٦ شرايح (المالك، ٥ أكتوبر) — **من غير «من غير
+                        // تحديد»**: القسم ده ليه افتراضي («كل يوم») والبكرة
+                        // واقفة عليه. أطول شوية عشان الست اختيارات يبانوا.
+                        FChoiceWheel<DosePattern>(
+                          wheelKey: const ValueKey('pattern-wheel'),
+                          noneLabel: null,
+                          choices: [
                             for (final p in DosePattern.values)
-                              // المراجعة (مسوّدة الروشتة) من غير أنماط الأيام — الجولة دي «ضيف دوا» والتعديل
+                              // المراجعة (مسوّدة الروشتة) من غير أنماط الأيام
                               if (!widget.draft ||
                                   !const {DosePattern.weekdays, DosePattern.everyNDays, DosePattern.cycle}.contains(p))
-                              AnchorChip(
-                                key: ValueKey('pattern-${p.name}'),
-                                label: switch (p) {
-                                  DosePattern.daily => 'كل يوم',
-                                  DosePattern.everyHours => 'كل كام ساعة',
-                                  DosePattern.weekdays => 'أيام معينة',
-                                  DosePattern.everyNDays => 'كل كام يوم',
-                                  DosePattern.cycle => 'فترة وراحة',
-                                  DosePattern.once => 'مرة واحدة',
-                                },
-                                selected: _pattern == p,
-                                onTap: () => _pickPattern(p),
-                              ),
+                                p,
                           ],
+                          labelOf: patternLabel,
+                          value: _pattern,
+                          height: wheelItemExtent * 4,
+                          semanticsLabel: 'بياخده إزاي',
+                          onChanged: (p) {
+                            if (p != null) _pickPattern(p);
+                          },
                         ),
                         const SizedBox(height: F.gap),
                         if (_pattern == DosePattern.everyHours) ...[
@@ -836,33 +1021,38 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                           const SizedBox(height: F.gap),
                         ],
                         if (_dailyLike) ...[
-                        const _FieldLabel('كام مرة في اليوم؟'),
-                        Wrap(
-                          spacing: F.s8,
-                          runSpacing: F.s8,
+                        Row(
                           children: [
-                            for (final n in _countChips)
-                              AnchorChip(
-                                key: ValueKey('count-$n'),
-                                label: switch (n) {
-                                  1 => 'مرة',
-                                  2 => 'مرتين',
-                                  _ => '${arabicNumber(n)} مرات',
-                                },
-                                selected: !_customCount && _timesPerDay == n,
-                                onTap: () => _pickCount(n),
-                              ),
-                            AnchorChip(
-                              key: const ValueKey('count-more'),
-                              label: 'أكتر',
-                              selected: _customCount,
-                              onTap: () {
-                                if (_customCount) return;
-                                setState(() => _customCount = true);
-                                _pickCustomCount(_countChips.last + 1);
-                              },
-                            ),
+                            Expanded(child: _FieldLabel('كام مرة في اليوم؟')),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'كام مرة', onHeard: _hearCount),
                           ],
+                        ),
+                        // بكرة — صف «أكتر» (صفر) بيفتح بكرة العدد ٥–١٢ زي
+                        // الشريحة القديمة بالظبط. افتراضي «مرة» — مفيش
+                        // «من غير تحديد»: القسم مالوش حالة فاضية.
+                        FChoiceWheel<int>(
+                          wheelKey: const ValueKey('count-wheel'),
+                          noneLabel: null,
+                          choices: const [1, 2, 3, 4, 0],
+                          labelOf: (n) => switch (n) {
+                            0 => 'أكتر',
+                            1 => 'مرة',
+                            2 => 'مرتين',
+                            _ => '${arabicNumber(n)} مرات',
+                          },
+                          value: _customCount ? 0 : (_timesPerDay <= _countChips.last ? _timesPerDay : 0),
+                          semanticsLabel: 'كام مرة في اليوم',
+                          onChanged: (n) {
+                            if (n == null) return;
+                            if (n == 0) {
+                              if (_customCount) return;
+                              setState(() => _customCount = true);
+                              _pickCustomCount(_countChips.last + 1);
+                            } else {
+                              _pickCount(n);
+                            }
+                          },
                         ),
                         if (_customCount) ...[
                           const SizedBox(height: F.s10),
@@ -903,30 +1093,23 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ],
                         ],
                         // «قبل الأكل» وأخواتها — **كلمة تعليمات**، اختيارية، ما
-                        // بتحرّكش الساعة. شبكة ٢×٢ بعرض متساوي عشان الكلمة
-                        // كاملة على SE.
-                        const _FieldLabel('مع الأكل؟ (لو حابب)', help: 'help_timing'),
-                        for (final pair in const [
-                          [MealRelation.before, MealRelation.with_],
-                          [MealRelation.after, MealRelation.emptyStomach],
-                        ]) ...[
-                          Row(
-                            children: [
-                              for (final m in pair) ...[
-                                Expanded(
-                                  child: _CompactChip(
-                                    key: ValueKey('meal-${m.name}'),
-                                    label: m.label,
-                                    selected: _meal == m,
-                                    onTap: () => _pickMeal(m),
-                                  ),
-                                ),
-                                if (m != pair.last) const SizedBox(width: F.s8),
-                              ],
-                            ],
-                          ),
-                          if (pair.first == MealRelation.before) const SizedBox(height: F.s8),
-                        ],
+                        // بتحرّكش الساعة. بكرة بأول صف «من غير تحديد» (المالك،
+                        // ٥ أكتوبر) — اختياري فعلاً زي ما الدوسة التانية كانت.
+                        Row(
+                          children: [
+                            Expanded(child: _FieldLabel('مع الأكل؟ (لو حابب)', help: _mics ? null : 'help_timing')),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'مع الأكل', onHeard: _hearMeal),
+                          ],
+                        ),
+                        FChoiceWheel<MealRelation>(
+                          wheelKey: const ValueKey('meal-wheel'),
+                          choices: MealRelation.values,
+                          labelOf: (m) => m.label,
+                          value: _meal,
+                          semanticsLabel: 'مع الأكل',
+                          onChanged: (m) => setState(() => _meal = m),
+                        ),
                       ],
                     ),
                   ),
@@ -936,7 +1119,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('مواعيد الجرعات'),
+                        Row(
+                          children: [
+                            Expanded(child: _FieldLabel('مواعيد الجرعات')),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'المواعيد', onHeard: _hearTimes),
+                          ],
+                        ),
                         for (final (i, t) in _doses.indexed) ...[
                           _DoseRowTile(
                             key: ValueKey('dose-row-$i'),
@@ -963,7 +1152,13 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('نوع التنبيه', help: 'help_alert_mode'),
+                        Row(
+                          children: [
+                            Expanded(child: _FieldLabel('نوع التنبيه', help: _mics ? null : 'help_alert_mode')),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'نوع التنبيه', onHeard: _hearAlert),
+                          ],
+                        ),
                         AlertModeChips(
                           value: _alertMode,
                           allowDefault: true,
@@ -981,7 +1176,18 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _FieldLabel(_pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟', help: 'help_start_date'),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _FieldLabel(
+                                _pattern == DosePattern.once ? 'هتاخده يوم إيه؟' : 'هتبدأ الدوا من إمتى؟',
+                                help: _mics ? null : 'help_start_date',
+                              ),
+                            ),
+                            if (_mics)
+                              FieldMicButton(session: _voice!, forWhat: 'البداية', onHeard: _hearStart),
+                          ],
+                        ),
                         Row(
                           children: [
                             Expanded(

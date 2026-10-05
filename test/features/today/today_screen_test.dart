@@ -1,6 +1,9 @@
 import 'package:drift/native.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../scan/scan_test_support.dart' show pickWheel;
 
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
@@ -621,10 +624,13 @@ void main() {
       }
       expect(tester.getCenter(find.text('الصبح ٩')).dy, lessThan(tester.getCenter(find.text('العصر ٥')).dy),
           reason: 'شبكة ٢×٢');
-      // و«مع الأكل؟» كلمة تعليمات اختيارية — أربع كلمات، ولا واحدة مختارة
-      for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية']) {
-        expect(find.text(w), findsOneWidget, reason: w);
-      }
+      // و«مع الأكل؟» بكرة اختيارية (٥ أكتوبر) — واقفة على «من غير تحديد»
+      expect(find.byKey(const ValueKey('meal-wheel')), findsOneWidget);
+      expect(
+        tester.widget<CupertinoPicker>(find.byKey(const ValueKey('meal-wheel'))).scrollController!.selectedItem,
+        0,
+        reason: 'ولا كلمة أكل مختارة',
+      );
       expect(find.text('ساعة محددة'), findsNothing, reason: 'مفيش وضعين — الساعة هي الطريقة الوحيدة');
       expect(find.text('كمّل — إمتى؟'), findsNothing, reason: 'مفيش مشي');
       expect(find.byType(TimePickerDialog), findsNothing);
@@ -742,10 +748,10 @@ void main() {
     screenTest('دوسة تانية على «بعد الأكل» بتشيلها — اختيارية، والساعات زي ما هي', (tester) async {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, 'Augmentin');
-      await tester.tap(find.text('بعد الأكل'));
-      await settle(tester);
-      await tester.tap(find.text('بعد الأكل'));
-      await settle(tester);
+      // بكرة (٥ أكتوبر): «بعد الأكل» وبعدين رجوع لـ«من غير تحديد» — نفس
+      // معنى الدوسة التانية اللي كانت بتشيل
+      await pickWheel(tester, const ValueKey('meal-wheel'), 3);
+      await pickWheel(tester, const ValueKey('meal-wheel'), 0);
       await tester.tap(find.widgetWithText(AnchorChip, 'الصبح ٩'));
       await settle(tester);
       expect(find.text('الساعة ٩:٠٠ ص'), findsOneWidget);

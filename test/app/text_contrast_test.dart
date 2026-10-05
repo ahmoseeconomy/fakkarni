@@ -84,10 +84,9 @@ void main() {
     screenTest('$mode — «ضيف دوا» بشرايح مختارة', (tester) async {
       F.setDark(on: dark);
       await h.pump(tester, AddMedicationScreen(today: aug31));
-      await tester.tap(find.text('مرتين'));
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('meal-after')));
-      await settle(tester);
+      // البكر (٥ أكتوبر): «مرتين» و«بعد الأكل» بالسحبة المحسوبة
+      await pickWheel(tester, const ValueKey('count-wheel'), 1);
+      await pickWheel(tester, const ValueKey('meal-wheel'), 3);
       expectReadableText(tester, where: 'ضيف دوا');
     });
 

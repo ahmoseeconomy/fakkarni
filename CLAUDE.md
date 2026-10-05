@@ -155,10 +155,16 @@ These are product decisions, already settled. Do not "improve" them without aski
   `lib/core/widgets/f_wheels.dart`** (product decision, 24 Sep 2026) —
   **and since 5 Oct 2026 the family has a third member, `FChoiceWheel`**:
   a categorical wheel whose first row is «من غير تحديد» writing null and
-  the rest position (the `FNumberWheel.value == null` contract). It
-  replaced the 10 purpose chips and 9 form chips on «ضيف دوا» and the
+  the rest position (the `FNumberWheel.value == null` contract) — and
+  `noneLabel: null` drops that row for a section that has a default today
+  («بياخده إزاي؟» rests on «كل يوم», «كام مرة» on «مرة» with «أكتر» as its
+  last row opening the 5–12 number wheel exactly as the old chip did). It
+  replaced the 10 purpose chips, 9 form chips, 6 pattern chips, the count
+  chips and the 2×2 meal grid on «ضيف دوا», and the form/meal chips on the
   edit screen (which also **gained** a purpose wheel — purpose became
-  editable there, through `MedicationSaveService.setPurpose`). No
+  editable there, through `MedicationSaveService.setPurpose`). Tests drive
+  a wheel with `pickWheel` (scan_test_support) — a computed drag, never a
+  tap on a far row (lazy children). No
   `+/−` stepper, no slider, no typed number for a value the app owns.
   `FNumberWheel` (min / max / step / unit, Arabic numerals) and
   `FTimeWheel` (hour + **one-minute** wheels with ص/م, the same `MinuteOfDay` in
@@ -3122,8 +3128,14 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 بصوتك» كبير محدّد أخضر فوق الفورم — الجملة كلها بنفس فهم «كلّمني»
 (`understandUtteranceAs` — الزرار نفسه هو النية، فمفيش نقط نية محتاجة)،
 والناقص بيفضل فاضي قدّامه (قرار المالك: مفيش أسئلة واحد واحد هنا)؛
-و«قولها» صغير جنب الاسم وبكرتَي «لإيه؟»/«نوعه؟» بيملا حقله هو بس
+و«قولها» صغير جنب كل قسم بيتعبّى بالصوت (الاسم، البكر الخمسة، المواعيد
+«٩ الصبح و٩ بالليل» بالواو، البداية «بكرة/يوم السبت» — بتتحسب من يوم
+الفورم مش ساعة الحائط — ونوع التنبيه) بيملا حقله هو بس
 (`MedicationPurpose.fromSpokenWord` / `MedicineForm.fromSpoken` — نقيين).
+**مايكات الحقول ورا مفتاح «أدخّل بصوتي»** (٥ أكتوبر، مقفول افتراضياً،
+`voice.formMics`): مقفول = «ساعدني» ظاهر ومفيش مايكات؛ مفتوح = المايكات
+ظاهرة و«ساعدني» بيستخبى — **إلا قسم الصورة**: مفيش صوت يملاه، فمساعدته
+فاضلة في الحالتين. «قولها بصوتك» ظاهر في الحالتين.
 الحالات كلها **مكتوبة** (مفيش TTS)، دوسة = سماع واحد، ولا حاجة بتتحفظ
 غير بـ«احفظ». **وعلى موبايل الممرض مفيش صوت**: كل باب ممرض للفورم بيبعت
 `voiceInput: false` بالحرف، والحارس بيعدّهم. «للضغط» و«قرص/شراب/حباية»

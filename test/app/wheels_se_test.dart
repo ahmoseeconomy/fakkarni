@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,18 @@ Future<void> _loadFonts() async {
     'Cairo-ExtraBold.ttf',
   ]);
   await load('IBM Plex Mono', ['IBMPlexMono-Medium.ttf', 'IBMPlexMono-SemiBold.ttf']);
+}
+
+/// بيوصّل بكرة اختيار لصف برقمه — سحبة محسوبة من مكانها الحالي.
+Future<void> drive(WidgetTester tester, Key key, int targetIndex) async {
+  final picker = tester.widget<CupertinoPicker>(find.byKey(key));
+  final current = picker.scrollController!.selectedItem;
+  if (current != targetIndex) {
+    await tester.drag(find.byKey(key), Offset(0, -44.0 * (targetIndex - current)));
+  }
+  for (var i = 0; i < 60; i++) {
+    await tester.pump(const Duration(milliseconds: 25));
+  }
 }
 
 class _SilentSink implements ReminderSink {
@@ -135,7 +148,7 @@ void main() {
     // السحب من **أعلى** القايمة: نصّها ممكن يبقى بكرة، والبكرة بتاكل السحب.
     Future<void> scrollTo(Finder f) async {
       for (var i = 0; i < 14 && f.evaluate().isEmpty; i++) {
-        await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+        await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(6, 24), const Offset(0, -220));
         await settle(tester);
       }
       expect(f, findsOneWidget);
@@ -143,16 +156,17 @@ void main() {
       await settle(tester);
     }
 
-    await scrollTo(find.byKey(const ValueKey('count-more')));
-    await tester.tap(find.byKey(const ValueKey('count-more')));
-    await settle(tester);
+    await scrollTo(find.byKey(const ValueKey('count-wheel')));
+    // «أكتر» آخر صف في البكرة (٥ أكتوبر) — بيفتح بكرة العدد زي الشريحة
+    await drive(tester, const ValueKey('count-wheel'), 4);
     expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
-    // ٢×٢: كل كلمة كاملة وفي سطر واحد — مفيش قصّ
-    await scrollTo(find.text('على معدة فاضية'));
-    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية']) {
+    // «مع الأكل؟» بكرة — كل كلمة بتبان كاملة وهي المختارة، حتى الطويلة
+    await scrollTo(find.byKey(const ValueKey('meal-wheel')));
+    for (final (i, w) in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية'].indexed) {
+      await drive(tester, const ValueKey('meal-wheel'), i + 1);
       final text = tester.widget<Text>(find.text(w));
       expect(text.maxLines ?? 1, 1, reason: w);
-      expect(tester.getSize(find.text(w)).width, lessThan(375 / 2), reason: '«$w» أوسع من نص الشاشة');
+      expect(tester.getSize(find.text(w)).width, lessThan(375.0), reason: '«$w» أوسع من الشاشة');
     }
     expect(tester.takeException(), isNull);
     await scrollTo(find.text('هتبدأ الدوا من إمتى؟'));
@@ -178,11 +192,17 @@ void main() {
     );
     await settle(tester);
     expect(tester.takeException(), isNull, reason: 'فيض على SE بخط ×١٫٣');
-    for (var i = 0; i < 14 && find.text('على معدة فاضية').evaluate().isEmpty; i++) {
-      await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(180, 24), const Offset(0, -220));
+    for (var i = 0; i < 14 && find.byKey(const ValueKey('meal-wheel')).evaluate().isEmpty; i++) {
+      await tester.dragFrom(tester.getTopLeft(find.byType(ListView)) + const Offset(6, 24), const Offset(0, -220));
       await settle(tester);
     }
-    for (final w in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية']) {
+    await tester.ensureVisible(find.byKey(const ValueKey('meal-wheel')));
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 25));
+    }
+    // البكرة (٥ أكتوبر): كل كلمة أكل بتبان كاملة بخط ×١٫٣ وهي المختارة
+    for (final (i, w) in ['قبل الأكل', 'مع الأكل', 'بعد الأكل', 'على معدة فاضية'].indexed) {
+      await drive(tester, const ValueKey('meal-wheel'), i + 1);
       expect(find.text(w), findsOneWidget, reason: w);
     }
     expect(tester.takeException(), isNull);

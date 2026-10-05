@@ -45,8 +45,7 @@ void main() {
 
   screenTest('«كل كام ساعة»: المعاينة قبل الحفظ، و«كل ٤» بيتحفظ ٦ ساعات ثابتة', (tester) async {
     await pumpAdd(tester);
-    await tester.tap(find.byKey(const ValueKey('pattern-everyHours')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('pattern-wheel'), 1); // «كل كام ساعة»
     // أول جرعة **لسه ما اتختارتش** — البكرة واقفة على ٨ بس ده مش اختيار
     expect(tester.widget<Text>(find.byKey(const ValueKey('every-hours-preview'))).data, 'اختار الساعة');
     expect(find.text('كام مرة في اليوم؟'), findsNothing, reason: 'العدد بقى من الفاصل');
@@ -122,8 +121,7 @@ void main() {
 
   screenTest('«مرة واحدة» بتتحفظ once من غير مدة', (tester) async {
     await pumpAdd(tester);
-    await tester.tap(find.byKey(const ValueKey('pattern-once')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('pattern-wheel'), 5); // «مرة واحدة»
     expect(find.text('هتاخده يوم إيه؟'), findsOneWidget);
     expect(find.text('كام مرة في اليوم؟'), findsNothing);
     // الصف فاضي — الساعة بيختارها هو (من محرّر الجرعة)
@@ -201,8 +199,7 @@ void main() {
 
   screenTest('الجولة ٢: «أيام معينة» بمعاينة الأيام الجاية، وبتتحفظ بالنمط', (tester) async {
     await pumpAdd(tester);
-    await tester.tap(find.byKey(const ValueKey('pattern-weekdays')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('pattern-wheel'), 2); // «أيام معينة»
     expect(find.text('اختار يوم واحد على الأقل.'), findsOneWidget);
     for (final d in [DateTime.saturday, DateTime.tuesday]) {
       await tester.tap(find.byKey(ValueKey('weekday-$d')));
@@ -226,8 +223,7 @@ void main() {
 
   screenTest('الجولة ٢: «فترة وراحة» ٢١/٧ افتراضياً بتتحفظ، و«كل كام يوم» بعجلة', (tester) async {
     await pumpAdd(tester);
-    await tester.tap(find.byKey(const ValueKey('pattern-cycle')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('pattern-wheel'), 4); // «فترة وراحة»
     expect(find.byKey(const ValueKey('cycle-on')), findsOneWidget);
     // الصف فاضي — الساعة بيختارها هو (من محرّر الجرعة)
     await tester.tap(find.byKey(const ValueKey('dose-row-0')));

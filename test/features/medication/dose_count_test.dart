@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -65,17 +66,16 @@ void main() {
     expect(find.text('أضف جرعة'), findsNothing);
     expect(find.text('شيل'), findsNothing);
     expect(find.text('جرعات اليوم'), findsNothing);
-    // اللي فاضل: الشرايح
-    expect(find.byKey(const ValueKey('count-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('count-more')), findsOneWidget);
+    // اللي فاضل: بكرة العدد (الشرايح بقت بكرة — ٥ أكتوبر ٢٠٢٦)
+    expect(find.byKey(const ValueKey('count-wheel')), findsOneWidget);
+    expect(find.text('مرتين'), findsOneWidget, reason: 'صفوف البكرة — «أكتر» آخرها (بعيد عن نافذة الرسم هنا، واختباره تحت)');
     expectNoRedAndMinSize(tester);
   });
 
   screenTest('«٤ مرات» → أربع محرّرات وأربع جرعات متحفوظة', (tester) async {
     await pumpAdd(tester);
 
-    await tester.tap(find.byKey(const ValueKey('count-4')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('count-wheel'), 3); // «٤ مرات»
 
     await walk(tester, 4);
 
@@ -92,10 +92,9 @@ void main() {
     await pumpAdd(tester);
     expect(find.byKey(const ValueKey('count-field')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('count-more')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('count-wheel'), 4); // «أكتر»
     expect(find.byKey(const ValueKey('count-field')), findsOneWidget);
-    expect(find.text('٥ مرات'), findsOneWidget, reason: 'البكرة بتبدأ من بعد آخر شريحة');
+    expect(find.text('٥ مرات'), findsOneWidget, reason: 'البكرة بتبدأ من بعد آخر صف رقمي');
 
     await tester.drag(find.byKey(const ValueKey('count-field')), const Offset(0, -FNumberWheel.itemExtent));
     await settle(tester);
@@ -106,8 +105,7 @@ void main() {
 
   screenTest('الأرضية والسقف من البكرة نفسها: مفيش أقل من ٥ ولا أكتر من ١٢', (tester) async {
     await pumpAdd(tester);
-    await tester.tap(find.byKey(const ValueKey('count-more')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('count-wheel'), 4); // «أكتر»
     // لتحت بكتير → واقفة عند ٥
     await tester.drag(find.byKey(const ValueKey('count-field')), const Offset(0, FNumberWheel.itemExtent * 20));
     await settle(tester);
@@ -122,11 +120,10 @@ void main() {
   screenTest('سطر روشتة بأربع جرعات بيوصل بأربعتهم، والعدّاد واقف على ٤', (tester) async {
     await pumpAdd(tester, timings: fourTimes);
 
-    // الشريحة بتقول الحقيقة — قبل كده العدّاد كان مخبّي خالص في طريق الورقة
-    final chip = tester.widget<InkWell>(
-      find.descendant(of: find.byKey(const ValueKey('count-4')), matching: find.byType(InkWell)),
-    );
-    expect(chip.onTap, isNotNull);
+    // البكرة بتقول الحقيقة — واقفة على «٤ مرات» (قبل كده العدّاد كان
+    // مخبّي خالص في طريق الورقة)
+    final picker = tester.widget<CupertinoPicker>(find.byKey(const ValueKey('count-wheel')));
+    expect(picker.scrollController!.selectedItem, 3, reason: 'صف «٤ مرات»');
     expect(find.textContaining('دي اللي فهمناها من الورقة'), findsOneWidget);
 
     await walk(tester, 4);
@@ -137,11 +134,11 @@ void main() {
         reason: 'ساعات الورقة زي ما هي — مش عُرفنا');
   });
 
-  screenTest('دوسة تانية على الشريحة المختارة ما بترميش مراسي الورقة', (tester) async {
+  screenTest('اختيار نفس العدد تاني ما بيرميش مراسي الورقة', (tester) async {
     await pumpAdd(tester, timings: fourTimes);
 
-    await tester.tap(find.byKey(const ValueKey('count-4')));
-    await settle(tester);
+    // البكرة واقفة على ٤ خلاص — «اختياره تاني» لازم يبقى بلا أثر
+    await pickWheel(tester, const ValueKey('count-wheel'), 3);
 
     await walk(tester, 4);
     final saved = await h.meds.activeSchedules(h.services.patientId);
@@ -151,8 +148,7 @@ void main() {
   screenTest('تغيير العدد بإيد بيعيد البناء — ٤ → ٢ صفوف فاضية', (tester) async {
     await pumpAdd(tester, timings: fourTimes);
 
-    await tester.tap(find.byKey(const ValueKey('count-2')));
-    await settle(tester);
+    await pickWheel(tester, const ValueKey('count-wheel'), 1); // «مرتين»
 
     await walk(tester, 2);
 
