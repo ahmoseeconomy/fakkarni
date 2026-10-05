@@ -371,6 +371,12 @@ class MedicationRepository {
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(MedicationsCompanion(form: Value(form?.wire)));
 
+  /// «الدوا ده لإيه؟» — بقى بيتعدّل من شاشة التعديل (٥ أكتوبر ٢٠٢٦).
+  /// زي النوع: مالوش علاقة بالتذكير.
+  Future<void> setPurpose(int medicationId, MedicationPurpose? purpose) =>
+      (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
+          .write(MedicationsCompanion(purpose: Value(purpose?.storageName)));
+
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       (_db.update(_db.medications)..where((t) => t.id.equals(medicationId)))
           .write(MedicationsCompanion(alertMode: Value(mode?.storageName)));

@@ -11,6 +11,8 @@
 library;
 
 import '../../medication/meal_relation.dart';
+import '../../medication/medication_purpose.dart';
+import '../../medication/medicine_form.dart';
 import '../../places/specialty.dart';
 import '../../medication/medicine_name.dart';
 import '../answer_parser.dart' show SpokenTime, parseNumber, parseTime;
@@ -37,6 +39,8 @@ class NluResult {
     this.hourNeedsPeriod,
     this.food,
     this.durationDays,
+    this.purpose,
+    this.form,
     this.doctorName,
     this.specialtyKind,
     this.testName,
@@ -66,6 +70,12 @@ class NluResult {
   final MealRelation? food;
   final int? durationDays;
 
+  /// «للضغط» — بتتفهم خانة لوحدها وعمرها ما تدخل الاسم (مراجعة ٥ أكتوبر).
+  final MedicationPurpose? purpose;
+
+  /// «قرص» / «شراب» / «حباية»… — نوع الدوا، خانة لوحدها برضه.
+  final MedicineForm? form;
+
   // ---- احجز ميعاد / تحليل
   final String? doctorName;
 
@@ -90,7 +100,7 @@ class NluResult {
 
   @override
   String toString() =>
-      'NluResult($intent${alternatives.isEmpty ? '' : ' alt=$alternatives'}, place=$place, name=$name, dose=$doseText, every=$everyHours, perDay=$perDay, times=$times, h?=$hourNeedsPeriod, food=$food, days=$durationDays, dr=$doctorName, spec=$specialty, test=$testName, lab=$labName, date=$date, time=$time)';
+      'NluResult($intent${alternatives.isEmpty ? '' : ' alt=$alternatives'}, place=$place, name=$name, dose=$doseText, every=$everyHours, perDay=$perDay, times=$times, h?=$hourNeedsPeriod, food=$food, days=$durationDays, purpose=$purpose, form=$form, dr=$doctorName, spec=$specialty, test=$testName, lab=$labName, date=$date, time=$time)';
 }
 
 // ---------------------------------------------------------------- الكلمات
@@ -208,6 +218,12 @@ bool _hasTwoWordAdd(List<String> tokens) => tokens.any((t) => t.startsWith('تض
 
 // ---------------------------------------------------------------- ضيف دوا
 
+/// كلمات الدوا القوية — «دوا» وأخواتها بس: الاسم بييجي **بعدها**. كلمات
+/// النوع («حباية»، «شراب»…) بتدّي نقط للنية برضه، بس **مش** مرساة اسم:
+/// «زيرتك حباية» الاسم فيها قبل الكلمة، ومرساة عليها كانت بتاكل الاسم
+/// (اتقاس على الجهاز، ٥ أكتوبر ٢٠٢٦).
+const _strongMedNouns = {'دوا', 'دواء', 'الدوا', 'الدواء', 'دوايه', 'علاج', 'العلاج'};
+
 NluResult _addMedication(List<String> tokens, String normalized, DateTime now) {
   // الاسم: بعد كلمة الدوا (و«اسمه») — أو بعد الفعل لو مفيش كلمة دوا
   var start = tokens.indexWhere(_medNouns.contains);
@@ -222,6 +238,29 @@ NluResult _addMedication(List<String> tokens, String normalized, DateTime now) {
     final t = tokens[i];
     if (_isNameStop(t, tokens, i)) break;
     nameWords.add(t);
+  }
+  // المرساة كانت كلمة نوع («حباية») جت **بعد** الاسم فاكلته — جرّب من أول
+  // الجملة، وكلمات النوع والغرض وقفات هناك برضه. (مش لما المرساة فعل
+  // «ضيف»: ساعتها أول الجملة هو الفعل نفسه.)
+  if (nameWords.isEmpty && start >= 0 && _medNouns.contains(tokens[start]) && !_strongMedNouns.contains(tokens[start])) {
+    for (i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (_isNameStop(t, tokens, i)) break;
+      nameWords.add(t);
+    }
+  }
+  // «نقط للعين اسمها توبركس» — الاسم بعد «اسمها» في نص الجملة: لو لسه
+  // فاضي، «اسمه/اسمها» هي المرساة الأوضح.
+  if (nameWords.isEmpty) {
+    final marker = tokens.indexWhere(_nameMarkers.contains);
+    if (marker >= 0) {
+      for (i = marker + 1; i < tokens.length; i++) {
+        final t = tokens[i];
+        if (_filler.contains(t)) continue;
+        if (_isNameStop(t, tokens, i)) break;
+        nameWords.add(t);
+      }
+    }
   }
   // الجرعة لازقة في الاسم: «جلوكوفاج ٥٠٠» / «كونكور ٥ مجم» / «قرص واحد»
   if (i < tokens.length && _isDigits(tokens[i])) {
@@ -256,7 +295,35 @@ NluResult _addMedication(List<String> tokens, String normalized, DateTime now) {
     hourNeedsPeriod: clock.needsPeriod,
     food: _food(tokens),
     durationDays: _duration(tokens),
+    purpose: _spokenPurpose(tokens),
+    form: _spokenForm(tokens),
   );
+}
+
+/// «للضغط» وأخواتها — **بالبادئة بس** في جملة كاملة: «ضغط» من غير «لل»
+/// ممكن تبقى جزء اسم («حبوب الضغط» بتتفهم من سكّة «دوا الضغط» زي ما هي).
+/// و«مضاد حيوي» كلمتين، فالزوج بيتمسك هنا.
+MedicationPurpose? _spokenPurpose(List<String> tokens) {
+  for (var i = 0; i < tokens.length; i++) {
+    final t = tokens[i];
+    if (t.startsWith('لل')) {
+      final p = MedicationPurpose.fromSpokenWord(t);
+      if (p != null) return p;
+    }
+    if (t == 'مضاد' && i + 1 < tokens.length && tokens[i + 1].startsWith('حيوي')) {
+      return MedicationPurpose.antibiotic;
+    }
+  }
+  return null;
+}
+
+/// «قرص» / «شراب» / «حباية»… في أي حتة في الجملة — النوع، مش جزء الاسم.
+MedicineForm? _spokenForm(List<String> tokens) {
+  for (final t in tokens) {
+    final f = MedicineForm.fromSpoken(t);
+    if (f != null) return f;
+  }
+  return null;
 }
 
 bool _isNameStop(String t, List<String> tokens, int i) {
@@ -265,8 +332,12 @@ bool _isNameStop(String t, List<String> tokens, int i) {
   if (t == 'كل' || t == 'الساعه' || t == 'ساعه' || t == 'قبل' || t == 'بعد' || t == 'مع' || t == 'علي' || t == 'على') return true;
   if (t == 'مره' || t == 'مرتين' || t == 'مرات' || t == 'يوميا' || t == 'لمده' || t == 'في' || t == 'يوم') return true;
   if (_doseUnits.contains(t) || _formUnits.contains(t) || _periodWords.contains(t)) return true;
-  if (_isDigits(t) || isNumberWord(t)) return true;
+  if (_isDigits(t) || isNumberWord(t) || parseNumber(t) != null) return true;
   if (_weekdayWords.contains(t) || t == 'بكره' || t == 'النهارده' || t == 'من') return true;
+  // «للضغط» والنوع («شراب») خانات لوحدهم — عمرهم ما يدخلوا الاسم
+  if (t.startsWith('لل') && MedicationPurpose.fromSpokenWord(t) != null) return true;
+  if (MedicineForm.fromSpoken(t) != null) return true;
+  if (t == 'مضاد' && i + 1 < tokens.length && tokens[i + 1].startsWith('حيوي')) return true;
   return false;
 }
 

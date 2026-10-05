@@ -838,7 +838,8 @@ void main() {
       await pumpAdd(tester);
       await tester.enterText(find.byType(TextField).first, 'Concor 5mg');
       await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('purpose-pressure')));
+      // «للضغط» تاني صف في بكرة «لإيه؟» (أول صف «من غير تحديد»)
+      await tester.drag(find.byKey(const ValueKey('purpose-wheel')), const Offset(0, -44));
       await settle(tester);
       await tester.tap(find.widgetWithText(AnchorChip, 'الصبح ٩'));
       await settle(tester);

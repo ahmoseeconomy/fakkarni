@@ -51,4 +51,22 @@ enum MedicineForm {
     if (has(['syrup', 'suspension', 'solution', 'شراب', 'معلق'])) return syrup;
     return null;
   }
+
+  /// من كلمة **متقالة** (مطبّعة: ة→ه، من غير «ال») — «حباية»، «برشام»،
+  /// «قطرة»… مش واضحة = null، **مفيش تخمين**. «معلقة» مش هنا عن قصد:
+  /// دي وحدة جرعة («معلقة واحدة»)، مش نوع.
+  static MedicineForm? fromSpoken(String token) {
+    final t = token.startsWith('ال') ? token.substring(2) : token;
+    return switch (t) {
+      'قرص' || 'اقراص' || 'قرصين' || 'حبايه' || 'حبايات' || 'حبوب' || 'برشام' || 'برشامه' => tablet,
+      'كبسوله' || 'كبسولات' || 'كبسول' => capsule,
+      'حقنه' || 'حقن' => injection,
+      'مرهم' || 'كريم' || 'جل' => ointment,
+      'بخاخ' || 'بخاخه' => inhaler,
+      'لبوس' => suppository,
+      'نقط' || 'نقطه' || 'قطره' || 'قطاره' => drops,
+      'شراب' => syrup,
+      _ => null,
+    };
+  }
 }

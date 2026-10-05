@@ -57,4 +57,25 @@ enum MedicationPurpose {
     }
     return null;
   }
+
+  /// من كلمة **متقالة** (مطبّعة: ة→ه، أ→ا) — «للضغط» / «الضغط» / «ضغط».
+  /// «لل» و«ال» بيتشالوا الأول؛ مش واضحة = null. «مضاد حيوي» كلمتين،
+  /// فالقارئ بيبعتهم متوصّلين («مضادحيوي») أو بيمسك الزوج بنفسه.
+  static MedicationPurpose? fromSpokenWord(String token) {
+    var t = token;
+    if (t.startsWith('لل')) t = 'ال${t.substring(2)}';
+    if (t.startsWith('ال')) t = t.substring(2);
+    return switch (t) {
+      'ضغط' => pressure,
+      'سكر' || 'سكري' => sugar,
+      'قلب' => heart,
+      'معده' || 'قولون' => stomach,
+      'كوليسترول' || 'كولسترول' || 'دهون' => cholesterol,
+      'فيتامين' || 'فيتامينات' => vitamins,
+      'مضادحيوي' => antibiotic,
+      'عين' || 'عيون' || 'عينيه' => eye,
+      'جلد' || 'بشره' => skin,
+      _ => null,
+    };
+  }
 }

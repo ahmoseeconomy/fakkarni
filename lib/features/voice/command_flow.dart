@@ -21,6 +21,7 @@ import '../../data/voice/voice_service.dart';
 import '../../domain/health/follow_up.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/medication/stock.dart';
 import '../../domain/medication/meal_relation.dart';
 import '../../domain/scheduling/minute_of_day.dart';
@@ -103,6 +104,7 @@ class AddMedPrefill {
     this.amount,
     this.everyHours,
     this.emptyDoses,
+    this.form,
   });
   final String? name;
 
@@ -115,6 +117,9 @@ class AddMedPrefill {
   /// «مرتين» من غير ساعات — صفوف فاضية بالعدد، **مش ساعات مننا**.
   final int? emptyDoses;
   final MedicationPurpose? purpose;
+
+  /// «قرص» / «شراب» — نوع الدوا لو اتقال (مراجعة ٥ أكتوبر ٢٠٢٦).
+  final MedicineForm? form;
   final List<FixedTiming> timings;
 
   /// «بعد الفطار» → «بعد الأكل» — كلمة تعليمات على الفورم، مش ساعة.
@@ -372,6 +377,7 @@ class CommandFlow extends ChangeNotifier {
     _bookDialog = null;
     _editInForm = null;
     _purpose = null;
+    _form = null;
     understood = null;
     clarifyOptions = const [];
     doctorOptions = const [];
@@ -1198,9 +1204,12 @@ class CommandFlow extends ChangeNotifier {
       case NluIntent.addMedication:
         // E2: الناقص بيتسأل واحد واحد، والحفظ بعد «أيوه» — الفورم بس لو
         // الإجابة ما اتفهمتش مرتين، أو لو داس «عدّل بإيدك»
-        final purpose = _purposeFromWords(nlu.name);
-        _purpose = purpose;
-        _medDialog = MedDialog.fromNlu(purpose == null ? nlu : _withoutName(nlu));
+        // «للضغط» بقت خانة من الفهم نفسه؛ «دوا الضغط» (الغرض مكان الاسم)
+        // لسه من مطابقة الاسم زي ما هي.
+        final fromName = nlu.purpose == null ? _purposeFromWords(nlu.name) : null;
+        _purpose = nlu.purpose ?? fromName;
+        _form = nlu.form;
+        _medDialog = MedDialog.fromNlu(fromName == null ? nlu : _withoutName(nlu));
         return _continueMed();
       case NluIntent.bookAppointment when nlu.doctorName != null:
         return _resolveDoctor(nlu);
@@ -1224,6 +1233,7 @@ class CommandFlow extends ChangeNotifier {
   MedDialog? _medDialog;
   BookingDialog? _bookDialog;
   MedicationPurpose? _purpose;
+  MedicineForm? _form;
 
   /// «عدّل بإيدك» على «صح كده؟» — الفورم متعبّي باللي اتقال.
   Future<void> Function()? _editInForm;
@@ -1354,6 +1364,7 @@ class CommandFlow extends ChangeNotifier {
       emptyDoses: known.isEmpty && d.everyHours == null ? (d.count ?? 1) : null,
       durationDays: d.durationDays,
       mealRelation: d.meal,
+      form: _form,
     );
     _set(CommandPhase.done, '');
     unawaited(voice.stop());

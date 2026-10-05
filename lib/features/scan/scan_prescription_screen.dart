@@ -85,6 +85,7 @@ class ScanPrescriptionScreen extends StatefulWidget {
     this.today,
     this.onSaved,
     this.onDrafts,
+    this.voiceInput = true,
     super.key,
   });
 
@@ -97,6 +98,9 @@ class ScanPrescriptionScreen extends StatefulWidget {
 
   /// وضع المسوّدة (الممرض، 0035) — المراجعة بتسلّم السطور بدل ما تكتب.
   final Future<void> Function(List<MedicationDraft> drafts)? onDrafts;
+
+  /// بيتمرّر للمراجعة وللفورم — false من شاشات الممرض.
+  final bool voiceInput;
 
   /// null = المفتاح مش متظبط. الشاشة بتقولها بوضوح ومش بتفتح الكاميرا.
   final PrescriptionReader? reader;
@@ -206,6 +210,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
       final result = await Navigator.of(context).push<ReviewResult>(
         MaterialPageRoute(
           builder: (_) => ReviewPrescriptionScreen(
+            voiceInput: widget.voiceInput,
             reading: reading,
             // اللي الكاميرا دته (٢٥٦٠ من المنتقي) — مش المصغّرة بتاعة الموديل
             image: image,
@@ -259,7 +264,7 @@ class _ScanPrescriptionScreenState extends State<ScanPrescriptionScreen> {
     // بترجّع جرعات اللي اتحفظ — null يعني رجع من غير حفظ.
     final saved = await navigator.push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(today: widget.today),
+        builder: (_) => AddMedicationScreen(today: widget.today, voiceInput: widget.voiceInput),
       ),
     );
     if (saved != null && mounted) navigator.pop();

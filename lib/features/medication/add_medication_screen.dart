@@ -34,6 +34,9 @@ import 'day_pattern_picker.dart';
 import 'every_hours_picker.dart';
 import '../../domain/scheduling/day_pattern.dart';
 import 'medication_draft.dart';
+import 'med_voice_input.dart';
+import '../../domain/voice/nlu/nlu.dart' show NluIntent, understandUtteranceAs;
+import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, utteranceTokens;
 import '../../core/diagnostics.dart';
 
 /// «ضيف دوا» — **فورم واحد بيتلف من فوق لتحت، وكل حاجة ظاهرة.**
@@ -76,6 +79,7 @@ class AddMedicationScreen extends StatefulWidget {
     this.packageReading,
     this.packageImage,
     this.draft = false,
+    this.voiceInput = true,
     super.key,
   });
 
@@ -128,6 +132,10 @@ class AddMedicationScreen extends StatefulWidget {
   /// صورة العلبة اللي اتقرت — بتتعرض «استخدم صورة العلبة» في خانة الصورة.
   final Uint8List? packageImage;
 
+  /// الصوت على الفورم — «قولها بصوتك» ومايكات الحقول. **false على موبايل
+  /// الممرض** (قرار المالك، ٥ أكتوبر ٢٠٢٦): الصوت للمريض وبس.
+  final bool voiceInput;
+
   @override
   State<AddMedicationScreen> createState() => _AddMedicationScreenState();
 }
@@ -137,6 +145,10 @@ class AddMedicationScreen extends StatefulWidget {
 enum DosePattern { daily, everyHours, weekdays, everyNDays, cycle, once }
 
 class _AddMedicationScreenState extends State<AddMedicationScreen> {
+  /// صوت الفورم — null = مفيش صوت على الشاشة دي (ممرض، أو مفيش متعرّف).
+  MedVoiceSession? _voice;
+  bool _voiceWired = false;
+
   // «لا» اللي اتسمعت مع «ضيف دوا» مش اسم — الحقل يبدأ فاضي
   late final _name = TextEditingController(text: medicineNameOrNull(widget.initialName) ?? '');
   late final _amount = TextEditingController(text: widget.initialAmount ?? '');
@@ -295,6 +307,99 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
       _duplicate = match;
       _duplicateChecked = true;
     });
+  }
+
+  // ------------------------------------------------- الصوت (٥ أكتوبر ٢٠٢٦)
+
+  /// (ب) الاسم باللي اتسمع — زي حقل الاسم في البداية: بيتكتب قدّامه،
+  /// والفورم بيقول «ده مش اسم دوا» لو الكلام مش اسم.
+  void _hearName(String text) {
+    final heard = medicineNameOrNull(text) ?? text.trim();
+    setState(() => _name.text = heard);
+    if (_duplicateChecked) _checkDuplicate();
+  }
+
+  /// (ب) «للضغط» / «الضغط» / «مضاد حيوي» — بيملا بكرة «لإيه؟» وبس.
+  void _hearPurpose(String text) {
+    final tokens = utteranceTokens(normalizeUtterance(text));
+    MedicationPurpose? found;
+    for (var i = 0; i < tokens.length && found == null; i++) {
+      if (tokens[i] == 'مضاد' && i + 1 < tokens.length && tokens[i + 1].startsWith('حيوي')) {
+        found = MedicationPurpose.antibiotic;
+        break;
+      }
+      found = MedicationPurpose.fromSpokenWord(tokens[i]);
+    }
+    if (found == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «للضغط» أو «للسكر»، أو حرّك البكرة بإيدك.');
+      return;
+    }
+    setState(() => _purpose = found);
+  }
+
+  /// (ب) «قرص» / «شراب» / «حباية» — بيملا بكرة «نوعه؟» وبس.
+  void _hearForm(String text) {
+    final tokens = utteranceTokens(normalizeUtterance(text));
+    MedicineForm? found;
+    for (final t in tokens) {
+      found = MedicineForm.fromSpoken(t);
+      if (found != null) break;
+    }
+    if (found == null) {
+      setState(() => _voice?.note = 'مافهمتش — قول زي «قرص» أو «شراب»، أو حرّك البكرة بإيدك.');
+      return;
+    }
+    setState(() => _form = found);
+  }
+
+  /// (أ) الدوا كله بجملة واحدة — نفس فهم «كلّمني» والزرار نفسه هو النية.
+  /// **الناقص بيفضل فاضي** (قرار المالك: مفيش أسئلة واحد واحد)، ومفيش
+  /// حاجة بتتحفظ غير بـ«احفظ».
+  void _applySpoken(String text) {
+    final r = understandUtteranceAs(NluIntent.addMedication, text, now: DateTime.now());
+    if (r.name == null && r.purpose == null && r.form == null && r.times.isEmpty && r.everyHours == null && r.perDay == null && r.food == null) {
+      setState(() => _voice?.note = 'مش متأكد — قولها تاني زي «كونكور ٥ للضغط، قرص بعد الأكل»، أو كمّل بإيدك.');
+      return;
+    }
+    setState(() {
+      if (r.name case final n?) _name.text = n;
+      if (r.purpose case final p?) _purpose = p;
+      if (r.form case final f?) _form = f;
+      if (r.doseText case final d?) _amount.text = d;
+      if (r.food case final m?) _meal = m;
+      if (r.durationDays case final days? when days > 1) {
+        _openEnded = false;
+        _days = days.clamp(1, 90);
+      }
+      if (r.durationDays == 1) _pattern = DosePattern.once;
+      if (r.everyHours case final h? when everyHoursChoices.contains(h)) {
+        // «كل ١٢ ساعة» — زي ما الفورم بيتفتح من «كلّمني» بالظبط
+        _pattern = DosePattern.everyHours;
+        _everyHours = h;
+      } else if (r.times.isNotEmpty) {
+        // الساعات اللي اتقالت بالحرف — والباقي مفيش: ولا ساعة مننا
+        _timesPerDay = r.times.length;
+        _doses = [for (final t in r.times) FixedTiming(MinuteOfDay(t.minutes))];
+        _spreadLive = false; // الساعة دي اتقالت — العجلة ما تلمسهاش
+      } else if (r.perDay case final n? when n >= 1 && n <= 12) {
+        // «مرتين» من غير ساعات = صفوف **فاضية** بالعدد («اختار الساعة»)
+        _timesPerDay = n;
+        _doses = List<FixedTiming?>.filled(n, null);
+      }
+    });
+    if (_duplicateChecked) _checkDuplicate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_voiceWired) return;
+    _voiceWired = true;
+    // الصوت للمريض وبس (قرار المالك): شاشات الممرض بتبعت voiceInput: false
+    final voice = AppScope.maybeOf(context)?.voice;
+    if (widget.voiceInput && voice != null && voice.listener != null) {
+      _voice = MedVoiceSession(voice);
+    }
   }
 
   @override
@@ -572,6 +677,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     _FromPhoto(reading: read),
                     const SizedBox(height: F.s12),
                   ],
+                  // ---------------------------- «قولها بصوتك» (المالك، ٥ أكتوبر)
+                  if (_voice case final v?) ...[
+                    SayItAllButton(session: v, onHeard: _applySpoken),
+                    const SizedBox(height: F.s12),
+                  ],
                   if (_duplicate case final dup?) ...[
                     GoldNote(
                       key: const ValueKey('duplicate-warning'),
@@ -585,7 +695,17 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _FieldLabel('اسم الدوا والتركيز'),
+                        Row(
+                          children: [
+                            const Expanded(child: _FieldLabel('اسم الدوا والتركيز')),
+                            if (_voice case final v?)
+                              FieldMicButton(
+                                session: v,
+                                forWhat: 'اسم الدوا',
+                                onHeard: _hearName,
+                              ),
+                          ],
+                        ),
                         _Field(
                           controller: _name,
                           hint: 'زي Concor 5mg',
@@ -607,37 +727,48 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                         ],
                         const SizedBox(height: F.gap),
                         // --------------------------------------- لإيه؟
-                        const _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: 'help_purpose'),
-                        Wrap(
-                          spacing: F.s8,
-                          runSpacing: F.s8,
+                        // بكرة مش ١٠ شرايح (طلب المدير، ٥ أكتوبر ٢٠٢٦) —
+                        // أول صف «من غير تحديد» وبيكتب null
+                        Row(
                           children: [
-                            for (final p in MedicationPurpose.values)
-                              AnchorChip(
-                                key: ValueKey('purpose-${p.name}'),
-                                label: p.label,
-                                selected: _purpose == p,
-                                // دوسة تانية بتشيله — اختياري فعلاً
-                                onTap: () => setState(() => _purpose = _purpose == p ? null : p),
+                            const Expanded(child: _FieldLabel('الدوا ده لإيه؟ (لو حابب)', help: 'help_purpose')),
+                            if (_voice case final v?)
+                              FieldMicButton(
+                                session: v,
+                                forWhat: 'الدوا ده لإيه',
+                                onHeard: _hearPurpose,
                               ),
                           ],
+                        ),
+                        FChoiceWheel<MedicationPurpose>(
+                          wheelKey: const ValueKey('purpose-wheel'),
+                          choices: MedicationPurpose.values,
+                          labelOf: (p) => p.label,
+                          value: _purpose,
+                          semanticsLabel: 'الدوا ده لإيه',
+                          onChanged: (p) => setState(() => _purpose = p),
                         ),
                         const SizedBox(height: F.gap),
                         // --------------------------------------- نوعه
                         // (طلب المدير، ٤ أكتوبر ٢٠٢٦) — هو اللي بيحدد وحدة المخزون
-                        const _FieldLabel('نوعه؟ (لو حابب)'),
-                        Wrap(
-                          spacing: F.s8,
-                          runSpacing: F.s8,
+                        Row(
                           children: [
-                            for (final f in MedicineForm.values)
-                              AnchorChip(
-                                key: ValueKey('form-${f.name}'),
-                                label: f.label,
-                                selected: _form == f,
-                                onTap: () => setState(() => _form = _form == f ? null : f),
+                            const Expanded(child: _FieldLabel('نوعه؟ (لو حابب)')),
+                            if (_voice case final v?)
+                              FieldMicButton(
+                                session: v,
+                                forWhat: 'نوعه',
+                                onHeard: _hearForm,
                               ),
                           ],
+                        ),
+                        FChoiceWheel<MedicineForm>(
+                          wheelKey: const ValueKey('form-wheel'),
+                          choices: MedicineForm.values,
+                          labelOf: (f) => f.label,
+                          value: _form,
+                          semanticsLabel: 'نوع الدوا',
+                          onChanged: (f) => setState(() => _form = f),
                         ),
                       ],
                     ),

@@ -28,12 +28,16 @@ class ScanPackageScreen extends StatefulWidget {
     this.pickImage = pickWithSystemCamera,
     this.today,
     this.draft = false,
+    this.voiceInput = true,
     super.key,
   });
 
   /// وضع المسوّدة (الممرض، 0035): الفورم بيرجّع `MedicationDraft` بدل ما
   /// يكتب — والشاشة دي بتطلّعه لمن ندهها.
   final bool draft;
+
+  /// بيتمرّر للفورم زي ما هو — false من شاشات الممرض.
+  final bool voiceInput;
 
   final MedicinePackageReader? reader;
   final PickImage pickImage;
@@ -89,6 +93,7 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
             initialName: reading.nameField,
             packageReading: reading,
             draft: widget.draft,
+            voiceInput: widget.voiceInput,
             // «استخدم صورة العلبة» — نفس الصورة اللي اتقرت، بتتصغّر وقت الحفظ
             packageImage: widget.draft ? null : _image,
           ),
@@ -115,7 +120,7 @@ class _ScanPackageScreenState extends State<ScanPackageScreen> {
 
   void _byHand() => Navigator.of(context).pushReplacement(
         MaterialPageRoute<Object?>(
-          builder: (_) => AddMedicationScreen(today: widget.today, draft: widget.draft),
+          builder: (_) => AddMedicationScreen(today: widget.today, draft: widget.draft, voiceInput: widget.voiceInput),
         ),
       );
 

@@ -141,6 +141,9 @@ class MedicationSaveService {
   Future<void> setForm(int medicationId, MedicineForm? form) =>
       _thenSchedule(() => medications.setForm(medicationId, form));
 
+  Future<void> setPurpose(int medicationId, MedicationPurpose? purpose) =>
+      _thenSchedule(() => medications.setPurpose(medicationId, purpose));
+
   Future<void> setAlertMode(int medicationId, AlertMode? mode) =>
       _thenSchedule(() => medications.setAlertMode(medicationId, mode));
 

@@ -8,7 +8,6 @@ import 'package:fakkarni/ai/package_reading.dart';
 import 'package:fakkarni/ai/prescription_reading.dart' show ReadField;
 import 'package:fakkarni/data/repositories/stock_repository.dart';
 import 'package:fakkarni/features/medication/add_medication_screen.dart';
-import 'package:fakkarni/core/widgets/primitives.dart' show AnchorChip;
 import 'package:fakkarni/domain/medication/medicine_form.dart';
 import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
@@ -46,7 +45,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await h.pump(tester, EditMedicationScreen(medicationId: id));
 
-    await tester.tap(find.byKey(const ValueKey('edit-form-capsule')));
+    // «كبسولة» تالت صف في البكرة (أول صف «من غير تحديد»)
+    await tester.drag(find.byKey(const ValueKey('edit-form-wheel')), const Offset(0, -2 * 44.0));
     await settle(tester);
     expect(await formOf(id), 'capsule');
     expect(find.text('باقي كام كبسولة؟'), findsOneWidget);
@@ -55,8 +55,8 @@ void main() {
         {for (final e in before.entries) e.key: e.value.body}, reason: 'ولا متن إشعار اتغيّر');
     expect(h.sink.cancelled.length, cancelledBefore);
 
-    // دوسة تانية بتشيله — اختياري فعلاً
-    await tester.tap(find.byKey(const ValueKey('edit-form-capsule')));
+    // الرجوع لـ«من غير تحديد» بيمسح — اختياري فعلاً
+    await tester.drag(find.byKey(const ValueKey('edit-form-wheel')), const Offset(0, 2 * 44.0));
     await settle(tester);
     expect(await formOf(id), isNull);
     expectNoRedAndMinSize(tester);
@@ -102,7 +102,9 @@ void main() {
     );
     await settle(tester);
     expect(find.text('نوعه؟ (لو حابب)'), findsOneWidget);
-    expect(tester.widget<AnchorChip>(find.byKey(const ValueKey('form-capsule'))).selected, isTrue);
+    // النوع من العلبة واقف على البكرة (البكرة بدل الشرايح — ٥ أكتوبر)
+    expect(find.byKey(const ValueKey('form-wheel')), findsOneWidget);
+    expect(find.text('كبسولة'), findsWidgets);
     await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);
     await tester.tap(find.byKey(ValueKey('quick-time-${9 * 60}')));
@@ -122,9 +124,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await h.pump(tester, AddMedicationScreen(today: aug31, initialName: 'Concor', initialAmount: 'قرص'));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('form-syrup')));
+    // لفّة للشراب ولفّة راجعة لـ«من غير تحديد» — null برضه (البكرة بدل
+    // دوستين على الشريحة)
+    await tester.drag(find.byKey(const ValueKey('form-wheel')), const Offset(0, -5 * 44.0));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('form-syrup')));
+    await tester.drag(find.byKey(const ValueKey('form-wheel')), const Offset(0, 5 * 44.0));
     await settle(tester);
     await tester.tap(find.byKey(const ValueKey('dose-row-0')));
     await settle(tester);

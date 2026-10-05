@@ -106,6 +106,7 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
           today: widget.routineDay,
           initialName: p.name,
           initialPurpose: p.purpose,
+          initialForm: p.form,
           initialTimings: p.timings,
           initialOnce: p.once,
           initialMealRelation: p.mealRelation,

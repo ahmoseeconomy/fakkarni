@@ -152,7 +152,13 @@ These are product decisions, already settled. Do not "improve" them without aski
   through the engine, the id bands, the ladder, the repeats and the horizon.
   `FNumberWheel` steps are unchanged (offset 0–180 by 5, days by 1).
 - **Every number and every clock time is set on a wheel — one family,
-  `lib/core/widgets/f_wheels.dart`** (product decision, 24 Sep 2026). No
+  `lib/core/widgets/f_wheels.dart`** (product decision, 24 Sep 2026) —
+  **and since 5 Oct 2026 the family has a third member, `FChoiceWheel`**:
+  a categorical wheel whose first row is «من غير تحديد» writing null and
+  the rest position (the `FNumberWheel.value == null` contract). It
+  replaced the 10 purpose chips and 9 form chips on «ضيف دوا» and the
+  edit screen (which also **gained** a purpose wheel — purpose became
+  editable there, through `MedicationSaveService.setPurpose`). No
   `+/−` stepper, no slider, no typed number for a value the app owns.
   `FNumberWheel` (min / max / step / unit, Arabic numerals) and
   `FTimeWheel` (hour + **one-minute** wheels with ص/م, the same `MinuteOfDay` in
@@ -3087,7 +3093,9 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
   بقى بيقرا `widget` وقت النداء.
 - **الاسم حقل حر**: مفيش قارئ — اللي اتسمع بيتكتب في الحقل (`previewName`)
   و«اسمك …، صح كده؟» بصوت الموبايل جملة واحدة؛ «لأ» أو قفل الورقة بيرجّع اللي
-  كان مكتوب. مفيش حقل حر تاني عليه مايك.
+  كان مكتوب. (كان مكتوب هنا «مفيش حقل حر تاني عليه مايك» — حقل اسم الدوا
+  على «ضيف دوا» خد واحد في ٥ أكتوبر ٢٠٢٦ بقرار المالك، بنفس الشكل:
+  بيتكتب قدّامه وبس.)
 - **الجملة بتتكتب مرة**: ورقة «اتكلم» و«كلّمني» بتكتب اللي بيتقال، فـ
   `VoiceService.captionHolds` بيسكّت الترجمة اللي تحت طول ما الورقة مفتوحة
   (بتتاخد وتتساب في microtask — وسط البناء التنبيه ممنوع وكانت بتفضل ظاهرة).
@@ -3105,8 +3113,23 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 ## المايك — ماكينة `MicOrb` (بورت من jarvis-ai-finance، ٢٦ سبتمبر ٢٠٢٦)
 
 **بيلغي أي حاجة فوق أو تحت بتقول غير كده عن المايك.** المايك على **شاشة
-التذكير و«كلّمني» بس** — اتشال من البداية والمقدمة و«اشتريته؟»
-(`voice_placement_test` بيقفل الملفين).
+التذكير و«كلّمني» — وفورم «ضيف دوا»** (التالتة من مراجعة المالك، ٥ أكتوبر
+٢٠٢٦) — اتشال من البداية والمقدمة و«اشتريته؟» (`voice_placement_test`
+بيقفل الملفين، **واتوسّع عمداً** للفورم زي ما حارس الأحمر اتوسّع
+لـ`careAlertInk`: `SayItAllButton`/`FieldMicButton` مسموحين في
+`add_medication_screen.dart` وبس، وأي مكان تالت بيوقّع).
+**صوت الفورم** (`features/medication/med_voice_input.dart`): «قولها
+بصوتك» كبير محدّد أخضر فوق الفورم — الجملة كلها بنفس فهم «كلّمني»
+(`understandUtteranceAs` — الزرار نفسه هو النية، فمفيش نقط نية محتاجة)،
+والناقص بيفضل فاضي قدّامه (قرار المالك: مفيش أسئلة واحد واحد هنا)؛
+و«قولها» صغير جنب الاسم وبكرتَي «لإيه؟»/«نوعه؟» بيملا حقله هو بس
+(`MedicationPurpose.fromSpokenWord` / `MedicineForm.fromSpoken` — نقيين).
+الحالات كلها **مكتوبة** (مفيش TTS)، دوسة = سماع واحد، ولا حاجة بتتحفظ
+غير بـ«احفظ». **وعلى موبايل الممرض مفيش صوت**: كل باب ممرض للفورم بيبعت
+`voiceInput: false` بالحرف، والحارس بيعدّهم. «للضغط» و«قرص/شراب/حباية»
+بقوا **خانات في الفهم نفسه** (`NluResult.purpose/form`) وعمرهم ما يدخلوا
+الاسم؛ و«حباية» بعد الاسم ما بتاكلوش (المراسي القوية «دوا/علاج» بس —
+اتقاس الأول، واتصلّح).
 - **الدايرة** (`features/voice/mic_orb.dart`): دوسة واحدة لكل حالة،
   و**الحالة كلمة مكتوبة تحتها** (`micStateLabel` في
   `domain/voice/mic_state.dart`): «دوس واتكلم» / «سامعك…» / «بفكّر…» /

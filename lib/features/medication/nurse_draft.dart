@@ -19,7 +19,7 @@ import 'medication_draft.dart';
 Future<MedicationDraft?> draftMedicationAsNurse(BuildContext context, {DateTime? today}) =>
     Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(today: today, draft: true),
+        builder: (_) => AddMedicationScreen(today: today, draft: true, voiceInput: false),
       ),
     );
 

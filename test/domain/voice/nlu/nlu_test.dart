@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/domain/medication/meal_relation.dart';
 import 'package:fakkarni/domain/voice/answer_parser.dart' show SpokenTime;
+import 'package:fakkarni/domain/medication/medication_purpose.dart';
+import 'package:fakkarni/domain/medication/medicine_form.dart';
 import 'package:fakkarni/domain/voice/nlu/nlu.dart';
 import 'package:fakkarni/domain/voice/nlu/normalize.dart';
 
@@ -143,5 +145,59 @@ void main() {
     for (final s in ['', 'لا', 'أيوه', 'الجو حلو النهارده']) {
       test('«$s»', () => expect(u(s).intent, NluIntent.none));
     }
+  });
+
+  group('الغرض والنوع خانات لوحدهم — مش جزء الاسم (مراجعة ٥ أكتوبر ٢٠٢٦)', () {
+    NluResult add(String t) => understandUtteranceAs(NluIntent.addMedication, t, now: DateTime(2026, 10, 1, 10));
+
+    test('جملة المالك كاملة — كل خانة في مكانها', () {
+      final r = add('كونكور ٥ مجم للضغط، قرص الصبح بعد الفطار');
+      expect(r.name, 'كونكور');
+      expect(r.purpose, MedicationPurpose.pressure);
+      expect(r.form, MedicineForm.tablet);
+      expect(r.doseText, '5 مجم');
+      expect(r.food, MealRelation.after);
+      expect(r.times, isEmpty, reason: '«الصبح» من غير رقم مش ساعة — مفيش تخمين');
+    });
+
+    test('«للضغط» عمرها ما تدخل الاسم (كانت بتدخل — اتقاس)', () {
+      final r = add('ضيف دوا كونكور للضغط الساعة ٩ الصبح');
+      expect(r.name, 'كونكور');
+      expect(r.purpose, MedicationPurpose.pressure);
+    });
+
+    test('«شراب» بقت نوع مش ذيل اسم (كانت «كونكور شراب» — اتقاس)', () {
+      final r = add('ضيف دوا كونكور شراب مرتين في اليوم');
+      expect(r.name, 'كونكور');
+      expect(r.form, MedicineForm.syrup);
+      expect(r.perDay, 2);
+    });
+
+    test('«حباية» بعد الاسم ما بتاكلوش (كانت مرساة بتاكله — اتقاس)', () {
+      expect(add('زيرتك حبايه').name, 'زيرتك');
+      expect(add('زيرتك حبايه').form, MedicineForm.tablet);
+      expect(add('بانادول حبايه بالليل').name, 'بانادول');
+    });
+
+    test('الاسم بعد «اسمها» في نص الجملة', () {
+      final r = add('نقط للعين اسمها توبركس تلات مرات');
+      expect(r.name, 'توبركس');
+      expect(r.purpose, MedicationPurpose.eye);
+      expect(r.form, MedicineForm.drops);
+      expect(r.perDay, 3);
+    });
+
+    test('«مضاد حيوي» غرض، والاسم بعد «اسمه»', () {
+      final r = add('ضيف مضاد حيوي اسمه اوجمنتين كل ١٢ ساعه');
+      expect(r.name, 'اوجمنتين');
+      expect(r.purpose, MedicationPurpose.antibiotic);
+      expect(r.everyHours, 12);
+    });
+
+    test('«دوا الضغط» زي ما هي — الغرض مكان الاسم، من سكّة «كلّمني» القديمة', () {
+      final r = add('ضيف دوا الضغط الساعة ٩ بالليل');
+      expect(r.name, 'الضغط', reason: 'المطابقة دي شغل command_flow زي ما كانت');
+      expect(r.purpose, isNull);
+    });
   });
 }

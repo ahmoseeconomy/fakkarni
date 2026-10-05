@@ -22,6 +22,7 @@ import '../../core/widgets/f_wheels.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../domain/medication/meal_relation.dart';
+import '../../domain/medication/medication_purpose.dart';
 import '../../domain/scheduling/minute_of_day.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 import '../../domain/scheduling/schedule_engine.dart';
@@ -590,26 +591,36 @@ class _EditMedicationScreenState extends State<EditMedicationScreen> {
                         ),
                       ),
                       const SizedBox(height: F.gap),
-                      // نوعه (طلب المدير، ٤ أكتوبر ٢٠٢٦) — كتابة من غير جدولة
+                      // «لإيه؟» بقى بيتعدّل من هنا (قرار المالك، ٥ أكتوبر ٢٠٢٦)
+                      // — بكرة زي «ضيف دوا»، وأول صف «من غير تحديد» بيمسح
+                      Text(
+                        'الدوا ده لإيه؟ (لو حابب)',
+                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      ),
+                      const SizedBox(height: 8),
+                      FChoiceWheel<MedicationPurpose>(
+                        wheelKey: const ValueKey('edit-purpose-wheel'),
+                        choices: MedicationPurpose.values,
+                        labelOf: (p) => p.label,
+                        value: MedicationPurpose.fromStorage(med.purpose),
+                        semanticsLabel: 'الدوا ده لإيه',
+                        onChanged: (p) => AppScope.of(context).medicationSaves.setPurpose(med.id, p),
+                      ),
+                      const SizedBox(height: F.gap),
+                      // نوعه (طلب المدير، ٤ أكتوبر ٢٠٢٦) — كتابة من غير جدولة،
+                      // وبكرة بدل التسع شرايح (٥ أكتوبر)
                       Text(
                         'نوعه؟ (لو حابب)',
                         style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: F.s8,
-                        runSpacing: F.s8,
-                        children: [
-                          for (final f in MedicineForm.values)
-                            AnchorChip(
-                              key: ValueKey('edit-form-${f.name}'),
-                              label: f.label,
-                              selected: med.form == f.wire,
-                              onTap: () => AppScope.of(context)
-                                  .medicationSaves
-                                  .setForm(med.id, med.form == f.wire ? null : f),
-                            ),
-                        ],
+                      FChoiceWheel<MedicineForm>(
+                        wheelKey: const ValueKey('edit-form-wheel'),
+                        choices: MedicineForm.values,
+                        labelOf: (f) => f.label,
+                        value: MedicineForm.fromWire(med.form),
+                        semanticsLabel: 'نوع الدوا',
+                        onChanged: (f) => AppScope.of(context).medicationSaves.setForm(med.id, f),
                       ),
                       const SizedBox(height: F.gap),
                       // المرهم والبخاخة مالهمش مخزون (قرار المالك)

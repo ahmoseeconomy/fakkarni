@@ -48,12 +48,13 @@ Future<void> showNurseAddSheet(BuildContext context, NurseController c, {DateTim
       FPrimaryButton(
         key: const ValueKey('nurse-add-package'),
         label: addSheetLabels[0],
-        onPressed: () => openScan(ScanPackageScreen(reader: services.packageReader, today: today, draft: true)),
+        onPressed: () => openScan(ScanPackageScreen(reader: services.packageReader, today: today, draft: true, voiceInput: false)),
       ),
       FSecondaryButton(
         key: const ValueKey('nurse-add-prescription'),
         label: addSheetLabels[1],
         onPressed: () => openScan(ScanPrescriptionScreen(
+          voiceInput: false,
           reader: services.prescriptionReader,
           today: today,
           onDrafts: (drafts) async {
@@ -66,7 +67,7 @@ Future<void> showNurseAddSheet(BuildContext context, NurseController c, {DateTim
       FSecondaryButton(
         key: const ValueKey('nurse-add-manual'),
         label: addSheetLabels[2],
-        onPressed: () => open(AddMedicationScreen(today: today, draft: true)),
+        onPressed: () => open(AddMedicationScreen(today: today, draft: true, voiceInput: false)),
       ),
       FSecondaryButton(
         key: const ValueKey('nurse-add-vital'),

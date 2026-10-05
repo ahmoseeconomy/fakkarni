@@ -296,4 +296,24 @@ void main() {
       expect(src[f], isNot(contains('listen_button.dart')), reason: f);
     }
   });
+
+  test('صوت فورم «ضيف دوا» (٥ أكتوبر ٢٠٢٦): على الفورم وبس — ومقفول بالحرف على موبايل الممرض', () {
+    // التوسيع مقصود (قرار المالك) — زي ما حارس الأحمر اتوسّع لـcareAlertInk:
+    // الموقعين الجداد مسمّيين، وأي مكان تالت لسه بيوقّع.
+    final sayIt = {
+      for (final e in src.entries)
+        if (e.value.contains('SayItAllButton(') && e.key != 'features/medication/med_voice_input.dart') e.key,
+    };
+    expect(sayIt, {'features/medication/add_medication_screen.dart'});
+    final fieldMic = {
+      for (final e in src.entries)
+        if (e.value.contains('FieldMicButton(') && e.key != 'features/medication/med_voice_input.dart') e.key,
+    };
+    expect(fieldMic, {'features/medication/add_medication_screen.dart'});
+    // الصوت للمريض وبس: كل باب ممرض للفورم بيقفله بالحرف — بالعدّ، عشان
+    // شيل واحدة من التلاتة ما يعدّيش
+    expect('voiceInput: false'.allMatches(src['features/nurse/nurse_add_sheet.dart']!).length, 3,
+        reason: 'التلات مداخل (بالإيد، العلبة، الروشتة) لازم يقفلوا الصوت');
+    expect('voiceInput: false'.allMatches(src['features/medication/nurse_draft.dart']!).length, 1);
+  });
 }

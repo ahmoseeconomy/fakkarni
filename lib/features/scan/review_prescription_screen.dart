@@ -49,6 +49,7 @@ class ReviewPrescriptionScreen extends StatefulWidget {
     this.records,
     this.onSaved,
     this.onDrafts,
+    this.voiceInput = true,
     super.key,
   });
 
@@ -69,6 +70,9 @@ class ReviewPrescriptionScreen extends StatefulWidget {
   /// وضع المسوّدة (الممرض، 0035): «تمام» بيسلّم السطور دي بدل ما يكتبها —
   /// موبايل المريض هو اللي بيكتب. لما موجودة، الشاشة **ما بتلمسش** القاعدة.
   final Future<void> Function(List<MedicationDraft> drafts)? onDrafts;
+
+  /// بيتمرّر للفورم — false من شاشات الممرض (الصوت للمريض وبس).
+  final bool voiceInput;
 
   @override
   State<ReviewPrescriptionScreen> createState() => _ReviewPrescriptionScreenState();
@@ -173,6 +177,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
       MaterialPageRoute(
         builder: (_) => AddMedicationScreen(
           draft: true,
+          voiceInput: widget.voiceInput,
           today: widget.today,
           initialName: line.name,
           initialMealRelation: line.mealRelation,
@@ -199,7 +204,7 @@ class _ReviewPrescriptionScreenState extends State<ReviewPrescriptionScreen> {
   Future<void> _addUnread() async {
     final draft = await Navigator.of(context).push<MedicationDraft>(
       MaterialPageRoute(
-        builder: (_) => AddMedicationScreen(draft: true, today: widget.today),
+        builder: (_) => AddMedicationScreen(draft: true, today: widget.today, voiceInput: widget.voiceInput),
       ),
     );
     if (draft != null && mounted) setState(() => _lines.add(_DraftLine.fromDraft(draft)));

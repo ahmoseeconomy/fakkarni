@@ -182,6 +182,88 @@ class _FNumberWheelState extends State<FNumberWheel> {
       );
 }
 
+/// بكرة اختيار من قايمة مقفولة — العضو التالت في العيلة (طلب المدير،
+/// ٥ أكتوبر ٢٠٢٦: شرايح «الدوا ده لإيه؟» العشرة و«نوعه؟» التسعة على
+/// «ضيف دوا» بقوا بكرة، وشاشة التعديل وراهم).
+///
+/// **أول صف «من غير تحديد» وبيكتب null، والبكرة بتبدأ عليه** (قرار
+/// المالك) — نفس عقد [FNumberWheel.value]: مفيش حاجة بتتكتب غير لما
+/// الإنسان يحرّك، والرجوع لأول صف بيمسح الاختيار. الصف المختار بنفس
+/// خط العيلة الكبير وأرضيته الخضرا.
+class FChoiceWheel<T> extends StatefulWidget {
+  const FChoiceWheel({
+    required this.choices,
+    required this.labelOf,
+    required this.onChanged,
+    this.value,
+    this.noneLabel = defaultNoneLabel,
+    this.height = FNumberWheel.defaultHeight,
+    this.semanticsLabel,
+    this.wheelKey,
+    super.key,
+  });
+
+  static const String defaultNoneLabel = 'من غير تحديد';
+
+  final List<T> choices;
+  final String Function(T choice) labelOf;
+
+  /// null = واقفة على «من غير تحديد».
+  final T? value;
+  final ValueChanged<T?> onChanged;
+  final String noneLabel;
+  final double height;
+  final String? semanticsLabel;
+
+  /// مفتاح على البكرة نفسها — الاختبار بيسحبها بيه.
+  final Key? wheelKey;
+
+  int _indexOf(T? v) => v == null ? 0 : choices.indexOf(v) + 1;
+
+  @override
+  State<FChoiceWheel<T>> createState() => _FChoiceWheelState<T>();
+}
+
+class _FChoiceWheelState<T> extends State<FChoiceWheel<T>> {
+  late final _controller = FixedExtentScrollController(initialItem: widget._indexOf(widget.value));
+  bool _syncing = false;
+
+  @override
+  void didUpdateWidget(FChoiceWheel<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // الصوت (أو أي تعبئة من برّه) بيغيّر القيمة — البكرة بتلحقها
+    if (widget.value != oldWidget.value) _jumpTo(widget._indexOf(widget.value));
+  }
+
+  void _jumpTo(int index) {
+    if (!_controller.hasClients || _controller.selectedItem == index) return;
+    _syncing = true;
+    _controller.jumpToItem(index);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncing = false);
+  }
+
+  void _picked(int index) {
+    if (_syncing) return;
+    widget.onChanged(index == 0 ? null : widget.choices[index - 1]);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _WheelColumn(
+        pickerKey: widget.wheelKey,
+        controller: _controller,
+        labels: [widget.noneLabel, for (final c in widget.choices) widget.labelOf(c)],
+        onChanged: _picked,
+        semantics: widget.semanticsLabel ?? 'اختيار',
+        height: widget.height,
+      );
+}
+
 /// بكرة الساعة: ساعة ودقايق **بالدقيقة** (زي ساعة iOS) وزرارين ص/م بكلمة.
 ///
 /// **البكرة مش بتلف**: `selectedItem` بتاعة البكرة اللافّة بتطلع أرقام
