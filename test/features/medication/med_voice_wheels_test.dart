@@ -145,8 +145,9 @@ void main() {
       SharedPreferences.setMockInitialValues({VoiceService.enabledKey: true});
       await setUpWith();
       await pumpAdd(tester);
-      // مقفول: «قولها بصوتك» موجود، مايكات الحقول لأ، و«ساعدني» ظاهر
-      expect(find.byKey(const ValueKey('say-it-all')), findsOneWidget);
+      // مقفول: المفتاح موجود، مايكات الحقول لأ، و«ساعدني» ظاهر —
+      // و«قولها بصوتك» الكبير مش موجود خالص (اتشال ٥ أكتوبر مساءً)
+      expect(find.byKey(const ValueKey('say-it-all')), findsNothing);
       expect(find.byKey(const ValueKey('voice-input-switch')), findsOneWidget);
       expect(find.byKey(const ValueKey('field-mic-اسم الدوا')), findsNothing);
       expect(find.byKey(const ValueKey('field-mic-الدوا ده لإيه')), findsNothing);
@@ -164,68 +165,9 @@ void main() {
         find.descendant(of: find.byKey(const ValueKey('med-photo-slot')), matching: find.text('ساعدني')),
         findsOneWidget,
       );
-      expect(find.byKey(const ValueKey('say-it-all')), findsOneWidget, reason: '«قولها بصوتك» في الحالتين');
       // والاختيار اتخزّن
       expect((await SharedPreferences.getInstance()).getBool('voice.formMics'), isTrue);
       expectNoRedAndMinSize(tester);
-    });
-
-    screenTest('«قولها بصوتك»: جملة المالك بتملا الاسم والغرض والنوع والجرعة والأكل — ولا صف اتكتب قبل «احفظ»', (tester) async {
-      await setUpWith(answers: ['كونكور ٥ مجم للضغط قرص الساعة ٩ الصبح بعد الفطار']);
-      await pumpAdd(tester);
-
-      await tester.tap(find.byKey(const ValueKey('say-it-all')));
-      await settle(tester);
-
-      expect(find.widgetWithText(TextField, 'كونكور'), findsOneWidget);
-      expect(find.text('للضغط'), findsWidgets, reason: 'بكرة «لإيه؟» اتحرّكت');
-      expect(find.text('قرص'), findsWidgets, reason: 'بكرة «نوعه؟» اتحرّكت');
-      // ولا حاجة اتكتبت قبل «احفظ» (القاعدة ٤)
-      expect(await h.db.select(h.db.medications).get(), isEmpty);
-
-      await tester.tap(find.byKey(const ValueKey('save-medication')));
-      await settle(tester);
-      final med = (await h.db.select(h.db.medications).get()).single;
-      expect(med.name, 'كونكور');
-      expect(med.purpose, 'pressure');
-      expect(med.form, 'tablet');
-      expect(med.amountLabel, '5 مجم');
-      final schedule = (await h.db.select(h.db.doseSchedules).get()).single;
-      expect(schedule.mealRelation, 'after');
-      final timing = (await h.db.select(h.db.fixedTimings).get()).single;
-      expect(timing.minuteOfDay, 9 * 60, reason: 'الساعة اللي اتقالت بالحرف');
-    });
-
-    screenTest('«مرتين» من غير ساعات = صفّين فاضيين و«احفظ» مقفول — مفيش ساعة مننا', (tester) async {
-      await setUpWith(answers: ['ضيف دوا بانادول مرتين في اليوم']);
-      await pumpAdd(tester);
-      await tester.tap(find.byKey(const ValueKey('say-it-all')));
-      await settle(tester);
-
-      expect(find.text('اختار الساعة'), findsNWidgets(2));
-      final save = tester.widget<FilledButton>(
-        find.descendant(of: find.byKey(const ValueKey('save-medication')), matching: find.byType(FilledButton)),
-      );
-      expect(save.onPressed, isNull, reason: 'الناقص بيفضل فاضي والإنسان بيكمّله');
-    });
-
-    screenTest('مش مفهوم → سطر مكتوب، ومفيش حاجة اتغيّرت', (tester) async {
-      await setUpWith(answers: ['لا مش عارف']);
-      await pumpAdd(tester);
-      await tester.tap(find.byKey(const ValueKey('say-it-all')));
-      await settle(tester);
-      expect(find.byKey(const ValueKey('med-voice-note')), findsOneWidget);
-      expect(find.textContaining('مش متأكد'), findsOneWidget);
-      expect(find.text('من غير تحديد'), findsNWidgets(3), reason: 'البكر ما اتحرّكتش');
-    });
-
-    screenTest('سكوت → «ما سمعتش حاجة» والزرار فاضل', (tester) async {
-      await setUpWith(answers: [null]);
-      await pumpAdd(tester);
-      await tester.tap(find.byKey(const ValueKey('say-it-all')));
-      await settle(tester);
-      expect(find.textContaining('ما سمعتش حاجة'), findsOneWidget);
-      expect(find.byKey(const ValueKey('say-it-all')), findsOneWidget);
     });
 
     screenTest('مايك الحقل: «للضغط» بيملا بكرة «لإيه؟» وبس، و«شراب» بكرة «نوعه؟»', (tester) async {
@@ -295,6 +237,43 @@ void main() {
       expect(find.text('اختار الساعة'), findsOneWidget, reason: 'الصف زي ما كان');
     });
 
+    screenTest('نظام مسافات واحد: كل مايك «قولها» بمسافة ترويسة واحدة فوق عنصره — مش لازق (المالك، ٥ أكتوبر مساءً)', (tester) async {
+      await setUpWith();
+      await pumpAdd(tester);
+      await micsOn(tester);
+      final pairs = <String, Finder>{
+        'اسم الدوا': find.byType(TextField).first,
+        'الدوا ده لإيه': find.byKey(const ValueKey('purpose-wheel')),
+        'نوعه': find.byKey(const ValueKey('form-wheel')),
+        'بياخده إزاي': find.byKey(const ValueKey('pattern-wheel')),
+        'كام مرة': find.byKey(const ValueKey('count-wheel')),
+        'مع الأكل': find.byKey(const ValueKey('meal-wheel')),
+      };
+      final gaps = <double>[];
+      for (final e in pairs.entries) {
+        final mic = tester.getRect(find.byKey(ValueKey('field-mic-${e.key}')));
+        final control = tester.getRect(e.value);
+        final gap = control.top - mic.bottom;
+        expect(gap, greaterThanOrEqualTo(7.0), reason: '«${e.key}»: المايك لازق في اللي تحته ($gap)');
+        gaps.add(gap);
+      }
+      // ومسافة **واحدة** للكل — مش كل قسم بمزاجه
+      for (final g in gaps) {
+        expect((g - gaps.first).abs(), lessThan(1.0), reason: 'مسافات الترويسات مش متساوية: $gaps');
+      }
+    });
+
+    screenTest('سكوت على مايك حقل → «ما سمعتش حاجة» والمايك فاضل، والسؤال مش بيتبلع', (tester) async {
+      await setUpWith(answers: [null]);
+      await pumpAdd(tester);
+      await micsOn(tester);
+      await tester.tap(find.byKey(const ValueKey('field-mic-الدوا ده لإيه')));
+      await settle(tester);
+      expect(find.textContaining('ما سمعتش حاجة'), findsOneWidget);
+      expect(find.byKey(const ValueKey('field-mic-الدوا ده لإيه')), findsOneWidget, reason: 'المايك فاضل');
+      expect(find.text('من غير تحديد'), findsNWidgets(3), reason: 'ولا بكرة اتحرّكت');
+    });
+
     screenTest('مايك الاسم بيكتب في الحقل، و«لا» مش اسم', (tester) async {
       await setUpWith(answers: ['زيرتك', 'لا']);
       await pumpAdd(tester);
@@ -310,17 +289,15 @@ void main() {
       await pumpAdd(tester);
       await micsOn(tester);
       expect(find.byKey(const ValueKey('field-mic-اسم الدوا')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('say-it-all')));
+      await tester.tap(find.byKey(const ValueKey('field-mic-اسم الدوا')));
       await settle(tester);
       expect(find.textContaining('الإذن'), findsOneWidget);
-      expect(find.byKey(const ValueKey('say-it-all')), findsNothing);
-      expect(find.byKey(const ValueKey('field-mic-اسم الدوا')), findsNothing, reason: 'المايكات بتروح معاه');
+      expect(find.byKey(const ValueKey('field-mic-اسم الدوا')), findsNothing, reason: 'المايكات بتختفي بالسبب مكتوب');
     });
 
     screenTest('voiceInput: false (الممرض) → ولا زرار صوت ولا مفتاح، والبكر موجودة', (tester) async {
       await setUpWith();
       await pumpAdd(tester, voiceInput: false);
-      expect(find.byKey(const ValueKey('say-it-all')), findsNothing);
       expect(find.byKey(const ValueKey('voice-input-switch')), findsNothing, reason: 'الممرض من غير مفتاح أصلاً');
       expect(find.byKey(const ValueKey('field-mic-اسم الدوا')), findsNothing);
       expect(find.byKey(const ValueKey('purpose-wheel')), findsOneWidget);
@@ -335,12 +312,5 @@ void main() {
       expect(find.byKey(const ValueKey('purpose-wheel')), findsOneWidget);
     });
 
-    screenTest('«قولها بصوتك» محدّد أخضر — مش مليان: «احفظ» هو الأساسي الوحيد', (tester) async {
-      await setUpWith();
-      await pumpAdd(tester);
-      final button = tester.widget<OutlinedButton>(find.byKey(const ValueKey('say-it-all')));
-      expect(button.style!.foregroundColor!.resolve({}), F.green);
-      expect(find.widgetWithText(FilledButton, 'قولها بصوتك'), findsNothing);
-    });
   });
 }

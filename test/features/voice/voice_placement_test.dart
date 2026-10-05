@@ -300,11 +300,11 @@ void main() {
   test('صوت فورم «ضيف دوا» (٥ أكتوبر ٢٠٢٦): على الفورم وبس — ومقفول بالحرف على موبايل الممرض', () {
     // التوسيع مقصود (قرار المالك) — زي ما حارس الأحمر اتوسّع لـcareAlertInk:
     // الموقعين الجداد مسمّيين، وأي مكان تالت لسه بيوقّع.
-    final sayIt = {
-      for (final e in src.entries)
-        if (e.value.contains('SayItAllButton(') && e.key != 'features/medication/med_voice_input.dart') e.key,
-    };
-    expect(sayIt, {'features/medication/add_medication_screen.dart'});
+    // «قولها بصوتك» الكبير اتشال (٥ أكتوبر مساءً) — الدوا كله بالصوت في
+    // «كلّمني» بس؛ رجوعه للفورم بيوقّع
+    for (final e in src.entries) {
+      expect(e.value.contains('SayItAllButton'), isFalse, reason: e.key);
+    }
     final fieldMic = {
       for (final e in src.entries)
         if (e.value.contains('FieldMicButton(') && e.key != 'features/medication/med_voice_input.dart') e.key,

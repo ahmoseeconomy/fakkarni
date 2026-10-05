@@ -159,7 +159,10 @@ class _CaregiverScreenState extends State<CaregiverScreen> {
                 ],
                 // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — **تحت التنبيهات**:
                 // التنبيه المفتوح جرعة بتفوت دلوقتي، والملخص عن الأسبوع اللي فات.
-                CareWeeklySummary(summary: summaryFromSnapshot(snapshot, _now)),
+                CareWeeklySummary(
+                  today: _now,
+                  summaryFor: (r) => summaryFromSnapshot(snapshot, _now, from: r.from, to: r.to),
+                ),
                 // ٣ — المواعيد الجاية. تحت سطر الحالة على طول لما مفيش
                 // تنبيه مفتوح — والتنبيه المفتوح بيفضل فوقها، لأنه جرعة
                 // بتفوت **دلوقتي** وده قرار مكتوب من جولة ٢٨.

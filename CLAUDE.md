@@ -183,7 +183,11 @@ These are product decisions, already settled. Do not "improve" them without aski
   three-digit number read off a meter — spinning 20–600 to it is worse
   than typing three digits), lab values (decimals in the paper's own
   unit), the 6-digit invite code and phone numbers (not values), and the
-  free-text amount («نص قرص»). Dates stay on chips plus the calendar.
+  free-text amount («نص قرص»). Dates stay on chips plus the calendar — with one owner exception
+  (5 Oct 2026): «غيّر المدة» on ملخص الأسبوع picks «من/إلى» with two date
+  FChoiceWheels (last 30 days for the patient — owner's number; the son/nurse wheels span
+  only the snapshot's 8 days — widening that is a cloud-read-bound
+  decision, not a UI one).
   `MinuteStepper` and `features/onboarding/time_wheel.dart` are gone;
   `test/app/wheels_se_test.dart` pumps every screen that gained a wheel at
   375×667 with the real fonts and asserts the primary button is on screen.
@@ -3124,18 +3128,19 @@ FKTEST: journal_mode في النسخة = wal، taken = 1
 بيقفل الملفين، **واتوسّع عمداً** للفورم زي ما حارس الأحمر اتوسّع
 لـ`careAlertInk`: `SayItAllButton`/`FieldMicButton` مسموحين في
 `add_medication_screen.dart` وبس، وأي مكان تالت بيوقّع).
-**صوت الفورم** (`features/medication/med_voice_input.dart`): «قولها
-بصوتك» كبير محدّد أخضر فوق الفورم — الجملة كلها بنفس فهم «كلّمني»
-(`understandUtteranceAs` — الزرار نفسه هو النية، فمفيش نقط نية محتاجة)،
-والناقص بيفضل فاضي قدّامه (قرار المالك: مفيش أسئلة واحد واحد هنا)؛
-و«قولها» صغير جنب كل قسم بيتعبّى بالصوت (الاسم، البكر الخمسة، المواعيد
+**صوت الفورم** (`features/medication/med_voice_input.dart`): «قولها»
+صغير جنب كل قسم بيتعبّى بالصوت — («قولها بصوتك» الكبير اللي كان بياخد
+الجملة كلها **اتشال ٥ أكتوبر مساءً** بقرار المالك: الدوا كله بالصوت
+مكانه «كلّمني» على «يومك»، ووجود الاتنين على الفورم هو اللي لخبط تجربة
+المحاكي) — (الاسم، البكر الخمسة، المواعيد
 «٩ الصبح و٩ بالليل» بالواو، البداية «بكرة/يوم السبت» — بتتحسب من يوم
 الفورم مش ساعة الحائط — ونوع التنبيه) بيملا حقله هو بس
-(`MedicationPurpose.fromSpokenWord` / `MedicineForm.fromSpoken` — نقيين).
+(`MedicationPurpose.fromSpokenWord` / `MedicineForm.fromSpoken` — نقيين)،
+وسطر حالة الصوت («ما سمعتش حاجة») تحت المفتاح.
 **مايكات الحقول ورا مفتاح «أدخّل بصوتي»** (٥ أكتوبر، مقفول افتراضياً،
 `voice.formMics`): مقفول = «ساعدني» ظاهر ومفيش مايكات؛ مفتوح = المايكات
 ظاهرة و«ساعدني» بيستخبى — **إلا قسم الصورة**: مفيش صوت يملاه، فمساعدته
-فاضلة في الحالتين. «قولها بصوتك» ظاهر في الحالتين.
+فاضلة في الحالتين. 
 الحالات كلها **مكتوبة** (مفيش TTS)، دوسة = سماع واحد، ولا حاجة بتتحفظ
 غير بـ«احفظ». **وعلى موبايل الممرض مفيش صوت**: كل باب ممرض للفورم بيبعت
 `voiceInput: false` بالحرف، والحارس بيعدّهم. «للضغط» و«قرص/شراب/حباية»
@@ -3648,7 +3653,13 @@ jarvis-ai-finance (`webSpeechStt.js` / `MicOrb.jsx` / `affirm.js` /
   **«لإيه؟» و«جرعته كام؟» لسه طبي** (قرار المالك يفضل؛ `medInfoText` للغرض
   والجرعة موجودة ومش متوصّلة).
 - **«كلّمني» E2** (`5e12384`): «ضيف دوا» و«احجز ميعاد» بيسألوا عن الناقص
-  واحد واحد (`features/voice/dialog/slot_dialog.dart` نقي): الاسم، كام مرة،
+  واحد واحد — **ومن ٥ أكتوبر ٢٠٢٦ بعد الاسم والساعات بيسألوا «نوعه إيه؟»
+  و«الدوا ده لإيه؟»**، اختياريين: «عدّي»/«مش عارف» بيعدّوا بخانة فاضية،
+  واللي اتقال في الجملة ما بيتسألش. **السكوت ما بيعدّيش ولا بيبلع
+  السؤال** (إصلاح نفس اليوم مساءً — على المحاكي دوسة رد بنفَس تفكير كانت
+  بتعدّي السؤالين كأنهم ما اتسألوش، و`_rest` بعد السكوت كان بيمنع رجوع
+  السؤال بشرط `phase != idle`؛ دلوقتي «ما سمعتش حاجة» والسؤال راجع
+  مكانه، زي قاعدة الدايرة) (`features/voice/dialog/slot_dialog.dart` نقي): الاسم، كام مرة،
   ساعة كل جرعة، «الصبح ولا بالليل؟»، يوم الميعاد وساعته («من غير ساعة»
   مقبولة). **مفيش ساعة مننا** (مرتين = سؤالين). السؤال مكتوب و**الإجابة بدوسة
   على الدايرة** (قرار ١أ). الملخص + «صح كده؟» والكتابة **بعد «أيوه» بس** من

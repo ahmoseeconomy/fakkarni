@@ -53,12 +53,68 @@ void main() {
     test('DayNight: القاهرة افتراضياً، والمكان الهادي بيحرّك النافذة — وفشله بيسيبها', () async {
       final cairo = DayNight.windowFor(DateTime(2026, 10, 5, 12));
       // أوسلو (٥٩٫٩ شمالاً) — نهار أكتوبر أقصر بوضوح من القاهرة
-      expect(await DayNight.refreshLocation(position: () async => (lat: 59.91, lon: 10.75)), isTrue);
+      expect(
+        await DayNight.refreshLocation(
+          position: () async => (lat: 59.91, lon: 10.75),
+          tzOffset: const Duration(hours: 1), // منطقة أوسلو — المكان مطابق
+        ),
+        isTrue,
+      );
       final oslo = DayNight.windowFor(DateTime(2026, 10, 5, 12));
       expect(oslo.sunsetMinutes - oslo.sunriseMinutes, lessThan(cairo.sunsetMinutes - cairo.sunriseMinutes));
       // null (مفيش إذن) = ولا حاجة بتتغيّر
       expect(await DayNight.refreshLocation(position: () async => null), isFalse);
       expect(DayNight.windowFor(DateTime(2026, 10, 5, 12)), oslo);
+    });
+  });
+
+  group('عطل المحاكي (٥ أكتوبر ٢٠٢٦): «مساء الخير» الساعة ٢:٣٠ الضهر', () {
+    test('حالة اليوم الحقيقية: ٥ أكتوبر بالقاهرة — ٢ الضهر نهار و٨ بالليل مساء', () {
+      // الشروق ٣:٥١ والغروب ١٥:٣٧ UTC (متقاسين بالـprobe) — المقارنة
+      // باللحظة فبتصح مهما كانت منطقة ماكينة التشغيل
+      expect(DayNight.isDaytime(DateTime(2026, 10, 5, 14)), isTrue, reason: 'بعد الضهر صباح لحد الغروب');
+      expect(DayNight.isDaytime(DateTime(2026, 10, 5, 20)), isFalse);
+    });
+
+    test('**السبب المتقاس**: مكان المحاكي الافتراضي (سان فرانسيسكو) بساعة قاهرة — النافذة بالدقايق بتتلف وبتطلّع «ليل على طول»', () {
+      // توثيق شكل العطل: غروبها بالدقايق قبل شروقها
+      final sf = sun.sunWindowFor(DateTime(2026, 10, 5, 14, 30), lat: 37.7749, lon: -122.4194);
+      expect(sf.sunsetMinutes, lessThan(sf.sunriseMinutes), reason: 'النافذة ملفوفة');
+      expect(
+        sun.isDaytime(DateTime(2026, 10, 5, 14, 30), sunriseMinutes: sf.sunriseMinutes, sunsetMinutes: sf.sunsetMinutes),
+        isFalse,
+        reason: 'المقارنة بالدقايق على نافذة ملفوفة = ليل دايماً — ده اللي المحاكي ورّاه',
+      );
+      // والإصلاح الأول: المكان اللي مش مطابق منطقة الجهاز بيترفض والقاهرة بتفضل
+      expect(sun.plausibleForTimezone(-122.4194, const Duration(hours: 3)), isFalse);
+      expect(sun.plausibleForTimezone(31.2357, const Duration(hours: 3)), isTrue);
+    });
+
+    test('رفض المكان المش مطابق: سان فرانسيسكو بإزاحة قاهرة بتترفض والتحية بتفضل صح', () async {
+      expect(
+        await DayNight.refreshLocation(
+          position: () async => (lat: 37.7749, lon: -122.4194),
+          tzOffset: const Duration(hours: 3),
+        ),
+        isFalse,
+        reason: 'مكان متخزّن قديم/افتراضي محاكي — القاهرة أصدق',
+      );
+      expect(DayNight.isDaytime(DateTime(2026, 10, 5, 14)), isTrue, reason: '٢ الضهر فضلت صباح');
+    });
+
+    test('والإصلاح التاني: المقارنة باللحظة بتستحمل اللفّ — نص ليل UTC جوّه نافذة اليوم اللي فات', () {
+      // غروب سان فرانسيسكو ٥ أكتوبر ≈ ٠١:٤٨ UTC يوم ٦ — لحظة ٠١:٠٠ UTC
+      // يوم ٦ نهار عندهم، وجوّه نافذة **امبارح** UTC: اللوب [-1, 0, +1]
+      // هو اللي بيمسكها
+      expect(
+        sun.isDaytimeAtInstant(DateTime.utc(2026, 10, 6, 1), lat: 37.7749, lon: -122.4194),
+        isTrue,
+      );
+      expect(
+        sun.isDaytimeAtInstant(DateTime.utc(2026, 10, 6, 10), lat: 37.7749, lon: -122.4194),
+        isFalse,
+        reason: '٢ بالليل عندهم',
+      );
     });
   });
 
@@ -103,7 +159,7 @@ void main() {
   });
 
   group('الصف في الإعدادات', () {
-    testWidgets('تلات شرايح، «تلقائي» الافتراضي، والاختيار بيتطبّق فوراً وبيتخزّن', (tester) async {
+    testWidgets('صف بالاختيار الحالي وسهم → صفحة التلات اختيارات، والاختيار بيتطبّق وبيتخزّن وبيرجع مكتوب على الصف', (tester) async {
       SharedPreferences.setMockInitialValues({});
       ThemeModeStore.isNight = (_) => false;
       await ThemeModeStore.load(clock: () => DateTime(2026, 10, 5, 10));
@@ -111,6 +167,15 @@ void main() {
         theme: F.light,
         home: const Directionality(textDirection: TextDirection.rtl, child: Scaffold(body: DisplayModeRow())),
       ));
+      // صف واحد بالحالي — مش تلات شرايح (المالك، ٥ أكتوبر مساءً)
+      expect(find.text('وضع الشاشة'), findsOneWidget);
+      expect(find.byKey(const ValueKey('display-mode-current')), findsOneWidget);
+      expect(find.text('تلقائي'), findsOneWidget, reason: 'الاختيار الحالي مكتوب على الصف');
+      expect(find.text('ليلي على طول'), findsNothing, reason: 'الاختيارات جوّه الصفحة مش هنا');
+
+      await tester.tap(find.byKey(const ValueKey('display-mode-row')));
+      await tester.pumpAndSettle();
+      expect(find.byType(DisplayModeScreen), findsOneWidget);
       for (final label in ['تلقائي', 'نهاري على طول', 'ليلي على طول']) {
         expect(find.text(label), findsOneWidget);
       }
@@ -119,6 +184,11 @@ void main() {
       expect(F.isDark, isTrue);
       expect(ThemeModeStore.mode, DisplayMode.dark);
       expect((await SharedPreferences.getInstance()).getString(ThemeModeStore.modeKey), 'dark');
+
+      // رجوع — الصف بيقول الاختيار الجديد
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('ليلي على طول'), findsOneWidget);
     });
   });
 

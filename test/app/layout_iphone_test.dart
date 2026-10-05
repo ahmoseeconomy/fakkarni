@@ -174,6 +174,10 @@ void main() {
       await tester.tap(find.text('الإعدادات').last);
       await settle(tester);
       final list = find.byType(ListView).last;
+      // سحبتين — القايمة طالت (صف «وضع الشاشة»، ٥ أكتوبر) وسحبة الـ٦٠٠٠
+      // ما بقتش توصّل لآخرها على ×١٫٣
+      await tester.drag(list, const Offset(0, -6000));
+      await settle(tester);
       await tester.drag(list, const Offset(0, -6000));
       await settle(tester);
       final delete = tester.getRect(find.byKey(const ValueKey('settings-delete-account')));

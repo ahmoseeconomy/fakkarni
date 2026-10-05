@@ -1,12 +1,9 @@
 /// صوت فورم «ضيف دوا» (مراجعة المالك، ٥ أكتوبر ٢٠٢٦) — طريقين:
 ///
-/// (أ) **«قولها بصوتك»** — زرار كبير محدّد أخضر فوق الفورم: الراجل بيقول
-/// الدوا كله («كونكور ٥ مجم للضغط، قرص الصبح بعد الفطار») والفورم بيتعبّى
-/// بنفس فهم «كلّمني» (`understandUtteranceAs` — الزرار نفسه هو النية).
-/// **الناقص بيفضل فاضي قدّامه** — مفيش أسئلة واحد واحد، ومفيش حاجة بتتحفظ
-/// غير بزرار «احفظ» (القاعدة ٤).
+/// («قولها بصوتك» الكبير اتشال ٥ أكتوبر مساءً — الدوا كله بالصوت مكانه
+/// «كلّمني» على «يومك».)
 ///
-/// (ب) **«قولها» الصغير** جنب الاسم وبكرتَي «لإيه؟» و«نوعه؟» — بيملا
+/// **«قولها» الصغير** جنب الاسم وبكرتَي «لإيه؟» و«نوعه؟» — بيملا
 /// الحقل ده وبس، والبكرة بتتحرّك قدّامه فالمراجعة بالعين.
 ///
 /// القواعد: دوسة = سماع واحد (`MicListener` نفسه بيضمنها)، الأسئلة
@@ -43,8 +40,8 @@ class MedVoiceSession extends ChangeNotifier {
   bool get busy => listeningFor != null;
 
   /// سماع واحد: بيسلّم الجلسة، بيسمع، وبيرجّع الكلام أو null — والسبب
-  /// بيتكتب في [note]. [long] = طلب مفتوح («قولها بصوتك») بمهل «كلّمني».
-  Future<String?> hear(String forWhat, {bool long = false}) async {
+  /// بيتكتب في [note].
+  Future<String?> hear(String forWhat) async {
     final listener = voice.listener;
     if (listener == null || _hidden || busy) return null;
     listeningFor = forWhat;
@@ -56,12 +53,7 @@ class MedVoiceSession extends ChangeNotifier {
         _fail(failed);
         return null;
       }
-      final result = await listener.listen(
-        silence: long ? ListenTimings.commandSilence : ListenTimings.silence,
-        maxLength: long
-            ? ListenTimings.commandMaxLength
-            : ListenTimings.maxLength,
-      );
+      final result = await listener.listen();
       switch (result) {
         case ListenHeard(:final text) when text.trim().isNotEmpty:
           return text.trim();
@@ -98,94 +90,6 @@ class MedVoiceSession extends ChangeNotifier {
     if (!busy) return;
     await voice.listener?.stop();
   }
-}
-
-/// (أ) «قولها بصوتك» — كبير، محدّد أخضر، **مش مليان**: «احفظ» هو الزرار
-/// الأساسي الوحيد في الشاشة.
-class SayItAllButton extends StatefulWidget {
-  const SayItAllButton({
-    required this.session,
-    required this.onHeard,
-    super.key,
-  });
-
-  final MedVoiceSession session;
-  final ValueChanged<String> onHeard;
-
-  @override
-  State<SayItAllButton> createState() => _SayItAllButtonState();
-}
-
-class _SayItAllButtonState extends State<SayItAllButton>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) unawaited(widget.session.cancel());
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  Future<void> _tap() async {
-    final text = await widget.session.hear('الدوا كله', long: true);
-    if (text != null && mounted) widget.onHeard(text);
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.session,
-    builder: (context, _) {
-      final s = widget.session;
-      if (!s.available) {
-        // سبب الاختفاء مكتوب — مش زرار بيختفي في صمت
-        return s.note == null ? const SizedBox.shrink() : _NoteLine(s.note!);
-      }
-      final listeningHere = s.listeningFor == 'الدوا كله';
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: F.primaryButtonHeight,
-            child: OutlinedButton.icon(
-              key: const ValueKey('say-it-all'),
-              onPressed: s.busy ? null : _tap,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: F.green,
-                side: BorderSide(color: F.green, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(F.radius),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: F.minBodySize,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              icon: Icon(
-                listeningHere ? Icons.graphic_eq : Icons.mic,
-                size: 28,
-              ),
-              label: Text(
-                listeningHere ? 'سامعك… قول الدوا كله' : 'قولها بصوتك',
-              ),
-            ),
-          ),
-          if (s.note case final note?) ...[
-            const SizedBox(height: F.s6),
-            _NoteLine(note),
-          ],
-        ],
-      );
-    },
-  );
 }
 
 /// (ب) «قولها» جنب حقل واحد — بيملاه هو وبس.
@@ -251,15 +155,3 @@ class FieldMicButton extends StatelessWidget {
   );
 }
 
-class _NoteLine extends StatelessWidget {
-  const _NoteLine(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    key: const ValueKey('med-voice-note'),
-    style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
-  );
-}

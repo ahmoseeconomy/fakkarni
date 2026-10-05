@@ -67,6 +67,31 @@ void main() {
     expect(s.appointmentLine, 'أقرب ميعاد: د. حسام — الاتنين ١٢ أكتوبر');
   });
 
+  test('«من/إلى» بيحدّدوا المدة (المالك، ٥ أكتوبر مساءً) — والافتراضي زي ما هو آخر ٧ كاملة', () {
+    final doses = [
+      dose('old', DateTime(2026, 9, 20), 9, AdherenceState.taken),
+      dose('in', DateTime(2026, 9, 29), 9, AdherenceState.taken),
+      dose('in2', DateTime(2026, 10, 3), 9, AdherenceState.missed),
+    ];
+    // الافتراضي (٢٨ سبتمبر–٤ أكتوبر): القديمة برّه
+    final def = weeklySummary(today: today, doses: doses);
+    expect(def.due, 2);
+    expect(def.title, startsWith('ملخص الأسبوع'));
+    // مدة مختارة بتلم القديمة — والعنوان بيبطّل يقول «أسبوع» عن مدة مش أسبوع
+    final ranged = weeklySummary(
+      today: today,
+      doses: doses,
+      from: DateTime(2026, 9, 18),
+      to: DateTime(2026, 9, 30),
+    );
+    expect(ranged.due, 2, reason: 'القديمة دخلت والـ٣ أكتوبر خرجت');
+    expect(ranged.missed, isEmpty);
+    expect(ranged.title, startsWith('الملخص —'));
+    // ومدة ٧ أيام مختارة بإيد لسه «ملخص الأسبوع»
+    final week = weeklySummary(today: today, doses: doses, from: DateTime(2026, 9, 21), to: DateTime(2026, 9, 27));
+    expect(week.title, startsWith('ملخص الأسبوع'));
+  });
+
   test('مفيش كلمة حكم ولا «·» في أي جملة', () {
     final s = weeklySummary(today: today, doses: [
       dose('x', DateTime(2026, 10, 1), 9, AdherenceState.missed),

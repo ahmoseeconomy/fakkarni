@@ -2,18 +2,35 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../domain/adherence/weekly_summary.dart';
+import '../adherence/summary_range.dart';
+import '../adherence/weekly_summary_card.dart' show snapshotDaysBack;
 import 'caregiver_ui.dart';
 
 /// **ملخص الأسبوع** بكثافة الابن — فوق «متابعة» (طلب المدير، ٤ أكتوبر ٢٠٢٦).
 /// نفس الحساب ونفس الجمل اللي عند المريض والممرض، بمقاسات `F.care…`.
-class CareWeeklySummary extends StatelessWidget {
-  const CareWeeklySummary({required this.summary, super.key});
+class CareWeeklySummary extends StatefulWidget {
+  const CareWeeklySummary({required this.summaryFor, required this.today, super.key});
 
-  final WeeklySummary summary;
+  /// بيحسب الملخص للمدة المختارة — «غيّر المدة» (٥ أكتوبر مساءً) بنفس بكر
+  /// المريض؛ الصورة فيها آخر ٨ أيام بس فالبكر محدودة بيهم.
+  final WeeklySummary Function(SummaryRange range) summaryFor;
+  final DateTime today;
+
+  @override
+  State<CareWeeklySummary> createState() => _CareWeeklySummaryState();
+}
+
+class _CareWeeklySummaryState extends State<CareWeeklySummary> {
+  late SummaryRange _range = SummaryRange.lastWeek(widget.today);
+
+  Future<void> _pick() async {
+    final picked = await pickSummaryRange(context, today: widget.today, current: _range, daysBack: snapshotDaysBack);
+    if (picked != null && mounted) setState(() => _range = picked);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final s = summary;
+    final s = widget.summaryFor(_range);
     Widget line(IconData icon, String text) => Padding(
           padding: const EdgeInsets.only(top: F.careRowGap),
           child: Row(
@@ -30,7 +47,15 @@ class CareWeeklySummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(s.title, style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w800, color: F.ink)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(s.title, style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w800, color: F.ink)),
+              ),
+              const SizedBox(width: 8),
+              SummaryRangeButton(onTap: _pick, height: F.careTapTarget, fontSize: F.careTextSize),
+            ],
+          ),
           line(Icons.check_circle_outline, s.dosesLine),
           if (s.missedLine.isNotEmpty) line(Icons.schedule, s.missedLine),
           line(Icons.inventory_2_outlined, s.lowStockLine),

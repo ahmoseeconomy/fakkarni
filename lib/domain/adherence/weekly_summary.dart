@@ -36,8 +36,10 @@ class WeeklySummary {
   final List<LowStockItem> lowStock;
   final UpcomingItem? nextAppointment;
 
-  /// «ملخص الأسبوع — ٢٧ سبتمبر لـ٣ أكتوبر».
-  String get title => 'ملخص الأسبوع — ${_dayMonth(from)} لـ${_dayMonth(to)}';
+  /// «ملخص الأسبوع — ٢٧ سبتمبر لـ٣ أكتوبر» — والمدة المختارة بإيد
+  /// («من/إلى») لو مش ٧ أيام بتتسمّى «الملخص»: أسبوع مش أسبوع يكدب.
+  String get title =>
+      '${to.difference(from).inDays == 6 ? 'ملخص الأسبوع' : 'الملخص'} — ${_dayMonth(from)} لـ${_dayMonth(to)}';
 
   /// «اتاخد ١٨ من ٢١ جرعة — و٢ متخطّية».
   String get dosesLine {
@@ -98,19 +100,23 @@ class UpcomingItem {
   final DateTime day;
 }
 
-/// الحساب. [today] يوم الروتين بتاع النهارده — الأسبوع هو الـ٧ اللي قبله.
+/// الحساب. [today] يوم الروتين بتاع النهارده — الافتراضي آخر ٧ أيام كاملة
+/// (الـ٧ اللي قبله)، و[from]/[to] بيختاروا مدة تانية (المالك، ٥ أكتوبر
+/// مساءً: «من/إلى» ببكر) — الاتنين داخلين، وأيام روتين.
 WeeklySummary weeklySummary({
   required List<AdherenceDose> doses,
   required DateTime today,
+  DateTime? from,
+  DateTime? to,
   List<LowStockItem> lowStock = const [],
   List<UpcomingItem> upcoming = const [],
 }) {
   final t = DateTime(today.year, today.month, today.day);
-  final from = DateTime(t.year, t.month, t.day - 7);
-  final to = DateTime(t.year, t.month, t.day - 1);
+  final rangeFrom = from ?? DateTime(t.year, t.month, t.day - 7);
+  final rangeTo = to ?? DateTime(t.year, t.month, t.day - 1);
   bool inWeek(DateTime d) {
     final day = DateTime(d.year, d.month, d.day);
-    return !day.isBefore(from) && !day.isAfter(to);
+    return !day.isBefore(rangeFrom) && !day.isAfter(rangeTo);
   }
 
   var due = 0, taken = 0, skipped = 0;
@@ -143,8 +149,8 @@ WeeklySummary weeklySummary({
   }
 
   return WeeklySummary(
-    from: from,
-    to: to,
+    from: rangeFrom,
+    to: rangeTo,
     due: due,
     taken: taken,
     skipped: skipped,

@@ -102,3 +102,28 @@ bool isDaytime(DateTime now, {required int sunriseMinutes, required int sunsetMi
   final minutes = now.hour * 60 + now.minute;
   return minutes >= sunriseMinutes && minutes < sunsetMinutes;
 }
+
+/// نهار؟ — **باللحظات، مش بدقايق الحيطة** (إصلاح ٥ أكتوبر ٢٠٢٦، عطل
+/// المحاكي): مكان يوم شمسه متزحزح عن منطقة الجهاز (سان فرانسيسكو بمكان
+/// المحاكي الافتراضي، وساعة الجهاز قاهرة) بيطلّع نافذة حيطة **ملفوفة**
+/// (غروبها قبل شروقها بالدقايق) — والمقارنة بالدقايق بترجّع «ليل على
+/// طول». هنا بنقارن اللحظة نفسها بنوافذ امبارح والنهارده وبكرة UTC،
+/// فاللفّ مش بيبوّظ حاجة.
+bool isDaytimeAtInstant(DateTime now, {double lat = cairoLat, double lon = cairoLon}) {
+  final nowUtc = now.toUtc();
+  for (final dayShift in const [-1, 0, 1]) {
+    final d = nowUtc.add(Duration(days: dayShift));
+    final t = sunTimesUtc(year: d.year, month: d.month, day: d.day, lat: lat, lon: lon);
+    if (t == null) continue;
+    if (!nowUtc.isBefore(t.sunriseUtc) && nowUtc.isBefore(t.sunsetUtc)) return true;
+  }
+  return false;
+}
+
+/// المكان ده منطقي لمنطقة الجهاز؟ — خط الطول بيقول إزاحة شمسية تقريبية
+/// (١٥° = ساعة)؛ لو بعيدة عن إزاحة الجهاز بأكتر من [maxSolarTzGapHours]
+/// فده مكان متخزّن قديم أو افتراضي محاكي، والقاهرة أصدق منه.
+const double maxSolarTzGapHours = 3;
+
+bool plausibleForTimezone(double lon, Duration tzOffset) =>
+    ((lon / 15) - tzOffset.inMinutes / 60).abs() <= maxSolarTzGapHours;

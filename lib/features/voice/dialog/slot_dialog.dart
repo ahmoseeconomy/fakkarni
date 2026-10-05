@@ -59,8 +59,9 @@ class MedDialog {
 
   /// من الجملة الأولى («ضيف دوا كونكور مرتين بعد الأكل»).
   /// «عدّي» وأخواتها — السؤالين الاختياريين (النوع والغرض) بيتعدّوا بيها
-  /// والخانة بتفضل فاضية (قرار المالك، ٥ أكتوبر ٢٠٢٦). السكوت بيعدّي برضه
-  /// ([skipOptional] — الـflow بينده عليها).
+  /// والخانة بتفضل فاضية (قرار المالك، ٥ أكتوبر ٢٠٢٦). **السكوت ما
+  /// بيعدّيش** (إصلاح نفس اليوم): كان بيعدّي، فدوسة واحدة بنفَس تفكير
+  /// كانت بتاكل السؤال قبل ما يتقري — المحاكي ورّاها «ما سألش أصلاً».
   static const skipWords = {'عدي', 'عدى', 'مش عارف', 'معرفش', 'مش عارفه', 'سيبها', 'سيبه', 'مش فارقه', 'لا', 'ولا حاجه'};
 
   static bool _isSkip(String text) => skipWords.contains(normalizeArabic(text).trim());
@@ -128,19 +129,7 @@ class MedDialog {
     return null;
   }
 
-  /// السؤال الحالي اختياري؟ — السكوت عليه بيعدّيه (الـflow بينده).
-  bool skipOptional() {
-    switch (_ask) {
-      case _MedAsk.form:
-        _formAsked = true;
-        return true;
-      case _MedAsk.purpose:
-        _purposeAsked = true;
-        return true;
-      default:
-        return false;
-    }
-  }
+
 
   bool get complete => _ask == null;
 

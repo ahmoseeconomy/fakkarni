@@ -1336,15 +1336,19 @@ class CommandFlow extends ChangeNotifier {
       if (_interrupted(gen)) return;
       final text = await _hearReply(listener, gen);
       if (text == null) {
-        // سكوت على سؤال اختياري (النوع/الغرض) = عدّي بخانة فاضية
-        // (قرار المالك، ٥ أكتوبر ٢٠٢٦)
-        if (_medDialog?.skipOptional() ?? false) {
-          await _continueMed();
-          return;
-        }
-        // سكوت أو وقعة — السؤال فاضل على الشاشة
+        // سكوت أو وقعة — **السؤال فاضل على الشاشة، حتى الاختياري**
+        // (إصلاح ٥ أكتوبر مساءً): «السكوت بيعدّي» اللي كان هنا خلّى
+        // «نوعه إيه؟» و«الدوا ده لإيه؟» يتعدّوا لوحدهم على المحاكي —
+        // الراجل بيدوس وبياخد نفَس يفكّر، والسؤال بيختفي قبل ما يرد.
+        // العدّي بكلمة («عدّي» وأخواتها) بس، زي قاعدة الدايرة:
+        // «مفيش كلام مش عطل» والسطر بيقول «ما سمعتش حاجة».
+        // **من غير شرط `phase != idle`**: سكوت `_hearReply` بيرسّي
+        // (`_rest` = idle) قبل ما نوصل هنا، فالشرط ده كان بيمنع رجوع
+        // السؤال بالظبط في الحالة اللي محتاجينه فيها. المقاطعة لوحدها
+        // هي اللي بتسيب الشاشة — التنبيه بيكسب.
+        if (_interrupted(gen)) return;
         final q = _medDialog?.question ?? _bookDialog?.question;
-        if (q != null && phase != CommandPhase.idle) _set(CommandPhase.asking, q.text);
+        if (q != null) _set(CommandPhase.asking, q.text);
         return;
       }
       heard = text.trim();

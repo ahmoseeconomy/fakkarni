@@ -115,7 +115,10 @@ class NurseTodayScreen extends StatelessWidget {
                     ),
                   ),
                 // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق، بعد التنبيهات
-                WeeklySummaryCard(summary: summaryFromSnapshot(snapshot, t)),
+                SnapshotWeeklySummary(
+                  today: t,
+                  summaryFor: (r) => summaryFromSnapshot(snapshot, t, from: r.from, to: r.to),
+                ),
                 const SizedBox(height: F.gap),
                 const FSectionHead('الآن'),
                 const SizedBox(height: F.s8),

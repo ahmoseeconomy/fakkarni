@@ -46,17 +46,6 @@ void main() {
       expect(d.summary(), contains('قرص'));
       expect(d.summary(), contains('للضغط'));
 
-      // السكوت بيعدّي (الـflow بينده skipOptional على text == null)
-      final q = med('ضيف دوا كونكور الساعة ٩ بالليل');
-      expect(q.question!.id, 'dlg_med_form');
-      expect(q.skipOptional(), isTrue);
-      expect(q.question!.id, 'dlg_med_purpose');
-      expect(q.skipOptional(), isTrue);
-      expect(q.complete, isTrue);
-      // وعلى سؤال أساسي السكوت **مش** بيعدّي
-      final r = med('ضيف دوا');
-      expect(r.skipOptional(), isFalse, reason: 'الاسم مش اختياري');
-
       // مش مفهومة مرتين على الاختياري = عدّي بخانة فاضية — مش الفورم
       final w = med('ضيف دوا كونكور الساعة ٩ بالليل');
       expect(w.answer('أبيض', now: now), isFalse);
