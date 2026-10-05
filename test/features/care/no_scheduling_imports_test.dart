@@ -17,7 +17,15 @@ void main() {
     ];
     for (final entity in files) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final source = entity.readAsStringSync();
+      // **استثناء واحد، متوسّع عن قصد (المرحلة ٤، ٥ أكتوبر ٢٠٢٦):**
+      // `routine_day.dart` — تعريف حد اليوم (٤:٠٠) الوحيد. شاشة الممرض
+      // بتجمّع «النهارده» بنفس حد المريض (قرار المالك 3A)، ونسخة تانية
+      // من الـ٤:٠٠ هنا هي بالظبط «تعريفين يختلفوا في صمت» اللي الحارس
+      // ده موجود عشانه. الملف ده **ما بيحلّش مراسي** ولا بيحسب ميعاد
+      // تذكير — تاريخ بيتقسم على حد. كل باقي domain/scheduling لسه ممنوع.
+      final source = entity
+          .readAsStringSync()
+          .replaceAll('domain/scheduling/routine_day.dart', '');
       expect(
         source.contains('domain/scheduling'),
         isFalse,

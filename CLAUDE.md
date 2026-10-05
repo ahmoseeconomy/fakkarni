@@ -98,8 +98,13 @@ These are product decisions, already settled. Do not "improve" them without aski
   `lib/features/emergency/`, with `F.red` on the ambulance button. The pill
   is the only red outside those screens, and it holds its meaning **because
   nothing else takes it**: the mockup's red card buttons are gold here.
-  **Two exceptions, each decided by the owner and each bounded the same
-  way — one file, and never a fill.** The second is the son's escalation
+  **Three exceptions, each decided by the owner and each bounded the same
+  way — tokens in one file, and never a fill on a whole card.** The third
+  (4 Oct 2026, widened 5 Oct for the nurse): the «للقلب والضغط» group head
+  — a red heart on its pink tint, tokens `medGroupHeartInk/Tint` living in
+  `med_groups.dart` only, and the guard also pins the *usage* to exactly
+  the patient's «أدويتك» and the nurse's «أدويته» (`MedGroupHead` on any
+  third screen fails). The second is the son's escalation
   alert card (`caregiver_screen.dart`): border, start bar and a ⚠ icon in
   `F.careAlertInk`, with the text in ink and the ground untouched. Same
   values as `F.outOfRangeInk` (5.23:1 light / 5.09:1 dark on the worst
@@ -1713,7 +1718,15 @@ disagree with the real one. The father's device is the only scheduler; the
 caregiver view (`lib/features/care/`, data via `CaregiverRemote` in
 `lib/data/care/`) renders only what his device wrote onto `dose_events`
 (`scheduled_at` instants), or shows nothing. Enforced by
-`test/features/care/no_scheduling_imports_test.dart`. The screen reports,
+`test/features/care/no_scheduling_imports_test.dart` — **with one deliberate
+exception since المرحلة ٤ (5 Oct 2026): `domain/scheduling/routine_day.dart`
+is allowed**, because the nurse's «يومك» groups today by the same 04:00
+boundary as the patient (owner decision 3A) and a second copy of that
+boundary on the care side is exactly the silent-disagreement this guard
+exists to prevent. That file resolves no anchors and computes no reminder
+time — a date divided by a boundary, same spirit as the shared
+`rule_wording`. Everything else under `domain/scheduling` stays forbidden,
+mutation-checked. The screen reports,
 it does not judge: a past-due unconfirmed dose is «لسه ما اتأكدتش» in gold —
 never «فاتت», never red ("missed" is Phase 4's grace-window decision). The
 footer is «آخر تحديث من موبايل والدك» from the max server `updated_at` —

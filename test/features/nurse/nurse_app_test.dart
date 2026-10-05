@@ -1,6 +1,13 @@
 import 'package:drift/native.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' show ImageByteFormat;
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:fakkarni/features/today/widgets/day_rail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fakkarni/app/app_scope.dart';
@@ -25,7 +32,7 @@ import 'package:fakkarni/features/nurse/nurse_widgets.dart';
 import '../../app/root_test.dart' show SilentSink;
 import '../../data/billing/subscription_service_test.dart' show FakeRemote, FakeStore;
 import '../care/caregiver_screen_test.dart' show event;
-import '../scan/scan_test_support.dart' show settle, screenTest;
+import '../scan/scan_test_support.dart' show settle, screenTest, pickWheel, expectNoRedAndMinSize;
 
 final now = DateTime(2026, 8, 31, 14);
 
@@ -111,6 +118,7 @@ void main() {
             amountLabel: 'قرص واحد',
             rules: ['الفطار − ٣٠ د'],
             purpose: 'pressure',
+            form: 'tablet',
             instructions: 'بعد الأكل',
             alertMode: 'continuous',
             stockQuantity: 6,
@@ -184,8 +192,12 @@ void main() {
       expect(find.text('ضيف'), findsNothing);
       expect(find.text('متابعة'), findsNothing);
       expect(find.text('بتتابع: الحاج أحمد'), findsOneWidget);
-      expect(find.text('الآن'), findsOneWidget);
-      expect(find.text('جدول النهارده'), findsOneWidget);
+      // الشكل الجديد (المرحلة ٤): التحية بالشمس والدايرة وكارت «الجرعة
+      // الجاية» و«باقي اليوم» — زي «يومك» عند المريض
+      expect(find.byKey(const ValueKey('nurse-greeting')), findsOneWidget);
+      expect(find.byKey(const ValueKey('today-progress-ring')), findsOneWidget);
+      expect(find.text('الجرعة الجاية'), findsOneWidget);
+      expect(find.text('باقي اليوم'), findsOneWidget);
       expect(find.text('معلومة تهمك'), findsOneWidget, reason: 'كارت المعلومة زي «يومك»');
     });
 
@@ -195,7 +207,8 @@ void main() {
       expect(find.byKey(const ValueKey('weekly-summary')), findsOneWidget);
       expect(find.text('ملخص الأسبوع — ٢٤ أغسطس لـ٣٠ أغسطس'), findsOneWidget);
       final summaryY = tester.getTopLeft(find.byKey(const ValueKey('weekly-summary'))).dy;
-      expect(summaryY, lessThan(tester.getTopLeft(find.text('الآن')).dy));
+      expect(summaryY, lessThan(tester.getTopLeft(find.byKey(const ValueKey('nurse-now-card'))).dy),
+          reason: 'الملخص فوق كارت «الجرعة الجاية»');
     });
 
     screenTest('المتابع العادي: شاشته القديمة زي ما هي', (tester) async {
@@ -252,6 +265,27 @@ void main() {
       expect(find.text('بتتابع: الحاجة فاطمة'), findsOneWidget);
     });
 
+    screenTest('مدة الملخص لكل مريض لوحده: «غيّر» لمريض تاني بيرجّعها لافتراضيها', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      cloud.snapshots['p2'] = snap(uuid: 'p2', name: 'الحاجة فاطمة');
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('summary-range')));
+      await settle(tester);
+      await pickWheel(tester, const ValueKey('range-to-wheel'), 3);
+      await pickWheel(tester, const ValueKey('range-from-wheel'), 1);
+      await tester.tap(find.byKey(const ValueKey('range-save')));
+      await settle(tester);
+      expect(find.textContaining('الملخص —'), findsOneWidget, reason: 'مدة مختارة لمريض الأول');
+
+      await tester.tap(find.byKey(const ValueKey('nurse-switch')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('nurse-patient-p2')));
+      await settle(tester);
+      // المفتاح بالمريض: مدة الأول ما اتشالتش للتانية
+      expect(find.textContaining('ملخص الأسبوع'), findsOneWidget);
+      expect(find.textContaining('الملخص —'), findsNothing);
+    });
+
     screenTest('مريض واحد: مفيش «غيّر»', (tester) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
@@ -259,14 +293,81 @@ void main() {
     });
   });
 
+  group('المرحلة ٤ — شكل «يومك» الجديد عند الممرض', () {
+    screenTest('الدايرة بتعدّ من صفوف الصورة، وكارت «الجرعة الجاية» بزراره الواحد — ومفيش تأجيل', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      // ٤ جرعات النهارده، واحدة متاخدة
+      expect(find.text('١ من ٤'), findsOneWidget);
+      // الكارت: الفايتة (٩) واللي معادها دلوقتي (١٢) — سطرين بزرار محدّد لكل واحد
+      expect(find.text('الجرعة الجاية'), findsOneWidget);
+      expect(find.text('أكّد إنه أخدها'), findsNWidgets(2));
+      // **قرار 3A**: ولا تأجيل ولا «أخدتهم كلهم» — الممرض ما بيأجّلش جدول المريض
+      expect(find.textContaining('فكّرني'), findsNothing);
+      expect(find.textContaining('لاحق'), findsNothing);
+      expect(find.text('أخدتهم كلهم'), findsNothing);
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('«باقي اليوم»: المتاخدة والجاية بالسكة ورسمة النوع — والصف مش بيتداس', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      expect(find.text('باقي اليوم'), findsOneWidget);
+      final rail = find.byType(DayRail);
+      // المتاخدة ٧:٠٠ والجاية ٨:٠٠ م (Concor) على السكة — الكارت مفيهوش Concor
+      expect(find.descendant(of: rail, matching: find.byKey(const ValueKey('med-type-art-tablet'))), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('rail-mark-done')), findsOneWidget);
+      // ومفيش InkWell بيفتح حاجة — onOpen null (مفيش شاشة تذكير عنده)
+      final rows = tester.widgetList<InkWell>(
+        find.descendant(of: rail, matching: find.byType(InkWell)),
+      );
+      for (final r in rows) {
+        expect(r.onTap, isNull, reason: 'صف السكة عند الممرض مش بيتداس');
+      }
+    });
+
+    screenTest('مفيش أدوية النهارده: مفيش دايرة ولا كارت — والسطر الهادي نفسه بتاع المريض', (tester) async {
+      final empty = snap();
+      cloud.snapshots['p1'] = CaregiverSnapshot(
+        patient: empty.patient,
+        medications: const [],
+        events: const [],
+        lastUpdated: DateTime(2026, 8, 31, 13),
+      );
+      await pump(tester);
+      expect(find.byKey(const ValueKey('today-progress-ring')), findsNothing);
+      expect(find.byKey(const ValueKey('nurse-now-card')), findsNothing);
+      expect(find.text('مفيش أدوية النهارده'), findsOneWidget);
+    });
+
+    screenTest('التحية بالشمس الحقيقية — الضهر صباح', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester); // now = ٢ الضهر
+      expect(find.text('صباح الخير'), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-greeting-sun')), findsOneWidget);
+    });
+  });
+
   group('«أدويته»', () {
+    screenTest('مجموعات بالغرض بألوانها — رأس «للقلب والضغط» ورسمة النوع بديل الصورة (قرار 2A)', (tester) async {
+      cloud.snapshots['p1'] = snap();
+      await pump(tester);
+      await tester.tap(find.text('الأدوية'));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('med-group-heartPressure')), findsOneWidget);
+      expect(find.text('للقلب والضغط'), findsOneWidget);
+      // الصورة مش موجودة (التنزيل بيرجّع null) → رسمة النوع مش أيقونة عامة
+      expect(find.byKey(const ValueKey('med-type-art-tablet')), findsWidgets);
+      expectNoRedAndMinSize(tester);
+    });
+
     screenTest('التفاصيل كاملة: الجرعة والميعاد والغرض والتعليمات والتنبيه', (tester) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
       await tester.tap(find.text('الأدوية').last);
       await settle(tester);
       expect(find.textContaining('الفطار − ٣٠ د'), findsOneWidget);
-      expect(find.textContaining('ضغط'), findsOneWidget);
+      expect(find.textContaining('ضغط'), findsNWidgets(2) /* سطر الغرض + رأس المجموعة الجديد */);
       expect(find.textContaining('بعد الأكل'), findsOneWidget);
       expect(find.textContaining('مستمر'), findsOneWidget);
       expect(find.byKey(const ValueKey('nurse-add-medication')), findsNothing, reason: 'من غير صلاحية التعديل');
@@ -502,5 +603,93 @@ void main() {
       expect(find.byKey(const ValueKey('vital-add')), findsNothing);
       expect(find.byKey(const ValueKey('vital-ask-doctor')), findsNothing);
     });
+  });
+
+  group('لقطات المرحلة ٤ — PNG حقيقية من نفس الحزام (المحاكي محتاج حساب مربوط)', () {
+    setUpAll(() async {
+      final loader = FontLoader('Cairo');
+      for (final f in [
+        'Cairo-Regular.ttf',
+        'Cairo-Medium.ttf',
+        'Cairo-SemiBold.ttf',
+        'Cairo-Bold.ttf',
+        'Cairo-ExtraBold.ttf',
+      ]) {
+        loader.addFont(Future.value(ByteData.sublistView(File('assets/fonts/$f').readAsBytesSync())));
+      }
+      await loader.load();
+    });
+
+    tearDown(() => F.setDark(on: false));
+
+    Future<void> capture(WidgetTester tester, String name) async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('capture-root')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        final bytes = await image.toByteData(format: ImageByteFormat.png);
+        final file = File('build/capture/nurse/$name.png')..createSync(recursive: true);
+        file.writeAsBytesSync(bytes!.buffer.asUint8List());
+      });
+    }
+
+    Future<void> shoot(WidgetTester tester, {required bool dark, required bool withMeds}) async {
+      F.setDark(on: dark);
+      final empty = snap();
+      cloud.snapshots['p1'] = withMeds
+          ? snap()
+          : CaregiverSnapshot(
+              patient: empty.patient,
+              medications: const [],
+              events: const [],
+              lastUpdated: DateTime(2026, 8, 31, 13),
+            );
+      tester.view.physicalSize = const Size(780, 1688); // 390×844 @2x
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final patients = PatientRepository(db);
+      final meds = MedicationRepository(db);
+      final events = DoseEventRepository(db);
+      final patientId = await patients.ensurePatient();
+      await tester.pumpWidget(RepaintBoundary(
+        key: const ValueKey('capture-root'),
+        child: AppScope(
+          services: AppServices(
+            db: db,
+            patients: patients,
+            medications: meds,
+            events: events,
+            scheduler: ReminderScheduler(medications: meds, events: events, patientId: patientId, sink: SilentSink()),
+            patientId: patientId,
+            caregiver: cloud,
+            proxy: proxy,
+            medChanges: changes,
+            subscription: sub,
+          ),
+          child: MaterialApp(
+            theme: F.light,
+            home: Directionality(
+              textDirection: TextDirection.rtl,
+              child: CaregiverShell(onNotLinked: () {}, now: now, nurseSink: _NoDevice()),
+            ),
+          ),
+        ),
+      ));
+      await settle(tester);
+      final mode = dark ? 'night' : 'day';
+      final who = withMeds ? 'meds' : 'empty';
+      await capture(tester, 'today-$mode-$who');
+      await tester.tap(find.text('الأدوية').last);
+      await settle(tester);
+      await capture(tester, 'medications-$mode-$who');
+    }
+
+    for (final dark in [false, true]) {
+      for (final withMeds in [true, false]) {
+        screenTest('لقطة ${dark ? 'ليلي' : 'نهاري'} — ${withMeds ? 'بأدوية' : 'من غير'}', (tester) async {
+          await shoot(tester, dark: dark, withMeds: withMeds);
+        });
+      }
+    }
   });
 }

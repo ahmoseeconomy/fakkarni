@@ -119,6 +119,38 @@ class CaregiverMedication {
   final List<String> rules;
 }
 
+/// صف `dose_events` من السحابة ← [CaregiverDoseEvent] — **نقية** زي
+/// [alertFromRow]: الضمّة المتداخلة بتتختبر من غير Supabase.
+CaregiverDoseEvent eventFromRow(Map<String, Object?> e) {
+  final med = ((e['dose_schedules'] as Map?)?['medications']) as Map?;
+  return CaregiverDoseEvent(
+    uuid: e['uuid'] as String? ?? '',
+    medicationUuid: med?['uuid'] as String?,
+    medicationName: med?['name'] as String? ?? 'دواء',
+    amountLabel: med?['amount_label'] as String?,
+    scheduledAt: DateTime.parse(e['scheduled_at'] as String).toLocal(),
+    state: e['state'] as String,
+    // `routine_day` تاريخ من غير ساعة — بيتقرا زي ما هو
+    routineDay: e['routine_day'] == null ? null : DateTime.parse(e['routine_day'] as String),
+    actedAt: e['acted_at'] == null ? null : DateTime.parse(e['acted_at'] as String).toLocal(),
+  );
+}
+
+/// دوا الصف — **بالـuuid الأول**، والاسم بديل للصف القديم اللي من غيره.
+/// null = الدوا مش في الصورة (اتشال مثلاً) — الصف بيتعرض باسمه من غير
+/// رسمة نوعه.
+CaregiverMedication? medicationForDose(List<CaregiverMedication> medications, CaregiverDoseEvent dose) {
+  if (dose.medicationUuid case final id?) {
+    for (final m in medications) {
+      if (m.uuid == id) return m;
+    }
+  }
+  for (final m in medications) {
+    if (m.name == dose.medicationName) return m;
+  }
+  return null;
+}
+
 /// حدث جرعة زي ما جهاز الأب كتبه — الحالة بالحرف، والوقت اللي هو حسبه.
 class CaregiverDoseEvent {
   const CaregiverDoseEvent({
@@ -126,6 +158,7 @@ class CaregiverDoseEvent {
     required this.medicationName,
     required this.scheduledAt,
     required this.state,
+    this.medicationUuid,
     this.amountLabel,
     this.actedAt,
     this.routineDay,
@@ -133,6 +166,11 @@ class CaregiverDoseEvent {
 
   final String uuid;
   final String medicationName;
+
+  /// uuid الدوا (المرحلة ٤، ٥ أكتوبر ٢٠٢٦ — قرار المالك 1A): الربط بالدوا
+  /// بيه، والاسم **بديل بس** لما يبقى null (صف قديم قبل توسيع القراية) —
+  /// دواءين بنفس الاسم كانوا بيتلخبطوا بالاسم.
+  final String? medicationUuid;
 
   /// يوم الروتين اللي موبايل المريض كتبه (`dose_events.routine_day`، موجود
   /// من `0001`). null = صف قديم/اختبار — الحساب بيرجع لتاريخ الساعة.

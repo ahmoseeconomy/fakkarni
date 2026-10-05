@@ -123,7 +123,7 @@ class _NowBlockState extends State<NowBlock> {
           const SizedBox(height: F.s10),
           for (final (i, line) in due.indexed) ...[
             if (i > 0) const _LineGap(),
-            _DoseBig(
+            DoseShowcase(
               line: line,
               now: widget.now,
               compact: widget.compact,
@@ -156,7 +156,7 @@ class _NowBlockState extends State<NowBlock> {
             ),
             for (final (i, line) in postponed.indexed) ...[
               if (i > 0) const _LineGap(),
-              _DoseBig(
+              DoseShowcase(
                 line: line,
                 now: widget.now,
                 compact: widget.compact,
@@ -235,15 +235,17 @@ String doseAmountLine(DoseEventView dose) => [
       ?dose.mealLabel,
     ].join(' ');
 
-/// **سطر دوا بعرض التصميم.** الاسم والشريحة والجرعة يمين، والساعة تحت خط،
-/// والرسمة (أو صورته) شمال من غير أي كلام عليها.
+/// **سطر دوا بعرض التصميم** — عام (٥ أكتوبر ٢٠٢٦): كارت «الجرعة الجاية»
+/// عند الممرض بيستعمله بنفس الشكل، بأزراره هو. الاسم والشريحة والجرعة
+/// يمين، والساعة تحت خط، والرسمة (أو صورته) شمال من غير أي كلام عليها.
 ///
 /// **الساعة مكتوبة مرة واحدة** — في صفها الكبير. سطر الحالة تحتها من غيرها
 /// (مراجعة المالك ٥ أكتوبر: «دلوقتي» + «١٠:٠٠ ص» + «معادها دلوقتي — ١٠:٠٠ ص»
 /// كانوا تلات مرات لنفس اللحظة). «نسيتها؟» فوق الاسم بعد المهلة بس — كلمة
 /// حالة مش ساعة، وهي الجملة المكتوبة من زمان.
-class _DoseBig extends StatelessWidget {
-  const _DoseBig({
+class DoseShowcase extends StatelessWidget {
+  const DoseShowcase({
+    super.key,
     required this.line,
     required this.now,
     required this.pictureSize,

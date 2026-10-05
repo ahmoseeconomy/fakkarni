@@ -28,7 +28,7 @@ class DayRail extends StatelessWidget {
     required this.groups,
     required this.now,
     required this.ruleLabelFor,
-    required this.onOpen,
+    this.onOpen,
     super.key,
   });
 
@@ -36,7 +36,9 @@ class DayRail extends StatelessWidget {
   final List<List<DoseEventView>> groups;
   final DateTime now;
   final String? Function(int doseScheduleId) ruleLabelFor;
-  final void Function(List<DoseEventView> group) onOpen;
+  /// null (الممرض، ٥ أكتوبر ٢٠٢٦) = الصف مش بيتداس — مفيش شاشة تذكير
+  /// تتفتح على موبايله، ودوسة بتعمل موجة من غير معنى أوحش من مفيش دوسة.
+  final void Function(List<DoseEventView> group)? onOpen;
 
   /// عرض عمود العلامة، ومقاسها، ومقاس الرسمة الصغيرة.
   static const double _markWidth = 36;
@@ -73,7 +75,7 @@ class DayRail extends StatelessWidget {
     final firstDose = group.first;
     return InkWell(
       key: ValueKey('rail-row-${firstDose.doseScheduleId}'),
-      onTap: () => onOpen(group),
+      onTap: onOpen == null ? null : () => onOpen!(group),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

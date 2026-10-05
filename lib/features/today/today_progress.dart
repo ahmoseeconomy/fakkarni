@@ -30,12 +30,17 @@ const goingWellLine = 'إنت ماشي كويس النهارده';
 const dosesLeftLine = 'فاضل لك جرعات النهارده';
 const noDosesTodayLine = 'مفيش أدوية النهارده';
 
-TodayProgress todayProgress(List<DoseEventView> today, DateTime now) {
+TodayProgress todayProgress(List<DoseEventView> today, DateTime now) =>
+    todayProgressOf([for (final d in today) (scheduledAt: d.scheduledAt, state: d.state)], now);
+
+/// نفس الحساب على (الميعاد، الحالة) بس — موبايل الممرض بيغذّيه من صفوف
+/// الصورة (المرحلة ٤، ٥ أكتوبر ٢٠٢٦): حساب واحد للدايرة عند الاتنين.
+TodayProgress todayProgressOf(List<({DateTime scheduledAt, DoseState state})> today, DateTime now) {
   if (today.isEmpty) return const TodayProgress(taken: 0, total: 0, line: noDosesTodayLine);
   final counted = [for (final d in today) if (d.state != DoseState.skipped) d];
   final taken = counted.where((d) => d.state == DoseState.taken).length;
   final open = [for (final d in counted) if (d.state != DoseState.taken) d];
-  bool missed(DoseEventView d) =>
+  bool missed(({DateTime scheduledAt, DoseState state}) d) =>
       doseMomentOf(scheduledAt: d.scheduledAt, now: now, markedMissed: d.state == DoseState.missed) == DoseMoment.missed;
   final anyMissed = open.any(missed);
   final anyLeft = open.any((d) => !missed(d));

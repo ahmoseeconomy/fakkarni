@@ -27,9 +27,12 @@ const _labFlagFile = 'lib/features/health/lab_flag.dart';
 /// الحارس شايفه ومسامح في مكان واحد.
 const _caregiverAlertFile = 'lib/features/care/caregiver_screen.dart';
 
-/// **الاستثناء التالت، بقرار صاحب المنتج (٤ أكتوبر ٢٠٢٦)**: عنوان مجموعة
-/// «للقلب والضغط» على «أدويتك» — قلب أحمر على أرضية وردي زي التصميم. ملف
-/// واحد، والاسمين في النمط الممنوع، فأي ملف تاني بيكتبهم بيوقع.
+/// **الاستثناء التالت، بقرار صاحب المنتج (٤ أكتوبر ٢٠٢٦ — واتوسّع
+/// ٥ أكتوبر لقرار 2A)**: عنوان مجموعة «للقلب والضغط» — قلب أحمر على
+/// أرضية وردي زي التصميم — على «أدويتك» عند المريض **و«أدويته» عند
+/// الممرض** وبس. الرموز في ملف واحد والاسمين في النمط الممنوع، فأي ملف
+/// تاني بيكتبهم بيوقع؛ والاختبار تحت بيقفل **الاستعمال** على الشاشتين
+/// دول بالظبط.
 const _medGroupsFile = 'lib/features/medication/med_groups.dart';
 
 void main() {
@@ -56,6 +59,20 @@ void main() {
       }
     }
     expect(offenders, isEmpty);
+  });
+
+  test('رؤوس المجموعات (ومعاها قلبها الأحمر) على «أدويتك» و«أدويته» بس — مش أي شاشة تالتة', () {
+    final users = <String>{};
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final path = entity.path.replaceAll(r'\', '/');
+      if (path == _medGroupsFile) continue; // التعريف نفسه
+      if (entity.readAsStringSync().contains('MedGroupHead(')) users.add(path);
+    }
+    expect(users, {
+      'lib/features/medication/medications_screen.dart',
+      'lib/features/nurse/nurse_medications_screen.dart',
+    }, reason: 'شاشة تالتة بتاخد ألوان المجموعات = قرار جديد للمالك، مش استيراد');
   });
 
   testWidgets('علامة «برّه النطاق»: أحمر نص وإطار — ومن غير أي حشو', (tester) async {

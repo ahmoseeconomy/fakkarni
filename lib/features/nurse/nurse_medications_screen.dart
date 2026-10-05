@@ -16,6 +16,9 @@ import '../../data/care/caregiver_remote.dart';
 import '../../domain/care/medication_change.dart';
 import '../../domain/escalation/alert_mode.dart';
 import '../../domain/medication/medication_purpose.dart';
+import '../../domain/medication/medicine_form.dart';
+import '../medication/med_groups.dart';
+import '../medication/med_photo.dart' show MedPhotoThumb;
 import '../medication/nurse_draft.dart';
 import '../medication/refill_actions.dart' show showRestockSheet;
 import 'nurse_actions.dart';
@@ -197,6 +200,48 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
     );
   }
 
+  /// نفس تجميع «أدويتك»: مجموعة لكل غرض بترتيب [MedGroup.values]، والموقوف
+  /// تحت برأس «الموقوفة» — والكارت بكل أفعال الممرض زي ما كان.
+  List<Widget> _groupedCards(CaregiverSnapshot snapshot, bool canEdit) {
+    Widget card(CaregiverMedication m) => _MedicationCard(
+          med: m,
+          patientUuid: snapshot.patient.uuid,
+          onPhoto: canEdit ? () => _changePhoto(m) : null,
+          onAmount: canEdit ? () => _editAmount(m) : null,
+          onStop: canEdit && !m.stopped ? () => _stop(m) : null,
+          onResume: canEdit && m.stopped ? () => _c.resumeMedication(m) : null,
+          onTimings: canEdit && !m.stopped ? () => editTimingsAsNurse(context, _c, m) : null,
+          onRemove: canEdit ? () => removeAsNurse(context, _c, m) : null,
+          onRestock: canEdit ? () => _restock(m) : null,
+          onSetStock: canEdit ? () => setStockAsNurse(context, _c, m) : null,
+          onOrder: m.stockLow ? () => orderForPatient(context, _c, m.name) : null,
+        );
+
+    final active = <MedGroup, List<CaregiverMedication>>{};
+    final stopped = <CaregiverMedication>[];
+    for (final m in snapshot.medications) {
+      if (m.stopped) {
+        stopped.add(m);
+      } else {
+        active.putIfAbsent(MedGroup.of(MedicationPurpose.fromStorage(m.purpose)), () => []).add(m);
+      }
+    }
+    return [
+      for (final g in MedGroup.values)
+        if (active[g] case final meds?) ...[
+          MedGroupHead(g),
+          const SizedBox(height: F.s10),
+          for (final m in meds) card(m),
+          const SizedBox(height: F.s8),
+        ],
+      if (stopped.isNotEmpty) ...[
+        const MedGroupHead(MedGroup.stopped),
+        const SizedBox(height: F.s10),
+        for (final m in stopped) card(m),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Listenable.merge([_c, _c.holder]),
@@ -231,19 +276,10 @@ class _NurseMedicationsScreenState extends State<NurseMedicationsScreen> {
                   padding: const EdgeInsets.only(bottom: F.s10),
                   child: NurseQuietLine(_c.queuedLine(q), key: ValueKey('nurse-queued-${q.uuid}')),
                 ),
-              for (final m in snapshot.medications) _MedicationCard(
-                med: m,
-                patientUuid: snapshot.patient.uuid,
-                onPhoto: canEdit ? () => _changePhoto(m) : null,
-                onAmount: canEdit ? () => _editAmount(m) : null,
-                onStop: canEdit && !m.stopped ? () => _stop(m) : null,
-                onResume: canEdit && m.stopped ? () => _c.resumeMedication(m) : null,
-                onTimings: canEdit && !m.stopped ? () => editTimingsAsNurse(context, _c, m) : null,
-                onRemove: canEdit ? () => removeAsNurse(context, _c, m) : null,
-                onRestock: canEdit ? () => _restock(m) : null,
-                onSetStock: canEdit ? () => setStockAsNurse(context, _c, m) : null,
-                onOrder: m.stockLow ? () => orderForPatient(context, _c, m.name) : null,
-              ),
+              // **مجموعات بالغرض بألوانها** — شكل «أدويتك» نفسه (المرحلة ٤،
+              // قرار المالك 2A): نفس الرؤوس ونفس الترتيب، وكل أفعال الممرض
+              // على الكارت زي ما هي
+              ..._groupedCards(snapshot, canEdit),
               if (canEdit) ...[
                 const SizedBox(height: F.s8),
                 FSecondaryButton(key: const ValueKey('nurse-add-medication'), label: 'ضيف دوا', onPressed: _add),
@@ -318,7 +354,13 @@ class _MedicationCard extends StatelessWidget {
                   medicationUuid: med.uuid,
                   name: med.name,
                   size: 64,
-                  fallback: Icon(Icons.medication_outlined, color: F.mutedDark, size: 32),
+                  // رسمة نوعه لما مفيش صورة — نفس بديل «أدويتك» (المرحلة ٤)
+                  fallback: MedPhotoThumb(
+                    path: null,
+                    name: med.name,
+                    form: MedicineForm.fromWire(med.form),
+                    size: 64,
+                  ),
                 ),
                 const SizedBox(width: F.s12),
                 Expanded(

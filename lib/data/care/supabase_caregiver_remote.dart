@@ -414,7 +414,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
         final events = await _supabase
             .from('dose_events')
             .select('uuid, scheduled_at, routine_day, state, acted_at, updated_at, '
-                'dose_schedules!inner(medications!inner(name, amount_label, removed_at))')
+                // uuid الدوا (٥ أكتوبر) — الربط بيه مش بالاسم: دواءين بنفس
+                // الاسم كانوا بيتلخبطوا. نفس الضمّة، عمود زيادة بس.
+                'dose_schedules!inner(medications!inner(uuid, name, amount_label, removed_at))')
             .gte('scheduled_at', since.toIso8601String())
             // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
             .neq('state', 'superseded')
@@ -535,25 +537,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             for (final m in meds)
               if (m['stopped_at'] == null) medicationFromRow(m),
           ],
-          events: [
-            for (final e in events)
-              CaregiverDoseEvent(
-                uuid: e['uuid'] as String,
-                medicationName: (((e['dose_schedules'] as Map?)?['medications']
-                        as Map?)?['name'] as String?) ??
-                    'دواء',
-                amountLabel: ((e['dose_schedules'] as Map?)?['medications']
-                    as Map?)?['amount_label'] as String?,
-                scheduledAt:
-                    DateTime.parse(e['scheduled_at'] as String).toLocal(),
-                state: e['state'] as String,
-                // `routine_day` تاريخ من غير ساعة — بيتقرا زي ما هو
-                routineDay: e['routine_day'] == null ? null : DateTime.parse(e['routine_day'] as String),
-                actedAt: e['acted_at'] == null
-                    ? null
-                    : DateTime.parse(e['acted_at'] as String).toLocal(),
-              ),
-          ],
+          events: [for (final e in events) eventFromRow((e as Map).cast())],
           alerts: [for (final a in alerts) alertFromRow(a)],
           lastUpdated: last?.toLocal(),
           records: [for (final r in records) ?recordFromRow(r)],

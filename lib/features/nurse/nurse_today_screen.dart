@@ -5,7 +5,6 @@ import '../../core/widgets/primitives.dart';
 import '../../core/format/arabic_time.dart' show arabicTime;
 import '../../data/care/caregiver_remote.dart';
 import '../../domain/medication/medication_purpose.dart';
-import '../care/caregiver_status.dart';
 import '../care/caregiver_words.dart' show timeSince;
 import '../adherence/adherence_card.dart';
 import '../adherence/adherence_screen.dart';
@@ -16,7 +15,11 @@ import '../medication/pharmacy_sheet.dart' show PharmacyPrefill;
 import '../nearby/nearby_screen.dart';
 import 'nurse_actions.dart';
 import 'nurse_controller.dart';
+import 'nurse_day_look.dart';
 import 'nurse_widgets.dart';
+import '../../app/day_night.dart';
+import '../today/today_progress.dart';
+import '../today/widgets/day_rail.dart';
 import '../adherence/weekly_summary_card.dart';
 import '../adherence/weekly_summary_sources.dart';
 
@@ -73,19 +76,14 @@ class NurseTodayScreen extends StatelessWidget {
                     ),
             );
           }
-          final s = careDoseSections(snapshot, t);
-          final nowEvent = s.missed.isNotEmpty ? s.missed.first : s.upcomingToday.firstOrNull;
-          final day = [...s.missed, ...s.upcomingToday, ...s.taken, ...s.skipped]
-            ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-
-          Widget row(CaregiverDoseEvent e, {bool big = false}) => NurseDoseRow(
-                event: e,
-                now: t,
-                big: big,
-                proxied: snapshot.proxied.containsKey(e.uuid),
-                busy: controller.busy.contains(e.uuid),
-                onConfirm: controller.canConfirm ? () => controller.confirm(e) : null,
-              );
+          // الشكل الجديد (المرحلة ٤): نفس تقسيمة «يومك» — الكارت لِلّي
+          // معاده جه، و«باقي اليوم» للباقي، واليوم بيبدأ ٤:٠٠ زي المريض
+          final todayRows = nurseTodayDoses(snapshot, t);
+          final split = nurseDaySplit([for (final r in todayRows) r.view], t);
+          final progress = todayProgressOf(
+            [for (final r in todayRows) (scheduledAt: r.view.scheduledAt, state: r.view.state)],
+            t,
+          );
 
           return RefreshIndicator(
             onRefresh: holder.refresh,
@@ -116,17 +114,30 @@ class NurseTodayScreen extends StatelessWidget {
                   ),
                 // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق، بعد التنبيهات
                 SnapshotWeeklySummary(
+                  // مفتاح بالمريض (المرحلة ٤): «غيّر» لمريض تاني = مدة
+                  // الملخص بترجع لافتراضيها — مدة واحد ما تتشالش للتاني
+                  key: ValueKey('nurse-summary-${snapshot.patient.uuid}'),
+                  
                   today: t,
                   summaryFor: (r) => summaryFromSnapshot(snapshot, t, from: r.from, to: r.to),
                 ),
                 const SizedBox(height: F.gap),
-                const FSectionHead('الآن'),
-                const SizedBox(height: F.s8),
-                if (nowEvent == null)
-                  const NurseQuietLine('مفيش جرعة دلوقتي — كل حاجة في وقتها.')
-                else
-                  row(nowEvent, big: true),
-                const SizedBox(height: F.s12),
+                // التحية بالشمس الحقيقية والدايرة — زي «يومك» بالحرف،
+                // ومفيش أدوية = مفيش دايرة والسطر الهادي نفسه
+                NurseDayHeader(progress: progress, daytime: DayNight.isDaytime(t)),
+                const SizedBox(height: F.gap),
+                if (split.card.isNotEmpty) ...[
+                  NurseNowCard(
+                    groups: split.card,
+                    events: todayRows,
+                    now: t,
+                    canConfirm: controller.canConfirm,
+                    proxied: snapshot.proxied.keys.toSet(),
+                    busy: controller.busy,
+                    onConfirm: controller.confirm,
+                  ),
+                  const SizedBox(height: F.s12),
+                ],
                 // «ماشي إزاي» — تحت «الآن»، قراية. «أخدتها متأخر» جوّه
                 // التفاصيل بس لو التأكيد مسموح، وعلى نفس سكّة التأكيد نيابةً.
                 if (circleAdherence(snapshot, t) case final a?) ...[
@@ -150,12 +161,32 @@ class NurseTodayScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: F.s12),
                 ],
-                const FSectionHead('جدول النهارده'),
-                const SizedBox(height: F.s8),
-                if (day.isEmpty)
-                  const NurseQuietLine('مفيش جرعات متسجّلة النهارده لسه.')
-                else
-                  for (final e in day) row(e),
+                if (split.rest.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.format_list_bulleted, size: 26, color: F.green),
+                      const SizedBox(width: F.s8),
+                      Text(
+                        'باقي اليوم',
+                        key: const ValueKey('nurse-rest-title'),
+                        style: TextStyle(
+                          fontFamily: F.displayFamily,
+                          fontSize: F.subtitleSize,
+                          fontWeight: FontWeight.w800,
+                          color: F.ink,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: F.s4),
+                  // السكة نفسها — من غير دوسة: مفيش شاشة تذكير على موبايله
+                  DayRail(
+                    groups: split.rest,
+                    now: t,
+                    ruleLabelFor: (_) => null,
+                  ),
+                ],
                 const SizedBox(height: F.gap),
                 // «القريب مني» على موبايل الممرض — بمكانه هو (الصيدلية اللي
                 // جنبه)، والحجز من الكارت طلب لموبايل المريض
