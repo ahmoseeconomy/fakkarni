@@ -49,6 +49,8 @@ import 'notifications_off_line.dart';
 import '../billing/family_notice_cards.dart';
 import 'widgets/circle_notices.dart';
 import 'widgets/refill_lines.dart';
+import 'widgets/progress_ring.dart';
+import 'today_progress.dart';
 
 /// «جدول النهاردة» (المخطط 24) — الجرعة الجاية مثبّتة فوق، وباقي اليوم
 /// تحتها على سكة. العنوان في جسم الصفحة — الشريط العلوي للهيكل ([AppShell]).
@@ -276,6 +278,12 @@ class _TodayScreenState extends State<TodayScreen> {
 
   List<List<DoseEventView>> _group(List<DoseEventView> events) => groupByMinute(events);
 
+  /// «باقي اليوم» = مجموعات النهارده اللي **مش** في كارت «الجرعة الجاية».
+  List<List<DoseEventView>> _restOfDay(List<List<DoseEventView>> groups, List<List<DoseEventView>> inCard) {
+    final carded = {for (final g in inCard) g.first.scheduledAt};
+    return [for (final g in groups) if (!carded.contains(g.first.scheduledAt)) g];
+  }
+
   /// الدوسة على كارت في السكة بتفتح شاشة التذكير بتاعته — أخدته / فكّرني /
   /// مش هاخده — بدل زرار أساسي على كل كارت.
   void _openReminder(List<DoseEventView> group) => Navigator.of(context).push(
@@ -346,6 +354,7 @@ class _TodayScreenState extends State<TodayScreen> {
                 builder: (context, snap) => _HomeHeader(
                   patient: snap.data,
                   now: _now,
+                  progress: todayProgress(events, _now),
                   followers: _followers,
                   onOpenCircle: _openCircle,
                   // «كلّمني» (المرحلة ٣): تحت التحية، فوق كل حاجة — طلب مفتوح
@@ -357,62 +366,60 @@ class _TodayScreenState extends State<TodayScreen> {
               // كارت «صباح الخير. النهارده عندك…» اتشال (طلب المدير، ٤ أكتوبر
               // ٢٠٢٦) — الكلام والكارت الاتنين.
               SizedBox(height: nowCards.isNotEmpty ? F.s8 : F.gap),
-              if (nowCards.isNotEmpty || glucoseNow) ...[
-                // **العدد في العنوان.** تلات كروت مكدّسة كانت بتخلّي
-                // السؤال «هما كام؟» محتاج نزول وعدّ؛ دلوقتي الإجابة في
-                // أول سطر بيقع عليه العين.
-                HelpRow(
-                  id: 'help_next_dose',
-                  child: _SectionTitle(nowCountLabel(lines.due.length + lines.postponed.length),
-                      attention: true),
+              // **كارت «الجرعة الجاية»** — العنوان والعدد جوّه الكارت نفسه
+              // (إعادة التصميم، ٤ أكتوبر ٢٠٢٦).
+              if (nowCards.isNotEmpty) ...[
+                NowBlock(
+                  lines: lines,
+                  now: _now,
+                  compact: isShortScreen(context),
+                  onConfirmLine: (line) => _markTaken([line.dose]),
+                  onConfirmAll: () =>
+                      _confirmAll([...lines.due, ...lines.postponed]),
+                  onLater: () => _laterAll(lines.due),
                 ),
-                const SizedBox(height: F.s8),
-                if (nowCards.isNotEmpty) ...[
-                  NowBlock(
-                    lines: lines,
-                    now: _now,
-                    onConfirmLine: (line) => _markTaken([line.dose]),
-                    onConfirmAll: () =>
-                        _confirmAll([...lines.due, ...lines.postponed]),
-                    onLater: () => _laterAll(lines.due),
-                  ),
-                  const SizedBox(height: F.s10),
-                ],
-                // سكر برّه المعتاد ليه هو — في «الآن»، ذهبي ومن غير لوم
-                if (glucoseNow) ...[
-                  GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
-                  const SizedBox(height: F.s10),
-                ],
-                const SizedBox(height: F.s8),
+                const SizedBox(height: F.s10),
               ],
+              // سكر برّه المعتاد ليه هو — جنب الكارت، ذهبي ومن غير لوم
+              if (glucoseNow) ...[
+                GlucoseHomeCard(readings: _readings, onOpen: _openGlucose),
+                const SizedBox(height: F.s10),
+              ],
+              if (nowCards.isNotEmpty || glucoseNow) const SizedBox(height: F.s8),
               if (nowCards.isEmpty && events.isNotEmpty) ...[
                 const _AllDonePanel(),
                 const SizedBox(height: F.gap),
               ],
-              Text(
-                'جدول النهاردة',
-                style: TextStyle(
-                  fontFamily: F.displayFamily,
-                  fontSize: F.subtitleSize,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
-                ),
-              ),
-              const SizedBox(height: F.s4),
-              Text(
-                'أدوية النهارده بالساعة — وحالة كل واحدة.',
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-              ),
-              const SizedBox(height: F.s12),
+              // **«باقي اليوم»** — جرعات النهارده **من غير اللي في الكارت**
+              // (المالك): اللي اتاخدت ✓ والجاية بعدها.
               if (events.isEmpty)
                 _EmptyPanel(hasMedications: _schedules.isNotEmpty)
-              else
+              else if (_restOfDay(groups, nowCards) case final rest when rest.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Icon(Icons.format_list_bulleted, size: 26, color: F.green),
+                    const SizedBox(width: F.s8),
+                    Text(
+                      'باقي اليوم',
+                      key: const ValueKey('rest-of-day-title'),
+                      style: TextStyle(
+                        fontFamily: F.displayFamily,
+                        fontSize: F.subtitleSize,
+                        fontWeight: FontWeight.w800,
+                        color: F.ink,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: F.s4),
                 DayRail(
-                  groups: groups,
+                  groups: rest,
                   now: _now,
                   ruleLabelFor: _ruleLabelFor,
                   onOpen: _openReminder,
                 ),
+              ],
               // نفس المسافة بين كل كارت والتاني — «معلومة تهمك» كانت لازقة
               // في السكة لما مفيش بكرة ولا متابعات ولا سكر بينهم.
               const SizedBox(height: F.gap),
@@ -650,6 +657,7 @@ class _HomeHeader extends StatelessWidget {
     required this.patient,
     required this.now,
     required this.onOpenCircle,
+    required this.progress,
     this.followers = const [],
     this.talk,
   });
@@ -661,11 +669,18 @@ class _HomeHeader extends StatelessWidget {
   final List<FollowerProfile> followers;
   final VoidCallback onOpenCircle;
 
+  /// «٢ من ٥ — جرعات اليوم» وسطره.
+  final TodayProgress progress;
+
   @override
   Widget build(BuildContext context) {
     final name = patient?.name;
     final hasName = name != null && name.isNotEmpty && name != 'أنا';
-    final greeting = now.hour >= 4 && now.hour < 12 ? 'صباح الخير' : 'مساء الخير';
+    final morning = now.hour >= 4 && now.hour < 12;
+    // **الشاشات القصيرة** (آيفون SE): الدايرة جنب التحية — «أخدتها» لازم
+    // يفضل في أول شاشة فوق الدوك (المالك، ٤ أكتوبر ٢٠٢٦)
+    final compact = isShortScreen(context);
+    final greeting = morning ? 'صباح الخير' : 'مساء الخير';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -689,15 +704,58 @@ class _HomeHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: F.s4),
-        Text(
-          hasName ? '$greeting يا $name' : greeting,
-          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600, color: F.ink),
+        // التحية وأيقونتها: شمس الصبح (٤–١٢)، وهلال المسا (المالك)
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          hasName ? '$greeting يا $name' : greeting,
+                          key: const ValueKey('home-greeting'),
+                          style: TextStyle(
+                            fontFamily: F.displayFamily,
+                            fontSize: compact ? F.subtitleSize : F.screenTitleSize,
+                            fontWeight: FontWeight.w800,
+                            color: F.ink,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: F.s8),
+                      Icon(
+                        morning ? Icons.wb_sunny_outlined : Icons.nightlight_outlined,
+                        key: ValueKey(morning ? 'greeting-sun' : 'greeting-moon'),
+                        size: compact ? 28 : 34,
+                        color: F.greetingIconInk,
+                      ),
+                    ],
+                  ),
+                  // الشاشات القصيرة: سطر الدايرة تحت التحية، والدايرة جنبهم
+                  if (compact) TodayProgressLine(progress: progress),
+                ],
+              ),
+            ),
+            if (compact) ...[
+              const SizedBox(width: F.s8),
+              TodayProgressRing(progress: progress),
+            ],
+          ],
         ),
         if (hasName && patient?.age != null)
           Text(
             '$name — ${arabicNumber(patient!.age!)} سنة',
             style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
           ),
+        // الدايرة وسطرها — «إنت ماشي كويس النهارده» / «فاضل لك جرعات النهارده»
+        if (!compact) ...[
+          const SizedBox(height: F.s10),
+          TodayProgressRow(progress: progress),
+        ],
         ?talk,
         const SizedBox(height: F.s12),
         // الاستثناء الوحيد اللي المريض بيشوفه: إذن التنبيهات مقفول.
@@ -1129,6 +1187,12 @@ class _AppointmentsCard extends StatelessWidget {
         ],
       );
 }
+
+/// **شاشة قصيرة** = أقل من ٧٤٠ نقطة طول (آيفون SE ٦٦٧ وأخواته). عليها «يومك»
+/// بتتضغط عشان «أخدتها» يفضل في أول شاشة فوق الدوك (قرار المالك).
+const double shortScreenHeight = 740;
+
+bool isShortScreen(BuildContext context) => MediaQuery.sizeOf(context).height < shortScreenHeight;
 
 /// «هنفكّرك ٨ بالليل قبلها بيوم، و٨ الصبح في يومها» — من
 /// [dayBeforeMinute] و[dayOfMinute] نفسهم، فالجملة ما تقدرش تكدب على الإشعار.

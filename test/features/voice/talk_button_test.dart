@@ -53,7 +53,7 @@ void main() {
     expect(button, findsOneWidget);
     expect(find.text('كلّمني'), findsOneWidget);
     expect(tester.getTopLeft(button).dy, greaterThan(tester.getTopLeft(find.text('يومك')).dy));
-    expect(tester.getTopLeft(button).dy, lessThan(tester.getTopLeft(find.text('جدول النهاردة')).dy));
+    expect(tester.getTopLeft(button).dy, lessThan(tester.getTopLeft(find.text('معلومة تهمك')).dy));
     expect(tester.getSize(button).height, 64);
   });
 

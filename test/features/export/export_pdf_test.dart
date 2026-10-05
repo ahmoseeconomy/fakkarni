@@ -166,8 +166,12 @@ void main() {
     F.setDark(on: true);
     addTearDown(() => F.setDark(on: false));
     final night = await build(ExportSection.values.toSet());
-    // مكتبة pdf بتحط /ID عشوائي في كل ملف — غيره لازم يتطابق بايت ببايت
-    String stable(Uint8List b) => latin1.decode(b).replaceAll(RegExp(r'/ID\s*\[[^\]]*\]'), '');
+    // مكتبة pdf بتحط /ID عشوائي وتاريخ إنشاء بالثانية في كل ملف — غيرهم
+    // لازم يتطابق بايت ببايت (التاريخ كان بيعدّي ثانية بين البناءين أحياناً)
+    String stable(Uint8List b) => latin1
+        .decode(b)
+        .replaceAll(RegExp(r'/ID\s*\[[^\]]*\]'), '')
+        .replaceAll(RegExp(r'/(CreationDate|ModDate)\s*\([^)]*\)'), '');
     expect(stable(night), stable(day), reason: 'الليل بيغيّر المعاينة بس، مش الملف اللي بيتطبع ويتشارك');
   });
 

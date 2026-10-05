@@ -74,3 +74,6 @@ firebase.deploy.json
 
 # صور تصميم «يومك» و«أدويتك» (٤ أكتوبر ٢٠٢٦) — مرجع للمالك، عمرها ما تتكوميت
 /ChatGPT Image *.png
+
+# حالة Supabase CLI المحلية — فيها رابط المشروع، وده بيفضل برّه git زي firebase.deploy.json
+supabase/.temp/

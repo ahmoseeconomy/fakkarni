@@ -132,11 +132,11 @@ void main() {
     expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
     // وكل حاجة أساسية موجودة وشغّالة — «ضيف» في الهيكل بيفتح الروشتة والإدخال
     await tester.dragUntilVisible(
-      find.text('جدول النهاردة'),
+      find.text('معلومة تهمك'),
       find.byType(Scrollable).first,
       const Offset(0, -120),
     );
-    expect(find.text('جدول النهاردة'), findsOneWidget);
+    expect(find.text('معلومة تهمك'), findsOneWidget);
     expect(find.text('ضيف'), findsOneWidget);
   });
 
@@ -162,11 +162,11 @@ void main() {
     await settle(tester);
     expect(find.byType(TodayScreen), findsOneWidget);
     await tester.dragUntilVisible(
-      find.text('جدول النهاردة'),
+      find.text('معلومة تهمك'),
       find.byType(Scrollable).first,
       const Offset(0, -120),
     );
-    expect(find.text('جدول النهاردة'), findsOneWidget);
+    expect(find.text('معلومة تهمك'), findsOneWidget);
     expect(find.text('ضيف'), findsOneWidget);
   });
 

@@ -40,7 +40,7 @@ void main() {
     await h.services.scheduler.rescheduleAll(now: now);
     await h.pump(tester, TodayScreen(now: now));
 
-    expect(find.text('جدول النهاردة'), findsOneWidget);
+    expect(find.text('الجرعة الجاية'), findsOneWidget);
     expect(find.text('معلومة تهمك'), findsOneWidget, reason: 'قسم كان ليه «ساعدني» لوحده');
     expect(helpButtons(), findsOneWidget);
     expect(find.byKey(const ValueKey('help-help_today')), findsOneWidget);

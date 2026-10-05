@@ -155,12 +155,13 @@ void main() {
     await settle(tester);
   }
 
-  screenTest('«الآن»: الجرعة الجاية فوق، و«تأكيد الجرعة» ارتفاعه ٦٤', (tester) async {
+  screenTest('«الجرعة الجاية»: كارت واحد فوق، و«أخدتها» ارتفاعه ٦٤', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
-    expect(find.text('جدول النهاردة'), findsOneWidget);
-    expect(find.text('الجاية'), findsOneWidget);
+    expect(find.text('الجرعة الجاية'), findsOneWidget);
+    // الجرعة الوحيدة في الكارت — «باقي اليوم» مفيهوش غيرها، فمش ظاهر
+    expect(find.text('باقي اليوم'), findsNothing);
     expect(find.text('كمان ٦ ساعات — ٢:٠٠ م'), findsOneWidget);
 
     final button = tester.getSize(actionButtons.first);
@@ -176,51 +177,55 @@ void main() {
     await addDose('Telfast', DayAnchor.sleep, offset: -15);
     await pumpToday(tester);
 
-    final next = tester.getCenter(find.text('الجاية'));
-    // جدول النهاردة بالساعة — مفيش صفوف وجبات على السكة
-    final rail = tester.getCenter(find.text('Telfast').last);
+    final next = tester.getCenter(find.text('الجرعة الجاية'));
+    // «باقي اليوم» تحت الكارت، والجرعة اللي في الكارت مش متكررة فيه
+    final rail = tester.getCenter(find.text('باقي اليوم'));
     expect(next.dy, lessThan(rail.dy));
+    expect(find.descendant(of: find.byType(DayRail), matching: find.text('Antodine')), findsNothing,
+        reason: 'جرعة الكارت مش متكررة في «باقي اليوم»');
+    expect(find.descendant(of: find.byType(DayRail), matching: find.text('Telfast')), findsOneWidget);
   });
 
-  screenTest('بعد «تأكيد الجرعة» الجرعة بتبقى سطر هادي وما بتختفيش', (tester) async {
+  screenTest('بعد «أخدتها» الجرعة بتنزل «باقي اليوم» بـ✓ هادي وما بتختفيش', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
     expect(find.textContaining('Antodine'), findsWidgets);
 
-    await tester.tap(find.text('تأكيد الجرعة'));
+    await tester.tap(find.text('أخدتها'));
     await settle(tester);
 
-    // لسه موجودة على السكة — بعلامة صح وبهدوء
-    expect(find.textContaining('Antodine'), findsWidgets);
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    // نزلت «باقي اليوم» — بعلامة صح هادية، وما اختفتش
+    expect(find.descendant(of: find.byType(DayRail), matching: find.text('Antodine')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rail-mark-done')), findsOneWidget);
     expect(find.textContaining('أخدته ', skipOffstage: false), findsWidgets);
-    expect(find.text('الجاية'), findsNothing);
+    expect(find.text('الجرعة الجاية'), findsNothing);
   });
 
 
-  screenTest('جرعة اتنست بعد المهلة → «نسيتها؟» فوق و«لسه ما اتأكدتش» على السكة، والزرار شغّال', (tester) async {
+  screenTest('جرعة اتنست بعد المهلة → «نسيتها؟» و«لسه ما اتأكدتش» في الكارت بحافته الدهبي، والزرار شغّال', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30); // ٢:٠٠ م
     // فتحة الساعة ٣:٠٠ — عدّى ساعة على الجرعة من غير تأكيد
     await services.scheduler.rescheduleAll(now: DateTime(2026, 8, 31, 15));
     await pumpToday(tester, now: DateTime(2026, 8, 31, 15));
 
     expect(find.text('نسيتها؟'), findsOneWidget);
-    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
-    expect(find.text('الجاية'), findsNothing);
-    expect(find.text('تأكيد الجرعة'), findsOneWidget, reason: 'نسي — لسه يقدر يأكّد');
+    expect(find.text('لسه ما اتأكدتش — كان معادها ٢:٠٠ م'), findsOneWidget);
+    // الحافة الدهبي فاضلة على الكارت — محتاجاه دلوقتي
+    expect(tester.widget<FCard>(find.descendant(of: find.byType(NowBlock), matching: find.byType(FCard))).tone, FCardTone.attention);
+    expect(find.text('أخدتها'), findsOneWidget, reason: 'نسي — لسه يقدر يأكّد');
 
-    await tester.tap(find.text('تأكيد الجرعة'));
+    await tester.tap(find.text('أخدتها'));
     await settle(tester);
     expect(find.text('نسيتها؟'), findsNothing);
     expect(find.textContaining('أخدته ', skipOffstage: false), findsWidgets);
   });
 
-  screenTest('«تأكيد الجرعة» بيلغي تذكير الخانة دي', (tester) async {
+  screenTest('«أخدتها» بيلغي تذكير الخانة دي', (tester) async {
     await addDose('Antodine', DayAnchor.lunch, offset: -30);
     await pumpToday(tester);
 
-    await tester.tap(find.text('تأكيد الجرعة'));
+    await tester.tap(find.text('أخدتها'));
     await settle(tester);
 
     // التذكير والتأجيل والسلّم بتوع نفس الخانة — لو كان قال «فكّرني بعدين»
@@ -273,7 +278,7 @@ void main() {
     }
   });
 
-  screenTest('الفايتة والمنتظرة الاتنين بحافة ذهبية — والمأخوذة سطر ✓ ما بيتشالش', (tester) async {
+  screenTest('الفايتة والجاية في الكارت بحافته الدهبي — والمأخوذة ✓ على «باقي اليوم» ما بتتشالش', (tester) async {
     await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — هتتاخد
     await addDose('LINEX', DayAnchor.breakfast, offset: 30); // ٨:٠٠ — فاتت
     await addDose('Telfast', DayAnchor.dinner, offset: 0); // ٨:٠٠ م — منتظرة
@@ -290,28 +295,18 @@ void main() {
     await services.events.markTaken(int.parse(antodine.id), aug31);
     await settle(tester);
 
-    // أقرب Material ليه حافة — الكارت نفسه، مش الـScaffold
-    Color? edgeOf(String name) {
-      for (final m in tester.widgetList<Material>(
-        find.ancestor(of: find.text(name), matching: find.byType(Material)),
-      )) {
-        final shape = m.shape;
-        if (shape is RoundedRectangleBorder && shape.side != BorderSide.none) {
-          return shape.side.color;
-        }
-      }
-      return null;
-    }
-
-    // LINEX فاتت — ذهبي و«لسه ما اتأكدتش»، مش رمادي
-    expect(edgeOf('LINEX'), F.gold);
-    expect(find.text('لسه ما اتأكدتش'), findsOneWidget);
-    // Telfast منتظرة — نفس الحافة
-    expect(edgeOf('Telfast'), F.gold);
-    // Antodine لسه على السكة، سطر هادي — وكمان تحت «خلال ٤٨ ساعة» بتاع بكرة
-    expect(find.text('Antodine'), findsWidgets);
-    expect(find.byIcon(Icons.check), findsOneWidget);
-    // زرار أساسي واحد بس — مفيش «أخدته» على كل كارت
+    // الفايتة (LINEX ٨:٠٠) والجاية (Telfast ٨ م) الاتنين في الكارت — وحافته دهبي
+    final block = find.byType(NowBlock);
+    expect(find.descendant(of: block, matching: find.text('LINEX')), findsOneWidget);
+    expect(find.descendant(of: block, matching: find.text('Telfast')), findsOneWidget);
+    expect(tester.widget<FCard>(find.descendant(of: block, matching: find.byType(FCard))).tone, FCardTone.attention);
+    expect(find.text('لسه ما اتأكدتش — كان معادها ٨:٠٠ ص'), findsOneWidget);
+    // Antodine نزلت «باقي اليوم» بـ✓ هادي — ما اتشالتش
+    expect(find.descendant(of: find.byType(DayRail), matching: find.text('Antodine')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rail-mark-done')), findsOneWidget);
+    // ولا علامة دهبي على السكة لجرعة جاية — الدهبي لـ«محتاجك دلوقتي» بس
+    expect(find.byKey(const ValueKey('rail-mark-needs-you')), findsNothing);
+    // زرار أساسي واحد بس — «أخدتهم كلهم»
     expect(actionButtons, findsOneWidget);
     expectNoRed(tester);
   });
@@ -422,7 +417,7 @@ void main() {
       expect(find.text('تعمل إيه دلوقتي؟'), findsNothing);
     });
 
-    screenTest('«الآن»: كتلة واحدة، الفايتة قبل الجاية، ذهبي من غير أحمر', (tester) async {
+    screenTest('«الجرعات — ٢»: كارت واحد، الفايتة قبل الجاية، ذهبي من غير أحمر', (tester) async {
       await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠ — فاتت
       await addDose('LINEX', DayAnchor.lunch, offset: -30); // ٢:٠٠ م — الجاية
       await pumpToday(tester, now: DateTime(2026, 8, 31, 9));
@@ -430,7 +425,7 @@ void main() {
       // **كتلة واحدة، مش كارت لكل جرعة** — والعدد في عنوانها.
       final block = find.byType(NowBlock);
       expect(block, findsOneWidget);
-      expect(find.text('الآن — دوايين'), findsOneWidget);
+      expect(find.text('الجرعات — ٢'), findsOneWidget);
 
       final missed = tester.getCenter(find.descendant(of: block, matching: find.text('Antodine')));
       final next = tester.getCenter(find.descendant(of: block, matching: find.text('LINEX')));
@@ -442,15 +437,16 @@ void main() {
       );
       // زرار أساسي واحد للكتلة كلها
       expect(actionButtons, findsOneWidget);
-      expect(find.text('تأكيد الكل'), findsOneWidget);
+      expect(find.text('أخدتهم كلهم'), findsOneWidget);
       expectNoRed(tester);
     });
 
-    screenTest('«لاحقًا» تأجيل حقيقي ربع ساعة وبيقول كده', (tester) async {
+    screenTest('«فكّرني بعد ١٥ دقيقة» تأجيل حقيقي ربع ساعة وبيقول كده', (tester) async {
       await addDose('Antodine', DayAnchor.breakfast, offset: -30); // ٧:٠٠
       await pumpToday(tester);
 
-      await tester.tap(find.text('لاحقًا').first);
+      expect(find.text('فكّرني بعد ١٥ دقيقة'), findsOneWidget);
+      await tester.tap(find.text('فكّرني بعد ١٥ دقيقة').first);
       await settle(tester);
 
       expect(sink.scheduled.map((n) => n.id), contains(snoozeIdFor(DateTime(2026, 8, 31, 7))));
@@ -470,14 +466,14 @@ void main() {
       }
     });
 
-    screenTest('الرئيسية فوق «جدول النهاردة»', (tester) async {
+    screenTest('«الجرعة الجاية» فوق «باقي اليوم» فوق «معلومة تهمك»', (tester) async {
       await addDose('Antodine', DayAnchor.lunch, offset: -30);
+      await addDose('Telfast', DayAnchor.dinner, offset: 0);
       await pumpToday(tester);
 
-      // **الترتيب اتغيّر بقرار المالك**: «جدول النهاردة» طلع فوق، جنب
-      // «الآن» — و«معلومة تهمك» (مكان كارت المية) تحته مع باقي الشاشة الهادية.
-      expect(tester.getCenter(find.text('الآن')).dy, lessThan(tester.getCenter(find.text('جدول النهاردة')).dy));
-      expect(tester.getCenter(find.text('جدول النهاردة')).dy, lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));
+      // الكارت ← «باقي اليوم» ← الباقي الهادي («معلومة تهمك» مكان كارت المية)
+      expect(tester.getCenter(find.text('الجرعة الجاية')).dy, lessThan(tester.getCenter(find.text('باقي اليوم')).dy));
+      expect(tester.getCenter(find.text('باقي اليوم')).dy, lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));
       expect(find.text('المية'), findsNothing, reason: 'كارت المية اتشال من «يومك»');
       expectNoRedAndMinSize(tester);
     });
@@ -499,12 +495,12 @@ void main() {
       expect(find.byKey(const ValueKey('glucose-home')), findsNothing);
     });
 
-    screenTest('برّه المعتاد ليه هو → في «الآن»، ذهبي، رقم وفرق، من غير أحمر ولا نصيحة، و«افتح» ثانوي', (tester) async {
+    screenTest('برّه المعتاد ليه هو → فوق، ذهبي، رقم وفرق، من غير أحمر ولا نصيحة، و«افتح» ثانوي', (tester) async {
       await seed([118, 110, 131, 122, 125], latest: 152);
       await pumpToday(tester);
 
       expect(glucoseCard(tester).tone, FCardTone.attention);
-      expect(find.text('الآن'), findsOneWidget, reason: 'حتى من غير جرعات');
+      expect(find.byType(NowBlock), findsNothing, reason: 'مفيش جرعات — الكارت لوحده من غير عنوان جرعات');
       expect(find.text('أعلى من أعلى قياس معتاد ليك (١٣١) بـ ٢١'), findsOneWidget);
       expect(tester.getCenter(find.byKey(const ValueKey('glucose-home'))).dy,
           lessThan(tester.getCenter(find.text('معلومة تهمك')).dy));

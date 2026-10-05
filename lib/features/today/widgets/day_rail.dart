@@ -8,19 +8,21 @@ import '../../../core/theme/tokens.dart';
 import '../../../domain/care/follower_role.dart';
 import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart';
+import '../../../domain/medication/medicine_form.dart';
 import '../../../domain/wording/patient_words.dart';
+import '../../medication/med_photo.dart';
 
-/// سكة اليوم (المخطط 24): خط رأسي على **اليمين**، والجرعات كروت متعلّقة
-/// بالسكة بترتيب الوقت — الساعة والاسم وكلمة الأكل والحالة. (كان فيه عُقد
-/// للصحيان والأكل والنوم بينهم؛ الروتين اتشال، ٢٧ سبتمبر ٢٠٢٦.)
+/// **«باقي اليوم»** (إعادة التصميم، ٤ أكتوبر ٢٠٢٦) — كانت «جدول النهاردة».
 ///
-/// قاعدة اللون: الذهبي معناه «دي لسه عايزاك» — الجرعة المنتظرة والفايتة
-/// الاتنين بحافة ذهبية، والفايتة بتقول «لسه ما اتأكدتش» من غير لوم. مفيش
-/// رمادي للفايتة ومفيش أحمر. المأخوذة بتنطوي لسطر ✓ هادي وما بتتشالش.
+/// صف لكل دقيقة بترتيب الوقت: الاسم وكلمته القصيرة يمين، رسمة صغيرة لنوعه
+/// (من غير أي كلام عليها، وصورته لو عنده)، علامة الحالة على خط رأسي، والساعة
+/// بـص/م شمال. **الجرعات اللي في كارت «الجرعة الجاية» مش هنا** (المالك) —
+/// الشاشة بتبعت الباقي بس.
 ///
-/// الكروت مفيهاش زرار «أخدته» — الزرار الأساسي الوحيد هو اللي في الكارت
-/// المثبّت فوق. الدوسة على كارت بتفتح شاشة التذكير بتاعته — والكارت
-/// موصوف بالكلام (الاسم والوقت والقاعدة)، فمش محتاج كلمة «افتح».
+/// قاعدة اللون: اتاخدت = ✓ أخضر هادي؛ الجاية = ساعة هادية **مش دهبي** (الدهبي
+/// لـ«محتاجك دلوقتي» بس)؛ لو جرعة فاتت وصلت هنا نقطة دهبي و«لسه ما اتأكدتش»
+/// من غير لوم ولا أحمر. المأخوذة **ما بتتشالش من السكة أبداً**. والدوسة على أي
+/// صف بتفتح شاشة التذكير بتاعته.
 class DayRail extends StatelessWidget {
   const DayRail({
     required this.groups,
@@ -36,188 +38,175 @@ class DayRail extends StatelessWidget {
   final String? Function(int doseScheduleId) ruleLabelFor;
   final void Function(List<DoseEventView> group) onOpen;
 
-  /// عرض عمود السكة، ومقاس العقدة.
-  static const double _railWidth = 28;
-  static const double _doneNode = 20;
-  static const double _doseNode = 10;
+  /// عرض عمود العلامة، ومقاسها، ومقاس الرسمة الصغيرة.
+  static const double _markWidth = 36;
+  static const double _mark = 30;
+  static const double pictureSize = 52;
 
   @override
   Widget build(BuildContext context) {
-    final entries = <({DateTime at, _RailNode node, Widget child})>[
-      for (final group in groups)
-        (
-          at: group.first.scheduledAt,
-          // كل جرعة ليها علامتها على السكة: ✓ للي اتاخدت، ونقطة ذهبية للي لسه
-          node: group.every((d) => d.isDone) ? _RailNode.done : _RailNode.dose,
-          child: _dose(group),
-        ),
-    ]..sort((a, b) => a.at.compareTo(b.at));
-
+    final sorted = [...groups]..sort((a, b) => a.first.scheduledAt.compareTo(b.first.scheduledAt));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < entries.length; i++)
-          _railRow(
-            node: entries[i].node,
-            first: i == 0,
-            last: i == entries.length - 1,
-            child: entries[i].child,
-          ),
+        for (final (i, group) in sorted.indexed) ...[
+          if (i > 0) Divider(height: 1, thickness: 1, color: F.lineSoft, indent: pictureSize + _markWidth + F.s20),
+          _row(group, first: i == 0, last: i == sorted.length - 1),
+        ],
       ],
     );
   }
 
-  /// صف واحد: عمود السكة على اليمين (أول ابن في RTL) والمحتوى جنبه.
-  Widget _railRow({
-    required _RailNode node,
-    required bool first,
-    required bool last,
-    required Widget child,
-  }) =>
-      IntrinsicHeight(
+  _Mark _markOf(List<DoseEventView> group) {
+    if (group.every((d) => d.isDone)) return _Mark.done;
+    final moment = doseMomentOf(
+      scheduledAt: group.first.scheduledAt,
+      now: now,
+      markedMissed: group.any((d) => d.state == DoseState.missed),
+    );
+    return moment == DoseMoment.upcoming ? _Mark.upcoming : _Mark.needsYou;
+  }
+
+  Widget _row(List<DoseEventView> group, {required bool first, required bool last}) {
+    final mark = _markOf(group);
+    final done = mark == _Mark.done;
+    final firstDose = group.first;
+    return InkWell(
+      key: ValueKey('rail-row-${firstDose.doseScheduleId}'),
+      onTap: () => onOpen(group),
+      child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: _railWidth,
-              child: Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  // الخط — متصل من أول صف لآخر صف
-                  Positioned(
-                    top: first ? F.s20 : 0,
-                    bottom: last ? null : 0,
-                    height: last ? F.s20 : null,
-                    child: Container(width: 2, color: F.line),
-                  ),
-                  switch (node) {
-                    // اتاخدت: الصح على السكة نفسها (المخطط ٢٤) — مش جوّه السطر
-                    _RailNode.done => Positioned(
-                        top: F.s20 - _doneNode / 2,
-                        child: Container(
-                          width: _doneNode,
-                          height: _doneNode,
-                          decoration: BoxDecoration(color: F.pageGround, shape: BoxShape.circle),
-                          alignment: Alignment.center,
-                          child: Icon(Icons.check, size: _doneNode - 4, color: F.greenOk),
-                        ),
-                      ),
-                    // لسه عايزاك: نقطة ذهبية صغيرة — نفس معنى حافة الكارت
-                    _RailNode.dose => Positioned(
-                        top: F.s20 - _doseNode / 2,
-                        child: Container(
-                          width: _doseNode,
-                          height: _doseNode,
-                          decoration: const BoxDecoration(color: F.gold, shape: BoxShape.circle),
-                        ),
-                      ),
-                  },
-                ],
-              ),
-            ),
-            const SizedBox(width: F.s10),
-            Expanded(child: child),
-          ],
-        ),
-      );
-
-  Widget _dose(List<DoseEventView> group) => Padding(
-        padding: const EdgeInsets.only(bottom: F.s10),
-        child: group.every((d) => d.isDone) ? _quietLine(group) : _card(group),
-      );
-
-  /// جرعة اتاخدت: سطر هادي بعلامة صح. **ما بتتشالش من السكة أبداً** —
-  /// المريض لازم يشوف إنه خدها، مش يلاقي السطر اختفى ويشك إنه نسي.
-  Widget _quietLine(List<DoseEventView> group) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: F.s8),
-        // الصح على السكة (شوف _railRow) — هنا الاسم يمين ووقته شمال في نفس الصف
-        child: NameTimeRow(
-          name: group.map((d) => d.medicationName).join(' + '),
-          nameStyle: TextStyle(
-            fontSize: F.minTextSize,
-            color: F.mutedDark,
-            fontFamily: F.bodyFamily,
-            fontFamilyFallback: F.fontFallback,
-          ),
-          timeKey: ValueKey('taken-line-${group.first.doseScheduleId}'),
-          time: group.first.state == DoseState.skipped
-              ? 'اتأجّل'
-              // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
-              : group.first.actedBy != null
-                  ? '${proxyConfirmedLine(group.first.actedBy)} ${arabicTime(group.first.actedAt ?? group.first.scheduledAt)}'
-                  : takenAtLine(arabicTime(group.first.actedAt ?? group.first.scheduledAt)),
-        ),
-      );
-
-  /// جرعة لسه عايزاك — منتظرة أو فايتة، نفس الحافة الذهبية.
-  Widget _card(List<DoseEventView> group) {
-    final at = group.first.scheduledAt;
-    // فات معادها أو جهازه كتب «اتنست» — نفس الجملة الهادية. نسي، ما فشلش.
-    final moment = doseMomentOf(
-        scheduledAt: at, now: now, markedMissed: group.any((d) => d.state == DoseState.missed));
-    // «لسه ما اتأكدتش» بعد المهلة بس؛ في معادها «معادها دلوقتي»
-    final unconfirmed = moment == DoseMoment.missed;
-    final dueNow = moment == DoseMoment.dueNow;
-
-    return Material(
-      color: F.cardGround,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        side: const BorderSide(color: F.gold, width: 2),
-      ),
-      child: InkWell(
-        onTap: () => onOpen(group),
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: F.minTapTarget),
-          padding: const EdgeInsets.all(F.s14),
-          child: Row(
-            children: [
-              Expanded(
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: F.s10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // الاسم يمين والساعة شمال في نفس الصف؛ دوا تاني في نفس
-                    // الدقيقة تحته، وكلمة الأكل تحتهم
-                    for (final (i, dose) in group.indexed)
-                      NameTimeRow(
-                        name: dose.medicationName,
-                        time: i == 0 ? arabicTime(at) : null,
-                        nameStyle: TextStyle(
+                    for (final dose in group)
+                      MedName(
+                        dose.medicationName,
+                        style: TextStyle(
                           fontSize: F.minBodySize,
-                          fontWeight: FontWeight.w600,
-                          color: F.ink,
+                          fontWeight: FontWeight.w700,
+                          color: done ? F.mutedDark : F.ink,
                           fontFamily: F.bodyFamily,
                           fontFamilyFallback: F.fontFallback,
-                          height: 1.4,
+                          height: 1.35,
                         ),
-                        timeStyle: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink, height: 1.6),
                       ),
-                    if (ruleLabelFor(group.first.doseScheduleId) case final rule?) ...[
-                      const SizedBox(height: F.s4),
-                      Text(rule, style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
-                    ],
-                    if (unconfirmed || dueNow) ...[
-                      const SizedBox(height: F.s4),
+                    if (_secondLine(group, mark) case final line?)
                       Text(
-                        unconfirmed ? 'لسه ما اتأكدتش' : 'معادها دلوقتي',
+                        line,
+                        key: done ? ValueKey('taken-line-${firstDose.doseScheduleId}') : null,
                         style: TextStyle(
                           fontSize: F.minTextSize,
-                          fontWeight: FontWeight.w700,
-                          color: F.ink,
+                          fontWeight: mark == _Mark.needsYou ? FontWeight.w700 : FontWeight.w400,
+                          color: mark == _Mark.needsYou ? F.ink : F.mutedDark,
+                          height: 1.4,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: F.s8),
+            Center(
+              child: Opacity(
+                opacity: done ? 0.6 : 1,
+                child: MedPhotoThumb(
+                  path: firstDose.photoPath,
+                  name: firstDose.medicationName,
+                  form: MedicineForm.fromWire(firstDose.form),
+                  size: pictureSize,
+                ),
+              ),
+            ),
+            const SizedBox(width: F.s6),
+            SizedBox(
+              width: _markWidth,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // الخط الرأسي — متصل من أول صف لآخر صف: نصّ فوق ونصّ تحت العلامة
+                  Column(
+                    children: [
+                      Expanded(child: Container(width: 2, color: first ? null : F.line)),
+                      Expanded(child: Container(width: 2, color: last ? null : F.line)),
+                    ],
+                  ),
+                  _markWidget(mark),
+                ],
+              ),
+            ),
+            const SizedBox(width: F.s6),
+            Center(
+              child: Text(
+                arabicTime(firstDose.scheduledAt),
+                key: ValueKey('rail-time-${firstDose.doseScheduleId}'),
+                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: done ? F.mutedDark : F.ink),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  /// السطر التاني: اتاخدت «أخدته ٨:٠٥ ص» (أو مين أكّدها)، اتأجّلت، فاتت «لسه
+  /// ما اتأكدتش»، في معادها «معادها دلوقتي»، وإلا كلمة الأكل أو الجرعة.
+  String? _secondLine(List<DoseEventView> group, _Mark mark) {
+    final d = group.first;
+    if (mark == _Mark.done) {
+      if (d.state == DoseState.skipped) return 'اتأجّل';
+      final at = arabicTime(d.actedAt ?? d.scheduledAt);
+      // حد تاني أكّدها (الممرض، ٠٠٢٣): بنقول مين، مش «أخدته»
+      return d.actedBy != null ? '${proxyConfirmedLine(d.actedBy)} $at' : takenAtLine(at);
+    }
+    if (mark == _Mark.needsYou) {
+      final moment = doseMomentOf(
+        scheduledAt: d.scheduledAt,
+        now: now,
+        markedMissed: group.any((x) => x.state == DoseState.missed),
+      );
+      return moment == DoseMoment.missed ? 'لسه ما اتأكدتش' : 'معادها دلوقتي';
+    }
+    final rule = ruleLabelFor(d.doseScheduleId);
+    if (rule != null) return rule;
+    final amount = d.amountLabel?.trim();
+    return amount == null || amount.isEmpty ? null : amount;
+  }
+
+  Widget _markWidget(_Mark mark) => switch (mark) {
+        _Mark.done => Container(
+            key: const ValueKey('rail-mark-done'),
+            width: _mark,
+            height: _mark,
+            decoration: BoxDecoration(color: F.greenOk, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Icon(Icons.check, size: _mark - 10, color: F.onFill(F.greenOk)),
+          ),
+        // الجاية: ساعة هادية على أرضية الصفحة — مش دهبي
+        _Mark.upcoming => Container(
+            key: const ValueKey('rail-mark-upcoming'),
+            width: _mark,
+            height: _mark,
+            decoration: BoxDecoration(color: F.pageGround, shape: BoxShape.circle, border: Border.all(color: F.line, width: 1.5)),
+            alignment: Alignment.center,
+            child: Icon(Icons.schedule, size: _mark - 10, color: F.mutedDark),
+          ),
+        // محتاجاك دلوقتي: نقطة دهبي — نفس معنى حافة الكارت
+        _Mark.needsYou => Container(
+            key: const ValueKey('rail-mark-needs-you'),
+            width: _mark,
+            height: _mark,
+            decoration: BoxDecoration(color: F.pageGround, shape: BoxShape.circle, border: Border.all(color: F.gold, width: 2)),
+            alignment: Alignment.center,
+            child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: F.gold, shape: BoxShape.circle)),
+          ),
+      };
 }
 
-/// علامة الصف على السكة: ✓ لجرعة اتاخدت، نقطة ذهبية لجرعة لسه.
-enum _RailNode { done, dose }
+enum _Mark { done, upcoming, needsYou }

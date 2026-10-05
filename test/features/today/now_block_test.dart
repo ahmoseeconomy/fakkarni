@@ -169,7 +169,7 @@ void main() {
   }
 
   group('١ — كتلة واحدة، والعدد في عنوانها', () {
-    screenTest('تلات أدوية = كتلة واحدة وعنوان «الآن — ٣ أدوية»', (tester) async {
+    screenTest('تلات أدوية = كارت واحد وعنوان «الجرعات — ٣»', (tester) async {
       await dose('Antodine', DayAnchor.wake);
       await dose('Concor', DayAnchor.breakfast);
       await dose('LINEX', DayAnchor.lunch, offset: -30);
@@ -177,15 +177,15 @@ void main() {
 
       expect(find.byType(NowBlock), findsOneWidget, reason: 'كتلة واحدة مش كارت لكل جرعة');
       expect(find.byKey(const ValueKey('now-block')), findsOneWidget);
-      expect(find.text('الآن — ٣ أدوية'), findsOneWidget);
+      expect(find.text('الجرعات — ٣'), findsOneWidget);
     });
 
-    screenTest('ودوا واحد بيفضل «الآن» من غير عدّاد', (tester) async {
+    screenTest('ودوا واحد عنوانه «الجرعة الجاية» من غير عدّاد', (tester) async {
       await dose('Antodine', DayAnchor.breakfast);
       await pump(tester);
 
-      expect(find.text('الآن'), findsOneWidget);
-      expect(find.textContaining('الآن —'), findsNothing, reason: 'مفيش عدّاد جنب «الآن»');
+      expect(find.text('الجرعة الجاية'), findsOneWidget);
+      expect(find.textContaining('الجرعات —'), findsNothing, reason: 'مفيش عدّاد لدوا واحد');
     });
   });
 
@@ -255,7 +255,7 @@ void main() {
       // الجهاز «اتنست» في `rescheduleAll` — الاتنين معناهم «ما اتاخدتش».
       expect(after['Concor'], isNot(DoseState.taken.name), reason: 'التاني ما اتلمسش');
       // والشاشة بقت عن دوا واحد
-      expect(find.text('الآن'), findsOneWidget);
+      expect(find.text('الجرعة الجاية'), findsOneWidget);
       expect(inBlock(find.text('Concor')), findsOneWidget);
     });
 
@@ -267,7 +267,7 @@ void main() {
       await dose('Vitamin D', DayAnchor.breakfast);
       await pump(tester);
 
-      expect(find.text('الآن — دوايين'), findsOneWidget);
+      expect(find.text('الجرعات — ٢'), findsOneWidget);
       await tester.tap(find.byKey(ValueKey('confirm-${await scheduleOf('Antodine')}')));
       await settle(tester);
 
@@ -310,7 +310,7 @@ void main() {
       await pump(tester);
 
       expect(find.byKey(const ValueKey('confirm-all')), findsOneWidget);
-      expect(find.text('تأكيد الجرعة'), findsOneWidget);
+      expect(find.text('أخدتها'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(NowBlock),
@@ -334,7 +334,7 @@ void main() {
       await five();
       await pump(tester);
 
-      expect(find.text('الآن — ٥ أدوية'), findsOneWidget);
+      expect(find.text('الجرعات — ٥'), findsOneWidget);
       expect(inBlock(find.text('Antodine')), findsOneWidget);
       expect(inBlock(find.text('Zestril')), findsOneWidget);
       expect(inBlock(find.text('Glucophage')), findsNothing, reason: 'الرابع اتطوى');
@@ -364,7 +364,7 @@ void main() {
     const se = Size(375, 667);
 
     for (final scale in [1.0, 1.3]) {
-      screenTest('«تأكيد الكل» مش مغطّى بالدوك ولا بزرار عايم — خط ×$scale',
+      screenTest('«أخدتهم كلهم» مش مغطّى بالدوك ولا بزرار عايم — خط ×$scale',
           (tester) async {
         await dose('Antodine', DayAnchor.wake);
         await dose('Concor', DayAnchor.breakfast);

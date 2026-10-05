@@ -68,7 +68,8 @@ const placement = <String, Set<String>>{
     'intro_yes': {'features/voice/voice_intro_screen.dart'},
     'intro_no': {'features/voice/voice_intro_screen.dart'},
     'help_today': {'features/elder/elder_home_screen.dart', 'features/today/today_screen.dart'},
-    'help_next_dose': {'features/elder/elder_home_screen.dart', 'features/today/today_screen.dart'},
+    // «ساعدني» على عنوان كارت «الجرعة الجاية» اتنقل جوّه الكارت (إعادة التصميم)
+    'help_next_dose': {'features/elder/elder_home_screen.dart', 'features/today/today_screen.dart', 'features/today/widgets/now_block.dart'},
     'help_confirm_done': {'features/reminder/reminder_screen.dart', 'features/today/dose_actions.dart'},
     // «كلّمني» بيعدّي من confirmGroup نفسها — الجملة بتتقال من dose_actions
     'help_later': {'features/today/dose_actions.dart'},

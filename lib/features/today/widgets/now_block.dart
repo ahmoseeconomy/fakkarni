@@ -11,7 +11,11 @@ import '../../../data/dose_state.dart';
 import '../../../data/repositories/dose_event_repository.dart' show DoseEventView;
 import '../dose_actions.dart';
 import '../../medication/med_photo.dart';
-import 'card_type_icon.dart';
+import '../../../data/services/reminder_plan.dart' show snoozeDelay;
+import '../../../domain/medication/medication_purpose.dart';
+import '../../../domain/medication/medicine_form.dart';
+import '../../medication/med_groups.dart';
+import '../../voice/help_button.dart';
 
 /// **كتلة «الآن» — واحدة، بعدّادها.**
 ///
@@ -25,6 +29,13 @@ import 'card_type_icon.dart';
 ///
 /// الفايتة **ذهبي ونصّها محايد** («لسه ما اتأكدتش») — الأحمر للطوارئ بس.
 /// نسي، ما فشلش.
+///
+/// **إعادة التصميم (٤ أكتوبر ٢٠٢٦)**: الكتلة بقت كارت «الجرعة الجاية» —
+/// العنوان جوّه الكارت («الجرعة الجاية»، أو «الجرعات — ٣» لأكتر من دوا)،
+/// ودوا واحد بيتعرض كبير: رسمة نوعه (أو صورته) من غير كلام عليها، اسمه،
+/// شريحة الغرض، الجرعة، والساعة. الزرار «أخدتها» أخضر (أو «أخدتهم كلهم»)،
+/// و«فكّرني بعد ١٥ دقيقة» = التأجيل نفسه. السطور والتأكيد لكل سطر و«نسيتها؟»
+/// والحافة الدهبي زي ما هم.
 class NowBlock extends StatefulWidget {
   const NowBlock({
     required this.lines,
@@ -32,8 +43,13 @@ class NowBlock extends StatefulWidget {
     required this.onConfirmLine,
     required this.onConfirmAll,
     required this.onLater,
+    this.compact = false,
     super.key,
   });
+
+  /// شاشة قصيرة (آيفون SE): رسمة أصغر والساعة وحالتها في صف واحد — عشان
+  /// «أخدتها» يفضل في أول شاشة فوق الدوك.
+  final bool compact;
 
   final NowLines lines;
   final DateTime now;
@@ -72,24 +88,51 @@ class _NowBlockState extends State<NowBlock> {
     // تاني بنفس المعنى بيزوّد ارتفاع ويلخبط.
     final perLine = all.length > 1;
 
+    final single = all.length == 1;
     return FCard(
       key: const ValueKey('now-block'),
       tone: FCardTone.attention,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final (i, line) in due.indexed) ...[
-            if (i > 0) const _LineGap(),
-            _DoseLine(
-              line: line,
-              now: widget.now,
-              // **الكلمة مرة واحدة لكل حالة.** دواءين في نفس الدقيقة
-              // حالتهم واحدة، و«الجاية» مكتوبة مرتين فوق بعض ضوضا.
-              showKicker: i == 0 || _kicker(due[i - 1], widget.now) != _kicker(line, widget.now),
-              onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
+          HelpRow(
+            id: 'help_next_dose',
+            child: Row(
+              children: [
+                Icon(Icons.schedule, size: 26, color: F.green),
+                const SizedBox(width: F.s8),
+                Flexible(
+                  child: Text(
+                    nextDoseTitle(all.length),
+                    key: const ValueKey('now-title'),
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.sectionHeadSize + 2,
+                      fontWeight: FontWeight.w800,
+                      color: F.ink,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-          if (postponed.isNotEmpty) ...[
+          ),
+          const SizedBox(height: F.s10),
+          if (single)
+            _SingleDose(line: all.single, now: widget.now, compact: widget.compact)
+          else
+            for (final (i, line) in due.indexed) ...[
+              if (i > 0) const _LineGap(),
+              _DoseLine(
+                line: line,
+                now: widget.now,
+                // **الكلمة مرة واحدة لكل حالة.** دواءين في نفس الدقيقة
+                // حالتهم واحدة، و«الجاية» مكتوبة مرتين فوق بعض ضوضا.
+                showKicker: i == 0 || _kicker(due[i - 1], widget.now) != _kicker(line, widget.now),
+                onConfirm: perLine ? () => widget.onConfirmLine(line) : null,
+              ),
+            ],
+          if (!single && postponed.isNotEmpty) ...[
             if (due.isNotEmpty) const _LineGap(),
             Padding(
               padding: const EdgeInsets.only(bottom: F.s8),
@@ -136,17 +179,17 @@ class _NowBlockState extends State<NowBlock> {
           const SizedBox(height: F.s12),
           FPrimaryButton(
             key: const ValueKey('confirm-all'),
-            label: all.length == 1 ? 'تأكيد الجرعة' : 'تأكيد الكل',
-            gold: true,
+            // أخضر — الدهبي على حافة الكارت بيقول «محتاجك دلوقتي» خلاص
+            label: single ? 'أخدتها' : 'أخدتهم كلهم',
             onPressed: widget.onConfirmAll,
           ),
-          // **«لاحقًا» بيأجّل اللي لسه مستني وبس** — اللي اتأجّل خلاص
-          // ميعاده متحدّد، وإعادة تأجيله من غير ما يطلب بتزقّه لقدّام.
+          // **«فكّرني بعد ١٥ دقيقة» بيأجّل اللي لسه مستني وبس** — اللي اتأجّل
+          // خلاص ميعاده متحدّد، وإعادة تأجيله من غير ما يطلب بتزقّه لقدّام.
           if (widget.lines.due.isNotEmpty) ...[
             const SizedBox(height: F.s8),
             FSecondaryButton(
               key: const ValueKey('now-later'),
-              label: 'لاحقًا',
+              label: laterLabel,
               onPressed: widget.onLater,
             ),
           ],
@@ -154,6 +197,130 @@ class _NowBlockState extends State<NowBlock> {
       ),
     );
   }
+}
+
+/// عنوان الكارت: «الجرعة الجاية» لدوا واحد، «الجرعات — ٣» لأكتر.
+String nextDoseTitle(int doses) => doses <= 1 ? 'الجرعة الجاية' : 'الجرعات — ${arabicNumber(doses)}';
+
+/// «فكّرني بعد ١٥ دقيقة» — المدة من [snoozeDelay] نفسها، فالكلمة ما تقدرش
+/// تكدب على التأجيل.
+String get laterLabel => 'فكّرني بعد ${arabicNumber(snoozeDelay.inMinutes)} دقيقة';
+
+/// مقاس رسمة الدوا الكبيرة في الكارت.
+const double nextDosePictureSize = 132;
+
+/// ونفسها على الشاشات القصيرة.
+const double nextDosePictureCompactSize = 96;
+
+/// سطر الجرعة: «قرص واحد بعد الأكل» — الجرعة وكلمة الأكل من غير شَرطة.
+String doseAmountLine(DoseEventView dose) => [
+      // الجرعة مش معروفة — بهدوء، من غير لوم
+      (dose.amountLabel?.trim().isNotEmpty ?? false) ? dose.amountLabel!.trim() : 'الجرعة مش معروفة',
+      ?dose.mealLabel,
+    ].join(' ');
+
+/// **دوا واحد في الكارت — كبير زي التصميم.** الاسم والشريحة والجرعة يمين،
+/// والساعة تحت خط، والرسمة (أو صورته) شمال من غير أي كلام عليها.
+class _SingleDose extends StatelessWidget {
+  const _SingleDose({required this.line, required this.now, this.compact = false});
+
+  final NowLine line;
+  final DateTime now;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final dose = line.dose;
+    final at = dose.scheduledAt;
+    final moment = _momentOf(dose, now);
+    final kicker = line.postponed ? null : _kickerFor(moment);
+    final purpose = MedicationPurpose.fromStorage(dose.purpose);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (kicker != null && moment != DoseMoment.upcoming)
+                Text(
+                  kicker,
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark, height: 1.3),
+                ),
+              MedName(
+                dose.medicationName,
+                style: TextStyle(
+                  fontSize: F.medicationNameSize + 2,
+                  fontWeight: FontWeight.w800,
+                  color: F.ink,
+                  fontFamily: F.bodyFamily,
+                  fontFamilyFallback: F.fontFallback,
+                  height: 1.3,
+                ),
+              ),
+              if (purpose != null) ...[
+                const SizedBox(height: F.s6),
+                Align(alignment: AlignmentDirectional.centerStart, child: MedPurposeChip(purpose, neutral: true)),
+              ],
+              const SizedBox(height: F.s6),
+              Text(
+                doseAmountLine(dose),
+                key: ValueKey('next-dose-amount-${dose.doseScheduleId}'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+              ),
+              if (!compact)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: F.s8),
+                  child: Divider(height: 1, color: F.lineSoft),
+                )
+              else
+                const SizedBox(height: F.s4),
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 26, color: F.mutedDark),
+                  const SizedBox(width: F.s8),
+                  Flexible(
+                    child: Text(
+                      arabicTime(at),
+                      key: ValueKey('dose-time-${dose.doseScheduleId}'),
+                      style: TextStyle(fontSize: F.medicationNameSize + 4, fontWeight: FontWeight.w800, color: F.ink, height: 1.2),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: F.s4),
+              Text(
+                _statusOf(line, moment, now),
+                key: ValueKey('dose-status-${dose.doseScheduleId}'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.ink, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: F.s8),
+        MedPhotoThumb(
+          path: dose.photoPath,
+          name: dose.medicationName,
+          form: MedicineForm.fromWire(dose.form),
+          size: compact ? nextDosePictureCompactSize : nextDosePictureSize,
+        ),
+      ],
+    );
+  }
+}
+
+/// سطر الحالة تحت الساعة — نفس الكلام اللي السطور الكتير بتقوله.
+String _statusOf(NowLine line, DoseMoment moment, DateTime now) {
+  final at = line.dose.scheduledAt;
+  return switch (line.remindAgainAt) {
+    // **الإجابة على «أجّلته لإمتى؟»** — نفس اللحظة اللي الإشعار اتجدول عليها
+    final again? => 'هيفكّرك ${arabicTime(again)}',
+    _ => switch (moment) {
+        DoseMoment.missed => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
+        DoseMoment.dueNow => 'معادها دلوقتي — ${arabicTime(at)}',
+        DoseMoment.upcoming => '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
+      },
+  };
 }
 
 /// كلمة حالة السطر — «نسيتها؟» / «الجاية»، أو null للمأجّلة.
@@ -210,16 +377,7 @@ class _DoseLine extends StatelessWidget {
     final dose = line.dose;
     final at = dose.scheduledAt;
     final moment = _momentOf(dose, now);
-    final status = switch (line.remindAgainAt) {
-      // **الإجابة على «أجّلته لإمتى؟»** — نفس اللحظة اللي الإشعار
-      // اتجدول عليها، مش حساب تاني.
-      final again? => 'هيفكّرك ${arabicTime(again)}',
-      _ => switch (moment) {
-          DoseMoment.missed => 'لسه ما اتأكدتش — كان معادها ${arabicTime(at)}',
-          DoseMoment.dueNow => 'معادها دلوقتي — ${arabicTime(at)}',
-          DoseMoment.upcoming => '${arabicCountdown(at.difference(now))} — ${arabicTime(at)}',
-        },
-    };
+    final status = _statusOf(line, moment, now);
     // كلمة الحالة («نسيتها؟» بعد المهلة / «دلوقتي» / «الجاية»)، ومتشالة عن
     // المأجّلة: عنوان المجموعة فوقها بيقول «أجّلتها» خلاص.
     final kicker = !showKicker || line.postponed ? null : _kickerFor(moment);
@@ -232,8 +390,8 @@ class _DoseLine extends StatelessWidget {
         MedPhotoThumb(
           path: dose.photoPath,
           name: dose.medicationName,
+          form: MedicineForm.fromWire(dose.form),
           size: 56,
-          fallback: const CardTypeIcon(icon: Icons.medication_outlined),
         ),
         const SizedBox(width: F.s8),
         Expanded(

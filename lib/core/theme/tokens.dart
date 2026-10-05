@@ -75,6 +75,10 @@ abstract final class F {
   static Color get medGroupAntibioticInk => _mode(const Color(0xFF4F6475), const Color(0xFFA7B9C7));
   static Color get medGroupAntibioticTint => _mode(const Color(0xFFE7ECF1), const Color(0xFF1D252C));
 
+  /// أيقونة التحية على «يومك» (شمس الصبح / هلال المسا) — زينة بلون دافي زي
+  /// التصميم. **مش الدهبي**: ده محجوز لـ«محتاجك دلوقتي».
+  static const greetingIconInk = Color(0xFFE08A2E);
+
   /// **الورقة** — أرضية صفحات الـPDF في «معاينة الملف». ثابتة بيضا في الوضعين:
   /// الصفحة شفافة وكلامها غامق، وكانت قاعدة على `pageGround` اللي بيغمق بالليل
   /// فالكلام كان بيختفي (المالك، ٤ أكتوبر ٢٠٢٦). المعاينة = اللي هيتطبع.

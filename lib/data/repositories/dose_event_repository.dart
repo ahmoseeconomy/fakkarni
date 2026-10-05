@@ -22,7 +22,16 @@ class DoseEventView {
     this.routineDay,
     this.photoPath,
     this.mealLabel,
+    this.form,
+    this.purpose,
   });
+
+  /// نوع الدوا (`MedicineForm.wire`، v32) — لرسمة «يومك». قراية بس؛ null = ما
+  /// اتحددش، والشاشة بتعرض الرسمة العامة.
+  final String? form;
+
+  /// «الدوا ده لإيه؟» (`MedicationPurpose.name`) — لشريحة الكارت. قراية بس.
+  final String? purpose;
 
   final int doseScheduleId;
 
@@ -180,6 +189,8 @@ class DoseEventRepository {
               routineDay: event.routineDay,
               photoPath: med.photoPath,
               mealLabel: MealRelation.labelOf(schedule.mealRelation),
+              form: med.form,
+              purpose: med.purpose,
             );
           }(),
       ];

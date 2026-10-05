@@ -4,6 +4,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fakkarni/features/today/widgets/progress_ring.dart';
+
 import 'package:fakkarni/app/app_scope.dart';
 import 'package:fakkarni/app/shell.dart';
 import 'package:fakkarni/core/theme/tokens.dart';
@@ -134,7 +136,7 @@ void main() {
   }
 
   group('الترتيب', () {
-    testWidgets('ترتيب المالك (٢٨ سبتمبر ٢٠٢٦): «الآن» ← «جدول النهاردة» ← المواعيد ← «المتابعات» ← الباقي',
+    testWidgets('ترتيب المالك: كارت «الجرعة الجاية» ← المواعيد ← «المتابعات» ← الباقي',
         (tester) async {
       await addDose('Concor', DayAnchor.breakfast, offset: -30);
       await book(DateTime(2026, 9, 5), title: 'صورة دم');
@@ -144,8 +146,9 @@ void main() {
 
       double y(String text) => tester.getTopLeft(find.text(text)).dy;
       final appointments = tester.getTopLeft(find.byKey(const ValueKey('appointments-card'))).dy;
-      expect(y('الآن'), lessThan(y('جدول النهاردة')), reason: 'أدوية النهارده الأول');
-      expect(y('جدول النهاردة'), lessThan(appointments), reason: 'المواعيد بعد أدوية النهارده');
+      final card = tester.getBottomLeft(find.byKey(const ValueKey('now-block'))).dy;
+      expect(y('الجرعة الجاية'), lessThan(card));
+      expect(card, lessThan(appointments), reason: 'المواعيد بعد أدوية النهارده');
       expect(appointments, lessThan(y('المتابعات')));
       expect(y('المتابعات'), lessThan(y('معلومة تهمك')));
 
@@ -243,15 +246,17 @@ void main() {
     // iPhone SE: ٣٧٥×٦٦٧ نقطة.
     const se = Size(375, 667);
 
-    testWidgets('«تأكيد الجرعة» كامل جوّه أول شاشة، والدوك مش مغطّيه',
+    testWidgets('«أخدتها» كامل جوّه أول شاشة، والدوك مش مغطّيه',
         (tester) async {
       await addDose('Concor', DayAnchor.breakfast, offset: -30);
       await book(DateTime(2026, 9, 5), title: 'صورة دم');
       await book(DateTime(2026, 9, 7), title: 'أشعة');
       await pumpShell(tester, se);
 
-      final button = find.text('تأكيد الجرعة');
+      final button = find.text('أخدتها');
       expect(button, findsOneWidget);
+      // الشاشة القصيرة: الدايرة الصغيرة جنب التحية — عشان الزرار يلحق أول شاشة
+      expect(tester.getSize(find.byKey(const ValueKey('today-progress-ring'))).width, TodayProgressRow.compactRingSize);
       final box = tester.getRect(button);
       expect(box.bottom, lessThanOrEqualTo(se.height), reason: 'جوّه أول شاشة');
 

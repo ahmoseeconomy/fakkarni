@@ -107,9 +107,13 @@ class MedGroupHead extends StatelessWidget {
 /// شريحة الغرض على صف الدوا — «للضغط» بأيقونة مجموعته. **مش دهبي**: الدهبي
 /// لـ«محتاجك دلوقتي» بس؛ الشريحة أرضية المجموعة الهادية وحد خفيف.
 class MedPurposeChip extends StatelessWidget {
-  const MedPurposeChip(this.purpose, {super.key});
+  const MedPurposeChip(this.purpose, {this.neutral = false, super.key});
 
   final MedicationPurpose purpose;
+
+  /// برّه «أدويتك» (كارت «الجرعة الجاية»): أيقونة وأرضية هاديين — استثناء
+  /// القلب الأحمر للمجموعات على «أدويتك» بس (المالك).
+  final bool neutral;
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +121,7 @@ class MedPurposeChip extends StatelessWidget {
     return DecoratedBox(
       key: ValueKey('purpose-chip-${purpose.name}'),
       decoration: BoxDecoration(
-        color: group.tint,
+        color: neutral ? F.railGround : group.tint,
         borderRadius: BorderRadius.circular(F.radiusCard * 2),
         border: Border.all(color: F.line),
       ),
@@ -126,7 +130,7 @@ class MedPurposeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(group.icon, size: 20, color: group.ink),
+            Icon(group.icon, size: 20, color: neutral ? F.mutedDark : group.ink),
             const SizedBox(width: F.s6),
             Flexible(
               child: Text(
