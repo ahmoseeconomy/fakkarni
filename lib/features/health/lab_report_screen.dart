@@ -239,7 +239,9 @@ class _LabReportScreenState extends State<LabReportScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'مفيش نتايج اتقرت من الصورة دي. صوّر تاني في نور أحسن، أو اكتب التحليل بإيدك من «الملف الصحي».',
+                    // «اكتب التحليل بإيدك» اتشالت من الجملة: الكتابة بالإيد
+                    // خلصت من المنتج (أرشيف — قرار المالك، ٦ أكتوبر ٢٠٢٦).
+                    'مفيش نتايج اتقرت من الصورة دي. صوّر تاني في نور أحسن.',
                     style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
                   ),
                   // الورقة عمرها ما بتضيع (المرحلة ٦): ورقة ما اتقرتش —

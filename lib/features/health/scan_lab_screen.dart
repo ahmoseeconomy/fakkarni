@@ -9,8 +9,6 @@ import '../../ai/lab_reader.dart';
 import '../../ai/lab_reading.dart';
 import '../../ai/prescription_reader.dart' show PrescriptionReadException, maxScanPages;
 import '../../core/theme/tokens.dart';
-import '../../data/db/tables.dart';
-import '../records/manual_entry_screen.dart';
 import '../scan/debug_panel.dart';
 import '../scan/review_prescription_screen.dart' show ReviewResult;
 import '../scan/scan_prescription_screen.dart' show PickImage, PickImages, pickManyWithSystem, pickWithSystemCamera;
@@ -196,10 +194,6 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
     }
   }
 
-  void _byHand() => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(kind: RecordKind.lab, today: widget.today)),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -218,9 +212,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
           padding: const EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap),
           children: [
             if (widget.reader == null) ...[
+              // أرشيف (قرار المالك، ٦ أكتوبر ٢٠٢٦): «أكتبه بإيدي» اتشال —
+              // مفيش كتابة ورقة بالإيد خالص، والقراية هي الطريق.
               const PanelOnDark(text: GeminiConfig.missingKeyMessage),
-              const SizedBox(height: F.gap),
-              SecondaryOnDark(label: 'أكتبه بإيدي', onPressed: _byHand),
             ] else ...[
               ScanStage(
                 image: _image,
@@ -293,8 +287,6 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
                       onPressed: _busy ? null : () => _capture(ImageSource.gallery),
                     ),
                   ),
-                  const SizedBox(width: F.s10),
-                  Expanded(child: SecondaryOnDark(label: 'أكتبه بإيدي', onPressed: _busy ? null : _byHand)),
                 ],
               ),
               ],

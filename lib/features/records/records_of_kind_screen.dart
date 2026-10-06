@@ -18,9 +18,13 @@ import 'records_empty.dart';
 /// والمتابعة كلهم شغّالين هنا زي ما كانوا هناك. مفيش فلاتر ولا بحث: إنت
 /// اخترت النوع خلاص، والبحث في كل حاجة مكانه الملف نفسه.
 class RecordsOfKindScreen extends StatefulWidget {
-  const RecordsOfKindScreen({required this.kind, this.today, super.key});
+  const RecordsOfKindScreen({required this.kind, this.kinds, this.today, super.key});
 
   final RecordKind kind;
+
+  /// الأنواع اللي بتتعرض — null = [kind] لوحده. فولدر «زيارات» بيبعت
+  /// `{visit, booking}`: «حجز» القديم ميعاد زيارة، وده أقرب بيت ليه.
+  final Set<RecordKind>? kinds;
 
   /// للاختبارات.
   final DateTime? today;
@@ -54,7 +58,8 @@ class _RecordsOfKindScreenState extends State<RecordsOfKindScreen> {
             final all = snap.data;
             if (all == null) return const SizedBox.shrink();
             final now = widget.today ?? DateTime.now();
-            final shown = [for (final r in all) if (r.kind == widget.kind) r];
+            final kinds = widget.kinds ?? {widget.kind};
+            final shown = [for (final r in all) if (kinds.contains(r.kind)) r];
             // **اللي لسه مستنّي فوق، واللي حصل تحت** — والتقسيمة دي
             // مشتركة مع شاشة الابن حرفياً ([followSections]). نسختين
             // منها معناهم قايمتين يترتبوا بشكل مختلف على نفس الداتا.

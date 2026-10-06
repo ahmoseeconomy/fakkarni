@@ -623,11 +623,10 @@ void main() {
       await h.pump(tester, const HealthFileScreen());
       await settle(tester);
 
-      // «الملف الطبي»: الورقة على السكة، ومدخل نوعها ورا «فلتر»
+      // «أوراقك»: الروشتة جوّه فولدر «روشتات» («فلتر» اتشال — المالك،
+      // ٦ أكتوبر ٢٠٢٦)
       expect(find.byKey(const ValueKey('papers-empty')), findsNothing, reason: 'الملف مش فاضي');
-      await tester.tap(find.byKey(const ValueKey('records-filter')));
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('kind-entry-prescription')));
+      await tester.tap(find.byKey(const ValueKey('paper-folder-prescription')));
       await settle(tester);
       // الكارت بيعرض العنوان والسطر التعريفي — أسامي الأدوية في `notes`
       expect(find.text('روشتة — دوا واحد'), findsOneWidget);

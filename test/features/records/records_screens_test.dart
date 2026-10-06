@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -95,9 +97,11 @@ void main() {
       expect(find.byKey(const ValueKey('appointments-empty')), findsOneWidget);
       expect(find.textContaining('دوس «ميعاد جديد» ونفكّرك'), findsOneWidget);
       expect(find.byKey(const ValueKey('papers-empty')), findsOneWidget);
-      expect(find.textContaining('صوّر روشتة أو تحليل من «ضيف»'), findsOneWidget);
+      // أرشيف: الجملة بتقول الأوراق بتيجي لوحدها — ومفيش زرار إضافة
+      expect(find.textContaining('بتتسجّل هنا لوحدها'), findsOneWidget);
+      expect(find.textContaining('بعد زيارة من «ميعاد جديد»'), findsOneWidget);
       expect(find.text('ميعاد جديد'), findsOneWidget, reason: 'زرار أساسي واحد');
-      for (final old in ['الحالات السابقة', 'صفحة الطبيب', 'استخراج الملف', 'تابع تحليل', 'تابع زيارة', '+ ضيف']) {
+      for (final old in ['الحالات السابقة', 'صفحة الطبيب', 'استخراج الملف', 'تابع تحليل', 'تابع زيارة', '+ ضيف', 'سجّل زيارة أو تحليل أو أشعة']) {
         expect(find.text(old), findsNothing, reason: old);
       }
       expectNoRedAndMinSize(tester);
@@ -123,6 +127,10 @@ void main() {
       expect(find.textContaining('زيارة الدكتور — بكرة'), findsOneWidget);
       expect(find.byKey(const ValueKey('appointments-empty')), findsNothing);
       expect(h.sink.scheduled.keys.any(isAppointmentId), isTrue, reason: 'إشعار الميعاد اتجدول');
+      // **قياس المرحلة ب، مثبّت**: زيارة «ميعاد جديد» بتظهر ورقة في فولدر
+      // «زيارات» **لوحدها** — صف records نوعه visit من `checkups.start`.
+      final visitCount = tester.widget<Text>(find.byKey(const ValueKey('paper-count-visit')));
+      expect(visitCount.data, 'ورقة واحدة', reason: 'الأرشيف اتملا من «ميعاد جديد» من غير أي كتابة');
     });
 
     screenTest('«ميعاد جديد» → «معمل»: متابعة تحليل واقفة عند «حجز المعمل» بميعادها', (tester) async {
@@ -153,7 +161,12 @@ void main() {
 
       expect(find.byKey(ValueKey('legacy-booking-$future')), findsOneWidget);
       expect(find.byKey(ValueKey('legacy-booking-$past')), findsNothing);
-      expect(find.byKey(ValueKey('record-$past')), findsOneWidget, reason: 'اللي فات ورقة في «أوراقك»');
+      // اللي فات ورقة — جوّه فولدر «زيارات» («حجز» القديم بيته هناك)
+      await tester.tap(find.byKey(const ValueKey('paper-folder-visit')));
+      await settle(tester);
+      expect(find.byKey(ValueKey('record-$past')), findsOneWidget, reason: 'اللي فات ورقة في «زيارات»');
+      await tester.pageBack();
+      await settle(tester);
       expect(find.text('فكّرني بيه'), findsOneWidget);
 
       await tester.tap(find.text('فكّرني بيه'));
@@ -168,19 +181,32 @@ void main() {
       expect(find.byKey(ValueKey('upcoming-${follow.id}-1')), findsOneWidget);
     });
 
-    screenTest('«أوراقك»: كل الأنواع مع بعض، الأحدث فوق، وعنوان لكل يوم — والزيارة وروشتتها جنب بعض', (tester) async {
+    screenTest('«أوراقك» أربع فولدرات بعدّها (أرشيف، ٦ أكتوبر ٢٠٢٦) — والدوسة بتفتح النوع، و«حجز» القديم جوّه «زيارات»', (tester) async {
       await seed();
       await add(RecordKind.prescription, 'روشتة الباطنة', DateTime(2026, 3, 2), doctor: 'د. هشام مام');
+      await add(RecordKind.booking, 'كشف قديم', DateTime(2026, 9, 1));
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
 
-      double y(String t) => tester.getTopLeft(find.text(t)).dy;
-      expect(y('أشعة صدر'), lessThan(y('HbA1c')));
-      expect(y('HbA1c'), lessThan(y('باطنة')));
-      // عنوان اليوم مرة واحدة للزيارة وروشتتها
-      expect(find.byKey(const ValueKey('day-head-2026-3-2')), findsOneWidget);
-      expect(find.text('٢ مارس ٢٠٢٦'), findsOneWidget);
+      // الأربعة موجودين بعدّهم — ومفيش «٠» أبداً (الصفر العربي نقطة)
+      for (final (kind, count) in [('prescription', 'ورقة واحدة'), ('lab', 'ورقة واحدة'), ('imaging', 'ورقة واحدة'), ('visit', 'ورقتين')]) {
+        expect(find.byKey(ValueKey('paper-folder-$kind')), findsOneWidget, reason: kind);
+        final counter = tester.widget<Text>(find.byKey(ValueKey('paper-count-$kind')));
+        expect(counter.data, count, reason: '$kind — «حجز» القديم بيتعدّ مع «زيارات»');
+      }
+      // والصفوف نفسها مش على الشاشة الرئيسية — جوّه الفولدر
+      expect(find.text('روشتة الباطنة'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('paper-folder-prescription')));
+      await settle(tester);
       expect(find.text('روشتة الباطنة'), findsOneWidget);
+      await tester.pageBack();
+      await settle(tester);
+      // «زيارات» بيفتح الزيارة والحجز القديم مع بعض
+      await tester.tap(find.byKey(const ValueKey('paper-folder-visit')));
+      await settle(tester);
+      expect(find.text('باطنة'), findsOneWidget);
+      expect(find.text('كشف قديم'), findsOneWidget);
+      expectNoRedAndMinSize(tester);
     });
 
     screenTest('البحث بالاسم والدكتور والتاريخ (عربي أو إنجليزي)', (tester) async {
@@ -207,7 +233,7 @@ void main() {
       expect(find.text('مفيش حاجة بالكلام ده'), findsOneWidget);
     });
 
-    screenTest('الملف بيفرّج وبيتابع — مفيش زرار إضافة عليه، والأنواع ورا «فلتر»', (tester) async {
+    screenTest('الملف بيفرّج وبيتابع — مفيش زرار إضافة، ومفيش «فلتر»: الفولدرات هما الأنواع', (tester) async {
       await seed();
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
@@ -216,15 +242,14 @@ void main() {
       expect(find.text('صوّر تقرير تحليل'), findsNothing);
       expect(find.text('قيس السكر'), findsNothing);
       expect(find.text('اكتب ورقة بإيدك'), findsNothing);
-      // «فلتر»: مدخل لكل نوع بعدده
-      await tester.tap(find.byKey(const ValueKey('records-filter')));
-      await settle(tester);
-      expect(find.byKey(const ValueKey('kind-entry-imaging')), findsOneWidget);
-      expect(find.byKey(const ValueKey('kind-entry-lab')), findsOneWidget);
-      expect(find.byKey(const ValueKey('kind-entry-visit')), findsOneWidget);
-      expect(find.byKey(const ValueKey('filter-history')), findsOneWidget);
-      // والمدخل بيفتح قايمته
-      await tester.tap(find.byKey(const ValueKey('kind-entry-imaging')));
+      // «فلتر» اتشال من غير بديل (قرار المالك، ٦ أكتوبر ٢٠٢٦) — والبحث
+      // و«التقويم» فاضلين
+      expect(find.byKey(const ValueKey('records-filter')), findsNothing);
+      expect(find.text('فلتر'), findsNothing);
+      expect(find.byKey(const ValueKey('records-search')), findsOneWidget);
+      expect(find.byKey(const ValueKey('records-calendar')), findsOneWidget);
+      // والفولدر بيفتح قايمته
+      await tester.tap(find.byKey(const ValueKey('paper-folder-imaging')));
       await settle(tester);
       expect(find.text('أشعة صدر'), findsOneWidget);
       expectNoRedAndMinSize(tester);
@@ -235,8 +260,10 @@ void main() {
       await add(RecordKind.visit, 'باطنة', DateTime(2026, 8, 20));
       await h.pump(tester, HealthFileScreen(today: sep14));
       await settle(tester);
-      // الصفوف على سكة «أوراقك» نفسها — نفس الكارت بكل اللي بيعمله
-      expect(find.text('⋯ خيارات'), findsNWidgets(2), reason: 'مش أيقونة لوحدها — صف لكل ورقة');
+      // الصفوف بقت جوّه الفولدرات — نفس الكارت بكل اللي بيعمله
+      await tester.tap(find.byKey(const ValueKey('paper-folder-lab')));
+      await settle(tester);
+      expect(find.text('⋯ خيارات'), findsOneWidget, reason: 'مش أيقونة لوحدها — صف لكل ورقة');
 
       // «لأ، سيبه» ما بيمسحش
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
@@ -310,17 +337,20 @@ void main() {
       expect(find.textContaining('٣٠ يوم'), findsNothing);
     });
 
-    screenTest('فاضي → بيقول إزاي تضيف', (tester) async {
+    screenTest('فاضي → بيقول إن الأوراق بتيجي لوحدها — ومفيش «+ ضيف» (أرشيف)', (tester) async {
       await h.pump(tester, HistoryScreen(today: sep14));
       await settle(tester);
       expect(find.text('لسه مفيش حاجة هنا'), findsOneWidget);
-      expect(find.text('+ ضيف'), findsOneWidget);
+      expect(find.textContaining('بتتسجّل هنا لوحدها'), findsOneWidget);
+      expect(find.text('+ ضيف'), findsNothing, reason: 'الأرشيف مالوش باب كتابة');
     });
   });
 
   group('الوصول', () {
-    // «سجّل زيارة أو تحليل أو أشعة» اتنقل من «ضيف» لـ«ملفّي» (٢٩ سبتمبر ٢٠٢٦)
-    screenTest('تبويب «ملفّي» في الدوك، و«سجّل زيارة أو تحليل أو أشعة» جوّاه مش في «ضيف»', (tester) async {
+    // أرشيف (قرار المالك، ٦ أكتوبر ٢٠٢٦ — بيحل محل قرار ٢٩ سبتمبر):
+    // كتابة ورقة بالإيد خلصت من المنتج كله. الباب الوحيد الباقي
+    // للاستمارة المشتركة هو «ضيف → صوّر تقرير أشعة» (صورة ← استمارة).
+    screenTest('تبويب «ملفّي» في الدوك — ومفيش «سجّل زيارة أو تحليل أو أشعة» في أي حتة', (tester) async {
       await h.pump(tester, AppShell(now: DateTime(2026, 8, 31, 8)));
       await settle(tester);
 
@@ -336,9 +366,30 @@ void main() {
       await tester.tap(find.text('ملفّي').last);
       await settle(tester);
       expect(find.byType(HealthFileScreen), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('papers-new')));
-      await settle(tester);
-      expect(find.byType(ManualEntryScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('papers-new')), findsNothing, reason: 'الأرشيف مالوش باب كتابة');
+      expect(find.text('سجّل زيارة أو تحليل أو أشعة'), findsNothing);
+    });
+
+    // **حارس الأرشيف**: الاستمارة اليدوية ليها باب واحد في `lib/` كله —
+    // «ضيف → صوّر تقرير أشعة». أي باب جديد (زرار «أوراقك» القديم، «+ ضيف»
+    // بتاع «الحالات السابقة»، «أكتبه بإيدي» بتاعة التصوير) بيوقّع هنا
+    // بدل ما يرجع في صمت. مُتحقَّق بالطفرة.
+    test('ManualEntryScreen بيتبني من ملف واحد بس: add_sheet.dart — وبنوع أشعة وصورة (2A)', () {
+      final callers = <String>[];
+      for (final f in Directory('lib').listSync(recursive: true)) {
+        if (f is! File || !f.path.endsWith('.dart')) continue;
+        if (f.path.endsWith('manual_entry_screen.dart')) continue;
+        if (f.readAsStringSync().contains('ManualEntryScreen(')) callers.add(f.path);
+      }
+      expect(callers, ['lib/features/medication/add_sheet.dart']);
+      // والباب الوحيد لازم يدخل **بصورة وبنوع أشعة** — الصورة هي اللي
+      // بتقفل الشرايح (المالك 2A)، فباب من غير صورة كان هيرجّع الكتابة
+      // اليدوية من الشباك. النداء كله في سطر واحد عن قصد: الحارس بيقراه.
+      final src = File('lib/features/medication/add_sheet.dart').readAsStringSync();
+      final calls = RegExp(r'ManualEntryScreen\(([^)]*)\)').allMatches(src).map((m) => m.group(1)!).toList();
+      expect(calls, hasLength(1));
+      expect(calls.single, contains('kind: RecordKind.imaging'));
+      expect(calls.single, contains('initialPhoto:'));
     });
   });
 }

@@ -311,10 +311,8 @@ void main() {
           hours: 8,
           now: sep15,
         );
-        // المتابعة سجل `lab` — مدخل التحاليل ورا «فلتر»
-        await tester.tap(find.byKey(const ValueKey('records-filter')));
-        await settle(tester);
-        await tester.tap(find.byKey(const ValueKey('kind-entry-lab')));
+        // المتابعة سجل `lab` — جوّه فولدر «تحاليل»
+        await tester.tap(find.byKey(const ValueKey('paper-folder-lab')));
         await settle(tester);
         expect(find.textContaining('متابعة تحليل — ١ من ٧'), findsOneWidget);
 

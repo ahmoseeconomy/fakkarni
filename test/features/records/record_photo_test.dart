@@ -137,11 +137,12 @@ void main() {
   });
 
   group('«ملفّي»', () {
-    screenTest('«سجّل زيارة أو تحليل أو أشعة» بيفتح الاستمارة، والصورة من الكاميرا بتتحفظ على الزيارة', (tester) async {
-      await h.pump(tester, HealthFileScreen(today: DateTime(2026, 9, 29)));
-      await tester.tap(find.byKey(const ValueKey('papers-new')));
+    // «سجّل زيارة أو تحليل أو أشعة» اتشال (أرشيف — قرار المالك، ٦ أكتوبر
+    // ٢٠٢٦): الاستمارة المشتركة لسه عايشة لمدخل «ضيف → صوّر تقرير أشعة»،
+    // فسلوك الصورة بيتثبت عليها مباشرة.
+    screenTest('الاستمارة المشتركة: الصورة من الكاميرا بتتحفظ على الزيارة', (tester) async {
+      await h.pump(tester, ManualEntryScreen(kind: RecordKind.visit, today: DateTime(2026, 9, 29)));
       await settle(tester);
-      expect(find.byType(ManualEntryScreen), findsOneWidget);
       expect(find.text('صورة الروشتة (لو حابب)'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('record-photo-add')));
       await settle(tester);
@@ -178,6 +179,24 @@ void main() {
       expect(store.files, isEmpty, reason: 'مفيش ملف يتيم');
     });
 
+    screenTest('ورقة أشعة متصوّرة: شرايح النوع مقفولة — حتى بعد «شيلها» — والحفظ أشعة (المالك 2A)', (tester) async {
+      await h.pump(tester, ManualEntryScreen(kind: RecordKind.imaging, initialPhoto: _png));
+      await settle(tester);
+      for (final k in ['visit', 'lab', 'prescription', 'imaging']) {
+        expect(find.byKey(ValueKey('kind-$k')), findsNothing, reason: 'مفيش شريحة $k — النوع مقفول');
+      }
+      // «شيلها» ما بيفتحش القفل: القفل على الصورة اللي الشاشة جت بيها
+      await tester.tap(find.byKey(const ValueKey('record-photo-remove')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('kind-visit')), findsNothing);
+
+      await tester.enterText(find.byKey(const ValueKey('record-title')), 'أشعة ركبة');
+      await settle(tester);
+      await tester.tap(find.textContaining('احفظ في'));
+      await settle(tester);
+      expect((await tester.runAsync(rows))!.single.kind, RecordKind.imaging);
+    });
+
     screenTest('«شيلها» بتشيل الصورة قبل الحفظ', (tester) async {
       await h.pump(tester, ManualEntryScreen(kind: RecordKind.imaging, initialPhoto: _png));
       expect(find.byKey(const ValueKey('record-photo-picked')), findsOneWidget);
@@ -196,6 +215,9 @@ void main() {
     screenTest('زيارة: «ضيف صورة الروشتة»، والتانية بتسأل وبتمسح القديمة', (tester) async {
       final id = (await tester.runAsync(() => addRecord(RecordKind.visit)))!;
       await h.pump(tester, HealthFileScreen(today: DateTime(2026, 9, 29)));
+      // الصفوف بقت جوّه فولدر نوعها (أرشيف، ٦ أكتوبر ٢٠٢٦)
+      await tester.tap(find.byKey(const ValueKey('paper-folder-visit')));
+      await settle(tester);
 
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
       await settle(tester);
@@ -232,6 +254,8 @@ void main() {
         return id;
       }))!;
       await h.pump(tester, HealthFileScreen(today: DateTime(2026, 9, 29)));
+      await tester.tap(find.byKey(const ValueKey('paper-folder-imaging')));
+      await settle(tester);
       await tester.tap(find.byKey(ValueKey('record-options-$id')));
       await settle(tester);
       expect(find.text('غيّر صورة التقرير'), findsOneWidget);
@@ -248,10 +272,16 @@ void main() {
       final lab = (await tester.runAsync(() => addRecord(RecordKind.lab, title: 'صورة دم')))!;
       final rx = (await tester.runAsync(() => addRecord(RecordKind.prescription, title: 'روشتة')))!;
       await h.pump(tester, HealthFileScreen(today: DateTime(2026, 9, 29)));
+      await tester.tap(find.byKey(const ValueKey('paper-folder-lab')));
+      await settle(tester);
       await tester.tap(find.byKey(ValueKey('record-options-$lab')));
       await settle(tester);
       expect(find.text('ضيف صورة التقرير'), findsOneWidget);
       await tester.tapAt(const Offset(10, 10));
+      await settle(tester);
+      await tester.pageBack();
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('paper-folder-prescription')));
       await settle(tester);
       await tester.tap(find.byKey(ValueKey('record-options-$rx')));
       await settle(tester);

@@ -41,8 +41,6 @@ import 'calendar_screen.dart';
 import 'change_history_screen.dart';
 import 'checkup_screen.dart';
 import 'records_empty.dart';
-import 'history_screen.dart';
-import 'manual_entry_screen.dart';
 import 'record_row_card.dart';
 import 'records_of_kind_screen.dart';
 import 'start_follow_up.dart';
@@ -218,11 +216,6 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
   }
 
 
-  /// مدخل لكل نوع فيه سجلات، بعدده — والدوسة بتفتح «الحالات السابقة»
-  /// على النوع ده.
-  ///
-  /// بنستعمل شاشة الحالات السابقة نفسها لأنها **عندها فلتر النوع أصلاً**؛
-  /// قايمة تانية مخصوصة كانت هتبقى مكان تاني لنفس العرض، حرّ يختلف عنه.
   /// «ميعاد جديد» — سؤالين (دكتور ولا معمل؟ وإمتى؟) والتذكير بيتعمل تحت
   /// من نفس سكّة المتابعة. **مفيش سجل «حجز» بيتكتب من غير تذكير** — ده
   /// الباب اللي كان بيوقّع الراجل قبل كده.
@@ -288,62 +281,6 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
       now: today,
     );
     await services.refreshAppointments(now: today);
-  }
-
-  /// «فلتر»: الأنواع بعددها (كل مدخل بيفتح قايمته)، و«كل الأوراق بالفترة».
-  Future<void> _filter(List<RecordRow> all) {
-    final counts = <RecordKind, int>{};
-    for (final r in all) {
-      counts[r.kind] = (counts[r.kind] ?? 0) + 1;
-    }
-    return FSheet.show<void>(
-      context,
-      title: 'فلتر',
-      children: [
-        for (final kind in RecordKind.values)
-          if (counts[kind] case final n? when n > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: F.s8),
-              child: InkWell(
-                key: ValueKey('kind-entry-${kind.name}'),
-                borderRadius: BorderRadius.circular(F.radiusCard),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => RecordsOfKindScreen(kind: kind, today: widget.today),
-                  ));
-                },
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: F.minTapTarget),
-                  padding: const EdgeInsets.symmetric(horizontal: F.s12),
-                  decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
-                  child: Row(
-                    children: [
-                      Icon(kind.icon, size: 22, color: F.green),
-                      const SizedBox(width: F.s10),
-                      Expanded(
-                        child: Text(kind.plural,
-                            style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink)),
-                      ),
-                      Text(arabicNumber(n),
-                          style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.mutedDark)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        FSecondaryButton(
-          key: const ValueKey('filter-history'),
-          label: 'كل الأوراق بالفترة',
-          onPressed: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => HistoryScreen(today: widget.today)),
-            );
-          },
-        ),
-      ],
-    );
   }
 
   static DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -436,18 +373,11 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
               const NotBoughtSection(),
 
               // ================================================= أوراقك
+              // **أرشيف وبس** (قرار المالك، ٦ أكتوبر ٢٠٢٦ — بيحل محل قرار
+              // ٢٩ سبتمبر): الأوراق بتوصل هنا لوحدها من التصوير ومن زيارات
+              // «ميعاد جديد» — مفيش كتابة ورقة بالإيد خالص، فزرار «سجّل
+              // زيارة أو تحليل أو أشعة» اتشال ومعاه كل باب للاستمارة.
               const HelpRow(id: 'help_papers', child: FSectionHead('أوراقك')),
-              const SizedBox(height: F.s8),
-              // تسجيل زيارة أو تحليل أو أشعة بالإيد — **هنا**، مش في «ضيف»
-              // (طلب المالك، ٢٩ سبتمبر ٢٠٢٦). الاستمارة فيها صورة الروشتة أو
-              // التقرير (كاميرا أو من الصور) — بتتحفظ وبس.
-              FSecondaryButton(
-                key: const ValueKey('papers-new'),
-                label: 'سجّل زيارة أو تحليل أو أشعة',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(kind: RecordKind.visit, today: widget.today)),
-                ),
-              ),
               const SizedBox(height: F.s8),
               _SearchBar(
                 search: TextField(
@@ -469,11 +399,6 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                     ),
                   ),
                 ),
-                filter: _WordButton(
-                  key: const ValueKey('records-filter'),
-                  label: 'فلتر',
-                  onTap: all == null || all.isEmpty ? null : () => _filter(all),
-                ),
                 calendar: _WordButton(
                   key: const ValueKey('records-calendar'),
                   label: 'التقويم',
@@ -489,17 +414,22 @@ class _HealthFileScreenState extends State<HealthFileScreen> {
                 const RecordsEmpty(
                   key: ValueKey('papers-empty'),
                   title: 'لسه مفيش أوراق',
-                  how: 'صوّر روشتة أو تحليل من «ضيف»، وهتتحفظ هنا لوحدها.',
+                  // أرشيف: مفيش زرار إضافة — الأوراق بتيجي لوحدها.
+                  how: 'الأوراق بتتسجّل هنا لوحدها — لما تصوّر تقرير أو روشتة من «ضيف»، أو بعد زيارة من «ميعاد جديد».',
                 )
+              else if (query.isEmpty)
+                // **أربع فولدرات بعدّها** (قرار المالك): روشتات، تحاليل،
+                // أشعة، زيارات — والدوسة بتفتح أوراق النوع الأحدث الأول.
+                // البحث فوق لسه بيدوّر في **كل** الأوراق: الكتابة بتستبدل
+                // الفولدرات بالنتايج (نفس عقد جولة ٢٨).
+                _PaperFolders(all: rows, today: widget.today)
               else if (shown.isEmpty)
                 const RecordsEmpty(
                   title: 'مفيش حاجة بالكلام ده',
                   how: 'جرّب اسم الدكتور، أو الشهر زي «أغسطس»، أو امسح البحث.',
                 )
               else
-                // **كل الأنواع مع بعض، الأحدث فوق، وعنوان لكل يوم**: الزيارة
-                // والروشتة اللي اتكتبت في نفس اليوم جنب بعض — دي إجابة
-                // «وريني كل حاجة من آخر زيارة».
+                // نتايج البحث: كل الأنواع مع بعض، الأحدث فوق، وعنوان لكل يوم.
                 for (final (i, r) in shown.indexed) ...[
                   if (i == 0 || _dayOf(shown[i - 1].happenedAt) != _dayOf(r.happenedAt))
                     Padding(
@@ -911,14 +841,14 @@ class _AppointmentRow extends StatelessWidget {
       );
 }
 
-/// سطر البحث في «أوراقك»: الحقل و«فلتر» و«التقويم». على موبايل ضيق وخط كبير
-/// (٣٢٠ ×١٫٣) التلاتة ما بيساعهمش سطر، فالحقل بياخد السطر لوحده والزرارين
-/// تحته بالنص. غير كده سطر واحد زي ما كان.
+/// سطر البحث في «أوراقك»: الحقل و«التقويم». «فلتر» اتشال (قرار المالك،
+/// ٦ أكتوبر ٢٠٢٦): الأربع فولدرات هما الأنواع نفسها، والمدخلات اللي كانت
+/// جوّاه بقت باب تاني لنفس الأوضة. على موبايل ضيق وخط كبير الحقل بياخد
+/// السطر لوحده و«التقويم» تحته؛ غير كده سطر واحد.
 class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.search, required this.filter, required this.calendar});
+  const _SearchBar({required this.search, required this.calendar});
 
   final Widget search;
-  final Widget filter;
   final Widget calendar;
 
   static const narrowBelow = 300.0;
@@ -932,13 +862,7 @@ class _SearchBar extends StatelessWidget {
               children: [
                 search,
                 const SizedBox(height: F.s8),
-                Row(
-                  children: [
-                    Expanded(child: filter),
-                    const SizedBox(width: F.s8),
-                    Expanded(child: calendar),
-                  ],
-                ),
+                calendar,
               ],
             );
           }
@@ -946,8 +870,6 @@ class _SearchBar extends StatelessWidget {
             children: [
               Expanded(child: search),
               const SizedBox(width: F.s8),
-              filter,
-              const SizedBox(width: F.s6),
               calendar,
             ],
           );
@@ -955,7 +877,7 @@ class _SearchBar extends StatelessWidget {
       );
 }
 
-/// زرار بكلمة، صغير، جنب البحث — «فلتر» و«التقويم».
+/// زرار بكلمة، صغير، جنب البحث — «التقويم».
 class _WordButton extends StatelessWidget {
   const _WordButton({required this.label, required this.onTap, super.key});
 
@@ -1063,4 +985,89 @@ class _ReadingPaperDialog extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// كلمة العدّ على الفولدر — بصيغة العدد الصح، ومن غير «٠» أبداً (الصفر
+/// العربي نقطة): الفاضي كلمة.
+String paperCountWord(int n) => switch (n) {
+      0 => 'فاضي',
+      1 => 'ورقة واحدة',
+      2 => 'ورقتين',
+      <= 10 => '${arabicNumber(n)} أوراق',
+      _ => '${arabicNumber(n)} ورقة',
+    };
+
+/// أربع فولدرات «أوراقك» (قرار المالك، ٦ أكتوبر ٢٠٢٦): روشتات، تحاليل،
+/// أشعة، زيارات — كل واحد بعدّه، والدوسة بتفتح قايمة نوعه الأحدث الأول.
+/// **«حجز» القديم بيتحسب ويتفتح مع «زيارات»**: الحجز ميعاد زيارة، وده
+/// أقرب فولدر ليه — مفيش فولدر خامس لنوع متقاعد.
+class _PaperFolders extends StatelessWidget {
+  const _PaperFolders({required this.all, this.today});
+
+  final List<RecordRow> all;
+  final DateTime? today;
+
+  static const folders = [
+    (RecordKind.prescription, {RecordKind.prescription}),
+    (RecordKind.lab, {RecordKind.lab}),
+    (RecordKind.imaging, {RecordKind.imaging}),
+    (RecordKind.visit, {RecordKind.visit, RecordKind.booking}),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    Widget folder((RecordKind, Set<RecordKind>) f) {
+      final (kind, kinds) = f;
+      final count = all.where((r) => kinds.contains(r.kind)).length;
+      return InkWell(
+        key: ValueKey('paper-folder-${kind.name}'),
+        borderRadius: BorderRadius.circular(F.radiusCard),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => RecordsOfKindScreen(kind: kind, kinds: kinds, today: today),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: F.gap, horizontal: F.s12),
+          decoration: BoxDecoration(
+            color: F.cardGround,
+            borderRadius: BorderRadius.circular(F.radiusCard),
+          ),
+          child: Column(
+            children: [
+              Icon(kind.icon, size: 34, color: F.green),
+              const SizedBox(height: F.s8),
+              Text(
+                kind.plural,
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              ),
+              const SizedBox(height: F.s4),
+              Text(
+                paperCountWord(count),
+                key: ValueKey('paper-count-${kind.name}'),
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Expanded(child: folder(folders[0])),
+          const SizedBox(width: F.s10),
+          Expanded(child: folder(folders[1])),
+        ]),
+        const SizedBox(height: F.s10),
+        Row(children: [
+          Expanded(child: folder(folders[2])),
+          const SizedBox(width: F.s10),
+          Expanded(child: folder(folders[3])),
+        ]),
+      ],
+    );
+  }
 }

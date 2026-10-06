@@ -8,7 +8,6 @@ import '../../core/widgets/primitives.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/repositories/records_repository.dart';
-import 'manual_entry_screen.dart';
 import 'attachment_viewer.dart';
 import 'records_empty.dart';
 import 'record_kinds.dart';
@@ -93,18 +92,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: F.gap),
               if (all == null)
                 const SizedBox.shrink()
-              else if (all.isEmpty) ...[
+              else if (all.isEmpty)
+                // أرشيف (قرار المالك، ٦ أكتوبر ٢٠٢٦): مفيش «+ ضيف» —
+                // الأوراق بتيجي لوحدها من التصوير ومن «ميعاد جديد».
                 const RecordsEmpty(
-                  how: 'اللي بتسجّله من زيارات وتحاليل وأشعة بيتحط هنا بالترتيب.',
-                ),
-                const SizedBox(height: F.s12),
-                FSecondaryButton(
-                  label: '+ ضيف',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => ManualEntryScreen(today: widget.today)),
-                  ),
-                ),
-              ] else if (shown.isEmpty)
+                  how: 'الأوراق بتتسجّل هنا لوحدها — لما تصوّر تقرير أو روشتة، أو بعد زيارة من «ميعاد جديد».',
+                )
+              else if (shown.isEmpty)
                 const RecordsEmpty(
                   title: 'مفيش حاجة في الفلتر ده',
                   how: 'جرّب «الكل» في النوع أو في الفترة.',

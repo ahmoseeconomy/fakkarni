@@ -219,23 +219,30 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
         children: [
-          Wrap(
-            spacing: F.s8,
-            runSpacing: F.s8,
-            children: [
-              // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «السجل» وبيعمل
-              // تذكيره. الصفوف القديمة من النوع ده بتتعرض زي ما هي.
-              for (final k in RecordKind.values)
-                if (k != RecordKind.booking)
-                AnchorChip(
-                  key: ValueKey('kind-${k.name}'),
-                  label: k.label,
-                  selected: _kind == k,
-                  onTap: () => setState(() => _kind = k),
-                ),
-            ],
-          ),
-          const SizedBox(height: F.gap),
+          // **النوع مقفول لما الورقة جاية بصورتها** (أرشيف — المالك 2A،
+          // ٦ أكتوبر ٢٠٢٦): الباب الوحيد للاستمارة دي «ضيف ← صوّر تقرير
+          // أشعة»، وورقة أشعة متصوّرة لازم تفضل أشعة — من غير شرايح ما
+          // ينفعش حد يقلبها زيارة أو تحليل أو روشتة مكتوبة بالإيد. القفل
+          // على `widget.initialPhoto` مش `_photo`: «شيلها» ما بيفتحوش.
+          if (widget.initialPhoto == null) ...[
+            Wrap(
+              spacing: F.s8,
+              runSpacing: F.s8,
+              children: [
+                // «حجز» مش ورقة تتكتب — بقى «ميعاد جديد» في «السجل» وبيعمل
+                // تذكيره. الصفوف القديمة من النوع ده بتتعرض زي ما هي.
+                for (final k in RecordKind.values)
+                  if (k != RecordKind.booking)
+                  AnchorChip(
+                    key: ValueKey('kind-${k.name}'),
+                    label: k.label,
+                    selected: _kind == k,
+                    onTap: () => setState(() => _kind = k),
+                  ),
+              ],
+            ),
+            const SizedBox(height: F.gap),
+          ],
           Row(
             children: [
               Icon(_kind.icon, size: 30, color: F.green),
