@@ -20,6 +20,7 @@ import 'package:fakkarni/domain/scheduling/minute_of_day.dart';
 import 'package:fakkarni/features/medication/med_groups.dart';
 import 'package:fakkarni/features/today/today_progress.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
+import 'package:fakkarni/features/medication/med_photo.dart' show MedPhotoThumb;
 import 'package:fakkarni/features/today/widgets/day_rail.dart';
 import 'package:fakkarni/features/today/widgets/now_block.dart';
 import 'package:fakkarni/features/today/widgets/progress_ring.dart';
@@ -332,6 +333,54 @@ void main() {
       expect(find.text('دلوقتي'), findsNothing);
       expect(find.text('الجاية'), findsNothing);
 
+      expectNoRedAndMinSize(tester);
+    });
+
+    screenTest('«باقي اليوم» (المالك، ٦ أكتوبر): كل دوا باسمه جنب رسمته — شرابين في دقيقة بيتفرّقوا — ومفيش فاصل يقطع الخط', (tester) async {
+      await add('Concor', 7, form: MedicineForm.tablet); // في الكارت
+      // شرابين في نفس الدقيقة — مجموعة واحدة على السكة
+      await add('Telfast Syrup', 20, form: MedicineForm.syrup);
+      await add('Bronchicum', 20, form: MedicineForm.syrup);
+      await add('Zyrtec', 22, form: MedicineForm.tablet);
+      await h.pump(tester, TodayScreen(now: DateTime(2026, 8, 31, 7)));
+
+      final rail = find.byType(DayRail);
+      // رسمة **لكل دوا** — مش رسمة واحدة للمجموعة: تلات أدوية على السكة
+      // (المجموعة الشرابين + Zyrtec) = تلات رسمات
+      expect(find.descendant(of: rail, matching: find.byType(MedPhotoThumb)), findsNWidgets(3));
+      // وكل اسم في نفس الصف مع رسمته — الشرابين على ارتفاعين مختلفين
+      Rect rowOf(String name) => tester.getRect(
+            find.ancestor(
+              of: find.descendant(of: rail, matching: find.textContaining(name)),
+              matching: find.byType(Row),
+            ).first,
+          );
+      final telfast = rowOf('Telfast Syrup');
+      final bronchicum = rowOf('Bronchicum');
+      expect(telfast.top != bronchicum.top, isTrue, reason: 'لكل شراب صفّه برسمته');
+      for (final name in ['Telfast Syrup', 'Bronchicum']) {
+        final row = find.ancestor(
+          of: find.descendant(of: rail, matching: find.textContaining(name)),
+          matching: find.byType(Row),
+        ).first;
+        expect(find.descendant(of: row, matching: find.byType(MedPhotoThumb)), findsOneWidget,
+            reason: 'رسمة $name جنب اسمه');
+      }
+      // والفاصل الأفقي اتشال — كان بيقطع الخط الرأسي بين الدواير
+      expect(find.descendant(of: rail, matching: find.byType(Divider)), findsNothing);
+      // والخط **متصل فعلاً**: عمود العلامة على نفس x في كل الصفوف — قبل
+      // تثبيت عرض الساعة «٢:٠٠ م» و«٥:٣٠ م» كانوا بيزحزحوه والخط يتكسّر
+      final marks = find.descendant(
+        of: rail,
+        matching: find.byWidgetPredicate(
+          (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('rail-mark-'),
+        ),
+      );
+      final markXs = [
+        for (final e in marks.evaluate()) (e.renderObject! as RenderBox).localToGlobal(Offset.zero).dx,
+      ];
+      expect(markXs.length, 2, reason: 'مجموعة الشرابين + Zyrtec');
+      expect(markXs.toSet().length, 1, reason: 'الدواير على خط واحد: $markXs');
       expectNoRedAndMinSize(tester);
     });
 

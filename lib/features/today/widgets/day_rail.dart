@@ -14,10 +14,12 @@ import '../../medication/med_photo.dart';
 
 /// **«باقي اليوم»** (إعادة التصميم، ٤ أكتوبر ٢٠٢٦) — كانت «جدول النهاردة».
 ///
-/// صف لكل دقيقة بترتيب الوقت: الاسم وكلمته القصيرة يمين، رسمة صغيرة لنوعه
-/// (من غير أي كلام عليها، وصورته لو عنده)، علامة الحالة على خط رأسي، والساعة
-/// بـص/م شمال. **الجرعات اللي في كارت «الجرعة الجاية» مش هنا** (المالك) —
-/// الشاشة بتبعت الباقي بس.
+/// صف لكل دقيقة بترتيب الوقت: **لكل دوا اسمه جنب رسمته** (المالك، ٦ أكتوبر
+/// ٢٠٢٦ — دواءين شراب في نفس الدقيقة كانوا بياخدوا رسمة واحدة وأساميهم
+/// مكوّمة، وراجل كبير ما يعرفش يفرّق الشرابين)، وكلمة الحالة تحتهم، وعلامة
+/// الحالة على **خط رأسي متصل من دايرة لدايرة** — الفاصل الأفقي اللي كان
+/// بيقطعه اتشال (نفس الجولة). والساعة بـص/م شمال. **الجرعات اللي في كارت
+/// «الجرعة الجاية» مش هنا** (المالك) — الشاشة بتبعت الباقي بس.
 ///
 /// قاعدة اللون: اتاخدت = ✓ أخضر هادي؛ الجاية = ساعة هادية **مش دهبي** (الدهبي
 /// لـ«محتاجك دلوقتي» بس)؛ لو جرعة فاتت وصلت هنا نقطة دهبي و«لسه ما اتأكدتش»
@@ -45,16 +47,21 @@ class DayRail extends StatelessWidget {
   static const double _mark = 30;
   static const double pictureSize = 52;
 
+  /// عرض عمود الساعة **ثابت** — من غيره «٢:٠٠ م» أضيق من «٥:٣٠ م» فعمود
+  /// العلامة بيتزحزح مع كل صف والخط الرأسي بيطلع متكسّر (اتشاف في لقطة
+  /// المرحلة أ، مش بالعين). ٦٤ بتسيع «١٢:٣٠ م» بخط ١٧ عريض.
+  static const double _timeWidth = 64;
+
   @override
   Widget build(BuildContext context) {
     final sorted = [...groups]..sort((a, b) => a.first.scheduledAt.compareTo(b.first.scheduledAt));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (i, group) in sorted.indexed) ...[
-          if (i > 0) Divider(height: 1, thickness: 1, color: F.lineSoft, indent: pictureSize + _markWidth + F.s20),
+        // مفيش فاصل أفقي بين الصفوف (المالك): الفاصل كان بيقطع الخط
+        // الرأسي، فالسكة كانت بتبان مكسورة بين كل دايرة والتانية.
+        for (final (i, group) in sorted.indexed)
           _row(group, first: i == 0, last: i == sorted.length - 1),
-        ],
       ],
     );
   }
@@ -87,18 +94,41 @@ class DayRail extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    for (final dose in group)
-                      MedName(
-                        dose.medicationName,
-                        style: TextStyle(
-                          fontSize: F.minBodySize,
-                          fontWeight: FontWeight.w700,
-                          color: done ? F.mutedDark : F.ink,
-                          fontFamily: F.bodyFamily,
-                          fontFamilyFallback: F.fontFallback,
-                          height: 1.35,
-                        ),
+                    // **كل دوا باسمه جنب رسمته هو** — مش رسمة واحدة
+                    // للمجموعة وأسامي مكوّمة: شرابين في نفس الدقيقة لازم
+                    // يتفرّقوا بالعين.
+                    for (final (j, dose) in group.indexed) ...[
+                      if (j > 0) const SizedBox(height: F.s6),
+                      Row(
+                        children: [
+                          // الاسم **لاصق في رسمته** — مش في طرف والرسمة في
+                          // طرف: المطابقة بالعين هي الهدف كله.
+                          Flexible(
+                            child: MedName(
+                              dose.medicationName,
+                              style: TextStyle(
+                                fontSize: F.minBodySize,
+                                fontWeight: FontWeight.w700,
+                                color: done ? F.mutedDark : F.ink,
+                                fontFamily: F.bodyFamily,
+                                fontFamilyFallback: F.fontFallback,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: F.s8),
+                          Opacity(
+                            opacity: done ? 0.6 : 1,
+                            child: MedPhotoThumb(
+                              path: dose.photoPath,
+                              name: dose.medicationName,
+                              form: MedicineForm.fromWire(dose.form),
+                              size: pictureSize,
+                            ),
+                          ),
+                        ],
                       ),
+                    ],
                     if (_secondLine(group, mark) case final line?)
                       Text(
                         line,
@@ -111,18 +141,6 @@ class DayRail extends StatelessWidget {
                         ),
                       ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(width: F.s8),
-            Center(
-              child: Opacity(
-                opacity: done ? 0.6 : 1,
-                child: MedPhotoThumb(
-                  path: firstDose.photoPath,
-                  name: firstDose.medicationName,
-                  form: MedicineForm.fromWire(firstDose.form),
-                  size: pictureSize,
                 ),
               ),
             ),
@@ -144,11 +162,14 @@ class DayRail extends StatelessWidget {
               ),
             ),
             const SizedBox(width: F.s6),
-            Center(
-              child: Text(
-                arabicTime(firstDose.scheduledAt),
-                key: ValueKey('rail-time-${firstDose.doseScheduleId}'),
-                style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: done ? F.mutedDark : F.ink),
+            SizedBox(
+              width: _timeWidth,
+              child: Center(
+                child: Text(
+                  arabicTime(firstDose.scheduledAt),
+                  key: ValueKey('rail-time-${firstDose.doseScheduleId}'),
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: done ? F.mutedDark : F.ink),
+                ),
               ),
             ),
           ],
