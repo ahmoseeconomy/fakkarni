@@ -68,24 +68,66 @@ class LabLine {
 }
 
 class LabReading {
-  const LabReading({required this.lab, required this.date, required this.lines, this.modelWarning});
+  const LabReading({
+    required this.lab,
+    required this.date,
+    required this.lines,
+    this.reportKind = const ReadField.missing(),
+    this.examName = const ReadField.missing(),
+    this.conclusion = const ReadField.missing(),
+    this.modelWarning,
+  });
 
   final ReadField<String> lab;
 
   /// تاريخ التقرير لو مطبوع — وإلا null.
   final ReadField<DateTime> date;
   final List<LabLine> lines;
+
+  /// نوع الورقة (المرحلة ٦، المالك 2A — الاكتشاف جوّه نفس السكّة):
+  /// `lab` تقرير معمل، `imaging` تقرير أشعة (أشعة عادية / مقطعية / رنين /
+  /// سونار). مش واضح = missing، والسكّة بتكمّل معمل زي زمان.
+  final ReadField<String> reportKind;
+
+  /// اسم الفحص زي ما هو مطبوع («MRI Lumbar Spine») — للأشعة بس.
+  final ReadField<String> examName;
+
+  /// خلاصة تقرير الأشعة **منقولة بالحرف** (المالك 3A): ولا كلمة بتتعاد
+  /// صياغتها ولا تتلخّص ولا تتترجم — زي نطاق الورقة بالظبط: نقل مش
+  /// تفكير. مش واضحة = null، والورقة بتتحفظ بصورتها من غير خلاصة.
+  final ReadField<String> conclusion;
   final String? modelWarning;
 
-  LabReading withModelWarning(String warning) =>
-      LabReading(lab: lab, date: date, lines: lines, modelWarning: warning);
+  /// الورقة أشعة بثقة — غير كده السكّة سكّة المعمل زي ما هي.
+  bool get isImaging => !reportKind.needsReview && reportKind.value == 'imaging';
+
+  /// الخلاصة الواضحة بالحرف — أو null (مش واضحة = مفيش، مش تخمين).
+  String? get conclusionText {
+    final t = conclusion.needsReview ? null : conclusion.value?.trim();
+    return (t == null || t.isEmpty) ? null : t;
+  }
+
+  LabReading withModelWarning(String warning) => LabReading(
+        lab: lab,
+        date: date,
+        lines: lines,
+        reportKind: reportKind,
+        examName: examName,
+        conclusion: conclusion,
+        modelWarning: warning,
+      );
 
   /// [now] لحارس «تاريخ في المستقبل» — بيتحقن في الاختبار، وإلا ساعة الجهاز.
   factory LabReading.fromJson(Map<String, dynamic> json, {DateTime? now}) {
     final results = json['results'];
+    // نوع برّه القايمة المقفولة = مش معروف — مفيش تخمين نوع ورقة.
+    final kind = _string(json['reportKind']);
     return LabReading(
       lab: _string(json['lab']),
       date: _date(json['reportDate'], now ?? DateTime.now()),
+      reportKind: const {'lab', 'imaging'}.contains(kind.value) ? kind : const ReadField.missing(),
+      examName: _string(json['examName']),
+      conclusion: _string(json['conclusion']),
       lines: [
         if (results is List)
           for (final r in results)
@@ -177,6 +219,12 @@ const Map<String, dynamic> labSchema = {
   'properties': {
     'lab': _stringField,
     'reportDate': _stringField,
+    // المرحلة ٦: نوع الورقة (lab | imaging)، واسم الفحص والخلاصة المطبوعة
+    // **بالحرف** لتقرير الأشعة — مطلوبين زي حقول النطاق: الغياب لازم
+    // يبقى null مكتوبة، مش حقل ساقط بيتقري «مفيش».
+    'reportKind': _stringField,
+    'examName': _stringField,
+    'conclusion': _stringField,
     'results': {
       'type': 'ARRAY',
       'items': {
@@ -202,5 +250,5 @@ const Map<String, dynamic> labSchema = {
       },
     },
   },
-  'required': ['results'],
+  'required': ['results', 'reportKind', 'examName', 'conclusion'],
 };

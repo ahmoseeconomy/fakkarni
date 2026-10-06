@@ -16,6 +16,7 @@ import '../scan/review_prescription_screen.dart' show ReviewResult;
 import '../scan/scan_prescription_screen.dart' show PickImage, PickImages, pickManyWithSystem, pickWithSystemCamera;
 import '../scan/scan_stage.dart';
 import 'lab_report_screen.dart';
+import 'radiology_report_screen.dart';
 import 'usual_words.dart';
 
 /// «تصوير تقرير تحليل» (المخطط ٧) — نفس مسار الروشتة ببرومبت تاني.
@@ -142,14 +143,20 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
         if (!mounted) return;
       }
       setState(() => _phase = _Phase.idle);
+      // المرحلة ٦ (المالك 2A): الاكتشاف جوّه نفس السكّة — ورقة أشعة بثقة
+      // بتروح لمراجعتها هي؛ غير كده (معمل أو مش واضح) سكّة المعمل زي
+      // ما هي. «تابع تحليل» (onSaved) للمعمل بس — متابعة تحليل على ورقة
+      // أشعة نوع غلط.
       final result = await Navigator.of(context).push<ReviewResult>(
         MaterialPageRoute(
-          builder: (_) => LabReportScreen(
-            reading: reading,
-            image: image,
-            today: widget.today,
-            onSaved: widget.onSaved,
-          ),
+          builder: (_) => reading.isImaging
+              ? RadiologyReportScreen(reading: reading, image: image, today: widget.today)
+              : LabReportScreen(
+                  reading: reading,
+                  image: image,
+                  today: widget.today,
+                  onSaved: widget.onSaved,
+                ),
         ),
       );
       if (!mounted) return;
@@ -226,7 +233,9 @@ class _ScanLabScreenState extends State<ScanLabScreen> {
               ),
               const SizedBox(height: F.s14),
               const Text(
-                'بيقرا الأرقام بس — ومفيش حاجة بتتحفظ من غير ما تدوس «تمام» بنفسك.',
+                // المرحلة ٦: السكّة بقت بتقرا تقرير الأشعة كمان — فالجملة
+                // بقت عن النقل مش عن الأرقام بس.
+                'بينقل اللي مكتوب زي ما هو — ومفيش حاجة بتتحفظ من غير ما تدوس «تمام» بنفسك.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: F.minTextSize, color: F.onDarkMuted, height: 1.6),
               ),

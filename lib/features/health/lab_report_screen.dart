@@ -12,6 +12,7 @@ import '../../domain/health/lab_range.dart';
 import '../../domain/health/usual_range.dart';
 import '../scan/review_prescription_screen.dart' show ReviewResult;
 import 'lab_flag.dart';
+import 'radiology_report_screen.dart';
 import 'usual_words.dart';
 
 /// سطر في المراجعة — قابل للتعديل بإيد إنسان.
@@ -234,9 +235,35 @@ class _LabReportScreenState extends State<LabReportScreen> {
                 color: F.railGround,
                 borderRadius: BorderRadius.circular(F.radiusCard),
               ),
-              child: Text(
-                'مفيش نتايج اتقرت من الصورة دي. صوّر تاني في نور أحسن، أو اكتب التحليل بإيدك من «الملف الصحي».',
-                style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'مفيش نتايج اتقرت من الصورة دي. صوّر تاني في نور أحسن، أو اكتب التحليل بإيدك من «الملف الصحي».',
+                    style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+                  ),
+                  // الورقة عمرها ما بتضيع (المرحلة ٦): ورقة ما اتقرتش —
+                  // أشعة الاكتشاف فاتها مثلاً — بتتحفظ بصورتها كورقة أشعة.
+                  const SizedBox(height: F.s10),
+                  FSecondaryButton(
+                    key: const ValueKey('save-as-imaging'),
+                    label: 'احفظها كورقة أشعة',
+                    onPressed: () async {
+                      final result = await Navigator.of(context).push<ReviewResult>(
+                        MaterialPageRoute(
+                          builder: (_) => RadiologyReportScreen(
+                            reading: widget.reading,
+                            image: widget.image,
+                            today: widget.today,
+                          ),
+                        ),
+                      );
+                      if (result == ReviewResult.confirmed && context.mounted) {
+                        Navigator.of(context).pop(ReviewResult.confirmed);
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           for (final (i, l) in _lines.indexed) ...[

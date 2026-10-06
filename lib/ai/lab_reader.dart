@@ -58,8 +58,12 @@ class GeminiLabReader implements LabReportReader {
   /// من الورقة بالحرف، ومفيش علامة، ومفيش تفسير، ومفيش نصيحة — ومفيش نطاق
   /// من معرفة الموديل لو الورقة ما طبعتهوش. اختبار بيثبّت الجمل دي.
   static const systemInstruction = '''
-You transcribe what is printed on a photo of a medical lab report. You are not a doctor and you never act like one.
-Return ONLY: the lab name, the report date, and for each test its name exactly as printed, its numeric result, its unit,
+You transcribe what is printed on a photo of a medical report. You are not a doctor and you never act like one.
+First decide reportKind: 'lab' for a laboratory results report, 'imaging' for a radiology report (X-ray, CT, MRI, ultrasound, echo, mammogram). If unsure, return null with confidence 0.
+For an imaging report: return examName (the examination title exactly as printed) and conclusion — the printed conclusion, impression or findings text COPIED CHARACTER FOR CHARACTER.
+The conclusion is transcription, never thought: never rephrase it, never summarize it in your own words, never translate it, never add to it.
+If the printed conclusion is illegible or you are unsure of any of it, return null for conclusion with confidence 0 — a missing conclusion is a correct answer; a reworded one is a wrong answer. Return an empty results array for an imaging report.
+For a lab report: return null for examName and conclusion, and return the lab name, the report date, and for each test its name exactly as printed, its numeric result, its unit,
 and the reference range EXACTLY AS PRINTED ON THAT REPORT.
 The reference range must be transcribed, never recalled, never inferred and never completed from your own knowledge of
 normal values. If the report does not print a range for a row, return null for that row's range fields. A missing range
@@ -74,7 +78,10 @@ If a result is illegible, return null for both with confidence 0. Never guess a 
 ''';
 
   static const prompt = '''
-Read the attached lab report. For each result row return test (name as printed, keep Latin names in Latin), value (the number only), valueText, unit (as printed).
+Read the attached medical report.
+reportKind: 'lab' or 'imaging' — decide from the paper itself; null with confidence 0 when unsure.
+If it is an imaging (radiology) report: examName as printed, and conclusion = the printed conclusion/impression/findings copied character for character (null with confidence 0 if illegible or unsure); results stays an empty array.
+If it is a lab report: for each result row return test (name as printed, keep Latin names in Latin), value (the number only), valueText, unit (as printed).
 valueText: ONLY when the printed result is not a number, e.g. "Negative", "Nil", "Trace", "2 - 4". Copy it character for character and return null for value.
 When the printed result IS a number, return it in value and return null for valueText. Never fill both; never omit either field.
 Reference range, transcribed from this report only.
