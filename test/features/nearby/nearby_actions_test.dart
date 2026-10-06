@@ -16,7 +16,7 @@ import 'package:fakkarni/core/theme/tokens.dart';
 
 import '../../support/contrast_audit.dart';
 import '../scan/scan_test_support.dart';
-import 'nearby_screen_test.dart' show BlankTiles, FakeLocation;
+import 'nearby_screen_test.dart' show BlankTiles, FakeLocation, pickPlace;
 
 /// كارت «القريب مني»: اتصال / واتساب / الطريق، والتخصص، و«احجز».
 void main() {
@@ -88,7 +88,8 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const ValueKey('place-category-node/13'))).data, 'دكتور', reason: 'مفيش تخصص معروف — ما بنخمّنش');
     expect(find.byKey(const ValueKey('place-distance-node/11')), findsOneWidget);
 
-    // صف واحد
+    // صف واحد — الأفعال على المختار، و«صيدلية النور» أقرب فبنختار الدكتور
+    await pickPlace(tester, 'node/11');
     final call = tester.getCenter(find.byKey(const ValueKey('call-node/11')));
     final wa = tester.getCenter(find.byKey(const ValueKey('whatsapp-node/11')));
     final route = tester.getCenter(find.byKey(const ValueKey('route-node/11')));
@@ -107,20 +108,26 @@ void main() {
 
   screenTest('من غير رقم: لا «اتصال» ولا «واتساب» — و«واتساب» للموبايل المصري بس', (tester) async {
     await pump(tester);
+    // الأفعال على المكان المختار — بنختار كل واحد وبنبص
+    await pickPlace(tester, 'node/13');
     expect(find.byKey(const ValueKey('call-node/13')), findsNothing);
     expect(find.byKey(const ValueKey('whatsapp-node/13')), findsNothing);
     expect(find.byKey(const ValueKey('route-node/13')), findsOneWidget);
     // أرضي: اتصال آه، واتساب لأ
+    await pickPlace(tester, 'node/12');
     expect(find.byKey(const ValueKey('call-node/12')), findsOneWidget);
     expect(find.byKey(const ValueKey('whatsapp-node/12')), findsNothing);
     // صيدلية بموبايل: الاتنين
+    await pickPlace(tester, 'node/14');
     expect(find.byKey(const ValueKey('whatsapp-node/14')), findsOneWidget);
   });
 
   screenTest('«احجز» على الدكاترة بس — والدوسة بتفتح الميعاد باسم الدكتور', (tester) async {
     await pump(tester);
-    expect(find.byKey(const ValueKey('book-node/11')), findsOneWidget);
+    // الصيدلية هي الأقرب فمختارة من الأول — ومالهاش «احجز»
     expect(find.byKey(const ValueKey('book-node/14')), findsNothing, reason: 'صيدلية مش بتتحجز');
+    await pickPlace(tester, 'node/11');
+    expect(find.byKey(const ValueKey('book-node/11')), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('book-node/11')));
     await tester.tap(find.byKey(const ValueKey('book-node/11')));
     await settle(tester);

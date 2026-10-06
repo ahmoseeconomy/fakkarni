@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import 'doctor_booking_message.dart';
 import '../../domain/health/follow_up.dart';
 import '../../core/widgets/f_sheet.dart';
+
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format/arabic_time.dart';
@@ -70,7 +74,10 @@ Future<bool> Function(BuildContext context, Place place, DateTime today) bookFro
         key: const ValueKey('doctor-message'),
         padding: const EdgeInsets.all(F.s12),
         decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
-        child: Text(message, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
+        child: Text(
+          message,
+          style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+        ),
       ),
       Builder(
         builder: (sheet) => FPrimaryButton(
@@ -94,9 +101,8 @@ Future<bool> Function(BuildContext context, Place place, DateTime today) bookFro
   return true;
 };
 
-String distanceText(double meters) => meters < 1000
-    ? '${arabicNumber((meters / 10).round() * 10)} متر'
-    : '${distanceKm(meters)} كم';
+String distanceText(double meters) =>
+    meters < 1000 ? '${arabicNumber((meters / 10).round() * 10)} متر' : '${distanceKm(meters)} كم';
 
 /// الرقم الكبير على الكارت بالكيلو: «٠٫٨» — فاصلة عشرية عربية (النقطة جنب
 /// الأرقام العربية بتتقري صفر). أقل من ١٠٠ متر = «٠٫١».
@@ -116,11 +122,11 @@ enum _Filter { all, pharmacy, doctor, hospital, lab }
 typedef KindStyle = ({IconData icon, Color fg, Color bg});
 
 KindStyle kindStyle(PlaceKind kind) => switch (kind) {
-      PlaceKind.pharmacy => (icon: Icons.medication, fg: F.onGreen, bg: F.green),
-      PlaceKind.doctor => (icon: Icons.medical_services, fg: F.greenStrong, bg: F.greenTint),
-      PlaceKind.hospital => (icon: Icons.local_hospital, fg: F.ink, bg: F.cardGround),
-      PlaceKind.lab => (icon: Icons.science, fg: F.mutedDark, bg: F.railGround),
-    };
+  PlaceKind.pharmacy => (icon: Icons.medication, fg: F.onGreen, bg: F.green),
+  PlaceKind.doctor => (icon: Icons.medical_services, fg: F.greenStrong, bg: F.greenTint),
+  PlaceKind.hospital => (icon: Icons.local_hospital, fg: F.ink, bg: F.cardGround),
+  PlaceKind.lab => (icon: Icons.science, fg: F.mutedDark, bg: F.railGround),
+};
 
 /// بلاطة النوع — مربع مستدير بلونه وأيقونته.
 class KindTile extends StatelessWidget {
@@ -147,22 +153,28 @@ class KindTile extends StatelessWidget {
 
 /// كلمة النوع في الكارت («… من غير اسم على الخريطة»).
 String _kindWord(PlaceKind kind) => switch (kind) {
-      PlaceKind.pharmacy => 'صيدلية',
-      PlaceKind.doctor => 'دكتور',
-      PlaceKind.hospital => 'مستشفى',
-      PlaceKind.lab => 'معمل تحاليل',
-    };
+  PlaceKind.pharmacy => 'صيدلية',
+  PlaceKind.doctor => 'دكتور',
+  PlaceKind.hospital => 'مستشفى',
+  PlaceKind.lab => 'معمل تحاليل',
+};
 
-/// «قريب منك» (المخطط ١٧) — صيدليات ودكاترة من OpenStreetMap.
+/// «قريب منك» (المخطط ١٧، وتصميم المالك ٦ أكتوبر ٢٠٢٦) — الخريطة هي الشاشة.
 ///
-/// **مفيش تقييمات بالنجوم**: OSM مفيهاش تقييمات، ونجمة متخيّلة على صيدلية
-/// حقيقية كذبة على بني آدمين. ومفيش «Concor متوفر» ولا «توصيل» ولا «بيقبل
-/// تأمينك» — مالهمش مصدر. «فاتحة/قافلة» بس لو تاج `opening_hours` موجود
-/// و**مفهوم بالكامل**؛ غير كده التاج بيتعرض بالحرف أو مفيش حاجة.
+/// فوق: «أماكن قريبة من موقعك»، شريحة «موقعك الحالي» (من غير اسم منطقة —
+/// ده المرحلة د)، وسطر الخصوصية. تحتهم فلتر الأنواع بأيقوناتها، والتخصص
+/// تحت «دكاترة». الخريطة بدبابيس النتايج ونقطتك، وفوقها «دوّر من مكاني
+/// تاني» و«القايمة»؛ وورقة بتتسحب تحت فيها **المكان المختار** بأفعاله،
+/// وسحبها لفوق (أو «القايمة») بيوري **باقي الأماكن** صفوف خفيفة.
 ///
-/// «© مساهمو OpenStreetMap» على الخريطة — شرط الرخصة. البحث استعلام واحد،
-/// بكاش، وبيتعاد بالزرار بس. المكان بيتقرّب قبل ما يخرج، والشاشة بتقول إنه
-/// خارج. إذن الموقع بيتطلب هنا بس.
+/// **مفيش تقييمات بالنجوم ولا صورة مكان**: OSM مفيهاش تقييمات ولا صور،
+/// وأبل ما بتبعتهمش — ونجمة أو صورة متخيّلة على صيدلية حقيقية كذبة على
+/// بني آدمين. ومفيش «Concor متوفر» ولا «توصيل» ولا «بيقبل تأمينك» — مالهمش
+/// مصدر. «مفتوح الآن» بس لو تاج `opening_hours` موجود و**مفهوم بالكامل**.
+///
+/// «© مساهمو OpenStreetMap» ظاهر على الخريطة دايماً — شرط الرخصة. البحث
+/// استعلام واحد، بكاش، وبيتعاد بالزرار بس. المكان بيتقرّب قبل ما يخرج،
+/// والشاشة بتقول إنه خارج. إذن الموقع بيتطلب هنا بس.
 class NearbyScreen extends StatefulWidget {
   const NearbyScreen({
     this.location = const DeviceLocation(),
@@ -201,12 +213,79 @@ class NearbyScreen extends StatefulWidget {
   State<NearbyScreen> createState() => _NearbyScreenState();
 }
 
+/// الورقة اللي تحت: ارتفاعها وهي مقفولة بيتحسب من المساحة — كفاية للمكان
+/// المختار لحد صف الأفعال على آيفون SE — وأقصاها بيسيب شريط من الخريطة فوق
+/// فيه الزرارين وحقوق الخريطة، عشان الـ© تفضل ظاهرة حتى في «القايمة».
+@visibleForTesting
+({double collapsed, double max}) nearbySheetSizes(double height, {bool controlsOnSheet = false}) {
+  // فوق الورقة: في الشاشة العادية زرارين عايمين (٥٦) + حقوق الخريطة
+  // (~٣٤). القصيرة حطّت الزرارين على الورقة نفسها، فبنحجز حقوق الخريطة
+  // بس — وإلا كنا هنسحب مساحة مرتين.
+  final overlay = (controlsOnSheet ? 0 : F.minTapTarget) + 34 + 3 * F.s6;
+  if (height <= overlay) return (collapsed: 0.5, max: 0.5);
+  final maxPx = height - overlay;
+  // المقفولة: نص المساحة، مش أقل من ٢٥٠ (الكارت لحد صف الأفعال)، ومش أكتر
+  // من المفتوحة ناقص شوية — على شاشة قصيرة جداً الحدود بتتقلب فالأصغر يكسب
+  final upper = math.max(maxPx - 60, 0.0);
+  // لما صف التحكم يعيش في حافة الورقة، بنحجز ارتفاعه فوق كارت المكان؛
+  // كده زر «اتصال» ما يخرجش من شاشة SE.
+  final cardWithControls = 250.0 + (controlsOnSheet ? F.minTapTarget + F.s8 : 0);
+  final lower = math.min(cardWithControls, upper);
+  final collapsedPx = (height * 0.5).clamp(lower, upper);
+  final maxF = maxPx / height;
+  final collapsed = (collapsedPx / height).clamp(math.min(0.2, maxF), maxF).toDouble();
+  return (collapsed: collapsed, max: maxF);
+}
+
+/// زراير التحكم في الخريطة. مكانهم بيتغيّر على الشاشة القصيرة فقط، لكن
+/// الكلمات والأفعال نفسها واحدة في الحالتين.
+class _NearbyControls extends StatelessWidget {
+  const _NearbyControls({required this.listOpen, required this.onResearch, required this.onToggleList});
+
+  final bool listOpen;
+  final VoidCallback onResearch;
+  final VoidCallback onToggleList;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: FSecondaryButton(
+              key: const ValueKey('nearby-research'),
+              label: 'دوّر من مكاني تاني',
+              icon: Icons.near_me_outlined,
+              onPressed: onResearch,
+            ),
+          ),
+          const SizedBox(width: F.s8),
+          Expanded(
+            flex: 2,
+            child: FSecondaryButton(
+              key: const ValueKey('nearby-view-toggle'),
+              label: listOpen ? 'الخريطة' : 'القايمة',
+              icon: listOpen ? Icons.map_outlined : Icons.list,
+              onPressed: onToggleList,
+            ),
+          ),
+        ],
+      );
+}
+
 class _NearbyScreenState extends State<NearbyScreen> {
   late final NearbyPlaces _places = widget.places ?? NearbyPlaces.forPlatform();
+  final _sheet = DraggableScrollableController();
+  final _map = MapController();
+  ScrollController? _sheetScroll;
+  ({double collapsed, double max}) _sizes = (collapsed: 0.5, max: 0.9);
+
   LocationFix? _fix;
   PlacesResult? _result;
   bool _loading = true;
   bool _offline = false;
+
+  /// المكان المختار في الورقة — null = الأقرب في الفلتر الحالي.
+  String? _selectedId;
   late _Filter _filter = widget.initialSpecialty != null
       ? _Filter.doctor
       : switch (widget.initialKind) {
@@ -228,6 +307,13 @@ class _NearbyScreenState extends State<NearbyScreen> {
   void initState() {
     super.initState();
     _search();
+  }
+
+  @override
+  void dispose() {
+    _sheet.dispose();
+    _map.dispose();
+    super.dispose();
   }
 
   Future<void> _search() async {
@@ -262,75 +348,263 @@ class _NearbyScreenState extends State<NearbyScreen> {
     }
   }
 
+  double? _fittedFor;
+
+  /// نقطتك وأقرب الأماكن جوّه الحتة اللي **باينة** فوق الورقة والزرارين —
+  /// مركز الخريطة كان بيقع تحت الورقة على SE فنقطتك ما كانتش بتبان. الحشو
+  /// عمره ما بياكل الخريطة كلها: بيفضل ٤٨ بكسل على الأقل للنقط.
+  CameraFit _visibleFit(LatLng here, List<Place> nearest, double height) {
+    final covered = height * _sizes.collapsed + F.minTapTarget + 34 + F.s6 * 4;
+    // الدبوس طالع فوق نقطته — فالحشو اللي فوق على قد الدبوس، وبيصغر الأول
+    // على الشاشة القصيرة قبل ما الحشو اللي تحت يتنازل
+    final strip = height - covered;
+    final top = math.min(64.0, math.max(0.0, strip - 48));
+    final bottom = math.max(0.0, math.min(covered, height - top - 48));
+    return CameraFit.coordinates(
+      coordinates: [here, for (final p in nearest.take(8)) LatLng(p.lat, p.lon)],
+      padding: EdgeInsets.fromLTRB(F.gap * 2, top, F.gap * 2, bottom),
+      maxZoom: 16,
+      minZoom: 14,
+    );
+  }
+
+  bool get _listOpen => _sheet.isAttached && _sheet.size > (_sizes.collapsed + _sizes.max) / 2;
+
+  /// على شاشة قصيرة (زي iPhone SE) الصف العايم كان بيغطي تقريباً كل شريط
+  /// الخريطة الباقي فوق الورقة. بننقله لحافة الورقة نفسها؛ الشاشات العادية
+  /// تفضل زي التصميم الأصلي، والزرارين ما زالوا ظاهرين من غير ما يغطّوا
+  /// الخريطة.
+  bool _shortScreen(BuildContext context) => MediaQuery.sizeOf(context).height <= 700;
+
+  /// «القايمة» / «الخريطة» — نفس الورقة: مفتوحة لآخرها = كل الأماكن.
+  void _toggleList() {
+    if (!_sheet.isAttached) return;
+    _sheet.animateTo(
+      _listOpen ? _sizes.collapsed : _sizes.max,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// اختيار مكان (من دبوس أو من صف): بيبقى فوق الورقة بأفعاله، والورقة
+  /// بتنزل لمكانها والخريطة بتروح له.
+  void _select(Place place, {bool fromList = false}) {
+    setState(() => _selectedId = place.id);
+    final scroll = _sheetScroll;
+    if (scroll != null && scroll.hasClients) scroll.jumpTo(0);
+    if (fromList && _sheet.isAttached) {
+      _sheet.animateTo(_sizes.collapsed, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    }
+    try {
+      _map.move(LatLng(place.lat, place.lon), _map.camera.zoom);
+    } catch (_) {
+      // الخريطة لسه ما اترسمتش — الاختيار نفسه هو اللي يهم
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final fix = _fix;
+    final located = !_loading && fix != null && fix.status == LocationStatus.granted;
+    final hasResults = located && !_offline && _result != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('قريب منك')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(F.gap, F.s4, F.gap, F.s30),
+      appBar: AppBar(title: const Text('قريب منك'), centerTitle: true),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ولا جملة هنا بتسمّي مصدر بالحرف — الاسم من الواجهة (Apple على iOS،
-          // OpenStreetMap على أندرويد). الاستثناء الوحيد حقوق الخريطة تحت.
-          Text(
-            'صيدليات ودكاترة متسجّلين على ${_places.sourceName} في ٢ كم حواليك.',
-            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s6),
+            child: Column(
+              children: [
+                // سطر واحد على عرض الموبايل العادي — كان سطرين فوق بعض وكانوا
+                // بياكلوا الخريطة على SE؛ وبيلفّ لوحده لو الخط كبير
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: F.s12,
+                  runSpacing: F.s6,
+                  children: [
+                    Text(
+                      'أماكن قريبة من موقعك',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                    ),
+                    // «موقعك الحالي» لوحدها — اسم المنطقة جاي في المرحلة د، ومن
+                    // غير موقع مفيش شريحة (كانت هتبقى كدبة)
+                    if (located)
+                      Container(
+                        key: const ValueKey('nearby-location-chip'),
+                        padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s6),
+                        decoration: BoxDecoration(
+                          color: F.greenTint,
+                          borderRadius: BorderRadius.circular(F.radiusLarge),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.place, size: 20, color: F.greenStrong),
+                            const SizedBox(width: F.s6),
+                            Text(
+                              'موقعك الحالي',
+                              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: F.s6),
+                // اسم اللي الموقع بيروح له **فعلاً** — من المصدر، مش من الشاشة:
+                // على iOS ده Apple، وعلى أندرويد OpenStreetMap. ولا جملة تانية
+                // هنا بتسمّي مصدر بالحرف — الاستثناء الوحيد حقوق الخريطة.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Icon(Icons.lock_outline, size: 16, color: F.mutedDark),
+                    ),
+                    const SizedBox(width: F.s4),
+                    Flexible(
+                      child: Text(
+                        'مكانك بيتبعت لـ ${_places.sourceName} عشان يدوّر — التقريبي، مش مكانك بالظبط.',
+                        key: const ValueKey('nearby-privacy'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          // اسم اللي الموقع بيروح له **فعلاً** — من المصدر، مش من الشاشة:
-          // على iOS ده Apple، وعلى أندرويد OpenStreetMap. الخريطة نفسها OSM
-          // على الاتنين، وده سبب الـ© تحت.
-          Text(
-            'مكانك بيتبعت لـ ${_places.sourceName} عشان يدوّر — التقريبي، مش مكانك بالظبط.',
-            key: const ValueKey('nearby-privacy'),
-            style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
-          ),
-          const SizedBox(height: F.s12),
-          ..._body(),
+          if (hasResults) ..._filters(),
+          Expanded(child: _content()),
         ],
       ),
     );
   }
 
-  List<Widget> _body() {
-    if (_loading) {
-      return [
-        Padding(
-          padding: EdgeInsets.all(F.gap),
-          child: Text('بيدوّر…', textAlign: TextAlign.center, style: TextStyle(fontSize: F.minBodySize, color: F.mutedDark)),
+  /// فلتر الأنواع — صف أفقي بأيقونة وكلمة، والتخصص تحت «دكاترة».
+  List<Widget> _filters() => [
+    SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: F.gap),
+      child: Row(
+        children: [
+          for (final (i, (f, label, kind)) in [
+            (_Filter.all, 'الكل', null),
+            (_Filter.pharmacy, 'صيدليات', PlaceKind.pharmacy),
+            (_Filter.doctor, 'دكاترة', PlaceKind.doctor),
+            (_Filter.hospital, 'مستشفيات', PlaceKind.hospital),
+            (_Filter.lab, 'معامل', PlaceKind.lab),
+          ].indexed) ...[
+            if (i > 0) const SizedBox(width: F.s8),
+            AnchorChip(
+              key: ValueKey('nearby-filter-${f.name}'),
+              label: label,
+              selected: _filter == f,
+              icon: kind == null ? Icons.apps : kindStyle(kind).icon,
+              // على الشريحة الأرضية هادية، فالأيقونة بلون الحبر بتاع النوع
+              iconColor: kind == null ? F.ink : (kindStyle(kind).bg == F.green ? F.green : kindStyle(kind).fg),
+              onTap: () => setState(() {
+                _filter = f;
+                _selectedId = null;
+              }),
+            ),
+          ],
+        ],
+      ),
+    ),
+    if (_filter == _Filter.doctor) ...[
+      const SizedBox(height: F.s8),
+      SingleChildScrollView(
+        key: const ValueKey('nearby-specialties'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: F.gap),
+        child: Row(
+          children: [
+            Text(
+              'التخصص',
+              style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+            ),
+            const SizedBox(width: F.s8),
+            AnchorChip(
+              key: const ValueKey('nearby-specialty-all'),
+              label: 'كل التخصصات',
+              selected: _specialty == null,
+              onTap: () => setState(() {
+                _specialty = null;
+                _selectedId = null;
+              }),
+            ),
+            for (final sp in Specialty.values) ...[
+              const SizedBox(width: F.s8),
+              AnchorChip(
+                key: ValueKey('nearby-specialty-${sp.name}'),
+                label: sp.label,
+                selected: _specialty == sp,
+                onTap: () => setState(() {
+                  _specialty = sp;
+                  _selectedId = null;
+                }),
+              ),
+            ],
+          ],
         ),
-      ];
+      ),
+    ],
+    const SizedBox(height: F.s8),
+  ];
+
+  Widget _content() {
+    if (_loading) {
+      return const _StateCard(
+        key: ValueKey('nearby-loading'),
+        icon: Icons.travel_explore,
+        text: 'بندوّر على الأماكن اللي قريبة منك…',
+        busy: true,
+      );
     }
     final fix = _fix;
     if (fix == null || fix.status != LocationStatus.granted) {
       final (text, settings) = switch (fix?.status) {
         LocationStatus.serviceOff => ('خدمة الموقع مقفولة على الموبايل. افتحها وارجع جرّب تاني.', false),
-        LocationStatus.deniedForever => ('إذن الموقع مقفول. من غيره مش هنعرف نلاقي اللي قريب منك — تقدر تفتحه من الإعدادات.', true),
+        LocationStatus.deniedForever => (
+          'إذن الموقع مقفول. من غيره مش هنعرف نلاقي اللي قريب منك — تقدر تفتحه من الإعدادات.',
+          true,
+        ),
         _ => ('من غير إذن الموقع مش هنعرف نلاقي اللي قريب منك.', false),
       };
-      return [
-        _Notice(key: const ValueKey('nearby-no-location'), text: text),
-        const SizedBox(height: F.s10),
-        if (settings) ...[
-          FSecondaryButton(label: 'افتح الإعدادات', onPressed: widget.location.openSettings),
-          const SizedBox(height: F.s8),
+      return _StateCard(
+        key: const ValueKey('nearby-no-location'),
+        icon: Icons.location_off_outlined,
+        text: text,
+        actions: [
+          FPrimaryButton(label: 'جرّب تاني', icon: Icons.refresh, onPressed: _search),
+          if (settings)
+            FSecondaryButton(
+              label: 'افتح الإعدادات',
+              icon: Icons.settings_outlined,
+              onPressed: widget.location.openSettings,
+            ),
         ],
-        FPrimaryButton(label: 'جرّب تاني', onPressed: _search),
-      ];
+      );
     }
     if (_offline) {
-      return [
-        const _Notice(
-          key: ValueKey('nearby-offline'),
-          text: 'مفيش نت دلوقتي — مش قادرين ندوّر. جرّب تاني لما النت يرجع.',
-        ),
-        const SizedBox(height: F.s10),
-        FPrimaryButton(label: 'جرّب تاني', onPressed: _search),
-      ];
+      return _StateCard(
+        key: const ValueKey('nearby-offline'),
+        icon: Icons.wifi_off,
+        text: 'مفيش نت دلوقتي — مش قادرين ندوّر. جرّب تاني لما النت يرجع.',
+        actions: [FPrimaryButton(label: 'جرّب تاني', icon: Icons.refresh, onPressed: _search)],
+      );
     }
 
     final result = _result!;
     final here = LatLng(fix.lat!, fix.lon!);
-    final all = [...result.places]
-      ..sort((a, b) => metersBetween(fix.lat!, fix.lon!, a.lat, a.lon).compareTo(metersBetween(fix.lat!, fix.lon!, b.lat, b.lon)));
+    double meters(Place p) => metersBetween(fix.lat!, fix.lon!, p.lat, p.lon);
+    final all = [...result.places]..sort((a, b) => meters(a).compareTo(meters(b)));
     final wanted = switch (_filter) {
       _Filter.all => null,
       _Filter.pharmacy => PlaceKind.pharmacy,
@@ -343,143 +617,217 @@ class _NearbyScreenState extends State<NearbyScreen> {
       for (final p in all)
         if ((wanted == null || p.kind == wanted) && (specialty == null || p.specialties.contains(specialty))) p,
     ];
+    final selected = shown.isEmpty ? null : shown.firstWhere((p) => p.id == _selectedId, orElse: () => shown.first);
+    // **كل مكان ظاهر ليه عنصر واحد** في الورقة: المختار هو الكارت الكبير،
+    // والباقي صفوف خفيفة — فمفيش اسم بيتكرّر ولا مفتاح `place-…` مرتين.
+    final rest = [
+      for (final p in shown)
+        if (p != selected) p,
+    ];
 
-    return [
-      Wrap(
-        spacing: F.s8,
-        runSpacing: F.s8,
-        children: [
-          for (final (f, label, kind) in [
-            (_Filter.all, 'الكل', null),
-            (_Filter.pharmacy, 'صيدليات', PlaceKind.pharmacy),
-            (_Filter.doctor, 'دكاترة', PlaceKind.doctor),
-            (_Filter.hospital, 'مستشفيات', PlaceKind.hospital),
-            (_Filter.lab, 'معامل تحاليل', PlaceKind.lab),
-          ])
-            AnchorChip(
-              key: ValueKey('nearby-filter-${f.name}'),
-              label: label,
-              selected: _filter == f,
-              icon: kind == null ? null : kindStyle(kind).icon,
-              // على الشريحة الأرضية هادية، فالأيقونة بلون الحبر بتاع النوع
-              iconColor: kind == null ? null : (kindStyle(kind).bg == F.green ? F.green : kindStyle(kind).fg),
-              onTap: () => setState(() => _filter = f),
-            ),
-        ],
-      ),
-      if (_filter == _Filter.doctor) ...[
-        const SizedBox(height: F.s10),
-        Text('التخصص', style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink)),
-        const SizedBox(height: F.s6),
-        Wrap(
-          spacing: F.s8,
-          runSpacing: F.s8,
+    return LayoutBuilder(
+      builder: (context, box) {
+        final shortScreen = _shortScreen(context);
+        _sizes = nearbySheetSizes(box.maxHeight, controlsOnSheet: shortScreen);
+        final fit = _visibleFit(here, all, box.maxHeight);
+        // الكاميرا بتتظبط تاني لو مقاس الخريطة اتغيّر (لفّة الموبايل، الخط)
+        if (_fittedFor != null && _fittedFor != box.maxHeight) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            try {
+              _map.fitCamera(fit);
+            } catch (_) {}
+          });
+        }
+        _fittedFor = box.maxHeight;
+        return Stack(
           children: [
-            AnchorChip(
-              key: const ValueKey('nearby-specialty-all'),
-              label: 'كل التخصصات',
-              selected: _specialty == null,
-              onTap: () => setState(() => _specialty = null),
-            ),
-            for (final sp in Specialty.values)
-              AnchorChip(
-                key: ValueKey('nearby-specialty-${sp.name}'),
-                label: sp.label,
-                selected: _specialty == sp,
-                onTap: () => setState(() => _specialty = sp),
-              ),
-          ],
-        ),
-      ],
-      const SizedBox(height: F.s12),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(F.radiusCard),
-        child: SizedBox(
-          height: 260,
-          child: FlutterMap(
-            // من غير autofocus: الخريطة كانت بتاخد التركيز وتسحب الصفحة لتحت
-            // فتستخبّى جملة الخصوصية والفلاتر
-            options: MapOptions(
-              initialCenter: here,
-              initialZoom: 15,
-              interactionOptions: const InteractionOptions(keyboardOptions: KeyboardOptions.disabled()),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.fakkarni.fakkarni',
-                tileProvider: widget.tileProvider,
-              ),
-              MarkerLayer(
-                markers: [
-                  for (final p in shown)
-                    Marker(
-                      point: LatLng(p.lat, p.lon),
-                      width: 34,
-                      height: 34,
-                      // نفس بلاطة الكارت والفلتر
-                      child: KindTile(p.kind, size: 34),
-                    ),
-                  Marker(
-                    point: here,
-                    width: 22,
-                    height: 22,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: F.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: F.onDark, width: 3),
+            Positioned.fill(
+              child: FlutterMap(
+                mapController: _map,
+                // من غير autofocus: الخريطة كانت بتاخد التركيز وتسحب الصفحة
+                options: MapOptions(
+                  initialCenter: here,
+                  initialZoom: 15,
+                  // نقطتك وأقرب الأماكن جوّه الحتة اللي **باينة** فوق الورقة
+                  // والزرارين — مركز الخريطة كله كان بيقع تحت الورقة على SE
+                  initialCameraFit: fit,
+                  interactionOptions: const InteractionOptions(keyboardOptions: KeyboardOptions.disabled()),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.fakkarni.fakkarni',
+                    tileProvider: widget.tileProvider,
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      for (final p in shown)
+                        Marker(
+                          point: LatLng(p.lat, p.lon),
+                          width: p == selected ? 52 : 40,
+                          height: p == selected ? 62 : 48,
+                          alignment: Alignment.topCenter,
+                          child: _Pin(
+                            key: ValueKey('pin-${p.id}'),
+                            place: p,
+                            selected: p == selected,
+                            onTap: () => _select(p),
+                          ),
+                        ),
+                      // نقطتك — أخضر التطبيق بهالة هادية. **مش أزرق**: الأزرق
+                      // محجوز للمية ولكارت المعلومة
+                      Marker(
+                        point: here,
+                        width: 34,
+                        height: 34,
+                        child: const _YouDot(key: ValueKey('nearby-you')),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-              // شرط رخصة ODbL — ظاهر على الخريطة دايماً. ودجت بتاعنا مش
-              // SimpleAttributionWidget: ده بيحط © تانية وبيقلب ترتيب العربي.
-              Align(
-                alignment: AlignmentDirectional.bottomStart,
-                child: Container(
-                  key: const ValueKey('osm-attribution'),
-                  margin: const EdgeInsets.all(F.s6),
-                  padding: const EdgeInsets.symmetric(horizontal: F.s8, vertical: F.s4),
-                  decoration: BoxDecoration(color: const Color(0xE6FFFFFF), borderRadius: BorderRadius.circular(F.radiusChip)),
-                  child: Text(
-                    '© مساهمو OpenStreetMap',
-                    textDirection: TextDirection.rtl,
-                    // الأرضية بيضا ثابتة فوق الخريطة — النص من نصوعها مش من الوضع
-                    style: TextStyle(fontSize: F.minTextSize, color: F.onFill(const Color(0xE6FFFFFF))),
+            ),
+            // في الشاشة العادية الزرارين وحقوق الخريطة فوق الورقة على طول.
+            // في القصيرة الزرارين نفسهم جوّه حافة الورقة (تحت)، عشان ما
+            // ياكلوش شريط الخريطة الصغير.
+            AnimatedBuilder(
+              animation: _sheet,
+              builder: (context, _) {
+                final size = _sheet.isAttached ? _sheet.size : _sizes.collapsed;
+                final above = box.maxHeight * size;
+                return Positioned.directional(
+                  textDirection: Directionality.of(context),
+                  start: F.s8,
+                  end: F.s8,
+                  bottom: above + F.s6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // عرض محسوب بـExpanded مش IntrinsicWidth: عرض الفقاعة
+                      // الذاتي صفر، فـIntrinsicWidth كان بيخفي الزرارين خالص
+                      if (!shortScreen) ...[
+                        _NearbyControls(listOpen: _listOpen, onResearch: _search, onToggleList: _toggleList),
+                        const SizedBox(height: F.s6),
+                      ],
+                      // شرط رخصة ODbL — ظاهر دايماً. ودجت بتاعنا مش
+                      // SimpleAttributionWidget: ده بيحط © تانية وبيقلب العربي.
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Container(
+                          key: const ValueKey('osm-attribution'),
+                          padding: const EdgeInsets.symmetric(horizontal: F.s8, vertical: F.s4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xE6FFFFFF),
+                            borderRadius: BorderRadius.circular(F.radiusChip),
+                          ),
+                          child: Text(
+                            '© مساهمو OpenStreetMap',
+                            textDirection: TextDirection.rtl,
+                            // الأرضية بيضا ثابتة فوق الخريطة — النص من نصوعها مش من الوضع
+                            style: TextStyle(fontSize: F.minTextSize, color: F.onFill(const Color(0xE6FFFFFF))),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(height: F.s8),
-      if (result.offline)
-        _Notice(
-          key: const ValueKey('nearby-stale'),
-          text: 'مفيش نت — دي آخر نتايج من ${arabicDate(result.fetchedAt)} ${arabicTime(result.fetchedAt)}.',
-        ),
-      FSecondaryButton(label: 'دوّر من مكاني تاني', onPressed: _search),
-      const SizedBox(height: F.s12),
-      if (shown.isEmpty)
-        _Notice(
-          key: const ValueKey('nearby-empty'),
-          text: specialty == null ? _emptyText(wanted) : _emptySpecialtyText(specialty, _places.sourceName),
-        )
-      else
-        for (final p in shown)
-          Padding(
-            padding: const EdgeInsets.only(bottom: F.s10),
-            child: _PlaceCard(
-                place: p,
-                meters: metersBetween(fix.lat!, fix.lon!, p.lat, p.lon),
-                now: _now,
-                onPickPharmacy: widget.onPickPharmacy,
-                onBookPlace: widget.onBookPlace),
-          ),
-    ];
+                );
+              },
+            ),
+            DraggableScrollableSheet(
+              controller: _sheet,
+              initialChildSize: _sizes.collapsed,
+              minChildSize: _sizes.collapsed,
+              maxChildSize: _sizes.max,
+              snap: true,
+              builder: (context, scroll) {
+                _sheetScroll = scroll;
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: F.pageGround,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(F.radiusSheet)),
+                    boxShadow: [BoxShadow(color: F.bubbleShadow, blurRadius: 18, offset: const Offset(0, -4))],
+                  ),
+                  child: SingleChildScrollView(
+                    controller: scroll,
+                    padding: EdgeInsets.only(bottom: F.gap + MediaQuery.of(context).padding.bottom),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // المقبض — السحب لفوق بيوري كل الأماكن
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: F.s10),
+                            width: 48,
+                            height: 5,
+                            decoration: BoxDecoration(color: F.line, borderRadius: BorderRadius.circular(3)),
+                          ),
+                        ),
+                        if (shortScreen) ...[
+                          Padding(
+                            padding: const EdgeInsetsDirectional.fromSTEB(F.gap, 0, F.gap, F.s8),
+                            child: _NearbyControls(listOpen: _listOpen, onResearch: _search, onToggleList: _toggleList),
+                          ),
+                          Divider(height: 1, thickness: 1, color: F.lineSoft),
+                        ],
+                        if (result.offline)
+                          _Notice(
+                            key: const ValueKey('nearby-stale'),
+                            icon: Icons.history,
+                            text:
+                                'مفيش نت — دي آخر نتايج من ${arabicDate(result.fetchedAt)} ${arabicTime(result.fetchedAt)}.',
+                          ),
+                        if (selected == null)
+                          _Notice(
+                            key: const ValueKey('nearby-empty'),
+                            icon: Icons.search_off,
+                            text: specialty == null
+                                ? _emptyText(wanted)
+                                : _emptySpecialtyText(specialty, _places.sourceName),
+                          )
+                        else ...[
+                          _PlacePanel(
+                            place: selected,
+                            meters: meters(selected),
+                            now: _now,
+                            onPickPharmacy: widget.onPickPharmacy,
+                            onBookPlace: widget.onBookPlace,
+                          ),
+                          if (rest.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(F.gap, F.s12, F.gap, F.s4),
+                              child: Text(
+                                'أماكن تانية قريبة — ${arabicNumber(rest.length)}',
+                                key: const ValueKey('nearby-rest-head'),
+                                style: TextStyle(
+                                  fontSize: F.minTextSize,
+                                  fontWeight: FontWeight.w700,
+                                  color: F.mutedDark,
+                                ),
+                              ),
+                            ),
+                            for (final (i, p) in rest.indexed) ...[
+                              if (i > 0)
+                                Divider(height: 1, thickness: 1, color: F.lineSoft, indent: F.gap, endIndent: F.gap),
+                              _PlaceRow(
+                                place: p,
+                                meters: meters(p),
+                                now: _now,
+                                onTap: () => _select(p, fromList: true),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -494,15 +842,31 @@ String _emptySpecialtyText(Specialty s, String source) =>
 /// الحالة الفاضية — جملة لكل نوع على نفس النمط، وكلها بتسمّي المصدر من
 /// الواجهة (Apple على iOS، OpenStreetMap على أندرويد).
 String _emptyTextFor(PlaceKind? kind, String source) => switch (kind) {
-      null => nearbyEmptyAll,
-      PlaceKind.pharmacy => 'مفيش صيدليات متسجّلة على $source في ٢ كم حواليك.',
-      PlaceKind.doctor => 'مفيش دكاترة متسجّلين على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
-      PlaceKind.hospital => 'مفيش مستشفيات متسجّلة على $source في ٢ كم حواليك.',
-      PlaceKind.lab => 'مفيش معامل تحاليل متسجّلة على $source في ٢ كم حواليك.',
-    };
+  null => nearbyEmptyAll,
+  PlaceKind.pharmacy => 'مفيش صيدليات متسجّلة على $source في ٢ كم حواليك.',
+  PlaceKind.doctor => 'مفيش دكاترة متسجّلين على $source في ٢ كم حواليك. التغطية في مصر لسه ناقصة — خصوصاً الدكاترة.',
+  PlaceKind.hospital => 'مفيش مستشفيات متسجّلة على $source في ٢ كم حواليك.',
+  PlaceKind.lab => 'مفيش معامل تحاليل متسجّلة على $source في ٢ كم حواليك.',
+};
 
-class _PlaceCard extends StatelessWidget {
-  const _PlaceCard({required this.place, required this.meters, required this.now, this.onPickPharmacy, this.onBookPlace});
+/// النوع والتخصص: «دكتور عيون»، أو كلمة النوع لوحدها.
+String _categoryOf(Place p) {
+  final kindWord = _kindWord(p.kind);
+  final specialties = p.specialties;
+  return specialties.isEmpty ? kindWord : '$kindWord ${specialties.map((s) => s.label).join(' و')}';
+}
+
+String _nameOf(Place p) => p.name ?? '${_kindWord(p.kind)} من غير اسم على الخريطة';
+
+/// المكان المختار — فوق الورقة بكل اللي يتعمل فيه.
+class _PlacePanel extends StatelessWidget {
+  const _PlacePanel({
+    required this.place,
+    required this.meters,
+    required this.now,
+    this.onPickPharmacy,
+    this.onBookPlace,
+  });
 
   final Place place;
   final void Function(Place place)? onPickPharmacy;
@@ -513,33 +877,25 @@ class _PlaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = place;
-    final kindWord = _kindWord(p.kind);
-    final name = p.name ?? '$kindWord من غير اسم على الخريطة';
+    final name = _nameOf(p);
     final hours = p.openingHours;
     final state = hours == null ? null : openStateAt(hours, now);
-    final specialties = p.specialties;
-    final category = specialties.isEmpty ? kindWord : '$kindWord ${specialties.map((s) => s.label).join(' و')}';
     final whatsApp = p.phone == null ? null : egyptMobileWhatsApp(p.phone!);
     // «احجز» بيسجّل الميعاد وتذكيره عندنا — مش بيكلّم العيادة
     final canBook = p.kind == PlaceKind.doctor && (onBookPlace != null || AppScope.maybeOf(context) != null);
     // «خليها صيدليتي» — بتفتح ورقة «صيدليتي» متعبّية؛ مفيش حفظ قبل «احفظ»
     final canKeep = p.kind == PlaceKind.pharmacy && (onPickPharmacy != null || AppScope.maybeOf(context) != null);
 
-    return Container(
+    return Padding(
       key: ValueKey('place-${p.id}'),
-      padding: const EdgeInsets.all(F.gap),
-      decoration: BoxDecoration(
-        color: F.pageGround,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: F.line),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: F.gap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              KindTile(p.kind),
+              KindTile(p.kind, size: 52),
               const SizedBox(width: F.s12),
               Expanded(
                 child: Column(
@@ -560,118 +916,129 @@ class _PlaceCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: F.s4),
-                    // النوع والتخصص — والعنوان لو الخريطة فيها عنوان
                     Text(
-                      category,
+                      _categoryOf(p),
                       key: ValueKey('place-category-${p.id}'),
                       style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
                     ),
-                    if (p.address case final address?)
-                      Text(
-                        address,
-                        key: ValueKey('place-address-${p.id}'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
-                      ),
-                    // «مفتوح الآن» / «مغلق» — **بس** لو مواعيد الخريطة مفهومة كلها
-                    if (state != null) ...[
-                      const SizedBox(height: F.s8),
-                      _OpenChip(key: ValueKey('open-state-${p.id}'), open: state == OpenState.open),
-                    ] else if (hours != null)
-                      Text(
-                        'مواعيدها على الخريطة: $hours',
-                        textDirection: TextDirection.rtl,
-                        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
-                      ),
                   ],
                 ),
               ),
               const SizedBox(width: F.s10),
-              // المسافة رقم كبير والوحدة تحته، والتقييم تحتهم **لو المصدر اداه**
-              Column(
+              _Distance(
                 key: ValueKey('place-distance-${p.id}'),
-                children: [
-                  Text(
-                    distanceKm(meters),
-                    style: TextStyle(fontFamily: F.displayFamily, fontSize: F.subtitleSize + 4, fontWeight: FontWeight.w800, color: F.ink, height: 1.1),
-                  ),
-                  Text('كم', style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark)),
-                  if (p.rating case final r?) ...[
-                    const SizedBox(height: F.s6),
-                    Text(
-                      '★ ${arabicDigits(r.toStringAsFixed(1)).replaceAll('.', '٫')}',
-                      key: ValueKey('place-rating-${p.id}'),
-                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
-                    ),
-                  ],
-                ],
+                meters: meters,
+                rating: p.rating,
+                ratingKey: ValueKey('place-rating-${p.id}'),
               ),
             ],
           ),
+          // «مفتوح الآن» / «مغلق» — **بس** لو مواعيد الخريطة مفهومة كلها
+          if (state != null) ...[
+            const SizedBox(height: F.s8),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _OpenChip(key: ValueKey('open-state-${p.id}'), open: state == OpenState.open),
+            ),
+          ] else if (hours != null)
+            Padding(
+              padding: const EdgeInsets.only(top: F.s6),
+              child: Text(
+                'مواعيدها على الخريطة: $hours',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+              ),
+            ),
+          // العنوان — لو الخريطة فيها عنوان وبس
+          if (p.address case final address?) ...[
+            const SizedBox(height: F.s6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(Icons.place_outlined, size: 20, color: F.mutedDark),
+                ),
+                const SizedBox(width: F.s4),
+                Expanded(
+                  child: Text(
+                    address,
+                    key: ValueKey('place-address-${p.id}'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: F.s12),
+          // الأفعال الأساسية في صف واحد — كلهم بنفس الارتفاع (٦٤) عشان
+          // الصف ما يبقاش متدرّج، و«اتصال» هو الأساسي الوحيد في الشاشة
           Row(
             children: [
               if (p.phone != null) ...[
-                // مليان في كل كارت — استثناء من «أساسيين بس في الشاشة» بقرار
-                // المالك (٢٨ سبتمبر ٢٠٢٦، تصميم «القريب مني»)
                 Expanded(
-                  child: _ActionButton(
+                  flex: 3,
+                  child: KeyedSubtree(
                     key: ValueKey('call-${p.id}'),
-                    label: 'اتصال',
-                    icon: Icons.phone,
-                    filled: true,
-                    onPressed: () => dialNumber(p.phone!),
+                    child: FPrimaryButton(label: 'اتصال', icon: Icons.phone, onPressed: () => dialNumber(p.phone!)),
                   ),
                 ),
                 const SizedBox(width: F.s8),
               ],
               Expanded(
-                child: _ActionButton(
+                flex: 3,
+                child: KeyedSubtree(
                   key: ValueKey('route-${p.id}'),
-                  label: 'اتجاهات',
-                  icon: Icons.explore_outlined,
-                  onPressed: () => openDirections(p),
+                  child: FSecondaryButton(
+                    label: 'اتجاهات',
+                    icon: Icons.near_me,
+                    height: F.primaryButtonHeight,
+                    onPressed: () => openDirections(p),
+                  ),
                 ),
               ),
               if (whatsApp != null) ...[
                 const SizedBox(width: F.s8),
-                // صغير — بس بكلمته: مفيش زرار أيقونة لوحده
-                _WhatsAppButton(key: ValueKey('whatsapp-${p.id}'), onPressed: () => openWhatsApp(whatsAppUri(whatsApp))),
+                // أصغر — بس بكلمته: مفيش زرار أيقونة لوحده
+                Expanded(
+                  flex: 2,
+                  child: KeyedSubtree(
+                    key: ValueKey('whatsapp-${p.id}'),
+                    child: FSecondaryButton(
+                      label: 'واتساب',
+                      icon: Icons.chat_outlined,
+                      height: F.primaryButtonHeight,
+                      onPressed: () => openWhatsApp(whatsAppUri(whatsApp)),
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
+          // الإضافات الهادية تحت الصف — فقاعة ثانوية
           if (canKeep) ...[
-            const SizedBox(height: F.s4),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
-                key: ValueKey('keep-pharmacy-${p.id}'),
+            const SizedBox(height: F.s8),
+            KeyedSubtree(
+              key: ValueKey('keep-pharmacy-${p.id}'),
+              child: FSecondaryButton(
+                label: 'خليها صيدليتي',
+                icon: Icons.bookmark_add_outlined,
                 onPressed: () => onPickPharmacy != null
                     ? onPickPharmacy!(p)
                     : editPharmacy(context, prefill: PharmacyPrefill.fromPlace(p)),
-                style: TextButton.styleFrom(
-                  foregroundColor: F.greenStrong,
-                  minimumSize: const Size(F.minTapTarget, F.minTapTarget),
-                  textStyle: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
-                ),
-                child: const Text('خليها صيدليتي'),
               ),
             ),
           ],
           if (canBook) ...[
-            const SizedBox(height: F.s4),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
-                key: ValueKey('book-${p.id}'),
+            const SizedBox(height: F.s8),
+            KeyedSubtree(
+              key: ValueKey('book-${p.id}'),
+              child: FSecondaryButton(
+                label: 'احجز ميعاد عنده',
+                icon: Icons.event_outlined,
                 onPressed: () => onBookPlace != null ? onBookPlace!(p) : bookFromPlace(context, p, now),
-                style: TextButton.styleFrom(
-                  foregroundColor: F.greenStrong,
-                  minimumSize: const Size(F.minTapTarget, F.minTapTarget),
-                  textStyle: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700),
-                ),
-                child: const Text('احجز ميعاد عنده'),
               ),
             ),
           ],
@@ -681,112 +1048,287 @@ class _PlaceCard extends StatelessWidget {
   }
 }
 
-/// «اتصال» (مليان) / «اتجاهات» (محدّد) — ٥٦، أيقونة وكلمة.
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.label, required this.icon, required this.onPressed, this.filled = false, super.key});
+/// صف خفيف لمكان مش مختار — الدوسة بتختاره.
+class _PlaceRow extends StatelessWidget {
+  const _PlaceRow({required this.place, required this.meters, required this.now, required this.onTap});
 
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool filled;
+  final Place place;
+  final double meters;
+  final DateTime now;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(F.radiusCard),
-      side: BorderSide(color: F.buttonEdge, width: 1.5),
-    );
-    final text = Text(label, maxLines: 1, style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700));
-    return SizedBox(
-      height: F.minTapTarget,
-      child: filled
-          ? FilledButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon, size: 22),
-              label: text,
-              style: FilledButton.styleFrom(
-                backgroundColor: F.green,
-                foregroundColor: F.onGreen,
-                shape: shape,
-                padding: const EdgeInsets.symmetric(horizontal: F.s8),
+    final p = place;
+    final name = _nameOf(p);
+    final hours = p.openingHours;
+    final state = hours == null ? null : openStateAt(hours, now);
+    return InkWell(
+      key: ValueKey('place-${p.id}'),
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: F.primaryButtonHeight),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: F.gap, vertical: F.s8),
+          child: Row(
+            children: [
+              KindTile(p.kind, size: 40),
+              const SizedBox(width: F.s10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      key: ValueKey('place-name-${p.id}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textDirection: nameDirection(name),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: F.minBodySize,
+                        fontWeight: FontWeight.w700,
+                        color: p.name == null ? F.mutedDark : F.ink,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: F.s8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          _categoryOf(p),
+                          key: ValueKey('place-category-${p.id}'),
+                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+                        ),
+                        if (state != null)
+                          _OpenChip(key: ValueKey('open-state-${p.id}'), open: state == OpenState.open, small: true),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            )
-          : OutlinedButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon, size: 22),
-              label: text,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: F.ink,
-                side: BorderSide(color: F.buttonEdge, width: 1.5),
-                shape: shape,
-                padding: const EdgeInsets.symmetric(horizontal: F.s8),
-              ),
-            ),
+              const SizedBox(width: F.s8),
+              _Distance(key: ValueKey('place-distance-${p.id}'), meters: meters, small: true),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-/// واتساب — مربع صغير بأيقونة وكلمة تحتها.
-class _WhatsAppButton extends StatelessWidget {
-  const _WhatsAppButton({required this.onPressed, super.key});
-  final VoidCallback onPressed;
+/// المسافة: الرقم بالكيلو كبير و«كم» تحته — والتقييم تحتهم **لو المصدر اداه**.
+class _Distance extends StatelessWidget {
+  const _Distance({required this.meters, this.rating, this.ratingKey, this.small = false, super.key});
+
+  final double meters;
+  final double? rating;
+  final Key? ratingKey;
+  final bool small;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 72,
-        height: F.minTapTarget,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: F.ink,
-            padding: EdgeInsets.zero,
-            side: BorderSide(color: F.buttonEdge, width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.chat_outlined, size: 20),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('واتساب', maxLines: 1, style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, height: 1.1)),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Column(
+    children: [
+      Text(
+        distanceKm(meters),
+        style: TextStyle(
+          fontFamily: F.displayFamily,
+          fontSize: small ? F.minBodySize : F.subtitleSize + 4,
+          fontWeight: FontWeight.w800,
+          color: F.ink,
+          height: 1.1,
         ),
-      );
+      ),
+      Text(
+        'كم',
+        style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark),
+      ),
+      if (rating case final r?) ...[
+        const SizedBox(height: F.s6),
+        Text(
+          '★ ${arabicDigits(r.toStringAsFixed(1)).replaceAll('.', '٫')}',
+          key: ratingKey,
+          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+        ),
+      ],
+    ],
+  );
 }
 
-/// «مفتوح الآن» (أخضر فاتح) / «مغلق» (رمادي).
+/// دبوس على الخريطة — بلاطة النوع نفسها وتحتها سنّ صغير. المختار أكبر وحواليه
+/// حلقة بالحبر (مش دهبي: الدهبي «محتاجك دلوقتي» بس).
+class _Pin extends StatelessWidget {
+  const _Pin({required this.place, required this.selected, required this.onTap, super.key});
+
+  final Place place;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = selected ? 44.0 : 34.0;
+    final st = kindStyle(place.kind);
+    return Semantics(
+      button: true,
+      label: _nameOf(place),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size * 0.32),
+                border: selected ? Border.all(color: F.ink, width: 2) : null,
+                boxShadow: [BoxShadow(color: F.bubbleShadow, blurRadius: 6, offset: const Offset(0, 2))],
+              ),
+              child: KindTile(place.kind, size: size),
+            ),
+            CustomPaint(size: const Size(12, 8), painter: _TailPainter(st.bg)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TailPainter extends CustomPainter {
+  _TailPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_TailPainter old) => old.color != color;
+}
+
+/// نقطتك على الخريطة — أخضر التطبيق بحلقة بيضا وهالة هادية.
+class _YouDot extends StatelessWidget {
+  const _YouDot({super.key});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'إنت هنا',
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(color: F.green.withValues(alpha: 0.22), shape: BoxShape.circle),
+        ),
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: F.green,
+            shape: BoxShape.circle,
+            border: Border.all(color: F.onDark, width: 3),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// حالة من غير خريطة (بيدوّر، مفيش إذن، الخدمة مقفولة، مفيش نت) — أيقونة
+/// كبيرة وجملة وأزرار واضحة. **عمرها ما بتبقى خريطة فاضية من غير كلام.**
+class _StateCard extends StatelessWidget {
+  const _StateCard({required this.icon, required this.text, this.actions = const [], this.busy = false, super.key});
+
+  final IconData icon;
+  final String text;
+  final List<Widget> actions;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.all(F.gap),
+    child: Container(
+      padding: const EdgeInsets.all(F.gap),
+      decoration: BoxDecoration(color: F.cardGround, borderRadius: BorderRadius.circular(F.radiusLarge)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(color: F.greenTint, borderRadius: BorderRadius.circular(F.radiusLarge)),
+              child: busy
+                  ? Padding(
+                      padding: const EdgeInsets.all(F.s20),
+                      child: CircularProgressIndicator(strokeWidth: 3, color: F.greenStrong),
+                    )
+                  : Icon(icon, size: 38, color: F.greenStrong),
+            ),
+          ),
+          const SizedBox(height: F.s12),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+          ),
+          for (final a in actions) ...[const SizedBox(height: F.s10), a],
+        ],
+      ),
+    ),
+  );
+}
+
+/// «مفتوح الآن» (أخضر فاتح) / «مغلق» (رمادي). [small] للصفوف الخفيفة.
 class _OpenChip extends StatelessWidget {
-  const _OpenChip({required this.open, super.key});
+  const _OpenChip({required this.open, this.small = false, super.key});
   final bool open;
+  final bool small;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: F.s10, vertical: F.s4),
-        decoration: BoxDecoration(
-          color: open ? F.greenOkSoft : F.railGround,
-          borderRadius: BorderRadius.circular(F.radiusChip),
-          border: Border.all(color: open ? F.greenOk : F.line),
-        ),
-        child: Text(
-          open ? 'مفتوح الآن' : 'مغلق',
-          style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: open ? F.greenOk : F.mutedDark),
-        ),
-      );
+    padding: EdgeInsets.symmetric(horizontal: small ? F.s6 : F.s10, vertical: small ? 0 : F.s4),
+    decoration: BoxDecoration(
+      color: open ? F.greenOkSoft : F.railGround,
+      borderRadius: BorderRadius.circular(F.radiusChip),
+      border: Border.all(color: open ? F.greenOk : F.line),
+    ),
+    child: Text(
+      open ? 'مفتوح الآن' : 'مغلق',
+      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: open ? F.greenOk : F.mutedDark),
+    ),
+  );
 }
 
+/// سطر هادي جوّه الورقة (آخر نتايج من غير نت، أو مفيش نتايج) — بأيقونته.
 class _Notice extends StatelessWidget {
-  const _Notice({required this.text, super.key});
+  const _Notice({required this.text, this.icon, super.key});
 
   final String text;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(F.gap),
-        margin: const EdgeInsets.only(bottom: F.s8),
-        decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
-        child: Text(text, style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5)),
-      );
+    padding: const EdgeInsets.all(F.gap),
+    margin: const EdgeInsets.fromLTRB(F.gap, 0, F.gap, F.s8),
+    decoration: BoxDecoration(color: F.railGround, borderRadius: BorderRadius.circular(F.radiusCard)),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (icon != null) ...[Icon(icon, size: 24, color: F.mutedDark), const SizedBox(width: F.s10)],
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: F.minBodySize, color: F.ink, height: 1.5),
+          ),
+        ),
+      ],
+    ),
+  );
 }

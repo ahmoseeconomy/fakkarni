@@ -30,6 +30,16 @@ class BlankTiles extends TileProvider {
   ImageProvider getImage(TileCoordinates coordinates, TileLayer options) => MemoryImage(_png);
 }
 
+/// بيختار مكان من صفّه الخفيف في الورقة (التصميم الجديد — المالك، ٦ أكتوبر
+/// ٢٠٢٦): المختار بس هو اللي عليه الأفعال (اتصال/اتجاهات/واتساب/…).
+Future<void> pickPlace(WidgetTester tester, String id) async {
+  final row = find.byKey(ValueKey('place-$id'));
+  await tester.ensureVisible(row);
+  await settle(tester);
+  await tester.tap(row);
+  await settle(tester);
+}
+
 class FakeLocation implements LocationSource {
   FakeLocation(this.fix);
   LocationFix fix;
@@ -125,7 +135,10 @@ void main() {
     expect(find.byKey(const ValueKey('open-state-node/1')), findsNothing, reason: 'مفيش تاج → مفيش حكم');
     expect(find.byKey(const ValueKey('open-state-node/3')), findsNothing);
 
+    // الأفعال على المكان المختار بس — بنختار وبنبص
+    await pickPlace(tester, 'node/1');
     expect(find.byKey(const ValueKey('call-node/1')), findsOneWidget);
+    await pickPlace(tester, 'node/2');
     expect(find.byKey(const ValueKey('call-node/2')), findsNothing, reason: 'مفيش رقم');
 
     for (final star in ['★', '⭐', 'تقييم', 'متوفر', 'توصيل', 'تأمين']) {
@@ -135,8 +148,9 @@ void main() {
     expect(find.byIcon(Icons.star_rounded), findsNothing);
     expectNoRedAndMinSize(tester);
 
-    await tester.tap(find.byKey(const ValueKey('call-node/1')));
     await tester.tap(find.byKey(const ValueKey('route-node/2')));
+    await pickPlace(tester, 'node/1');
+    await tester.tap(find.byKey(const ValueKey('call-node/1')));
     await settle(tester);
     expect(dialed, ['+20 2 1234567']);
     expect(routed, ['node/2']);
@@ -167,8 +181,9 @@ void main() {
   screenTest('أربع شرايح بالترتيب بعد «الكل»، وكل واحدة بتعرض نوعها بس — بأيقونته', (tester) async {
     await pumpNearby(tester, places: overpass(response: fourKinds));
 
-    // الترتيب زي ما اتطلب: الكل / صيدليات / دكاترة / مستشفيات / معامل تحاليل
-    final labels = ['الكل', 'صيدليات', 'دكاترة', 'مستشفيات', 'معامل تحاليل'];
+    // الترتيب زي ما اتطلب: الكل / صيدليات / دكاترة / مستشفيات / معامل
+    // («معامل» — كلمة المالك في تصميم ٦ أكتوبر ٢٠٢٦، كانت «معامل تحاليل»)
+    final labels = ['الكل', 'صيدليات', 'دكاترة', 'مستشفيات', 'معامل'];
     // ترتيب القراية: سطر ورا سطر، ويمين لشمال جوّه السطر (الشرايح بأيقوناتها ممكن تلفّ)
     final at = [for (final l in labels) tester.getCenter(find.text(l))];
     for (var i = 1; i < at.length; i++) {
@@ -192,9 +207,9 @@ void main() {
       for (final (_, other, _) in cases) {
         expect(find.text(other), other == name ? findsOneWidget : findsNothing, reason: '$filter → $other');
       }
-      // بلاطة النوع على الكارت وعلى الخريطة — ومفيش بلاطة نوع تاني
+      // بلاطة النوع على الكارت المختار وعلى الدبوس — ومفيش بلاطة نوع تاني
       final tiles = tester.widgetList<KindTile>(find.byType(KindTile)).toList();
-      expect(tiles.length, 2, reason: 'كارت ودبوس');
+      expect(tiles.length, 2, reason: 'كارت مختار ودبوس');
       for (final t in tiles) {
         expect(t.kind.name, filter, reason: '$filter shows ${t.kind}');
       }

@@ -193,12 +193,17 @@ class FPrimaryButton extends StatelessWidget {
     this.gold = false,
     this.height = F.primaryButtonHeight,
     this.fontSize = F.minBodySize,
+    this.icon,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool gold;
+
+  /// أيقونة **جنب** الكلمة (مش بدالها — مفيش زرار أيقونة لوحده). null = كلمة
+  /// بس، زي كل الأزرار قبل «قريب منك» (المرحلة ج، ٦ أكتوبر ٢٠٢٦).
+  final IconData? icon;
 
   /// نمط كبار السن بيكبّره (٨٠) — عمره ما بيصغر عن الحد.
   final double height;
@@ -227,15 +232,27 @@ class FPrimaryButton extends StatelessWidget {
             foregroundColor: gold ? F.onGold : F.onGreen,
             disabledBackgroundColor: Colors.transparent,
             disabledForegroundColor: F.mutedDark,
-            textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700),
+            textStyle: TextStyle(fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback, fontSize: fontSize, fontWeight: FontWeight.w700),
             shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
           ),
-          child: Text(label),
+          child: _withIcon(icon, Text(label)),
         ),
       ),
     );
   }
 }
+
+/// الكلمة لوحدها، أو الأيقونة جنبها في سطر واحد بيصغر لو المكان ضاق —
+/// الكلمة عمرها ما بتتشال عشان الأيقونة.
+Widget _withIcon(IconData? icon, Text text) => icon == null
+    ? text
+    : FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [Icon(icon, size: 22), const SizedBox(width: F.s6), text],
+        ),
+      );
 
 /// الزرار الثانوي — ٥٦، محدّد.
 class FSecondaryButton extends StatelessWidget {
@@ -244,6 +261,7 @@ class FSecondaryButton extends StatelessWidget {
     required this.onPressed,
     this.height = F.minTapTarget,
     this.fontSize = F.minBodySize,
+    this.icon,
     super.key,
   });
 
@@ -251,6 +269,9 @@ class FSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double height;
   final double fontSize;
+
+  /// زي [FPrimaryButton.icon] — جنب الكلمة، مش بدالها.
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -272,13 +293,13 @@ class FSecondaryButton extends StatelessWidget {
               foregroundColor: F.ink,
               side: BorderSide.none,
               disabledForegroundColor: F.mutedDark,
-              textStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+              textStyle: TextStyle(fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback, fontSize: fontSize, fontWeight: FontWeight.w600),
               shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
               // حشو أفقي صغير: اتنين جنب بعض على شاشة ٣٩٠ لازم يشيلوا كلمة
               // وإيموجي في سطر واحد من غير ما الخط ينزل عن ٢٠
               padding: EdgeInsets.symmetric(horizontal: F.s8),
             ),
-            child: Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
+            child: _withIcon(icon, Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible)),
           ),
         ),
       );

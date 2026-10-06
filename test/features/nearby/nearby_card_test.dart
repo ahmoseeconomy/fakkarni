@@ -13,7 +13,7 @@ import 'package:fakkarni/features/nearby/nearby_screen.dart';
 import '../../data/places/overpass_places_test.dart' show MemoryCache;
 import '../../support/contrast_audit.dart';
 import '../scan/scan_test_support.dart';
-import 'nearby_screen_test.dart' show BlankTiles, FakeLocation;
+import 'nearby_screen_test.dart' show BlankTiles, FakeLocation, pickPlace;
 
 class _Source implements PlacesSource {
   _Source(this.places);
@@ -97,7 +97,8 @@ void main() {
     expect(find.byKey(const ValueKey('whatsapp-nophone')), findsNothing);
     final card = tester.getRect(find.byKey(const ValueKey('place-nophone')));
     final route = tester.getRect(find.byKey(const ValueKey('route-nophone')));
-    expect(route.width, closeTo(card.width - 2 * F.gap - 2, 1), reason: 'العرض كله جوّه الحشو والحد');
+    // الكارت المختار جوّه الورقة: حشو من الجنبين ومن غير حد
+    expect(route.width, closeTo(card.width - 2 * F.gap, 1), reason: 'العرض كله جوّه الحشو');
   });
 
   screenTest('من غير مواعيد ولا تقييم ولا عنوان: مفيش شريحة ولا نجمة ولا سطر — ولا حاجة مخترعة', (tester) async {
@@ -109,7 +110,8 @@ void main() {
     for (final fake in ['★', 'متوفر', 'تأمين', 'توصيل', 'دقيقة']) {
       expect(find.textContaining(fake), findsNothing, reason: fake);
     }
-    // أرضي: «اتصال» آه، واتساب لأ
+    // أرضي: «اتصال» آه، واتساب لأ — على الدكتور لما يبقى مختار
+    await pickPlace(tester, 'doc');
     expect(find.byKey(const ValueKey('call-doc')), findsOneWidget);
     expect(find.byKey(const ValueKey('whatsapp-doc')), findsNothing);
   });
