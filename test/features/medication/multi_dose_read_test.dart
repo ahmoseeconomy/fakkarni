@@ -81,8 +81,9 @@ void main() {
       options: const ExportOptions(period: RecordPeriod.all, visible: {ExportSection.medications}),
       now: aug31,
     );
-    final line = doc.blocks.singleWhere((b) => b.section == ExportSection.medications).lines.single;
-    expect(line, contains('Augmentin'));
-    expect(line, contains('٤× في اليوم'));
+    // الأدوية بقت جدول الملخص (المرحلة ٤) — العدّ في عمود «الجرعة»
+    final row = doc.summary!.medRows.single;
+    expect(row.name, contains('Augmentin'));
+    expect(row.doseLabel, contains('٤× في اليوم'));
   });
 }

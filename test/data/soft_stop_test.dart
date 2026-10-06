@@ -130,9 +130,10 @@ void main() {
         options: const ExportOptions(period: RecordPeriod.all, visible: {ExportSection.medications}),
         now: noon,
       );
-      final lines = doc.blocks.singleWhere((b) => b.section == ExportSection.medications).lines;
-      expect(lines.join(' '), contains('Telfast 180 mg'));
-      expect(lines.join(' '), isNot(contains('Concor 5mg')));
+      // الأدوية بقت جدول الملخص (المرحلة ٤) — نفس القراية، من medRows
+      final names = doc.summary!.medRows.map((m) => m.name).toList();
+      expect(names, contains('Telfast 180 mg'));
+      expect(names, isNot(contains('Concor 5mg')));
     });
 
     test('٥ — الجدولة: مفيش تذكير ليه', () async {

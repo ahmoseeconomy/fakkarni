@@ -266,6 +266,10 @@ void main() {
           if (line.startsWith('//')) continue;
           for (final m in literal.allMatches(line)) {
             final text = m.group(1)!;
+            // **استثناء واحد بالاسم** (زي «الحباية» في حارس الصوت): جملة ذيل
+            // الملف — «ومش تشخيص» إنكار بقرار المالك (المرحلة ٤)، مش نصيحة.
+            // الجملة بالحرف، فأي «تشخيص» تانية لسه بتوقّع.
+            if (text == 'الملف ده أرقام ووقايع متسجلة على موبايل المريض، ومش تشخيص.') continue;
             for (final word in [...adviceWords, 'يبدو', 'نستنتج', 'غالباً']) {
               final hit = RegExp(r'^[a-z]+$').hasMatch(word)
                   ? RegExp('\\b$word\\b', caseSensitive: false).hasMatch(text)

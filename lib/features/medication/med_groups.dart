@@ -53,6 +53,23 @@ enum MedGroup {
         other || unclassified || stopped => F.mutedDark,
       };
 
+  /// لون نقطة المجموعة في **الملف المطبوع** (المرحلة ٤) — قيم **النهار
+  /// الثابتة** بالأرقام: الورق مالوش وضع ليلي، وقراية [ink] وقت توليد
+  /// بالليل كانت هتطلع لوحة الليل على ورقة بيضا. القلب أحمر هنا بقرار
+  /// المالك («heart = red») — نفس استثناء عنوان المجموعة، ولسه معرّف في
+  /// الملف ده وبس؛ واختبار مرآة بيقارن كل قيمة بـ[ink] النهاري فمفيش
+  /// انحراف صامت.
+  int get exportDotArgb => switch (this) {
+        heartPressure => 0xFFC0202F,
+        sugar => 0xFF1F6FC4,
+        eyeSkin => 0xFF10715E,
+        cholesterol => 0xFF6B4FA0,
+        stomach => 0xFF8A6A3C,
+        vitamins => 0xFF1F7A72,
+        antibiotic => 0xFF4F6475,
+        other || unclassified || stopped => 0xFF43544C,
+      };
+
   /// أرضية العنوان.
   Color get tint => switch (this) {
         heartPressure => F.medGroupHeartTint,
