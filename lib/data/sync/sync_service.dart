@@ -582,6 +582,9 @@ class SyncService {
     'medications': {'purpose', 'instructions', 'alert_mode', 'not_bought_at', 'form'},
     // ٠٠٣٤: «قبل الأكل» وأخواتها — كلمة تعليمات على الجرعة
     'dose_schedules': {'meal_relation'},
+    // ٠٠٣٩: النتيجة النصية — شيلها آمن للصف الرقمي بس؛ النصي في دفعته
+    // لوحده (`_pushLabResults`) وبيستنى الهجرة.
+    'lab_results': {'value_text'},
   };
 
   /// «العمود مش موجود» من PostgREST (PGRST204) أو من بوستجرس (42703).
@@ -1067,35 +1070,57 @@ class SyncService {
     ])
       ..where(_db.labResults.syncedAtMs.isNull() |
           _db.labResults.syncedAtMs.isSmallerThan(_db.labResults.updatedAtMs));
-    final rows = await query.get();
+    final all = await query.get();
+    Map<String, dynamic> jsonOf(TypedResult row) {
+      final l = row.readTable(_db.labResults);
+      final r = row.readTable(_db.records);
+      return {
+        'uuid': l.uuid,
+        'record_uuid': r.uuid,
+        'test_name': l.testName,
+        'value': l.value,
+        // النتيجة النصية («Negative») — المرحلة ٥ / 0039. على سحابة أقدم
+        // العمود بيتشال من الدفعة (`_optionalColumns`)، وده آمن للصف
+        // الرقمي بس — النصي في دفعته لوحده تحت.
+        'value_text': l.valueText,
+        'unit': l.unit,
+        // نطاق الورقة (v18 / 0016) — عشان الابن يشوف نفس الرقم بنفس
+        // النطاق، مش رقم عريان.
+        'ref_low': l.refLow,
+        'ref_high': l.refHigh,
+        'ref_text': l.refText,
+      };
+    }
+
+    ({String uuid, int updatedAtMs, Map<String, dynamic> json}) rowOf(TypedResult row) {
+      final l = row.readTable(_db.labResults);
+      return (uuid: l.uuid, updatedAtMs: l.updatedAtMs, json: jsonOf(row));
+    }
+
+    Future<void> mark(String uuid, int ms) =>
+        (_db.update(_db.labResults)..where((t) => t.uuid.equals(uuid)))
+            .write(LabResultsCompanion(syncedAtMs: Value(ms)));
+
+    bool textOnly(TypedResult r) => r.readTable(_db.labResults).value == null;
+
+    // الأرقام زي زمان — سحابة قبل 0039 بتاخدهم بعد ما العمود الجديد يتشال.
     await _upsertAndMark(
-      'lab_results',
-      [
-        for (final row in rows)
-          () {
-            final l = row.readTable(_db.labResults);
-            final r = row.readTable(_db.records);
-            return (
-              uuid: l.uuid,
-              updatedAtMs: l.updatedAtMs,
-              json: {
-                'uuid': l.uuid,
-                'record_uuid': r.uuid,
-                'test_name': l.testName,
-                'value': l.value,
-                'unit': l.unit,
-                // نطاق الورقة (v18 / 0016) — عشان الابن يشوف نفس الرقم بنفس
-                // النطاق، مش رقم عريان.
-                'ref_low': l.refLow,
-                'ref_high': l.refHigh,
-                'ref_text': l.refText,
-              }
-            );
-          }(),
-      ],
-      (uuid, ms) => (_db.update(_db.labResults)..where((t) => t.uuid.equals(uuid)))
-          .write(LabResultsCompanion(syncedAtMs: Value(ms))),
-    );
+        'lab_results', [for (final r in all) if (!textOnly(r)) rowOf(r)], mark);
+
+    // **السطور النصية في دفعة لوحدها** (نفس قرار جداول الأنماط / 0032):
+    // سحابة قبل 0039 بترفضهم — يا بالعمود الناقص، يا بـvalue NOT NULL بعد
+    // ما `_optionalColumns` شال value_text — فبيفضلوا متوسّخين وبيتعادوا
+    // مع كل رفعة، ومن غير ما يوقّفوا أسئلة الزيارة والطوارئ اللي بعدهم.
+    final textRows = [for (final r in all) if (textOnly(r)) rowOf(r)];
+    if (textRows.isEmpty) return;
+    try {
+      await _upsertAndMark('lab_results', textRows, mark);
+    } on SyncRejected catch (e) {
+      // 23502 = value NOT NULL — السحابة لسه قبل 0039.
+      if (!_missingColumn(e) && e.code != '23502') rethrow;
+      diag('Sync: السحابة لسه قبل 0039 (${e.code}) — '
+          '${textRows.length} سطر تحليل نصي مستنيين، هيتعادوا مع كل رفعة');
+    }
   }
 
   Future<void> _pushVisitQuestions() async {

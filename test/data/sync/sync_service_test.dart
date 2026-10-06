@@ -52,6 +52,10 @@ class FakeSyncRemote implements SyncRemote {
   /// سحابة بتعلّق — لمحاكاة شبكة بايظة في صحوة خلفية.
   Duration? hangFor;
 
+  /// سحابة لسه قبل 0039: العمود `value_text` مش موجود (PGRST204)، و`value`
+  /// لسه NOT NULL (23502) — بالترتيب اللي PostgREST بيرد بيه فعلاً.
+  bool preValueTextCloud = false;
+
   @override
   Future<void> upsert(String table, List<Map<String, dynamic>> rows) async {
     calls++;
@@ -59,6 +63,14 @@ class FakeSyncRemote implements SyncRemote {
     if (table == failOnTable) {
       if (rejectCode != null) throw SyncRejected(rejectCode!, 'rejected');
       throw Exception('السحابة وقعت');
+    }
+    if (preValueTextCloud && table == 'lab_results') {
+      if (rows.any((r) => r.containsKey('value_text'))) {
+        throw const SyncRejected('PGRST204', "Could not find the 'value_text' column");
+      }
+      if (rows.any((r) => r['value'] == null)) {
+        throw const SyncRejected('23502', 'null value in column "value" violates not-null constraint');
+      }
     }
     await onUpsert?.call(table);
     final t = tables.putIfAbsent(table, () => {});
@@ -192,7 +204,7 @@ void main() {
       await db.into(db.labResults).insert(LabResultsCompanion.insert(
             recordId: recordId,
             testName: 'HbA1c',
-            value: 7.1,
+            value: const Value(7.1),
             unit: const Value('%'),
           ));
       await db.into(db.readings).insert(ReadingsCompanion.insert(
@@ -339,6 +351,59 @@ void main() {
       for (final table in ['lab_results', 'visit_questions', 'emergency_profile']) {
         expect(remote.rowCount(table), 1, reason: table);
       }
+    });
+
+    test('سحابة قبل 0039: الرقمي بيطلع من غير العمود الجديد، والنصي بيستنى من غير ما يوقّف اللي بعده', () async {
+      await seedHealthFile();
+      await db.into(db.labResults).insert(LabResultsCompanion.insert(
+            recordId: recordId,
+            testName: 'Pus Cells',
+            valueText: const Value('Negative'),
+          ));
+      await sync.confirmLinked();
+      remote.preValueTextCloud = true;
+
+      await sync.push();
+
+      // الرقمي وصل — بعد ما `_optionalColumns` شال value_text من دفعته
+      final numeric = remote.tables['lab_results']!.values.single;
+      expect(numeric['test_name'], 'HbA1c');
+      expect(numeric.containsKey('value_text'), isFalse);
+      // النصي في دفعته لوحده: اترفض (23502)، فضل متوسّخ، واللي بعده في
+      // الترتيب اتدفع عادي — ده عقد 0032 نفسه.
+      final afterFailure = await dirtyByTable();
+      expect(afterFailure['lab_results'], isTrue, reason: 'السطر النصي مستني 0039');
+      expect(afterFailure['visit_questions'], isFalse, reason: 'الرفض ما وقّفش الطابور');
+      expect(afterFailure['emergency_profile'], isFalse);
+
+      // 0039 اتشغّلت: الرفعة الجاية بتوصّله بالحرف
+      remote.preValueTextCloud = false;
+      await sync.push();
+      final text =
+          remote.tables['lab_results']!.values.firstWhere((r) => r['test_name'] == 'Pus Cells');
+      expect(text['value'], isNull);
+      expect(text['value_text'], 'Negative');
+      expect((await dirtyByTable()).values, everyElement(isFalse));
+    });
+
+    test('سحابة بعد 0039: السطر النصي بيطلع في نفس الرفعة — value فاضية والنص بالحرف', () async {
+      await seedHealthFile();
+      await db.into(db.labResults).insert(LabResultsCompanion.insert(
+            recordId: recordId,
+            testName: 'Pus Cells',
+            valueText: const Value('2 - 4'),
+          ));
+      await sync.confirmLinked();
+
+      await sync.push();
+
+      final rows = remote.tables['lab_results']!.values.toList();
+      expect(rows, hasLength(2));
+      final numeric = rows.firstWhere((r) => r['test_name'] == 'HbA1c');
+      expect((numeric['value'], numeric['value_text']), (7.1, null));
+      final text = rows.firstWhere((r) => r['test_name'] == 'Pus Cells');
+      expect((text['value'], text['value_text']), (null, '2 - 4'));
+      expect((await dirtyByTable()).values, everyElement(isFalse));
     });
   });
 

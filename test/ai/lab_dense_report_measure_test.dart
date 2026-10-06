@@ -1,7 +1,8 @@
 // اتكتب الأول **قياساً** لسلوك التقارير الكتيرة الكلام (خطوة ٢، ٥ أكتوبر
 // ٢٠٢٦ مساءً)، وجزء التواريخ اتقلب عمداً مع إصلاح المرحلة ١ (المالك 2A):
-// حد السنين وحارس المستقبل بقوا زي الروشتة. اللي لسه **قياس** (مستني
-// مرحلته): النتيجة النصية («Negative») — المرحلة ٥.
+// حد السنين وحارس المستقبل بقوا زي الروشتة. والنتيجة النصية («Negative»)
+// اتصلّحت في المرحلة ٥ — ليها خانتها (valueText) ومش بتقفل «تمام»؛ اللي
+// فاضل هنا قياسها هو حالة موديل بيحطّها في خانة **الرقم** غلط.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -29,16 +30,23 @@ void main() {
   // النهارده الثابت بتاع الاختبارات — بيتحقن في fromJson عشان حارس المستقبل
   final today = DateTime(2026, 10, 5, 14);
 
-  test('قياس (ب) — لسه مستني المرحلة ٥: نتيجة «Negative» بترجع رقم null وبتقفل «تمام»', () {
-    final reading = LabReading.fromJson(reportWith(value: 'Negative'), now: today);
-    final line = reading.lines.single;
-    // _number ما بيعرفش يقرا غير رقم — النص بيضيع وثقته بتصفّر.
+  test('(ب) بعد المرحلة ٥: نص في خانة **الرقم** غلط (مخالفة للبرومبت) لسه بيقفل «تمام» — '
+      'والطريق الصح valueText مفتوح', () {
+    final wrongSlot = LabReading.fromJson(reportWith(value: 'Negative'), now: today);
+    final line = wrongSlot.lines.single;
+    // _number ما بيعرفش يقرا غير رقم — النص في الخانة الغلط بيضيع وثقته بتصفّر،
+    // ومن غير valueText السطر مالوش نتيجة واضحة فبيقفل. مفيش تخمين.
     expect(line.value.value, isNull);
     expect(line.value.confidence, 0);
-    // وبكده السطر بيقفل زرار الحفظ، والمخرج الوحيد «شيله» (فقد بيانات).
-    expect(line.blocksConfirm, isTrue, reason: 'النتيجة النصية بتقفل «تمام» النهارده');
-    // النطاق النصي ليه خانة (refText) — النتيجة النصية لأ. ده الفرق كله.
+    expect(line.blocksConfirm, isTrue, reason: 'نص في خانة الرقم مش نتيجة — بيتراجع بإيد إنسان');
     expect(line.refText.value, 'Negative');
+
+    // ونفس النتيجة في خانتها الصح (المرحلة ٥) بتعدّي: بالحرف، ومش بتقفل.
+    final report = reportWith(value: null);
+    (report['results'] as List).single['valueText'] = field('Negative');
+    final right = LabReading.fromJson(report, now: today).lines.single;
+    expect(right.textResult, 'Negative');
+    expect(right.blocksConfirm, isFalse);
   });
 
   test('(ج١) اتصلّح: تاريخ في المستقبل («١٢/٠٩» اتقرت أمريكي) = مراجعة — مش تاريخ غلط صامت', () {

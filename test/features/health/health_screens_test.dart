@@ -47,6 +47,7 @@ LabLine line(
   double? value,
   String? unit, {
   bool unsure = false,
+  String? valueText,
   double? refLow,
   double? refHigh,
   String? refText,
@@ -56,6 +57,7 @@ LabLine line(
       value: value == null
           ? const ReadField.missing()
           : ReadField(value: value, confidence: unsure ? 0.4 : 0.95),
+      valueText: valueText == null ? const ReadField.missing() : sure(valueText),
       unit: unit == null ? const ReadField.missing() : sure(unit),
       refLow: refLow == null ? const ReadField.missing() : sure(refLow),
       refHigh: refHigh == null ? const ReadField.missing() : sure(refHigh),
@@ -289,17 +291,91 @@ void main() {
       expectNoRedAndMinSize(tester);
     });
 
+    screenTest('نتيجة نصية (المرحلة ٥): «Negative» جنب رقم — بالحرف، من غير علامة ولا معتاد، و«تمام» بيحفظ الاتنين', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: sure('معمل البرج'),
+          date: sure(DateTime(2026, 9, 12)),
+          lines: [line('Pus Cells', null, null, valueText: 'Negative'), line('HbA1c', 7.6, '%')],
+        ),
+      );
+      // النص بالحرف، والرقم جنبه زي ما هو
+      expect(find.byKey(const ValueKey('lab-text-result')), findsOneWidget);
+      expect(find.text('Negative'), findsOneWidget);
+      expect(find.text('٧.٦'), findsOneWidget);
+      // السطر النصي: مفيش علامة ومفيش «المعتاد» — بيتعرض وبس، زي refText.
+      // «لسه ما عندناش…» واحدة بس: بتاعة الرقم (أول تقرير).
+      expect(find.byType(LabFlagBadge), findsNothing);
+      expect(find.byKey(const ValueKey('lab-not-enough')), findsOneWidget);
+      // ومش «مش متأكد»: نتيجة نصية واضحة سطر سليم — «تمام» مفتوحة
+      for (final card in tester.widgetList<FCard>(find.byType(FCard))) {
+        expect(card.tone, FCardTone.plain);
+      }
+      expectNoAdvice(tester);
+      expectNoRedAndMinSize(tester);
+
+      // الكارتين طوّلوا الصفحة — الزرار تحت الطية
+      await tester.ensureVisible(find.text('تمام، احفظه'));
+      await settle(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'تمام، احفظه'));
+      // حفظ الصورة كتابة ملف حقيقية — بتحتاج وقت حقيقي برّه الساعة المزيّفة
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      final rows = await h.db.select(h.db.labResults).get();
+      final text = rows.firstWhere((r) => r.testName == 'Pus Cells');
+      expect((text.value, text.valueText), (null, 'Negative'), reason: 'بالحرف، من غير رقم مخترع');
+      final numeric = rows.firstWhere((r) => r.testName == 'HbA1c');
+      expect((numeric.value, numeric.valueText), (7.6, null));
+    });
+
+    screenTest('نص مش واضح: ذهبي و«تمام» مقفولة — و«عدّل» بياخد النتيجة المكتوبة بالحروف ويفتحها', (tester) async {
+      await pumpReport(
+        tester,
+        LabReading(
+          lab: const ReadField.missing(),
+          date: const ReadField.missing(),
+          lines: [
+            LabLine(
+              test: sure('Pus Cells'),
+              value: const ReadField.missing(),
+              valueText: const ReadField(value: 'Negat?', confidence: 0.4),
+              unit: const ReadField.missing(),
+            ),
+          ],
+        ),
+      );
+      expect(find.text('مش متأكد من دي — راجعها'), findsOneWidget);
+      final confirm = tester.widget<FilledButton>(
+        find.ancestor(of: find.text('تمام، احفظه'), matching: find.byType(FilledButton)),
+      );
+      expect(confirm.onPressed, isNull, reason: 'سطر من غير نتيجة واضحة بيقفل «تمام»');
+
+      await tester.tap(find.text('عدّل'));
+      await settle(tester);
+      await tester.enterText(find.byKey(const ValueKey('edit-value-text')), 'Negative');
+      await tester.tap(find.byKey(const ValueKey('edit-save')));
+      await settle(tester);
+      expect(find.text('Negative'), findsOneWidget);
+      final after = tester.widget<FilledButton>(
+        find.ancestor(of: find.text('تمام، احفظه'), matching: find.byType(FilledButton)),
+      );
+      expect(after.onPressed, isNotNull, reason: 'إنسان كتب النتيجة — السطر اتفتح');
+    });
+
     screenTest('فيه تاريخ ليه: المقارنة بتحاليله هو بالرقم والفرق وآخر مرة', (tester) async {
       final repo = LabResultsRepository(h.db);
       await repo.saveReport(
         patientId: h.services.patientId,
         happenedAt: DateTime(2026, 3, 1),
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
       );
       await repo.saveReport(
         patientId: h.services.patientId,
         happenedAt: DateTime(2026, 6, 1),
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.4, unit: '%')],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.4, unit: '%')],
       );
       await pumpReport(
         tester,
@@ -316,7 +392,7 @@ void main() {
         await repo.saveReport(
           patientId: h.services.patientId,
           happenedAt: DateTime(2026, m, 1),
-          lines: const [ConfirmedLabLine(testName: 'Glucose', value: 110, unit: 'mg/dL')],
+          lines: [ConfirmedLabLine(testName: 'Glucose', value: 110, unit: 'mg/dL')],
         );
       }
       await pumpReport(

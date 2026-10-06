@@ -6680,9 +6680,20 @@ class $LabResultsTable extends LabResults
   late final GeneratedColumn<double> value = GeneratedColumn<double>(
     'value',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _valueTextMeta = const VerificationMeta(
+    'valueText',
+  );
+  @override
+  late final GeneratedColumn<String> valueText = GeneratedColumn<String>(
+    'value_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _unitMeta = const VerificationMeta('unit');
   @override
@@ -6733,6 +6744,7 @@ class $LabResultsTable extends LabResults
     recordId,
     testName,
     value,
+    valueText,
     unit,
     refLow,
     refHigh,
@@ -6798,8 +6810,12 @@ class $LabResultsTable extends LabResults
         _valueMeta,
         value.isAcceptableOrUnknown(data['value']!, _valueMeta),
       );
-    } else if (isInserting) {
-      context.missing(_valueMeta);
+    }
+    if (data.containsKey('value_text')) {
+      context.handle(
+        _valueTextMeta,
+        valueText.isAcceptableOrUnknown(data['value_text']!, _valueTextMeta),
+      );
     }
     if (data.containsKey('unit')) {
       context.handle(
@@ -6861,7 +6877,11 @@ class $LabResultsTable extends LabResults
       value: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}value'],
-      )!,
+      ),
+      valueText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value_text'],
+      ),
       unit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unit'],
@@ -6901,7 +6921,13 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
 
   /// اسم التحليل زي ما هو مطبوع.
   final String testName;
-  final double value;
+
+  /// النتيجة — **واحدة من الاتنين، مش الاتنين** (المرحلة ٥، قرار المالك 1A):
+  /// رقم في [value]، أو نص مطبوع («Negative»، «Nil»، «2 - 4») في [valueText]
+  /// **بالحرف زي الورقة** وعمره ما بيتقارن بمعتاد ولا نطاق — زي [refText]
+  /// بالظبط. الصفوف الأقدم من v33 كلها أرقام، فـ[value] فيها موجود دايماً.
+  final double? value;
+  final String? valueText;
   final String? unit;
 
   /// النطاق **زي ما هو مطبوع على ورقة المعمل** (v18) — مش من عندنا أبداً.
@@ -6920,7 +6946,8 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     required this.id,
     required this.recordId,
     required this.testName,
-    required this.value,
+    this.value,
+    this.valueText,
     this.unit,
     this.refLow,
     this.refHigh,
@@ -6937,7 +6964,12 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     map['id'] = Variable<int>(id);
     map['record_id'] = Variable<int>(recordId);
     map['test_name'] = Variable<String>(testName);
-    map['value'] = Variable<double>(value);
+    if (!nullToAbsent || value != null) {
+      map['value'] = Variable<double>(value);
+    }
+    if (!nullToAbsent || valueText != null) {
+      map['value_text'] = Variable<String>(valueText);
+    }
     if (!nullToAbsent || unit != null) {
       map['unit'] = Variable<String>(unit);
     }
@@ -6963,7 +6995,12 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       id: Value(id),
       recordId: Value(recordId),
       testName: Value(testName),
-      value: Value(value),
+      value: value == null && nullToAbsent
+          ? const Value.absent()
+          : Value(value),
+      valueText: valueText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valueText),
       unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
       refLow: refLow == null && nullToAbsent
           ? const Value.absent()
@@ -6989,7 +7026,8 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       id: serializer.fromJson<int>(json['id']),
       recordId: serializer.fromJson<int>(json['recordId']),
       testName: serializer.fromJson<String>(json['testName']),
-      value: serializer.fromJson<double>(json['value']),
+      value: serializer.fromJson<double?>(json['value']),
+      valueText: serializer.fromJson<String?>(json['valueText']),
       unit: serializer.fromJson<String?>(json['unit']),
       refLow: serializer.fromJson<double?>(json['refLow']),
       refHigh: serializer.fromJson<double?>(json['refHigh']),
@@ -7006,7 +7044,8 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       'id': serializer.toJson<int>(id),
       'recordId': serializer.toJson<int>(recordId),
       'testName': serializer.toJson<String>(testName),
-      'value': serializer.toJson<double>(value),
+      'value': serializer.toJson<double?>(value),
+      'valueText': serializer.toJson<String?>(valueText),
       'unit': serializer.toJson<String?>(unit),
       'refLow': serializer.toJson<double?>(refLow),
       'refHigh': serializer.toJson<double?>(refHigh),
@@ -7021,7 +7060,8 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     int? id,
     int? recordId,
     String? testName,
-    double? value,
+    Value<double?> value = const Value.absent(),
+    Value<String?> valueText = const Value.absent(),
     Value<String?> unit = const Value.absent(),
     Value<double?> refLow = const Value.absent(),
     Value<double?> refHigh = const Value.absent(),
@@ -7033,7 +7073,8 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     id: id ?? this.id,
     recordId: recordId ?? this.recordId,
     testName: testName ?? this.testName,
-    value: value ?? this.value,
+    value: value.present ? value.value : this.value,
+    valueText: valueText.present ? valueText.value : this.valueText,
     unit: unit.present ? unit.value : this.unit,
     refLow: refLow.present ? refLow.value : this.refLow,
     refHigh: refHigh.present ? refHigh.value : this.refHigh,
@@ -7052,6 +7093,7 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
       recordId: data.recordId.present ? data.recordId.value : this.recordId,
       testName: data.testName.present ? data.testName.value : this.testName,
       value: data.value.present ? data.value.value : this.value,
+      valueText: data.valueText.present ? data.valueText.value : this.valueText,
       unit: data.unit.present ? data.unit.value : this.unit,
       refLow: data.refLow.present ? data.refLow.value : this.refLow,
       refHigh: data.refHigh.present ? data.refHigh.value : this.refHigh,
@@ -7069,6 +7111,7 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
           ..write('recordId: $recordId, ')
           ..write('testName: $testName, ')
           ..write('value: $value, ')
+          ..write('valueText: $valueText, ')
           ..write('unit: $unit, ')
           ..write('refLow: $refLow, ')
           ..write('refHigh: $refHigh, ')
@@ -7086,6 +7129,7 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
     recordId,
     testName,
     value,
+    valueText,
     unit,
     refLow,
     refHigh,
@@ -7102,6 +7146,7 @@ class LabResultRow extends DataClass implements Insertable<LabResultRow> {
           other.recordId == this.recordId &&
           other.testName == this.testName &&
           other.value == this.value &&
+          other.valueText == this.valueText &&
           other.unit == this.unit &&
           other.refLow == this.refLow &&
           other.refHigh == this.refHigh &&
@@ -7115,7 +7160,8 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
   final Value<int> id;
   final Value<int> recordId;
   final Value<String> testName;
-  final Value<double> value;
+  final Value<double?> value;
+  final Value<String?> valueText;
   final Value<String?> unit;
   final Value<double?> refLow;
   final Value<double?> refHigh;
@@ -7128,6 +7174,7 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     this.recordId = const Value.absent(),
     this.testName = const Value.absent(),
     this.value = const Value.absent(),
+    this.valueText = const Value.absent(),
     this.unit = const Value.absent(),
     this.refLow = const Value.absent(),
     this.refHigh = const Value.absent(),
@@ -7140,14 +7187,14 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     this.id = const Value.absent(),
     required int recordId,
     required String testName,
-    required double value,
+    this.value = const Value.absent(),
+    this.valueText = const Value.absent(),
     this.unit = const Value.absent(),
     this.refLow = const Value.absent(),
     this.refHigh = const Value.absent(),
     this.refText = const Value.absent(),
   }) : recordId = Value(recordId),
-       testName = Value(testName),
-       value = Value(value);
+       testName = Value(testName);
   static Insertable<LabResultRow> custom({
     Expression<String>? uuid,
     Expression<int>? updatedAtMs,
@@ -7156,6 +7203,7 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     Expression<int>? recordId,
     Expression<String>? testName,
     Expression<double>? value,
+    Expression<String>? valueText,
     Expression<String>? unit,
     Expression<double>? refLow,
     Expression<double>? refHigh,
@@ -7169,6 +7217,7 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
       if (recordId != null) 'record_id': recordId,
       if (testName != null) 'test_name': testName,
       if (value != null) 'value': value,
+      if (valueText != null) 'value_text': valueText,
       if (unit != null) 'unit': unit,
       if (refLow != null) 'ref_low': refLow,
       if (refHigh != null) 'ref_high': refHigh,
@@ -7183,7 +7232,8 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     Value<int>? id,
     Value<int>? recordId,
     Value<String>? testName,
-    Value<double>? value,
+    Value<double?>? value,
+    Value<String?>? valueText,
     Value<String?>? unit,
     Value<double?>? refLow,
     Value<double?>? refHigh,
@@ -7197,6 +7247,7 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
       recordId: recordId ?? this.recordId,
       testName: testName ?? this.testName,
       value: value ?? this.value,
+      valueText: valueText ?? this.valueText,
       unit: unit ?? this.unit,
       refLow: refLow ?? this.refLow,
       refHigh: refHigh ?? this.refHigh,
@@ -7228,6 +7279,9 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
     if (value.present) {
       map['value'] = Variable<double>(value.value);
     }
+    if (valueText.present) {
+      map['value_text'] = Variable<String>(valueText.value);
+    }
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
     }
@@ -7253,6 +7307,7 @@ class LabResultsCompanion extends UpdateCompanion<LabResultRow> {
           ..write('recordId: $recordId, ')
           ..write('testName: $testName, ')
           ..write('value: $value, ')
+          ..write('valueText: $valueText, ')
           ..write('unit: $unit, ')
           ..write('refLow: $refLow, ')
           ..write('refHigh: $refHigh, ')
@@ -14023,7 +14078,8 @@ typedef $$LabResultsTableCreateCompanionBuilder = LabResultsCompanion Function({
   Value<int> id,
   required int recordId,
   required String testName,
-  required double value,
+  Value<double?> value,
+  Value<String?> valueText,
   Value<String?> unit,
   Value<double?> refLow,
   Value<double?> refHigh,
@@ -14036,7 +14092,8 @@ typedef $$LabResultsTableUpdateCompanionBuilder = LabResultsCompanion Function({
   Value<int> id,
   Value<int> recordId,
   Value<String> testName,
-  Value<double> value,
+  Value<double?> value,
+  Value<String?> valueText,
   Value<String?> unit,
   Value<double?> refLow,
   Value<double?> refHigh,
@@ -14101,6 +14158,11 @@ class $$LabResultsTableFilterComposer
 
   ColumnFilters<double> get value => $composableBuilder(
     column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get valueText => $composableBuilder(
+    column: $table.valueText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14187,6 +14249,11 @@ class $$LabResultsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get valueText => $composableBuilder(
+    column: $table.valueText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unit => $composableBuilder(
     column: $table.unit,
     builder: (column) => ColumnOrderings(column),
@@ -14262,6 +14329,9 @@ class $$LabResultsTableAnnotationComposer
   GeneratedColumn<double> get value =>
       $composableBuilder(column: $table.value, builder: (column) => column);
 
+  GeneratedColumn<String> get valueText =>
+      $composableBuilder(column: $table.valueText, builder: (column) => column);
+
   GeneratedColumn<String> get unit =>
       $composableBuilder(column: $table.unit, builder: (column) => column);
 
@@ -14332,7 +14402,8 @@ class $$LabResultsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> recordId = const Value.absent(),
                 Value<String> testName = const Value.absent(),
-                Value<double> value = const Value.absent(),
+                Value<double?> value = const Value.absent(),
+                Value<String?> valueText = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
                 Value<double?> refLow = const Value.absent(),
                 Value<double?> refHigh = const Value.absent(),
@@ -14345,6 +14416,7 @@ class $$LabResultsTableTableManager
                 recordId: recordId,
                 testName: testName,
                 value: value,
+                valueText: valueText,
                 unit: unit,
                 refLow: refLow,
                 refHigh: refHigh,
@@ -14358,7 +14430,8 @@ class $$LabResultsTableTableManager
                 Value<int> id = const Value.absent(),
                 required int recordId,
                 required String testName,
-                required double value,
+                Value<double?> value = const Value.absent(),
+                Value<String?> valueText = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
                 Value<double?> refLow = const Value.absent(),
                 Value<double?> refHigh = const Value.absent(),
@@ -14371,6 +14444,7 @@ class $$LabResultsTableTableManager
                 recordId: recordId,
                 testName: testName,
                 value: value,
+                valueText: valueText,
                 unit: unit,
                 refLow: refLow,
                 refHigh: refHigh,

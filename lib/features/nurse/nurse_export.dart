@@ -28,9 +28,11 @@ ExportDocument nurseExportDocument(CaregiverSnapshot s, DateTime now) {
     for (final l in r.labLines) {
       labs.putIfAbsent(day, () => []).add([
         l.testName,
-        '${arabicDecimal(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
+        // النتيجة رقم أو نص بالحرف (المرحلة ٥) — النصية من غير علامة.
+        '${l.value != null ? arabicDecimal(l.value!) : l.valueText ?? ''}'
+            '${l.unit == null ? '' : ' ${l.unit}'}',
         labRangeText(l.range)?.replaceFirst('نطاق الورقة: ', '') ?? '—',
-        labFlagWord(labFlagFor(l.value, l.range)) ?? '',
+        l.value == null ? '' : labFlagWord(labFlagFor(l.value!, l.range)) ?? '',
       ]);
     }
   }

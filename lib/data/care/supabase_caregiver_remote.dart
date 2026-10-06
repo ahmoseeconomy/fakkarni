@@ -163,7 +163,11 @@ CaregiverRecord? recordFromRow(Map<String, dynamic> row) {
           );
           return CaregiverLabLine(
             testName: map['test_name'] as String,
-            value: (map['value'] as num).toDouble(),
+            // nullable: سطر نصي («Negative») مالوش رقم — الـcast الغير
+            // nullable هنا كان بيرمي جوّه snapshot() وبيبوّظ الشاشة كلها
+            // («مقدرناش نكمّل») على أول صف نصي.
+            value: (map['value'] as num?)?.toDouble(),
+            valueText: map['value_text'] as String?,
             unit: map['unit'] as String?,
             range: range.isEmpty ? null : range,
           );
@@ -470,7 +474,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
 
         // ---- الملف الصحي (D5.2). **كل استعلام محدود** لحد ما السحب بالفرق
         // (delta) ييجي — مفيش select من غير حد.
-        final records = await _supabase
+        Future<List<Map<String, dynamic>>> fetchRecords(String labColumns) => _supabase
             .from('records')
             // أعمدة المتابعة (`0015`/`0017`) على **نفس الصف** اللي الابن
             // بيقراه أصلاً — RLS في بوستجرس على مستوى الصف مش العمود،
@@ -478,11 +482,23 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             .select('uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
                 'checkup_stage, follow_kind, checkup_stage_since, '
                 'lab_booking_at, result_ready_at, doctor_visit_at, '
-                'lab_results(test_name, value, unit, ref_low, ref_high, ref_text)')
+                'lab_results($labColumns)')
             .eq('patient_uuid', patient.uuid)
             .isFilter('deleted_at', null)
             .order('updated_at', ascending: false)
             .limit(recordsLimit);
+
+        List<Map<String, dynamic>> records;
+        try {
+          records =
+              await fetchRecords('test_name, value, value_text, unit, ref_low, ref_high, ref_text');
+        } on PostgrestException catch (e) {
+          // مشروع لسه ما شغّلش 0039: العمود الجديد مش موجود — بنرجع
+          // للاستعلام القديم بدل ما الملف الصحي كله يقول «مقدرناش نكمّل»
+          // (نفس شبكة أمان أعمدة 0026/0028).
+          if (e.code != '42703' && e.code != 'PGRST204') rethrow;
+          records = await fetchRecords('test_name, value, unit, ref_low, ref_high, ref_text');
+        }
 
         final readingsSince = DateTime.now().toUtc().subtract(readingsWindow).toIso8601String();
         final readings = await _supabase

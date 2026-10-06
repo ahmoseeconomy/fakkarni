@@ -98,7 +98,7 @@ void main() {
       patientId: patientId,
       happenedAt: DateTime(2026, 9, 12),
       place: 'Al Borg Lab',
-      lines: const [
+      lines: [
         ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%'),
         // نطاق الورقة ٤–١١: ١٢.٤ فوقه، و١٠.٥ جوّه بس قريب من الحد
         ConfirmedLabLine(
@@ -113,12 +113,14 @@ void main() {
           unit: '10^3/uL',
           range: LabRange(low: 4, high: 11),
         ),
+        // نتيجة نصية (المرحلة ٥) — بالحرف في الملف، ومن غير علامة
+        ConfirmedLabLine(testName: 'Pus Cells', valueText: 'Negative'),
       ],
     );
     await LabResultsRepository(db).saveReport(
       patientId: patientId,
       happenedAt: DateTime(2026, 8, 3),
-      lines: const [
+      lines: [
         ConfirmedLabLine(testName: 'Ferritin', value: 8, unit: 'ng/mL', range: LabRange(low: 30, high: 400)),
       ],
     );
@@ -221,6 +223,11 @@ void main() {
     expect(text.contains(await shaped('من ٤ إلى ١١', fonts)), isTrue);
     // والسطر اللي تحت القسم كله
     expect(text.contains(await shaped(labRangeFooter, fonts)), isTrue);
+
+    // النتيجة النصية (المرحلة ٥): بالحرف في خانة النتيجة — لاتيني فبيتلاقى
+    // من غير تشكيل، والسطر واخد اسمه وجنبه الكلمة زي ما الورقة طبعتها.
+    expect(text.contains('Pus Cells'), isTrue);
+    expect(text.contains('Negative'), isTrue, reason: 'النص بالحرف — مش رقم ولا ترجمة');
   });
 
   test('السطر اللي الورقة مفيهاش نطاق ليه بيوصل الملف من غير ولا كلمة علامة', () async {

@@ -391,9 +391,14 @@ class CaregiverRecord {
 }
 
 class CaregiverLabLine {
-  const CaregiverLabLine({required this.testName, required this.value, this.unit, this.range});
+  const CaregiverLabLine({required this.testName, this.value, this.valueText, this.unit, this.range});
   final String testName;
-  final double value;
+
+  /// النتيجة رقم **أو** نص (المرحلة ٥): سطر نصي («Negative») قيمته null
+  /// ونصّه في [valueText]، بيتعرض بالحرف وعمره ما بيتقارن. نسخة أقدم من
+  /// المرحلة ٥ كانت بتكسر هنا على أول صف نصي — الـcast كان غير nullable.
+  final double? value;
+  final String? valueText;
   final String? unit;
 
   /// نطاق الورقة زي ما جهاز الأب رفعه — null لو الورقة ما طبعتش نطاق.

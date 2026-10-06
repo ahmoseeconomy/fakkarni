@@ -6,11 +6,22 @@ import '../db/app_database.dart';
 import '../db/tables.dart';
 
 /// سطر نتيجة زي ما إنسان أكّده.
+///
+/// النتيجة **واحدة من الاتنين** (المرحلة ٥): رقم في [value]، أو نص مطبوع
+/// («Negative») في [valueText] بالحرف. الاتنين مع بعض أو ولا واحد =
+/// `ArgumentError` — سطر من غير نتيجة مش نتيجة، وسطر بنتيجتين كاتبه بايظ.
 class ConfirmedLabLine {
-  const ConfirmedLabLine({required this.testName, required this.value, this.unit, this.range});
+  ConfirmedLabLine({required this.testName, this.value, this.valueText, this.unit, this.range}) {
+    if ((value == null) == (valueText == null)) {
+      throw ArgumentError('نتيجة التحليل رقم أو نص — واحدة بالظبط: value=$value valueText=$valueText');
+    }
+  }
 
   final String testName;
-  final double value;
+  final double? value;
+
+  /// النتيجة المطبوعة اللي مش رقم — بتتعرض بالحرف وعمرها ما بتتقارن.
+  final String? valueText;
   final String? unit;
 
   /// نطاق الورقة زي ما اتقرا منها — null لو الورقة ما طبعتش نطاق للسطر ده.
@@ -71,7 +82,9 @@ class LabResultsRepository {
               happenedAt: happenedAt,
               place: Value(place),
               notes: Value([
-                for (final l in lines) '${l.testName.trim()} ${_number(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
+                for (final l in lines)
+                  '${l.testName.trim()} ${l.value == null ? l.valueText : _number(l.value!)}'
+                      '${l.unit == null ? '' : ' ${l.unit}'}',
               ].join(' — ')),
               attachmentPath: Value(attachmentPath),
             ));
@@ -79,7 +92,8 @@ class LabResultsRepository {
           await _db.into(_db.labResults).insert(LabResultsCompanion.insert(
                 recordId: recordId,
                 testName: l.testName.trim(),
-                value: l.value,
+                value: Value(l.value),
+                valueText: Value(l.valueText),
                 unit: Value(l.unit),
                 refLow: Value(l.range?.low),
                 refHigh: Value(l.range?.high),
@@ -90,19 +104,23 @@ class LabResultsRepository {
       });
 
   /// قيم نفس التحليل في تقاريره اللي فاتت، الأحدث الأول. التقارير الممسوحة
-  /// (مسح ناعم) ما بتدخلش في «المعتاد».
+  /// (مسح ناعم) ما بتدخلش في «المعتاد» — **والسطور النصية برضه** (المرحلة
+  /// ٥): «Negative» مش رقم يتحسب منه معتاد، وبيتعرض بالحرف وبس، زي
+  /// `refText` بالظبط.
   Future<List<PastLabValue>> historyFor(int patientId, String testName) async {
     final key = normalize(testName);
     final query = _db.select(_db.labResults).join([
       innerJoin(_db.records, _db.records.id.equalsExp(_db.labResults.recordId)),
     ])
-      ..where(_db.records.patientId.equals(patientId) & _db.records.deletedAt.isNull())
+      ..where(_db.records.patientId.equals(patientId) &
+          _db.records.deletedAt.isNull() &
+          _db.labResults.value.isNotNull())
       ..orderBy([OrderingTerm.desc(_db.records.happenedAt), OrderingTerm.desc(_db.labResults.id)]);
     return [
       for (final row in await query.get())
         if (normalize(row.readTable(_db.labResults).testName) == key)
           PastLabValue(
-            value: row.readTable(_db.labResults).value,
+            value: row.readTable(_db.labResults).value!,
             unit: row.readTable(_db.labResults).unit,
             at: row.readTable(_db.records).happenedAt,
           ),
@@ -110,17 +128,20 @@ class LabResultsRepository {
   }
 
   /// كل نتايج التحاليل (من غير الممسوح)، الأحدث الأول — «كلّمني» بيدوّر
-  /// فيها على «آخر تحليل …». قراية بس.
+  /// فيها على «آخر تحليل …». قراية بس. **الأرقام بس**: «كلّمني» بيرد
+  /// برقم وتاريخ، والسطر النصي («Negative») مالوش رقم يتقال.
   Future<List<PastLabValue>> allNewestFirst(int patientId) async {
     final query = _db.select(_db.labResults).join([
       innerJoin(_db.records, _db.records.id.equalsExp(_db.labResults.recordId)),
     ])
-      ..where(_db.records.patientId.equals(patientId) & _db.records.deletedAt.isNull())
+      ..where(_db.records.patientId.equals(patientId) &
+          _db.records.deletedAt.isNull() &
+          _db.labResults.value.isNotNull())
       ..orderBy([OrderingTerm.desc(_db.records.happenedAt), OrderingTerm.desc(_db.labResults.id)]);
     return [
       for (final row in await query.get())
         PastLabValue(
-          value: row.readTable(_db.labResults).value,
+          value: row.readTable(_db.labResults).value!,
           unit: row.readTable(_db.labResults).unit,
           at: row.readTable(_db.records).happenedAt,
           testName: row.readTable(_db.labResults).testName,

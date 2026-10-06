@@ -18,26 +18,32 @@ import 'usual_words.dart';
 class _EditableLine {
   _EditableLine.from(LabLine l)
     : name = l.test.value ?? '',
-      value = l.value.value,
+      value = l.numberResult,
+      valueText = l.textResult,
       unit = l.unit.value,
       range = l.range,
       unsure = l.blocksConfirm;
 
   String name;
   double? value;
+
+  /// النتيجة المطبوعة اللي مش رقم («Negative») — بتتعرض **بالحرف** وعمرها
+  /// ما بتتقارن بمعتاد ولا نطاق (المرحلة ٥). الرقم بيكسب لو الاتنين موجودين.
+  String? valueText;
   String? unit;
 
   /// نطاق الورقة زي ما اتقرا — null لو الورقة ما طبعتش نطاق. الإنسان يقدر
   /// يعدّله أو يشيله، وعمرنا ما بنحطّ واحد من عندنا.
   LabRange? range;
 
-  /// العلامة — حساب على رقمين مطبوعين، مش حكم.
+  /// العلامة — حساب على رقمين مطبوعين، مش حكم. النتيجة النصية مالهاش علامة.
   LabFlag get flag => value == null ? const NoPrintedRange() : labFlagFor(value!, range);
 
   /// لسه محتاج إنسان يبص عليه — بيقفل «تمام» لحد ما يتعدّل أو يتشال.
   bool unsure;
 
-  bool get blocks => unsure || name.trim().isEmpty || value == null;
+  bool get blocks =>
+      unsure || name.trim().isEmpty || (value == null && (valueText == null || valueText!.trim().isEmpty));
 }
 
 /// «قراءة التقرير» (المخطط ٨) — أخطر شاشة في التطبيق.
@@ -111,6 +117,7 @@ class _LabReportScreenState extends State<LabReportScreen> {
       builder: (_) => _EditLineDialog(
         name: line.name,
         value: line.value == null ? '' : _plain(line.value!),
+        valueText: line.valueText ?? '',
         unit: line.unit ?? '',
         range: line.range,
       ),
@@ -120,6 +127,8 @@ class _LabReportScreenState extends State<LabReportScreen> {
       line
         ..name = result.name
         ..value = result.value
+        // واحدة من الاتنين: رقم اتكتب = النص بيتمسح — نتيجتين لسطر واحد كدب.
+        ..valueText = result.value != null ? null : result.valueText
         ..unit = result.unit
         // النطاق زي ما إنسان كتبه من الورقة — وفاضي معناه الورقة مفيهاش.
         ..range = result.range
@@ -157,7 +166,13 @@ class _LabReportScreenState extends State<LabReportScreen> {
       attachmentPath: path,
       lines: [
         for (final l in _lines)
-          ConfirmedLabLine(testName: l.name.trim(), value: l.value!, unit: l.unit, range: l.range),
+          ConfirmedLabLine(
+            testName: l.name.trim(),
+            value: l.value,
+            valueText: l.value == null ? l.valueText?.trim() : null,
+            unit: l.unit,
+            range: l.range,
+          ),
       ],
     );
     widget.onSaved?.call(recordId);
@@ -325,15 +340,33 @@ class _ResultCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                value == null ? 'الرقم مش واضح' : arabicDecimal(value),
-                style: TextStyle(
-                  fontFamily: F.displayFamily,
-                  fontSize: value == null ? F.minBodySize : F.display3,
-                  fontWeight: FontWeight.w700,
-                  color: F.ink,
+              // النتيجة: رقم، وإلا النص المطبوع **بالحرف** («Negative») —
+              // بيتعرض وبس، من غير علامة ولا «المعتاد» (المرحلة ٥).
+              if (value == null && l.valueText != null)
+                Expanded(
+                  child: Text(
+                    l.valueText!,
+                    key: const ValueKey('lab-text-result'),
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontFamily: F.displayFamily,
+                      fontSize: F.display3,
+                      fontWeight: FontWeight.w700,
+                      color: F.ink,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  value == null ? 'النتيجة مش واضحة' : arabicDecimal(value),
+                  style: TextStyle(
+                    fontFamily: F.displayFamily,
+                    fontSize: value == null ? F.minBodySize : F.display3,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                  ),
                 ),
-              ),
               if (l.unit != null) ...[
                 const SizedBox(width: F.s8),
                 Text(
@@ -440,7 +473,7 @@ class _Equal extends StatelessWidget {
 }
 
 /// اللي الدايالوج بيرجّعه — نفس السطر بعد ما إنسان كتبه.
-typedef _EditedLine = ({String name, double? value, String? unit, LabRange? range});
+typedef _EditedLine = ({String name, double? value, String? valueText, String? unit, LabRange? range});
 
 /// «عدّل السطر ده» — الدايالوج هو صاحب الـcontrollers، فبيتقفلوا معاه بعد
 /// ما حركة القفل تخلص (مش وهي لسه بترسم).
@@ -449,9 +482,15 @@ typedef _EditedLine = ({String name, double? value, String? unit, LabRange? rang
 /// عشان حد يحطّ نطاق من دماغه. سايبهم فاضيين = الورقة مفيهاش نطاق، والسطر
 /// بيتعرض رقم من غير علامة.
 class _EditLineDialog extends StatefulWidget {
-  const _EditLineDialog({required this.name, required this.value, required this.unit, this.range});
+  const _EditLineDialog({
+    required this.name,
+    required this.value,
+    required this.valueText,
+    required this.unit,
+    this.range,
+  });
 
-  final String name, value, unit;
+  final String name, value, valueText, unit;
   final LabRange? range;
 
   @override
@@ -461,6 +500,7 @@ class _EditLineDialog extends StatefulWidget {
 class _EditLineDialogState extends State<_EditLineDialog> {
   late final _name = TextEditingController(text: widget.name);
   late final _value = TextEditingController(text: widget.value);
+  late final _valueText = TextEditingController(text: widget.valueText);
   late final _unit = TextEditingController(text: widget.unit);
   late final _low = TextEditingController(text: _plainOrEmpty(widget.range?.low));
   late final _high = TextEditingController(text: _plainOrEmpty(widget.range?.high));
@@ -473,6 +513,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
   void dispose() {
     _name.dispose();
     _value.dispose();
+    _valueText.dispose();
     _unit.dispose();
     _low.dispose();
     _high.dispose();
@@ -495,6 +536,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
   void _done() {
     final unit = _unit.text.trim();
     final text = _text.text.trim();
+    final valueText = _valueText.text.trim();
     final range = LabRange(
       low: _number(_low.text),
       high: _number(_high.text),
@@ -503,6 +545,9 @@ class _EditLineDialogState extends State<_EditLineDialog> {
     Navigator.of(context).pop((
       name: _name.text.trim(),
       value: _number(_value.text),
+      // النتيجة المكتوبة بالحروف — الرقم بيكسب لو الاتنين اتكتبوا (الشاشة
+      // بتمسح النص ساعتها، فمفيش سطر بنتيجتين).
+      valueText: valueText.isEmpty ? null : valueText,
       unit: unit.isEmpty ? null : unit,
       // فاضي خالص = الورقة مفيهاش نطاق. ما بنحوّلهاش لحاجة تانية.
       range: range.isEmpty ? null : range,
@@ -534,6 +579,13 @@ class _EditLineDialogState extends State<_EditLineDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(fontSize: F.minBodySize),
             decoration: const InputDecoration(labelText: 'الرقم'),
+          ),
+          TextField(
+            textInputAction: TextInputAction.next,
+            key: const ValueKey('edit-value-text'),
+            controller: _valueText,
+            style: const TextStyle(fontSize: F.minBodySize),
+            decoration: const InputDecoration(labelText: 'أو نتيجة مكتوبة بالحروف — زي Negative'),
           ),
           TextField(
             textInputAction: TextInputAction.next,

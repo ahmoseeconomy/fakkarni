@@ -262,7 +262,7 @@ void main() {
         patientId: h.services.patientId,
         happenedAt: sep14,
         attachmentPath: path,
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%')],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%')],
       );
       expect(id, isPositive);
 

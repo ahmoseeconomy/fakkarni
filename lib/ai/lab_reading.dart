@@ -13,6 +13,7 @@ class LabLine {
     required this.test,
     required this.value,
     required this.unit,
+    this.valueText = const ReadField.missing(),
     this.refLow = const ReadField.missing(),
     this.refHigh = const ReadField.missing(),
     this.refText = const ReadField.missing(),
@@ -20,6 +21,14 @@ class LabLine {
 
   final ReadField<String> test;
   final ReadField<double> value;
+
+  /// النتيجة المطبوعة لما ما تكونش رقم — «Negative»، «Nil»، «2 - 4»
+  /// (المرحلة ٥، قرار المالك 1A). **بالحرف زي الورقة**، بتتعرض وعمرها ما
+  /// بتتقارن بمعتاد ولا نطاق — زي [refText] بالظبط. واحدة من الاتنين:
+  /// سطر رقمه واضح رقم، وإلا نصّه الواضح هو النتيجة. لو الموديل بعت
+  /// الاتنين بثقة (مخالفة للبرومبت) الرقم بيكسب — الكلمة جنب رقم غالباً
+  /// علامة H/L، ودي ممنوعة أصلاً.
+  final ReadField<String> valueText;
   final ReadField<String> unit;
 
   /// طرفا النطاق المطبوع — واحد منهم ممكن يكون null («لحد ١١»).
@@ -41,9 +50,21 @@ class LabLine {
     return r.isEmpty ? null : r;
   }
 
-  /// اسم أو رقم مش واضح بيقفل «تمام» — رقم غلط في ملف حد بيبوّظ المقارنة
-  /// بتاعته بعدين. الوحدة مش بتقفل.
-  bool get blocksConfirm => test.needsReview || value.needsReview || test.value == null || value.value == null;
+  /// النتيجة الرقمية الواضحة — null لو مفيش (ساعتها [textResult] هو الأمل).
+  double? get numberResult => value.needsReview ? null : value.value;
+
+  /// النتيجة النصية الواضحة — بس لما مفيش رقم واضح (الرقم بيكسب، فوق).
+  String? get textResult {
+    if (numberResult != null) return null;
+    final t = valueText.needsReview ? null : valueText.value?.trim();
+    return (t == null || t.isEmpty) ? null : t;
+  }
+
+  /// اسم مش واضح، أو سطر من غير **ولا** نتيجة واضحة — رقم أو نص — بيقفل
+  /// «تمام»: نتيجة غلط في ملف حد بتبوّظ المقارنة بتاعته بعدين. الوحدة مش
+  /// بتقفل.
+  bool get blocksConfirm =>
+      test.needsReview || test.value == null || (numberResult == null && textResult == null);
 }
 
 class LabReading {
@@ -72,6 +93,7 @@ class LabReading {
               LabLine(
                 test: _string(r['test']),
                 value: _number(r['value']),
+                valueText: _string(r['valueText']),
                 unit: _string(r['unit']),
                 refLow: _number(r['refLow']),
                 refHigh: _number(r['refHigh']),
@@ -162,6 +184,9 @@ const Map<String, dynamic> labSchema = {
         'properties': {
           'test': _stringField,
           'value': _numberField,
+          // النتيجة المطبوعة اللي مش رقم («Negative») — بالحرف، بديل value
+          // مش معاه. مطلوب زي حقول النطاق: الغياب لازم يبقى null مكتوبة.
+          'valueText': _stringField,
           'unit': _stringField,
           'refLow': _numberField,
           'refHigh': _numberField,
@@ -173,7 +198,7 @@ const Map<String, dynamic> labSchema = {
         // ٠.١»: الحد الأعلى ضاع في صمت، ومعاه «قريب من الحد» اللي محتاج
         // الطرفين. الإجبار على الحقل بيخلّي الغياب **قرار مكتوب** (null)
         // مش سطر ناقص.
-        'required': ['test', 'value', 'unit', 'refLow', 'refHigh', 'refText'],
+        'required': ['test', 'value', 'valueText', 'unit', 'refLow', 'refHigh', 'refText'],
       },
     },
   },

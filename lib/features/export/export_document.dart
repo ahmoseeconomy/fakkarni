@@ -310,10 +310,12 @@ Future<List<ExportTable>> _labTables(AppDatabase db, int patientId, bool Functio
     final range = rangeOfRow(r);
     byDate.putIfAbsent(day, () => []).add([
       r.testName,
-      '${arabicDecimal(r.value)}${r.unit == null ? '' : ' ${r.unit}'}',
+      // النتيجة رقم أو نص مطبوع بالحرف (المرحلة ٥) — النصية من غير علامة.
+      '${r.value != null ? arabicDecimal(r.value!) : r.valueText ?? ''}'
+          '${r.unit == null ? '' : ' ${r.unit}'}',
       // الورقة ما طبعتش نطاق؟ شرطة — وعمود الكلمة بيفضل فاضي.
       labRangeText(range)?.replaceFirst('نطاق الورقة: ', '') ?? '—',
-      labFlagWord(labFlagFor(r.value, range)) ?? '',
+      r.value == null ? '' : labFlagWord(labFlagFor(r.value!, range)) ?? '',
     ]);
   }
   return [

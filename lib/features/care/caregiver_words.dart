@@ -25,9 +25,15 @@ String glucoseContextLabel(String stored) =>
 /// «١٢٨ ملّيجرام/ديسيلتر» — الرقم بس. مفيش «عالي» ولا «طبيعي» (قاعدة D3.6).
 String glucoseValue(int mgDl) => '${arabicNumber(mgDl)} ملّيجرام/ديسيلتر';
 
-/// «HbA1c ٧٫١ %».
-String labLineText(CaregiverLabLine line) =>
-    '${line.testName} ${arabicDecimal(line.value)}${line.unit == null ? '' : ' ${line.unit}'}';
+/// «HbA1c ٧٫١ %» — والسطر النصي (المرحلة ٥) نصّه **بالحرف**: «Pus Cells
+/// Negative». رقم ولا نص من صف قديم ما يوصلش هنا أصلاً (0039 بيرفضه)،
+/// ولو وصل بنقول «النتيجة مش مكتوبة» بدل ما نطبع null.
+String labLineText(CaregiverLabLine line) {
+  final result = line.value != null
+      ? arabicDecimal(line.value!)
+      : (line.valueText ?? 'النتيجة مش مكتوبة');
+  return '${line.testName} $result${line.unit == null ? '' : ' ${line.unit}'}';
+}
 
 /// سطر النطاق تحت الرقم — نطاق الورقة، أو إن الورقة مفيهاش نطاق.
 ///
@@ -36,7 +42,9 @@ String labLineText(CaregiverLabLine line) =>
 String labRangeLine(CaregiverLabLine line) => labRangeText(line.range) ?? labNoRangeText;
 
 /// العلامة زي ما الأب شافها — مقارنة رقمين مطبوعين، مش حكم من عندنا.
-LabFlag labFlagOf(CaregiverLabLine line) => labFlagFor(line.value, line.range);
+/// السطر النصي («Negative») **مالوش علامة أبداً**: مفيش رقم يتقارن.
+LabFlag labFlagOf(CaregiverLabLine line) =>
+    line.value == null ? const NoPrintedRange() : labFlagFor(line.value!, line.range);
 
 /// الكلمة، أو null لو السطر ما بياخدش علامة.
 String? labFlagWordOf(CaregiverLabLine line) => labFlagWord(labFlagOf(line));

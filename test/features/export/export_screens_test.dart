@@ -86,8 +86,8 @@ void main() {
     }
     await readings.add(patientId: h.services.patientId, valueMgDl: 200, context: GlucoseContext.fasting, measuredAt: DateTime(2026, 7, 1, 7));
     final labs = LabResultsRepository(h.db);
-    await labs.saveReport(patientId: h.services.patientId, happenedAt: DateTime(2026, 6, 1), lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.4, unit: '%')]);
-    await labs.saveReport(patientId: h.services.patientId, happenedAt: DateTime(2026, 9, 12), lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%')]);
+    await labs.saveReport(patientId: h.services.patientId, happenedAt: DateTime(2026, 6, 1), lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.4, unit: '%')]);
+    await labs.saveReport(patientId: h.services.patientId, happenedAt: DateTime(2026, 9, 12), lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%')]);
     await RecordsRepository(h.db).add(patientId: h.services.patientId, kind: RecordKind.booking, title: 'باطنة', happenedAt: DateTime(2026, 9, 17), doctor: 'د. هشام مام');
     await EmergencyRepository(h.db).save(h.services.patientId, const EmergencyInfo(bloodType: 'O+'));
   }
@@ -133,7 +133,7 @@ void main() {
       await labs.saveReport(
         patientId: h.services.patientId,
         happenedAt: DateTime(2026, 9, 12),
-        lines: const [
+        lines: [
           ConfirmedLabLine(testName: 'WBC', value: 12.4, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),
           ConfirmedLabLine(testName: 'Ferritin', value: 8, unit: 'ng/mL', range: LabRange(low: 30, high: 400)),
           ConfirmedLabLine(testName: 'Platelets', value: 10.5, unit: '10^3/uL', range: LabRange(low: 4, high: 11)),

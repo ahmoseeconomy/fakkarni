@@ -49,6 +49,10 @@ void main() {
       'Do NOT interpret, diagnose, recommend, or advise',
       'Never say a value is high, low, normal, abnormal',
       'Never suggest seeing a doctor',
+      // النتيجة النصية (المرحلة ٥): بالحرف، واحدة من الاتنين، ومش بتتحوّل رقم.
+      'copied character for character',
+      'never turned into a number',
+      'Fill exactly one of value and valueText',
       'Never guess a digit',
     ]) {
       expect(instruction, contains(phrase));
@@ -61,8 +65,9 @@ void main() {
   test('الـschema فيه نطاق الورقة — وما فيهوش علامة ولا تفسير ولا نص حر', () {
     final results = ((labSchema['properties']! as Map)['results']! as Map);
     final fields = (((results['items']! as Map)['properties']!) as Map).keys.toSet();
-    // نقل اللي مطبوع: الاسم والرقم والوحدة والنطاق.
-    expect(fields, {'test', 'value', 'unit', 'refLow', 'refHigh', 'refText'});
+    // نقل اللي مطبوع: الاسم والنتيجة (رقم أو نص بالحرف — المرحلة ٥)
+    // والوحدة والنطاق.
+    expect(fields, {'test', 'value', 'valueText', 'unit', 'refLow', 'refHigh', 'refText'});
 
     // ولا خانة يقدر يحكم أو يفسّر من خلالها.
     final text = jsonEncode(labSchema).toLowerCase();
@@ -77,6 +82,9 @@ void main() {
     // صمت ومعاه «قريب من الحد» اللي محتاج الطرفين.
     final items = ((labSchema['properties']! as Map)['results']! as Map)['items']! as Map;
     expect(items['required'], containsAll(['refLow', 'refHigh', 'refText']));
+    // والنتيجة النصية كمان (المرحلة ٥): الغياب لازم يبقى null مكتوبة، مش
+    // حقل ناقص بيتقري «مفيش نص» بالغلط.
+    expect(items['required'], contains('valueText'));
   });
 
   test('رقم جاي كنص لسه بيتقرا — الحد ما بيضيعش عشان شكله', () {

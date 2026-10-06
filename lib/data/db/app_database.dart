@@ -34,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -541,6 +541,42 @@ class AppDatabase extends _$AppDatabase {
               ).get();
               if (existing.isEmpty) {
                 await customStatement('ALTER TABLE medications ADD COLUMN form TEXT NULL');
+              }
+            }
+            if (from < 33) {
+              // النتيجة النصية (المرحلة ٥، قرار المالك 1A): «Negative» بقت
+              // عمود value_text، وvalue بقى NULL عشانها — واحدة من الاتنين.
+              // تغيير nullability في SQLite = إعادة بناء الجدول، بـSQL مجمّد
+              // (قاعدة «الخطوات المجمّدة»)، والصفوف بتتنقل زي ما هي —
+              // الأقدم من v33 كله أرقام فبيعدّي بقيمته. تريجر updated_at
+              // بيتعاد في beforeOpen لوحده بعد الإعادة (الإنشاء idempotent).
+              final existing = await customSelect(
+                "SELECT 1 FROM pragma_table_info('lab_results') WHERE name = 'value_text'",
+              ).get();
+              if (existing.isEmpty) {
+                await customStatement(
+                  'CREATE TABLE "lab_results_v33" ('
+                  '"uuid" TEXT NOT NULL UNIQUE, '
+                  '"updated_at_ms" INTEGER NOT NULL, '
+                  '"synced_at_ms" INTEGER NULL, '
+                  '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+                  '"record_id" INTEGER NOT NULL REFERENCES records (id) ON DELETE CASCADE, '
+                  '"test_name" TEXT NOT NULL, '
+                  '"value" REAL NULL, '
+                  '"value_text" TEXT NULL, '
+                  '"unit" TEXT NULL, '
+                  '"ref_low" REAL NULL, '
+                  '"ref_high" REAL NULL, '
+                  '"ref_text" TEXT NULL)',
+                );
+                await customStatement(
+                  'INSERT INTO lab_results_v33 '
+                  '(uuid, updated_at_ms, synced_at_ms, id, record_id, test_name, value, unit, ref_low, ref_high, ref_text) '
+                  'SELECT uuid, updated_at_ms, synced_at_ms, id, record_id, test_name, value, unit, ref_low, ref_high, ref_text '
+                  'FROM lab_results',
+                );
+                await customStatement('DROP TABLE lab_results');
+                await customStatement('ALTER TABLE lab_results_v33 RENAME TO lab_results');
               }
             }
             if (from < 6) {

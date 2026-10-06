@@ -11,8 +11,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fakkarni/data/db/tables.dart';
+import 'package:fakkarni/data/repositories/lab_results_repository.dart';
 import 'package:fakkarni/data/repositories/records_repository.dart';
 import 'package:fakkarni/features/doctor/doctor_page_screen.dart';
+import 'package:fakkarni/features/health/lab_flag.dart';
 
 import '../scan/scan_test_support.dart';
 
@@ -105,6 +107,29 @@ void main() {
     expect(find.text('مفيش زيارات ولا روشتات متسجّلة'), findsNothing);
     expect(find.text('أسئلة العيلة'), findsOneWidget);
     expect(find.byKey(const ValueKey('doctor-export')), findsOneWidget);
+  });
+
+  screenTest('سطر تحليل نصي (المرحلة ٥): «Negative» بالحرف، من غير علامة — و«كان» بيفضل للرقم بس', (tester) async {
+    final labs = LabResultsRepository(h.db);
+    await labs.saveReport(
+      patientId: h.services.patientId,
+      happenedAt: DateTime(2026, 3, 1),
+      lines: [ConfirmedLabLine(testName: 'Pus Cells', value: 3, unit: '/HPF')],
+    );
+    await labs.saveReport(
+      patientId: h.services.patientId,
+      happenedAt: DateTime(2026, 9, 12),
+      lines: [ConfirmedLabLine(testName: 'Pus Cells', valueText: 'Negative')],
+    );
+
+    await h.pump(tester, DoctorPageScreen(now: () => sep14));
+    await settle(tester);
+
+    expect(find.text('التحاليل الأخيرة'), findsOneWidget);
+    expect(find.textContaining('Pus Cells Negative'), findsOneWidget, reason: 'النص بالحرف — مش رقم');
+    expect(find.byType(LabFlagBadge), findsNothing, reason: 'النتيجة النصية مالهاش علامة');
+    // «كان ٣ …» فاكت حقيقي من قراية **رقمية** أقدم — بيفضل معروض
+    expect(find.textContaining('كان ٣'), findsOneWidget);
   });
 
   screenTest('سجل اتمسح مش بيظهر في ملخص الدكتور', (tester) async {

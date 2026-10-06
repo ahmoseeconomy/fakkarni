@@ -109,7 +109,7 @@ void main() {
       patientId: id,
       happenedAt: DateTime(2026, 9, 12),
       place: 'معمل البرج — فرع مصر الجديدة',
-      lines: const [ConfirmedLabLine(testName: 'Glycated Hemoglobin HbA1c', value: 7.6, unit: '%')],
+      lines: [ConfirmedLabLine(testName: 'Glycated Hemoglobin HbA1c', value: 7.6, unit: '%')],
     );
     final records = RecordsRepository(h.db);
     await records.add(

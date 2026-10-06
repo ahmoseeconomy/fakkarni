@@ -55,9 +55,13 @@ class _Visit {
 }
 
 class _LabLine {
-  const _LabLine(this.name, this.value, this.unit, this.at, this.previous, this.range);
+  const _LabLine(this.name, this.value, this.valueText, this.unit, this.at, this.previous, this.range);
   final String name;
-  final double value;
+
+  /// النتيجة رقم **أو** نص (المرحلة ٥) — النصية («Negative») بتتعرض بالحرف
+  /// ومن غير علامة ولا «كان …»: مفيش رقم يتقارن.
+  final double? value;
+  final String? valueText;
   final String? unit;
   final DateTime at;
   final (double, DateTime)? previous;
@@ -65,7 +69,7 @@ class _LabLine {
   /// نطاق الورقة اللي الرقم ده اتقرا منها — null لو الورقة ما طبعتش نطاق.
   final LabRange? range;
 
-  LabFlag get flag => labFlagFor(value, range);
+  LabFlag get flag => value == null ? const NoPrintedRange() : labFlagFor(value!, range);
 }
 
 class _DoctorPageScreenState extends State<DoctorPageScreen> {
@@ -167,9 +171,16 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
         _LabLine(
           entries.first.$1.testName,
           entries.first.$1.value,
+          entries.first.$1.valueText,
           entries.first.$1.unit,
           entries.first.$2,
-          entries.length > 1 ? (entries[1].$1.value, entries[1].$2) : null,
+          // «كان …» رقم بس — أول قراية **رقمية** أقدم؛ السطور النصية
+          // («Negative») ما بتتقارنش (المرحلة ٥).
+          entries
+              .skip(1)
+              .map((e) => e.$1.value == null ? null : (e.$1.value!, e.$2))
+              .nonNulls
+              .firstOrNull,
           // نطاق **الورقة بتاعة القراية دي** — مش بتاع القراية اللي قبلها.
           // كل ورقة بنطاقها، والمعمل ممكن يكون غيّره بين التقريرين.
           rangeOfRow(entries.first.$1),
@@ -345,7 +356,8 @@ class _DoctorPageScreenState extends State<DoctorPageScreen> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${l.name} ${arabicDecimal(l.value)}${l.unit == null ? '' : ' ${l.unit}'}',
+                                    '${l.name} ${l.value != null ? arabicDecimal(l.value!) : l.valueText ?? ''}'
+                                    '${l.unit == null ? '' : ' ${l.unit}'}',
                                     textDirection: TextDirection.ltr,
                                     textAlign: TextAlign.right,
                                     style: body.copyWith(fontWeight: FontWeight.w700),

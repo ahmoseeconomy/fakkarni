@@ -275,7 +275,13 @@ class LabResults extends Table with SyncIdentity {
 
   /// اسم التحليل زي ما هو مطبوع.
   TextColumn get testName => text().withLength(min: 1, max: 120)();
-  RealColumn get value => real()();
+
+  /// النتيجة — **واحدة من الاتنين، مش الاتنين** (المرحلة ٥، قرار المالك 1A):
+  /// رقم في [value]، أو نص مطبوع («Negative»، «Nil»، «2 - 4») في [valueText]
+  /// **بالحرف زي الورقة** وعمره ما بيتقارن بمعتاد ولا نطاق — زي [refText]
+  /// بالظبط. الصفوف الأقدم من v33 كلها أرقام، فـ[value] فيها موجود دايماً.
+  RealColumn get value => real().nullable()();
+  TextColumn get valueText => text().nullable()();
   TextColumn get unit => text().nullable()();
 
   /// النطاق **زي ما هو مطبوع على ورقة المعمل** (v18) — مش من عندنا أبداً.

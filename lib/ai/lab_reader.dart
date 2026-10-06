@@ -67,11 +67,16 @@ is a correct answer; a remembered one is a wrong answer even when it is medicall
 Do NOT return H/L or high/low flags, asterisks, arrows, or any mark the report uses to call a value out.
 Do NOT interpret, diagnose, recommend, or advise. Never say a value is high, low, normal, abnormal, dangerous or concerning.
 Never suggest seeing a doctor, repeating a test, or any action.
-If a value is not a number or is illegible, return null for it with confidence 0. Never guess a digit.
+A row's printed result is either a number or printed text such as "Negative", "Nil" or "2 - 4". A numeric result goes in value;
+a non-numeric result goes in valueText, copied character for character — never rephrased, never translated, never turned into a number.
+Fill exactly one of value and valueText and return null for the other.
+If a result is illegible, return null for both with confidence 0. Never guess a digit.
 ''';
 
   static const prompt = '''
-Read the attached lab report. For each result row return test (name as printed, keep Latin names in Latin), value (the number only), unit (as printed).
+Read the attached lab report. For each result row return test (name as printed, keep Latin names in Latin), value (the number only), valueText, unit (as printed).
+valueText: ONLY when the printed result is not a number, e.g. "Negative", "Nil", "Trace", "2 - 4". Copy it character for character and return null for value.
+When the printed result IS a number, return it in value and return null for valueText. Never fill both; never omit either field.
 Reference range, transcribed from this report only.
 ALWAYS return all three fields refLow, refHigh and refText for every row, using null for the ones that do not apply.
 Never omit a range field: a missing field and a null field mean different things to us, and an omitted upper bound silently turns a two-sided range into a one-sided one.

@@ -364,7 +364,12 @@ with expected(migration, kind, ident) as (
     ('0037_device_self_check', 'cron',     'fakkarni-device-silent'),
     -- 0038 — نوع الدوا: العمود والقايمة المقفولة
     ('0038_medicine_form', 'column',   'public.medications.form'),
-    ('0038_medicine_form', 'constraintdef', 'public.medications|medications_form_check|suppository')
+    ('0038_medicine_form', 'constraintdef', 'public.medications|medications_form_check|suppository'),
+
+    -- 0039 — النتيجة النصية: العمود الجديد، وقيد «واحدة من الاتنين على الأقل».
+    -- (إن value بقى nullable مش فحص وجود — الفحص الذاتي جوّه 0039 هو اللي بيثبته.)
+    ('0039_lab_value_text', 'column', 'public.lab_results.value_text'),
+    ('0039_lab_value_text', 'constraintdef', 'public.lab_results|lab_results_value_present|value_text')
 ),
 checked as (
   select

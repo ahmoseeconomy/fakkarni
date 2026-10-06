@@ -60,13 +60,13 @@ void main() {
       await repo.saveReport(
         patientId: patientId,
         happenedAt: DateTime(2026, 3, 1),
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.1, unit: '%')],
       );
       await repo.saveReport(
         patientId: patientId,
         happenedAt: DateTime(2026, 6, 1),
         place: 'معمل البرج',
-        lines: const [
+        lines: [
           ConfirmedLabLine(testName: 'hba1c ', value: 7.4, unit: '%'),
           ConfirmedLabLine(testName: 'Creatinine', value: 1.2, unit: 'mg/dL'),
         ],
@@ -79,12 +79,57 @@ void main() {
       expect(records.first.notes, 'hba1c 7.4 % — Creatinine 1.2 mg/dL');
     });
 
+    test('نتيجة نصية (المرحلة ٥): بتتحفظ بالحرف برقم فاضي، وبتتعرض في notes زي ما هي', () async {
+      final repo = LabResultsRepository(db);
+      await repo.saveReport(
+        patientId: patientId,
+        happenedAt: DateTime(2026, 9, 12),
+        lines: [
+          ConfirmedLabLine(testName: 'Pus Cells', valueText: 'Negative'),
+          ConfirmedLabLine(testName: 'HbA1c', value: 7.6, unit: '%'),
+        ],
+      );
+      final rows = await db.select(db.labResults).get();
+      final text = rows.firstWhere((r) => r.testName == 'Pus Cells');
+      expect((text.value, text.valueText), (null, 'Negative'));
+      final records = await RecordsRepository(db).all(patientId);
+      expect(records.first.notes, 'Pus Cells Negative — HbA1c 7.6 %');
+    });
+
+    test('نتيجة واحدة بالظبط: رقم ونص مع بعض — أو ولا واحد — ArgumentError', () {
+      expect(
+        () => ConfirmedLabLine(testName: 'X', value: 1, valueText: 'Negative'),
+        throwsArgumentError,
+      );
+      expect(() => ConfirmedLabLine(testName: 'X'), throwsArgumentError);
+    });
+
+    test('السطر النصي برّه «المعتاد» وبرّه قايمة «كلّمني» — زي refText: بيتعرض وعمره ما بيتقارن', () async {
+      final repo = LabResultsRepository(db);
+      await repo.saveReport(
+        patientId: patientId,
+        happenedAt: DateTime(2026, 3, 1),
+        lines: [ConfirmedLabLine(testName: 'Pus Cells', valueText: 'Negative')],
+      );
+      await repo.saveReport(
+        patientId: patientId,
+        happenedAt: DateTime(2026, 6, 1),
+        lines: [ConfirmedLabLine(testName: 'Pus Cells', value: 3, unit: '/HPF')],
+      );
+      // المعتاد بيشوف الرقم وبس — «Negative» مش رقم يتحسب منه معتاد
+      final history = await repo.historyFor(patientId, 'Pus Cells');
+      expect([for (final h in history) h.value], [3.0]);
+      // و«كلّمني» بيرد برقم وتاريخ — السطر النصي مش في قايمته
+      final all = await repo.allNewestFirst(patientId);
+      expect([for (final v in all) v.value], [3.0]);
+    });
+
     test('تقرير ممسوح (ناعم) ما بيدخلش في المعتاد', () async {
       final repo = LabResultsRepository(db);
       final id = await repo.saveReport(
         patientId: patientId,
         happenedAt: DateTime(2026, 3, 1),
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 9.9)],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 9.9)],
       );
       await RecordsRepository(db).delete(id);
       expect(await repo.historyFor(patientId, 'HbA1c'), isEmpty);
@@ -102,7 +147,7 @@ void main() {
         patientId: patientId,
         happenedAt: DateTime(2026, 6, 1),
         attachmentPath: path,
-        lines: const [ConfirmedLabLine(testName: 'HbA1c', value: 7.4)],
+        lines: [ConfirmedLabLine(testName: 'HbA1c', value: 7.4)],
       );
       final records = RecordsRepository(db);
       await records.delete(id, now: DateTime(2026, 8, 1), attachments: store);

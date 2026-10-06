@@ -11,6 +11,7 @@ import 'package:fakkarni/features/health/lab_flag.dart';
 import 'package:fakkarni/features/health/usual_words.dart'
     show adviceWords, labAboveWord, labBelowWord, labNearWord, labNoRangeText;
 import 'package:fakkarni/features/care/caregiver_screen.dart';
+import 'package:fakkarni/features/care/caregiver_words.dart' show labLineText, labFlagWordOf;
 import 'package:fakkarni/features/care/caregiver_snapshot_holder.dart';
 
 import '../scan/scan_test_support.dart' show expectCaregiverDensity, screenTest, settle;
@@ -80,6 +81,29 @@ void main() {
         {'test_name': 'Uric acid', 'value': 5.1, 'unit': 'mg/dL', 'ref_low': null, 'ref_high': null, 'ref_text': null},
       ]))!;
       expect(none.labLines.single.range, isNull);
+    });
+
+    test('نتيجة نصية (المرحلة ٥): value فاضية مش رمية — السطر بيتعرض بالحرف ومن غير علامة', () {
+      // قبل المرحلة ٥ الـcast هنا كان `as num` — أول صف نصي كان بيرمي جوّه
+      // snapshot() والابن يشوف «مقدرناش نكمّل» على الشاشة كلها.
+      final r = recordFromRow({
+        'uuid': 'r1',
+        'kind': 'lab',
+        'title': 'تحليل بول',
+        'happened_at': '2026-09-12T07:00:00.000Z',
+        'deleted_at': null,
+        'updated_at': '2026-09-12T09:00:00.000Z',
+        'lab_results': [
+          {'test_name': 'Pus Cells', 'value': null, 'value_text': 'Negative', 'unit': null},
+          {'test_name': 'Specific Gravity', 'value': 1.02, 'value_text': null, 'unit': null},
+        ],
+      })!;
+      final text = r.labLines[0];
+      expect((text.value, text.valueText), (null, 'Negative'));
+      expect(labLineText(text), 'Pus Cells Negative', reason: 'بالحرف — مش رقم ولا ترجمة');
+      expect(labFlagWordOf(text), isNull, reason: 'نص ما بيتقارنش بنطاق — مفيش علامة أبداً');
+      final numeric = r.labLines[1];
+      expect(labLineText(numeric), 'Specific Gravity ١.٠٢');
     });
 
     test('سجل ممسوح ناعم → null (عمره ما يتعرض، حتى لو الاستعلام فوّته)', () {
