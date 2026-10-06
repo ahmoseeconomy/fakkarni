@@ -180,8 +180,8 @@ void main() {
       }
       expect(find.descendant(of: card, matching: find.text('قرص واحد')), findsOneWidget);
       expect(find.descendant(of: card, matching: find.text('٩:٠٠ ص')), findsOneWidget);
-      // لون الزرار بقى على [GlossPill.fill] (المرحلة ٣) — الزرار الجوّاني شفاف
-      final button = tester.widget<GlossPill>(find.descendant(of: find.byKey(const ValueKey('confirm-all')), matching: find.byType(GlossPill)));
+      // الوجه الأخضر البارز في [RaisedPrimarySurface]؛ الزرار الجوّاني شفاف.
+      final button = tester.widget<RaisedPrimarySurface>(find.descendant(of: find.byKey(const ValueKey('confirm-all')), matching: find.byType(RaisedPrimarySurface)));
       expect(button.fill, F.green, reason: '«أخدتها» أخضر مش أحمر');
       expect(find.text('أخدتها'), findsOneWidget);
       expect(find.text('فكّرني بعد ١٥ دقيقة'), findsOneWidget);

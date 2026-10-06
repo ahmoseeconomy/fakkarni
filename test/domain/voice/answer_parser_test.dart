@@ -54,6 +54,7 @@ void main() {
   group('الساعة — بجزء اليوم مقول', () {
     final cases = <String, SpokenTime>{
       'تمانية الصبح': const SpokenTime(8, 0),
+      'تمانية بالصباح': const SpokenTime(8, 0),
       'تمانيه الصبح': const SpokenTime(8, 0),
       'الساعة تمانية الصبح': const SpokenTime(8, 0),
       '٨ ونص الصبح': const SpokenTime(8, 30),
@@ -91,6 +92,7 @@ void main() {
       '0:30': const SpokenTime(0, 30),
       '15': const SpokenTime(15, 0),
       'الساعة سبعة وربع المسا': const SpokenTime(19, 15),
+      'الساعة سبعة بالمسا': const SpokenTime(19, 0),
       'حوالي تمانية الصبح كده': const SpokenTime(8, 0),
     };
     cases.forEach((s, t) {

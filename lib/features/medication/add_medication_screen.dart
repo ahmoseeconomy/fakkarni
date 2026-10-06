@@ -455,30 +455,44 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   void _hearFirstTime(String text) {
     final t = parseTime(spokenAnswer(text));
     if (t == null) {
-      setState(() => _voice?.note = 'مافهمتش — قول الساعة بجزء يومها، زي «٩ الصبح».');
+      setState(() => _voice?.note = 'سمعت: «$text» — قول الساعة ومعاها صباح أو مساء، زي «٩ الصبح».');
       return;
     }
     _pickFirstFixed(MinuteOfDay(t.minutes));
+    setState(() => _voice?.note = 'سمعت: «$text» — ظبّطت الساعة، وراجعها بعينك.');
   }
 
   /// (ب) «مع الأكل؟» — كلمة الأكل من نفس قارئ «كلّمني»، و«من غير» بتمسح.
   void _hearMeal(String text) {
     final norm = spokenAnswer(text);
-    if (norm.contains('من غير') || norm.contains('عادي') || norm.contains('ولا حاجه')) {
+    if (norm.contains('من غير') || norm.contains('عادي') || norm.contains('ولا حاجه') || norm.contains('بدون اكل')) {
       setState(() => _meal = null);
       return;
     }
-    var food = understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $norm', now: DateTime.now()).food;
+    MealRelation? food;
+    if (RegExp(r'قبل( ما)? (ا)?كل').hasMatch(norm)) {
+      food = MealRelation.before;
+    } else if (RegExp(r'بعد( ما)? (ا)?كل').hasMatch(norm)) {
+      food = MealRelation.after;
+    } else if (RegExp(r'(مع|وسط) (ا)?كل').hasMatch(norm)) {
+      food = MealRelation.with_;
+    } else if (norm.contains('علي الريق') || norm.contains('علي معده فاضيه')) {
+      food = MealRelation.emptyStomach;
+    }
+    food ??= understandUtteranceAs(NluIntent.addMedication, 'ضيف دوا X $norm', now: DateTime.now()).food;
     // والكلمة بلفظها كمان — contains على الأربع كلمات المقفولة (المرحلة ٢)
     for (final m in MealRelation.values) {
       if (food != null) break;
       if (norm.contains(normalizeArabic(m.label))) food = m;
     }
     if (food == null) {
-      setState(() => _voice?.note = 'مافهمتش — قول زي «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
+      setState(() => _voice?.note = 'سمعت: «$text» — قول «قبل الأكل» أو «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
       return;
     }
-    setState(() => _meal = food);
+    setState(() {
+      _meal = food;
+      _voice?.note = 'سمعت: «$text» — اخترت «${food.label}». راجعها بعينك.';
+    });
   }
 
   // «البداية» و«نوع التنبيه» **مالهمش مايك** (قاعدة المالك، ٥ أكتوبر ٢٠٢٦

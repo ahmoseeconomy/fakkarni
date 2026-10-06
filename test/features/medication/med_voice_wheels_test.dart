@@ -248,6 +248,17 @@ void main() {
       expect(find.byKey(const ValueKey('dose-row-1')), findsOneWidget);
     });
 
+    screenTest('مايكات الدوا بتسيب ٢٫٢ ثانية بين الكلمات، من غير ما تغيّر مهلة باقي التطبيق', (tester) async {
+      await setUpWith(answers: ['تسعة بالليل']);
+      await pumpAdd(tester);
+      await micsOn(tester);
+
+      await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
+      await settle(tester);
+
+      expect(listener.lastSilence, const Duration(milliseconds: 2200));
+    });
+
     screenTest('مايك المواعيد: ساعة من غير جزء يومها = سطر، ولا صف اتغيّر', (tester) async {
       await setUpWith(answers: ['تسعة وتسعة بالليل']);
       await pumpAdd(tester);

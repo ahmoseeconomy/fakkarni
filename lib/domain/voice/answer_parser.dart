@@ -295,11 +295,11 @@ bool? parseYesNo(String text) => switch (classifyReply(text)) {
 enum _Period { morning, dawn, noon, afternoon, evening, night }
 
 const _periodWords = <String, _Period>{
-  'الصبح': _Period.morning, 'صباحا': _Period.morning, 'صباح': _Period.morning, 'صبح': _Period.morning, 'ص': _Period.morning, 'am': _Period.morning, 'الصبحيه': _Period.morning,
+  'الصبح': _Period.morning, 'صباحا': _Period.morning, 'صباح': _Period.morning, 'بالصباح': _Period.morning, 'بالصبح': _Period.morning, 'صبح': _Period.morning, 'ص': _Period.morning, 'am': _Period.morning, 'الصبحيه': _Period.morning,
   'الفجر': _Period.dawn, 'فجرا': _Period.dawn, 'فجر': _Period.dawn,
   'الضهر': _Period.noon, 'الظهر': _Period.noon, 'ظهرا': _Period.noon, 'ضهرا': _Period.noon, 'الضهريه': _Period.noon, 'ضهر': _Period.noon, 'ظهر': _Period.noon,
   'العصر': _Period.afternoon, 'عصرا': _Period.afternoon, 'عصر': _Period.afternoon, 'العصريه': _Period.afternoon,
-  'المغرب': _Period.evening, 'مغرب': _Period.evening, 'العشا': _Period.evening, 'العشاء': _Period.evening, 'عشاء': _Period.evening, 'مساء': _Period.evening, 'مساءا': _Period.evening, 'المسا': _Period.evening, 'م': _Period.evening, 'pm': _Period.evening,
+  'المغرب': _Period.evening, 'مغرب': _Period.evening, 'العشا': _Period.evening, 'العشاء': _Period.evening, 'عشاء': _Period.evening, 'مساء': _Period.evening, 'مساءا': _Period.evening, 'بالمساء': _Period.evening, 'المسا': _Period.evening, 'بالمسا': _Period.evening, 'م': _Period.evening, 'pm': _Period.evening,
   'بالليل': _Period.night, 'الليل': _Period.night, 'ليلا': _Period.night, 'بليل': _Period.night, 'ليل': _Period.night, 'بالليلا': _Period.night,
 };
 

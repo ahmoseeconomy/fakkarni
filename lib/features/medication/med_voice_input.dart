@@ -70,7 +70,18 @@ class MedVoiceSession extends ChangeNotifier {
         _fail(failed);
         return null;
       }
-      final result = await listener.listen();
+      final result = await listener.listen(
+        // حقول الدوا جملها أطول من «أيوه» و«لأ»: «بعد ما آكل» و«تسعة
+        // ونص بالليل». المهلة دي تخصها وحدها، ولا تبطّئ تأكيد التذكير.
+        silence: const Duration(milliseconds: 2200),
+        maxLength: ListenTimings.maxLength,
+        firstWordWithin: ListenTimings.firstWordWithin,
+        onPartial: (partial) {
+          if (partial.trim().isEmpty) return;
+          note = 'سمعت: «${partial.trim()}»';
+          notifyListeners();
+        },
+      );
       switch (result) {
         case ListenHeard(:final text) when text.trim().isNotEmpty:
           return text.trim();

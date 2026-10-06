@@ -186,6 +186,59 @@ class GlossPill extends StatelessWidget {
       );
 }
 
+/// سطح الأزرار الأساسية الملوّنة: نفس الكبسولة المعروفة، لكن بوجه مطفي
+/// وحافة سفلية أغمق وظل ناعم. اللمعة تخص الأزرار البيضاء الثانوية فقط؛
+/// وجودها فوق الأخضر كان بيُقرا كخط غريب وليس كعمق.
+class RaisedPrimarySurface extends StatelessWidget {
+  const RaisedPrimarySurface({
+    required this.fill,
+    required this.enabled,
+    required this.child,
+    this.borderRadius = GlossPill.pillRadius,
+    super.key,
+  });
+
+  final Color fill;
+  final bool enabled;
+  final Widget child;
+  final BorderRadius borderRadius;
+
+  /// الحافة السفلية بس، مش حد داير حوالين الزرار.
+  Color get rim => Color.lerp(fill, Colors.black, 0.18)!;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: enabled
+              ? [BoxShadow(color: fill.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))]
+              : const [],
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: ColoredBox(
+            color: enabled ? rim : F.railGround,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (enabled)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 2,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(color: fill, borderRadius: borderRadius),
+                    ),
+                  ),
+                child,
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 class FPrimaryButton extends StatelessWidget {
   const FPrimaryButton({
     required this.label,
@@ -212,31 +265,42 @@ class FPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fill = gold ? F.gold : F.green;
+    final button = FilledButton(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        // التعبئة والعمق في السطح الخارجي؛ الزرار شفاف عشان يفضل التموج فوقه.
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        foregroundColor: gold ? F.onGold : F.onGreen,
+        disabledBackgroundColor: Colors.transparent,
+        disabledForegroundColor: F.mutedDark,
+        textStyle: TextStyle(
+          fontFamily: F.bodyFamily,
+          fontFamilyFallback: F.fontFallback,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
+      ),
+      child: _withIcon(icon, Text(label)),
+    );
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: GlossPill(
-        fill: fill,
-        // الضل بلون الزرار نفسه — ده اللي بيخلّيه «بيضوي» مش «مرمي»
-        shadow: F.glossShadowOf(fill),
-        glossTop: F.glossTop,
-        glossMid: F.glossMid,
-        enabled: onPressed != null,
-        child: FilledButton(
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            // التعبئة والضل في [GlossPill] — الزرار نفسه شفاف عشان اللمعة
-            // تبان تحته والتموّج يبان فوقها
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            foregroundColor: gold ? F.onGold : F.onGreen,
-            disabledBackgroundColor: Colors.transparent,
-            disabledForegroundColor: F.mutedDark,
-            textStyle: TextStyle(fontFamily: F.bodyFamily, fontFamilyFallback: F.fontFallback, fontSize: fontSize, fontWeight: FontWeight.w700),
-            shape: const RoundedRectangleBorder(borderRadius: GlossPill.pillRadius),
-          ),
-          child: _withIcon(icon, Text(label)),
-        ),
+      child: gold
+          ? GlossPill(
+              fill: fill,
+              shadow: F.glossShadowOf(fill),
+              glossTop: F.glossTop,
+              glossMid: F.glossMid,
+              enabled: onPressed != null,
+              child: button,
+            )
+          : RaisedPrimarySurface(
+              fill: fill,
+              enabled: onPressed != null,
+              child: button,
+            ),
       ),
     );
   }

@@ -1,8 +1,5 @@
-// «الفقاعة اللامعة» (المرحلة ٣، المالك MEDIUM) — شكل واحد لزرارَي النداء
-// من غلاف واحد [GlossPill]: كبسولة، لمعة ٣٢٪←١١٪ بتخلص بعد النص بشوية،
-// خيط أبيض على الحافة الفوقانية، ضل جوّاني تحت، وضل برّاني بلون الزرار
-// (محايد للثانوي). الليل نفس البنية ولمعة الثانوي أضعف بكتير.
-// المعطّل مسطّح: من غير لمعة ولا ضل.
+// الأبيض الثانوي وحده يفضل «فقاعة لامعة». الأخضر والدهبي الأساسيان سطح
+// بارز مطفي: وجه موحّد، حافة سفلية أغمق وظل ناعم؛ لا لمعة ولا خط فوق.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -44,20 +41,15 @@ void main() {
     fail('مفيش طبقة لمعة');
   }
 
-  testWidgets('الأساسي الأخضر: كبسولة، لمعة ٣٢٪←١١٪، خيط الحافة، وضل بلون الزرار', (tester) async {
+  testWidgets('الأساسي الأخضر: بارز مطفي بحافة سفلية وظل، بلا لمعة أو خط فوق', (tester) async {
     var taps = 0;
     await pump(tester, FPrimaryButton(label: 'احفظ', onPressed: () => taps++));
 
-    final p = pill(tester);
-    expect(p.fill, F.green);
-    expect(p.shadow, F.glossShadowOf(F.green), reason: 'الضل بلون الزرار نفسه');
-    expect(p.glossTop, F.glossTop);
-    expect(p.glossTop.a, closeTo(0.32, 0.001), reason: 'لمعة MEDIUM');
-    expect(p.glossMid.a, closeTo(0.11, 0.001));
-
-    final g = glossOf(tester);
-    expect(g.stops!.last, closeTo(0.56, 0.01), reason: 'اللمعة بتخلص بعد النص بشوية');
-    expect(find.byKey(const ValueKey('gloss-edge-line')), findsOneWidget);
+    final surface = tester.widget<RaisedPrimarySurface>(find.byType(RaisedPrimarySurface));
+    expect(surface.fill, F.green);
+    expect(surface.rim, isNot(F.green), reason: 'الحافة السفلية أغمق من الوجه');
+    expect(find.byType(GlossPill), findsNothing);
+    expect(find.byKey(const ValueKey('gloss-edge-line')), findsNothing);
 
     // كبسولة — الزرار الجوّاني نفسه بنصف قطر الكبسولة، ومن غير حد صلب
     final filled = tester.widget<FilledButton>(find.byType(FilledButton));
@@ -70,10 +62,10 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('الدهبي: نفس البنية والضل دهبي', (tester) async {
+  testWidgets('الدهبي: يفضل باللمعة الحالية؛ التغيير للأخضر فقط', (tester) async {
     await pump(tester, FPrimaryButton(label: 'تم', gold: true, onPressed: () {}));
-    expect(pill(tester).fill, F.gold);
-    expect(pill(tester).shadow, F.glossShadowOf(F.gold));
+    final surface = pill(tester);
+    expect(surface.fill, F.gold);
   });
 
   testWidgets('الثانوي بالنهار: فقاعة بيضا بحد رفيع خفيف (2B) — ٣:١ ضد أرضية الصفحة بالرقم', (tester) async {
@@ -88,36 +80,34 @@ void main() {
         reason: 'WCAG 1.4.11 — حد عنصر ٣:١ نهاري');
     final outlined = tester.widget<OutlinedButton>(find.byType(OutlinedButton));
     expect(outlined.style!.side!.resolve(const {}), BorderSide.none);
-    // والأساسي من غير حد — حدّه تعبئته
-    await pump(tester, FPrimaryButton(label: 'احفظ', onPressed: () {}));
-    expect(pill(tester).edge, isNull);
   });
 
-  testWidgets('بالليل: بنية الأساسي زي ما هي، ولمعة الثانوي أضعف بكتير', (tester) async {
+  testWidgets('بالليل: الأساسي بارز مطفي والثانوي وحده لمعته أضعف', (tester) async {
     F.setDark(on: true);
     await pump(tester, Column(mainAxisSize: MainAxisSize.min, children: [
       FPrimaryButton(label: 'احفظ', onPressed: () {}),
       const SizedBox(height: 16),
       FSecondaryButton(label: 'افتح', onPressed: () {}),
     ]));
-    final pills = tester.widgetList<GlossPill>(find.byType(GlossPill)).toList();
-    expect(pills.first.glossTop.a, closeTo(0.32, 0.001), reason: 'الأساسي بالليل زي النهار');
-    expect(pills.last.glossTop.a, closeTo(0.10, 0.001), reason: 'الثانوي بالليل مش كشّاف');
-    expect(pills.last.glossTop.a, lessThan(pills.first.glossTop.a / 2));
+    final surface = tester.widget<RaisedPrimarySurface>(find.byType(RaisedPrimarySurface));
+    expect(surface.fill, F.green);
+    final secondary = pill(tester);
+    expect(secondary.glossTop.a, closeTo(0.10, 0.001), reason: 'الثانوي بالليل مش كشّاف');
     // والعقد التبايني: الكلمة على السطح الليلي، وحد الفقاعة ٣:١ بالليل برضه
     expect(_contrast(F.ink, F.bubbleGround), greaterThan(4.5), reason: 'AA بالليل');
-    expect(pills.last.edge, F.bubbleEdge);
+    expect(secondary.edge, F.bubbleEdge);
     expect(_contrast(F.bubbleEdge, F.pageGround), greaterThanOrEqualTo(3.0),
         reason: 'WCAG 1.4.11 — حد عنصر ٣:١ ليلي');
   });
 
-  testWidgets('المعطّل مسطّح: من غير لمعة ولا ضل ولا خيط — والكلمة بلون التعطيل', (tester) async {
+  testWidgets('الأساسي المعطّل مسطّح: من غير لمعة ولا ضل ولا حافة بارزة', (tester) async {
     await pump(tester, const FPrimaryButton(label: 'احفظ', onPressed: null));
-    expect(pill(tester).enabled, isFalse);
+    final surface = tester.widget<RaisedPrimarySurface>(find.byType(RaisedPrimarySurface));
+    expect(surface.enabled, isFalse);
     expect(find.byKey(const ValueKey('gloss-edge-line')), findsNothing);
     // الطبقة الخارجية (صاحبة الضل) فاضية
     final outer = tester.widget<DecoratedBox>(
-      find.descendant(of: find.byType(GlossPill), matching: find.byType(DecoratedBox), matchRoot: true).first,
+      find.descendant(of: find.byType(RaisedPrimarySurface), matching: find.byType(DecoratedBox), matchRoot: true).first,
     );
     expect((outer.decoration as BoxDecoration).boxShadow, isEmpty, reason: 'زرار نايم مش فقاعة');
     // ومفيش ولا طبقة متدرّجة

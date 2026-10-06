@@ -156,15 +156,21 @@ class _TalkButtonState extends State<TalkButton> with WidgetsBindingObserver {
           padding: EdgeInsets.only(top: widget.gapAbove, bottom: widget.gapBelow),
           child: SizedBox(
           height: height,
-          child: FilledButton.icon(
-            key: const ValueKey('talk-button'),
-            onPressed: _tap,
-            icon: Icon(Icons.mic, size: widget.elder ? 32 : 26),
-            label: Text('كلّمني', style: TextStyle(fontSize: size, fontWeight: FontWeight.w800)),
-            style: FilledButton.styleFrom(
-              backgroundColor: F.green,
-              foregroundColor: F.onGreen,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+          child: RaisedPrimarySurface(
+            fill: F.green,
+            enabled: true,
+            borderRadius: BorderRadius.circular(F.radiusCard),
+            child: FilledButton.icon(
+              key: const ValueKey('talk-button'),
+              onPressed: _tap,
+              icon: Icon(Icons.mic, size: widget.elder ? 32 : 26),
+              label: Text('كلّمني', style: TextStyle(fontSize: size, fontWeight: FontWeight.w800)),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: F.onGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard)),
+              ),
             ),
           ),
           ),
