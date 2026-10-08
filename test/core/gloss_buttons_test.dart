@@ -1,5 +1,6 @@
-// الأبيض الثانوي وحده يفضل «فقاعة لامعة». الأخضر والدهبي الأساسيان سطح
+// الأبيض الثانوي والدهبي بيفضلوا «فقاعة لامعة». الأخضر الأساسي سطح
 // بارز مطفي: وجه موحّد، حافة سفلية أغمق وظل ناعم؛ لا لمعة ولا خط فوق.
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,21 +27,6 @@ void main() {
 
   GlossPill pill(WidgetTester tester) => tester.widget<GlossPill>(find.byType(GlossPill));
 
-  LinearGradient glossOf(WidgetTester tester) {
-    // أول طبقة متدرّجة جوّه الفقاعة هي اللمعة
-    final boxes = tester.widgetList<DecoratedBox>(
-      find.descendant(of: find.byType(GlossPill), matching: find.byType(DecoratedBox)),
-    );
-    for (final b in boxes) {
-      final d = b.decoration;
-      if (d is BoxDecoration && d.gradient is LinearGradient) {
-        final g = d.gradient! as LinearGradient;
-        if (g.colors.first.a > (g.colors.last.a)) return g; // اللمعة بتبدأ قوية
-      }
-    }
-    fail('مفيش طبقة لمعة');
-  }
-
   testWidgets('الأساسي الأخضر: بارز مطفي بحافة سفلية وظل، بلا لمعة أو خط فوق', (tester) async {
     var taps = 0;
     await pump(tester, FPrimaryButton(label: 'احفظ', onPressed: () => taps++));
@@ -48,6 +34,14 @@ void main() {
     final surface = tester.widget<RaisedPrimarySurface>(find.byType(RaisedPrimarySurface));
     expect(surface.fill, F.green);
     expect(surface.rim, isNot(F.green), reason: 'الحافة السفلية أغمق من الوجه');
+    // الحافة والضل من التوكنز (٦ أكتوبر ٢٠٢٦) — نفس اللون بالظبط اللي كان
+    // بيتحسب جوّه الودجت: الأخضر أغمق ١٨٪.
+    expect(surface.rim, F.raisedRimOf(F.green));
+    expect(F.raisedRimOf(F.green), Color.lerp(F.green, Colors.black, 0.18));
+    final box = tester.widget<DecoratedBox>(
+      find.descendant(of: find.byType(RaisedPrimarySurface), matching: find.byType(DecoratedBox)).first,
+    );
+    expect((box.decoration as BoxDecoration).boxShadow!.single.color, F.raisedShadowOf(F.green));
     expect(find.byType(GlossPill), findsNothing);
     expect(find.byKey(const ValueKey('gloss-edge-line')), findsNothing);
 
@@ -60,6 +54,12 @@ void main() {
     // والسلوك زي ما هو
     await tester.tap(find.text('احفظ'));
     expect(taps, 1);
+  });
+
+  test('ألوان الأساسي المرفوع من التوكنز وبس — مفيش لون خام في primitives', () {
+    final src = File('lib/core/widgets/primitives.dart').readAsStringSync();
+    expect(src, isNot(contains('Color.lerp(')), reason: 'اشتقاق اللون مكانه tokens.dart');
+    expect(src, isNot(contains('Colors.black')));
   });
 
   testWidgets('الدهبي: يفضل باللمعة الحالية؛ التغيير للأخضر فقط', (tester) async {

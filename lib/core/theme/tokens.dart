@@ -190,6 +190,12 @@ abstract final class F {
   /// ضل الأساسي — بلون الزرار نفسه (أخضر على الأخضر، دهبي على الدهبي).
   static Color glossShadowOf(Color fill) => fill.withValues(alpha: 0.38);
 
+  /// الأساسي المرفوع المطفي (الأخضر و«كلّمني»): حافته السفلية نفس لونه
+  /// أغمق ١٨٪، وضله بلونه أخف من ضل اللمعة — مكانهم هنا عشان «الألوان من
+  /// التوكنز وبس».
+  static Color raisedRimOf(Color fill) => Color.lerp(fill, Colors.black, 0.18)!;
+  static Color raisedShadowOf(Color fill) => fill.withValues(alpha: 0.28);
+
   static double _modeD(double light, double dark) => isDark ? dark : light;
 
   /// أرضية الاختيار المتحدّد (المخطط ٢): أخضر فاتح جداً على الأبيض.

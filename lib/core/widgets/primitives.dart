@@ -204,14 +204,14 @@ class RaisedPrimarySurface extends StatelessWidget {
   final BorderRadius borderRadius;
 
   /// الحافة السفلية بس، مش حد داير حوالين الزرار.
-  Color get rim => Color.lerp(fill, Colors.black, 0.18)!;
+  Color get rim => F.raisedRimOf(fill);
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: borderRadius,
           boxShadow: enabled
-              ? [BoxShadow(color: fill.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))]
+              ? [BoxShadow(color: F.raisedShadowOf(fill), blurRadius: 14, offset: const Offset(0, 6))]
               : const [],
         ),
         child: ClipRRect(
@@ -301,7 +301,6 @@ class FPrimaryButton extends StatelessWidget {
               enabled: onPressed != null,
               child: button,
             ),
-      ),
     );
   }
 }
