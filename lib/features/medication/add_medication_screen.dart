@@ -37,7 +37,7 @@ import 'medication_draft.dart';
 import 'med_voice_input.dart';
 import '../../domain/voice/nlu/nlu.dart' show NluIntent, understandUtteranceAs;
 import '../../domain/voice/answer_parser.dart' show normalizeArabic, parseTime, parseNumber;
-import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, spokenAnswer;
+import '../../domain/voice/nlu/normalize.dart' show normalizeUtterance, spokenAnswer, stripInvisibleMarks;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/diagnostics.dart';
 
@@ -237,6 +237,11 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// بإيده) — فلفّ العجلة بيعيد توزيعها بدل ما أول دقيقة تثبّتها.
   bool _spreadLive = false;
 
+  /// آخر جرعة اتشالت بـ«شيل» — سطر «اتشالت الجرعة / رجّعها» بيقعد **مكان
+  /// صفّها** لحد الفعل الجاي على الجرعات (المالك 1A، ٦ أكتوبر ٢٠٢٦): من غير
+  /// نافذة تأكيد ومن غير عدّاد وقت.
+  ({int index, FixedTiming? timing, bool spreadLive})? _undo;
+
   /// «هتبدأ الدوا من إمتى؟» — النهارده افتراضياً، أو يوم تاني لحد ٦٠ يوم.
   late DateTime _startDate = _today;
 
@@ -346,8 +351,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// (ب) الاسم باللي اتسمع — زي حقل الاسم في البداية: بيتكتب قدّامه،
   /// والفورم بيقول «ده مش اسم دوا» لو الكلام مش اسم.
   void _hearName(String text) {
-    final heard = medicineNameOrNull(text) ?? text.trim();
-    setState(() => _name.text = heard);
+    final clean = stripInvisibleMarks(text).trim();
+    final heard = medicineNameOrNull(clean) ?? clean;
+    setState(() {
+      _name.text = heard;
+      _voice?.note = isNotAMedicineName(heard)
+          ? 'مافهمتش «$clean» كاسم دوا — اكتبه بإيدك.'
+          : 'كتبت الاسم «$heard» — راجعه بعينك.';
+    });
     if (_duplicateChecked) _checkDuplicate();
   }
 
@@ -360,7 +371,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       setState(() => _voice?.note = 'مافهمتش — قول زي «للضغط» أو «للسكر»، أو حرّك البكرة بإيدك.');
       return;
     }
-    setState(() => _purpose = found);
+    setState(() {
+      _purpose = found;
+      _voice?.note = 'ظبّطت «${found.label}».';
+    });
   }
 
   /// (ب) «قرص» / «شراب يعني.» / «حباية» — بيملا بكرة «نوعه؟» وبس.
@@ -371,7 +385,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       setState(() => _voice?.note = 'مافهمتش — قول زي «قرص» أو «شراب»، أو حرّك البكرة بإيدك.');
       return;
     }
-    setState(() => _form = found);
+    setState(() {
+      _form = found;
+      _voice?.note = 'ظبّطت «${found.label}».';
+    });
   }
 
   /// (ب) «بياخده إزاي؟» — «كل ١٢ ساعة» بينتقل للفاصل بساعاته، وأسماء
@@ -384,6 +401,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       setState(() {
         _everyHours = h;
         _expandEveryHours();
+        _voice?.note = 'ظبّطت «كل ${arabicNumber(h)} ساعة».';
       });
       return;
     }
@@ -405,6 +423,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       return;
     }
     _pickPattern(found);
+    setState(() => _voice?.note = 'ظبّطت «${patternLabel(found!)}».');
   }
 
   /// (ب) «كام مرة في اليوم؟» — «مرتين» / «٣ مرات» / رقم لوحده (١–١٢).
@@ -416,12 +435,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       setState(() => _voice?.note = 'مافهمتش — قول زي «مرتين» أو «٣ مرات»، أو حرّك البكرة بإيدك.');
       return;
     }
-    if (n <= _countChips.last) {
-      _pickCount(n);
-    } else {
-      setState(() => _customCount = true);
-      _pickCustomCount(n);
-    }
+    _setCount(n);
+    setState(() => _voice?.note = 'ظبّطت «${_countLabel(n)}».');
   }
 
   /// (ب) «المواعيد» — ساعة أو أكتر بالواو: «تسعة الصبح وتسعة بالليل».
@@ -447,6 +462,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       _customCount = sorted.length > _countChips.last;
       _doses = [for (final m in sorted) FixedTiming(MinuteOfDay(m))];
       _spreadLive = false; // الساعات دي اتقالت — العجلة ما تلمسهاش
+      _undo = null;
+      _voice?.note = 'ظبّطت المواعيد: ${[for (final m in sorted) _clock(MinuteOfDay(m))].join(' و')}.';
     });
   }
 
@@ -455,18 +472,21 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   void _hearFirstTime(String text) {
     final t = parseTime(spokenAnswer(text));
     if (t == null) {
-      setState(() => _voice?.note = 'سمعت: «$text» — قول الساعة ومعاها صباح أو مساء، زي «٩ الصبح».');
+      setState(() => _voice?.note = 'مافهمتش «${stripInvisibleMarks(text).trim()}» — قول الساعة ومعاها صباح أو مساء، زي «٩ الصبح».');
       return;
     }
     _pickFirstFixed(MinuteOfDay(t.minutes));
-    setState(() => _voice?.note = 'سمعت: «$text» — ظبّطت الساعة، وراجعها بعينك.');
+    setState(() => _voice?.note = 'ظبّطت الساعة «${_clock(MinuteOfDay(t.minutes))}».');
   }
 
   /// (ب) «مع الأكل؟» — كلمة الأكل من نفس قارئ «كلّمني»، و«من غير» بتمسح.
   void _hearMeal(String text) {
     final norm = spokenAnswer(text);
     if (norm.contains('من غير') || norm.contains('عادي') || norm.contains('ولا حاجه') || norm.contains('بدون اكل')) {
-      setState(() => _meal = null);
+      setState(() {
+        _meal = null;
+        _voice?.note = 'ظبّطت «من غير تحديد».';
+      });
       return;
     }
     MealRelation? food;
@@ -486,12 +506,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
       if (norm.contains(normalizeArabic(m.label))) food = m;
     }
     if (food == null) {
-      setState(() => _voice?.note = 'سمعت: «$text» — قول «قبل الأكل» أو «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
+      setState(() => _voice?.note = 'مافهمتش «${stripInvisibleMarks(text).trim()}» — قول «قبل الأكل» أو «بعد الأكل» أو «على معدة فاضية»، أو حرّك البكرة.');
       return;
     }
     setState(() {
       _meal = food;
-      _voice?.note = 'سمعت: «$text» — اخترت «${food.label}». راجعها بعينك.';
+      _voice?.note = 'ظبّطت «${food!.label}».';
     });
   }
 
@@ -539,22 +559,105 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   // صفوف فاضية «اختار الساعة» — الفورم ما بيختارش ساعة عن حد (٢٧ سبتمبر ٢٠٢٦)
   List<FixedTiming?> _fromConvention() => List<FixedTiming?>.filled(_timesPerDay, null);
 
-  void _reseed(VoidCallback change) => setState(() {
-        change();
-        _doses = _fromConvention();
-        // ساعات العُرف مش ساعات حد كتبها — أول ساعة بتوزّعهم لحد ما صف يتعدّل بإيده
-        _spreadLive = _doses.length > 1;
-      });
-
-  void _pickCount(int n) {
-    if (_timesPerDay == n && !_customCount) return;
-    _reseed(() {
-      _timesPerDay = n;
-      _customCount = false;
+  /// عدد الصفوف = «كام مرة في اليوم؟» دايماً (المالك، ٦ أكتوبر ٢٠٢٦):
+  /// التقليل بيشيل **من الآخر** والباقي بساعاته؛ والزيادة (3A) بتوزّع
+  /// الجديد على اليوم زي أول مرة — وكل صف لسه بيتعدّل.
+  void _setCount(int n) {
+    final count = n.clamp(1, _maxCount);
+    if (count == _doses.length && count == _timesPerDay) {
+      if (_customCount != count > _countChips.last) setState(() => _customCount = count > _countChips.last);
+      return;
+    }
+    setState(() {
+      _undo = null;
+      _timesPerDay = count;
+      _customCount = count > _countChips.last;
+      _resizeDoses(count);
     });
   }
 
-  void _pickCustomCount(int n) => _reseed(() => _timesPerDay = n.clamp(_countChips.last + 1, _maxCount));
+  void _resizeDoses(int n) {
+    final kept = _doses.take(n).toList();
+    final added = n - kept.length;
+    if (added <= 0) {
+      _doses = kept;
+      if (_doses.length < 2) _spreadLive = false;
+      return;
+    }
+    _doses = [...kept, ...List<FixedTiming?>.filled(added, null)];
+    final first = kept.isEmpty ? null : kept.first;
+    // أول ساعة لسه ما اتختارتش: الجديد فاضي، وأول ساعة هي اللي بتوزّعهم
+    if (first == null) {
+      _spreadLive = _doses.length > 1;
+      return;
+    }
+    // محدش عدّل صف بإيده — توزيع من جديد من أول جرعة، زي أول مرة بالظبط
+    if (_spreadLive || kept.skip(1).every((d) => d == null)) {
+      _spreadFrom(0, first.minuteOfDay, force: true);
+      _spreadLive = true;
+      return;
+    }
+    // فيه صفوف اتعدّلت بإيده: ما نلمسهاش — كل جرعة جديدة في نص أوسع فجوة
+    // جوّه اليوم (٧ ص لـ١١ م، نفس نافذة [_spreadFrom])، فما تقعش بالليل.
+    const wake = 7 * 60;
+    const sleep = 23 * 60;
+    final taken = [
+      for (final d in _doses)
+        if (d != null && d.minuteOfDay.minutes >= wake && d.minuteOfDay.minutes <= sleep) d.minuteOfDay.minutes,
+    ];
+    for (var k = kept.length; k < n; k++) {
+      final points = [wake, ...taken..sort(), sleep];
+      var at = wake, widest = -1;
+      for (var g = 0; g + 1 < points.length; g++) {
+        final gap = points[g + 1] - points[g];
+        if (gap > widest) {
+          widest = gap;
+          at = points[g] + gap ~/ 2;
+        }
+      }
+      at = (at / 5).round() * 5; // دقيقة مقروءة — والبكرة لسه بالدقيقة
+      _doses[k] = FixedTiming(MinuteOfDay(at));
+      taken.add(at);
+    }
+  }
+
+  void _pickCount(int n) => _setCount(n);
+
+  void _pickCustomCount(int n) => _setCount(n.clamp(_countChips.last + 1, _maxCount));
+
+  /// «شيل» على صف: الجرعة دي بس، والعدد بينزل واحد. آخر جرعة ما بتتشالش
+  /// (الكارت مستخبي ساعتها أصلاً — 2A) — والحارس هنا كمان.
+  void _removeDose(int i) {
+    if (_doses.length < 2 || i < 0 || i >= _doses.length) return;
+    setState(() {
+      _undo = (index: i, timing: _doses[i], spreadLive: _spreadLive);
+      _doses = [..._doses]..removeAt(i);
+      _timesPerDay = _doses.length;
+      _customCount = _timesPerDay > _countChips.last;
+      _spreadLive = false; // الشكل اتظبط بالإيد — العجلة ما تعيدش توزيعه
+    });
+  }
+
+  void _restoreDose() {
+    final u = _undo;
+    if (u == null || _doses.length >= _maxCount) return;
+    setState(() {
+      _doses = [..._doses]..insert(u.index.clamp(0, _doses.length), u.timing);
+      _timesPerDay = _doses.length;
+      _customCount = _timesPerDay > _countChips.last;
+      _spreadLive = u.spreadLive;
+      _undo = null;
+    });
+  }
+
+  static String _countLabel(int n) => switch (n) {
+        1 => 'مرة',
+        2 => 'مرتين',
+        _ => _timesLabel(n),
+      };
+
+  /// «١٠:٠٠ ص» — لسطور الصوت.
+  static String _clock(MinuteOfDay m) => arabicTime(DateTime(2000, 1, 1, 0, m.minutes));
 
   static String _timesLabel(int n) => n <= 10 ? '${arabicNumber(n)} مرات' : '${arabicNumber(n)} مرة';
 
@@ -564,6 +667,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     // بين «كل يوم» وأنماط الأيام: الأيام بس بتتغيّر، والمواعيد زي ما هي
     final keepTimes = _dailyLike;
     setState(() {
+      _undo = null;
       _pattern = p;
       switch (p) {
         case DosePattern.everyHours:
@@ -622,6 +726,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     );
     if (picked == null || !mounted) return; // رجع من غير ما يختار — الصف زي ما هو
     setState(() {
+      _undo = null;
       _doses[i] = picked;
       _spreadLive = false; // صف اتعدّل بإيده — العجلة ما بتلمسوش تاني
       _spreadFrom(i, picked!.minuteOfDay);
@@ -648,6 +753,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
   /// عجلة الساعة تحت «كام مرة» على طول: بتكتب **أول جرعة**، والباقي
   /// بيتوزّع وراها طول ما محدش عدّله بإيده.
   void _pickFirstFixed(MinuteOfDay m) => setState(() {
+        _undo = null;
         final othersEmpty = _doses.skip(1).every((d) => d == null);
         final live = _spreadLive || othersEmpty;
         _doses[0] = FixedTiming(m);
@@ -756,6 +862,29 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
     );
     if (picked == null || !mounted) return;
     setState(() => _startDate = DateTime(picked.year, picked.month, picked.day));
+  }
+
+  /// صفوف «مواعيد الجرعات» — وسطر «اتشالت الجرعة» مكان الصف اللي اتشال.
+  List<Widget> _doseRows() {
+    // «شيل» مع «كام مرة» بس: «كل كام ساعة» عدده من الفاصل نفسه، وشيل جرعة
+    // منه بيكسر الفاصل. وآخر جرعة ما بتتشالش (2A).
+    final canRemove = _dailyLike && _doses.length >= 2;
+    final rows = <Widget>[
+      for (final (i, t) in _doses.indexed)
+        _DoseRowTile(
+          key: ValueKey('dose-row-$i'),
+          index: i,
+          title: 'الجرعة ${arabicNumber(i + 1)}',
+          subtitle: _rowText(t),
+          ready: _rowReady(t),
+          onEdit: () => _editDose(i),
+          onRemove: canRemove ? () => _removeDose(i) : null,
+        ),
+    ];
+    if (_undo case final u?) {
+      rows.insert(u.index.clamp(0, rows.length), _UndoDoseRow(onRestore: _restoreDose));
+    }
+    return rows;
   }
 
   String _rowText(FixedTiming? t) {
@@ -937,6 +1066,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             hours: _everyHours,
                             first: _firstDose,
                             onChanged: (h, t) => setState(() {
+                              _undo = null;
                               _everyHours = h;
                               _firstDose = t;
                               _expandEveryHours();
@@ -987,7 +1117,6 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                             if (n == null) return;
                             if (n == 0) {
                               if (_customCount) return;
-                              setState(() => _customCount = true);
                               _pickCustomCount(_countChips.last + 1);
                             } else {
                               _pickCount(n);
@@ -1055,7 +1184,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                   // جرعة واحدة في اليوم = الكارت مستخبي (المالك، ٥ أكتوبر
                   // ٢٠٢٦ مساءً): ساعتها بتتظبط من «الساعة كام؟» فوق، وصف
                   // واحد تحتها بيكرّر نفس الرقم من غير ما يضيف حاجة.
-                  if (_doses.length >= 2) ...[
+                  if (_doses.length >= 2 || _undo != null) ...[
                   FCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1064,15 +1193,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> with WidgetsB
                           'مواعيد الجرعات',
                           mic: _mics ? FieldMicButton(session: _voice!, forWhat: 'المواعيد', onHeard: _hearTimes) : null,
                         ),
-                        for (final (i, t) in _doses.indexed) ...[
-                          _DoseRowTile(
-                            key: ValueKey('dose-row-$i'),
-                            title: 'الجرعة ${arabicNumber(i + 1)}',
-                            subtitle: _rowText(t),
-                            ready: _rowReady(t),
-                            onTap: () => _editDose(i),
-                          ),
-                          if (i != _doses.length - 1) const SizedBox(height: F.s8),
+                        for (final (i, row) in _doseRows().indexed) ...[
+                          if (i > 0) const SizedBox(height: F.s8),
+                          row,
                         ],
                         const SizedBox(height: F.s8),
                         Text(
@@ -1248,59 +1371,114 @@ class _InlineFixedClock extends StatelessWidget {
 
 class _DoseRowTile extends StatelessWidget {
   const _DoseRowTile({
+    required this.index,
     required this.title,
     required this.subtitle,
     required this.ready,
-    required this.onTap,
+    required this.onEdit,
+    required this.onRemove,
     super.key,
   });
 
+  final int index;
   final String title;
   final String subtitle;
   final bool ready;
-  final VoidCallback onTap;
+  final VoidCallback onEdit;
+
+  /// null = مفيش «شيل» (آخر جرعة، أو «كل كام ساعة»).
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) => Material(
         color: F.railGround,
         borderRadius: BorderRadius.circular(F.radiusTile),
         child: InkWell(
-          onTap: onTap,
+          onTap: onEdit,
           borderRadius: BorderRadius.circular(F.radiusTile),
           child: Container(
-            constraints: const BoxConstraints(minHeight: F.minTapTarget),
             padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(F.radiusTile),
               // الذهبي للي لسه محتاج قرار — نفس معناه في التطبيق
               border: Border.all(color: ready ? F.line : F.gold, width: 1.5),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                Text(
+                  title,
+                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.mutedDark),
+                ),
+                const SizedBox(height: F.s4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.3),
+                ),
+                const SizedBox(height: F.s8),
+                // زرارين بكلمتهم، ٥٦ — نفس الثانوي المشترك
+                Row(
+                  children: [
+                    Expanded(
+                      child: FSecondaryButton(
+                        key: ValueKey('dose-edit-$index'),
+                        label: 'عدّل',
+                        onPressed: onEdit,
                       ),
-                      const SizedBox(height: F.s4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink, height: 1.3),
+                    ),
+                    if (onRemove != null) ...[
+                      const SizedBox(width: F.s8),
+                      Expanded(
+                        child: FSecondaryButton(
+                          key: ValueKey('dose-remove-$index'),
+                          label: 'شيل',
+                          onPressed: onRemove,
+                        ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: F.s8),
-                Text(
-                  ready ? 'عدّل' : 'اختار',
-                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.green),
+                  ],
                 ),
               ],
             ),
           ),
+        ),
+      );
+}
+
+/// مكان الصف اللي اتشال: «اتشالت الجرعة» و«رجّعها» — بيفضل لحد الفعل
+/// الجاي على الجرعات، من غير عدّاد (المالك 1A).
+class _UndoDoseRow extends StatelessWidget {
+  const _UndoDoseRow({required this.onRestore});
+
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const ValueKey('dose-undo'),
+        padding: const EdgeInsets.symmetric(horizontal: F.s12, vertical: F.s10),
+        decoration: BoxDecoration(
+          color: F.railGround,
+          borderRadius: BorderRadius.circular(F.radiusTile),
+          border: Border.all(color: F.line, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'اتشالت الجرعة',
+                style: TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w700, color: F.ink),
+              ),
+            ),
+            const SizedBox(width: F.s8),
+            SizedBox(
+              width: 140,
+              child: FSecondaryButton(
+                key: const ValueKey('dose-restore'),
+                label: 'رجّعها',
+                onPressed: onRestore,
+              ),
+            ),
+          ],
         ),
       );
 }

@@ -21,6 +21,9 @@ import '../../core/theme/tokens.dart';
 import '../../data/voice/speech_listener.dart';
 import '../../data/voice/voice_service.dart';
 
+/// أكواد حروف الكلام بالـhex («31 30 3a 30 30 200f …») — لسطر الأثر.
+String hexCodes(String text) => text.runes.map((r) => r.toRadixString(16)).join(' ');
+
 /// جلسة صوت الفورم — سماع واحد في المرة، وحالتها كلام مكتوب.
 class MedVoiceSession extends ChangeNotifier {
   MedVoiceSession(this.voice);
@@ -48,10 +51,20 @@ class MedVoiceSession extends ChangeNotifier {
   /// الدوسة كاملة: سماع ← تسليم للمعالج ← **سطر الأثر الواحد** — جولة
   /// الجهاز بتقرا منه إيه اللي المتعرّف رجّعه فعلاً وراح فين، لأن ده
   /// بالظبط اللي مقاس المرحلة ١ ما قدرش يجاوبه من برّه.
+  ///
+  /// السطر الجزئي «سمعت: …» **بيتمسح قبل المعالج** (٦ أكتوبر ٢٠٢٦): كان
+  /// بيفضل ظاهر بعد النجاح فشكله زي «سمعت ومحصلش حاجة»، وكان بيدخل سطر
+  /// الأثر مكان النتيجة. كل معالج بيكتب نتيجته صريحة («ظبّطت …» أو
+  /// «مافهمتش …»)، والأثر بيطبع أكواد الحروف بالـhex — العلامات المخفية
+  /// اللي بتوقّع الفهم مش بتبان في النص نفسه.
   Future<void> hearAndApply(String forWhat, ValueChanged<String> onHeard) async {
     final text = await hear(forWhat);
-    if (text != null) onHeard(text);
-    diag('MedVoice: heard=«${text ?? ''}» → ${note ?? 'اتقبلت'} ($forWhat)');
+    if (text != null) {
+      note = null;
+      onHeard(text);
+    }
+    final outcome = note ?? 'المعالج ما كتبش نتيجة';
+    diag('MedVoice: heard=«${text ?? ''}» hex=[${hexCodes(text ?? '')}] → $outcome ($forWhat)');
     notifyListeners();
   }
 

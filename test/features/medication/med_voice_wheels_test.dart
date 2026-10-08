@@ -235,7 +235,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
       await settle(tester);
-      expect(find.textContaining('جزء يومها'), findsOneWidget, reason: '«٩» من غير الصبح/بالليل — مفيش تخمين');
+      expect(find.textContaining('صباح أو مساء'), findsOneWidget, reason: '«٩» من غير الصبح/بالليل — مفيش تخمين');
 
       await tester.tap(find.byKey(const ValueKey('field-mic-الساعة')));
       await settle(tester);

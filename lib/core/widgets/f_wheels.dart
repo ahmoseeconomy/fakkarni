@@ -33,7 +33,15 @@ class _WheelColumn extends StatelessWidget {
     required this.semantics,
     this.height = wheelItemExtent * 3,
     this.pickerKey,
+    this.onTapRow,
   });
+
+  /// دوسة على صف — بترجّع رقم الصف اللي اتداس (الواقف عليه أو اللي جنبه).
+  /// للبكرة الفئوية بس ([FChoiceWheel]): الدوسة على الصف اللي هي واقفة عليه
+  /// لازم تبلّغ برضه، وإلا البكرة لو ما لحقتش قيمة من برّه (الصوت) الرجوع
+  /// للصف الظاهر مستحيل (٦ أكتوبر ٢٠٢٦، «مرتين» ← «مرة» على الآيفون).
+  /// البكر الرقمية ما بتاخدهاش: «ما بتكتبش لحد ما تتحرّك».
+  final ValueChanged<int>? onTapRow;
 
   /// مفتاح على البكرة نفسها — الاختبارات بتسحب عمود بعينه بيه.
   final Key? pickerKey;
@@ -66,14 +74,17 @@ class _WheelColumn extends StatelessWidget {
               onChanged(i);
             },
             children: [
-              for (final label in labels)
-                Center(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: F.minBodySize + 6,
-                      fontWeight: FontWeight.w600,
-                      color: F.ink,
+              for (final (i, label) in labels.indexed)
+                _label(
+                  i,
+                  Center(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: F.minBodySize + 6,
+                        fontWeight: FontWeight.w600,
+                        color: F.ink,
+                      ),
                     ),
                   ),
                 ),
@@ -81,6 +92,20 @@ class _WheelColumn extends StatelessWidget {
           ),
         ),
       );
+
+  /// الدوسة على صف: الـ`CupertinoPicker` عنده دوسة لكل صف بتلف عليه، بس
+  /// الصف اللي هو واقف عليه ما بيبلّغش (اللفّة لنفس المكان مش نقلة). دوستنا
+  /// جوّه الصف (الأعمق بيكسب) فبتبلّغ الاتنين.
+  Widget _label(int index, Widget child) {
+    final tap = onTapRow;
+    if (tap == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTap: () => tap(index),
+      child: child,
+    );
+  }
 }
 
 /// بكرة رقم: من [min] لـ[max] بخطوة [step]، وكلمة الوحدة جنب كل رقم.
@@ -246,11 +271,31 @@ class _FChoiceWheelState<T> extends State<FChoiceWheel<T>> {
     if (widget.value != oldWidget.value) _jumpTo(widget._indexOf(widget.value));
   }
 
+  /// **بعد الفريم**، زي [FTimeWheel] (٦ أكتوبر ٢٠٢٦): النطّة جوّه البناء
+  /// كانت بتعدّي في الاختبار وعلى الآيفون البكرة فضلت على «مرة» والحالة
+  /// «مرتين». بنقرا القيمة **وقت النطّة** مش وقت الطلب، فلو اتغيّرت تاني
+  /// في النص البكرة بتلحق آخر واحدة.
   void _jumpTo(int index) {
     if (!_controller.hasClients || _controller.selectedItem == index) return;
-    _syncing = true;
-    _controller.jumpToItem(index);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncing = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = widget._indexOf(widget.value);
+      if (!mounted || !_controller.hasClients || _controller.selectedItem == target) return;
+      _syncing = true;
+      _controller.jumpToItem(target);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncing = false);
+    });
+  }
+
+  /// دوسة على صف: اللي جنبها بتلف لحد عنده (والنقلة بتبلّغ لوحدها)، واللي
+  /// هي واقفة عليه بيتبلّغ هنا — حتى لو هو نفس القيمة اللي فاكرينها.
+  void _tapped(int index) {
+    if (!_controller.hasClients) return;
+    if (index == _controller.selectedItem) {
+      _WheelColumn.tick();
+      _picked(index);
+    } else {
+      _controller.animateToItem(index, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
   }
 
   void _picked(int index) {
@@ -274,6 +319,7 @@ class _FChoiceWheelState<T> extends State<FChoiceWheel<T>> {
         controller: _controller,
         labels: [?widget.noneLabel, for (final c in widget.choices) widget.labelOf(c)],
         onChanged: _picked,
+        onTapRow: _tapped,
         semantics: widget.semanticsLabel ?? 'اختيار',
         height: widget.height,
       );

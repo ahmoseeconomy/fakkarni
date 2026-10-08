@@ -153,7 +153,9 @@ void main() {
     expect(saved.map((s) => s.timing), containsAll(fourTimes));
   });
 
-  screenTest('تغيير العدد بإيد بيعيد البناء — ٤ → ٢ صفوف فاضية', (tester) async {
+  // كان «بيعيد البناء — صفوف فاضية»؛ قرار المالك (٦ أكتوبر ٢٠٢٦) بدّله:
+  // التقليل بيشيل من الآخر والباقي بساعاته.
+  screenTest('تقليل العدد بإيد بيشيل من الآخر — ٤ → ٢ والصفّين الأولانيين بساعاتهم', (tester) async {
     await pumpAdd(tester, timings: fourTimes);
 
     await pickWheel(tester, const ValueKey('count-wheel'), 1); // «مرتين»
@@ -164,8 +166,8 @@ void main() {
     expect(saved, hasLength(2));
     expect(
       [for (final s in saved) s.timing.minuteOfDay],
-      unorderedEquals([MinuteOfDay.hm(9), MinuteOfDay.hm(17)]),
-      reason: 'أول ساعة اختارها (٩) والتانية اتوزّعت قدّامه',
+      unorderedEquals([MinuteOfDay.hm(7), MinuteOfDay.hm(7, 30)]),
+      reason: 'الجرعتين اللي فضلوا هما أول اتنين بساعاتهم — مفيش مسح',
     );
   });
 }

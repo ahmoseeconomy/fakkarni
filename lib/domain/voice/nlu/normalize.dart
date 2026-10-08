@@ -23,6 +23,15 @@ String normalizeUtterance(String text) {
   return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+/// علامات الاتجاه والتنسيق المخفية — U+200B–U+200F، U+202A–U+202E،
+/// U+2066–U+2069، وU+061C. متعرّف الآيفون بيحطها حوالين الأرقام اللاتيني
+/// في كلام عربي («10:00 الصبح»)، ومحدش بيشوفها على الشاشة؛ وجودها كان
+/// بيوقّع `parseTime` و`contains('كل يوم')` في صمت (قياس ٦ أكتوبر ٢٠٢٦).
+/// **المكان الوحيد** اللي بيتعرّف فيه الشيل — [spokenAnswer] بتنده عليه،
+/// فكل مايك بيعدّي منه.
+String stripInvisibleMarks(String text) =>
+    text.replaceAll(RegExp('[\u200B-\u200F\u202A-\u202E\u2066-\u2069\u061C]'), '');
+
 /// إجابة حقل واحدة زي ما **المتعرّف الحقيقي** بيرجّعها (المرحلة ٢، المالك
 /// 1A): فوق [normalizeUtterance] بيشيل علامات الوقف اللي [normalizeArabic]
 /// بيسيبها — **النقطة** بالذات: آيفون بيختم كل جملة بيها، فكانت «للضغط.»
@@ -31,7 +40,7 @@ String normalizeUtterance(String text) {
 /// المتسامحة على قايمة مقفولة — مش للفهم الحر؛ النقطتين «:» بتفضل عشان
 /// «9:30».
 String spokenAnswer(String text) {
-  final s = normalizeUtterance(text)
+  final s = normalizeUtterance(stripInvisibleMarks(text))
       .replaceAll(RegExp(r'[.…]'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
