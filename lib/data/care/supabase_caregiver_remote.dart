@@ -443,7 +443,7 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             .from('escalations')
             .select('uuid, delivery_status, created_at, sent_at, rung, '
                 'dose_events!inner(scheduled_at, state, '
-                'dose_schedules!inner(medications!inner(name, patient_uuid)))')
+                'dose_schedules!inner(medications!inner(name, patient_uuid, removed_at)))')
             .eq('caregiver_id', me)
             // **الجرعة اللي اتقفلت مالهاش تنبيه — والفلتر في السحابة مش في
             // الودجت.** تنبيه بيقول «والدك ما أكّدش» عن جرعة خدها هو أسوأ
@@ -456,6 +456,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
             .gte('created_at', alertsSince)
             .eq('dose_events.dose_schedules.medications.patient_uuid',
                 patient.uuid)
+            // الإشعار الذي وصل قبل الحذف لا يمكن استدعاؤه من النظام، لكن
+            // عرضه بعد أن شال المريض الدواء إنذار كاذب على شاشة الابن.
+            .isFilter('dose_events.dose_schedules.medications.removed_at', null)
             .order('created_at', ascending: false);
 
         DateTime? last;

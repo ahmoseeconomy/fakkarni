@@ -149,6 +149,8 @@ void main() {
       final source = File('lib/data/care/supabase_caregiver_remote.dart').readAsStringSync();
       expect(source, contains(".isFilter('removed_at', null)"));
       expect(source, contains(".isFilter('dose_schedules.medications.removed_at', null)"));
+      expect(source, contains(".isFilter('dose_events.dose_schedules.medications.removed_at', null)"),
+          reason: 'التنبيه القديم كمان لازم يختفي بعد شيل الدواء، مش صف الجرعة العادي بس');
       expect(source, contains("if ((s as Map)['stopped_at'] == null)"),
           reason: 'الجرعة الموقوفة مش قاعدة شغّالة عند الابن');
     });
