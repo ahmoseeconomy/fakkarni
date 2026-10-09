@@ -13,6 +13,7 @@ import 'package:fakkarni/data/repositories/medication_repository.dart';
 import 'package:fakkarni/data/repositories/patient_repository.dart';
 import 'package:fakkarni/data/services/reminder_scheduler.dart';
 import 'package:fakkarni/data/voice/voice_service.dart';
+import 'package:fakkarni/domain/voice/voice_catalog.dart';
 import 'package:fakkarni/features/entry/entry_screen.dart';
 import 'package:fakkarni/features/onboarding/profile_onboarding_screen.dart';
 
@@ -28,7 +29,10 @@ void main() {
   late VoiceService voice;
   FakeListener? listener;
 
-  Future<void> setUpWith({required bool voiceOn, List<String?>? answers}) async {
+  Future<void> setUpWith({
+    required bool voiceOn,
+    List<String?>? answers,
+  }) async {
     SharedPreferences.setMockInitialValues({
       VoiceService.enabledKey: voiceOn,
       VoiceService.introDoneKey: true,
@@ -59,20 +63,24 @@ void main() {
 
   tearDown(() => db.close());
 
-  List<String> said() => [for (final p in player.played) p.split('/').last.replaceAll('.mp3', '')];
+  List<String> said() => [
+    for (final p in player.played) p.split('/').last.replaceAll('.mp3', ''),
+  ];
 
   Future<void> pump(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(AppScope(
-      services: services,
-      child: MaterialApp(
-        theme: F.light,
-        home: Directionality(textDirection: TextDirection.rtl, child: child),
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: F.light,
+          home: Directionality(textDirection: TextDirection.rtl, child: child),
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
   }
 
@@ -85,6 +93,7 @@ void main() {
     await setUpWith(voiceOn: true);
     await pump(tester, const ProfileOnboardingScreen());
     expect(said(), ['onb_name']);
+    expect(find.text(voiceLine('onb_name')), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'الحاج أحمد');
     await tester.pumpAndSettle();
@@ -92,33 +101,39 @@ void main() {
     await tap(tester, 'كمّل');
     // الاسم والسن بس — مفيش جنس ولا روتين بعدهم
     expect(said(), ['onb_name', 'onb_age']);
+    expect(find.text(voiceLine('onb_age')), findsOneWidget);
   });
 
-  testWidgets('بيسكت أول ما يكتب — و«ساعدني» بيعيد جملة الصفحة، والرجوع ما بيعيدهاش لوحده', (tester) async {
-    await setUpWith(voiceOn: true);
-    player.holdPlayback = true;
-    await pump(tester, const ProfileOnboardingScreen());
-    expect(voice.speaking, isTrue, reason: 'onb_name لسه بيتقال');
+  testWidgets(
+    'بيسكت أول ما يكتب — و«ساعدني» بيعيد جملة الصفحة، والرجوع ما بيعيدهاش لوحده',
+    (tester) async {
+      await setUpWith(voiceOn: true);
+      player.holdPlayback = true;
+      await pump(tester, const ProfileOnboardingScreen());
+      expect(voice.speaking, isTrue, reason: 'onb_name لسه بيتقال');
 
-    await tester.enterText(find.byType(TextField), 'ا');
-    await tester.pump();
-    expect(voice.speaking, isFalse, reason: 'كتب — الكلام وقف');
+      await tester.enterText(find.byType(TextField), 'ا');
+      await tester.pump();
+      expect(voice.speaking, isFalse, reason: 'كتب — الكلام وقف');
 
-    player.holdPlayback = false;
-    await tester.tap(find.byKey(const ValueKey('help-onb_name')));
-    await tester.pumpAndSettle();
-    expect(said().where((id) => id == 'onb_name'), hasLength(2));
+      player.holdPlayback = false;
+      await tester.tap(find.byKey(const ValueKey('help-onb_name')));
+      await tester.pumpAndSettle();
+      expect(said().where((id) => id == 'onb_name'), hasLength(2));
 
-    await tester.enterText(find.byType(TextField), 'الحاج أحمد');
-    await tap(tester, 'كمّل');
-    expect(said().last, 'onb_age');
-    expect(find.byKey(const ValueKey('help-onb_age')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('onboarding-back')));
-    await tester.pumpAndSettle();
-    expect(said().last, 'onb_age', reason: 'مرة واحدة لكل صفحة');
-  });
+      await tester.enterText(find.byType(TextField), 'الحاج أحمد');
+      await tap(tester, 'كمّل');
+      expect(said().last, 'onb_age');
+      expect(find.byKey(const ValueKey('help-onb_age')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('onboarding-back')));
+      await tester.pumpAndSettle();
+      expect(said().last, 'onb_age', reason: 'مرة واحدة لكل صفحة');
+    },
+  );
 
-  testWidgets('الصوت مقفول: ولا جملة بتتقال لوحدها، ومفيش «ساعدني»', (tester) async {
+  testWidgets('الصوت مقفول: ولا جملة بتتقال لوحدها، ومفيش «ساعدني»', (
+    tester,
+  ) async {
     await setUpWith(voiceOn: false);
     await pump(tester, const ProfileOnboardingScreen());
     await tester.enterText(find.byType(TextField), 'الحاج أحمد');
@@ -127,10 +142,15 @@ void main() {
     expect(find.text('ساعدني'), findsNothing);
   });
 
-  testWidgets('شاشة البداية: onb_entry لوحدها، وبتسكت أول ما يختار', (tester) async {
+  testWidgets('شاشة البداية: الجزآن بالترتيب، وبتسكت أول ما يختار', (
+    tester,
+  ) async {
     await setUpWith(voiceOn: true);
     player.holdPlayback = true;
-    await pump(tester, EntryScreen(onSelf: () {}, onHaveCode: () {}, onNurse: () {}));
+    await pump(
+      tester,
+      EntryScreen(onSelf: () {}, onHaveCode: () {}, onNurse: () {}),
+    );
     expect(said(), ['onb_entry']);
     expect(voice.speaking, isTrue);
     await tester.tap(find.byKey(const ValueKey('entry-self')));
@@ -139,13 +159,86 @@ void main() {
     expect(find.byKey(const ValueKey('help-onb_entry')), findsOneWidget);
   });
 
+  testWidgets(
+    'النص الظاهر يطابق المقطع الجاري و«ساعدني» يعيد الجزأين بالترتيب',
+    (tester) async {
+      await setUpWith(voiceOn: true);
+      await pump(
+        tester,
+        EntryScreen(onSelf: () {}, onHaveCode: () {}, onNurse: () {}),
+      );
+      expect(said(), ['onb_entry', 'onb_entry_more']);
+      expect(find.text(voiceLine('onb_entry_more')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('help-onb_entry')));
+      await tester.pumpAndSettle();
+      expect(said(), [
+        'onb_entry',
+        'onb_entry_more',
+        'onb_entry',
+        'onb_entry_more',
+      ]);
+      expect(find.text(voiceLine('onb_entry_more')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'مسار الممرض إلى شاشة الكود لا يعيد تلقائيًا صوت شاشة الاختيار عند إعادة تركيبها',
+    (tester) async {
+      await setUpWith(voiceOn: true);
+      var entryGeneration = 0;
+      tester.view.physicalSize = const Size(1000, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: F.light,
+          home: StatefulBuilder(
+            builder: (context, rebuild) => EntryScreen(
+              key: ValueKey(entryGeneration),
+              onSelf: () {},
+              onHaveCode: () {},
+              onNurse: () {
+                // محاكاة إعادة تركيب فرع الجذر عند تحديث حالة تسجيل الدخول،
+                // ثم فتح خطوة كود الممرض فوقه.
+                rebuild(() => entryGeneration++);
+                Navigator.of(context).push<void>(MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(
+                    body: Center(
+                      child: Text('كود ربط الممرض', key: ValueKey('nurse-code-route')),
+                    ),
+                  ),
+                ));
+              },
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(said(), ['onb_entry', 'onb_entry_more']);
+
+      await tester.tap(find.byKey(const ValueKey('entry-nurse')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('entry-start')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('nurse-code-route')), findsOneWidget);
+      expect(said(), ['onb_entry', 'onb_entry_more'], reason: 'صوت اختيار الدور لا يتسرّب لمسار الكود');
+    },
+  );
+
   testWidgets('شاشة البداية والصوت مقفول: ساكتة', (tester) async {
     await setUpWith(voiceOn: false);
     await pump(tester, EntryScreen(onSelf: () {}, onHaveCode: () {}));
     expect(player.played, isEmpty);
   });
 
-  testWidgets('مفيش «اتكلم» في البداية خالص — الاسم والسن بالإيد والكتابة بس', (tester) async {
+  testWidgets('مفيش «اتكلم» في البداية خالص — الاسم والسن بالإيد والكتابة بس', (
+    tester,
+  ) async {
     await setUpWith(voiceOn: true, answers: const []);
     await pump(tester, const ProfileOnboardingScreen());
     expect(find.text('اتكلم'), findsNothing, reason: 'صفحة الاسم');
@@ -158,7 +251,9 @@ void main() {
     expect(said(), isNot(contains('lis_intro')));
   });
 
-  testWidgets('من غير مايك في النسخة = مفيش زرار «اتكلم» في البداية', (tester) async {
+  testWidgets('من غير مايك في النسخة = مفيش زرار «اتكلم» في البداية', (
+    tester,
+  ) async {
     await setUpWith(voiceOn: true);
     await pump(tester, const ProfileOnboardingScreen());
     expect(find.text('اتكلم'), findsNothing);

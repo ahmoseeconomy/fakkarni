@@ -1,10 +1,13 @@
 import 'dart:async';
+
 import '../voice/help_button.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
+import '../../domain/voice/voice_catalog.dart';
 import 'onboarding_voice.dart';
 import 'profile_page.dart';
 
@@ -15,11 +18,7 @@ import 'profile_page.dart';
 /// مواعيد أكل ونوم ثابتة، والأدوية بتتجدول بالساعة. سؤال واحد في المرة
 /// عن قصد: المستخدم عنده ٧٢ سنة وبيقرا بنضارة.
 class ProfileOnboardingScreen extends StatefulWidget {
-  const ProfileOnboardingScreen({
-    this.onDone,
-    this.onBack,
-    super.key,
-  });
+  const ProfileOnboardingScreen({this.onDone, this.onBack, super.key});
 
   /// بيتندَه بعد ما البيانات تتحفظ وتتعاد جدولة التذكيرات.
   final VoidCallback? onDone;
@@ -29,7 +28,8 @@ class ProfileOnboardingScreen extends StatefulWidget {
   final VoidCallback? onBack;
 
   @override
-  State<ProfileOnboardingScreen> createState() => _ProfileOnboardingScreenState();
+  State<ProfileOnboardingScreen> createState() =>
+      _ProfileOnboardingScreenState();
 }
 
 class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
@@ -59,7 +59,9 @@ class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_voice.voice == null) _voice = OnboardingVoice(AppScope.of(context).voice);
+    if (_voice.voice == null) {
+      _voice = OnboardingVoice(AppScope.of(context).voice);
+    }
     if (_ready) return;
     final services = AppScope.of(context);
     services.patients.getPatient(services.patientId).then((row) {
@@ -77,7 +79,11 @@ class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
     setState(() => _saving = true);
     _voice.hush();
     final services = AppScope.of(context);
-    await services.patients.saveProfile(services.patientId, name: name, age: age);
+    await services.patients.saveProfile(
+      services.patientId,
+      name: name,
+      age: age,
+    );
 
     // الأذونات بتتطلب هنا مش عند أول فتح — دلوقتي بقى واضح ليه التطبيق
     // محتاجها.
@@ -122,7 +128,12 @@ class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(F.gap, F.gap, F.gap, F.s4),
+                    padding: const EdgeInsets.fromLTRB(
+                      F.gap,
+                      F.gap,
+                      F.gap,
+                      F.s4,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -139,7 +150,10 @@ class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
                                 style: TextButton.styleFrom(
                                   foregroundColor: F.green,
                                   minimumSize: const Size(0, F.minTapTarget),
-                                  textStyle: const TextStyle(fontSize: F.minBodySize, fontWeight: FontWeight.w600),
+                                  textStyle: const TextStyle(
+                                    fontSize: F.minBodySize,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
@@ -163,6 +177,16 @@ class _ProfileOnboardingScreenState extends State<ProfileOnboardingScreen> {
                             // جملة الصفحة نفسها — نفس اللي اتقالت لوحدها
                             HelpButton(_pageLine),
                           ],
+                        ),
+                        const SizedBox(height: F.s6),
+                        Text(
+                          voiceLine(_pageLine),
+                          key: const ValueKey('onboarding-voice-caption'),
+                          style: TextStyle(
+                            fontSize: F.minTextSize,
+                            color: F.mutedDark,
+                            height: 1.5,
+                          ),
                         ),
                       ],
                     ),

@@ -123,6 +123,7 @@ class VoiceService extends ChangeNotifier {
   String? _briefingDay;
   bool _listenIntroDone = false;
   bool _cmdHintDone = false;
+  bool _entryIntroClaimed = false;
   bool _micDenied = false;
   int _interrupts = 0;
 
@@ -210,6 +211,14 @@ class VoiceService extends ChangeNotifier {
 
   /// «تقدر تقولّي مثلاً…» اتقالت مرة (أول دوسة على «كلّمني»).
   bool get cmdHintDone => _cmdHintDone;
+
+  /// شاشة «مين ماسك التليفون؟» تُعلن نفسها مرة واحدة في عمر خدمة الصوت؛
+  /// إعادة تركيب الشاشة بسبب الدخول أو الربط لا تعيد جملها تلقائيًا.
+  bool claimEntryIntro() {
+    if (_entryIntroClaimed) return false;
+    _entryIntroClaimed = true;
+    return true;
+  }
 
   Future<void> markCmdHintDone() async {
     _cmdHintDone = true;
