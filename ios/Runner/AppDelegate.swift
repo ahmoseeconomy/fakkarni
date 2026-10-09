@@ -245,6 +245,12 @@ enum LiveActionChannel {
       withIdentifier: "com.fakrny.app.health-daily",
       earliestBeginInSeconds: 86400
     )
+    // Firebase Messaging لا يقدر يطلع FCM token على iOS قبل ما APNs يسلّمه
+    // device token. الاعتماد على التسجيل التلقائي وحده ساب نسخة TestFlight
+    // من غير توكن، فالسيرفر سجّل التصعيد `no_token` رغم إن الإذن مفتوح.
+    // النداء آمن قبل/بعد إذن الإشعارات؛ iOS يحتفظ بنفس توكن APNs للتنزيلة.
+    application.registerForRemoteNotifications()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

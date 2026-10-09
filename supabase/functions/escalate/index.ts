@@ -70,7 +70,9 @@ const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
 /// قناة أندرويد على موبايل **الابن**. لازم الجزء الخامس (Dart) ينشئها
 /// بنفس الاسم بالحرف، وإلا أندرويد بيرجّع الإشعار للقناة الافتراضية
 /// وبيفقد أولويته — من غير أي خطأ يبان.
-const CAREGIVER_CHANNEL = 'fakkarni_caregiver';
+const CAREGIVER_CHANNEL = 'fakkarni_caregiver_chime';
+const CAREGIVER_SILENT_CHANNEL = 'fakkarni_caregiver_silent';
+const IOS_DOSE_SOUND = 'dose_chime.caf';
 
 /// حد المسح الواحد. الكرون بيدق كل خمس دقايق، فده سقف مش هدف.
 const SCAN_LIMIT = 200;
@@ -226,6 +228,7 @@ interface Target {
   scheduled_at: string;
   caregiver_id: string;
   rung: Rung;
+  escalationSound: boolean;
 }
 
 interface SendOutcome {
@@ -253,11 +256,20 @@ async function sendToToken(
     },
     android: {
       priority: 'HIGH',
-      notification: { channel_id: CAREGIVER_CHANNEL },
+      notification: {
+        channel_id: target.escalationSound ? CAREGIVER_CHANNEL : CAREGIVER_SILENT_CHANNEL,
+      },
     },
     apns: {
       headers: { 'apns-priority': '10' },
-      payload: { aps: { sound: 'default', 'interruption-level': 'time-sensitive' } },
+      // APNs لا يعرف مورد أندرويد: الاسم لازم يطابق ملف الـcaf داخل IPA.
+      // عند القفل نحذف `sound` تماماً؛ `default` معناه صوت نظام، مش صامت.
+      payload: {
+        aps: {
+          ...(target.escalationSound ? { sound: IOS_DOSE_SOUND } : {}),
+          'interruption-level': 'time-sensitive',
+        },
+      },
     },
   };
 
@@ -291,7 +303,7 @@ async function sendToToken(
 async function scanTargets(): Promise<Target[]> {
   const caregivers = await scanRung('due_escalations_for_service', 'caregiver', false);
   const nurses = await scanRung('due_nurse_escalations_for_service', 'nurse', true);
-  return [...nurses, ...caregivers];
+  return await withEscalationSound([...nurses, ...caregivers]);
 }
 
 async function scanRung(rpc: string, rung: Rung, optional: boolean): Promise<Target[]> {
@@ -307,7 +319,34 @@ async function scanRung(rpc: string, rung: Rung, optional: boolean): Promise<Tar
     }
     throw new Error(`${rpc} failed ${res.status}: ${text}`);
   }
-  return (JSON.parse(text) as Omit<Target, 'rung'>[]).map((t) => ({ ...t, rung }));
+  return (JSON.parse(text) as Omit<Target, 'rung' | 'escalationSound'>[])
+    .map((t) => ({ ...t, rung, escalationSound: true }));
+}
+
+/// تفضيل الصوت ملك المتابع، فلا يدخل تعريف الاستحقاق ولا ساعات الهدوء.
+/// بنقرأه هنا، قبل الإرسال مباشرةً، وبـdefault true للصف الغائب والحسابات
+/// الموجودة قبل 0040. المفتاح مركب لأن المتابع قد يتابع أكثر من مريض.
+async function withEscalationSound(targets: Target[]): Promise<Target[]> {
+  const patientIds = [...new Set(targets.map((t) => t.patient_uuid))];
+  if (patientIds.length === 0) return targets;
+  const rows = await dbJson<{
+    caregiver_id: string;
+    patient_uuid: string;
+    escalation_sound: boolean;
+  }[]>(
+    `caregiver_preferences?patient_uuid=in.(${patientIds.map(encodeURIComponent).join(',')})` +
+      '&select=caregiver_id,patient_uuid,escalation_sound',
+  );
+  const soundByFollower = new Map<string, boolean>(
+    rows.map((p): [string, boolean] => [
+      `${p.caregiver_id}/${p.patient_uuid}`,
+      p.escalation_sound,
+    ]),
+  );
+  return targets.map((target) => ({
+    ...target,
+    escalationSound: soundByFollower.get(`${target.caregiver_id}/${target.patient_uuid}`) !== false,
+  }));
 }
 
 /// **بحث**، مش اختيار: الحدث ده، ومين مربوط بصاحبه. مفيش شرط استحقاق
@@ -333,7 +372,7 @@ async function manualTargets(doseEventUuid: string): Promise<Target[]> {
       `&status=eq.accepted&select=caregiver_id`,
   );
 
-  return caregivers.map((c) => ({
+  return await withEscalationSound(caregivers.map((c) => ({
     dose_event_uuid: doseEventUuid,
     patient_uuid: patients[0].uuid,
     patient_name: patients[0].name,
@@ -341,7 +380,8 @@ async function manualTargets(doseEventUuid: string): Promise<Target[]> {
     scheduled_at: events[0].scheduled_at,
     caregiver_id: c.caregiver_id,
     rung: 'caregiver' as Rung,
-  }));
+    escalationSound: true,
+  })));
 }
 
 // -------------------------------------------------------- معالجة هدف واحد

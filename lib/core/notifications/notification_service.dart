@@ -141,7 +141,7 @@ class NotificationService {
   /// فقناة الجرعات والسلّم اتعملوا من جديد بأسامي جديدة ومعاهم النغمة،
   /// والقديمة بتتمسح عشان إعدادات مستخدم قديم ما تفضلش ماسكة نغمة النظام.
   /// مسح قناة مش موجودة لا-عملية.
-  static const retiredChannelIds = ['fakkarni_doses', 'fakkarni_escalation'];
+  static const retiredChannelIds = ['fakkarni_doses', 'fakkarni_escalation', 'fakkarni_caregiver'];
 
   /// الـid بتاع قناة الجرعات — مكشوف عشان الاختبار يتأكد إنه مش القديم.
   static const doseChannelId = 'fakkarni_doses_chime';
@@ -203,7 +203,8 @@ class NotificationService {
   );
 
   /// الـid بتاع قناة الابن، مكشوف عشان الاختبار يقارنه بالـTypeScript.
-  static const caregiverChannelId = 'fakkarni_caregiver';
+  static const caregiverChannelId = 'fakkarni_caregiver_chime';
+  static const caregiverSilentChannelId = 'fakkarni_caregiver_silent';
 
   /// قناة تنبيه **الابن** — الدرجة الأخيرة في السلّم.
   ///
@@ -221,6 +222,19 @@ class NotificationService {
     'تنبيه عن اللي بتتابعه',
     description: 'لما جرعة تعدّي من غير تأكيد على موبايل المريض',
     importance: Importance.max,
+    playSound: true,
+    sound: const RawResourceAndroidNotificationSound(doseSoundResource),
+    enableVibration: true,
+    vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
+  );
+
+  /// Android 8+ يثبت الصوت على القناة؛ القفل يحتاج قناة مرئية صامتة.
+  static final _caregiverSilentChannel = AndroidNotificationChannel(
+    caregiverSilentChannelId,
+    'تنبيه عن اللي بتتابعه — من غير صوت',
+    description: 'تنبيه مرئي لما جرعة تعدّي من غير تأكيد',
+    importance: Importance.max,
+    playSound: false,
     enableVibration: true,
     vibrationPattern: Int64List.fromList([0, 600, 300, 600, 300, 900]),
   );
@@ -323,6 +337,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_caregiverChannel);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_caregiverSilentChannel);
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()

@@ -284,6 +284,10 @@ class _CaregiverSettingsScreenState extends State<CaregiverSettingsScreen> {
               ),
             ),
           ),
+          if (!widget.nurseReminders && widget.patient != null && AppScope.of(context).caregiverPreferences != null) ...[
+            const SizedBox(height: F.s12),
+            _CaregiverEscalationSoundPrefs(patient: widget.patient!),
+          ],
           // **المدخل (ج): نفس الشاشة، متعبّية من السحابة.**
           //
           // الأسئلة الأربعة مش حاجة بتتسأل مرة وتخلص: الاسم بيتغيّر،
@@ -523,6 +527,11 @@ class _NursePatientPrefsState extends State<_NursePatientPrefs> {
             on: _prefs.nurseUnconfirmedAlert,
             onTap: () => _save(_prefs.copyWith(nurseUnconfirmedAlert: !_prefs.nurseUnconfirmedAlert)),
           ),
+          CareEscalationSoundRow(
+            key: ValueKey('nurse-escalation-sound-${p.uuid}'),
+            on: _prefs.escalationSound,
+            onTap: () => _save(_prefs.copyWith(escalationSound: !_prefs.escalationSound)),
+          ),
           if (_line != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(F.carePad, 0, F.carePad, F.s8),
@@ -532,4 +541,94 @@ class _NursePatientPrefsState extends State<_NursePatientPrefs> {
       ),
     );
   }
+}
+
+class _CaregiverEscalationSoundPrefs extends StatefulWidget {
+  const _CaregiverEscalationSoundPrefs({required this.patient});
+  final CaregiverPatient patient;
+
+  @override
+  State<_CaregiverEscalationSoundPrefs> createState() => _CaregiverEscalationSoundPrefsState();
+}
+
+class _CaregiverEscalationSoundPrefsState extends State<_CaregiverEscalationSoundPrefs> {
+  CaregiverPreferences _prefs = const CaregiverPreferences();
+  bool _loaded = false;
+  String? _line;
+
+  CaregiverPreferencesService? get _service => AppScope.maybeOf(context)?.caregiverPreferences;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loaded) return;
+    _loaded = true;
+    _service?.load(widget.patient.uuid).then((prefs) {
+      if (mounted) setState(() => _prefs = prefs);
+    }).catchError((_) {});
+  }
+
+  Future<void> _toggle() async {
+    final before = _prefs;
+    final next = before.copyWith(escalationSound: !before.escalationSound);
+    setState(() {
+      _prefs = next;
+      _line = null;
+    });
+    try {
+      await _service?.save(widget.patient.uuid, next);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _prefs = before;
+          _line = 'ما اتحفظش — جرّب تاني.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => CareCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CareEscalationSoundRow(
+              key: const ValueKey('care-escalation-sound'),
+              on: _prefs.escalationSound,
+              onTap: _toggle,
+            ),
+            if (_line != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(F.carePad, 0, F.carePad, F.s8),
+                child: Text(_line!, style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+              ),
+          ],
+        ),
+      );
+}
+
+/// اختيار محفوظ في السحابة؛ إعدادات iOS العامة أو الصامت تظل لها الكلمة الأخيرة.
+class CareEscalationSoundRow extends StatelessWidget {
+  const CareEscalationSoundRow({required this.on, required this.onTap, super.key});
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: F.careTapTarget),
+          padding: const EdgeInsets.symmetric(horizontal: F.carePad, vertical: F.s8),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('صوت تنبيهات الجرعات', style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: F.ink)),
+              Text(on ? 'جرس زي تنبيه الجرعة لو مافيش تأكيد — الصامت وإعدادات الموبايل ليهم الكلمة الأخيرة' : 'التنبيه بيوصلك ظاهر بس من غير صوت',
+                  style: TextStyle(fontSize: F.careTextSize, color: F.mutedDark)),
+            ])),
+            Text(on ? 'شغّال' : 'مقفول',
+                style: TextStyle(fontSize: F.careBodySize, fontWeight: FontWeight.w700, color: on ? F.green : F.mutedDark)),
+          ]),
+        ),
+      );
 }

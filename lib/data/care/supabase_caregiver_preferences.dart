@@ -43,6 +43,7 @@ class SupabaseCaregiverPreferences implements CaregiverPreferencesService {
       // قبل 0035 العمودين مش موجودين → الافتراضي (مفتوح)
       nurseDoseReminders: row['nurse_dose_reminders'] != false,
       nurseUnconfirmedAlert: row['nurse_unconfirmed_alert'] != false,
+      escalationSound: row['escalation_sound'] != false,
     );
   }
 
@@ -63,6 +64,7 @@ class SupabaseCaregiverPreferences implements CaregiverPreferencesService {
         ...base,
         'nurse_dose_reminders': preferences.nurseDoseReminders,
         'nurse_unconfirmed_alert': preferences.nurseUnconfirmedAlert,
+        'escalation_sound': preferences.escalationSound,
       }, onConflict: 'caregiver_id,patient_uuid');
     } on PostgrestException catch (e) {
       // 0035 لسه ما اتشغّلتش: الباقي بيتحفظ، ومفاتيح الممرض بتفضل على

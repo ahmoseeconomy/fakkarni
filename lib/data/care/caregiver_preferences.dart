@@ -15,6 +15,7 @@ class CaregiverPreferences {
     this.quietToMinute,
     this.nurseDoseReminders = true,
     this.nurseUnconfirmedAlert = true,
+    this.escalationSound = true,
   });
 
   /// **مفاتيح الممرض** (0035)، لكل مريض: «نبهني بمواعيد الدوا» (موبايله
@@ -22,6 +23,9 @@ class CaregiverPreferences {
   /// الاتنين مفتوحين افتراضياً — ومن غير صف = مفتوح.
   final bool nurseDoseReminders;
   final bool nurseUnconfirmedAlert;
+
+  /// قرار سحابي لصوت التصعيد؛ القفل يترك التنبيه المرئي ويمنع صوته.
+  final bool escalationSound;
 
   /// اسمه زي ما كتبه — الأب بيقراه. null = لسه ما اتسألش أو تخطّى.
   final String? name;
@@ -56,6 +60,7 @@ class CaregiverPreferences {
     bool clearQuiet = false,
     bool? nurseDoseReminders,
     bool? nurseUnconfirmedAlert,
+    bool? escalationSound,
   }) =>
       CaregiverPreferences(
         name: name ?? this.name,
@@ -66,6 +71,7 @@ class CaregiverPreferences {
         quietToMinute: clearQuiet ? null : (quietToMinute ?? this.quietToMinute),
         nurseDoseReminders: nurseDoseReminders ?? this.nurseDoseReminders,
         nurseUnconfirmedAlert: nurseUnconfirmedAlert ?? this.nurseUnconfirmedAlert,
+        escalationSound: escalationSound ?? this.escalationSound,
       );
 }
 
