@@ -2,222 +2,98 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/primitives.dart';
-import '../../core/format/arabic_time.dart' show arabicTime;
 import '../../data/care/caregiver_remote.dart';
-import '../../domain/medication/medication_purpose.dart';
-import '../care/caregiver_words.dart' show timeSince;
-import '../adherence/adherence_card.dart';
-import '../adherence/adherence_screen.dart';
-import '../adherence/circle_adherence.dart';
-import '../today/tips/tip_picker.dart';
-import '../today/widgets/tip_card.dart';
-import '../medication/pharmacy_sheet.dart' show PharmacyPrefill;
-import '../nearby/nearby_screen.dart';
-import 'nurse_actions.dart';
 import 'nurse_controller.dart';
-import 'nurse_day_look.dart';
 import 'nurse_widgets.dart';
-import '../../app/day_night.dart';
-import '../today/today_progress.dart';
-import '../today/widgets/day_rail.dart';
-import '../adherence/weekly_summary_card.dart';
-import '../adherence/weekly_summary_sources.dart';
 
-/// **«يومك» بتاع المريض على موبايل الممرض** — «الآن» وجدول النهارده
-/// و«معلومة تهمك»، بمقاسات تطبيق المريض نفسه.
-///
-/// الأوقات هي اللي موبايل المريض حسبها (`dose_events.scheduled_at`) —
-/// **الممرض ما بيحلّش مراسي**: جدول واحد في المنتج، على موبايل المريض.
+/// لوحة تشغيلية للممرض: المرضى، التنبيهات التصعيدية، والجرعات المفتوحة.
 class NurseTodayScreen extends StatelessWidget {
   const NurseTodayScreen({required this.controller, this.now, super.key});
 
   final NurseController controller;
   final DateTime? now;
 
-  /// المعلومة نفسها اللي المريض شايفها النهارده — نفس الاختيار، من نفس
-  /// البيانات اللي موبايله رفعها.
-  static Tip tipFor(CaregiverSnapshot snapshot, DateTime now) => pickTip(
-        today: now,
-        medications: [
-          for (final (i, m) in snapshot.medications.indexed)
-            TipMedication(
-              id: i,
-              name: m.name,
-              purpose: MedicationPurpose.fromStorage(m.purpose),
-              instructions: m.instructions,
-            ),
-        ],
-        lastWeek: [
-          for (final e in snapshot.events)
-            if (e.scheduledAt.isBefore(now))
-              TipDose(
-                scheduledAt: e.scheduledAt,
-                taken: e.state == 'taken',
-                missed: e.state == 'missed' || e.state == 'pending',
-                actedAt: e.actedAt,
-              ),
-        ],
-      );
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge([controller, controller.holder]),
-        builder: (context, _) {
-          final holder = controller.holder;
-          final snapshot = holder.snapshot;
-          final t = now ?? DateTime.now();
-          if (snapshot == null) {
-            return Center(
-              child: holder.loading
-                  ? CircularProgressIndicator(color: F.green)
-                  : Padding(
-                      padding: const EdgeInsets.all(F.gap),
-                      child: NurseQuietLine(holder.error ?? 'لسه مفيش حاجة من موبايله.'),
-                    ),
-            );
-          }
-          // الشكل الجديد (المرحلة ٤): نفس تقسيمة «يومك» — الكارت لِلّي
-          // معاده جه، و«باقي اليوم» للباقي، واليوم بيبدأ ٤:٠٠ زي المريض
-          final todayRows = nurseTodayDoses(snapshot, t);
-          final split = nurseDaySplit([for (final r in todayRows) r.view], t);
-          final progress = todayProgressOf(
-            [for (final r in todayRows) (scheduledAt: r.view.scheduledAt, state: r.view.state)],
-            t,
-          );
+    listenable: Listenable.merge([controller, controller.holder]),
+    builder: (context, _) {
+      final holder = controller.holder;
+      final snapshot = holder.snapshot;
+      final t = now ?? DateTime.now();
+      if (snapshot == null) {
+        return Center(
+          child: holder.loading
+              ? CircularProgressIndicator(color: F.green)
+              : NurseQuietLine(holder.error ?? 'لسه مفيش حاجة من موبايله.'),
+        );
+      }
+      final overdue =
+          snapshot.events
+              .where(
+                (e) =>
+                    (e.state == 'pending' || e.state == 'missed') &&
+                    e.scheduledAt.isBefore(t),
+              )
+              .toList()
+            ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
-          return RefreshIndicator(
-            onRefresh: holder.refresh,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(F.gap, F.s8, F.gap, F.gap + MediaQuery.of(context).padding.bottom),
-              children: [
-                NurseFamilyNotice(patientName: snapshot.patient.name, now: t),
-                if (controller.error case final e?) ...[
-                  GoldNote(e, key: const ValueKey('nurse-error')),
-                  const SizedBox(height: F.s10),
-                ],
-                if (holder.error case final e?) ...[
-                  GoldNote(e),
-                  const SizedBox(height: F.s10),
-                ],
-                if (!snapshot.patient.permissions.canConfirm)
-                  const NurseQuietLine('بتشوف يومه بس — التأكيد بداله محتاج المريض يسمح بيه من موبايله.',
-                      key: ValueKey('nurse-read-only')),
-                // تنبيه السيرفر للممرض (0035، +٣٠): جرعة لسه مفتوحة ما اتأكدتش —
-                // بيتقال هنا فوق «الآن»، والصف تحته هو اللي بيتأكّد منه.
-                for (final a in snapshot.alerts.where((a) => a.rung == 'nurse' && openDoseStateNames.contains(a.doseState)))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: F.s10),
-                    child: GoldNote(
-                      '${a.medicationName} — معادها ${arabicTime(a.scheduledAt)} وما اتأكدتش لسه. لو أخدها، أكّدها تحت.',
-                      key: ValueKey('nurse-alert-${a.uuid}'),
-                    ),
-                  ),
-                // ملخص الأسبوع (طلب المدير، ٤ أكتوبر ٢٠٢٦) — فوق، بعد التنبيهات
-                SnapshotWeeklySummary(
-                  // مفتاح بالمريض (المرحلة ٤): «غيّر» لمريض تاني = مدة
-                  // الملخص بترجع لافتراضيها — مدة واحد ما تتشالش للتاني
-                  key: ValueKey('nurse-summary-${snapshot.patient.uuid}'),
-                  
-                  today: t,
-                  summaryFor: (r) => summaryFromSnapshot(snapshot, t, from: r.from, to: r.to),
-                ),
-                const SizedBox(height: F.gap),
-                // التحية بالشمس الحقيقية والدايرة — زي «يومك» بالحرف،
-                // ومفيش أدوية = مفيش دايرة والسطر الهادي نفسه
-                NurseDayHeader(progress: progress, daytime: DayNight.isDaytime(t)),
-                const SizedBox(height: F.gap),
-                if (split.card.isNotEmpty) ...[
-                  NurseNowCard(
-                    groups: split.card,
-                    events: todayRows,
-                    now: t,
-                    canConfirm: controller.canConfirm,
-                    proxied: snapshot.proxied.keys.toSet(),
-                    busy: controller.busy,
-                    onConfirm: controller.confirm,
-                  ),
-                  const SizedBox(height: F.s12),
-                ],
-                // «ماشي إزاي» — تحت «الآن»، قراية. «أخدتها متأخر» جوّه
-                // التفاصيل بس لو التأكيد مسموح، وعلى نفس سكّة التأكيد نيابةً.
-                if (circleAdherence(snapshot, t) case final a?) ...[
-                  AdherenceCard(
-                    adherence: a,
-                    title: circleAdherenceTitle,
-                    onOpen: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => AdherenceDetailScreen(
-                        initial: a,
-                        title: circleAdherenceTitle,
-                        missedTitle: 'فاته كام جرعة الأسبوع ده',
-                        updates: circleAdherenceUpdates(holder, () => holder.snapshot),
-                        onLateTake: controller.canConfirm
-                            ? (m) async {
-                                final e = holder.snapshot?.events.where((x) => x.uuid == m.id).firstOrNull;
-                                if (e != null) await controller.confirm(e);
-                              }
-                            : null,
-                      ),
-                    )),
-                  ),
-                  const SizedBox(height: F.s12),
-                ],
-                if (split.rest.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.format_list_bulleted, size: 26, color: F.green),
-                      const SizedBox(width: F.s8),
-                      Text(
-                        'باقي اليوم',
-                        key: const ValueKey('nurse-rest-title'),
-                        style: TextStyle(
-                          fontFamily: F.displayFamily,
-                          fontSize: F.subtitleSize,
-                          fontWeight: FontWeight.w800,
-                          color: F.ink,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: F.s4),
-                  // السكة نفسها — من غير دوسة: مفيش شاشة تذكير على موبايله
-                  DayRail(
-                    groups: split.rest,
-                    now: t,
-                    ruleLabelFor: (_) => null,
-                  ),
-                ],
-                const SizedBox(height: F.gap),
-                // «القريب مني» على موبايل الممرض — بمكانه هو (الصيدلية اللي
-                // جنبه)، والحجز من الكارت طلب لموبايل المريض
-                FSecondaryButton(
-                  key: const ValueKey('nurse-nearby'),
-                  label: 'القريب مني',
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (nc) => NearbyScreen(
-                      onBookPlace: controller.canEdit ? (place) => bookFromNearby(nc, controller, place) : null,
-                      onPickPharmacy: controller.canEdit
-                          ? (place) async {
-                              Navigator.of(nc).pop();
-                              await editPatientPharmacy(context, controller, prefill: PharmacyPrefill.fromPlace(place));
-                            }
-                          : null,
-                    ),
-                  )),
-                ),
-                if (controller.lastLine case final l?) ...[
-                  const SizedBox(height: F.s8),
-                  NurseQuietLine(l, key: const ValueKey('nurse-last-line')),
-                ],
-                const SizedBox(height: F.gap),
-                TipCard(tip: tipFor(snapshot, t)),
-                if (snapshot.lastUpdated case final at?) ...[
-                  const SizedBox(height: F.s12),
-                  NurseQuietLine('آخر تحديث من موبايله ${timeSince(t, at)}'),
-                ],
-              ],
+      return RefreshIndicator(
+        onRefresh: holder.refresh,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            F.gap,
+            F.s8,
+            F.gap,
+            F.gap + MediaQuery.of(context).padding.bottom,
+          ),
+          children: [
+            NurseFamilyNotice(patientName: snapshot.patient.name, now: t),
+            if (holder.error case final e?) GoldNote(e),
+            const Text(
+              'المرضى الذين تتابعهم',
+              key: ValueKey('nurse-patients-title'),
             ),
-          );
-        },
+            for (final patient in holder.patients)
+              TextButton(
+                onPressed: () => holder.selectPatient(patient.uuid),
+                child: Text(
+                  '${patient.uuid == snapshot.patient.uuid ? '● ' : ''}${patient.name}',
+                ),
+              ),
+            const SizedBox(height: F.s8),
+            const Text(
+              'تنبيهات التصعيد',
+              key: ValueKey('nurse-escalations-title'),
+            ),
+            for (final alert in currentOpenCaregiverAlerts(
+              snapshot,
+            ).where((a) => a.rung == 'nurse'))
+              Padding(
+                padding: const EdgeInsets.only(top: F.s8),
+                child: GoldNote(
+                  '${alert.medicationName} — الجرعة ما اتأكدتش لسه.',
+                  key: ValueKey('nurse-alert-${alert.uuid}'),
+                ),
+              ),
+            const SizedBox(height: F.gap),
+            const Text('جرعات متأخرة', key: ValueKey('nurse-overdue-title')),
+            if (overdue.isEmpty)
+              const NurseQuietLine('لا توجد جرعات متأخرة مفتوحة.'),
+            for (final event in overdue)
+              NurseDoseRow(
+                event: event,
+                now: t,
+                proxied: snapshot.proxied.containsKey(event.uuid),
+                busy: controller.busy.contains(event.uuid),
+                onConfirm: controller.canConfirm
+                    ? () => controller.confirm(event)
+                    : null,
+              ),
+            if (controller.error case final error?)
+              GoldNote(error, key: const ValueKey('nurse-error')),
+          ],
+        ),
       );
+    },
+  );
 }

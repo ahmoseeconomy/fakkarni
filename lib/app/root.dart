@@ -1,5 +1,6 @@
 import 'bootstrap.dart' show handleNotificationAction;
 import '../data/services/pending_actions.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -59,6 +60,8 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   /// السحابة قالت «الجلسة دي مالهاش مريض مربوط» — نرجع لشاشة البداية بدل ما
   /// نفضل على متابعة فاضية. بيتصفّر بعد ربط ناجح.
   bool _notLinked = false;
+  bool _patientAppActive = false;
+  Timer? _medChangeTimer;
 
   @override
   void initState() {
@@ -72,12 +75,47 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     });
   }
 
+  void _startMedChangePolling() {
+    if (!_patientAppActive || !mounted) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      _medChangeTimer?.cancel();
+      _medChangeTimer = null;
+      return;
+    }
+    if (_medChangeTimer != null) return;
+    _medChangeTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted || !_patientAppActive) {
+        _medChangeTimer?.cancel();
+        _medChangeTimer = null;
+        return;
+      }
+      final puller = AppScope.of(context).medChangePull;
+      if (puller != null) unawaited(puller.pull());
+    });
+  }
+
+  void _setPatientAppActive(bool active) {
+    _patientAppActive = active;
+    if (active) {
+      _startMedChangePolling();
+    } else {
+      _medChangeTimer?.cancel();
+      _medChangeTimer = null;
+    }
+  }
+
   /// رجوع للمقدمة = محفّز مزامنة — الجهاز ممكن يكون كان أوفلاين ساعات —
   /// وصحوة لقرار المهلة: لو جرعة عدّى عليها ٤٥ دقيقة وهو بيفتح، «يومك»
   /// لازم تقول «اتنست» دلوقتي مش في الفتحة الجاية.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _startMedChangePolling();
+      if (_patientAppActive) {
+        final puller = AppScope.of(context).medChangePull;
+        if (puller != null) unawaited(puller.pull());
+      }
       // وضع «تلقائي» بيتبع الشمس عند الرجوع — **مفيش مؤقّت**: التطبيق
       // المفتوح عبر الغروب بيقلب هنا (٥ أكتوبر ٢٠٢٦). رخيص ومتزامن.
       ThemeModeStore.apply(DateTime.now());
@@ -87,12 +125,19 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         // الطابور الأول: دوسة على «أخدته» اتكتبت وإحنا في الخلفية بتتطبّق
         // قبل ما الجدولة تتعاد، فـ«يومك» بتفتح على الصف الصح.
         drainPendingActions(
-          PendingActionStore(),
-          (action, payload) => handleNotificationAction(
-              db: services.db, services: services, actionId: action, payload: payload),
-        )
+              PendingActionStore(),
+              (action, payload) => handleNotificationAction(
+                db: services.db,
+                services: services,
+                actionId: action,
+                payload: payload,
+              ),
+            )
             .then((_) => services.scheduler.rescheduleAll())
-            .then((_) => logReminderRepairs(services.scheduler.lastRepair, 'الرجوع'))
+            .then(
+              (_) =>
+                  logReminderRepairs(services.scheduler.lastRepair, 'الرجوع'),
+            )
             .catchError(
               (Object error) =>
                   debugPrint('إعادة الجدولة عند الرجوع فشلت: $error'),
@@ -105,6 +150,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
             // الفحص الآلي **آخر حاجة** — بعد كل وعد، ومجاملة، ومن غير أي إشعار
             .then((_) => services.healthCheckIfDue()),
       );
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _medChangeTimer?.cancel();
+      _medChangeTimer = null;
     }
   }
 
@@ -123,6 +173,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _medChangeTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _tapPayload?.removeListener(_openFromTap);
     _authSub?.cancel();
@@ -209,6 +260,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       stream: _hasPatient,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          _setPatientAppActive(false);
           return Scaffold(
             body: Center(child: CircularProgressIndicator(color: F.green)),
           );
@@ -217,22 +269,35 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         // `hasPatient` لـtrue؛ لو الفرع اتغيّر هنا قبل `onDone`، الشاشة كانت
         // بتتبني من جديد في مكان تاني — State تانية بتعيد جملة الصفحة.
         if (_patientPath) {
+          _setPatientAppActive(false);
           return ProfileOnboardingScreen(
-            onBack: snapshot.data == true ? null : () => setState(() => _patientPath = false),
+            onBack: snapshot.data == true
+                ? null
+                : () => setState(() => _patientPath = false),
             onDone: () {
               if (mounted) setState(() => _patientPath = false);
             },
           );
         }
-        if (snapshot.data == true) return _patientApp(context);
+        if (snapshot.data == true) {
+          _setPatientAppActive(true);
+          return _patientApp(context);
+        }
+        _setPatientAppActive(false);
         if (_patientSignIn) {
-          return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode, onNurse: _nurseCode);
+          return EntryScreen(
+            onSelf: _startPatient,
+            onHaveCode: _haveCode,
+            onNurse: _nurseCode,
+          );
         }
         final services = AppScope.of(context);
         if (services.auth?.currentUser != null && !_notLinked) {
-          return CaregiverShell(onNotLinked: () {
-            if (mounted) setState(() => _notLinked = true);
-          });
+          return CaregiverShell(
+            onNotLinked: () {
+              if (mounted) setState(() => _notLinked = true);
+            },
+          );
         }
         // **المقدمة الصوتية أول شاشة في تنزيلة جديدة** — قبل «مين ماسك
         // التليفون ده؟»، عشان لو قال «أيوه، اتكلّم» تلاقي `onb_entry`
@@ -240,7 +305,11 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         if (services.voice case final voice? when !voice.introDone) {
           return VoiceIntroScreen(voice: voice, onDone: () => setState(() {}));
         }
-        return EntryScreen(onSelf: _startPatient, onHaveCode: _haveCode, onNurse: _nurseCode);
+        return EntryScreen(
+          onSelf: _startPatient,
+          onHaveCode: _haveCode,
+          onNurse: _nurseCode,
+        );
       },
     );
   }

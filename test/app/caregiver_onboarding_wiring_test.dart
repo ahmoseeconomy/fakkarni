@@ -39,7 +39,8 @@ class _LinkedAuth implements AuthService {
   @override
   Stream<FakkarniUser?> get authState => const Stream.empty();
   @override
-  FakkarniUser? get currentUser => const FakkarniUser(id: 'son', isAnonymous: true);
+  FakkarniUser? get currentUser =>
+      const FakkarniUser(id: 'son', isAnonymous: true);
   @override
   Future<void> signInToLink() async {}
   @override
@@ -47,14 +48,13 @@ class _LinkedAuth implements AuthService {
 }
 
 class _LinkedRemote implements CaregiverRemote {
+  _LinkedRemote(this.patient);
+  final CaregiverPatient patient;
   @override
-  Future<CaregiverPatient?> linkedPatient() async => _patient;
+  Future<CaregiverPatient?> linkedPatient() async => patient;
   @override
-  Future<CaregiverSnapshot?> snapshot() async => const CaregiverSnapshot(
-        patient: _patient,
-        medications: [],
-        events: [],
-      );
+  Future<CaregiverSnapshot?> snapshot() async =>
+      CaregiverSnapshot(patient: patient, medications: [], events: []);
 }
 
 class _Prefs implements CaregiverPreferencesService {
@@ -72,14 +72,19 @@ class _Prefs implements CaregiverPreferencesService {
   }
 
   @override
-  Future<void> save(String patientUuid, CaregiverPreferences preferences) async {
+  Future<void> save(
+    String patientUuid,
+    CaregiverPreferences preferences,
+  ) async {
     if (saveThrows) throw StateError('offline');
     saved.add(preferences);
     stored = preferences;
   }
 
   @override
-  Future<List<FollowerProfile>> followers(String patientUuid) async => [?stored.profile];
+  Future<List<FollowerProfile>> followers(String patientUuid) async => [
+    ?stored.profile,
+  ];
 }
 
 void main() {
@@ -87,7 +92,10 @@ void main() {
   late AppServices services;
   late _Prefs prefs;
 
-  Future<void> build({Map<String, Object> seen = const {}}) async {
+  Future<void> build({
+    Map<String, Object> seen = const {},
+    CaregiverPatient patient = _patient,
+  }) async {
     SharedPreferences.setMockInitialValues(seen);
     db = AppDatabase(NativeDatabase.memory());
     final patients = PatientRepository(db);
@@ -106,7 +114,7 @@ void main() {
       ),
       patientId: patientId,
       auth: _LinkedAuth(),
-      caregiver: _LinkedRemote(),
+      caregiver: _LinkedRemote(patient),
       caregiverPreferences: prefs,
     );
   }
@@ -156,8 +164,11 @@ void main() {
       await build();
       await pumpRoot(tester);
 
-      expect(find.byType(CaregiverOnboardingScreen), findsOneWidget,
-          reason: 'الشاشة مش موصّلة بالتطبيق — نفس باج 9a0a5a0');
+      expect(
+        find.byType(CaregiverOnboardingScreen),
+        findsOneWidget,
+        reason: 'الشاشة مش موصّلة بالتطبيق — نفس باج 9a0a5a0',
+      );
       expect(find.text('اسمك وصلتك بيه'), findsOneWidget);
       // **وقبل ما يشوف البيت**: التبويبات مش مرسومة تحتها.
       expect(find.text('متابعة'), findsNothing);
@@ -165,12 +176,37 @@ void main() {
 
     screenTest('وابن عنده صف باسمه → على طول على المتابعة', (tester) async {
       prefs.stored = const CaregiverPreferences(
-          name: 'محمد', relation: FollowerRelation.son);
+        name: 'محمد',
+        relation: FollowerRelation.son,
+      );
       await build();
       await pumpRoot(tester);
 
       expect(find.byType(CaregiverOnboardingScreen), findsNothing);
       expect(find.text('متابعة'), findsWidgets);
+    });
+
+    screenTest('الممرض يتجاوز استبيان الابن ويصل مباشرة لإدارة الحالات', (
+      tester,
+    ) async {
+      const nurse = CaregiverPatient(
+        uuid: 'nurse-patient',
+        name: 'عيادة النور',
+        permissions: FollowerPermissions(
+          role: FollowerRole.nurse,
+          canConfirm: false,
+          canEditMeds: false,
+        ),
+      );
+      await build(patient: nurse);
+      await pumpRoot(tester);
+      expect(find.byType(CaregiverOnboardingScreen), findsNothing);
+      expect(find.text('اسمك وصلتك بيه'), findsNothing);
+      expect(
+        find.text('يومك'),
+        findsWidgets,
+        reason: 'مسار الممرض يُعرض بدون أسئلة الابن',
+      );
     });
   });
 
@@ -183,9 +219,11 @@ void main() {
       // بيعدّي الأربعة بالتخطّي/كمّل لحد ما تخلص
       for (var i = 0; i < CaregiverOnboardingScreen.steps; i++) {
         final skip = find.byKey(const ValueKey('onboarding-skip'));
-        await tester.tap(skip.evaluate().isEmpty
-            ? find.byKey(const ValueKey('onboarding-next'))
-            : skip);
+        await tester.tap(
+          skip.evaluate().isEmpty
+              ? find.byKey(const ValueKey('onboarding-next'))
+              : skip,
+        );
         await settle(tester);
       }
       expect(find.byType(CaregiverOnboardingScreen), findsNothing);
@@ -209,11 +247,17 @@ void main() {
       await build();
       await pumpRoot(tester);
 
-      expect(find.byType(CaregiverOnboardingScreen), findsNothing,
-          reason: 'فشل قراية مش إجابة');
+      expect(
+        find.byType(CaregiverOnboardingScreen),
+        findsNothing,
+        reason: 'فشل قراية مش إجابة',
+      );
       final seen = await SharedPreferences.getInstance();
-      expect(seen.getBool(onboardingSeenKey('p1')), isNull,
-          reason: 'عطل شبكة لحظي كان هيسكّت السؤال للأبد');
+      expect(
+        seen.getBool(onboardingSeenKey('p1')),
+        isNull,
+        reason: 'عطل شبكة لحظي كان هيسكّت السؤال للأبد',
+      );
     });
   });
 
@@ -225,7 +269,9 @@ void main() {
 
     screenTest('الاسم والصلة في كارت حسابه', (tester) async {
       prefs.stored = const CaregiverPreferences(
-          name: 'محمد', relation: FollowerRelation.son);
+        name: 'محمد',
+        relation: FollowerRelation.son,
+      );
       await build();
       await pumpRoot(tester);
       await openSettings(tester);
@@ -241,9 +287,13 @@ void main() {
       expect(find.text('أهلاً بيك'), findsOneWidget);
     });
 
-    screenTest('ومدخل «بياناتك وتنبيهاتك» بيفتح نفس الشاشة متعبّية', (tester) async {
+    screenTest('ومدخل «بياناتك وتنبيهاتك» بيفتح نفس الشاشة متعبّية', (
+      tester,
+    ) async {
       prefs.stored = const CaregiverPreferences(
-          name: 'محمد', relation: FollowerRelation.son);
+        name: 'محمد',
+        relation: FollowerRelation.son,
+      );
       await build();
       await pumpRoot(tester);
       await openSettings(tester);
@@ -251,8 +301,11 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('care-settings-onboarding')));
       await settle(tester);
       expect(find.byType(CaregiverOnboardingScreen), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'محمد'), findsOneWidget,
-          reason: 'شاشة فاضية بتخلّيه يفتكر إن اللي كتبه راح');
+      expect(
+        find.widgetWithText(TextField, 'محمد'),
+        findsOneWidget,
+        reason: 'شاشة فاضية بتخلّيه يفتكر إن اللي كتبه راح',
+      );
     });
   });
 
@@ -262,7 +315,10 @@ void main() {
       await build();
       await pumpRoot(tester);
 
-      await tester.enterText(find.byKey(const ValueKey('follower-name')), 'محمد');
+      await tester.enterText(
+        find.byKey(const ValueKey('follower-name')),
+        'محمد',
+      );
       await tester.tap(find.byKey(const ValueKey('onboarding-next')));
       await settle(tester);
 

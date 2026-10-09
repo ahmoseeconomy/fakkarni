@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show debugPrint, debugPrintStack, kDebugMode;
 import 'package:flutter/widgets.dart';
 
 import '../../core/diagnostics.dart';
@@ -22,19 +23,15 @@ const Duration refreshEvery = Duration(seconds: 10);
 ///
 /// السؤال الدوري هنا بس: شغّال ⇔ [active] (تبويب بيانات ظاهر) **و**التطبيق
 /// في المقدمة. في الخلفية أو على «الإعدادات» مقفول.
-class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver {
+class CaregiverSnapshotHolder extends ChangeNotifier
+    with WidgetsBindingObserver {
   CaregiverSnapshotHolder(this.remote, {this.onNotLinked, this.sink}) {
     WidgetsBinding.instance.addObserver(this);
   }
 
   final CaregiverRemote remote;
 
-  /// جهاز الإشعارات بتاع **موبايل الابن** — null = مفيش جدولة (اختبارات،
-  /// أو شاشة مفتوحة من غير خدمات).
-  ///
-  /// مواعيد الأب بتتجدول محلياً هنا لأن مفيش دفع من السيرفر لسه. الجدولة
-  /// بتحصل **بعد** ما الصورة توصل، في `try/catch` بتاعها: إشعار ميعاد ما
-  /// اتجدولش ما ينفعش يمنع الشاشة من إنها تتعرض.
+  /// Follow-up reminders for medical records (not medication dose alarms).
   final ReminderSink? sink;
 
   /// السحابة قالت «مفيش مريض مربوط» → الجذر يرجّع لشاشة البداية. null =
@@ -64,6 +61,8 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
   bool _active = false;
   Timer? _timer;
   bool _disposed = false;
+  bool _refreshing = false;
+  bool _refreshAgain = false;
 
   bool get active => _active;
 
@@ -106,20 +105,6 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
     }
   }
 
-  /// **بتتنده بعد كل سحبة، وبتبلع أي عطل.**
-  ///
-  /// نفس قاعدة موبايل الأب: سكّة المواعيد ما تقدرش توقّع اللي قبلها.
-  Future<void> _scheduleAppointments() async {
-    final device = sink;
-    final data = snapshot;
-    if (device == null || data == null) return;
-    try {
-      await syncCaregiverAppointments(data, sink: device, now: DateTime.now());
-    } catch (error, stack) {
-      diag('Care: جدولة مواعيد الأب على موبايل الابن فشلت: $error\n$stack');
-    }
-  }
-
   /// مع [MultiPatientRemote]: القايمة الأول، وبعدين صورة المختار (أو
   /// الأحدث لو المختار اتشال). من غيرها: السلوك القديم بالظبط.
   Future<CaregiverSnapshot?> _fetch() async {
@@ -128,12 +113,44 @@ class CaregiverSnapshotHolder extends ChangeNotifier with WidgetsBindingObserver
     final all = await (multi as MultiPatientRemote).linkedPatients();
     patients = all;
     if (all.isEmpty) return null;
-    final chosen = all.any((p) => p.uuid == selectedPatientUuid) ? selectedPatientUuid! : all.first.uuid;
+    final chosen = all.any((p) => p.uuid == selectedPatientUuid)
+        ? selectedPatientUuid!
+        : all.first.uuid;
     selectedPatientUuid = chosen;
     return (multi as MultiPatientRemote).snapshotFor(chosen);
   }
 
+  Future<void> _scheduleAppointments() async {
+    final device = sink;
+    final data = snapshot;
+    if (device == null || data == null) return;
+    try {
+      await syncCaregiverAppointments(data, sink: device, now: DateTime.now());
+    } catch (error, stack) {
+      diag('Care: جدولة مواعيد المتابعة فشلت: $error\n$stack');
+    }
+  }
+
   Future<void> refresh() async {
+    if (_disposed) return;
+    // Coalesce timer/manual/realtime refreshes. Never let an older, slower
+    // response overwrite a newer snapshot.
+    if (_refreshing) {
+      _refreshAgain = true;
+      return;
+    }
+    _refreshing = true;
+    try {
+      do {
+        _refreshAgain = false;
+        await _refreshOnce();
+      } while (_refreshAgain && !_disposed);
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _refreshOnce() async {
     if (_disposed) return;
     loading = snapshot == null;
     error = null;

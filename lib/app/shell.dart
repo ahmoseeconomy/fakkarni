@@ -11,7 +11,7 @@ import '../data/repositories/preferences_repository.dart';
 import '../features/care/caregiver_medications_screen.dart';
 import '../features/care/caregiver_health_screen.dart';
 import '../features/care/caregiver_screen.dart';
-import '../data/care/caregiver_remote.dart' show CaregiverPatient, MultiPatientRemote;
+import '../data/care/caregiver_remote.dart' show CaregiverPatient;
 import '../features/nurse/nurse_add_sheet.dart';
 import '../features/nurse/nurse_controller.dart';
 import '../features/nurse/nurse_header.dart';
@@ -46,7 +46,6 @@ import 'app_scope.dart';
 class AppShell extends StatefulWidget {
   const AppShell({this.now, super.key});
 
-
   /// للاختبارات.
   final DateTime? now;
 
@@ -76,39 +75,40 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) => StreamBuilder<DeviceSettings>(
-        stream: _settings,
-        builder: (context, snap) =>
-            snap.data?.elderMode ?? false ? _buildElder(context) : _buildNormal(context),
-      );
+    stream: _settings,
+    builder: (context, snap) => snap.data?.elderMode ?? false
+        ? _buildElder(context)
+        : _buildNormal(context),
+  );
 
   // **مفيش شريط علوي على الهيكل** (المالك، ٢٦ سبتمبر ٢٠٢٦): العلامة والوضع
   // الليلي و«طوارئ» بقوا `HomeTopBar` جوّه صفحة «يومك» (ونمط كبار السن)،
   // بيتزحلقوا معاها؛ باقي التبويبات من غيرهم، وكل تبويب بيسيب مكان شريط
   // النظام لنفسه.
   Widget _buildElder(BuildContext context) => Scaffold(
-        // الشاشة بتعدّي من تحت الدوك — من غير كده الزجاج مالوش حاجة يشفّ
-        // عليها غير أرضية الصفحة، فبيبان مصمت.
-        extendBody: true,
-        body: IndexedStack(
-          index: _elderTab,
-          children: [
-            ElderHomeScreen(now: widget.now),
-            const SettingsScreen(),
-          ],
-        ),
-        // **الدوك بيختفي والكيبورد مرفوع** — الكيبورد بيزقّه لفوق فبيقعد
-        // فوق المحتوى. شوف `keyboard_dismiss.dart`.
-        bottomNavigationBar: keyboardIsUp(context)
-            ? null
-            : _TabBar(
-          labels: AppShell.elderTabs,
-          icons: const [Icons.home_outlined, Icons.settings_outlined],
-          gapForAdd: false,
-          labelSize: F.elderTextSize,
-          current: _elderTab,
-          onSelect: (i) => setState(() => _elderTab = i),
-        ),
-      );
+    // الشاشة بتعدّي من تحت الدوك — من غير كده الزجاج مالوش حاجة يشفّ
+    // عليها غير أرضية الصفحة، فبيبان مصمت.
+    extendBody: true,
+    body: IndexedStack(
+      index: _elderTab,
+      children: [
+        ElderHomeScreen(now: widget.now),
+        const SettingsScreen(),
+      ],
+    ),
+    // **الدوك بيختفي والكيبورد مرفوع** — الكيبورد بيزقّه لفوق فبيقعد
+    // فوق المحتوى. شوف `keyboard_dismiss.dart`.
+    bottomNavigationBar: keyboardIsUp(context)
+        ? null
+        : _TabBar(
+            labels: AppShell.elderTabs,
+            icons: const [Icons.home_outlined, Icons.settings_outlined],
+            gapForAdd: false,
+            labelSize: F.elderTextSize,
+            current: _elderTab,
+            onSelect: (i) => setState(() => _elderTab = i),
+          ),
+  );
 
   Widget _buildNormal(BuildContext context) {
     final pages = [
@@ -123,25 +123,30 @@ class _AppShellState extends State<AppShell> {
       // **«ضيف» جوّه الدوك** (المالك، ٢٨ سبتمبر ٢٠٢٦): حافة الدايرة اللي فوق
       // على حافة الدوك اللي فوق بالظبط — مش طالع فوقه. فمفيش طلعة تتزوّد على
       // `padding.bottom` (الدوك نفسه بقى على قد الزرار).
-      body: ShellBottomExtra(extra: 0, child: IndexedStack(index: _tab, children: pages)),
+      body: ShellBottomExtra(
+        extra: 0,
+        child: IndexedStack(index: _tab, children: pages),
+      ),
       // **الدوك و«ضيف» بيختفوا والكيبورد مرفوع** — ده اللي كان بيحط «ضيف»
       // فوق «تأكيد الجرعة».
-      floatingActionButton: keyboardIsUp(context) ? null : _AddButton(onPressed: _openAdd),
+      floatingActionButton: keyboardIsUp(context)
+          ? null
+          : _AddButton(onPressed: _openAdd),
       floatingActionButtonLocation: const _InDockLocation(),
       bottomNavigationBar: keyboardIsUp(context)
           ? null
           : _TabBar(
-        labels: AppShell.tabs,
-        icons: const [
-          Icons.today_outlined,
-          Icons.medication_outlined,
-          Icons.folder_outlined,
-          Icons.settings_outlined,
-        ],
-        gapForAdd: true,
-        current: _tab,
-        onSelect: (i) => setState(() => _tab = i),
-      ),
+              labels: AppShell.tabs,
+              icons: const [
+                Icons.today_outlined,
+                Icons.medication_outlined,
+                Icons.folder_outlined,
+                Icons.settings_outlined,
+              ],
+              gapForAdd: true,
+              current: _tab,
+              onSelect: (i) => setState(() => _tab = i),
+            ),
     );
   }
 }
@@ -153,7 +158,12 @@ class _AppShellState extends State<AppShell> {
 /// على شاشة فاضية). المتابعة للقراية بس — أي زرار بيغيّر بيانات الأب مش
 /// موجود هنا خالص (`caregiver_shell_test` بيمشي على الشجرة ويثبت ده).
 class CaregiverShell extends StatefulWidget {
-  const CaregiverShell({required this.onNotLinked, this.now, this.nurseSink, super.key});
+  const CaregiverShell({
+    required this.onNotLinked,
+    this.now,
+    this.nurseSink,
+    super.key,
+  });
 
   /// جهاز تذكيرات الممرض — null = الحقيقي (Flutter Local Notifications).
   final NurseReminderSink? nurseSink;
@@ -202,36 +212,22 @@ class _CaregiverShellState extends State<CaregiverShell> {
     }
     // جهاز الإشعارات بتاع موبايل الابن — مواعيد الأب بتتجدول عليه
     // محلياً، لأن مفيش دفع من السيرفر لسه (iOS مستني APNs).
-    _holder = CaregiverSnapshotHolder(
-      remote,
-      onNotLinked: widget.onNotLinked,
-      sink: AppScope.of(context).scheduler.sink,
-    )
-      ..addListener(_onSnapshot)
-      ..setActive(CaregiverShell.dataTabs.contains(_tab));
+    _holder =
+        CaregiverSnapshotHolder(
+            remote,
+            onNotLinked: widget.onNotLinked,
+            sink: AppScope.of(context).scheduler.sink,
+          )
+          ..addListener(_onSnapshot)
+          ..setActive(CaregiverShell.dataTabs.contains(_tab));
     _nurse = NurseController(holder: _holder!, services: AppScope.of(context));
-    _nurseReminders = NurseReminders(
-      sink: widget.nurseSink ?? const DeviceNurseReminderSink(),
-      remote: remote is MultiPatientRemote ? remote as MultiPatientRemote : null,
-      preferences: AppScope.of(context).caregiverPreferences,
-      clock: widget.now == null ? null : () => widget.now!,
+    // Legacy caregiver dose-time alarms are retired. Clean only their ID
+    // ranges; patient dose alarms and server escalation pushes are untouched.
+    unawaited(
+      NurseReminders.cancelAllScheduled(
+        widget.nurseSink ?? const DeviceNurseReminderSink(),
+      ),
     );
-  }
-
-  NurseReminders? _nurseReminders;
-
-  /// «فكّرني بمواعيده» — بعد كل صورة. المتابع العادي ما بيجدولش حاجة هنا.
-  void _syncNurseReminders() {
-    final holder = _holder;
-    final reminders = _nurseReminders;
-    if (holder == null || reminders == null) return;
-    final anyNurse = holder.patients.any((p) => p.isNurse) || (holder.snapshot?.patient.isNurse ?? false);
-    if (!anyNurse) return;
-    unawaited(reminders.sync(
-      patients: holder.patients.isEmpty ? [?holder.snapshot?.patient] : holder.patients,
-      current: holder.snapshot,
-      allowed: _nurse?.writesAllowed ?? true,
-    ));
   }
 
   /// **الشِل بيسمع للصورة عشان البوابة تعرف المريض.**
@@ -240,11 +236,16 @@ class _CaregiverShellState extends State<CaregiverShell> {
   /// بيتبني مرة والصورة لسه `null`، والبوابة عمرها ما تشوف uuid المريض.
   /// ده كان هيخلّي التوصيل «موجود» وهو مش شغّال.
   void _onSnapshot() {
-    _syncNurseReminders();
     // طابور الممرض الأوفلاين (0035): النت رجع = الصورة وصلت = ابعت اللي مستني
-    if (_holder?.snapshot?.patient.isNurse ?? false) unawaited(_nurse?.flushQueue());
+    if (_holder?.snapshot?.patient.isNurse ?? false) {
+      unawaited(_nurse?.flushQueue());
+    }
     final patient = _holder?.snapshot?.patient;
-    if (patient != null) {
+    if (patient?.isNurse ?? false) {
+      // The shell must rebuild when the first cloud snapshot identifies a
+      // nurse; otherwise it remains on the follower tree indefinitely.
+      if (mounted) setState(() {});
+    } else if (patient != null) {
       unawaited(_checkOnboarding(patient.uuid));
       // اشتراك العيلة على المريض المتابَع — الابن بيقرا حالته من هنا
       final sub = AppScope.of(context).subscription;
@@ -308,6 +309,7 @@ class _CaregiverShellState extends State<CaregiverShell> {
 
     // المريض بيوصل مع أول صورة من السحابة — البوابة بتستنّاه.
     final patient = holder.snapshot?.patient;
+    if (patient?.isNurse ?? false) return _nurseApp(holder, patient);
     if (patient != null) {
       if (_onboarding == OnboardingDecision.ask) {
         // **قبل ما يشوف البيت، مش فوقه**: الشِل بيرسم الأسئلة بدل
@@ -326,8 +328,6 @@ class _CaregiverShellState extends State<CaregiverShell> {
       }
     }
 
-    final isNurse = patient?.isNurse ?? false;
-    if (isNurse) return _nurseApp(holder, patient);
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
@@ -341,24 +341,26 @@ class _CaregiverShellState extends State<CaregiverShell> {
           ),
           CaregiverMedicationsScreen(holder: holder),
           CaregiverHealthScreen(holder: holder, now: widget.now),
-          Scaffold(body: SafeArea(child: CaregiverSettingsScreen(patient: patient))),
+          Scaffold(
+            body: SafeArea(child: CaregiverSettingsScreen(patient: patient)),
+          ),
         ],
       ),
       // نفس القاعدة عند الابن: «الملف الصحي» عنده فيه بحث.
       bottomNavigationBar: keyboardIsUp(context)
           ? null
           : _TabBar(
-        labels: CaregiverShell.tabs,
-        icons: [
-          Icons.visibility_outlined,
-          Icons.medication_outlined,
-          Icons.folder_outlined,
-          Icons.settings_outlined,
-        ],
-        gapForAdd: false,
-        current: _tab,
-        onSelect: _select,
-      ),
+              labels: CaregiverShell.tabs,
+              icons: [
+                Icons.visibility_outlined,
+                Icons.medication_outlined,
+                Icons.folder_outlined,
+                Icons.settings_outlined,
+              ],
+              gapForAdd: false,
+              current: _tab,
+              onSelect: _select,
+            ),
     );
   }
 
@@ -374,11 +376,8 @@ class _CaregiverShellState extends State<CaregiverShell> {
       floatingActionButton: keyboardIsUp(context) || !nurse.canEdit
           ? null
           : _AddButton(
-              onPressed: () => showNurseAddSheet(
-                context,
-                nurse,
-                today: widget.now,
-              ),
+              onPressed: () =>
+                  showNurseAddSheet(context, nurse, today: widget.now),
             ),
       floatingActionButtonLocation: const _InDockLocation(),
       body: IndexedStack(
@@ -391,10 +390,14 @@ class _CaregiverShellState extends State<CaregiverShell> {
             body: SafeArea(
               child: CaregiverSettingsScreen(
                 patient: patient,
-                nurseReminders: true,
-                onNurseRemindersChanged: _syncNurseReminders,
-                nursePatients: [for (final p in (holder.patients.isEmpty ? [?patient] : holder.patients)) if (p.isNurse) p],
-                onNurseDoseRemindersChanged: (uuid, on) => _nurseReminders?.setDoseRemindersOn(uuid, on),
+                isNurse: true,
+                nursePatients: [
+                  for (final p
+                      in (holder.patients.isEmpty
+                          ? [?patient]
+                          : holder.patients))
+                    if (p.isNurse) p,
+                ],
               ),
             ),
           ),
@@ -433,44 +436,47 @@ class _AddButton extends StatelessWidget {
 
   /// طول الزرار بكلمته — الدوك بيتحسب بيه عشان الزرار يقعد **جوّاه**.
   static double heightFor(BuildContext context) =>
-      circle + _gap + MediaQuery.textScalerOf(context).scale(F.minTextSize) * _TabBar.labelLineHeight;
+      circle +
+      _gap +
+      MediaQuery.textScalerOf(context).scale(F.minTextSize) *
+          _TabBar.labelLineHeight;
 
   @override
   Widget build(BuildContext context) => Semantics(
-        label: 'ضيف',
-        button: true,
-        excludeSemantics: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: circle,
-              height: circle,
-              child: FloatingActionButton(
-                onPressed: onPressed,
-                backgroundColor: F.greenDeep,
-                foregroundColor: F.gold,
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(31),
-                  side: BorderSide(color: F.gold, width: 2.5),
-                ),
-                child: const Icon(Icons.add, size: 32),
-              ),
+    label: 'ضيف',
+    button: true,
+    excludeSemantics: true,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: circle,
+          height: circle,
+          child: FloatingActionButton(
+            onPressed: onPressed,
+            backgroundColor: F.greenDeep,
+            foregroundColor: F.gold,
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(31),
+              side: BorderSide(color: F.gold, width: 2.5),
             ),
-            const SizedBox(height: _gap),
-            Text(
-              'ضيف',
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                height: _TabBar.labelLineHeight,
-                fontWeight: FontWeight.w700,
-                color: _TabBar.accent,
-              ),
-            ),
-          ],
+            child: const Icon(Icons.add, size: 32),
+          ),
         ),
-      );
+        const SizedBox(height: _gap),
+        Text(
+          'ضيف',
+          style: TextStyle(
+            fontSize: F.minTextSize,
+            height: _TabBar.labelLineHeight,
+            fontWeight: FontWeight.w700,
+            color: _TabBar.accent,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// «ضيف» جوّه الدوك: حافة الدايرة اللي فوق على حافة الدوك اللي فوق بالظبط.
@@ -482,9 +488,9 @@ class _InDockLocation extends FloatingActionButtonLocation {
 
   @override
   Offset getOffset(ScaffoldPrelayoutGeometry g) => Offset(
-        (g.scaffoldSize.width - g.floatingActionButtonSize.width) / 2,
-        g.contentBottom + _TabBar.fadeHeight,
-      );
+    (g.scaffoldSize.width - g.floatingActionButtonSize.width) / 2,
+    g.contentBottom + _TabBar.fadeHeight,
+  );
 }
 
 class _TabBar extends StatelessWidget {
@@ -537,9 +543,15 @@ class _TabBar extends StatelessWidget {
     // (زي أيقونات الدوك)، واللي إنت فيه بلاطته خضرا.
     final radius = BorderRadius.circular(F.s30);
     final dark = F.isDark;
-    final tileHeight = 40 + F.s4 + MediaQuery.textScalerOf(context).scale(labelSize) * labelLineHeight + F.s10;
+    final tileHeight =
+        40 +
+        F.s4 +
+        MediaQuery.textScalerOf(context).scale(labelSize) * labelLineHeight +
+        F.s10;
     // «ضيف» قاعد جوّه الدوك — الدوك على قده لو هو أطول من البلاطات
-    final height = gapForAdd ? math.max(tileHeight, _AddButton.heightFor(context) + F.s6) : tileHeight;
+    final height = gapForAdd
+        ? math.max(tileHeight, _AddButton.heightFor(context) + F.s6)
+        : tileHeight;
     // **اللي تحت الدوك ما يتقريش** (المالك، ٢٨ سبتمبر ٢٠٢٦): تلاشي فوقه،
     // وأرضية شبه مصمتة حواليه وتحته، وزجاج بضباب ٢٤ وصبغة ٨٨٪.
     final ground = F.pageGround;
@@ -554,7 +566,10 @@ class _TabBar extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [ground.withValues(alpha: 0), ground.withValues(alpha: groundAlpha)],
+                colors: [
+                  ground.withValues(alpha: 0),
+                  ground.withValues(alpha: groundAlpha),
+                ],
               ),
             ),
           ),
@@ -568,7 +583,12 @@ class _TabBar extends StatelessWidget {
     );
   }
 
-  Widget _dock(BuildContext context, BorderRadius radius, bool dark, double height) {
+  Widget _dock(
+    BuildContext context,
+    BorderRadius radius,
+    bool dark,
+    double height,
+  ) {
     return SafeArea(
       top: false,
       child: Padding(
@@ -585,7 +605,11 @@ class _TabBar extends StatelessWidget {
                 // حافة فاتحة من فوق زي حرف الزجاج في الماك
                 border: Border.all(color: F.onDark.withValues(alpha: 0.35)),
                 boxShadow: [
-                  BoxShadow(color: F.ink.withValues(alpha: 0.14), blurRadius: 26, offset: const Offset(0, 10)),
+                  BoxShadow(
+                    color: F.ink.withValues(alpha: 0.14),
+                    blurRadius: 26,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
               child: SizedBox(
@@ -620,22 +644,32 @@ class _TabBar extends StatelessWidget {
                                     // كان هيبقى بلاطة بيضا بأيقونة فاتحة
                                     // عليها في الليل.
                                     colors: i == current
-                                        ? (dark ? [F.gold, F.gold] : [F.green, F.greenDeep])
+                                        ? (dark
+                                              ? [F.gold, F.gold]
+                                              : [F.green, F.greenDeep])
                                         : [
-                                            F.railGround.withValues(alpha: 0.75),
-                                            F.cardGround.withValues(alpha: 0.75),
+                                            F.railGround.withValues(
+                                              alpha: 0.75,
+                                            ),
+                                            F.cardGround.withValues(
+                                              alpha: 0.75,
+                                            ),
                                           ],
                                   ),
                                   borderRadius: BorderRadius.circular(F.s12),
                                   border: Border.all(
-                                    color: i == current ? (dark ? F.gold : F.greenDeep) : F.line.withValues(alpha: 0.6),
+                                    color: i == current
+                                        ? (dark ? F.gold : F.greenDeep)
+                                        : F.line.withValues(alpha: 0.6),
                                   ),
                                 ),
                                 // بالليل الأيقونات دهبي، واللي إنت فيه حبر على دهبي
                                 child: Icon(
                                   icons[i],
                                   size: 24,
-                                  color: i == current ? (dark ? F.onGold : F.onDark) : (dark ? F.gold : F.mutedDark),
+                                  color: i == current
+                                      ? (dark ? F.onGold : F.onDark)
+                                      : (dark ? F.gold : F.mutedDark),
                                 ),
                               ),
                               const SizedBox(height: F.s4),
@@ -645,7 +679,9 @@ class _TabBar extends StatelessWidget {
                               // التبويب بالظبط، فـ«الملف الطبي» و«الإعدادات» كانوا
                               // لازقين على ٣٧٥ (آيفون، ٢٦ سبتمبر ٢٠٢٦).
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: _labelInset),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _labelInset,
+                                ),
                                 child: FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
@@ -656,8 +692,12 @@ class _TabBar extends StatelessWidget {
                                       // نفس المعامل اللي طول الشريط بيتحسب بيه —
                                       // الخط العربي سطره أطول من ١٫٣ لوحده
                                       height: labelLineHeight,
-                                      fontWeight: i == current ? FontWeight.w700 : FontWeight.w500,
-                                      color: i == current ? accent : F.mutedDark,
+                                      fontWeight: i == current
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: i == current
+                                          ? accent
+                                          : F.mutedDark,
                                     ),
                                   ),
                                 ),

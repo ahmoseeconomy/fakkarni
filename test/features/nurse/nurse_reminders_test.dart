@@ -21,7 +21,8 @@ import 'package:fakkarni/domain/scheduling/dose_schedule.dart';
 import 'package:fakkarni/features/nurse/nurse_reminders.dart';
 
 import '../../app/root_test.dart' show SilentSink;
-import '../../data/billing/subscription_service_test.dart' show FakeRemote, FakeStore;
+import '../../data/billing/subscription_service_test.dart'
+    show FakeRemote, FakeStore;
 import '../../support/seeded_clock.dart';
 import '../care/caregiver_screen_test.dart' show event;
 
@@ -56,27 +57,43 @@ class _Proxy implements ProxyConfirmRemote {
   final confirmed = <(String, String, String?)>[];
 
   @override
-  Future<void> confirmOnBehalf({required String patientUuid, required String doseEventUuid, required String? actorName}) async =>
-      confirmed.add((patientUuid, doseEventUuid, actorName));
+  Future<void> confirmOnBehalf({
+    required String patientUuid,
+    required String doseEventUuid,
+    required String? actorName,
+  }) async => confirmed.add((patientUuid, doseEventUuid, actorName));
 
   @override
-  Future<List<ProxyConfirmation>> fetchForPatient(String patientUuid, {required DateTime since}) async => const [];
+  Future<List<ProxyConfirmation>> fetchForPatient(
+    String patientUuid, {
+    required DateTime since,
+  }) async => const [];
 }
 
 void main() {
   final now = DateTime(2026, 8, 31, 14);
 
-  CaregiverSnapshot snap(String uuid, String name, List<CaregiverDoseEvent> events, {Map<String, String?> proxied = const {}}) =>
-      CaregiverSnapshot(
-        patient: CaregiverPatient(
-          uuid: uuid,
-          name: name,
-          permissions: const FollowerPermissions(role: FollowerRole.nurse, canConfirm: true, canEditMeds: false),
-        ),
-        medications: const [CaregiverMedication(uuid: 'm', name: 'Concor 5mg', alertMode: 'once')],
-        events: events,
-        proxied: proxied,
-      );
+  CaregiverSnapshot snap(
+    String uuid,
+    String name,
+    List<CaregiverDoseEvent> events, {
+    Map<String, String?> proxied = const {},
+  }) => CaregiverSnapshot(
+    patient: CaregiverPatient(
+      uuid: uuid,
+      name: name,
+      permissions: const FollowerPermissions(
+        role: FollowerRole.nurse,
+        canConfirm: true,
+        canEditMeds: false,
+      ),
+    ),
+    medications: const [
+      CaregiverMedication(uuid: 'm', name: 'Concor 5mg', alertMode: 'once'),
+    ],
+    events: events,
+    proxied: proxied,
+  );
 
   group('الخطة (دارت نقية)', () {
     final dose = event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending');
@@ -85,19 +102,29 @@ void main() {
     final taken = event('Concor 5mg', DateTime(2026, 8, 31, 22), 'taken');
     final far = event('Concor 5mg', DateTime(2026, 9, 2, 9), 'pending');
 
-    List<NurseNotification> plan(List<NurseDose> doses) => planNurseReminders(
-          [NursePatientDoses(index: 0, uuid: 'p1', name: 'الحاج أحمد', doses: doses)],
-          now: now,
-        );
+    List<NurseNotification> plan(List<NurseDose> doses) => planNurseReminders([
+      NursePatientDoses(index: 0, uuid: 'p1', name: 'الحاج أحمد', doses: doses),
+    ], now: now);
     NurseDose d(CaregiverDoseEvent e, {bool here = false}) => NurseDose(
-        eventUuid: e.uuid, medicationName: e.medicationName, scheduledAt: e.scheduledAt, state: e.state, confirmedHere: here);
+      eventUuid: e.uuid,
+      medicationName: e.medicationName,
+      scheduledAt: e.scheduledAt,
+      state: e.state,
+      confirmedHere: here,
+    );
 
     test('الجاي المفتوح بس، ودواءين في نفس الدقيقة إشعار واحد باسم المريض', () {
       final out = plan([d(dose), d(same), d(past), d(taken), d(far)]);
       expect(out, hasLength(1));
-      expect(out.single.title, 'ميعاد دوا الحاج أحمد: Concor 5mg، Glucophage — ٨:٠٠ م');
+      expect(
+        out.single.title,
+        'ميعاد دوا الحاج أحمد: Concor 5mg، Glucophage — ٨:٠٠ م',
+      );
       expect(out.single.at, DateTime(2026, 8, 31, 20));
-      expect(parseNursePayload(out.single.payload)!.events, [dose.uuid, same.uuid]);
+      expect(parseNursePayload(out.single.payload)!.events, [
+        dose.uuid,
+        same.uuid,
+      ]);
       expect(parseNursePayload(out.single.payload)!.patient, 'p1');
     });
 
@@ -109,7 +136,11 @@ void main() {
       final id = plan([d(dose)]).single.id;
       expect(isNurseId(id), isTrue);
       expect(isDoseId(id), isFalse);
-      expect(isRescheduledId(id), isFalse, reason: 'rescheduleAll بتاع المريض عمره ما يلغيه');
+      expect(
+        isRescheduledId(id),
+        isFalse,
+        reason: 'rescheduleAll بتاع المريض عمره ما يلغيه',
+      );
       expect(isEscalationId(id) || isRepeatId(id) || isSnoozeId(id), isFalse);
       // مريضين في نفس الدقيقة → رقمين
       final two = planNurseReminders([
@@ -122,7 +153,12 @@ void main() {
     test('سقف ٤٠، الأقرب الأول', () {
       final many = [
         for (var i = 0; i < 60; i++)
-          NurseDose(eventUuid: 'e$i', medicationName: 'x', scheduledAt: now.add(Duration(minutes: 10 + i * 20)), state: 'pending'),
+          NurseDose(
+            eventUuid: 'e$i',
+            medicationName: 'x',
+            scheduledAt: now.add(Duration(minutes: 10 + i * 20)),
+            state: 'pending',
+          ),
       ];
       final out = plan(many);
       expect(out, hasLength(maxPendingNurseReminders));
@@ -158,15 +194,27 @@ void main() {
         startDate: DateTime(2026, 8, 1),
       );
       final patient = ReminderScheduler(
-          medications: meds, events: DoseEventRepository(db), patientId: patientId, sink: device);
+        medications: meds,
+        events: DoseEventRepository(db),
+        patientId: patientId,
+        sink: device,
+      );
       await patient.rescheduleAll(now: now);
-      final patientIds = {for (final e in device.pending.entries) if (e.value == 'patient') e.key};
+      final patientIds = {
+        for (final e in device.pending.entries)
+          if (e.value == 'patient') e.key,
+      };
       expect(patientIds, isNotEmpty);
 
       final reminders = NurseReminders(sink: device, clock: () => now);
-      final s = snap('p1', 'الحاج أحمد', [event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending')]);
+      final s = snap('p1', 'الحاج أحمد', [
+        event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending'),
+      ]);
       await reminders.sync(patients: [s.patient], current: s, allowed: true);
-      final nurseIds = {for (final e in device.pending.entries) if (e.value == 'nurse') e.key};
+      final nurseIds = {
+        for (final e in device.pending.entries)
+          if (e.value == 'nurse') e.key,
+      };
       expect(nurseIds, hasLength(1));
 
       // المريض بيعيد الجدولة → تذكير الممرض فاضل
@@ -184,7 +232,9 @@ void main() {
     test('مفتوح افتراضياً، والاشتراك لو خلص بيلغي كله', () async {
       expect(await NurseReminders.isEnabled(), isTrue);
       final reminders = NurseReminders(sink: device, clock: () => now);
-      final s = snap('p1', 'الحاج أحمد', [event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending')]);
+      final s = snap('p1', 'الحاج أحمد', [
+        event('Concor 5mg', DateTime(2026, 8, 31, 20), 'pending'),
+      ]);
       await reminders.sync(patients: [s.patient], current: s, allowed: true);
       expect(device.pending.keys.where(isNurseId), hasLength(1));
       await reminders.sync(patients: [s.patient], current: s, allowed: false);
@@ -201,37 +251,66 @@ void main() {
       await reminders.sync(patients: [s.patient], current: s, allowed: true);
       expect(device.pending, isEmpty);
     });
+
+    test('تنظيف تنبيهات الجرعات القديمة يقتصر على نطاق الممرض', () async {
+      device.pending[nurseIdFor(now, patientIndex: 0)] = 'nurse';
+      device.pending[nurseSnoozeIdFor(now, patientIndex: 0)] = 'nurse';
+      device.pending[notificationIdFor(now)] = 'patient';
+      final patientDoseId = notificationIdFor(now);
+      await NurseReminders.cancelAllScheduled(device);
+      expect(device.pending.keys, {patientDoseId});
+      expect(
+        device.cancelled,
+        containsAll([
+          nurseIdFor(now, patientIndex: 0),
+          nurseSnoozeIdFor(now, patientIndex: 0),
+        ]),
+      );
+    });
   });
 
   group('الزرار', () {
     setUp(NotificationService.resetForTest);
 
-    test('«أكّد إنه أخدها» بيروح لباب الممرض بس — عمره ما يوصل معالج «أخدته»', () {
-      final patientCalls = <String>[];
-      final nurseCalls = <String?>[];
-      NotificationService.onAction = (a, p) => patientCalls.add(a);
-      NotificationService.onNurseAction = (action, id, p) => nurseCalls.add(p);
-      addTearDown(() {
-        NotificationService.onAction = null;
-        NotificationService.onNurseAction = null;
-      });
-      NotificationService.tapForTest(const NotificationResponse(
-        notificationResponseType: NotificationResponseType.selectedNotificationAction,
-        id: 180000001,
-        actionId: NotificationActions.nurseConfirm,
-        payload: '{"v":1,"nurse":{"p":"p1","e":["e1"]}}',
-      ));
-      expect(patientCalls, isEmpty);
-      expect(nurseCalls, hasLength(1));
-      expect(NotificationActions.isAction(NotificationActions.nurseConfirm), isFalse);
-    });
+    test(
+      '«أكّد إنه أخدها» بيروح لباب الممرض بس — عمره ما يوصل معالج «أخدته»',
+      () {
+        final patientCalls = <String>[];
+        final nurseCalls = <String?>[];
+        NotificationService.onAction = (a, p) => patientCalls.add(a);
+        NotificationService.onNurseAction = (action, id, p) =>
+            nurseCalls.add(p);
+        addTearDown(() {
+          NotificationService.onAction = null;
+          NotificationService.onNurseAction = null;
+        });
+        NotificationService.tapForTest(
+          const NotificationResponse(
+            notificationResponseType:
+                NotificationResponseType.selectedNotificationAction,
+            id: 180000001,
+            actionId: NotificationActions.nurseConfirm,
+            payload: '{"v":1,"nurse":{"p":"p1","e":["e1"]}}',
+          ),
+        );
+        expect(patientCalls, isEmpty);
+        expect(nurseCalls, hasLength(1));
+        expect(
+          NotificationActions.isAction(NotificationActions.nurseConfirm),
+          isFalse,
+        );
+      },
+    );
 
     test('إطلاق من زرار الممرض بيرجع كزرار، مش دوسة عادية', () {
-      final r = NotificationService.applyLaunchResponse(const NotificationResponse(
-        notificationResponseType: NotificationResponseType.selectedNotificationAction,
-        actionId: NotificationActions.nurseConfirm,
-        payload: '{"v":1,"nurse":{"p":"p1","e":["e1"]}}',
-      ));
+      final r = NotificationService.applyLaunchResponse(
+        const NotificationResponse(
+          notificationResponseType:
+              NotificationResponseType.selectedNotificationAction,
+          actionId: NotificationActions.nurseConfirm,
+          payload: '{"v":1,"nurse":{"p":"p1","e":["e1"]}}',
+        ),
+      );
       expect(r?.actionId, NotificationActions.nurseConfirm);
       expect(NotificationService.lastPayload.value, isNull);
     });
@@ -245,14 +324,23 @@ void main() {
       final events = DoseEventRepository(db);
       final patientId = await patients.ensurePatient();
       final proxy = _Proxy();
-      final sub = SubscriptionService(remote: FakeRemote(), store: FakeStore(), clock: () => now);
+      final sub = SubscriptionService(
+        remote: FakeRemote(),
+        store: FakeStore(),
+        clock: () => now,
+      );
       await sub.load();
       final services = AppServices(
         db: db,
         patients: patients,
         medications: meds,
         events: events,
-        scheduler: ReminderScheduler(medications: meds, events: events, patientId: patientId, sink: SilentSink()),
+        scheduler: ReminderScheduler(
+          medications: meds,
+          events: events,
+          patientId: patientId,
+          sink: SilentSink(),
+        ),
         patientId: patientId,
         proxy: proxy,
         subscription: sub,
@@ -264,7 +352,11 @@ void main() {
       await sub.setDebugOverride(false);
       expect(await confirmFromNurseNotification(services, null, payload), 0);
       expect(proxy.confirmed, hasLength(2));
-      expect(await confirmFromNurseNotification(services, null, '{"v":1,"day":"x"}'), 0, reason: 'حمولة مريض');
+      expect(
+        await confirmFromNurseNotification(services, null, '{"v":1,"day":"x"}'),
+        0,
+        reason: 'حمولة مريض',
+      );
     });
   });
 }

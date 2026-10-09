@@ -18,7 +18,8 @@ import '../dose_state.dart';
 export 'care_circle_service.dart' show CareCircleException, CareCircleFailure;
 
 import '../../domain/care/follower_role.dart';
-export '../../domain/care/follower_role.dart' show FollowerPermissions, FollowerRole;
+export '../../domain/care/follower_role.dart'
+    show FollowerPermissions, FollowerRole;
 
 class CaregiverPatient {
   const CaregiverPatient({
@@ -100,18 +101,37 @@ class CaregiverMedication {
 
   int? get stockDaysLeft => stockQuantity == null || !tracksStock
       ? null
-      : stock_math.stockDaysLeft(stock: stockQuantity!, dosesPerDay: dosesPerDay, amount: stock_math.doseAmountOf(amountLabel));
+      : stock_math.stockDaysLeft(
+          stock: stockQuantity!,
+          dosesPerDay: dosesPerDay,
+          amount: stock_math.doseAmountOf(amountLabel),
+        );
 
   bool get stockLow =>
-      tracksStock && stockQuantity != null && stock_math.stockIsLow(daysLeft: stockDaysLeft, warnDays: stockWarnDays ?? stock_math.defaultRefillWarnDays);
+      tracksStock &&
+      stockQuantity != null &&
+      stock_math.stockIsLow(
+        daysLeft: stockDaysLeft,
+        warnDays: stockWarnDays ?? stock_math.defaultRefillWarnDays,
+      );
 
   /// «معاك ٢٠ قرص — تكفّي ١٠ أيام» / لو قرب يخلص «كونكور فاضله ٤ أيام».
   /// null = المريض ما كتبش مخزون.
   String? get stockLine {
     final q = stockQuantity;
     if (q == null || !tracksStock) return null;
-    if (stockLow) return stock_math.stockLowLine(name, stock: q, daysLeft: stockDaysLeft ?? 0);
-    return stock_math.stockSummaryLine(stock: q, unit: stockUnit, daysLeft: stockDaysLeft);
+    if (stockLow) {
+      return stock_math.stockLowLine(
+        name,
+        stock: q,
+        daysLeft: stockDaysLeft ?? 0,
+      );
+    }
+    return stock_math.stockSummaryLine(
+      stock: q,
+      unit: stockUnit,
+      daysLeft: stockDaysLeft,
+    );
   }
 
   /// قاعدة كل جرعة زي ما اتسجلت — «الفطار − ٣٠ د» أو «ساعة ثابتة · ٨:٠٠ ص».
@@ -131,15 +151,22 @@ CaregiverDoseEvent eventFromRow(Map<String, Object?> e) {
     scheduledAt: DateTime.parse(e['scheduled_at'] as String).toLocal(),
     state: e['state'] as String,
     // `routine_day` تاريخ من غير ساعة — بيتقرا زي ما هو
-    routineDay: e['routine_day'] == null ? null : DateTime.parse(e['routine_day'] as String),
-    actedAt: e['acted_at'] == null ? null : DateTime.parse(e['acted_at'] as String).toLocal(),
+    routineDay: e['routine_day'] == null
+        ? null
+        : DateTime.parse(e['routine_day'] as String),
+    actedAt: e['acted_at'] == null
+        ? null
+        : DateTime.parse(e['acted_at'] as String).toLocal(),
   );
 }
 
 /// دوا الصف — **بالـuuid الأول**، والاسم بديل للصف القديم اللي من غيره.
 /// null = الدوا مش في الصورة (اتشال مثلاً) — الصف بيتعرض باسمه من غير
 /// رسمة نوعه.
-CaregiverMedication? medicationForDose(List<CaregiverMedication> medications, CaregiverDoseEvent dose) {
+CaregiverMedication? medicationForDose(
+  List<CaregiverMedication> medications,
+  CaregiverDoseEvent dose,
+) {
   if (dose.medicationUuid case final id?) {
     for (final m in medications) {
       if (m.uuid == id) return m;
@@ -207,9 +234,9 @@ class CaregiverDoseEvent {
 /// هنا بالظبط، فحد لازم يقرر هي مفتوحة ولا مقفولة. من غير كده كانت
 /// هتتحسب مقفولة في صمت — أو أسوأ، تبقى تنبيه محدش قرره.
 bool isOpenDoseState(DoseState state) => switch (state) {
-      DoseState.pending || DoseState.missed => true,
-      DoseState.taken || DoseState.skipped || DoseState.superseded => false,
-    };
+  DoseState.pending || DoseState.missed => true,
+  DoseState.taken || DoseState.skipped || DoseState.superseded => false,
+};
 
 /// نفس القايمة بأسماء السلك — دي اللي بتروح للاستعلام.
 final List<String> openDoseStateNames = [
@@ -232,10 +259,12 @@ class CaregiverAlert {
     required this.createdAt,
     this.sentAt,
     this.rung = 'caregiver',
+    this.doseEventUuid,
   });
 
   /// 'caregiver' (الابن، +٦٠) أو 'nurse' (الممرض، +٣٠ — 0035). بالحرف.
   final String rung;
+  final String? doseEventUuid;
 
   final String uuid;
   final String medicationName;
@@ -264,6 +293,21 @@ class CaregiverAlert {
     // اسم مش معروف = مش بنعرضه. تنبيه عن حالة محدش يعرفها مش تنبيه.
     return s != null && isOpenDoseState(s);
   }
+}
+
+/// Filter stale escalation rows against the canonical current dose snapshot.
+/// The escalation row is historical; `dose_events.state` is authoritative.
+List<CaregiverAlert> currentOpenCaregiverAlerts(CaregiverSnapshot snapshot) {
+  final states = {for (final event in snapshot.events) event.uuid: event.state};
+  return [
+    for (final alert in snapshot.alerts)
+      if (alert.open &&
+          !snapshot.proxied.containsKey(alert.doseEventUuid) &&
+          (alert.doseEventUuid == null ||
+              states[alert.doseEventUuid] == null ||
+              openDoseStateNames.contains(states[alert.doseEventUuid])))
+        alert,
+  ];
 }
 
 class CaregiverSnapshot {
@@ -391,7 +435,13 @@ class CaregiverRecord {
 }
 
 class CaregiverLabLine {
-  const CaregiverLabLine({required this.testName, this.value, this.valueText, this.unit, this.range});
+  const CaregiverLabLine({
+    required this.testName,
+    this.value,
+    this.valueText,
+    this.unit,
+    this.range,
+  });
   final String testName;
 
   /// النتيجة رقم **أو** نص (المرحلة ٥): سطر نصي («Negative») قيمته null
@@ -424,7 +474,11 @@ class CaregiverReading {
 }
 
 class CaregiverEmergency {
-  const CaregiverEmergency({this.bloodType, this.allergies, this.chronicConditions});
+  const CaregiverEmergency({
+    this.bloodType,
+    this.allergies,
+    this.chronicConditions,
+  });
   final String? bloodType;
   final String? allergies;
   final String? chronicConditions;
@@ -475,21 +529,46 @@ class CaregiverNewItem {
 /// مترتبة بـ`updated_at` مش بتاريخ الحدث — تحليل من ٢٠١٩ اتسجّل النهارده جديد
 /// بالنسبة للابن. أحداث الجرعات مش هنا: `updated_at` بتاعها بيتغيّر مع كل
 /// تأكيد، وليها «النهارده» والأسبوع.
-List<CaregiverNewItem> newestArrivals(CaregiverSnapshot snapshot, {int limit = 10}) {
+List<CaregiverNewItem> newestArrivals(
+  CaregiverSnapshot snapshot, {
+  int limit = 10,
+}) {
   final items = [
     // **المتابعة المفتوحة مش «جديد»، هي حاجة شغّالة** — وليها قسمها فوق.
     // وكل ما الأب يقدّم مرحلة بيتغيّر `updated_at`، فكانت بتطلع أول
     // «الجديد» كأنها حاجة وصلت دلوقتي، بتاريخ ورقتها القديم جنبها.
     for (final r in snapshot.records)
-      if (!followIsOpen(FollowKind.fromStored(r.followKind),
-          FollowKind.fromStored(r.followKind).stageFromNumber(r.checkupStage)))
-        CaregiverNewItem(type: NewItemType.record, arrivedAt: r.updatedAt, happenedAt: r.happenedAt, record: r),
+      if (!followIsOpen(
+        FollowKind.fromStored(r.followKind),
+        FollowKind.fromStored(r.followKind).stageFromNumber(r.checkupStage),
+      ))
+        CaregiverNewItem(
+          type: NewItemType.record,
+          arrivedAt: r.updatedAt,
+          happenedAt: r.happenedAt,
+          record: r,
+        ),
     for (final r in snapshot.readings)
-      CaregiverNewItem(type: NewItemType.reading, arrivedAt: r.updatedAt, happenedAt: r.measuredAt, reading: r),
+      CaregiverNewItem(
+        type: NewItemType.reading,
+        arrivedAt: r.updatedAt,
+        happenedAt: r.measuredAt,
+        reading: r,
+      ),
     for (final q in snapshot.questions)
-      CaregiverNewItem(type: NewItemType.question, arrivedAt: q.updatedAt, happenedAt: q.writtenAt, question: q),
+      CaregiverNewItem(
+        type: NewItemType.question,
+        arrivedAt: q.updatedAt,
+        happenedAt: q.writtenAt,
+        question: q,
+      ),
     for (final d in snapshot.departures)
-      CaregiverNewItem(type: NewItemType.departure, arrivedAt: d.leftAt, happenedAt: d.leftAt, departure: d),
+      CaregiverNewItem(
+        type: NewItemType.departure,
+        arrivedAt: d.leftAt,
+        happenedAt: d.leftAt,
+        departure: d,
+      ),
   ]..sort((a, b) => b.arrivedAt.compareTo(a.arrivedAt));
   return items.take(limit).toList();
 }

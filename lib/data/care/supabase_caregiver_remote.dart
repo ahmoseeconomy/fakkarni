@@ -1,11 +1,14 @@
 import 'supabase_circle_departures.dart';
+
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show debugPrint, debugPrintStack, kDebugMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/arabic_time.dart';
-import '../../domain/medication/stock.dart' show averageDosesPerDay, patternShare;
+import '../../domain/medication/stock.dart'
+    show averageDosesPerDay, patternShare;
 import '../../domain/health/lab_range.dart';
 import '../../domain/health/vitals.dart';
 import '../../domain/wording/rule_wording.dart';
@@ -38,6 +41,7 @@ CaregiverAlert alertFromRow(Map<String, dynamic> row) {
     createdAt: time(row['created_at'])!,
     sentAt: time(row['sent_at']),
     rung: (row['rung'] as String?) ?? 'caregiver',
+    doseEventUuid: event['uuid'] as String?,
   );
 }
 
@@ -47,7 +51,13 @@ CaregiverAlert alertFromRow(Map<String, dynamic> row) {
 /// من غير Supabase.
 /// صف من قبل v30 على موبايل الأب: المرساة بكلمتها والإزاحة — نص وبس.
 String? _legacyAnchorWording(Map s) {
-  const words = {'wake': 'الصحيان', 'breakfast': 'الفطار', 'lunch': 'الغدا', 'dinner': 'العشا', 'sleep': 'النوم'};
+  const words = {
+    'wake': 'الصحيان',
+    'breakfast': 'الفطار',
+    'lunch': 'الغدا',
+    'dinner': 'العشا',
+    'sleep': 'النوم',
+  };
   final word = words[s['anchor']];
   if (word == null) return null;
   final offset = (s['offset_minutes'] as int?) ?? 0;
@@ -61,15 +71,20 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     // كل الجداول ساعة ثابتة من v30؛ صف قديم بمرساة (موبايل لسه ما اترقّاش)
     // بيتقال بكلمته من غير حساب ساعة — الابن ما بيحلّش مراسي
     final fixed = s['fixed_timings'];
-    final minute = (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
+    final minute =
+        (fixed is List ? (fixed.isEmpty ? null : fixed.first) : fixed) as Map?;
     final m = minute?['minute_of_day'] as int?;
     final meal = mealRelationLabel(s['meal_relation'] as String?);
     if (m == null) return meal ?? _legacyAnchorWording(s);
-    return [spokenFixedWording(arabicTime(DateTime(2026, 1, 1, 0, m))), meal].nonNulls.join(' — ');
+    return [
+      spokenFixedWording(arabicTime(DateTime(2026, 1, 1, 0, m))),
+      meal,
+    ].nonNulls.join(' — ');
   }
 
   final stock = row['medication_stock'];
-  final stockRow = (stock is List ? (stock.isEmpty ? null : stock.first) : stock) as Map?;
+  final stockRow =
+      (stock is List ? (stock.isEmpty ? null : stock.first) : stock) as Map?;
   return CaregiverMedication(
     stockQuantity: (stockRow?['quantity'] as num?)?.toDouble(),
     stockWarnDays: (stockRow?['warn_days'] as num?)?.toInt(),
@@ -94,7 +109,10 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     minutes: [
       for (final s in schedules)
         if ((s as Map)['stopped_at'] == null)
-          if (((s['fixed_timings'] is List ? ((s['fixed_timings'] as List).firstOrNull) : s['fixed_timings']) as Map?)?['minute_of_day']
+          if (((s['fixed_timings'] is List
+                      ? ((s['fixed_timings'] as List).firstOrNull)
+                      : s['fixed_timings'])
+                  as Map?)?['minute_of_day']
               case final int m)
             m,
     ],
@@ -102,7 +120,9 @@ CaregiverMedication medicationFromRow(Map<String, dynamic> row) {
     purpose: row['purpose'] as String?,
     instructions: row['instructions'] as String?,
     alertMode: row['alert_mode'] as String?,
-    notBoughtAt: row['not_bought_at'] == null ? null : DateTime.tryParse(row['not_bought_at'] as String)?.toLocal(),
+    notBoughtAt: row['not_bought_at'] == null
+        ? null
+        : DateTime.tryParse(row['not_bought_at'] as String)?.toLocal(),
     form: row['form'] as String?,
     rules: [
       // الجرعة الموقوفة مش قاعدة شغّالة — ما تظهرش عند الابن. والنمط (٠٠٣٢)
@@ -191,12 +211,12 @@ Vital? vitalFromRow(Map<String, dynamic> row) {
 }
 
 CaregiverReading readingFromRow(Map<String, dynamic> row) => CaregiverReading(
-      uuid: row['uuid'] as String,
-      valueMgDl: row['value_mg_dl'] as int,
-      measuredAt: _local(row['measured_at']),
-      context: row['context'] as String,
-      updatedAt: _local(row['updated_at']),
-    );
+  uuid: row['uuid'] as String,
+  valueMgDl: row['value_mg_dl'] as int,
+  measuredAt: _local(row['measured_at']),
+  context: row['context'] as String,
+  updatedAt: _local(row['updated_at']),
+);
 
 /// صف فاضي كله (الأب فتح الشاشة وما كتبش) = null، زي «مفيش حاجة».
 CaregiverEmergency? emergencyFromRow(Map<String, dynamic>? row) {
@@ -211,10 +231,15 @@ CaregiverEmergency? emergencyFromRow(Map<String, dynamic>? row) {
     allergies: text('allergies'),
     chronicConditions: text('chronic_conditions'),
   );
-  return e.bloodType == null && e.allergies == null && e.chronicConditions == null ? null : e;
+  return e.bloodType == null &&
+          e.allergies == null &&
+          e.chronicConditions == null
+      ? null
+      : e;
 }
 
-CaregiverQuestion questionFromRow(Map<String, dynamic> row) => CaregiverQuestion(
+CaregiverQuestion questionFromRow(Map<String, dynamic> row) =>
+    CaregiverQuestion(
       uuid: row['uuid'] as String,
       body: row['body'] as String,
       writtenAt: _local(row['written_at']),
@@ -225,7 +250,8 @@ CaregiverQuestion questionFromRow(Map<String, dynamic> row) => CaregiverQuestion
 /// القراءة الحقيقية. العلاقات بتيجي من care_relationships (RLS بتوريني
 /// صفوفي أنا)، والمريض بيتحدّد منها — مش من فلترة owner_id على العميل:
 /// الابن ممكن يكون مريضاً في تطبيقه هو كمان، وصفّه بيظهر في patients عادي.
-class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, PaperPhotos {
+class SupabaseCaregiverRemote
+    implements CaregiverRemote, MultiPatientRemote, PaperPhotos {
   SupabaseCaregiverRemote(this._supabase);
 
   final SupabaseClient _supabase;
@@ -240,7 +266,10 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
           .inFilter('uuid', uuids);
     } on PostgrestException catch (e) {
       if (e.code != '42703' && e.code != 'PGRST204') rethrow;
-      return await _supabase.from('patients').select('uuid, name').inFilter('uuid', uuids);
+      return await _supabase
+          .from('patients')
+          .select('uuid, name')
+          .inFilter('uuid', uuids);
     }
   }
 
@@ -249,37 +278,40 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
 
   @override
   Future<List<CaregiverPatient>> linkedPatients() => _guard(() async {
-        final me = _supabase.auth.currentUser?.id;
-        if (me == null) return const <CaregiverPatient>[];
-        final links = await _supabase
-            .from('care_relationships')
-            .select('patient_uuid, role, can_confirm, can_edit_meds')
-            .eq('status', 'accepted')
-            .eq('caregiver_id', me)
-            .order('created_at', ascending: false);
-        if (links.isEmpty) return const <CaregiverPatient>[];
-        final rows = await _patientRows([for (final l in links) l['patient_uuid'] as String]);
-        final byUuid = {for (final r in rows) r['uuid'] as String: r};
-        return [
-          for (final l in links)
-            if (byUuid[l['patient_uuid']] case final row?)
-              CaregiverPatient(
-                uuid: l['patient_uuid'] as String,
-                name: row['name'] as String,
-                pharmacyName: row['pharmacy_name'] as String?,
-                pharmacyCall: row['pharmacy_call'] as String?,
-                pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
-                permissions: FollowerPermissions(
-                  role: FollowerRole.fromStored(l['role'] as String?),
-                  canConfirm: l['can_confirm'] == true,
-                  canEditMeds: l['can_edit_meds'] == true,
-                ),
-              ),
-        ];
-      });
+    final me = _supabase.auth.currentUser?.id;
+    if (me == null) return const <CaregiverPatient>[];
+    final links = await _supabase
+        .from('care_relationships')
+        .select('patient_uuid, role, can_confirm, can_edit_meds')
+        .eq('status', 'accepted')
+        .eq('caregiver_id', me)
+        .order('created_at', ascending: false);
+    if (links.isEmpty) return const <CaregiverPatient>[];
+    final rows = await _patientRows([
+      for (final l in links) l['patient_uuid'] as String,
+    ]);
+    final byUuid = {for (final r in rows) r['uuid'] as String: r};
+    return [
+      for (final l in links)
+        if (byUuid[l['patient_uuid']] case final row?)
+          CaregiverPatient(
+            uuid: l['patient_uuid'] as String,
+            name: row['name'] as String,
+            pharmacyName: row['pharmacy_name'] as String?,
+            pharmacyCall: row['pharmacy_call'] as String?,
+            pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
+            permissions: FollowerPermissions(
+              role: FollowerRole.fromStored(l['role'] as String?),
+              canConfirm: l['can_confirm'] == true,
+              canEditMeds: l['can_edit_meds'] == true,
+            ),
+          ),
+    ];
+  });
 
   @override
-  Future<CaregiverSnapshot?> snapshotFor(String patientUuid) => _guard(() async {
+  Future<CaregiverSnapshot?> snapshotFor(String patientUuid) =>
+      _guard(() async {
         final all = await linkedPatients();
         final patient = all.where((p) => p.uuid == patientUuid).firstOrNull;
         if (patient == null) return null;
@@ -289,7 +321,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
   @override
   Future<List<int>?> download(String patientUuid, String recordUuid) async {
     try {
-      return await _supabase.storage.from(papersBucket).download('$patientUuid/$recordUuid.jpg');
+      return await _supabase.storage
+          .from(papersBucket)
+          .download('$patientUuid/$recordUuid.jpg');
     } catch (e) {
       if (kDebugMode) debugPrint('Care: صورة الورقة ما نزلتش — $e');
       return null;
@@ -301,7 +335,9 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
   Future<Set<String>> _sharedPapers(CaregiverPatient patient) async {
     if (!patient.isNurse) return const {};
     try {
-      final files = await _supabase.storage.from(papersBucket).list(path: patient.uuid);
+      final files = await _supabase.storage
+          .from(papersBucket)
+          .list(path: patient.uuid);
       return {
         for (final f in files)
           if (f.name.endsWith('.jpg')) f.name.substring(0, f.name.length - 4),
@@ -314,260 +350,292 @@ class SupabaseCaregiverRemote implements CaregiverRemote, MultiPatientRemote, Pa
 
   @override
   Future<CaregiverPatient?> linkedPatient() => _guard(() async {
-        // **ترتيب حتمي إجباري.** موبايل واحد ممكن يكون متربط بأكتر من أب
-        // (اختبارات، أو ابن بيتابع أبوه وأمه). من غير order بيرجّع Postgres
-        // أي صف — فالعنوان ييجي من أب والأدوية من أب تاني، والشاشة تبان
-        // فاضية من غير أي خطأ. الأحدث هو المقصود: آخر كود اتفكّ.
-        // **مفيش جلسة = مفيش ربط، مش «حصل خطأ».**
-        //
-        // كان هنا `?? ''`، وده كان بيبعت `caregiver_id=eq.` — وPostgres
-        // بيرفض `''` كـuuid (22P02). الرمية دي كانت بتترجم لـ«مقدرناش
-        // نكمّل. جرّب تاني.»، وبتقع **قبل** أي استعلام تاني، فشاشة الابن
-        // كلها تفضل فاضية كمان. مفيش جلسة حالة عادية — جهاز اتمسح، أو
-        // توكن انتهى — ومعناها «ما اتربطش»، واللي بيتعمل معاها إنه يرجع
-        // لشاشة البداية، مش رسالة عطل.
-        final me = _supabase.auth.currentUser?.id;
-        if (me == null) return null;
+    // **ترتيب حتمي إجباري.** موبايل واحد ممكن يكون متربط بأكتر من أب
+    // (اختبارات، أو ابن بيتابع أبوه وأمه). من غير order بيرجّع Postgres
+    // أي صف — فالعنوان ييجي من أب والأدوية من أب تاني، والشاشة تبان
+    // فاضية من غير أي خطأ. الأحدث هو المقصود: آخر كود اتفكّ.
+    // **مفيش جلسة = مفيش ربط، مش «حصل خطأ».**
+    //
+    // كان هنا `?? ''`، وده كان بيبعت `caregiver_id=eq.` — وPostgres
+    // بيرفض `''` كـuuid (22P02). الرمية دي كانت بتترجم لـ«مقدرناش
+    // نكمّل. جرّب تاني.»، وبتقع **قبل** أي استعلام تاني، فشاشة الابن
+    // كلها تفضل فاضية كمان. مفيش جلسة حالة عادية — جهاز اتمسح، أو
+    // توكن انتهى — ومعناها «ما اتربطش»، واللي بيتعمل معاها إنه يرجع
+    // لشاشة البداية، مش رسالة عطل.
+    final me = _supabase.auth.currentUser?.id;
+    if (me == null) return null;
 
-        final links = await _supabase
-            .from('care_relationships')
-            .select('patient_uuid, role, can_confirm, can_edit_meds')
-            .eq('status', 'accepted')
-            .eq('caregiver_id', me)
-            .order('created_at', ascending: false)
-            .limit(1);
-        if (links.isEmpty) return null;
-        final link = links.first;
+    final links = await _supabase
+        .from('care_relationships')
+        .select('patient_uuid, role, can_confirm, can_edit_meds')
+        .eq('status', 'accepted')
+        .eq('caregiver_id', me)
+        .order('created_at', ascending: false)
+        .limit(1);
+    if (links.isEmpty) return null;
+    final link = links.first;
 
-        final rows = await _patientRows([link['patient_uuid'] as String]);
-        if (rows.isEmpty) return null;
-        final row = rows.single;
-        return CaregiverPatient(
-          uuid: row['uuid'] as String,
-          name: row['name'] as String,
-          pharmacyName: row['pharmacy_name'] as String?,
-          pharmacyCall: row['pharmacy_call'] as String?,
-          pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
-          // ٠٠٢٣: دوري وصلاحياتي من صف العلاقة نفسه — قبلها كل صف متابع
-          permissions: FollowerPermissions(
-            role: FollowerRole.fromStored(link['role'] as String?),
-            canConfirm: link['can_confirm'] == true,
-            canEditMeds: link['can_edit_meds'] == true,
-          ),
-        );
-      });
+    final rows = await _patientRows([link['patient_uuid'] as String]);
+    if (rows.isEmpty) return null;
+    final row = rows.single;
+    return CaregiverPatient(
+      uuid: row['uuid'] as String,
+      name: row['name'] as String,
+      pharmacyName: row['pharmacy_name'] as String?,
+      pharmacyCall: row['pharmacy_call'] as String?,
+      pharmacyWhatsapp: row['pharmacy_whatsapp'] as String?,
+      // ٠٠٢٣: دوري وصلاحياتي من صف العلاقة نفسه — قبلها كل صف متابع
+      permissions: FollowerPermissions(
+        role: FollowerRole.fromStored(link['role'] as String?),
+        canConfirm: link['can_confirm'] == true,
+        canEditMeds: link['can_edit_meds'] == true,
+      ),
+    );
+  });
 
   @override
   Future<CaregiverSnapshot?> snapshot() => _guard(() async {
-        final patient = await linkedPatient();
-        if (patient == null) return null;
-        return _snapshotOf(patient);
-      });
+    final patient = await linkedPatient();
+    if (patient == null) return null;
+    return _snapshotOf(patient);
+  });
 
-  Future<CaregiverSnapshot?> _snapshotOf(CaregiverPatient patient) => _guard(() async {
-        // وصلنا لهنا يعني فيه جلسة ([linkedPatient] بترجع null من غيرها) —
-        // بس بنقراها مرة واحدة بدل ما كل استعلام يعمل `?? ''` لوحده.
-        final me = _supabase.auth.currentUser?.id;
-        if (me == null) return null;
+  Future<CaregiverSnapshot?> _snapshotOf(
+    CaregiverPatient patient,
+  ) => _guard(() async {
+    // وصلنا لهنا يعني فيه جلسة ([linkedPatient] بترجع null من غيرها) —
+    // بس بنقراها مرة واحدة بدل ما كل استعلام يعمل `?? ''` لوحده.
+    final me = _supabase.auth.currentUser?.id;
+    if (me == null) return null;
 
-        // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
-        // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
-        const medColumns = 'uuid, name, amount_label, stopped_at, updated_at, '
-            'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
-            'fixed_timings(minute_of_day))';
-        // **من الأغنى للأبسط**: ٠٠٢٨ (المخزون) ← ٠٠٢٦ (التفاصيل) ← الأصل.
-        // هجرة لسه ما اتشغّلتش = عمود/علاقة مش موجودة → الدرجة اللي بعدها،
-        // وشاشة المتابع تفضل شغّالة.
-        // ٠٠٣٢: أعمدة أنماط الأيام على الجداول
-        const medColumnsPatterns = 'uuid, name, amount_label, stopped_at, updated_at, '
-            'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
-            'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
-        // ٠٠٣٤: «قبل الأكل» وأخواتها على الجدول
-        const medColumnsMeal = 'uuid, name, amount_label, stopped_at, updated_at, '
-            'dose_schedules(timing_kind, anchor, offset_minutes, meal_relation, repeat, stopped_at, '
-            'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
-        const tiers = [
-          // ٠٠٣٨ — نوع الدوا
-          'purpose, instructions, alert_mode, not_bought_at, form, medication_stock(quantity, warn_days), $medColumnsMeal',
-          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsMeal',
-          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsPatterns',
-          // ٠٠٣١ — «لسه ماتشترتش»
-          'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumns',
-          'purpose, instructions, alert_mode, medication_stock(quantity, warn_days), $medColumns',
-          'purpose, instructions, alert_mode, $medColumns',
-          medColumns,
-        ];
-        List<Map<String, dynamic>> meds = const [];
-        for (final (i, columns) in tiers.indexed) {
-          try {
-            meds = await _supabase
-                .from('medications')
-                .select(columns)
-                .eq('patient_uuid', patient.uuid)
-                .isFilter('removed_at', null);
-            break;
-          } on PostgrestException catch (e) {
-            final missing = e.code == '42703' || e.code == 'PGRST204' || e.code == 'PGRST200' || e.code == '42P01';
-            if (!missing || i == tiers.length - 1) rethrow;
-          }
-        }
-
-        // ٨ أيام مش ٧ (٤ أكتوبر ٢٠٢٦): «ملخص الأسبوع» = آخر ٧ أيام **كاملة**،
-        // و٧×٢٤ ساعة من دلوقتي كانت بتقصّ أول يوم فيهم من نصّه.
-        final since = DateTime.now().toUtc().subtract(const Duration(days: 8));
-        final events = await _supabase
-            .from('dose_events')
-            .select('uuid, scheduled_at, routine_day, state, acted_at, updated_at, '
-                // uuid الدوا (٥ أكتوبر) — الربط بيه مش بالاسم: دواءين بنفس
-                // الاسم كانوا بيتلخبطوا. نفس الضمّة، عمود زيادة بس.
-                'dose_schedules!inner(medications!inner(uuid, name, amount_label, removed_at))')
-            .gte('scheduled_at', since.toIso8601String())
-            // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
-            .neq('state', 'superseded')
-            // ولا جرعة دوا الأب شاله
-            .isFilter('dose_schedules.medications.removed_at', null)
-            .order('scheduled_at', ascending: true);
-
-        // ٠٠٢٣: تأكيدات نيابةً في آخر يومين — الصف بيقول «أكّدتها ✓» لحد ما
-        // موبايل الأب يسحبها ويكتب taken بنفسه.
-        final proxiedSince = DateTime.now().toUtc().subtract(const Duration(days: 2)).toIso8601String();
-        final proxied = await _supabase
-            .from('proxy_confirmations')
-            .select('dose_event_uuid, actor_name')
+    // الدوا المتشال مالوش وجود عند الابن، والجرعة الموقوفة مش قاعدة
+    // شغّالة — من غير الفلترين دول الابن بيشوف دوا أبوه شاله.
+    const medColumns =
+        'uuid, name, amount_label, stopped_at, updated_at, '
+        'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
+        'fixed_timings(minute_of_day))';
+    // **من الأغنى للأبسط**: ٠٠٢٨ (المخزون) ← ٠٠٢٦ (التفاصيل) ← الأصل.
+    // هجرة لسه ما اتشغّلتش = عمود/علاقة مش موجودة → الدرجة اللي بعدها،
+    // وشاشة المتابع تفضل شغّالة.
+    // ٠٠٣٢: أعمدة أنماط الأيام على الجداول
+    const medColumnsPatterns =
+        'uuid, name, amount_label, stopped_at, updated_at, '
+        'dose_schedules(timing_kind, anchor, offset_minutes, repeat, stopped_at, '
+        'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
+    // ٠٠٣٤: «قبل الأكل» وأخواتها على الجدول
+    const medColumnsMeal =
+        'uuid, name, amount_label, stopped_at, updated_at, '
+        'dose_schedules(timing_kind, anchor, offset_minutes, meal_relation, repeat, stopped_at, '
+        'weekdays, every_days, cycle_on, cycle_off, fixed_timings(minute_of_day))';
+    const tiers = [
+      // ٠٠٣٨ — نوع الدوا
+      'purpose, instructions, alert_mode, not_bought_at, form, medication_stock(quantity, warn_days), $medColumnsMeal',
+      'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsMeal',
+      'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumnsPatterns',
+      // ٠٠٣١ — «لسه ماتشترتش»
+      'purpose, instructions, alert_mode, not_bought_at, medication_stock(quantity, warn_days), $medColumns',
+      'purpose, instructions, alert_mode, medication_stock(quantity, warn_days), $medColumns',
+      'purpose, instructions, alert_mode, $medColumns',
+      medColumns,
+    ];
+    List<Map<String, dynamic>> meds = const [];
+    for (final (i, columns) in tiers.indexed) {
+      try {
+        meds = await _supabase
+            .from('medications')
+            .select(columns)
             .eq('patient_uuid', patient.uuid)
-            .gte('confirmed_at', proxiedSince);
+            .isFilter('removed_at', null);
+        break;
+      } on PostgrestException catch (e) {
+        final missing =
+            e.code == '42703' ||
+            e.code == 'PGRST204' ||
+            e.code == 'PGRST200' ||
+            e.code == '42P01';
+        if (!missing || i == tiers.length - 1) rethrow;
+      }
+    }
 
-        final alertsSince =
-            DateTime.now().toUtc().subtract(alertWindow).toIso8601String();
-        final alerts = await _supabase
-            .from('escalations')
-            .select('uuid, delivery_status, created_at, sent_at, rung, '
-                'dose_events!inner(scheduled_at, state, '
-                'dose_schedules!inner(medications!inner(name, patient_uuid, removed_at)))')
-            .eq('caregiver_id', me)
-            // **الجرعة اللي اتقفلت مالهاش تنبيه — والفلتر في السحابة مش في
-            // الودجت.** تنبيه بيقول «والدك ما أكّدش» عن جرعة خدها هو أسوأ
-            // غلط ممكن على الشاشة دي: الابن اللي يكتشف إن التنبيهات بتكدب
-            // بيبطّل يقراها كلها. والفلترة هنا معناها إن الصفوف دي عمرها
-            // ما بتتحمّل أصلاً. ([openDoseStateNames] — والقايمة مشتقة من
-            // switch شامل، فحالة جديدة بتكسر الترجمة بدل ما تبقى تنبيه.)
-            .inFilter('dose_events.state', openDoseStateNames)
-            .inFilter('delivery_status', ['sent', 'no_token', 'failed'])
-            .gte('created_at', alertsSince)
-            .eq('dose_events.dose_schedules.medications.patient_uuid',
-                patient.uuid)
-            // الإشعار الذي وصل قبل الحذف لا يمكن استدعاؤه من النظام، لكن
-            // عرضه بعد أن شال المريض الدواء إنذار كاذب على شاشة الابن.
-            .isFilter('dose_events.dose_schedules.medications.removed_at', null)
-            .order('created_at', ascending: false);
+    // ٨ أيام مش ٧ (٤ أكتوبر ٢٠٢٦): «ملخص الأسبوع» = آخر ٧ أيام **كاملة**،
+    // و٧×٢٤ ساعة من دلوقتي كانت بتقصّ أول يوم فيهم من نصّه.
+    final since = DateTime.now().toUtc().subtract(const Duration(days: 8));
+    final events = await _supabase
+        .from('dose_events')
+        .select(
+          'uuid, scheduled_at, routine_day, state, acted_at, updated_at, '
+          // uuid الدوا (٥ أكتوبر) — الربط بيه مش بالاسم: دواءين بنفس
+          // الاسم كانوا بيتلخبطوا. نفس الضمّة، عمود زيادة بس.
+          'dose_schedules!inner(medications!inner(uuid, name, amount_label, removed_at))',
+        )
+        .gte('scheduled_at', since.toIso8601String())
+        // «اتغيّرت القاعدة» (0010) مش جرعة — ما تتعرضش على شاشة الابن
+        .neq('state', 'superseded')
+        // ولا جرعة دوا الأب شاله
+        .isFilter('dose_schedules.medications.removed_at', null)
+        .order('scheduled_at', ascending: true);
 
-        DateTime? last;
-        void bump(dynamic iso) {
-          if (iso is! String) return;
-          final t = DateTime.tryParse(iso);
-          if (t != null && (last == null || t.isAfter(last!))) last = t;
-        }
+    // ٠٠٢٣: تأكيدات نيابةً في آخر يومين — الصف بيقول «أكّدتها ✓» لحد ما
+    // موبايل الأب يسحبها ويكتب taken بنفسه.
+    final proxiedSince = DateTime.now()
+        .toUtc()
+        .subtract(const Duration(days: 2))
+        .toIso8601String();
+    final proxied = await _supabase
+        .from('proxy_confirmations')
+        .select('dose_event_uuid, actor_name')
+        .eq('patient_uuid', patient.uuid)
+        .gte('confirmed_at', proxiedSince);
 
-        for (final m in meds) {
-          bump(m['updated_at']);
-        }
-        for (final e in events) {
-          bump(e['updated_at']);
-        }
+    final alertsSince = DateTime.now()
+        .toUtc()
+        .subtract(alertWindow)
+        .toIso8601String();
+    final alerts = await _supabase
+        .from('escalations')
+        .select(
+          'uuid, delivery_status, created_at, sent_at, rung, '
+          'dose_events!inner(uuid, scheduled_at, state, '
+          'dose_schedules!inner(medications!inner(name, patient_uuid, removed_at)))',
+        )
+        .eq('caregiver_id', me)
+        // **الجرعة اللي اتقفلت مالهاش تنبيه — والفلتر في السحابة مش في
+        // الودجت.** تنبيه بيقول «والدك ما أكّدش» عن جرعة خدها هو أسوأ
+        // غلط ممكن على الشاشة دي: الابن اللي يكتشف إن التنبيهات بتكدب
+        // بيبطّل يقراها كلها. والفلترة هنا معناها إن الصفوف دي عمرها
+        // ما بتتحمّل أصلاً. ([openDoseStateNames] — والقايمة مشتقة من
+        // switch شامل، فحالة جديدة بتكسر الترجمة بدل ما تبقى تنبيه.)
+        .inFilter('dose_events.state', openDoseStateNames)
+        .inFilter('delivery_status', ['sent', 'no_token', 'failed'])
+        .gte('created_at', alertsSince)
+        .eq('dose_events.dose_schedules.medications.patient_uuid', patient.uuid)
+        // الإشعار الذي وصل قبل الحذف لا يمكن استدعاؤه من النظام، لكن
+        // عرضه بعد أن شال المريض الدواء إنذار كاذب على شاشة الابن.
+        .isFilter('dose_events.dose_schedules.medications.removed_at', null)
+        .order('created_at', ascending: false);
 
-        // ---- الملف الصحي (D5.2). **كل استعلام محدود** لحد ما السحب بالفرق
-        // (delta) ييجي — مفيش select من غير حد.
-        Future<List<Map<String, dynamic>>> fetchRecords(String labColumns) => _supabase
+    DateTime? last;
+    void bump(dynamic iso) {
+      if (iso is! String) return;
+      final t = DateTime.tryParse(iso);
+      if (t != null && (last == null || t.isAfter(last!))) last = t;
+    }
+
+    for (final m in meds) {
+      bump(m['updated_at']);
+    }
+    for (final e in events) {
+      bump(e['updated_at']);
+    }
+
+    // ---- الملف الصحي (D5.2). **كل استعلام محدود** لحد ما السحب بالفرق
+    // (delta) ييجي — مفيش select من غير حد.
+    Future<List<Map<String, dynamic>>> fetchRecords(String labColumns) =>
+        _supabase
             .from('records')
             // أعمدة المتابعة (`0015`/`0017`) على **نفس الصف** اللي الابن
             // بيقراه أصلاً — RLS في بوستجرس على مستوى الصف مش العمود،
             // فمفيش سياسة جديدة ولا هجرة. قراية بس زي باقي الشاشة.
-            .select('uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
-                'checkup_stage, follow_kind, checkup_stage_since, '
-                'lab_booking_at, result_ready_at, doctor_visit_at, '
-                'lab_results($labColumns)')
+            .select(
+              'uuid, kind, title, happened_at, doctor, place, notes, deleted_at, updated_at, '
+              'checkup_stage, follow_kind, checkup_stage_since, '
+              'lab_booking_at, result_ready_at, doctor_visit_at, '
+              'lab_results($labColumns)',
+            )
             .eq('patient_uuid', patient.uuid)
             .isFilter('deleted_at', null)
             .order('updated_at', ascending: false)
             .limit(recordsLimit);
 
-        List<Map<String, dynamic>> records;
-        try {
-          records =
-              await fetchRecords('test_name, value, value_text, unit, ref_low, ref_high, ref_text');
-        } on PostgrestException catch (e) {
-          // مشروع لسه ما شغّلش 0039: العمود الجديد مش موجود — بنرجع
-          // للاستعلام القديم بدل ما الملف الصحي كله يقول «مقدرناش نكمّل»
-          // (نفس شبكة أمان أعمدة 0026/0028).
-          if (e.code != '42703' && e.code != 'PGRST204') rethrow;
-          records = await fetchRecords('test_name, value, unit, ref_low, ref_high, ref_text');
-        }
+    List<Map<String, dynamic>> records;
+    try {
+      records = await fetchRecords(
+        'test_name, value, value_text, unit, ref_low, ref_high, ref_text',
+      );
+    } on PostgrestException catch (e) {
+      // مشروع لسه ما شغّلش 0039: العمود الجديد مش موجود — بنرجع
+      // للاستعلام القديم بدل ما الملف الصحي كله يقول «مقدرناش نكمّل»
+      // (نفس شبكة أمان أعمدة 0026/0028).
+      if (e.code != '42703' && e.code != 'PGRST204') rethrow;
+      records = await fetchRecords(
+        'test_name, value, unit, ref_low, ref_high, ref_text',
+      );
+    }
 
-        final readingsSince = DateTime.now().toUtc().subtract(readingsWindow).toIso8601String();
-        final readings = await _supabase
-            .from('readings')
-            .select('uuid, value_mg_dl, measured_at, context, updated_at')
-            .eq('patient_uuid', patient.uuid)
-            .gte('measured_at', readingsSince)
-            .order('measured_at', ascending: false)
-            .limit(readingsLimit);
+    final readingsSince = DateTime.now()
+        .toUtc()
+        .subtract(readingsWindow)
+        .toIso8601String();
+    final readings = await _supabase
+        .from('readings')
+        .select('uuid, value_mg_dl, measured_at, context, updated_at')
+        .eq('patient_uuid', patient.uuid)
+        .gte('measured_at', readingsSince)
+        .order('measured_at', ascending: false)
+        .limit(readingsLimit);
 
-        final emergency = await _supabase
-            .from('emergency_profile')
-            .select('blood_type, allergies, chronic_conditions, updated_at')
-            .eq('patient_uuid', patient.uuid)
-            .limit(1);
+    final emergency = await _supabase
+        .from('emergency_profile')
+        .select('blood_type, allergies, chronic_conditions, updated_at')
+        .eq('patient_uuid', patient.uuid)
+        .limit(1);
 
-        final questions = await _supabase
-            .from('visit_questions')
-            .select('uuid, body, written_at, asked, updated_at')
-            .eq('patient_uuid', patient.uuid)
-            .order('updated_at', ascending: false)
-            .limit(questionsLimit);
+    final questions = await _supabase
+        .from('visit_questions')
+        .select('uuid, body, written_at, asked, updated_at')
+        .eq('patient_uuid', patient.uuid)
+        .order('updated_at', ascending: false)
+        .limit(questionsLimit);
 
-        // القياسات الحيوية (٠٠٢٧) — **مجاملة**: لو الجدول لسه مش موجود على
-        // السيرفر، الشاشة كلها تفضل شغّالة من غيرها.
-        var vitals = const <Map<String, dynamic>>[];
-        try {
-          vitals = await _supabase
-              .from('vitals')
-              .select('kind, value, value2, pulse, measured_at, updated_at')
-              .eq('patient_uuid', patient.uuid)
-              .gte('measured_at', DateTime.now().toUtc().subtract(vitalsWindow).toIso8601String())
-              .order('measured_at', ascending: false)
-              .limit(vitalsLimit);
-        } on PostgrestException catch (e) {
-          if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
-          if (kDebugMode) debugPrint('Care: جدول القياسات مش موجود لسه (${e.code}) — شغّل ٠٠٢٧');
-        }
+    // القياسات الحيوية (٠٠٢٧) — **مجاملة**: لو الجدول لسه مش موجود على
+    // السيرفر، الشاشة كلها تفضل شغّالة من غيرها.
+    var vitals = const <Map<String, dynamic>>[];
+    try {
+      vitals = await _supabase
+          .from('vitals')
+          .select('kind, value, value2, pulse, measured_at, updated_at')
+          .eq('patient_uuid', patient.uuid)
+          .gte(
+            'measured_at',
+            DateTime.now().toUtc().subtract(vitalsWindow).toIso8601String(),
+          )
+          .order('measured_at', ascending: false)
+          .limit(vitalsLimit);
+    } on PostgrestException catch (e) {
+      if (e.code != 'PGRST205' && e.code != '42P01') rethrow;
+      if (kDebugMode) {
+        debugPrint('Care: جدول القياسات مش موجود لسه (${e.code}) — شغّل ٠٠٢٧');
+      }
+    }
 
-        for (final rows in [records, readings, emergency, questions, vitals]) {
-          for (final r in rows) {
-            bump(r['updated_at']);
-          }
-        }
+    for (final rows in [records, readings, emergency, questions, vitals]) {
+      for (final r in rows) {
+        bump(r['updated_at']);
+      }
+    }
 
-        return CaregiverSnapshot(
-          patient: patient,
-          proxied: {
-            for (final p in proxied) p['dose_event_uuid'] as String: p['actor_name'] as String?,
-          },
-          medications: [
-            for (final m in meds)
-              if (m['stopped_at'] == null) medicationFromRow(m),
-          ],
-          events: [for (final e in events) eventFromRow((e as Map).cast())],
-          alerts: [for (final a in alerts) alertFromRow(a)],
-          lastUpdated: last?.toLocal(),
-          records: [for (final r in records) ?recordFromRow(r)],
-          readings: [for (final r in readings) readingFromRow(r)],
-          emergency: emergencyFromRow(emergency.isEmpty ? null : emergency.first),
-          questions: [for (final q in questions) questionFromRow(q)],
-          sharedPapers: await _sharedPapers(patient),
-          vitals: [for (final v in vitals) ?vitalFromRow(v)],
-          departures: await fetchDepartures(_supabase, patient.uuid),
-        );
-      });
+    return CaregiverSnapshot(
+      patient: patient,
+      proxied: {
+        for (final p in proxied)
+          p['dose_event_uuid'] as String: p['actor_name'] as String?,
+      },
+      medications: [
+        for (final m in meds)
+          if (m['stopped_at'] == null) medicationFromRow(m),
+      ],
+      events: [for (final e in events) eventFromRow((e as Map).cast())],
+      alerts: [for (final a in alerts) alertFromRow(a)],
+      lastUpdated: last?.toLocal(),
+      records: [for (final r in records) ?recordFromRow(r)],
+      readings: [for (final r in readings) readingFromRow(r)],
+      emergency: emergencyFromRow(emergency.isEmpty ? null : emergency.first),
+      questions: [for (final q in questions) questionFromRow(q)],
+      sharedPapers: await _sharedPapers(patient),
+      vitals: [for (final v in vitals) ?vitalFromRow(v)],
+      departures: await fetchDepartures(_supabase, patient.uuid),
+    );
+  });
 
   Future<T> _guard<T>(Future<T> Function() body) async {
     try {

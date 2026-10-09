@@ -34,6 +34,7 @@ class MedicationsScreen extends StatefulWidget {
 
 class _MedicationsScreenState extends State<MedicationsScreen> {
   Stream<List<MedicationSummary>>? _all;
+  bool _pullingCircle = false;
 
   @override
   void didChangeDependencies() {
@@ -43,8 +44,22 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     _all = services.medications.watchAllSummaries(services.patientId);
   }
 
-  void _edit(int medicationId) =>
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EditMedicationScreen(medicationId: medicationId)));
+  void _edit(int medicationId) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => EditMedicationScreen(medicationId: medicationId),
+    ),
+  );
+
+  Future<void> _refreshCircle() async {
+    final puller = AppScope.of(context).medChangePull;
+    if (puller == null || _pullingCircle) return;
+    setState(() => _pullingCircle = true);
+    try {
+      await puller.pull();
+    } finally {
+      if (mounted) setState(() => _pullingCircle = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +81,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
 
         return ListView(
           // مفيش شريط علوي على الهيكل — التبويب بيسيب مكان شريط النظام لنفسه
-          padding: EdgeInsets.fromLTRB(F.gap, pad.top + F.gap, F.gap, F.gap + pad.bottom),
+          padding: EdgeInsets.fromLTRB(
+            F.gap,
+            pad.top + F.gap,
+            F.gap,
+            F.gap + pad.bottom,
+          ),
           children: [
             // العنوان على اليمين (البداية)، ومن غير سطر عدد تحته (المالك)
             Text(
@@ -79,11 +99,27 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                 color: F.ink,
               ),
             ),
+            if (AppScope.of(context).medChangePull != null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const ValueKey('refresh-nurse-medication-changes'),
+                  onPressed: _pullingCircle ? null : _refreshCircle,
+                  icon: const Icon(Icons.sync),
+                  label: Text(
+                    _pullingCircle ? 'بنتحقق…' : 'تحقق من تحديثات الممرض',
+                  ),
+                ),
+              ),
             if (active.isEmpty) ...[
               const SizedBox(height: F.s4),
               Text(
                 'لسه مفيش أدوية.',
-                style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.5),
+                style: TextStyle(
+                  fontSize: F.minTextSize,
+                  color: F.mutedDark,
+                  height: 1.5,
+                ),
               ),
             ],
             for (final g in groups.entries) ...[
@@ -91,7 +127,11 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               MedGroupHead(g.key),
               for (final (i, m) in g.value.indexed) ...[
                 if (i > 0) Divider(height: 1, thickness: 1, color: F.line),
-                _MedRow(summary: m, today: today, onEdit: () => _edit(m.medication.id)),
+                _MedRow(
+                  summary: m,
+                  today: today,
+                  onEdit: () => _edit(m.medication.id),
+                ),
               ],
             ],
             if (stopped.isNotEmpty) ...[
@@ -99,7 +139,12 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
               const MedGroupHead(MedGroup.stopped),
               for (final (i, m) in stopped.indexed) ...[
                 if (i > 0) Divider(height: 1, thickness: 1, color: F.line),
-                _MedRow(summary: m, today: today, stopped: true, onEdit: () => _edit(m.medication.id)),
+                _MedRow(
+                  summary: m,
+                  today: today,
+                  stopped: true,
+                  onEdit: () => _edit(m.medication.id),
+                ),
               ],
             ],
             const SizedBox(height: F.gap),
@@ -111,27 +156,44 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     );
   }
 
-  static int _byName(MedicationSummary a, MedicationSummary b) =>
-      a.medication.name.toLowerCase().compareTo(b.medication.name.toLowerCase());
+  static int _byName(MedicationSummary a, MedicationSummary b) => a
+      .medication
+      .name
+      .toLowerCase()
+      .compareTo(b.medication.name.toLowerCase());
 }
 
 /// الأدوية الشغّالة بمجموعاتها، بترتيب [MedGroup] (التلاتة اللي في التصميم
 /// الأول)، والمجموعة الفاضية مش موجودة. جوّه المجموعة: بأول ساعة، وبعدين
 /// بالاسم.
-Map<MedGroup, List<MedicationSummary>> groupByPurpose(List<MedicationSummary> active) {
+Map<MedGroup, List<MedicationSummary>> groupByPurpose(
+  List<MedicationSummary> active,
+) {
   final by = <MedGroup, List<MedicationSummary>>{};
   for (final m in active) {
-    by.putIfAbsent(MedGroup.of(MedicationPurpose.fromStorage(m.medication.purpose)), () => []).add(m);
+    by
+        .putIfAbsent(
+          MedGroup.of(MedicationPurpose.fromStorage(m.medication.purpose)),
+          () => [],
+        )
+        .add(m);
   }
-  int firstMinute(MedicationSummary m) =>
-      m.schedules.isEmpty ? 24 * 60 : m.schedules.map((s) => s.timing.minuteOfDay.minutes).reduce((a, b) => a < b ? a : b);
+  int firstMinute(MedicationSummary m) => m.schedules.isEmpty
+      ? 24 * 60
+      : m.schedules
+            .map((s) => s.timing.minuteOfDay.minutes)
+            .reduce((a, b) => a < b ? a : b);
   return {
     for (final g in MedGroup.values)
       if (by[g] case final list?)
         g: list
           ..sort((a, b) {
             final t = firstMinute(a).compareTo(firstMinute(b));
-            return t != 0 ? t : a.medication.name.toLowerCase().compareTo(b.medication.name.toLowerCase());
+            return t != 0
+                ? t
+                : a.medication.name.toLowerCase().compareTo(
+                    b.medication.name.toLowerCase(),
+                  );
           }),
   };
 }
@@ -141,13 +203,30 @@ Map<MedGroup, List<MedicationSummary>> groupByPurpose(List<MedicationSummary> ac
 /// في سطر تالت، بس لو موجودين.
 ///
 /// «قرص» / «٨:٠٠ ص و٨:٠٠ م» / «بعد الأكل».
-({String dose, String times, String? extra}) doseLines(MedicationSummary summary) {
+({String dose, String times, String? extra}) doseLines(
+  MedicationSummary summary,
+) {
   final med = summary.medication;
-  final schedules = [...summary.schedules]..sort((a, b) => a.timing.minuteOfDay.minutes.compareTo(b.timing.minuteOfDay.minutes));
-  String timeOf(DoseSchedule s) => arabicTime(DateTime(2026, 1, 1, s.timing.minuteOfDay.hour, s.timing.minuteOfDay.minute));
+  final schedules = [...summary.schedules]
+    ..sort(
+      (a, b) =>
+          a.timing.minuteOfDay.minutes.compareTo(b.timing.minuteOfDay.minutes),
+    );
+  String timeOf(DoseSchedule s) => arabicTime(
+    DateTime(
+      2026,
+      1,
+      1,
+      s.timing.minuteOfDay.hour,
+      s.timing.minuteOfDay.minute,
+    ),
+  );
   final meals = {for (final s in schedules) ?s.ruleLabel}.join(' و');
   final days = {for (final s in schedules) ?dayPatternLabel(s.days)}.join(' و');
-  final extra = [if (meals.isNotEmpty) meals, if (days.isNotEmpty) days].join(' — ');
+  final extra = [
+    if (meals.isNotEmpty) meals,
+    if (days.isNotEmpty) days,
+  ].join(' — ');
   return (
     // الجرعة مش معروفة — بهدوء، من غير لوم: سؤال للصيدلي مش غلطة
     dose: med.amountLabel ?? 'الجرعة مش معروفة',
@@ -158,15 +237,25 @@ Map<MedGroup, List<MedicationSummary>> groupByPurpose(List<MedicationSummary> ac
 
 /// دوا بدايته لسه جاية: كل جدوله بيبدأ بعد النهارده.
 bool startsLater(MedicationSummary s, DateTime today) =>
-    s.schedules.isNotEmpty && s.schedules.every((sch) => !sch.isActiveOn(today) && sch.startDate.isAfter(today));
+    s.schedules.isNotEmpty &&
+    s.schedules.every(
+      (sch) => !sch.isActiveOn(today) && sch.startDate.isAfter(today),
+    );
 
-DateTime firstStartDay(MedicationSummary s) => s.schedules.map((sch) => sch.startDate).reduce((a, b) => a.isBefore(b) ? a : b);
+DateTime firstStartDay(MedicationSummary s) => s.schedules
+    .map((sch) => sch.startDate)
+    .reduce((a, b) => a.isBefore(b) ? a : b);
 
 /// مقاس الصورة في الصف (المالك اختار ١٢٠ — قريب من التصميم ١١٥).
 const medRowPictureSize = 120.0;
 
 class _MedRow extends StatelessWidget {
-  const _MedRow({required this.summary, required this.today, required this.onEdit, this.stopped = false});
+  const _MedRow({
+    required this.summary,
+    required this.today,
+    required this.onEdit,
+    this.stopped = false,
+  });
 
   final MedicationSummary summary;
   final DateTime today;
@@ -186,7 +275,12 @@ class _MedRow extends StatelessWidget {
         children: [
           Opacity(
             opacity: stopped ? 0.55 : 1,
-            child: MedPhotoThumb(path: med.photoPath, name: med.name, form: MedicineForm.fromWire(med.form), size: medRowPictureSize),
+            child: MedPhotoThumb(
+              path: med.photoPath,
+              name: med.name,
+              form: MedicineForm.fromWire(med.form),
+              size: medRowPictureSize,
+            ),
           ),
           const SizedBox(width: F.s12),
           Expanded(
@@ -206,13 +300,20 @@ class _MedRow extends StatelessWidget {
                 ),
                 if (purpose != null) ...[
                   const SizedBox(height: F.s6),
-                  Align(alignment: AlignmentDirectional.centerStart, child: MedPurposeChip(purpose)),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MedPurposeChip(purpose),
+                  ),
                 ],
                 const SizedBox(height: F.s6),
                 Text(
                   lines.dose,
                   key: ValueKey('med-dose-${med.id}'),
-                  style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
+                  style: TextStyle(
+                    fontSize: F.minTextSize,
+                    color: F.mutedDark,
+                    height: 1.45,
+                  ),
                 ),
                 if (lines.times.isNotEmpty)
                   Row(
@@ -221,14 +322,22 @@ class _MedRow extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         // الساعة أيقونة هادية — الدهبي لـ«محتاجك دلوقتي» بس
-                        child: Icon(Icons.schedule, size: 22, color: F.mutedDark),
+                        child: Icon(
+                          Icons.schedule,
+                          size: 22,
+                          color: F.mutedDark,
+                        ),
                       ),
                       const SizedBox(width: F.s6),
                       Expanded(
                         child: Text(
                           lines.times,
                           key: ValueKey('med-times-${med.id}'),
-                          style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
+                          style: TextStyle(
+                            fontSize: F.minTextSize,
+                            color: F.mutedDark,
+                            height: 1.45,
+                          ),
                         ),
                       ),
                     ],
@@ -237,7 +346,11 @@ class _MedRow extends StatelessWidget {
                   Text(
                     extra,
                     key: ValueKey('med-extra-${med.id}'),
-                    style: TextStyle(fontSize: F.minTextSize, color: F.mutedDark, height: 1.45),
+                    style: TextStyle(
+                      fontSize: F.minTextSize,
+                      color: F.mutedDark,
+                      height: 1.45,
+                    ),
                   ),
                 if (!stopped && startsLater(summary, today))
                   Padding(
@@ -245,7 +358,11 @@ class _MedRow extends StatelessWidget {
                     child: Text(
                       'هيبدأ يوم ${arabicDate(firstStartDay(summary))}',
                       key: ValueKey('starts-later-${med.id}'),
-                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.ink),
+                      style: TextStyle(
+                        fontSize: F.minTextSize,
+                        fontWeight: FontWeight.w600,
+                        color: F.ink,
+                      ),
                     ),
                   ),
                 if (stopped)
@@ -253,7 +370,11 @@ class _MedRow extends StatelessWidget {
                     padding: const EdgeInsets.only(top: F.s4),
                     child: Text(
                       'موقوف — التذكيرات واقفة',
-                      style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w600, color: F.mutedDark),
+                      style: TextStyle(
+                        fontSize: F.minTextSize,
+                        fontWeight: FontWeight.w600,
+                        color: F.mutedDark,
+                      ),
                     ),
                   ),
               ],
@@ -288,14 +409,23 @@ class _EditButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(F.radiusTile),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 64, minHeight: F.minTapTarget),
+          constraints: const BoxConstraints(
+            minWidth: 64,
+            minHeight: F.minTapTarget,
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: F.s6, horizontal: F.s4),
+            padding: const EdgeInsets.symmetric(
+              vertical: F.s6,
+              horizontal: F.s4,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DecoratedBox(
-                  decoration: BoxDecoration(color: F.medGroupEyeSkinTint, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: F.medGroupEyeSkinTint,
+                    shape: BoxShape.circle,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(F.s10),
                     child: Icon(Icons.edit_outlined, size: 24, color: F.green),
@@ -304,7 +434,11 @@ class _EditButton extends StatelessWidget {
                 const SizedBox(height: F.s4),
                 Text(
                   'تعديل',
-                  style: TextStyle(fontSize: F.minTextSize, fontWeight: FontWeight.w700, color: F.ink),
+                  style: TextStyle(
+                    fontSize: F.minTextSize,
+                    fontWeight: FontWeight.w700,
+                    color: F.ink,
+                  ),
                 ),
               ],
             ),
@@ -330,12 +464,17 @@ class _AddButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: F.green,
         foregroundColor: F.onGreen,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(F.radiusCard * 2)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(F.radiusCard * 2),
+        ),
       ),
       icon: const Icon(Icons.add_circle, size: 30),
       label: const Text(
         addSheetTitle,
-        style: TextStyle(fontSize: F.minBodySize + 2, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          fontSize: F.minBodySize + 2,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     ),
   );

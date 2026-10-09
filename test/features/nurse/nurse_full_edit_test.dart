@@ -320,23 +320,32 @@ void main() {
       expect(device.pending, isEmpty);
     });
 
-    test('«لاحقاً» = نفس التذكير بعد ربع ساعة برقم التأجيل بتاع خانته', () async {
+    test('«لاحقاً» على جهاز الممرض يلغي التنبيه المحلي القديم فقط', () async {
       final r = NurseReminders(sink: device, clock: () => _now);
-      await r.sync(patients: [_snap([e20]).patient], current: _snap([e20]), allowed: true);
-      final n = device.pending.values.single;
-      expect(await r.later(id: n.id, payload: n.payload), isTrue);
-      final snooze = device.pending.values.single;
-      expect(isNurseSnoozeId(snooze.id), isTrue);
-      expect(snooze.id, nurseSnoozeIdFor(DateTime(2026, 9, 15, 20), patientIndex: 0));
-      expect(snooze.at, _now.add(NurseReminders.laterBy));
-      expect(snooze.title, n.title);
-      // والمقارنة الجاية على نفس الصورة ما بتلغيهوش
-      await r.sync(patients: [_snap([e20]).patient], current: _snap([e20]), allowed: true);
-      expect(device.pending.keys.where(isNurseSnoozeId), hasLength(1));
-      // والجرعة لما تتقفل بيروح
-      final taken = event('Concor 5mg', DateTime(2026, 9, 15, 20), 'taken');
-      await r.sync(patients: [_snap([taken]).patient], current: _snap([taken]), allowed: true);
+      final snapshot = _snap([e20]);
+      final legacy = NurseNotification(
+        id: nurseIdFor(DateTime(2026, 9, 15, 20), patientIndex: 0),
+        at: DateTime(2026, 9, 15, 20),
+        title: 'ميعاد جرعة قديم',
+        body: nurseReminderBody,
+        payload: nursePayload(
+          'p1',
+          [e20.uuid],
+          at: DateTime(2026, 9, 15, 20),
+          patientIndex: 0,
+        ),
+        insistent: true,
+      );
+      device.pending[legacy.id] = legacy;
+
+      expect(await r.later(id: legacy.id, payload: legacy.payload), isTrue);
+
+      // لا إشعار محلي جديد ولا تأجيل؛ إجراء الممرض لا يغيّر حالة الجرعة
+      // القادمة من المريض، فتظل ظاهرة كجرعة مفتوحة في واجهة المتابعة.
       expect(device.pending, isEmpty);
+      expect(device.cancelled, [legacy.id]);
+      expect(snapshot.events.single.uuid, e20.uuid);
+      expect(snapshot.events.single.state, 'pending');
     });
 
     test('«نبهني بمواعيد الدوا» مقفول للمريض ده → ولا تذكير، وفتحه بيرجّعها', () async {

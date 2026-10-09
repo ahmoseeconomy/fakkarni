@@ -4,19 +4,24 @@ import 'package:fakkarni/data/care/caregiver_remote.dart';
 import 'package:fakkarni/data/care/supabase_caregiver_remote.dart';
 
 /// شكل صف escalations زي ما PostgREST بيرجّعه بالـembed المتداخل.
-Map<String, dynamic> row({String status = 'sent', String? sentAt, String state = 'missed'}) => {
-      'uuid': 'esc-1',
-      'delivery_status': status,
-      'created_at': '2026-08-31T06:00:00+00:00',
-      'sent_at': sentAt,
-      'dose_events': {
-        'scheduled_at': '2026-08-31T05:00:00+00:00',
-        'state': state,
-        'dose_schedules': {
-          'medications': {'name': 'Concor 5mg', 'patient_uuid': 'p1'},
-        },
-      },
-    };
+Map<String, dynamic> row({
+  String status = 'sent',
+  String? sentAt,
+  String state = 'missed',
+}) => {
+  'uuid': 'esc-1',
+  'delivery_status': status,
+  'created_at': '2026-08-31T06:00:00+00:00',
+  'sent_at': sentAt,
+  'dose_events': {
+    'uuid': 'event-1',
+    'scheduled_at': '2026-08-31T05:00:00+00:00',
+    'state': state,
+    'dose_schedules': {
+      'medications': {'name': 'Concor 5mg', 'patient_uuid': 'p1'},
+    },
+  },
+};
 
 void main() {
   doseRowTests();
@@ -45,6 +50,27 @@ void main() {
     expect(a.sentAt, isNull);
   });
 
+  test(
+    'حالة dose_events الحالية تغلب حالة التصعيد التاريخية بعد تأكيد المريض',
+    () {
+      final historicalAlert = alertFromRow(row(state: 'missed'));
+      final snapshot = CaregiverSnapshot(
+        patient: const CaregiverPatient(uuid: 'p1', name: 'أحمد'),
+        medications: const [],
+        events: [
+          CaregiverDoseEvent(
+            uuid: 'event-1',
+            medicationName: 'Concor 5mg',
+            scheduledAt: DateTime(2026, 8, 31, 5),
+            state: 'taken',
+          ),
+        ],
+        alerts: [historicalAlert],
+      );
+      expect(currentOpenCaregiverAlerts(snapshot), isEmpty);
+    },
+  );
+
   test('النافذة ٤٨ ساعة', () {
     expect(alertWindow, const Duration(hours: 48));
   });
@@ -53,15 +79,15 @@ void main() {
 // ================= المرحلة ٤ (٥ أكتوبر ٢٠٢٦): uuid الدوا على صف الجرعة
 
 Map<String, Object?> _doseRow({String? medUuid, String name = 'Concor'}) => {
-      'uuid': 'e1',
-      'scheduled_at': '2026-08-31T07:00:00Z',
-      'state': 'pending',
-      'routine_day': '2026-08-31',
-      'acted_at': null,
-      'dose_schedules': {
-        'medications': {'uuid': medUuid, 'name': name, 'amount_label': 'قرص'},
-      },
-    };
+  'uuid': 'e1',
+  'scheduled_at': '2026-08-31T07:00:00Z',
+  'state': 'pending',
+  'routine_day': '2026-08-31',
+  'acted_at': null,
+  'dose_schedules': {
+    'medications': {'uuid': medUuid, 'name': name, 'amount_label': 'قرص'},
+  },
+};
 
 void doseRowTests() {
   test('eventFromRow بيقرا uuid الدوا من الضمّة المتداخلة', () {
@@ -72,17 +98,37 @@ void doseRowTests() {
   });
 
   test('دواءين بنفس الاسم: الربط بالـuuid بيجيب الصح — الاسم كان بيلخبط', () {
-    const a = CaregiverMedication(uuid: 'm-a', name: 'Concor 5mg', form: 'tablet');
-    const b = CaregiverMedication(uuid: 'm-b', name: 'Concor 5mg', form: 'syrup');
+    const a = CaregiverMedication(
+      uuid: 'm-a',
+      name: 'Concor 5mg',
+      form: 'tablet',
+    );
+    const b = CaregiverMedication(
+      uuid: 'm-b',
+      name: 'Concor 5mg',
+      form: 'syrup',
+    );
     final dose = eventFromRow(_doseRow(medUuid: 'm-b', name: 'Concor 5mg'));
-    expect(medicationForDose([a, b], dose)?.form, 'syrup', reason: 'بالـuuid مش بأول اسم مطابق');
+    expect(
+      medicationForDose([a, b], dose)?.form,
+      'syrup',
+      reason: 'بالـuuid مش بأول اسم مطابق',
+    );
   });
 
   test('صف قديم من غير uuid: الاسم بديل — والدوا الغايب null مش اختراع', () {
-    const a = CaregiverMedication(uuid: 'm-a', name: 'Concor 5mg', form: 'tablet');
+    const a = CaregiverMedication(
+      uuid: 'm-a',
+      name: 'Concor 5mg',
+      form: 'tablet',
+    );
     final old = eventFromRow(_doseRow(medUuid: null, name: 'Concor 5mg'));
     expect(old.medicationUuid, isNull);
-    expect(medicationForDose([a], old)?.uuid, 'm-a', reason: 'الاسم بديل للصف القديم');
+    expect(
+      medicationForDose([a], old)?.uuid,
+      'm-a',
+      reason: 'الاسم بديل للصف القديم',
+    );
     final stranger = eventFromRow(_doseRow(medUuid: null, name: 'Panadol'));
     expect(medicationForDose([a], stranger), isNull);
   });
