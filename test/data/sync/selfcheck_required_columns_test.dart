@@ -67,6 +67,21 @@ List<({String table, Set<String> columns, int line})> insertsIn(String sql) => [
         ),
     ];
 
+/// ترحيلات بنيوية فقط: لا تُنشئ صفوفاً كي يختبرها فحص أعمدة `insert`.
+/// كل استثناء هنا لازم يحمل حارس DDL محدداً، حتى لا تتحول القائمة إلى طريقة
+/// لإخفاء ترحيل ناقص الفحص الذاتي.
+final schemaOnlyMigrationChecks = <int, List<RegExp>>{
+  40: [
+    RegExp(
+      r'alter table\s+public\.caregiver_preferences\s+'
+      r'add column if not exists\s+escalation_sound\s+'
+      r'boolean not null default true',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+  ],
+};
+
 void main() {
   final dir = Directory('supabase/migrations');
   final all = (dir.listSync().whereType<File>().where((f) => f.path.endsWith('.sql')).toList())
@@ -91,7 +106,16 @@ void main() {
     test('$n: كل insert في الفحص الذاتي بيكتب كل عمود not null من غير default (من الترحيلات اللي قبله)', () {
       // الملف نفسه داخل: جدول بيعمله وبيكتب فيه في فحصه لازم يتحرس برضه
       final required = requiredColumns(all.where((f) => numberOf(f) <= n).toList());
-      final inserts = insertsIn(file.readAsStringSync());
+      final sql = file.readAsStringSync();
+      final inserts = insertsIn(sql);
+      final schemaOnlyChecks = schemaOnlyMigrationChecks[n];
+      if (schemaOnlyChecks != null) {
+        expect(inserts, isEmpty, reason: '${file.path}: استثناء schema-only لا ينفع يكتب صفوفاً');
+        for (final check in schemaOnlyChecks) {
+          expect(sql, matches(check), reason: '${file.path}: حارس schema-only لا يطابق الـDDL المتوقع');
+        }
+        return;
+      }
       expect(inserts, isNotEmpty, reason: '${file.path}: مفيش ولا insert — فحص ذاتي من غير كتابة مش فحص');
       final missing = <String>[];
       for (final ins in inserts) {
