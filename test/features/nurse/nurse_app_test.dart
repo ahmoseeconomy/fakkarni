@@ -31,6 +31,7 @@ import 'package:fakkarni/data/services/nurse_reminder_plan.dart';
 import 'package:fakkarni/features/nurse/nurse_records_screen.dart';
 import 'package:fakkarni/features/nurse/nurse_reminders.dart';
 import 'package:fakkarni/features/nurse/nurse_widgets.dart';
+import 'package:fakkarni/features/today/widgets/day_rail.dart';
 
 import '../../app/root_test.dart' show SilentSink;
 import '../../data/billing/subscription_service_test.dart'
@@ -227,7 +228,7 @@ void main() {
   }
 
   group('تطبيق الممرض', () {
-    screenTest('واجهة الممرض تشغيلية ولا تعرض عناصر يوم المريض', (
+    screenTest('واجهة يوم الممرض كواجهة المريض من غير التحية والالتزام اليومي', (
       tester,
     ) async {
       cloud.snapshots['p1'] = snap();
@@ -239,14 +240,16 @@ void main() {
       expect(find.text('ضيف'), findsNothing);
       expect(find.text('متابعة'), findsNothing);
       expect(find.text('بتتابع: الحاج أحمد'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('nurse-patients-title')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('nurse-overdue-title')), findsOneWidget);
-      expect(find.text('باقي اليوم'), findsNothing);
+      expect(find.byKey(const ValueKey('weekly-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-now-card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-now-title')), findsOneWidget);
+      expect(find.text('باقي اليوم'), findsOneWidget);
+      expect(find.byType(DayRail), findsOneWidget);
+      expect(find.text('صباح الخير'), findsNothing);
+      expect(find.text('مساء الخير'), findsNothing);
+      expect(find.text('إنت ماشي كويس النهارده'), findsNothing);
+      expect(find.byKey(const ValueKey('today-progress-line')), findsNothing);
       expect(find.byKey(const ValueKey('today-progress-ring')), findsNothing);
-      expect(find.byKey(const ValueKey('nurse-greeting')), findsNothing);
       expect(
         nurseDevice.scheduled,
         isEmpty,
@@ -254,16 +257,12 @@ void main() {
       );
     });
 
-    screenTest('تنبيهات التصعيد ظاهرة في اللوحة التشغيلية بلا ملخص أسبوعي', (
+    screenTest('ملخص الأسبوع ظاهر في صفحة يوم الممرض', (
       tester,
     ) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
-      expect(
-        find.byKey(const ValueKey('nurse-escalations-title')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('weekly-summary')), findsNothing);
+      expect(find.byKey(const ValueKey('weekly-summary')), findsOneWidget);
     });
 
     screenTest('المتابع العادي: شاشته القديمة زي ما هي', (tester) async {
@@ -358,16 +357,17 @@ void main() {
     });
   });
 
-  group('واجهة تشغيلية', () {
-    screenTest('تعرض الجرعات المفتوحة المتأخرة وتخفي واجهة يوم المريض', (
+  group('واجهة يوم الممرض', () {
+    screenTest('تعرض الجرعة الجاية وباقي اليوم بالخط الزمني', (
       tester,
     ) async {
       cloud.snapshots['p1'] = snap();
       await pump(tester);
-      expect(find.byKey(const ValueKey('nurse-overdue-title')), findsOneWidget);
-      expect(find.byKey(ValueKey('nurse-dose-${missed.uuid}')), findsOneWidget);
-      expect(find.text('باقي اليوم'), findsNothing);
-      expect(find.byKey(const ValueKey('today-progress-ring')), findsNothing);
+      expect(find.byKey(const ValueKey('nurse-now-card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('nurse-rest-title')), findsOneWidget);
+      expect(find.byType(DayRail), findsOneWidget);
+      expect(find.textContaining('Glucophage'), findsWidgets);
+      expect(find.byKey(const ValueKey('weekly-summary')), findsOneWidget);
     });
 
     screenTest(
