@@ -24,10 +24,19 @@ void main() {
       .single;
 
   /// كل اللي بيتحرّك في العلامة، في سطر واحد يتقارن.
-  List<double> frameOf(FaMarkPainter p) =>
-      [p.bowlProgress, p.tailProgress, p.dotOpacity, p.dotSlide, p.dotDrop, p.dotFlash, p.halo];
+  List<double> frameOf(FaMarkPainter p) => [
+    p.bowlProgress,
+    p.tailProgress,
+    p.dotOpacity,
+    p.dotSlide,
+    p.dotDrop,
+    p.dotFlash,
+    p.halo,
+  ];
 
-  testWidgets('العلامة بتقف ثابتة قبل التلاشي — مش بتروح في رمشة', (tester) async {
+  testWidgets('العلامة بتقف ثابتة قبل التلاشي — مش بتروح في رمشة', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SplashOverlay(child: Scaffold(body: Text('الشاشة الأولى'))),
@@ -39,13 +48,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 3900));
     final settled = frameOf(markOf(tester));
     final word = tester.widget<Opacity>(
-      find.ancestor(of: find.text('فكرني'), matching: find.byType(Opacity)).first,
+      find
+          .ancestor(of: find.text('فكرني'), matching: find.byType(Opacity))
+          .first,
     );
     expect(word.opacity, 1.0, reason: 'الكلمة كاملة قبل الوقفة');
 
     // كمان ثانية جوّه الوقفة — ولا حاجة اتحرّكت
     await tester.pump(const Duration(milliseconds: 1000));
-    expect(frameOf(markOf(tester)), settled, reason: 'العلامة اتحرّكت في وقت المفروض واقفة فيه');
+    expect(
+      frameOf(markOf(tester)),
+      settled,
+      reason: 'العلامة اتحرّكت في وقت المفروض واقفة فيه',
+    );
     expect(find.text('فكرني'), findsOneWidget);
 
     // والطبقة لسه كاملة الظهور — التلاشي ما بدأش
@@ -55,7 +70,9 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('الوقفة مش أقل من ثانية — والحركة كلها خلصت قبلها', (tester) async {
+  testWidgets('الوقفة مش أقل من ثانية — والحركة كلها خلصت قبلها', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SplashOverlay(child: Scaffold(body: Text('الشاشة الأولى'))),
@@ -70,6 +87,26 @@ void main() {
     // وآخر لحظة قبل التلاشي
     await tester.pump(const Duration(milliseconds: 1190));
     expect(frameOf(markOf(tester)), atRestStart);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('اسم فكرني أقرب للعلامة بـ١٤px من المسافة السابقة', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SplashOverlay(child: Scaffold(body: Text('الشاشة الأولى'))),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 3900));
+
+    final mark = find.byWidgetPredicate(
+      (widget) => widget is CustomPaint && widget.painter is FaMarkPainter,
+    );
+    final word = find.text('فكرني');
+    expect(tester.getTopLeft(word).dy - tester.getBottomLeft(mark).dy, 8);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

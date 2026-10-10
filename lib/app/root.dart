@@ -41,7 +41,10 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   Stream<bool>? _hasPatient;
   StreamSubscription<FakkarniUser?>? _authSub;
   ValueNotifier<String?>? _tapPayload;
+  AppServices? _services;
   bool _shellReady = false;
+  ReminderPayload? _launchReminder;
+  String? _openingPayload;
 
   /// «التليفون ده ليا» اتضغط — في الذاكرة بس، مش متخزّن ومش دور.
   ///
@@ -161,13 +164,21 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_hasPatient != null) return;
     final services = AppScope.of(context);
-    _hasPatient = services.patients.watchHasPatient(services.patientId);
+    if (identical(_services, services)) return;
+    final sameLocalStore =
+        _services?.db == services.db &&
+        _services?.patientId == services.patientId;
+    _services = services;
+    if (!sameLocalStore) {
+      _hasPatient = services.patients.watchHasPatient(services.patientId);
+    }
+    _authSub?.cancel();
     // الجلسة بتتقرا بس (محفوظة محلياً) — مفيش نداء دخول هنا أبداً
     _authSub = services.auth?.authState.listen((_) {
       if (mounted) setState(() {});
     });
+    _tapPayload?.removeListener(_openFromTap);
     _tapPayload = services.tapPayload?..addListener(_openFromTap);
   }
 
@@ -184,22 +195,29 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     final raw = _tapPayload?.value;
     if (raw == null) return;
     if (!_shellReady) return; // هنرجع نبص عليه أول ما «يومك» تتبني
+    if (_openingPayload == raw) {
+      _tapPayload!.value = null;
+      return;
+    }
 
     // بنصفّر في الحالتين: payload مش بتاعنا ما يستاهلش يتفتح عليه تاني.
     _tapPayload!.value = null;
     final payload = decodePayload(raw);
     if (payload == null) return;
+    _openingPayload = raw;
 
     // تنبيه الجرعة بيكسب — الكلام يسكت قبل ما شاشة التذكير تتفتح
     unawaited(AppScope.of(context).voice?.stop());
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ReminderScreen(
-          routineDay: payload.routineDay,
-          scheduleIds: payload.scheduleIds,
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => ReminderScreen(
+              routineDay: payload.routineDay,
+              scheduleIds: payload.scheduleIds,
+            ),
+          ),
+        )
+        .whenComplete(() => _openingPayload = null);
   }
 
   /// «التليفون ده ليا»: شاشة الدخول الحقيقية الأول — **بتتخطى**. الحساب
@@ -315,6 +333,34 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   }
 
   Widget _patientApp(BuildContext context) {
+    // الفتحة الباردة من إشعار جرعة لا تبني «يومك» ثم تضع التنبيه فوقها:
+    // البيانات المحلية أصبحت جاهزة هنا، فالتنبيه هو أول واجهة Flutter.
+    final fromLaunch = _launchReminder ?? decodePayload(_tapPayload?.value);
+    if (fromLaunch != null) {
+      if (_launchReminder == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _launchReminder != null) return;
+          setState(() {
+            _launchReminder = fromLaunch;
+            _openingPayload = _tapPayload?.value;
+            // لا تعيد listener فتحه كمسار فوق الصفحة المباشرة.
+            _tapPayload?.value = null;
+          });
+        });
+      }
+      return ReminderScreen(
+        routineDay: fromLaunch.routineDay,
+        scheduleIds: fromLaunch.scheduleIds,
+        onExit: () {
+          if (mounted) {
+            setState(() {
+              _launchReminder = null;
+              _openingPayload = null;
+            });
+          }
+        },
+      );
+    }
     if (!_shellReady) {
       _shellReady = true;
       // الدوسة اللي جت قبل ما «يومك» تتبني — نفتحها دلوقتي، بعد الفريم.

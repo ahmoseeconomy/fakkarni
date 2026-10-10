@@ -24,8 +24,8 @@ import 'package:fakkarni/features/onboarding/profile_onboarding_screen.dart';
 import 'package:fakkarni/features/link/sign_in_screen.dart';
 import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import 'package:fakkarni/features/today/today_screen.dart';
-import '../support/seeded_clock.dart';
 
+import '../support/seeded_clock.dart';
 
 class SilentSink implements ReminderSink {
   @override
@@ -108,39 +108,43 @@ void main() {
   // ⚠️ حارس «الهوية مش بوابة». لو الاختبار ده وقع فحد حط دخول في وش
   // المستخدم عند الفتح — وده ممنوع بنص CLAUDE.md: التطبيق كامل من غير
   // حساب، وباب الدخول الوحيد «اربط ابني». صحّح التصميم، متصحّحش الاختبار.
-  screenTest('حارس: الفتح من غير أي جلسة بيدخل على التطبيق نفسه، مش على شاشة دخول',
-      (tester) async {
-    // الهوية **متظبطة وموجودة** — وبرضه ولا جلسة ولا نداء دخول عند الفتح.
-    // لو الحارس ده بقى صحيح-تلقائياً لأن جلسة بتتعمل دايماً، يبقى اتشال.
-    final fakeAuth = _CountingAuth();
-    services = AppServices(
-      db: services.db,
-      patients: services.patients,
-      medications: services.medications,
-      events: services.events,
-      scheduler: services.scheduler,
-      patientId: services.patientId,
-      tapPayload: tap,
-      auth: fakeAuth,
-    );
-    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
-    await pumpRoot(tester);
+  screenTest(
+    'حارس: الفتح من غير أي جلسة بيدخل على التطبيق نفسه، مش على شاشة دخول',
+    (tester) async {
+      // الهوية **متظبطة وموجودة** — وبرضه ولا جلسة ولا نداء دخول عند الفتح.
+      // لو الحارس ده بقى صحيح-تلقائياً لأن جلسة بتتعمل دايماً، يبقى اتشال.
+      final fakeAuth = _CountingAuth();
+      services = AppServices(
+        db: services.db,
+        patients: services.patients,
+        medications: services.medications,
+        events: services.events,
+        scheduler: services.scheduler,
+        patientId: services.patientId,
+        tapPayload: tap,
+        auth: fakeAuth,
+      );
+      await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
+      await pumpRoot(tester);
 
-    expect(find.byType(TodayScreen), findsOneWidget);
-    expect(find.byType(SignInScreen), findsNothing);
-    expect(fakeAuth.signInCalls, 0, reason: 'signInToLink من الزرار وبس');
-    expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
-    // وكل حاجة أساسية موجودة وشغّالة — «ضيف» في الهيكل بيفتح الروشتة والإدخال
-    await tester.dragUntilVisible(
-      find.text('معلومة تهمك'),
-      find.byType(Scrollable).first,
-      const Offset(0, -120),
-    );
-    expect(find.text('معلومة تهمك'), findsOneWidget);
-    expect(find.text('ضيف'), findsOneWidget);
-  });
+      expect(find.byType(TodayScreen), findsOneWidget);
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(fakeAuth.signInCalls, 0, reason: 'signInToLink من الزرار وبس');
+      expect(fakeAuth.currentUser, isNull, reason: 'تنزيلة جديدة = صفر جلسات');
+      // وكل حاجة أساسية موجودة وشغّالة — «ضيف» في الهيكل بيفتح الروشتة والإدخال
+      await tester.dragUntilVisible(
+        find.text('معلومة تهمك'),
+        find.byType(Scrollable).first,
+        const Offset(0, -120),
+      );
+      expect(find.text('معلومة تهمك'), findsOneWidget);
+      expect(find.text('ضيف'), findsOneWidget);
+    },
+  );
 
-  screenTest('حارس: «اربط ابني» → «مش دلوقتي» بترجّع لـ«يومك» كاملة', (tester) async {
+  screenTest('حارس: «اربط ابني» → «مش دلوقتي» بترجّع لـ«يومك» كاملة', (
+    tester,
+  ) async {
     await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     tester.view.physicalSize = const Size(1000, 3000);
     tester.view.devicePixelRatio = 1.0;
@@ -170,17 +174,20 @@ void main() {
     expect(find.text('ضيف'), findsOneWidget);
   });
 
-  screenTest('صف «أنا» من غير «نتعرّف عليك» → شاشة البداية؛ وبعد الاسم → «يومك» على طول — مفيش أسئلة روتين', (tester) async {
-    await pumpRoot(tester);
-    expect(find.byType(EntryScreen), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
+  screenTest(
+    'صف «أنا» من غير «نتعرّف عليك» → شاشة البداية؛ وبعد الاسم → «يومك» على طول — مفيش أسئلة روتين',
+    (tester) async {
+      await pumpRoot(tester);
+      expect(find.byType(EntryScreen), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
 
-    await patients.saveProfile(services.patientId, name: 'أحمد');
-    await pumpRoot(tester);
-    expect(find.byType(ProfileOnboardingScreen), findsNothing);
-    expect(find.byType(EntryScreen), findsNothing);
-    expect(find.byType(TodayScreen), findsOneWidget);
-  });
+      await patients.saveProfile(services.patientId, name: 'أحمد');
+      await pumpRoot(tester);
+      expect(find.byType(ProfileOnboardingScreen), findsNothing);
+      expect(find.byType(EntryScreen), findsNothing);
+      expect(find.byType(TodayScreen), findsOneWidget);
+    },
+  );
 
   group('D4 — «مين ماسك التليفون؟»', () {
     late _SessionAuth auth;
@@ -220,29 +227,42 @@ void main() {
     }
 
     // ⚠️ نفس روح الحارس فوق: الشاشة دي سؤال، مش تسجيل دخول
-    screenTest('تنزيلة نضيفة (والهوية متظبطة) → شاشة البداية، وصفر جلسات وصفر نداءات دخول',
-        (tester) async {
-      useCloud();
-      await tallView(tester);
-      await pumpRoot(tester);
+    screenTest(
+      'تنزيلة نضيفة (والهوية متظبطة) → شاشة البداية، وصفر جلسات وصفر نداءات دخول',
+      (tester) async {
+        useCloud();
+        await tallView(tester);
+        await pumpRoot(tester);
 
-      expect(find.byType(EntryScreen), findsOneWidget);
-      expect(find.byType(SignInScreen), findsNothing);
-      expect(find.byType(ProfileOnboardingScreen), findsNothing);
-      expect(auth.signInCalls, 0);
-      expect(auth.currentUser, isNull);
-    });
+        expect(find.byType(EntryScreen), findsOneWidget);
+        expect(find.byType(SignInScreen), findsNothing);
+        expect(find.byType(ProfileOnboardingScreen), findsNothing);
+        expect(auth.signInCalls, 0);
+        expect(auth.currentUser, isNull);
+      },
+    );
 
-    screenTest('«التليفون ده ليا» → شاشة الدخول (محطة تتخطى) → «نتعرّف عليك»', (tester) async {
+    screenTest('«التليفون ده ليا» → شاشة الدخول (محطة تتخطى) → «نتعرّف عليك»', (
+      tester,
+    ) async {
       useCloud();
       await tallView(tester);
       await pumpRoot(tester);
       // المخطط ٢: بيختار، وبعدين «يلا نبدأ»
-      expect(tester.widget<FPrimaryButton>(find.byKey(const ValueKey('entry-start'))).onPressed, isNull,
-          reason: 'من غير اختيار مفيش بداية');
+      expect(
+        tester
+            .widget<FPrimaryButton>(find.byKey(const ValueKey('entry-start')))
+            .onPressed,
+        isNull,
+        reason: 'من غير اختيار مفيش بداية',
+      );
       await tester.tap(find.byKey(const ValueKey('entry-self')));
       await settle(tester);
-      expect(find.byType(SignInScreen), findsNothing, reason: 'الاختيار لوحده ما بيمشيش');
+      expect(
+        find.byType(SignInScreen),
+        findsNothing,
+        reason: 'الاختيار لوحده ما بيمشيش',
+      );
       await tester.tap(find.byKey(const ValueKey('entry-start')));
       await settle(tester);
 
@@ -260,7 +280,9 @@ void main() {
       expect(auth.currentUser, isNull, reason: 'وصل الأسئلة من غير جلسة');
     });
 
-    screenTest('مسار المريض بيفضل مسار مريض حتى لو سجّل دخول في النص', (tester) async {
+    screenTest('مسار المريض بيفضل مسار مريض حتى لو سجّل دخول في النص', (
+      tester,
+    ) async {
       useCloud();
       await tallView(tester);
       await pumpRoot(tester);
@@ -276,116 +298,154 @@ void main() {
       await tester.tap(find.text('كمّل من غير حساب'));
       await settle(tester);
 
-      expect(find.byType(ProfileOnboardingScreen), findsOneWidget,
-          reason: 'جلسة من غير مريض مش معناها إنه ابن — هو في نص الإعداد');
+      expect(
+        find.byType(ProfileOnboardingScreen),
+        findsOneWidget,
+        reason: 'جلسة من غير مريض مش معناها إنه ابن — هو في نص الإعداد',
+      );
       expect(find.byType(CaregiverShell), findsNothing);
     });
 
-    screenTest('الاسم ← السن ← «مش عايز أقول»: السن null ويروح على «يومك» على طول', (tester) async {
-      await tallView(tester);
-      await pumpRoot(tester);
-      await tester.tap(find.byKey(const ValueKey('entry-self')));
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('entry-start')));
-      await settle(tester);
-      await tester.tap(find.text('كمّل من غير حساب'));
-      await settle(tester);
+    screenTest(
+      'الاسم ← السن ← «مش عايز أقول»: السن null ويروح على «يومك» على طول',
+      (tester) async {
+        await tallView(tester);
+        await pumpRoot(tester);
+        await tester.tap(find.byKey(const ValueKey('entry-self')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('entry-start')));
+        await settle(tester);
+        await tester.tap(find.text('كمّل من غير حساب'));
+        await settle(tester);
 
-      await tester.enterText(find.byKey(const ValueKey('profile-name')), 'الحاج أحمد');
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-next')));
-      await settle(tester);
-      expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
+        await tester.enterText(
+          find.byKey(const ValueKey('profile-name')),
+          'الحاج أحمد',
+        );
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('profile-next')));
+        await settle(tester);
+        expect(find.byKey(const ValueKey('age-wheel')), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('age-skip')));
-      await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('age-skip')));
+        await settle(tester);
 
-      expect(find.byType(ProfileOnboardingScreen), findsNothing, reason: 'ما بيعيدش السؤال');
-      expect(find.byType(TodayScreen), findsOneWidget);
-      final me = (await db.select(db.patients).get()).single;
-      expect(me.name, 'الحاج أحمد');
-      expect(me.age, isNull);
-      expect(me.profileDoneAt, isNotNull);
-    });
+        expect(
+          find.byType(ProfileOnboardingScreen),
+          findsNothing,
+          reason: 'ما بيعيدش السؤال',
+        );
+        expect(find.byType(TodayScreen), findsOneWidget);
+        final me = (await db.select(db.patients).get()).single;
+        expect(me.name, 'الحاج أحمد');
+        expect(me.age, isNull);
+        expect(me.profileDoneAt, isNotNull);
+      },
+    );
 
-    screenTest('«رجوع» من «نتعرّف عليك» بترجّع لشاشة البداية — اختيار غلط ما يحبسش حد', (tester) async {
-      await tallView(tester);
-      await pumpRoot(tester);
-      await tester.tap(find.byKey(const ValueKey('entry-self')));
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('entry-start')));
-      await settle(tester);
-      await tester.tap(find.text('كمّل من غير حساب'));
-      await settle(tester);
-      await tester.tap(find.text('رجوع'));
-      await settle(tester);
-      expect(find.byType(EntryScreen), findsOneWidget);
-    });
+    screenTest(
+      '«رجوع» من «نتعرّف عليك» بترجّع لشاشة البداية — اختيار غلط ما يحبسش حد',
+      (tester) async {
+        await tallView(tester);
+        await pumpRoot(tester);
+        await tester.tap(find.byKey(const ValueKey('entry-self')));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('entry-start')));
+        await settle(tester);
+        await tester.tap(find.text('كمّل من غير حساب'));
+        await settle(tester);
+        await tester.tap(find.text('رجوع'));
+        await settle(tester);
+        expect(find.byType(EntryScreen), findsOneWidget);
+      },
+    );
 
-    screenTest('«بعتلي كود» → دخول → كود → المتابعة: ولا سؤال مريض، ولا روتين، ولا مريض اتعرّف',
-        (tester) async {
-      useCloud();
-      await tallView(tester);
-      await pumpRoot(tester);
+    screenTest(
+      '«بعتلي كود» → دخول → كود → المتابعة: ولا سؤال مريض، ولا روتين، ولا مريض اتعرّف',
+      (tester) async {
+        useCloud();
+        await tallView(tester);
+        await pumpRoot(tester);
 
-      await tester.tap(find.byKey(const ValueKey('entry-code')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('entry-start')));
-      await settle(tester);
-      expect(find.text('حساب عشان تتابع'), findsOneWidget);
-      expect(find.text('اعرض كود الربط'), findsNothing, reason: 'ده طريق المريض');
-      expect(auth.signInCalls, 0, reason: 'الدخول بعد الدوسة بس');
+        await tester.tap(find.byKey(const ValueKey('entry-code')));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('entry-start')));
+        await settle(tester);
+        expect(find.text('حساب عشان تتابع'), findsOneWidget);
+        expect(
+          find.text('اعرض كود الربط'),
+          findsNothing,
+          reason: 'ده طريق المريض',
+        );
+        expect(auth.signInCalls, 0, reason: 'الدخول بعد الدوسة بس');
 
-      await tester.tap(find.text('كمّل بحساب تجريبي'));
-      await settle(tester);
-      expect(auth.signInCalls, 1);
-      expect(find.text('عندي كود'), findsOneWidget);
+        await tester.tap(find.text('كمّل بحساب تجريبي'));
+        await settle(tester);
+        expect(auth.signInCalls, 1);
+        expect(find.text('عندي كود'), findsOneWidget);
 
-      // الست خانات بتربط لوحدها مع الرقم السادس
-      await tester.enterText(find.byKey(const ValueKey('code-field')), '123456');
-      await settle(tester);
-      expect(care.redeemed, ['123456']);
-      expect(sink.permissionRequests, 1, reason: 'من غير الإذن تنبيه ابنه ما بيظهرش');
-      await tester.tap(find.text('افتح المتابعة'));
-      await settle(tester);
+        // الست خانات بتربط لوحدها مع الرقم السادس
+        await tester.enterText(
+          find.byKey(const ValueKey('code-field')),
+          '123456',
+        );
+        await settle(tester);
+        expect(care.redeemed, ['123456']);
+        expect(
+          sink.permissionRequests,
+          1,
+          reason: 'من غير الإذن تنبيه ابنه ما بيظهرش',
+        );
+        await tester.tap(find.text('افتح المتابعة'));
+        await settle(tester);
 
-      expect(find.byType(CaregiverShell), findsOneWidget);
-      expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
-      expect(find.byType(EntryScreen), findsNothing);
-      expect(find.byType(ProfileOnboardingScreen), findsNothing);
-      expect(find.byType(TodayScreen), findsNothing);
+        expect(find.byType(CaregiverShell), findsOneWidget);
+        expect(find.text('متابعة الحاج أحمد'), findsOneWidget);
+        expect(find.byType(EntryScreen), findsNothing);
+        expect(find.byType(ProfileOnboardingScreen), findsNothing);
+        expect(find.byType(TodayScreen), findsNothing);
 
-      final patients = await db.select(db.patients).get();
-      expect(patients.every((p) => p.profileDoneAt == null && p.age == null), isTrue,
-          reason: 'صف «أنا» الفاضي بتاع الإقلاع بس — ولا مريض اتعرّفنا عليه');
-      expect(await db.select(db.medications).get(), isEmpty);
-    });
+        final patients = await db.select(db.patients).get();
+        expect(
+          patients.every((p) => p.profileDoneAt == null && p.age == null),
+          isTrue,
+          reason: 'صف «أنا» الفاضي بتاع الإقلاع بس — ولا مريض اتعرّفنا عليه',
+        );
+        expect(await db.select(db.medications).get(), isEmpty);
+      },
+    );
 
-    screenTest('بعد الربط، أي فتحة جاية → المتابعة على طول، وشاشة البداية ما بتظهرش تاني',
-        (tester) async {
-      useCloud();
-      auth.user = const FakkarniUser(id: 'son', isAnonymous: true);
-      await tallView(tester);
-      await pumpRoot(tester);
+    screenTest(
+      'بعد الربط، أي فتحة جاية → المتابعة على طول، وشاشة البداية ما بتظهرش تاني',
+      (tester) async {
+        useCloud();
+        auth.user = const FakkarniUser(id: 'son', isAnonymous: true);
+        await tallView(tester);
+        await pumpRoot(tester);
 
-      expect(find.byType(CaregiverShell), findsOneWidget);
-      expect(find.byType(EntryScreen), findsNothing);
-      expect(auth.signInCalls, 0, reason: 'الجلسة اتقرت محفوظة — مش دخول');
-    });
+        expect(find.byType(CaregiverShell), findsOneWidget);
+        expect(find.byType(EntryScreen), findsNothing);
+        expect(auth.signInCalls, 0, reason: 'الجلسة اتقرت محفوظة — مش دخول');
+      },
+    );
 
-    screenTest('جلسة من غير مريض مربوط (ربط فشل وقفل) → شاشة البداية تاني، مش متابعة فاضية',
-        (tester) async {
-      useCloud();
-      auth.user = const FakkarniUser(id: 'son', isAnonymous: true);
-      remote.linked = false;
-      await tallView(tester);
-      await pumpRoot(tester);
+    screenTest(
+      'جلسة من غير مريض مربوط (ربط فشل وقفل) → شاشة البداية تاني، مش متابعة فاضية',
+      (tester) async {
+        useCloud();
+        auth.user = const FakkarniUser(id: 'son', isAnonymous: true);
+        remote.linked = false;
+        await tallView(tester);
+        await pumpRoot(tester);
 
-      expect(find.byType(EntryScreen), findsOneWidget);
-      expect(find.byType(CaregiverShell), findsNothing);
-    });
+        expect(find.byType(EntryScreen), findsOneWidget);
+        expect(find.byType(CaregiverShell), findsNothing);
+      },
+    );
 
-    screenTest('أوفلاين مع جلسة → المتابعة بجملة الأوفلاين، مش شاشة البداية', (tester) async {
+    screenTest('أوفلاين مع جلسة → المتابعة بجملة الأوفلاين، مش شاشة البداية', (
+      tester,
+    ) async {
       useCloud();
       auth.user = const FakkarniUser(id: 'son', isAnonymous: true);
       remote.offline = true;
@@ -396,15 +456,18 @@ void main() {
       expect(find.textContaining('مفيش نت'), findsOneWidget);
     });
 
-    screenTest('الجهاز فيه مريض → مسار المريض حتى لو فيه جلسة (الأب اللي ربط ابنه)', (tester) async {
-      useCloud();
-      auth.user = const FakkarniUser(id: 'father', isAnonymous: true);
-      await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
-      await pumpRoot(tester);
+    screenTest(
+      'الجهاز فيه مريض → مسار المريض حتى لو فيه جلسة (الأب اللي ربط ابنه)',
+      (tester) async {
+        useCloud();
+        auth.user = const FakkarniUser(id: 'father', isAnonymous: true);
+        await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
+        await pumpRoot(tester);
 
-      expect(find.byType(TodayScreen), findsOneWidget);
-      expect(find.byType(CaregiverShell), findsNothing);
-    });
+        expect(find.byType(TodayScreen), findsOneWidget);
+        expect(find.byType(CaregiverShell), findsNothing);
+      },
+    );
   });
 
   screenTest('«نتعرّف عليك» اتحفظت → «يومك»', (tester) async {
@@ -413,8 +476,9 @@ void main() {
     expect(find.byType(TodayScreen), findsOneWidget);
   });
 
-  screenTest('دوسة على الإشعار والتطبيق مفتوح → شاشة التذكير فوق «يومك»',
-      (tester) async {
+  screenTest('دوسة على الإشعار والتطبيق مفتوح → شاشة التذكير فوق «يومك»', (
+    tester,
+  ) async {
     await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     await pumpRoot(tester);
 
@@ -422,16 +486,41 @@ void main() {
     await settle(tester);
 
     expect(find.byType(ReminderScreen), findsOneWidget);
+    expect(
+      tester.widget<ReminderScreen>(find.byType(ReminderScreen)).scheduleIds,
+      ['1'],
+    );
     // اتقرت واتصفّرت — ما تتفتحش تاني لو الشجرة اتبنت من جديد
     expect(tap.value, isNull);
   });
 
-  screenTest('التطبيق اتفتح من الإشعار قبل ما «يومك» تتبني → بتستنى وبتفتح',
-      (tester) async {
+  screenTest('التطبيق اتفتح من الإشعار قبل ما «يومك» تتبني → بتستنى وبتفتح', (
+    tester,
+  ) async {
     await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
     // الـpayload موجود من قبل أول build — زي getNotificationAppLaunchDetails
     tap.value = payloadFor(['1']);
     await pumpRoot(tester);
+
+    expect(find.byType(ReminderScreen), findsOneWidget);
+    expect(
+      find.byType(AppShell),
+      findsNothing,
+      reason: 'التنبيه أول واجهة Flutter، لا «يومك» تحته',
+    );
+    expect(find.byType(TodayScreen), findsNothing);
+    expect(tap.value, isNull);
+  });
+
+  screenTest('رد الإشعار المكرر لا يفتح شاشة الجرعة مرتين', (tester) async {
+    await patients.saveProfile(services.patientId, name: 'الحاج أحمد');
+    await pumpRoot(tester);
+
+    final payload = payloadFor(['1']);
+    tap.value = payload;
+    await settle(tester);
+    tap.value = payload;
+    await settle(tester);
 
     expect(find.byType(ReminderScreen), findsOneWidget);
     expect(tap.value, isNull);
@@ -483,9 +572,13 @@ class _FakeCare implements CareCircleService {
   }
 
   @override
-  Future<InviteCode> createInvite(String patientUuid) => throw UnimplementedError();
+  Future<InviteCode> createInvite(String patientUuid) =>
+      throw UnimplementedError();
   @override
-  Future<void> upsertPatient({required String uuid, required String name}) async {}
+  Future<void> upsertPatient({
+    required String uuid,
+    required String name,
+  }) async {}
 }
 
 class _FakeRemote implements CaregiverRemote {
@@ -500,7 +593,11 @@ class _FakeRemote implements CaregiverRemote {
   Future<CaregiverSnapshot?> snapshot() async {
     if (offline) throw const CareCircleException(CareCircleFailure.offline);
     if (!linked) return null;
-    return const CaregiverSnapshot(patient: _patient, medications: [], events: []);
+    return const CaregiverSnapshot(
+      patient: _patient,
+      medications: [],
+      events: [],
+    );
   }
 }
 

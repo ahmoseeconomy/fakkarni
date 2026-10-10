@@ -47,8 +47,14 @@ class _SplashOverlayState extends State<SplashOverlay>
     vsync: this,
     duration: SplashOverlay.total,
   );
-  bool _done = _splashShown;
+  bool _done = false;
   bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _done = _splashShown;
+  }
 
   // كل الفترات نسبة من ٥.٥ ث
   static double _at(int ms) => ms / 5500;
@@ -89,7 +95,11 @@ class _SplashOverlayState extends State<SplashOverlay>
   );
   late final _exit = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(SplashOverlay._exitAtMs), _at(5500), curve: Curves.easeIn),
+    curve: Interval(
+      _at(SplashOverlay._exitAtMs),
+      _at(5500),
+      curve: Curves.easeIn,
+    ),
   );
 
   @override
@@ -172,13 +182,16 @@ class _SplashOverlayState extends State<SplashOverlay>
                                 // القوس: داخلة من بره على اليمين (٩٠ وحدة رسم)
                                 // وبتنزل على مكانها، والنطّة بعدها ٦px لفوق
                                 dotSlide: 90 * (1 - _fly.value),
-                                dotDrop: -14 * _hop(_fly.value) - 6 * (1 - _land.value).clamp(0.0, 1.0),
+                                dotDrop:
+                                    -14 * _hop(_fly.value) -
+                                    6 * (1 - _land.value).clamp(0.0, 1.0),
                                 dotFlash: _flashValue,
                                 halo: _halo.value,
                               ),
                             ),
                           ),
-                          const SizedBox(height: F.s22),
+                          // ١٤px أقرب للعلامة، من غير تغيير للأنيميشن.
+                          const SizedBox(height: F.s8),
                           Transform.translate(
                             offset: Offset(0, 8 * (1 - _word.value)),
                             child: Opacity(

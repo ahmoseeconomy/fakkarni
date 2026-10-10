@@ -9,13 +9,16 @@ import 'data/voice/speech_to_text_listener.dart';
 import 'data/voice/stt_driver.dart';
 import 'data/voice/voice_service.dart';
 import 'features/voice/voice_caption.dart';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app/app_scope.dart';
 import 'app/background_health.dart';
 import 'app/bootstrap.dart';
 import 'data/services/notification_actions.dart' show ActionOutcome;
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'data/auth/supabase_init.dart';
@@ -25,6 +28,7 @@ import 'data/sync/sync_service.dart';
 import 'app/root.dart';
 import 'app/splash.dart';
 import 'core/widgets/keyboard_dismiss.dart';
+
 import 'dart:async' show unawaited;
 
 import 'core/diagnostics.dart';
@@ -35,14 +39,17 @@ import 'data/billing/iap_store_purchases.dart';
 import 'data/billing/subscription_service.dart';
 import 'data/sync/medication_change_pull.dart';
 import 'data/testhook/test_hook.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/push/confirm_signal_router.dart';
 import 'data/repositories/preferences_repository.dart';
 import 'features/nurse/nurse_reminders.dart';
 import 'core/notifications/notification_service.dart';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show NotificationResponse;
+
 import 'core/theme/theme_mode_store.dart';
 import 'core/theme/tokens.dart';
 import 'data/db/app_database.dart';
@@ -58,9 +65,13 @@ Future<void> main() async {
   // لو إذن «القريب مني» موجود خلاص، النافذة بتتظبط وبيتطبّق تاني.
   ThemeModeStore.isNight = (now) => !DayNight.isDaytime(now);
   await ThemeModeStore.load();
-  unawaited(DayNight.refreshLocation().then((moved) {
-    if (moved) ThemeModeStore.apply(DateTime.now());
-  }).catchError((Object e) => diag('DayNight: $e')));
+  unawaited(
+    DayNight.refreshLocation()
+        .then((moved) {
+          if (moved) ThemeModeStore.apply(DateTime.now());
+        })
+        .catchError((Object e) => diag('DayNight: $e')),
+  );
 
   final db = AppDatabase(openConnection());
 
@@ -83,9 +94,16 @@ Future<void> main() async {
   // بتتقفل عليها الجرعة وخلاص. الصف بيفضل متوسّخاً لحد ما المزامنة
   // تشتغل بعد شوية — وده مقبول، الرفع مجاملة والكتابة هي الوعد.
   final local = await buildServices(db);
+  final activeServices = ValueNotifier<AppServices>(local);
+  // ما بعد الخدمات المحلية يشتغل تحت أنيميشن البداية، لا قبله.
+  runApp(FakkarniApp(services: activeServices));
   Future<ActionOutcome> door(String? action, String? payload) =>
       handleNotificationAction(
-          db: db, services: local, actionId: action, payload: payload);
+        db: db,
+        services: local,
+        actionId: action,
+        payload: payload,
+      );
   NotificationService.onAction = door;
   NotificationResponse? launched;
   try {
@@ -129,6 +147,25 @@ Future<void> main() async {
         );
   sync?.start(connectivity: Connectivity().onConnectivityChanged);
 
+  // الهوية والبيانات المحلية كفاية لاختيار أول شاشة صحيحة. الدفع والصوت
+  // والاشتراك لا يحق لها تأخيرها.
+  activeServices.value = await buildServices(
+    db,
+    auth: cloud?.auth,
+    sessionHealth: cloud?.sessionHealth,
+    care: cloud?.care,
+    caregiver: cloud?.caregiver,
+    caregiverPreferences: cloud?.caregiverPreferences,
+    sync: sync,
+    careAdmin: cloud?.careAdmin,
+    proxy: cloud?.proxy,
+    medChanges: cloud?.medChanges,
+    papers: cloud?.papers,
+    medPhotos: cloud?.medPhotos,
+    accountDeletion: cloud?.accountDeletion,
+    departures: cloud?.departures,
+  );
+
   // توكن الدفع — آخر درجة في السلّم بتوصل عليه. اختياري زي كل حاجة
   // سحابية: من غير Supabase أو من غير Firebase (أو على iOS لحد ما APNs
   // تتظبط) بيرجع null والتطبيق كامل زي ما هو، والتصعيد بيقف عند
@@ -151,7 +188,10 @@ Future<void> main() async {
   // اشتراك العيلة: المتجر من ورا واجهة، والحالة المحفوظة بتتحمّل قبل أي بوابة
   final subscription = cloud == null
       ? null
-      : SubscriptionService(remote: cloud.subscriptions, store: IapStorePurchases());
+      : SubscriptionService(
+          remote: cloud.subscriptions,
+          store: IapStorePurchases(),
+        );
   await subscription?.load();
 
   // **كل خدمة سحابة لازم تعدّي من هنا.** جولات ٢٣–٢٥ بنت الممرض والتغييرات
@@ -164,7 +204,11 @@ Future<void> main() async {
   // «بيسمع» (المرحلة ٢): متعرّف كلام الموبايل — بيتجهّز عند أول دوسة مايك، مش هنا.
   // المحرّك ورا وصلة (`STT_DRIVER`، الافتراضي `device`)؛ `cloud` كعب مقفول =
   // مفيش مايك. [MicListener] فوقه: سماع واحد في المرة، ونهاية الكلام بتاعتنا.
-  final stt = pickSttDriver(sttDriverName, device: SpeechToTextListener.new, cloud: CloudSttDriver.new);
+  final stt = pickSttDriver(
+    sttDriverName,
+    device: SpeechToTextListener.new,
+    cloud: CloudSttDriver.new,
+  );
   final voice = VoiceService(
     player: AudioVoicePlayer(),
     tts: DeviceTts(),
@@ -195,6 +239,7 @@ Future<void> main() async {
     departures: cloud?.departures,
     voice: voice,
   );
+  activeServices.value = services;
 
   // المسح النهائي للسجلات اللي عدّى عليها ٣٠ يوم من المسح — الوعد المكتوب.
   await launchHousekeeping(services);
@@ -220,14 +265,25 @@ Future<void> main() async {
   // الممرض إلغاء تذكيره — والفلاج بيقفلها من --dart-define=CONFIRM_PUSH=false
   ConfirmSignalRouter(
     onPatientSide: services.pullFromCircle,
-    onNurseSide: (signal) => NurseReminders(sink: const DeviceNurseReminderSink())
-        .onConfirmed(patientUuid: signal.patientUuid, doseEventUuid: signal.doseEventUuid),
+    onNurseSide: (signal) =>
+        NurseReminders(sink: const DeviceNurseReminderSink()).onConfirmed(
+          patientUuid: signal.patientUuid,
+          doseEventUuid: signal.doseEventUuid,
+        ),
   ).listen(tokenSource);
 
-  NotificationService.onNurseAction =
-      (action, id, payload) => unawaited(handleNurseNotificationAction(services, action, id, payload));
-  if (launched != null && NotificationActions.isNurseAction(launched.actionId)) {
-    unawaited(handleNurseNotificationAction(services, launched.actionId!, launched.id, launched.payload));
+  NotificationService.onNurseAction = (action, id, payload) =>
+      unawaited(handleNurseNotificationAction(services, action, id, payload));
+  if (launched != null &&
+      NotificationActions.isNurseAction(launched.actionId)) {
+    unawaited(
+      handleNurseNotificationAction(
+        services,
+        launched.actionId!,
+        launched.id,
+        launched.payload,
+      ),
+    );
   }
 
   // الجرعة اللي اتكتبت فوق لسه متوسّخة — المزامنة اتبنت بعديها. دفعة
@@ -294,17 +350,22 @@ Future<void> main() async {
 
   unawaited(MedicationChangePuller.loadNotices());
   // v31: رقم اتصال الصيدلية من shared_preferences للعمود — مرة واحدة
-  unawaited(services.preferences.migrateLegacyPharmacyCall(
-    () async => (await SharedPreferences.getInstance()).getString(PreferencesRepository.legacyCallKey),
-    () async => (await SharedPreferences.getInstance()).remove(PreferencesRepository.legacyCallKey),
-  ));
-  runApp(FakkarniApp(services: services));
+  unawaited(
+    services.preferences.migrateLegacyPharmacyCall(
+      () async => (await SharedPreferences.getInstance()).getString(
+        PreferencesRepository.legacyCallKey,
+      ),
+      () async => (await SharedPreferences.getInstance()).remove(
+        PreferencesRepository.legacyCallKey,
+      ),
+    ),
+  );
 }
 
 class FakkarniApp extends StatelessWidget {
   const FakkarniApp({required this.services, super.key});
 
-  final AppServices services;
+  final ValueListenable<AppServices> services;
 
   @override
   Widget build(BuildContext context) {
@@ -314,11 +375,15 @@ class FakkarniApp extends StatelessWidget {
     // المفتاح بيجبر بناء كامل، فالتطبيق كله بيقلب مرة واحدة.
     return ValueListenableBuilder<bool>(
       valueListenable: F.darkMode,
-      builder: (context, dark, _) => KeyedSubtree(key: ValueKey(dark), child: _app()),
+      builder: (context, dark, _) => ValueListenableBuilder<AppServices>(
+        valueListenable: services,
+        builder: (context, active, _) =>
+            KeyedSubtree(key: ValueKey(dark), child: _app(active)),
+      ),
     );
   }
 
-  Widget _app() {
+  Widget _app(AppServices services) {
     return AppScope(
       services: services,
       child: MaterialApp(

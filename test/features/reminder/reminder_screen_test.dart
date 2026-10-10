@@ -24,7 +24,6 @@ import 'package:fakkarni/features/reminder/reminder_screen.dart';
 import '../scan/scan_test_support.dart' show expectNoRedAndMinSize;
 import '../../support/seeded_clock.dart';
 
-
 final aug31 = DateTime(2026, 8, 31);
 
 /// قبل الغدا بنص ساعة = ٢:٠٠ م
@@ -89,17 +88,16 @@ void main() {
     for (var i = 0; i < 25; i++) {
       await tester.pump(const Duration(milliseconds: 20));
     }
-    await tester.pumpAndSettle();
   }
 
   /// بيضيف الأدوية، وبينزّل أحداث اليوم زي ما «يومك» بتعمل، وبيرجّع أرقام
   /// الجداول اللي في خانة الغدا — نفس اللي بيبقى في الـpayload.
   Future<List<String>> seed(List<String> names) async {
     for (final name in names) {
-      await meds.addMedication(
+      await meds.addMedicationWithDoses(
         patientId: services.patientId,
         name: name,
-        timing: FixedTiming(MinuteOfDay.hm(14)),
+        timings: [FixedTiming(MinuteOfDay.hm(14))],
         startDate: aug31,
         amountLabel: 'قرص واحد',
         mealRelation: MealRelation.after,
@@ -147,7 +145,7 @@ void main() {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids);
 
-    expect(find.text('تنبيه — المرحلة ٢'), findsOneWidget);
+    expect(find.text('تنبيه'), findsOneWidget);
     expect(find.text('Antodine'), findsOneWidget);
     expect(find.textContaining('قرص واحد'), findsOneWidget);
     // كلمة الأكل تعليمات جنب الساعة — ما بتحرّكهاش
@@ -155,33 +153,35 @@ void main() {
     expect(find.textContaining('٢:٠٠ م'), findsOneWidget);
   });
 
-  screenTest('اتأخر ربع ساعة → المرحلة ٢، «مرّت ١٥ دقيقة»، الدرجة التانية أمبر — من غير أحمر ولا لوم', (tester) async {
+  screenTest('واجهة المريض لا تعرض سلّم التصعيد أو مراحله', (tester) async {
     final ids = await seed(['Antodine']);
-    await pumpReminder(tester, ids);
+    await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 15, 5));
 
-    expect(find.text('مرّت ١٥ دقيقة على موعد الجرعة'), findsOneWidget);
-    expect(find.text('تنبيه — المرحلة ٢'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+١٥ د')).style?.color, F.amber);
-    expect(tester.widget<Text>(find.text('في الموعد')).style?.color, isNot(F.amber));
-
-    for (final text in tester.widgetList<Text>(find.byType(Text))) {
-      final colour = text.style?.color;
-      if (colour == null) continue;
-      final isRed = colour.r > 0.6 && colour.g < 0.35 && colour.b < 0.35;
-      expect(isRed, isFalse, reason: 'مفيش أحمر: ${text.data}');
+    for (final text in [
+      'تنبيه — المرحلة ١',
+      'تنبيه — المرحلة ٢',
+      'تنبيه — المرحلة ٤',
+      'سلّم التصعيد',
+      '+١٥ د',
+      '+٣٠ د',
+      '+٦٠ د',
+    ]) {
+      expect(find.textContaining(text), findsNothing, reason: text);
     }
+    expect(find.text('وقت الدوا'), findsOneWidget);
   });
 
-  screenTest('لسه في المعاد → «وقت الدوا» والمرحلة ١', (tester) async {
+  screenTest('لسه في المعاد → «وقت الدوا» من غير مرحلة للمريض', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids, now: lunchDose);
 
     expect(find.text('وقت الدوا'), findsOneWidget);
-    expect(find.text('تنبيه — المرحلة ١'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('في الموعد')).style?.color, F.amber);
+    expect(find.text('تنبيه'), findsOneWidget);
   });
 
-  screenTest('«أخدته» بتسجّل وبتلغي تذكير الخانة والتأجيل بتاعها', (tester) async {
+  screenTest('«أخدته» بتسجّل وبتلغي تذكير الخانة والتأجيل بتاعها', (
+    tester,
+  ) async {
     final ids = await seed(['Antodine', 'Vitamin D']);
     await pumpReminder(tester, ids);
 
@@ -190,16 +190,13 @@ void main() {
 
     expect(await statesOf(ids), [DoseState.taken, DoseState.taken]);
     // الخانة كلها: التذكير، التأجيل، والدرجتين — القاعدة الخامسة
-    expect(
-      sink.cancelled,
-      [
-        notificationIdFor(lunchDose),
-        snoozeIdFor(lunchDose),
-        escalationIdFor(lunchDose, EscalationRung.first),
-        escalationIdFor(lunchDose, EscalationRung.second),
-        for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(lunchDose, i),
-      ],
-    );
+    expect(sink.cancelled, [
+      notificationIdFor(lunchDose),
+      snoozeIdFor(lunchDose),
+      escalationIdFor(lunchDose, EscalationRung.first),
+      escalationIdFor(lunchDose, EscalationRung.second),
+      for (var i = 0; i < maxRepeatsAny; i++) repeatIdFor(lunchDose, i),
+    ]);
   });
 
   screenTest('«تخطّي» بتسجّل تخطّي وبتلغي التذكير — من غير ❌', (tester) async {
@@ -214,8 +211,9 @@ void main() {
     expect(sink.cancelled, contains(notificationIdFor(lunchDose)));
   });
 
-  screenTest('«تأجيل ١٥ د ⏰» بتجدول تذكير واحد في نطاق التأجيل',
-      (tester) async {
+  screenTest('«تأجيل ١٥ د ⏰» بتجدول تذكير واحد في نطاق التأجيل', (
+    tester,
+  ) async {
     final ids = await seed(['Antodine']);
     final now = DateTime(2026, 8, 31, 14, 15);
     await pumpReminder(tester, ids, now: now);
@@ -241,26 +239,58 @@ void main() {
     ]);
   });
 
-  screenTest('بعد ٦٠ دقيقة → المرحلة ٤ «إشعار لعيلتك أو ممرضك» أمبر، السلّم أربع درجات بس، ومفيش أحمر', (tester) async {
+  screenTest('التصعيد يظل في المنطق ولا يظهر على شاشة الجرعة', (tester) async {
     final ids = await seed(['Antodine']);
     await pumpReminder(tester, ids, now: DateTime(2026, 8, 31, 15, 5));
 
-    expect(find.text('تنبيه — المرحلة ٤'), findsOneWidget);
-    expect(find.text('مرّت ٦٠ دقيقة على موعد الجرعة'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+٦٠ د — إشعار لعيلتك أو ممرضك')).style?.color, F.amber);
     expect(ladderSteps.length, 4, reason: 'الدرجة الخامسة مش مبنية');
+    expect(stageFor(const Duration(minutes: 60)), 3);
     expect(find.textContaining('دائرة الرعاية'), findsNothing);
+    expect(find.textContaining('إشعار لعيلتك أو ممرضك'), findsNothing);
+    expect(find.textContaining('المرحلة'), findsNothing);
     expect(find.textContaining('+٩٠'), findsNothing);
     // أساسي واحد بس، والسلّم من ثوابت الدومين
     expect(find.byType(FilledButton), findsOneWidget);
     expect(ladderSteps[1].after, EscalationRung.first.delay);
-    expect(ladderSteps[3].after, serverGraceWindow, reason: 'الابن بيتبلّغ من السيرفر بعد مهلته هو');
+    expect(
+      ladderSteps[3].after,
+      serverGraceWindow,
+      reason: 'الابن بيتبلّغ من السيرفر بعد مهلته هو',
+    );
     expect(find.textContaining('قول'), findsNothing, reason: 'مفيش سطر صوت');
     expect(find.textContaining('لا أذكر'), findsNothing);
     expectNoRedAndMinSize(tester);
   });
 
-  screenTest('دواءين في نفس الدقيقة → كارت واحد بالاتنين وأزرار واحدة', (tester) async {
+  screenTest('الجرعة الجاية اليوم تظهر فقط عند وجود جرعة لاحقة معلّقة', (
+    tester,
+  ) async {
+    final current = await seed(['Antodine']);
+    await meds.addMedication(
+      patientId: services.patientId,
+      name: 'Vitamin D',
+      timing: FixedTiming(MinuteOfDay.hm(18)),
+      startDate: aug31,
+      amountLabel: 'كبسولة',
+    );
+    final schedules = await meds.activeSchedules(services.patientId);
+    await events.materializeDay(
+      aug31,
+      const ScheduleEngine().remindersForDay(schedules, aug31),
+    );
+    await pumpReminder(tester, current);
+
+    expect(find.text('الجرعة الجاية اليوم'), findsOneWidget);
+    expect(find.textContaining('Vitamin D — ٦:٠٠ م'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpReminder(tester, current, now: DateTime(2026, 8, 31, 19));
+    expect(find.text('الجرعة الجاية اليوم'), findsNothing);
+  });
+
+  screenTest('دواءين في نفس الدقيقة → كارت واحد بالاتنين وأزرار واحدة', (
+    tester,
+  ) async {
     final ids = await seed(['Antodine', 'Vitamin D']);
     await pumpReminder(tester, ids);
 
@@ -273,8 +303,9 @@ void main() {
     expect(await statesOf(ids), [DoseState.taken, DoseState.taken]);
   });
 
-  screenTest('جرعة اتاخدت خلاص من «يومك» → مفيش أزرار، بس «ارجع ليومك»',
-      (tester) async {
+  screenTest('جرعة اتاخدت خلاص من «يومك» → مفيش أزرار، بس «ارجع ليومك»', (
+    tester,
+  ) async {
     final ids = await seed(['Antodine']);
     await events.markTaken(int.parse(ids.single), aug31);
     await pumpReminder(tester, ids);
@@ -286,8 +317,9 @@ void main() {
     expect(find.text('ارجع ليومك'), findsOneWidget);
   });
 
-  screenTest('إشعار لجرعة اتشالت من اليوم → رسالة هادية بدل شاشة فاضية',
-      (tester) async {
+  screenTest('إشعار لجرعة اتشالت من اليوم → رسالة هادية بدل شاشة فاضية', (
+    tester,
+  ) async {
     await pumpReminder(tester, ['999']);
 
     expect(find.textContaining('مبقتش في يومك'), findsOneWidget);
@@ -299,9 +331,15 @@ void main() {
     await pumpReminder(tester, ids);
 
     // أساسي واحد ٦٤، وثانويين ٥٦ جنب بعض — مفيش TextButton باهت
-    expect(tester.getSize(find.byType(FilledButton)).height, F.primaryButtonHeight);
+    expect(
+      tester.getSize(find.byType(FilledButton)).height,
+      F.primaryButtonHeight,
+    );
     for (final button in find.byType(OutlinedButton).evaluate()) {
-      expect(tester.getSize(find.byWidget(button.widget)).height, F.minTapTarget);
+      expect(
+        tester.getSize(find.byWidget(button.widget)).height,
+        F.minTapTarget,
+      );
     }
     expect(find.byType(OutlinedButton), findsNWidgets(2));
     expect(find.byType(TextButton), findsNothing);

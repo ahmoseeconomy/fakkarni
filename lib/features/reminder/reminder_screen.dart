@@ -17,6 +17,7 @@ import '../../data/repositories/dose_event_repository.dart';
 import '../../core/widgets/primitives.dart';
 import '../../data/services/reminder_plan.dart';
 import '../../domain/escalation/escalation_ladder.dart';
+import '../../domain/medication/medicine_form.dart';
 import '../../domain/scheduling/dose_schedule.dart';
 
 /// «تنبيه متصاعد» (المخطط 10) — اللي بتفتح لما المريض يدوس على الإشعار.
@@ -39,11 +40,20 @@ class LadderStep {
 /// الأربع درجات — من ثوابت الدومين، مش نسخة تانية منها.
 final List<LadderStep> ladderSteps = [
   const LadderStep('في الموعد', Duration.zero),
-  LadderStep('+${arabicNumber(EscalationRung.first.delay.inMinutes)} د', EscalationRung.first.delay),
-  LadderStep('+${arabicNumber(EscalationRung.second.delay.inMinutes)} د', EscalationRung.second.delay),
+  LadderStep(
+    '+${arabicNumber(EscalationRung.first.delay.inMinutes)} د',
+    EscalationRung.first.delay,
+  ),
+  LadderStep(
+    '+${arabicNumber(EscalationRung.second.delay.inMinutes)} د',
+    EscalationRung.second.delay,
+  ),
   // السيرفر هو اللي بيبلّغ الابن، بعد مهلته هو (٦٠) — مش مهلة الجهاز (٤٥).
   // «+٤٥» كان بيوعد بإشعار قبل ما حد يبعته فعلاً.
-  LadderStep('+${arabicNumber(serverGraceWindow.inMinutes)} د — إشعار لعيلتك أو ممرضك', serverGraceWindow),
+  LadderStep(
+    '+${arabicNumber(serverGraceWindow.inMinutes)} د — إشعار لعيلتك أو ممرضك',
+    serverGraceWindow,
+  ),
 ];
 
 /// المرحلة الحالية (0..3) من الوقت اللي عدّى فعلاً على معاد الجرعة.
@@ -60,6 +70,7 @@ class ReminderScreen extends StatefulWidget {
     required this.routineDay,
     required this.scheduleIds,
     this.now,
+    this.onExit,
     super.key,
   });
 
@@ -72,12 +83,17 @@ class ReminderScreen extends StatefulWidget {
   /// للاختبارات — الشاشة بتستخدم دلوقتي الحقيقي في التطبيق.
   final DateTime? now;
 
+  /// التنبيه قد يكون هو أول صفحة في التنزيلة الباردة، فلا يوجد route تحته
+  /// نرجع له. الجذر يستعملها للانتقال إلى «يومك» بعد انتهاء التنبيه فقط.
+  final VoidCallback? onExit;
+
   @override
   State<ReminderScreen> createState() => _ReminderScreenState();
 }
 
 class _ReminderScreenState extends State<ReminderScreen> {
-  Stream<List<DoseEventView>>? _events;
+  Stream<List<DoseEventView>>? _dayEvents;
+  late final Set<String> _scheduleIds = widget.scheduleIds.toSet();
   Stream<DeviceSettings>? _settings;
   StreamSubscription<List<DoseSchedule>>? _schedulesSub;
   Map<String, DoseSchedule> _schedules = const {};
@@ -88,7 +104,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_events != null) return;
+    if (_dayEvents != null) return;
 
     final services = AppScope.of(context);
     // نمط كبار السن: الكلمة اللي جنب المايك أكبر
@@ -96,19 +112,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
     // **تنبيه الجرعة بيكسب**: أي كلام للرفيق الصوتي بيسكت لحظة ما الشاشة
     // دي تتفتح، من أي باب (إشعار، «يومك»، السكة).
     unawaited(services.voice?.stop());
-    final ids = widget.scheduleIds.toSet();
-    _events = services.events.watchDay(widget.routineDay).map(
-          (events) => [
-            for (final e in events)
-              if (ids.contains(e.doseScheduleId.toString())) e,
-          ],
-        );
+    _dayEvents = services.events.watchDay(widget.routineDay);
     _schedulesSub = services.medications
         .watchActiveSchedules(services.patientId)
         .listen((schedules) {
-      if (!mounted) return;
-      setState(() => _schedules = {for (final s in schedules) s.id: s});
-    });
+          if (!mounted) return;
+          setState(() => _schedules = {for (final s in schedules) s.id: s});
+        });
   }
 
   @override
@@ -128,18 +138,26 @@ class _ReminderScreenState extends State<ReminderScreen> {
       if (mounted) setState(() => _busy = false);
     }
     // ما نطلعش من شاشة الجذر لو الشاشة دي اتفتحت لوحدها في اختبار.
-    if (navigator.canPop()) navigator.pop();
+    _leave(navigator);
+  }
+
+  void _leave(NavigatorState navigator) {
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      widget.onExit?.call();
+    }
   }
 
   Future<void> _taken(List<DoseEventView> doses) => _act((services) async {
-        for (final dose in doses) {
-          await services.events.markTaken(dose.doseScheduleId, widget.routineDay);
-        }
-        // فوراً وقبل أي حاجة تانية: التأكيد بيلغي التذكير في نفس اللحظة.
-        await services.scheduler.afterConfirmation(doses.first.scheduledAt);
-        // «تمام، سجّلت إن حضرتك أخدته» — بعد الوعد، زي «يومك»؛ بالصوت وبالإيد
-        unawaited(services.voice?.speakLine('help_confirm_done'));
-      });
+    for (final dose in doses) {
+      await services.events.markTaken(dose.doseScheduleId, widget.routineDay);
+    }
+    // فوراً وقبل أي حاجة تانية: التأكيد بيلغي التذكير في نفس اللحظة.
+    await services.scheduler.afterConfirmation(doses.first.scheduledAt);
+    // «تمام، سجّلت إن حضرتك أخدته» — بعد الوعد، زي «يومك»؛ بالصوت وبالإيد
+    unawaited(services.voice?.speakLine('help_confirm_done'));
+  });
 
   /// «أخدته» / «فكّرني بعدين» بالصوت — **نفس** [_taken] و[_snooze] بتوع
   /// الزرارين، ولا سطر زيادة.
@@ -147,22 +165,23 @@ class _ReminderScreenState extends State<ReminderScreen> {
       answer == DoseAnswer.taken ? _taken(pending) : _snooze(pending);
 
   Future<void> _skipped(List<DoseEventView> doses) => _act((services) async {
-        for (final dose in doses) {
-          await services.events.markSkipped(dose.doseScheduleId, widget.routineDay);
-        }
-        await services.scheduler.afterConfirmation(doses.first.scheduledAt);
-      });
+    for (final dose in doses) {
+      await services.events.markSkipped(dose.doseScheduleId, widget.routineDay);
+    }
+    await services.scheduler.afterConfirmation(doses.first.scheduledAt);
+  });
 
   Future<void> _snooze(List<DoseEventView> doses) => _act((services) async {
-        await services.scheduler.snooze(
-          originalAt: doses.first.scheduledAt,
-          body: reminderBodyFor([
-            for (final d in doses) (name: d.medicationName, amount: d.amountLabel, note: d.mealLabel),
-          ]),
-          payload: encodePayloadFor(widget.routineDay, widget.scheduleIds),
-          now: _now,
-        );
-      });
+    await services.scheduler.snooze(
+      originalAt: doses.first.scheduledAt,
+      body: reminderBodyFor([
+        for (final d in doses)
+          (name: d.medicationName, amount: d.amountLabel, note: d.mealLabel),
+      ]),
+      payload: encodePayloadFor(widget.routineDay, widget.scheduleIds),
+      now: _now,
+    );
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -178,35 +197,43 @@ class _ReminderScreenState extends State<ReminderScreen> {
         ),
         child: SafeArea(
           child: StreamBuilder<List<DoseEventView>>(
-            stream: _events,
+            stream: _dayEvents,
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator(color: F.gold));
+                return const Center(
+                  child: CircularProgressIndicator(color: F.gold),
+                );
               }
-              final doses = snapshot.data!;
+              final allDoses = snapshot.data!;
+              final doses = [
+                for (final dose in allDoses)
+                  if (_scheduleIds.contains(dose.doseScheduleId.toString()))
+                    dose,
+              ];
               if (doses.isEmpty) return const _GonePanel();
 
-              final pending = [for (final d in doses) if (!d.isDone) d];
-              final at = doses.first.scheduledAt;
-              final elapsed = _now.difference(at);
-              final stage = stageFor(elapsed);
+              final pending = [
+                for (final d in doses)
+                  if (!d.isDone) d,
+              ];
+              final next = allDoses.cast<DoseEventView?>().firstWhere(
+                (dose) =>
+                    dose != null &&
+                    !dose.isDone &&
+                    dose.scheduledAt.isAfter(_now) &&
+                    !_scheduleIds.contains(dose.doseScheduleId.toString()),
+                orElse: () => null,
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(F.gap),
                 children: [
                   const SizedBox(height: F.s8),
                   // الذهبي هنا في مكانه: ده تذكير.
-                  Center(
-                    child: Kicker(
-                      pending.isEmpty
-                          ? 'تنبيه'
-                          : 'تنبيه — المرحلة ${arabicNumber(stage + 1)}',
-                      color: F.gold,
-                    ),
-                  ),
+                  Center(child: Kicker('تنبيه', color: F.gold)),
                   const SizedBox(height: F.s8),
                   Text(
-                    pending.isEmpty ? tookItAlreadyLine : _headline(stage),
+                    pending.isEmpty ? tookItAlreadyLine : 'وقت الدوا',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: F.subtitleSize,
@@ -220,7 +247,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     doses: doses,
                     ruleLabelFor: _ruleLabelFor,
                     actions: pending.isEmpty
-                        ? _DoneActions(onBack: () => Navigator.of(context).maybePop())
+                        ? _DoneActions(
+                            onBack: () => _leave(Navigator.of(context)),
+                          )
                         : _PendingActions(
                             enabled: !_busy,
                             onTaken: () => _taken(pending),
@@ -230,22 +259,25 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             // (٢٦ سبتمبر ٢٠٢٦)؛ الكلمة بتقول إن الصوت هنا
                             listen: StreamBuilder<DeviceSettings>(
                               stream: _settings,
-                              builder: (context, snap) => ListenButton<DoseAnswer>(
-                                tag: 'dose',
-                                onDark: true,
-                                elder: snap.data?.elderMode ?? false,
-                                hint: 'قول «أخدته» أو دوس',
-                                gapBelow: F.s10,
-                                parse: parseDoseAnswer,
-                                describe: (a) => a == DoseAnswer.taken ? 'أخدته' : 'فكّرني بعدين',
-                                onApply: (a) => _spoken(a, pending),
-                              ),
+                              builder: (context, snap) =>
+                                  ListenButton<DoseAnswer>(
+                                    tag: 'dose',
+                                    onDark: true,
+                                    elder: snap.data?.elderMode ?? false,
+                                    hint: 'قول «أخدته» أو دوس',
+                                    gapBelow: F.s10,
+                                    parse: parseDoseAnswer,
+                                    describe: (a) => a == DoseAnswer.taken
+                                        ? 'أخدته'
+                                        : 'فكّرني بعدين',
+                                    onApply: (a) => _spoken(a, pending),
+                                  ),
                             ),
                           ),
                   ),
-                  if (pending.isNotEmpty) ...[
+                  if (next != null) ...[
                     const SizedBox(height: F.gap),
-                    _Ladder(current: stage),
+                    _NextDoseCard(dose: next),
                   ],
                 ],
               );
@@ -256,13 +288,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
     );
   }
 
-  /// «وقت الدوا» في الموعد، وبعدها «مرّت N دقيقة على موعد الجرعة» — N من
-  /// الدرجة الفعلية اللي وصلناها، من غير لوم.
-  String _headline(int stage) {
-    if (stage == 0) return 'وقت الدوا';
-    return 'مرّت ${arabicNumber(ladderSteps[stage].after.inMinutes)} دقيقة على موعد الجرعة';
-  }
-
   String? _ruleLabelFor(int doseScheduleId) =>
       _schedules[doseScheduleId.toString()]?.ruleLabel;
 }
@@ -270,7 +295,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
 /// كارت الدوا — أبيض على الغامق: الأدوية فوق (مجموعة، مش دوا واحد) والأزرار
 /// جوّاه تحتها زي التصميم.
 class _DoseCard extends StatelessWidget {
-  const _DoseCard({required this.doses, required this.ruleLabelFor, required this.actions});
+  const _DoseCard({
+    required this.doses,
+    required this.ruleLabelFor,
+    required this.actions,
+  });
 
   final List<DoseEventView> doses;
   final String? Function(int doseScheduleId) ruleLabelFor;
@@ -308,8 +337,10 @@ class _DoseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final form = MedicineForm.fromWire(dose.form);
     final details = [
       ?dose.amountLabel,
+      ?form?.label,
       ?ruleLabel,
       arabicTime(dose.scheduledAt),
     ].join(' — ');
@@ -319,11 +350,14 @@ class _DoseRow extends StatelessWidget {
       children: [
         Row(
           children: [
-            // صورة الحباية جنب اسمها — العين بتعرفها قبل ما تقرا
-            if (dose.photoPath != null) ...[
-              MedPhotoThumb(path: dose.photoPath, name: dose.medicationName, size: 64, fallback: const SizedBox.shrink()),
-              const SizedBox(width: F.s12),
-            ],
+            // صورته هو أولاً؛ لو مش موجودة/مكسورة فرسمة الشكل، ثم العامة.
+            MedPhotoThumb(
+              path: dose.photoPath,
+              name: dose.medicationName,
+              form: form,
+              size: 64,
+            ),
+            const SizedBox(width: F.s12),
             Expanded(
               child: MedName(
                 dose.medicationName,
@@ -359,6 +393,60 @@ class _DoseRow extends StatelessWidget {
   }
 }
 
+/// الجرعة التالية فقط داخل يوم الروتين نفسه. لا نعرض جرعة انتهت أو جرعة
+/// الإشعار المفتوح، ولا نخلط عليها جرعة بكرة.
+class _NextDoseCard extends StatelessWidget {
+  const _NextDoseCard({required this.dose});
+
+  final DoseEventView dose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(F.s12),
+      decoration: BoxDecoration(
+        color: F.onDark.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(F.radiusSection),
+        border: Border.all(color: F.onDark.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          MedPhotoThumb(
+            path: dose.photoPath,
+            name: dose.medicationName,
+            form: MedicineForm.fromWire(dose.form),
+            size: 44,
+          ),
+          const SizedBox(width: F.s10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'الجرعة الجاية اليوم',
+                  style: TextStyle(
+                    fontSize: F.minTextSize,
+                    fontWeight: FontWeight.w700,
+                    color: F.onDark,
+                  ),
+                ),
+                const SizedBox(height: F.s4),
+                Text(
+                  '${dose.medicationName} — ${arabicTime(dose.scheduledAt)}',
+                  style: TextStyle(
+                    fontSize: F.minTextSize,
+                    color: F.onDark.withValues(alpha: 0.86),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// الأزرار: «تم التناول ✅» أخضر ٦٤ — الأساسي الوحيد — و«تأجيل ١٥ د ⏰»
 /// و«تخطّي» جنب بعض ٥٦.
 ///
@@ -388,7 +476,10 @@ class _PendingActions extends StatelessWidget {
       children: [
         // المسافة تحت زرار «اتكلم» جواه (gapBelow) — من غيره الشاشة زي 1.13.1 بالبكسل
         Align(alignment: AlignmentDirectional.centerEnd, child: listen),
-        FPrimaryButton(label: 'تم التناول ✅', onPressed: enabled ? onTaken : null),
+        FPrimaryButton(
+          label: 'تم التناول ✅',
+          onPressed: enabled ? onTaken : null,
+        ),
         const SizedBox(height: F.s10),
         Row(
           children: [
@@ -400,115 +491,14 @@ class _PendingActions extends StatelessWidget {
             ),
             const SizedBox(width: F.s10),
             Expanded(
-              child: FSecondaryButton(label: 'تخطّي', onPressed: enabled ? onSkipped : null),
+              child: FSecondaryButton(
+                label: 'تخطّي',
+                onPressed: enabled ? onSkipped : null,
+              ),
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-/// سلّم التصعيد — أربع درجات، الحالية بالأمبر، والرامب بيقف عند البرتقالي.
-class _Ladder extends StatelessWidget {
-  const _Ladder({required this.current});
-
-  final int current;
-
-  /// رامب README من غير درجته الخامسة: رمادي → أخضر → أمبر → برتقالي.
-  static List<Color> get _ramp => [F.line, F.green, F.amber, F.orange];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(F.gap),
-      decoration: BoxDecoration(
-        color: F.onDark.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(F.radiusSection),
-        border: Border.all(color: F.onDark.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'سلّم التصعيد',
-            style: TextStyle(
-              fontSize: F.minTextSize,
-              fontWeight: FontWeight.w700,
-              color: F.onDark.withValues(alpha: 0.85),
-            ),
-          ),
-          const SizedBox(height: F.s8),
-          for (final (i, step) in ladderSteps.indexed)
-            _LadderRow(
-              index: i,
-              step: step,
-              colour: _ramp[i],
-              isCurrent: i == current,
-              isPast: i < current,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LadderRow extends StatelessWidget {
-  const _LadderRow({
-    required this.index,
-    required this.step,
-    required this.colour,
-    required this.isCurrent,
-    required this.isPast,
-  });
-
-  final int index;
-  final LadderStep step;
-  final Color colour;
-  final bool isCurrent;
-  final bool isPast;
-
-  @override
-  Widget build(BuildContext context) {
-    final textColour = isCurrent
-        ? F.amber
-        : isPast
-            ? F.onDark.withValues(alpha: 0.8)
-            : F.onDark.withValues(alpha: 0.45);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: F.s6),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isCurrent ? F.amber : colour.withValues(alpha: isPast ? 1 : 0.35),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              arabicNumber(index + 1),
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: FontWeight.w700,
-                color: isCurrent || index == 0 ? F.ink : F.onDark,
-              ),
-            ),
-          ),
-          const SizedBox(width: F.s12),
-          Expanded(
-            child: Text(
-              step.label,
-              style: TextStyle(
-                fontSize: F.minTextSize,
-                fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                color: textColour,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
