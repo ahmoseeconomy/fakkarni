@@ -1,14 +1,9 @@
 // البداية كانت بتعدّي في رمشة.
 //
-// الحركة كانت ٢.٧٥ ث وبعدها ٠.٢٥ ث بس قبل التلاشي، وعلى فتحة حقيقية
-// التطبيق بيبقى جاهز قبل ما العين تستقر: العلامة بتتجمّع والكلمة بتطلع
-// والطبقة بتروح كلها على بعض. اللي بيفتح التطبيق أول مرة مش بيشوف
-// علامته أصلاً.
-//
-// الاختبار ده على **الوقفة**: بعد ما الكلمة تستقر، لازم يعدّي وقت
-// محسوس من غير ولا حركة قبل ما التلاشي يبدأ. بيتقاس من الرسّام نفسه —
-// نفس القيم في لحظتين بعيدين عن بعض يعني العلامة واقفة فعلاً، مش
-// «الاختبار صابر».
+// الاختبارات تقفل على حاجتين: نفس الوقفة القصيرة بعد استقرار العلامة،
+// ومن غير حد أدنى صناعي أطول من ميزانية فتح التطبيق محلياً.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -44,8 +39,8 @@ void main() {
     );
     await tester.pump();
 
-    // ٣.٩ ث: الكلمة استقرت (٣.٨٥) والتلاشي لسه ما بدأش (٥.٠٥)
-    await tester.pump(const Duration(milliseconds: 3900));
+    // ١.٤ ث: الكلمة استقرت (١.٣٣) والتلاشي لسه ما بدأش (١.٧٥)
+    await tester.pump(const Duration(milliseconds: 1400));
     final settled = frameOf(markOf(tester));
     final word = tester.widget<Opacity>(
       find
@@ -54,8 +49,8 @@ void main() {
     );
     expect(word.opacity, 1.0, reason: 'الكلمة كاملة قبل الوقفة');
 
-    // كمان ثانية جوّه الوقفة — ولا حاجة اتحرّكت
-    await tester.pump(const Duration(milliseconds: 1000));
+    // كمان ٠.٣ ث جوّه الوقفة — ولا حاجة اتحرّكت
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       frameOf(markOf(tester)),
       settled,
@@ -70,9 +65,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('الوقفة مش أقل من ثانية — والحركة كلها خلصت قبلها', (
-    tester,
-  ) async {
+  testWidgets('الوقفة قصيرة لكن الحركة كلها خلصت قبلها', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: SplashOverlay(child: Scaffold(body: Text('الشاشة الأولى'))),
@@ -81,14 +74,25 @@ void main() {
     await tester.pump();
 
     // أول ما الحركة تخلص
-    await tester.pump(const Duration(milliseconds: 3850));
+    await tester.pump(const Duration(milliseconds: 1330));
     final atRestStart = frameOf(markOf(tester));
 
     // وآخر لحظة قبل التلاشي
-    await tester.pump(const Duration(milliseconds: 1190));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(frameOf(markOf(tester)), atRestStart);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('مسار الـSplash لا يفرض انتظاراً اصطناعياً أطول من ثانيتين', () {
+    expect(SplashOverlay.total, lessThanOrEqualTo(const Duration(seconds: 2)));
+    expect(
+      SplashOverlay.total,
+      greaterThan(const Duration(milliseconds: 1500)),
+    );
+
+    final source = File('lib/app/splash.dart').readAsStringSync();
+    expect(source, isNot(contains('Future.delayed')));
   });
 
   testWidgets('اسم فكرني أقرب للعلامة بـ١٤px من المسافة السابقة', (
@@ -100,7 +104,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 3900));
+    await tester.pump(const Duration(milliseconds: 1400));
 
     final mark = find.byWidgetPredicate(
       (widget) => widget is CustomPaint && widget.painter is FaMarkPainter,

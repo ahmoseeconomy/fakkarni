@@ -6507,24 +6507,19 @@ device-verified)**
   still uses gold text.
 
 **Front-door visuals (مطابقة المخططات ١ و٢ و٣)**
-- **Splash is 3.85s of motion + a 1.2s rest + a 0.45s fade = 5.5s total**
-  (1.9s → 3.35s → 5.5s): ring, tail, then the gold dot **flies in from
+- **Splash is 1.33s of motion + a 0.41s rest + a 0.16s fade = 1.9s total**
+  (0.66s → 1.16s → 1.9s): ring, tail, then the gold dot **flies in from
   off-screen right on an arc**, hops as it lands, flashes once (the dot
   lightens toward white and its halo expands), «فكرني» rises — **and then
-  nothing moves for 1.2 seconds** before the layer fades. `FaMarkPainter`
+  nothing moves for 0.41 seconds** before the layer fades. `FaMarkPainter`
   gained `dotSlide` and `dotFlash`; reduced-motion still jumps to the
   final state (`_exitAtMs`, the one place the fade's start is written).
-- **The rest is the point, and it is why the total grew.** At 3.35s the
-  motion ran 2.75s with only 0.25s of stillness after it, and on a real
-  cold launch the app is ready before the eye settles: the mark assembles,
-  the word arrives and the whole layer leaves in one blink, so a first-time
-  user never actually sees the brand. Every beat was scaled by the same
-  ×1.4 so the story and its proportions are unchanged — only the hold is
-  new. Do not "trim" this back by shortening the rest; the rest is the
-  feature, and the animation must never look cut off mid-flight.
+- **The rest remains visible without becoming a launch gate.** Every beat
+  was compressed by the same ratio, so the story and its proportions are
+  unchanged; the 0.41s hold lets the mark settle before the layer fades.
   `test/app/splash_test.dart` samples `FaMarkPainter`'s moving fields at
-  two instants a second apart inside the rest and fails if any of them
-  differ — mutation-checked: starting the fade at 3.85s goes red. It lives
+  two instants inside that rest and also caps the whole overlay at two
+  seconds. It lives
   in its own file because `_splashShown` is per-process, so a completed
   splash in one test would skip every later one.
 - **Entry screen follows mockup 02**: white ground, the ink mark with its

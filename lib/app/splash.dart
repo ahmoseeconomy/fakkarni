@@ -5,32 +5,29 @@ import 'package:flutter/material.dart';
 import '../core/theme/tokens.dart';
 import '../core/widgets/fa_mark.dart';
 
-/// شاشة البداية — ٥.٥ ثانية مؤلّفة، وعمرها ما بتوقف التطبيق.
+/// شاشة البداية — ١.٩ ث مؤلّفة، وعمرها ما بتوقف التطبيق.
 ///
 /// الشاشة الأولى بتتبني **تحتها** من أول فريم؛ دي طبقة فوقها بتتلاشى.
 /// أرضيتها هي هي أرضية `LaunchScreen.storyboard` (`greenDeep` مسطّحة)،
 /// فالقطع من شاشة النظام مش بيبان. الحكاية:
-///   0.21 الحلقة، 0.84 الذيل، 1.68 النقطة الدهبي بتيجي **من بره الشاشة**
-///   على قوس وبتنطّ لحد مكانها، 2.73 نطّة صغيرة وميض، 3.22 «فكرني» تطلع
-///   ٨px، **3.85 الوقفة**، 5.05 تكبير ١.٠٤ وتلاشي ٠.٤٥ ث.
+///   0.07 الحلقة، 0.29 الذيل، 0.58 النقطة الدهبي بتيجي **من بره الشاشة**
+///   على قوس وبتنطّ لحد مكانها، 0.94 نطّة صغيرة وميض، 1.11 «فكرني» تطلع
+///   ٨px، **1.33 الوقفة**، 1.75 تكبير ١.٠٤ وتلاشي ٠.١٦ ث.
 /// مع «تقليل الحركة» بتظهر الحالة النهائية على طول وتختفي بسرعة.
 ///
-/// **الوقفة هي اللي الجولة دي اتعملت عشانها.** الحركة كانت ٢.٧٥ ث وبعدها
-/// ٠.٢٥ ث بس قبل التلاشي: العلامة بتتجمّع والكلمة بتطلع والطبقة بتروح في
-/// رمشة واحدة — واللي بيفتح التطبيق أول مرة مش بيشوف علامته أصلاً. كل
-/// الإيقاعات اتمدّت بنفس النسبة (×١.٤) عشان الحكاية ما تتغيّرش، وبعد ما
-/// الكلمة تستقر العلامة بتقف **١.٢ ث كاملة** من غير أي حركة قبل التلاشي.
-/// الفتحة الباردة عمرها ما تحس إنها اتقطعت في نص حركة.
+/// نفس القصة والحركات، لكن خطها مضغوط بنسبة واحدة عشان الصفحة الجاهزة
+/// محلياً تظهر خلال ثانيتين. بعد ما الكلمة تستقر العلامة بتقف **٠.٤١ ث**
+/// قبل التلاشي؛ ده يكفي لرؤية العلامة من غير فرض حد أدنى أطول على الفتحة.
 class SplashOverlay extends StatefulWidget {
   const SplashOverlay({required this.child, super.key});
 
   final Widget child;
 
-  /// إجمالي الطبقة: ٣.٨٥ ث حركة + ١.٢ ث وقفة + ٠.٤٥ ث تلاشي.
-  static const Duration total = Duration(milliseconds: 5500);
+  /// إجمالي الطبقة: ١.٣٣ ث حركة + ٠.٤١ ث وقفة + ٠.١٦ ث تلاشي.
+  static const Duration total = Duration(milliseconds: 1900);
 
   /// بداية التلاشي — ونفسها الحالة اللي «تقليل الحركة» بتقف عليها.
-  static const int _exitAtMs = 5050;
+  static const int _exitAtMs = 1745;
 
   @override
   State<SplashOverlay> createState() => _SplashOverlayState();
@@ -56,48 +53,48 @@ class _SplashOverlayState extends State<SplashOverlay>
     _done = _splashShown;
   }
 
-  // كل الفترات نسبة من ٥.٥ ث
-  static double _at(int ms) => ms / 5500;
+  // كل الفترات نسبة من ١.٩ ث؛ ترتيب القصة ونِسَبها ثابتة.
+  static double _at(int ms) => ms / SplashOverlay.total.inMilliseconds;
 
   late final _bowl = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(210), _at(980), curve: Curves.easeOut),
+    curve: Interval(_at(73), _at(339), curve: Curves.easeOut),
   );
   late final _tail = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(840), _at(1610), curve: Curves.easeOut),
+    curve: Interval(_at(291), _at(556), curve: Curves.easeOut),
   );
 
   /// الرحلة: النقطة داخلة من بره الشاشة لحد مكانها.
   late final _fly = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(1680), _at(2730), curve: Curves.easeInOutCubic),
+    curve: Interval(_at(581), _at(944), curve: Curves.easeInOutCubic),
   );
 
   /// النطّة بعد ما توصل — مرتدّة صغيرة فوق وتحت.
   late final _land = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(2730), _at(3290), curve: Curves.elasticOut),
+    curve: Interval(_at(944), _at(1138), curve: Curves.elasticOut),
   );
 
   /// الوميض — بيولّع مع الوصول ويهدى.
   late final _flash = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(2660), _at(3360), curve: Curves.easeOut),
+    curve: Interval(_at(919), _at(1160), curve: Curves.easeOut),
   );
   late final _halo = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(2730), _at(3780), curve: Curves.easeOut),
+    curve: Interval(_at(944), _at(1305), curve: Curves.easeOut),
   );
   late final _word = CurvedAnimation(
     parent: _c,
-    curve: Interval(_at(3220), _at(3850), curve: Curves.easeOut),
+    curve: Interval(_at(1113), _at(1330), curve: Curves.easeOut),
   );
   late final _exit = CurvedAnimation(
     parent: _c,
     curve: Interval(
       _at(SplashOverlay._exitAtMs),
-      _at(5500),
+      _at(SplashOverlay.total.inMilliseconds),
       curve: Curves.easeIn,
     ),
   );
